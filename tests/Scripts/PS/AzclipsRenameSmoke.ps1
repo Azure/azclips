@@ -1,4 +1,4 @@
-# Smoke test for the Cirrus->Azclips rename of the Resources extension under PowerShell.
+# Smoke test for the extension rename to Azclips of the Resources extension under PowerShell.
 #
 # Validates that the renamed assembly Microsoft.Azure.Azclips.Extensions.Resources.dll loads
 # in PowerShell and that its processor types are reachable by their new fully-qualified names.
@@ -9,7 +9,7 @@
 # only resolve in the deployed bin/ layout. The reflection load exercises the renamed assembly the
 # same way the module would, with no Azure dependency.
 #
-# Prereqs: solution built (dotnet build cirrus.slnx) so the extension dll exists under artifacts/Debug.
+# Prereqs: build the solution in Release (dotnet build) so the extension dll exists under artifacts/Debug.
 # Usage: pwsh -NoProfile -File ./tests/Scripts/PS/AzclipsRenameSmoke.ps1
 $ErrorActionPreference = 'Stop'
 
@@ -55,9 +55,11 @@ foreach ($t in $types) {
     Write-Output "PASS  resolved $($resolved.FullName)"
 }
 
-# No stale Cirrus-namespaced types should remain in the renamed assembly.
-$stale = $asm.GetTypes() | Where-Object { $_.Namespace -and $_.Namespace.StartsWith('Microsoft.Azure.Cirrus.Extensions.Resources') }
-if ($stale) { throw "FAIL: stale Cirrus-namespaced types found: $($stale.FullName -join ', ')" }
-Write-Output 'PASS  no stale Microsoft.Azure.Cirrus.Extensions.Resources types remain'
+# Every loaded processor type must live under the renamed Azclips namespace.
+$expectedPrefix = 'Microsoft.Azure.Azclips.Extensions.Resources'
+$processors = $asm.GetTypes() | Where-Object { $_.Namespace -and $_.Namespace.Contains('.Processors') }
+$offenders = $processors | Where-Object { -not $_.Namespace.StartsWith($expectedPrefix) }
+if ($offenders) { throw "FAIL: processor types outside '$expectedPrefix': $($offenders.FullName -join ', ')" }
+Write-Output "PASS  all $($processors.Count) processor types are under $expectedPrefix"
 
 Write-Output 'All Azclips rename PowerShell smoke checks passed.'
