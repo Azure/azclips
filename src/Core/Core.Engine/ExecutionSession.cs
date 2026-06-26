@@ -12,7 +12,6 @@ namespace Core.Engine;
 internal class ExecutionSession : ISession
 {
     private bool _disposed = false;
-    private readonly bool _resolveOnly;
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
@@ -42,12 +41,6 @@ internal class ExecutionSession : ISession
         sessionOutputWriter = outputStreams.WriteOutput;
         outputStreamAdapter = new OutputStreamAdapter(outputStreams, EventBus.Token);
         loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
-        // Benchmark/test seam: when CIRRUS_BENCH_RESOLVE_ONLY=1, the session performs all
-        // startup work (GetProcessor: runtime/DI/context init, extension assembly load,
-        // command-metadata resolve, processor Init + arg bind) and returns WITHOUT executing
-        // the command. Mirrors CIRRUS_NO_EXTENSION_CACHE / CIRRUS_AGENT_DISABLED. Read once per
-        // session so the startup benchmark can measure up to the seam with zero network/auth.
-        _resolveOnly = Environment.GetEnvironmentVariable("CIRRUS_BENCH_RESOLVE_ONLY") == "1";
     }
 
     public IExtensionIndex GetExtensionIndex()
@@ -67,7 +60,10 @@ internal class ExecutionSession : ISession
         EventBus.Token.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
         var processor = await GetProcessor();
-        if (_resolveOnly) return;   // stop at the seam — startup is measured up to here
+        // Lifecycle seam: processor fully resolved and bound, not yet executed. In benchmark mode
+        // a subscriber (Engine.SubscribeBenchmark) terminates the process on this event, so the
+        // spawned process is timed up to "ready" only — execution and teardown are excluded.
+        await EventBus.Publish(Events.ProcessorAcquired);
         await processor.ProcessAsync();
     }
 
@@ -110,7 +106,8 @@ internal class ExecutionSession : ISession
             {
                 EventBus.Token.ThrowIfCancellationRequested();
                 var processor = await GetProcessor();
-                if (_resolveOnly) return;   // stop at the seam; finally still completes the channel
+                // Lifecycle seam (PowerShell path); see RunAsync. Benchmark mode terminates here.
+                await EventBus.Publish(Events.ProcessorAcquired);
                 await processor.ProcessAsync();
             }
             finally

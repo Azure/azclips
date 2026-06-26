@@ -17,6 +17,23 @@ namespace Core.Engine
             SubscribeMessages(subscriber);
             SubscribeActivity(subscriber);
             SubscribeMetric(subscriber);
+            SubscribeBenchmark(subscriber);
+            return subscriber;
+        }
+
+        // Benchmark/test seam. When CIRRUS_BENCH_RESOLVE_ONLY=1, terminate the process the moment
+        // the command processor is resolved — on Events.ProcessorAcquired, before ProcessAsync and
+        // before any teardown (DI container dispose, telemetry flush). A startup benchmark spawning
+        // this process then measures process-create -> ready only, leaving all timing to the
+        // external harness (BenchmarkDotNet). Mirrors the CIRRUS_NO_EXTENSION_CACHE /
+        // CIRRUS_AGENT_DISABLED env switches. No subscriber is attached unless the variable is set,
+        // so production behaviour is unchanged.
+        private IEventSubscriber SubscribeBenchmark(IEventSubscriber subscriber)
+        {
+            if (Environment.GetEnvironmentVariable("CIRRUS_BENCH_RESOLVE_ONLY") == "1")
+            {
+                subscriber.Subscribe(Events.ProcessorAcquired, (object _) => Environment.Exit(0));
+            }
             return subscriber;
         }
 

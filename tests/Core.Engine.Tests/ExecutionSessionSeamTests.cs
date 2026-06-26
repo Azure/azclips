@@ -9,8 +9,6 @@ namespace Core.Engine.Tests;
 
 public class ExecutionSessionSeamTests
 {
-    private const string SeamEnvVar = "CIRRUS_BENCH_RESOLVE_ONLY";
-
     private sealed class SeamStubProcessor : IProcessor
     {
         public static bool WasExecuted;
@@ -26,6 +24,7 @@ public class ExecutionSessionSeamTests
     {
         private static readonly CommandMetadata Meta = new(
             Name: "SeamStub",
+            InvocationName: "x",
             Aliases: new List<string>(),
             FullName: typeof(SeamStubProcessor).FullName!,
             AssemblyName: typeof(SeamStubProcessor).Assembly.GetName().Name!,
@@ -58,47 +57,52 @@ public class ExecutionSessionSeamTests
         return session;
     }
 
-    [Fact]
-    public async Task RunAsync_ShouldNotExecuteProcessor_WhenResolveOnlySet()
-    {
-        SeamStubProcessor.WasExecuted = false;
-        Environment.SetEnvironmentVariable(SeamEnvVar, "1");
-        try
-        {
-            using var session = CreateSession(ClientType.CLI);
-            await session.RunAsync();
-            Assert.False(SeamStubProcessor.WasExecuted);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(SeamEnvVar, null);
-        }
-    }
+    // The engine publishes Events.ProcessorAcquired at the lifecycle seam: after the command
+    // processor is fully resolved and bound, but BEFORE it executes (ProcessAsync). The startup
+    // benchmark depends on this — a benchmark-mode subscriber (Engine.SubscribeBenchmark)
+    // terminates the process when this event fires, so the spawned process is timed only up to
+    // "ready". Here we verify the publication contract in-process; the Environment.Exit behaviour
+    // of the benchmark subscriber itself is verified out-of-process (spawned azv2/pwsh).
 
     [Fact]
-    public async Task RunAsync_ShouldExecuteProcessor_WhenResolveOnlyNotSet()
+    public async Task RunAsync_PublishesProcessorAcquired_BeforeExecutingProcessor()
     {
         SeamStubProcessor.WasExecuted = false;
-        Environment.SetEnvironmentVariable(SeamEnvVar, null);
         using var session = CreateSession(ClientType.CLI);
+
+        int acquiredCount = 0;
+        bool executedAtAcquire = true;
+        session.EventBus.Subscribe(Events.ProcessorAcquired, (object _) =>
+        {
+            acquiredCount++;
+            executedAtAcquire = SeamStubProcessor.WasExecuted; // must be false: event precedes execution
+        });
+
         await session.RunAsync();
-        Assert.True(SeamStubProcessor.WasExecuted);
+
+        Assert.Equal(1, acquiredCount);             // event published exactly once
+        Assert.False(executedAtAcquire);            // it fired before ProcessAsync
+        Assert.True(SeamStubProcessor.WasExecuted); // no halt subscriber here, so execution proceeds
     }
 
     [Fact]
-    public void Run_ShouldNotExecuteProcessor_WhenResolveOnlySet()
+    public void Run_PublishesProcessorAcquired_BeforeExecutingProcessor()
     {
         SeamStubProcessor.WasExecuted = false;
-        Environment.SetEnvironmentVariable(SeamEnvVar, "1");
-        try
+        using var session = CreateSession(ClientType.PowerShell);
+
+        int acquiredCount = 0;
+        bool executedAtAcquire = true;
+        session.EventBus.Subscribe(Events.ProcessorAcquired, (object _) =>
         {
-            using var session = CreateSession(ClientType.PowerShell);
-            session.Run();
-            Assert.False(SeamStubProcessor.WasExecuted);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(SeamEnvVar, null);
-        }
+            acquiredCount++;
+            executedAtAcquire = SeamStubProcessor.WasExecuted;
+        });
+
+        session.Run();
+
+        Assert.Equal(1, acquiredCount);
+        Assert.False(executedAtAcquire);
+        Assert.True(SeamStubProcessor.WasExecuted);
     }
 }

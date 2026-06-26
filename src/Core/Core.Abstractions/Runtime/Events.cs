@@ -25,6 +25,10 @@ namespace Core.Abstractions.Runtime
 
         // processor
         public const string ProcessorInitiated = nameof(ProcessorInitiated);
+        // Published once the command processor is fully resolved and bound, immediately before
+        // it executes (ProcessAsync). Lifecycle seam used by the startup benchmark: a benchmark
+        // subscriber terminates the process here so the spawned process is timed only up to "ready".
+        public const string ProcessorAcquired = nameof(ProcessorAcquired);
         public const string ProcessorProcessAsyncStart = nameof(ProcessorProcessAsyncStart);
         public const string ProcessorProcessAsyncEnd = nameof(ProcessorProcessAsyncEnd);
         public const string ProcessorException = nameof(ProcessorException);
