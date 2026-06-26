@@ -15,6 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Core.Engine" />
+    <InternalsVisibleTo Include="Core.Engine" Key="$(MSSharedLibPublicKey)" />
   </ItemGroup>
 </Project>

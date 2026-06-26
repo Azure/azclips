@@ -55,7 +55,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Core.Agent.Tests" />
+    <InternalsVisibleTo Include="Core.Agent.Tests" Key="$(MSSharedLibPublicKey)" />
   </ItemGroup>
 
 </Project>
