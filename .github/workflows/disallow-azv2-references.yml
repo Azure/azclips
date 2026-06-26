@@ -36,7 +36,7 @@ jobs:
           if [[ "$event_name" == 'pull_request' ]]; then
             base_sha='${{ github.event.pull_request.base.sha }}'
             head_sha='${{ github.event.pull_request.head.sha }}'
-          elif [[ '${{ github.event.before }}' != '0000000000000000000000000000000000000000' ]]; then
+          elif [[ "$event_name" == 'push' && -n '${{ github.event.before }}' && '${{ github.event.before }}' != '0000000000000000000000000000000000000000' ]]; then
             base_sha='${{ github.event.before }}'
           elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
             base_sha='HEAD^'
