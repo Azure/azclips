@@ -1,13 +1,12 @@
-name: cirrus-stable-release-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+name: azclips-stable-release-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger:
   tags:
     include:
-    - v*.*.*
+    # Stable release tags must use vX.Y.Z.yyyyMMddTHHmmssZ.
+    - v*.*.*.*T*Z
     exclude:
-    # Azure Pipelines tag filters treat v*.*.*.* broadly enough to suppress vX.Y.Z tags.
-    # v*.*.*.*? excludes four-component CI tags while preserving stable SemVer tags.
-    - v*.*.*.*?
+    # Exclude prerelease-like tags even if they include a timestamp suffix.
     - v*-*
 pr: none
 
@@ -15,20 +14,28 @@ variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
 - template: templates/dist/variables/common.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'AME ESRP Variable Group'
 - name: ReleasePipelineName
-  value: cirrus-stable-release
+  value: ${{ variables.stable_release_pipeline_name }}
 - name: SourceProject
-  value: release
+  value: ${{ variables.release_project }}
 - name: GitHubTargetRepo
-  value: Azure/cirrus
+  value: ${{ variables.github_target_repo }}
 - name: GitHubServiceConnection
-  value: Azure
+  value: ${{ variables.github_service_connection }}
 - name: GitHubReleasePrefix
   value: dist
 - name: GitHubReleaseIsPrerelease
   value: false
+- name: GitHubReleaseName
+  value: ${{ variables.github_release_name }}
 - name: SignedArtifactName
-  value: Distribution_Signed
+  value: Final_Signed_Distribution
+- name: ESRPServiceConnection
+  value: ${{ variables.esrp_service_connection }}
+- name: MacOSBundleId
+  value: ${{ variables.macos_bundle_id }}
 
 stages:
 - stage: Preflight
@@ -42,7 +49,7 @@ stages:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
       parameters:
-        error_message: cirrus-stable-release must run in the 'release' project.
+        error_message: azclips-stable-release must run in the 'release' project.
     - bash: |
         set -euo pipefail
 
@@ -51,8 +58,8 @@ stages:
         echo "Build.SourceBranch=$source_branch"
         echo "Build.SourceVersion=$source_version"
 
-        if [[ ! "$source_branch" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "ERROR: cirrus-stable-release must run from a stable SemVer tag like v1.2.3."
+        if [[ ! "$source_branch" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$ ]]; then
+          echo "ERROR: azclips-stable-release must run from a UTC timestamp-suffixed stable tag like v1.2.3.20260624T091500Z."
           echo "When manually rerunning, select the release tag as the pipeline version instead of a branch."
           exit 1
         fi
@@ -75,9 +82,9 @@ stages:
     windows_pool: ${{ variables.windows_pool }}
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
-    final_artifact_name: Distribution_Final
+    final_artifact_name: Final_Build_Distribution
 
-- template: templates/dist/stages/sign-placeholder.yml
+- template: templates/dist/stages/sign-with-esrp.yml
   parameters:
     windows_pool: ${{ variables.windows_pool }}
     ubuntu_pool: ${{ variables.ubuntu_pool }}
@@ -88,6 +95,7 @@ stages:
     - BuildLinux
     - BuildWindows
     - BuildMacOS
+    - BuildPSModules
     - Test
     - Benchmark
     - ValidateLinux
@@ -97,20 +105,33 @@ stages:
     SourceProject: ${{ variables.SourceProject }}
     source_pipeline_name: ${{ variables.ReleasePipelineName }}
     source_build_id: $(Build.BuildId)
-    source_artifact_name: Distribution_Final
+    source_artifact_name: Final_Build_Distribution
     source_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+    esrp_service_connection: ${{ variables.ESRPServiceConnection }}
+    macos_bundle_id: ${{ variables.MacOSBundleId }}
+
+- template: templates/dist/stages/verify-signed-distribution.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    dependency_stage: AssembleSignedArtifacts
+    SourceProject: ${{ variables.SourceProject }}
+    signed_pipeline_name: ${{ variables.ReleasePipelineName }}
+    signed_build_id: $(Build.BuildId)
+    signed_artifact_source: current
     signed_artifact_name: ${{ variables.SignedArtifactName }}
 
 - template: templates/dist/stages/publish-to-github-release.yml
   parameters:
     ubuntu_pool: ${{ variables.ubuntu_pool }}
-    dependency_stage: AssemblePlaceholderSignedArtifacts
+    dependency_stage: VerifySignedDistribution
     SourceProject: ${{ variables.SourceProject }}
     GitHubTargetRepo: ${{ variables.GitHubTargetRepo }}
     GitHubReleasePrefix: ${{ variables.GitHubReleasePrefix }}
     GitHubReleaseTagMode: stableVersion
     GitHubReleaseAllowOverwrite: 'false'
     GitHubReleaseIsPrerelease: ${{ variables.GitHubReleaseIsPrerelease }}
+    GitHubReleaseName: ${{ variables.GitHubReleaseName }}
     GitHubServiceConnection: ${{ variables.GitHubServiceConnection }}
     signed_pipeline_name: ${{ variables.ReleasePipelineName }}
     signed_build_id: $(Build.BuildId)

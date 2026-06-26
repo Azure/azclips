@@ -7,7 +7,6 @@ parameters:
   default: 'public'
 - name: GitHubTargetRepo
   type: string
-  default: 'Azure/cirrus'
 - name: GitHubReleasePrefix
   type: string
   default: 'dist'
@@ -20,6 +19,9 @@ parameters:
 - name: GitHubReleaseIsPrerelease
   type: string
   default: 'true'
+- name: GitHubReleaseName
+  type: string
+  default: 'azclips'
 - name: GitHubServiceConnection
   type: string
 - name: signed_pipeline_name
@@ -86,19 +88,19 @@ stages:
       - task: DownloadPipelineArtifact@2
         displayName: Download Final Signed Distribution Artifact
         inputs:
-          artifact: ${{ parameters.signed_artifact_name }}
-          path: $(Pipeline.Workspace)/signed-dist
+          artifactName: ${{ parameters.signed_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/signed-dist
     - ${{ if ne(parameters.signed_artifact_source, 'current') }}:
       - task: DownloadPipelineArtifact@2
         displayName: Download Final Signed Distribution Artifact
         inputs:
-          source: specific
+          buildType: specific
           project: ${{ parameters.SourceProject }}
-          pipeline: ${{ parameters.signed_pipeline_name }}
-          runVersion: specific
-          runId: ${{ parameters.signed_build_id }}
-          artifact: ${{ parameters.signed_artifact_name }}
-          path: $(Pipeline.Workspace)/signed-dist
+          definition: ${{ parameters.signed_pipeline_name }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.signed_build_id }}
+          artifactName: ${{ parameters.signed_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/signed-dist
 
     - script: |
         set -euo pipefail
@@ -128,16 +130,39 @@ stages:
         signed_artifact_name="${{ parameters.signed_artifact_name }}"
 
         assets_root="$(Pipeline.Workspace)/signed-dist"
-        mapfile -t assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) ! -name '*.snupkg' | sort)
+        mapfile -t discovered_assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+
+        if [[ ${#discovered_assets[@]} -eq 0 ]]; then
+          echo "ERROR: No .tar.gz or .zip release assets found under $assets_root"
+          exit 1
+        fi
+
+        assets=()
+        excluded_assets=()
+        for asset in "${discovered_assets[@]}"; do
+          case "$(basename "$asset")" in
+            *macos-x86_64*)
+              excluded_assets+=("$asset")
+              ;;
+            *)
+              assets+=("$asset")
+              ;;
+          esac
+        done
 
         if [[ ${#assets[@]} -eq 0 ]]; then
-          echo "ERROR: No .tar.gz, .zip, or .nupkg assets found under $assets_root"
+          echo "ERROR: No publishable .tar.gz or .zip release assets remain after filtering."
           exit 1
         fi
 
         echo "Signed source pipeline: $signed_pipeline_name"
         echo "Signed source build id: $signed_build_id"
         echo "Signed artifact: $signed_artifact_name"
+
+        if [[ ${#excluded_assets[@]} -gt 0 ]]; then
+          echo "Assets excluded from GitHub release (${#excluded_assets[@]}):"
+          printf '  %s\n' "${excluded_assets[@]}"
+        fi
 
         echo "Assets to upload (${#assets[@]}):"
         printf '  %s\n' "${assets[@]}"
@@ -148,30 +173,73 @@ stages:
           exit 1
         fi
 
-        mapfile -t nupkgs < <(printf '%s\n' "${assets[@]}" | grep -E '\.nupkg$' || true)
+        extract_distribution_version() {
+          local archive="$1"
+          local name base stem label version
+          name="$(basename "$archive")"
+          base="$name"
+          base="${base%.tar.gz}"
+          base="${base%.zip}"
 
-        package_versions_tmp="$(mktemp)"
+          for stem in azcli-lean azcli; do
+            [[ "$base" == "$stem"-* ]] || continue
+            for label in linux-x64 linux-arm64 win-x64 win-arm64 macos-arm64 macos-x86_64; do
+              [[ "$base" == *-"$label" ]] || continue
+              version="${base#"$stem"-}"
+              version="${version%-"$label"}"
+              if [[ -n "$version" && "$version" != "$base" ]]; then
+                printf '%s\n' "$version"
+                return 0
+              fi
+            done
+          done
 
-        for pkg in "${nupkgs[@]}"; do
-          base_name="$(basename "$pkg" .nupkg)"
-          package_name="$base_name"
-          package_version="unknown"
+          for stem in azcli-extensions azps-cmdlets; do
+            if [[ "$base" == "$stem"-* ]]; then
+              version="${base#"$stem"-}"
+              if [[ -n "$version" && "$version" != "$base" ]]; then
+                printf '%s\n' "$version"
+                return 0
+              fi
+            fi
+          done
 
-          if [[ "$base_name" =~ ^(.+)\.([0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?)$ ]]; then
-            package_name="${BASH_REMATCH[1]}"
-            package_version="${BASH_REMATCH[2]}"
+          return 1
+        }
+
+        read_artifact_config() {
+          local key="$1"
+          local default_value="$2"
+          local config_path="$(Build.SourcesDirectory)/devops/scripts/packaging/config/artifact_naming.config"
+          local configured_value=""
+
+          if [[ -f "$config_path" ]] && configured_value="$(awk -F= -v key="$key" '
+              BEGIN { found = 0 }
+              /^[[:space:]]*(#|$)/ { next }
+              {
+                k=$1
+                sub(/^[[:space:]]+/, "", k)
+                sub(/[[:space:]]+$/, "", k)
+                if (k == key) {
+                  v=$0
+                  sub(/^[^=]*=/, "", v)
+                  print v
+                  found = 1
+                  exit
+                }
+              }
+              END { if (!found) exit 1 }
+            ' "$config_path")"; then
+            printf '%s\n' "$configured_value"
+          else
+            printf '%s\n' "$default_value"
           fi
-
-          package_file_name="$(basename "$pkg")"
-          echo "$package_name,$package_version,$package_file_name" >> "$package_versions_tmp"
-        done
+        }
 
         mapfile -t derived_versions < <(
-          printf '%s\n' "${distribution_archives[@]}" |
-            sed -E 's#^.*/##' |
-            sed -E 's#\.(tar\.gz|zip)$##' |
-            grep -Eo '[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?' |
-            sort -u
+          for archive in "${distribution_archives[@]}"; do
+            extract_distribution_version "$archive" || true
+          done | sort -u
         )
 
         if [[ ${#derived_versions[@]} -eq 1 ]]; then
@@ -201,8 +269,17 @@ stages:
               echo "ERROR: stableVersion GitHub release tag mode requires a stable SemVer artifact version. Got: $core_distribution_version"
               exit 1
             fi
-            tag_name="v$core_distribution_version"
-            release_name="Cirrus $core_distribution_version"
+            source_branch="$(Build.SourceBranch)"
+            if [[ ! "$source_branch" =~ ^refs/tags/v$core_distribution_version\.[0-9]{8}T[0-9]{6}Z$ ]]; then
+              echo "ERROR: stableVersion GitHub release tag mode requires Build.SourceBranch to be v$core_distribution_version.yyyyMMddTHHmmssZ. Got: $source_branch"
+              exit 1
+            fi
+            tag_name="${source_branch#refs/tags/}"
+            release_name="${{ parameters.GitHubReleaseName }} $core_distribution_version"
+            release_name_suffix="$(read_artifact_config github_release_name_suffix '')"
+            if [[ -n "$release_name_suffix" ]]; then
+              release_name="$release_name $release_name_suffix"
+            fi
             release_target="$(git ls-remote --tags origin "refs/tags/$tag_name^{}" | awk '{print $1}' | head -n 1)"
             if [[ -z "$release_target" ]]; then
               release_target="$(git ls-remote --tags origin "refs/tags/$tag_name" | awk '{print $1}' | head -n 1)"
@@ -223,15 +300,15 @@ stages:
         mkdir -p "$release_dir"
 
         release_notes_file="$(Build.ArtifactStagingDirectory)/release-notes.md"
-        changelog_file="$(Build.ArtifactStagingDirectory)/CHANGELOG.md"
-        if [[ "$release_tag_mode" == "stableVersion" ]] && \
-           curl -fsSL "https://raw.githubusercontent.com/$repo/$tag_name/CHANGELOG.md" -o "$changelog_file"; then
-          awk -v tag="$tag_name" '
+        changelog_file="$(Build.SourcesDirectory)/CHANGELOG.md"
+        changelog_section_tag="v$core_distribution_version"
+        if [[ "$release_tag_mode" == "stableVersion" && -s "$changelog_file" ]]; then
+          awk -v tag="$tag_name" -v version_tag="$changelog_section_tag" '
             /^## / {
               if (in_section) {
                 exit
               }
-              if ($0 == "## " tag || index($0, "## " tag " ") == 1) {
+              if ($0 == "## " tag || index($0, "## " tag " ") == 1 || $0 == "## " version_tag || index($0, "## " version_tag " ") == 1) {
                 in_section = 1
               }
             }
@@ -250,15 +327,6 @@ stages:
 
         echo "GitHub release notes preview:"
         sed -n '1,120p' "$release_notes_file"
-
-        package_versions_file="$release_dir/package-versions.csv"
-        {
-          echo "package_name,package_version,file_name"
-          if [[ -s "$package_versions_tmp" ]]; then
-            cat "$package_versions_tmp"
-          fi
-        } > "$package_versions_file"
-        rm -f "$package_versions_tmp"
 
         for asset in "${assets[@]}"; do
           cp "$asset" "$release_dir/"

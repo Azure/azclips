@@ -1,4 +1,4 @@
-name: cirrus-trigger-stable-release-$(Date:yyyyMMdd)$(Rev:.r)
+name: azclips-trigger-stable-release-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger:
   branches:
@@ -32,7 +32,7 @@ variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
 - name: GitHubTargetRepo
-  value: Azure/cirrus
+  value: ${{ variables.github_target_repo }}
 
 stages:
 - stage: Preflight
@@ -46,7 +46,7 @@ stages:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
       parameters:
-        error_message: cirrus-trigger-stable-release must run in the 'release' project because it can create release PRs and stable tags.
+        error_message: azclips-trigger-stable-release must run in the 'release' project because it can create release PRs and stable tags.
 
 - stage: TriggerStableRelease
   displayName: Trigger Stable Release
@@ -162,7 +162,8 @@ stages:
           exit 1
         fi
 
-        tag_name="v$target_version"
+        release_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+        tag_name="v$target_version.$release_timestamp"
         target_assembly_version="$target_version.0"
         target_file_version="$target_version.0"
         if git ls-remote --exit-code --tags origin "refs/tags/$tag_name" >/dev/null 2>&1; then
@@ -176,7 +177,7 @@ stages:
           exit 1
         fi
 
-        latest_stable_tag="$(git tag --merged "refs/remotes/origin/$target_branch" --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -Vr | head -n 1 || true)"
+        latest_stable_tag="$(git tag --merged "refs/remotes/origin/$target_branch" --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$' | sort -Vr | head -n 1 || true)"
         if [[ -n "$latest_stable_tag" ]]; then
           changelog_range="$latest_stable_tag..refs/remotes/origin/$target_branch"
           echo "Collecting changelog PRs from $latest_stable_tag to $target_branch"
@@ -232,10 +233,18 @@ stages:
           sed -i -E "0,/(<(Version|VersionPrefix)>[^<]+<\/(Version|VersionPrefix)>)/s//\1\n    <AssemblyVersion>$target_assembly_version<\/AssemblyVersion>/" "$core_project"
         fi
 
+        current_informational_version="$(grep -oPm1 '(?<=<InformationalVersion>)[^<]+' "$core_project" || true)"
+        current_informational_version="$(echo "$current_informational_version" | xargs)"
+        informational_suffix=""
+        if [[ "$current_informational_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+          informational_suffix="${BASH_REMATCH[1]:-}"
+        fi
+        target_informational_version="$target_version$informational_suffix"
+
         if grep -q '<InformationalVersion>' "$core_project"; then
-          sed -i -E "0,/<InformationalVersion>[^<]+<\/InformationalVersion>/s//<InformationalVersion>$target_version<\/InformationalVersion>/" "$core_project"
+          sed -i -E "0,/<InformationalVersion>[^<]+<\/InformationalVersion>/s//<InformationalVersion>$target_informational_version<\/InformationalVersion>/" "$core_project"
         else
-          sed -i -E "0,/(<AssemblyVersion>[^<]+<\/AssemblyVersion>)/s//\1\n    <InformationalVersion>$target_version<\/InformationalVersion>/" "$core_project"
+          sed -i -E "0,/(<AssemblyVersion>[^<]+<\/AssemblyVersion>)/s//\1\n    <InformationalVersion>$target_informational_version<\/InformationalVersion>/" "$core_project"
         fi
 
         if grep -q '<FileVersion>' "$core_project"; then
@@ -259,8 +268,8 @@ stages:
 
         updated_informational_version="$(grep -oPm1 '(?<=<InformationalVersion>)[^<]+' "$core_project" || true)"
         updated_informational_version="$(echo "$updated_informational_version" | xargs)"
-        if [[ "$updated_informational_version" != "$target_version" ]]; then
-          echo "ERROR: InformationalVersion update failed. Expected $target_version but got $updated_informational_version"
+        if [[ "$updated_informational_version" != "$target_informational_version" ]]; then
+          echo "ERROR: InformationalVersion update failed. Expected $target_informational_version but got $updated_informational_version"
           exit 1
         fi
 
@@ -274,7 +283,7 @@ stages:
         changelog_tmp="$(mktemp)"
         release_timestamp="$(date -u '+%Y-%m-%d %H:%M UTC')"
         {
-          echo "## $tag_name - $release_timestamp"
+          echo "## v$target_version - $release_timestamp"
           echo
           if (( ${#changelog_pr_numbers[@]} == 0 )); then
             echo "- No merged pull requests found since previous stable tag."
@@ -315,7 +324,7 @@ stages:
         git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$release_branch"
 
         pr_title="Trigger stable release $target_version"
-        pr_body="Updates src/CLI/Core.Cli.csproj to $target_version and prepends CHANGELOG.md with merged PRs since the previous stable tag. After this PR merges to $target_branch, cirrus-trigger-stable-release will run again from the main version change, tag the merged commit as $tag_name, and start the stable build/sign/publish chain."
+        pr_body="Updates src/CLI/Core.Cli.csproj to $target_version and prepends CHANGELOG.md with merged PRs since the previous stable tag. After this PR merges to $target_branch, azclips-trigger-stable-release will run again from the main version change, tag the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain."
 
         gh pr create \
           --repo "$repo" \
@@ -422,7 +431,7 @@ stages:
           exit 0
         fi
 
-        stable_version_line_regex='^[+-][[:space:]]*<(Version|VersionPrefix|InformationalVersion)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix|InformationalVersion)>[[:space:]]*$|^[+-][[:space:]]*<(AssemblyVersion|FileVersion)>[0-9]+\.[0-9]+\.[0-9]+\.0</(AssemblyVersion|FileVersion)>[[:space:]]*$'
+        stable_version_line_regex='^[+-][[:space:]]*<(Version|VersionPrefix)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix)>[[:space:]]*$|^[+-][[:space:]]*<InformationalVersion>[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?</InformationalVersion>[[:space:]]*$|^[+-][[:space:]]*<(AssemblyVersion|FileVersion)>[0-9]+\.[0-9]+\.[0-9]+\.0</(AssemblyVersion|FileVersion)>[[:space:]]*$'
         version_only_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E "$stable_version_line_regex" || true)"
         non_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E '^[+-]' | grep -Ev '^(---|\+\+\+)' | grep -Ev "$stable_version_line_regex" || true)"
 
@@ -454,15 +463,16 @@ stages:
         target_patch="${BASH_REMATCH[3]}"
 
         target_version="$core_version"
-        tag_name="v$target_version"
+        release_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+        tag_name="v$target_version.$release_timestamp"
         tag_ref="refs/tags/$tag_name"
 
-        latest_stable_tag="$(git tag --merged "$source_commit" --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -Vr | head -n 1 || true)"
+        latest_stable_tag="$(git tag --merged "$source_commit" --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$' | sort -Vr | head -n 1 || true)"
         if [[ -n "$latest_stable_tag" ]]; then
           latest_version="${latest_stable_tag#v}"
 
-          if [[ ! "$latest_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            echo "ERROR: Latest stable tag is not SemVer: $latest_stable_tag"
+          if [[ ! "$latest_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)\.[0-9]{8}T[0-9]{6}Z$ ]]; then
+            echo "ERROR: Latest stable tag must use vX.Y.Z.yyyyMMddTHHmmssZ: $latest_stable_tag"
             exit 1
           fi
 
@@ -509,7 +519,7 @@ stages:
         git tag -a "$tag_name" "$source_commit" -m "Release $tag_name"
         basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
         git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "$tag_ref"
-        echo "Created and pushed $tag_name. The tag trigger should start cirrus-stable-build."
+        echo "Created and pushed $tag_name. The tag trigger should start azclips-stable-release."
 
         echo "##vso[task.setvariable variable=StableTagName]$tag_name"
         echo "##vso[task.setvariable variable=StableVersion]$target_version"
