@@ -7,7 +7,7 @@ using BenchmarkDotNet.Engines;
 namespace Benchmark.Startup;
 
 /// <summary>
-/// CLI warm startup: fresh azv2 process per launch, OS page cache hot (BDN warmup primes it).
+/// CLI warm startup: fresh az process per launch, OS page cache hot (BDN warmup primes it).
 /// Stops at the resolve-only seam. Measures process create + runtime init + DI + extension load
 /// + command resolve for each built-in.
 /// </summary>

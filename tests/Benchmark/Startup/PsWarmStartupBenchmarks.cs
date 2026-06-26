@@ -21,5 +21,5 @@ public class PsWarmStartupBenchmarks : StartupBenchmarkBase
     public void Config() => RunToExit(PsStartInfo(StagedModulePath("Config"), "Get-CirrusConfigList"));
 
     [Benchmark(Description = "login")]
-    public void Login() => RunToExit(PsStartInfo(StagedModulePath("Login"), "Get-CirrusAccount"));
+    public void Login() => RunToExit(PsStartInfo(StagedModulePath("Login"), "Get-AzAccount"));
 }

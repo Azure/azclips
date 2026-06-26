@@ -9,7 +9,7 @@ namespace Benchmark.Startup;
 
 /// <summary>
 /// Shared setup for process-level startup benchmarks. Each [Benchmark] spawns the real
-/// published azv2 / pwsh as a fresh OS process with CIRRUS_BENCH_RESOLVE_ONLY=1 so the child
+/// published az / pwsh as a fresh OS process with CIRRUS_BENCH_RESOLVE_ONLY=1 so the child
 /// stops at the resolve-only seam (startup work done, command not executed).
 /// </summary>
 public abstract class StartupBenchmarkBase
@@ -25,9 +25,9 @@ public abstract class StartupBenchmarkBase
     /// <summary>Resolve repo root once (RepoLocator scans upward for cirrus.slnx).</summary>
     protected void InitializeCommon() => RepoRoot = RepoLocator.GetRepoRoot();
 
-    private string Azv2Path()
+    private string CliPath()
     {
-        var exe = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "azv2.exe" : "azv2";
+        var exe = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "az.exe" : "az";
         return Path.Combine(RepoRoot, "artifacts", Configuration, "Core.Cli", exe);
     }
 
@@ -35,12 +35,12 @@ public abstract class StartupBenchmarkBase
     protected string StagedModulePath(string module) =>
         Path.Combine(RepoRoot, "artifacts", Configuration, "PS", module, $"{module}.psd1");
 
-    /// <summary>ProcessStartInfo for an azv2 invocation, stopping at the seam.</summary>
+    /// <summary>ProcessStartInfo for an az CLI invocation, stopping at the seam.</summary>
     protected ProcessStartInfo CliStartInfo(params string[] args)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = Azv2Path(),
+            FileName = CliPath(),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
