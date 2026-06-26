@@ -187,7 +187,7 @@ public class Program
         {
             "CLI" => new[] { typeof(CLI.ResourceGroupBenchmarks) },
             "PS" => new[] { typeof(PS.ResourceGroupBenchmarks) },
-            _ => throw new ArgumentException($"Unknown product: {product}. Use: API, CLI, PS, or ALL")
+            _ => throw new ArgumentException($"Unknown product: {product}. Use: CLI, PS, or ALL")
         };
     }
 

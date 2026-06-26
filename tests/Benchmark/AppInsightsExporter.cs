@@ -55,7 +55,7 @@ public class AppInsightsExporter : IDisposable
             };
 
             // Custom dimensions for Grafana filtering
-            metric.Properties["Product"] = result.Product;           // API, CLI, PS
+            metric.Properties["Product"] = result.Product;           // CLI, PS
             metric.Properties["Operation"] = operation;              // List, Create, Get
             metric.Properties["Resource"] = resource;                // ResourceGroup
             metric.Properties["Method"] = result.Method;             // Full method name

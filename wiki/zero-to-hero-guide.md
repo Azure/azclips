@@ -600,7 +600,7 @@ cd tests/Benchmark
 dotnet run -c Release -- --filter "*"
 ```
 
-The benchmark project uses BenchmarkDotNet to measure CLI, API, and PowerShell command performance.
+The benchmark project uses BenchmarkDotNet to measure CLI and PowerShell command performance.
 
 ---
 

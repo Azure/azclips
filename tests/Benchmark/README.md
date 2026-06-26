@@ -44,8 +44,6 @@ Results are saved to `artifacts/Benchmark/<timestamp>/` (or `artifacts/Benchmark
 - `benchmark-summary-*.json` - JSON data for programmatic use
 - `results/` - BenchmarkDotNet's own exports (full JSON + GitHub-flavored Markdown)
 
-> The charts still render an **API** series for historical comparison; it is empty because there is currently no in-process API benchmark.
-
 ---
 
 ## Architecture
