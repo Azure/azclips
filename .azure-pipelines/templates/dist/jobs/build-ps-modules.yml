@@ -147,7 +147,7 @@ jobs:
         find "$final_root/artifacts" -type f -name 'Microsoft.Azure.Azclips.Cmdlets.*.dll' -printf '  %P\n' | sort
         echo ""
         echo "extension_assemblies:"
-        find "$final_root/artifacts" -type f -name 'Microsoft.Azure.Cirrus.Extensions.*.dll' -printf '  %P\n' | sort
+        find "$final_root/artifacts" -type f -name 'Microsoft.Azure.Azclips.Extensions.*.dll' -printf '  %P\n' | sort
       } > "$manifest"
 
       echo "Final PS module build outputs:"

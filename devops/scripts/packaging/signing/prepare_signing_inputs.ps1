@@ -23,7 +23,7 @@ param(
   [string]$ExpectedStrongNameToken = '31bf3856ad364e35',
 
   [Parameter()]
-  [string]$EnableNonCirrusDllSigning = 'false'
+  [string]$EnableNonAzclipsDllSigning = 'false'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,7 +47,7 @@ function Test-IsFirstPartyDll {
   return $File.Name -like 'Microsoft.Azure.Azclips*.dll' -or
     $File.Name -like 'Core.*.dll' -or
     $File.Name -ieq 'az.dll' -or
-    $File.Name -ieq 'cirrus-agent.dll'
+    $File.Name -ieq 'azclips-agent.dll'
 }
 
 $assets = Get-ChildItem -Path $UnsignedRoot -Recurse -File | Where-Object {
@@ -205,7 +205,7 @@ if ([System.Convert]::ToBoolean($EnableStrongNameSigning)) {
 }
 
 $thirdPartyDllPayloads = @()
-if ([System.Convert]::ToBoolean($EnableNonCirrusDllSigning)) {
+if ([System.Convert]::ToBoolean($EnableNonAzclipsDllSigning)) {
   $thirdPartyCandidates = Get-ChildItem -Path $windowsRoot, $nupkgExtractRoot -Recurse -File -ErrorAction SilentlyContinue |
     Where-Object { $_.Extension -ieq '.dll' -and -not (Test-IsFirstPartyDll -File $_) } |
     Sort-Object FullName

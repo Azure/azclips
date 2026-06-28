@@ -48,7 +48,7 @@ function Test-IsFirstPartyPayload {
 
   return $File.Name -ieq 'az.exe' -or
     $File.Name -ieq 'az.dll' -or
-    $File.Name -ieq 'cirrus-agent.dll' -or
+    $File.Name -ieq 'azclips-agent.dll' -or
     $File.Name -like 'Core.*.dll' -or
     $File.Name -like 'Microsoft.Azure.Azclips*.dll' -or
     $File.Name -like 'Microsoft.Azure.Azclips*.exe'
@@ -149,7 +149,7 @@ if (Test-Path $windowsRoot) {
     $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
     $_.Name -like 'Core.*.dll' -or
     $_.Name -ieq 'az.dll' -or
-    $_.Name -ieq 'cirrus-agent.dll'
+    $_.Name -ieq 'azclips-agent.dll'
   }
   $windowsDllCount = $windowsDlls.Count
 
@@ -182,7 +182,7 @@ if (Test-Path $nupkgExtractRoot) {
       $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
       $_.Name -like 'Core.*.dll' -or
       $_.Name -ieq 'az.dll' -or
-      $_.Name -ieq 'cirrus-agent.dll'
+      $_.Name -ieq 'azclips-agent.dll'
     }
     $packageDllCount = $packageDlls.Count
     foreach ($dll in @($packageDlls)) {

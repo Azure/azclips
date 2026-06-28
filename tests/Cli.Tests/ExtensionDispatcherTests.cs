@@ -6,7 +6,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Config;
+using Microsoft.Azure.Azclips.Extensions.Config;
 using Tests.Common.Utilities;
 using Xunit;
 

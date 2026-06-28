@@ -44,7 +44,7 @@ parameters:
 - name: esrp_strong_name_file_patterns
   type: object
   default: []
-- name: esrp_enable_non_cirrus_dll_signing
+- name: esrp_enable_non_azclips_dll_signing
   type: boolean
   default: true
 - name: windows_sign_architectures
@@ -141,7 +141,7 @@ jobs:
           -EnableStrongNameSigning '${{ parameters.esrp_require_windows_strong_name }}'
           -StrongNamePatternCsv '${{ join('|', parameters.esrp_strong_name_file_patterns) }}'
           -ExpectedStrongNameToken '${{ parameters.esrp_strong_name_public_key_token }}'
-          -EnableNonCirrusDllSigning '${{ parameters.esrp_enable_non_cirrus_dll_signing }}'
+          -EnableNonAzclipsDllSigning '${{ parameters.esrp_enable_non_azclips_dll_signing }}'
         pwsh: true
     - task: PowerShell@2
       displayName: List Windows Artifacts To Be Signed
@@ -160,7 +160,7 @@ jobs:
             $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
             $_.Name -like 'Core.*.dll' -or
             $_.Name -ieq 'az.dll' -or
-            $_.Name -ieq 'cirrus-agent.dll' -or
+            $_.Name -ieq 'azclips-agent.dll' -or
             $_.Name -like 'Microsoft.Azure.Azclips*.exe'
           } | Sort-Object FullName
 
@@ -178,7 +178,7 @@ jobs:
           Write-Host "Windows total bytes to sign: $totalBytes"
     - ${{ if eq(parameters.esrp_require_windows_strong_name, true) }}:
       - task: EsrpCodeSigning@6
-        displayName: Strong-name Sign Windows Payload [Cirrus DLLs]
+        displayName: Strong-name Sign Windows Payload [Azclips DLLs]
         condition: eq(variables['HasStrongNamePayload'], 'true')
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
@@ -293,7 +293,7 @@ jobs:
           UseMinimatch: true
           Pattern: |
             **/az.dll
-            **/cirrus-agent.dll
+            **/azclips-agent.dll
             **/Core.*.dll
             **/Microsoft.Azure.Azclips*.dll
           signConfigType: inlineSignParams
@@ -415,7 +415,7 @@ jobs:
           UseMinimatch: true
           Pattern: |
             **/az.dll
-            **/cirrus-agent.dll
+            **/azclips-agent.dll
             **/Core.*.dll
             **/Microsoft.Azure.Azclips*.dll
           signConfigType: inlineSignParams
@@ -480,7 +480,7 @@ jobs:
                 "ToolVersion": "1.0"
               }
             ]
-    - ${{ if eq(parameters.esrp_enable_non_cirrus_dll_signing, true) }}:
+    - ${{ if eq(parameters.esrp_enable_non_azclips_dll_signing, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Optional Co-sign Windows Payload [Third-Party DLLs]
         condition: eq(variables['HasThirdPartyDllPayload'], 'true')
@@ -595,7 +595,7 @@ jobs:
           UseMinimatch: true
           Pattern: |
             **/az.dll
-            **/cirrus-agent.dll
+            **/azclips-agent.dll
             **/Core.*.dll
             **/Microsoft.Azure.Azclips*.dll
             **/Microsoft.Azure.Azclips*.dll

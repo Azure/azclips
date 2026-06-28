@@ -6,7 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 // What-if is a read-only preview: it never creates or modifies resources, so it intentionally
 // does NOT declare SupportsShouldProcess/ConfirmImpact (there is nothing to confirm).

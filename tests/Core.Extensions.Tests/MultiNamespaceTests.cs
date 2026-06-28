@@ -39,29 +39,29 @@ namespace Core.Extensions.Tests
         public void LeafIndex_ShouldRouteBothNamespaces_FromSingleEntry()
         {
             var registry = new ExtensionRegistry();
-            registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"] = MultiNamespaceEntry();
+            registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = MultiNamespaceEntry();
 
             var index = LeafIndex.Build(EmptyBuiltIns, registry);
 
             Assert.True(index.TryGet("vm", "create", out var vmCreate));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", vmCreate!.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", vmCreate!.PackageId);
 
             Assert.True(index.TryGet("disk", "list", out var diskList));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", diskList!.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", diskList!.PackageId);
         }
 
         [Fact]
         public void ExtensionResolver_ShouldResolveBothVerbs_ToSamePackage()
         {
             var registry = new ExtensionRegistry();
-            registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"] = MultiNamespaceEntry();
+            registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = MultiNamespaceEntry();
             var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), EmptyBuiltIns);
 
             Assert.True(resolver.TryResolve("vm", out var vm));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", vm!.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", vm!.PackageId);
 
             Assert.True(resolver.TryResolve("disk", out var disk));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", disk!.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", disk!.PackageId);
         }
 
         [Fact]
@@ -93,12 +93,12 @@ namespace Core.Extensions.Tests
 
                 var store1 = new FileExtensionRegistryStore(path);
                 var registry = store1.Load();
-                registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"] = MultiNamespaceEntry();
+                registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = MultiNamespaceEntry();
                 store1.Save(registry);
 
                 var store2 = new FileExtensionRegistryStore(path);
                 var reloaded = store2.Load();
-                var entry = reloaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
+                var entry = reloaded.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"];
 
                 Assert.Empty(entry.Namespaces);
                 Assert.Empty(entry.Contributions);
@@ -117,14 +117,14 @@ namespace Core.Extensions.Tests
             // `extension remove` removes the package key from registry.Extensions; both
             // namespaces stop resolving in the same step.
             var registry = new ExtensionRegistry();
-            registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"] = MultiNamespaceEntry();
+            registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = MultiNamespaceEntry();
             var store = new InMemoryRegistryStore(registry);
             var resolver = new ExtensionResolver(store, EmptyBuiltIns);
 
             Assert.True(resolver.TryResolve("vm", out _));
             Assert.True(resolver.TryResolve("disk", out _));
 
-            registry.Extensions.Remove("Microsoft.Azure.Cirrus.Extensions.Compute");
+            registry.Extensions.Remove("Microsoft.Azure.Azclips.Extensions.Compute");
             store.Save(registry);
 
             Assert.False(resolver.TryResolve("vm", out _));

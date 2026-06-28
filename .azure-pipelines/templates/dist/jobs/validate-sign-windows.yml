@@ -33,7 +33,7 @@ jobs:
       $toVerify = Get-ChildItem -Path "$(Pipeline.Workspace)/verify-win" -Recurse -File | Where-Object {
         $_.Name -ieq 'az.exe' -or
         $_.Name -ieq 'az.dll' -or
-        $_.Name -ieq 'cirrus-agent.dll' -or
+        $_.Name -ieq 'azclips-agent.dll' -or
         $_.Name -like 'Core.*.dll' -or
         $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
         $_.Name -like 'Microsoft.Azure.Azclips*.exe'
@@ -49,7 +49,7 @@ jobs:
           $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
           $_.Name -like 'Core.*.dll' -or
           $_.Name -ieq 'az.dll' -or
-          $_.Name -ieq 'cirrus-agent.dll'
+          $_.Name -ieq 'azclips-agent.dll'
         }
         if (-not $dlls) {
           throw 'Strong-name policy requires at least one first-party managed DLL in signed Windows payload.'

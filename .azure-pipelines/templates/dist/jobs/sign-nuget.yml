@@ -81,14 +81,14 @@ jobs:
           foreach ($asset in $selected) {
             Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
           }
-          Write-Host "Selected $($selected.Count) Cirrus NuGet release artifacts."
+          Write-Host "Selected $($selected.Count) Azclips NuGet release artifacts."
 
           $excluded = $allNupkgs | Where-Object {
             $_.Name -notlike 'Microsoft.Azure.Azclips*.nupkg' -and
             $_.Name -notlike 'azcli.extensions.*.nupkg'
           }
           if ($excluded) {
-            Write-Host "Excluded non-Cirrus nupkgs from ESRP submission:"
+            Write-Host "Excluded non-Azclips nupkgs from ESRP submission:"
             foreach ($pkg in $excluded) {
               Write-Host "  $($pkg.Name)"
             }

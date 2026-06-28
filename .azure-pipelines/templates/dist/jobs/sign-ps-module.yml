@@ -52,7 +52,7 @@ parameters:
 - name: esrp_strong_name_file_patterns
   type: object
   default: []
-- name: esrp_enable_non_cirrus_dll_signing
+- name: esrp_enable_non_azclips_dll_signing
   type: boolean
   default: true
 
@@ -131,7 +131,7 @@ jobs:
           -EnableStrongNameSigning '${{ parameters.esrp_enable_strong_name_signing }}'
           -StrongNamePatternCsv '${{ join('|', parameters.esrp_strong_name_file_patterns) }}'
           -ExpectedStrongNameToken '${{ parameters.esrp_strong_name_public_key_token }}'
-          -EnableNonCirrusDllSigning '${{ parameters.esrp_enable_non_cirrus_dll_signing }}'
+          -EnableNonAzclipsDllSigning '${{ parameters.esrp_enable_non_azclips_dll_signing }}'
         pwsh: true
     - task: PowerShell@2
       displayName: List PowerShell Module Signing Candidates
@@ -155,7 +155,7 @@ jobs:
             $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
             $_.Name -like 'Core.*.dll' -or
             $_.Name -ieq 'az.dll' -or
-            $_.Name -ieq 'cirrus-agent.dll' -or
+            $_.Name -ieq 'azclips-agent.dll' -or
             $_.Name -like 'Microsoft.Azure.Azclips*.exe'
           } | Sort-Object FullName
           Write-Host "PowerShell module payload candidates ($($payloads.Count))"
@@ -280,7 +280,7 @@ jobs:
         UseMinimatch: true
         Pattern: |
           **/az.dll
-          **/cirrus-agent.dll
+          **/azclips-agent.dll
           **/Core.*.dll
           **/Microsoft.Azure.Azclips*.dll
           **/Microsoft.Azure.Azclips*.exe
@@ -305,7 +305,7 @@ jobs:
               "ToolVersion": "1.0"
             }
           ]
-    - ${{ if eq(parameters.esrp_enable_non_cirrus_dll_signing, true) }}:
+    - ${{ if eq(parameters.esrp_enable_non_azclips_dll_signing, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Optional Co-sign PowerShell Module Third-Party DLLs
         condition: eq(variables['HasThirdPartyDllPayload'], 'true')
@@ -423,7 +423,7 @@ jobs:
           UseMinimatch: true
           Pattern: |
             **/az.dll
-            **/cirrus-agent.dll
+            **/azclips-agent.dll
             **/Core.*.dll
             **/Microsoft.Azure.Azclips*.dll
             **/Microsoft.Azure.Azclips*.exe

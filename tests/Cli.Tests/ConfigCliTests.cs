@@ -11,7 +11,7 @@ using Core.DependencyInjection;
 using Core.Runtime;
 using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Azure.Cirrus.Extensions.Config.Commands;
+using Microsoft.Azure.Azclips.Extensions.Config.Commands;
 using Tests.Common.Stubs;
 
 namespace Cli.Tests;
@@ -445,7 +445,7 @@ public class ConfigCliTests
             Assert.Contains(cmdlet, manifestContent);
         }
 
-        Assert.Contains("Microsoft.Azure.Cirrus.Cmdlets.Config.dll", manifestContent);
+        Assert.Contains("Microsoft.Azure.Azclips.Cmdlets.Config.dll", manifestContent);
         Assert.Contains("FunctionsToExport = @()", manifestContent);
     }
 
@@ -472,7 +472,7 @@ public class ConfigCliTests
         Assert.Contains("Core.Configuration.dll", manifestContent);
         Assert.Contains("Core.Engine.dll", manifestContent);
         Assert.Contains("Core.DependencyInjection.dll", manifestContent);
-        Assert.Contains("Microsoft.Azure.Cirrus.Extensions.Config.dll", manifestContent);
+        Assert.Contains("Microsoft.Azure.Azclips.Extensions.Config.dll", manifestContent);
 
         // Verify cmdlets are exported
         Assert.Contains("Get-AzConfig", manifestContent);
@@ -485,7 +485,7 @@ public class ConfigCliTests
     [Fact]
     public void ExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
     {
-        var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
+        var extensionIndex = new Microsoft.Azure.Azclips.Extensions.Config.ExtensionIndex();
 
         var getMetadata = extensionIndex.GetCommandMetadata("Get-AzConfig", ClientType.PowerShell);
         Assert.Contains("Json", getMetadata.Parameters.Keys);

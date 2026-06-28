@@ -8,7 +8,7 @@ using Microsoft.Azure.Cirrus.Cmdlets.Common;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsLifecycle.Invoke, "CirrusRestMethod")]
 public class InvokeCirrusRestMethodCmdlet : PSCmdlet

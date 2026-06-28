@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Microsoft.Azure.Cirrus.Extensions.Config</AssemblyName>
+        <AssemblyName>Microsoft.Azure.Azclips.Extensions.Config</AssemblyName>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-        <RootNamespace>Microsoft.Azure.Cirrus.Extensions.Config</RootNamespace>
-        <ExtName>Microsoft.Azure.Cirrus.Extensions.Config</ExtName>
+        <RootNamespace>Microsoft.Azure.Azclips.Extensions.Config</RootNamespace>
+        <ExtName>Microsoft.Azure.Azclips.Extensions.Config</ExtName>
 
-        <Description>Configuration management extension for Cirrus CLI</Description>
+        <Description>Configuration management extension for Azclips CLI</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <RepositoryUrl>https://github.com/Azure/cirrus</RepositoryUrl>
+        <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
-        <PackageId>Microsoft.Azure.Cirrus.Extensions.Config</PackageId>
+        <PackageId>Microsoft.Azure.Azclips.Extensions.Config</PackageId>
         <Version>0.1.0</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>

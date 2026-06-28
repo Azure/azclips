@@ -20,13 +20,14 @@ $ErrorActionPreference = 'Stop'
 
 $root = Resolve-Path (Join-Path $PSScriptRoot '../../..')
 $extDir = Join-Path $root 'artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources'
+$coreDir = Join-Path $root 'artifacts/Debug/Core'
 $cliDir = Join-Path $root 'artifacts/Debug/Core.Cli'
 $extDll = Join-Path $extDir 'Microsoft.Azure.Azclips.Extensions.Resources.dll'
 
 if (-not (Test-Path $extDll)) { throw "Extension DLL not found at $extDll. Build the solution first." }
 
-# Resolve the extension's dependencies (Core.Abstractions, etc.) from the CLI output folder.
-$probeDirs = @($extDir, $cliDir)
+# Resolve the extension's dependencies (Core.Abstractions, etc.) from build output folders.
+$probeDirs = @($extDir, $coreDir, $cliDir)
 $resolver = [System.ResolveEventHandler]{
     param($s, $e)
     $name = ([System.Reflection.AssemblyName]::new($e.Name)).Name

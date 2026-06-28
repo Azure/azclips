@@ -46,7 +46,7 @@ parameters:
   default: 'CP-401337-Apple'
 - name: macos_bundle_id
   type: string
-  default: 'com.microsoft.cirrus.cli'
+  default: 'com.microsoft.azclips.cli'
 - name: macos_arm64_pool
   type: string
   default: 'macOS-15-arm64'
@@ -77,7 +77,7 @@ parameters:
 - name: esrp_strong_name_file_patterns
   type: object
   default: []
-- name: esrp_enable_non_cirrus_dll_signing
+- name: esrp_enable_non_azclips_dll_signing
   type: boolean
   default: true
 - name: windows_sign_architectures
@@ -130,7 +130,7 @@ stages:
       esrp_enable_strong_name_signing: ${{ parameters.esrp_enable_ps_module_strong_name }}
       esrp_strong_name_public_key_token: ${{ parameters.esrp_strong_name_public_key_token }}
       esrp_strong_name_file_patterns: ${{ parameters.esrp_strong_name_file_patterns }}
-      esrp_enable_non_cirrus_dll_signing: ${{ parameters.esrp_enable_non_cirrus_dll_signing }}
+      esrp_enable_non_azclips_dll_signing: ${{ parameters.esrp_enable_non_azclips_dll_signing }}
 - stage: SignWindowsArtifacts
   displayName: Sign Windows Artifacts
   dependsOn: ${{ parameters.dependency_stage }}
@@ -152,7 +152,7 @@ stages:
       esrp_require_windows_strong_name: ${{ parameters.esrp_require_windows_strong_name }}
       esrp_strong_name_public_key_token: ${{ parameters.esrp_strong_name_public_key_token }}
       esrp_strong_name_file_patterns: ${{ parameters.esrp_strong_name_file_patterns }}
-      esrp_enable_non_cirrus_dll_signing: ${{ parameters.esrp_enable_non_cirrus_dll_signing }}
+      esrp_enable_non_azclips_dll_signing: ${{ parameters.esrp_enable_non_azclips_dll_signing }}
       windows_sign_architectures: ${{ parameters.windows_sign_architectures }}
 - stage: SignLinuxArtifacts
   displayName: Collect Linux Artifacts (No Signing Yet)
@@ -383,7 +383,7 @@ stages:
             'windowsStrongNameRequired': '${{ parameters.esrp_require_windows_strong_name }}',
             'windowsStrongNameKeyCode': '${{ parameters.esrp_strong_name_keycode }}',
             'windowsStrongNamePublicKeyToken': '${{ parameters.esrp_strong_name_public_key_token }}',
-            'thirdPartySigningEnabled': '${{ parameters.esrp_enable_non_cirrus_dll_signing }}',
+            'thirdPartySigningEnabled': '${{ parameters.esrp_enable_non_azclips_dll_signing }}',
             'thirdPartyKeyCode': '${{ parameters.esrp_third_party_keycode }}',
             'macosBundleId': '${{ parameters.macos_bundle_id }}',
             'macosAppleKeyCode': '${{ parameters.esrp_apple_keycode }}',

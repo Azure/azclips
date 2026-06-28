@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Microsoft.Azure.Cirrus.Cmdlets.Resources</AssemblyName>
-        <RootNamespace>Microsoft.Azure.Cirrus.Cmdlets.Resources</RootNamespace>
+        <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Resources</AssemblyName>
+        <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Resources</RootNamespace>
         <Description>PowerShell binary cmdlets for Cirrus Resources module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>

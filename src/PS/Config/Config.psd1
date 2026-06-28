@@ -9,7 +9,7 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Config.dll'
+RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Config.dll'
 
 # Version number of this module.
 ModuleVersion = '0.1.0'
@@ -67,7 +67,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
                         '../../../artifacts/Debug/Core/Core.Configuration.dll',
                         '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Config/Microsoft.Azure.Cirrus.Extensions.Config.dll'
+                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Config/Microsoft.Azure.Azclips.Extensions.Config.dll'
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
 # ScriptsToProcess = @()

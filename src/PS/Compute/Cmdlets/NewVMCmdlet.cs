@@ -6,7 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Compute;
+namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 [Cmdlet(VerbsCommon.New, "VM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class NewVMCmdlet : PSCmdlet

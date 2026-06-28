@@ -20,7 +20,7 @@ public class StripKnownExtensionPrefixTests
     [InlineData("Microsoft.Azure.Azclips.Extensions.Login", "Login")]
     [InlineData("microsoft.azure.azclips.extensions.login", "login")]
     [InlineData("MICROSOFT.AZURE.AZCLIPS.EXTENSIONS.LOGIN", "LOGIN")]
-    [InlineData("Microsoft.Azure.Cirrus.Extensions.Compute", "Compute")]
+    [InlineData("Microsoft.Azure.Azclips.Extensions.Compute", "Compute")]
     [InlineData("microsoft.azure.cirrus.extensions.compute", "compute")]
     [InlineData("MICROSOFT.AZURE.CIRRUS.EXTENSIONS.COMPUTE", "COMPUTE")]
     [InlineData("Microsoft.Azure.Cirrus.Extensions.Group", "Group")]

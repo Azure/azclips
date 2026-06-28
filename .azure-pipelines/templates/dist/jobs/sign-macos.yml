@@ -25,7 +25,7 @@ parameters:
   default: 'CP-401337-Apple'
 - name: macos_bundle_id
   type: string
-  default: 'com.microsoft.cirrus.cli'
+  default: 'com.microsoft.azclips.cli'
 - name: macos_arm64_pool
   type: string
   default: 'macOS-15-arm64'
