@@ -9,7 +9,7 @@ public sealed class ConfigurationSchema : IConfigurationSchema
 {
     private static readonly IReadOnlyList<ConfigurationKeyMetadata> Keys =
     [
-        new() { Key = "core.logging.level", Description = "Global log level.", DefaultValue = "info", ValueType = typeof(string), AllowedValues = ["debug", "info", "warn", "error"] },
+        new() { Key = "core.logging.level", Description = "Global log level.", DefaultValue = "error", ValueType = typeof(string), AllowedValues = ["debug", "info", "warn", "error"] },
         new() { Key = "core.engine.extensionIndexCacheSize", Description = "LFU cache size for extension index.", DefaultValue = "512", ValueType = typeof(int), Minimum = 1, Maximum = 10000 },
         new() { Key = "core.http.maxRetries", Description = "Max retries for transient HTTP failures.", DefaultValue = "3", ValueType = typeof(int), Minimum = 0, Maximum = 50 },
         new() { Key = "core.http.maxRetriesFor429", Description = "Max retries for HTTP 429 responses.", DefaultValue = "5", ValueType = typeof(int), Minimum = 0, Maximum = 50 },
