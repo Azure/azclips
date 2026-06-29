@@ -1,0 +1,23 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
+
+namespace Microsoft.Azure.Cirrus.Extensions.Graph.Models;
+
+public class User
+{
+    public string? Id { get; set; }
+    public string? DisplayName { get; set; }
+    public string? GivenName { get; set; }
+    public string? Surname { get; set; }
+    public string? UserPrincipalName { get; set; }
+    public string? Mail { get; set; }
+    public string? JobTitle { get; set; }
+    public string? MobilePhone { get; set; }
+    public string? OfficeLocation { get; set; }
+    public string? PreferredLanguage { get; set; }
+    public string[]? BusinessPhones { get; set; }
+
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
