@@ -78,10 +78,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Graph.Processors
         /// </summary>
         private static void ApplyGraphScope(IAuthHandler authHandler)
         {
-            AcquireTokenAsyncDelegate engineDefault = authHandler.AcquireTokenAsyncDefault;
-            authHandler.AcquireTokenAsyncOverride =
-                (_, tenantId, promptOnError, cancellationToken) =>
-                    engineDefault(GraphScopes, tenantId, promptOnError, cancellationToken);
+            AcquireTokenAsyncDelegate acquireWithDefaultScope = authHandler.AcquireTokenAsyncDefault;
+
+            Task<AuthResult> AcquireWithGraphScope(string[]? _, string? tenantId, bool promptOnError, CancellationToken cancellationToken) =>
+                acquireWithDefaultScope(GraphScopes, tenantId, promptOnError, cancellationToken);
+
+            authHandler.AcquireTokenAsyncOverride = AcquireWithGraphScope;
             authHandler.ApplyOverride = true;
         }
 
