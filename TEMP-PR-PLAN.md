@@ -1,5 +1,7 @@
 # TEMP PR Plan
 
+@NOTE: Delete before merge
+
 ## Goal
 
 Prepare a PR similar in shape to PR #319 for the owned surfaces in Config, Extension, and the help system, with explicit tracking for every place where command names, help content, or agent help artifacts may need to change.
