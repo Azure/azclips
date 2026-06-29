@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782370991395,
+  "lastUpdate": 1782695514174,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1638,6 +1638,48 @@ window.BENCHMARK_DATA = {
             "value": 1017589.9659897969,
             "unit": "ns",
             "range": "± 310985.25613211095"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c80affb55b485531d20276bc88a4a63f48a8f986",
+          "message": "{Core} Fix/cli log scope propagation (#313)\n\nAfter: https://github.com/Azure/cirrus/pull/300\n\nThis PR fixes CLI logging-scope propagation so help paths respect the\nsame effective logging policy as normal command execution.\n\nWhat changed:\n- regular CLI commands continue to respect user config and\n`CIRRUS_LOG_LEVEL`\n- CLI `help` now reuses the same logging streams/policy during\ndiscovery, so `az --help`, `az vm --help`, etc. emit logs consistently\nwhen the effective level allows it\n- PowerShell `Get-Help` is treated as out of scope because it is host\nhelp/metadata retrieval, not our cmdlet execution path\n\nNotes:\n- CLI help still uses a separate discovery/session path internally\n- this PR does not unify help and command execution architecture; it\nmakes the help path honor the same logging policy contract\n\nChecklist:\n- [x] Respects config level set in user config (command CLI)\n- [x] Respects config level set in user config (help CLI)\n- [x] Respects config level set in user config (command PWSH)\n- [x] Env vars override user config (command CLI)\n- [x] Env vars override user config (help CLI)\n- [x] Env vars override user config (command PWSH)\n- [x] `-debug` overrides all (command CLI)\n- [x] `-debug` overrides all (help CLI)\n- [x] `-debug` overrides all (command PWSH)\n- [x] Default logging to error",
+          "timestamp": "2026-06-29T11:09:58+10:00",
+          "tree_id": "8c96729ca4b8a0e634f3fbf428f3638111e2aa65",
+          "url": "https://github.com/Azure/azclips/commit/c80affb55b485531d20276bc88a4a63f48a8f986"
+        },
+        "date": 1782695513742,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 985200.9147562318,
+            "unit": "ns",
+            "range": "± 305760.48130991985"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 964783.6848794156,
+            "unit": "ns",
+            "range": "± 333790.9138542703"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 963662.8103862318,
+            "unit": "ns",
+            "range": "± 294308.87062518916"
           }
         ]
       }
