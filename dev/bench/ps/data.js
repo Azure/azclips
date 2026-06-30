@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782782800778,
+  "lastUpdate": 1782791234586,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1722,6 +1722,48 @@ window.BENCHMARK_DATA = {
             "value": 5731374.405719494,
             "unit": "ns",
             "range": "± 101334.37069614763"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e7e1c2ca8f3e138bcfcc1b32b22ffb884e1ba81",
+          "message": "Clips 432 update module naming (#334)\n\n## Summary\n\nThis PR updates Config PowerShell cmdlet naming to the Az naming pattern\nwhile preserving CLI config verb behavior.\n\n## Delivered\n\n- Renamed Config PowerShell cmdlets to:\n  - Get-AzConfig\n  - Set-AzConfig\n  - Remove-AzConfig\n  - Get-AzConfigList\n  - Get-AzConfigInfo\n- Updated Config extension metadata mappings for PowerShell command\nnames.\n- Updated Config module exports (`CmdletsToExport`) to the new Az cmdlet\nnames.\n- Updated Config PowerShell help markdown filenames/content to match new\ncmdlet names.\n- Updated config-related tests and documentation references from\n`*CirrusConfig*` to `*AzConfig*` where applicable.\n- Manually aligned agent help snapshot files for Config PowerShell\nnames:\n  - Agent/Tools/Help/HelpIndex.json\n  - Agent/Tools/Help/HelpManifest.json\n- Updated extension help docs verbiage to neutral CLI wording only (no\nAPI/package identity changes).\n\n## Validation\n\nLocal validation performed:\n\n- PowerShell cmdlet regression runbook completed (import/export, CRUD,\nJSON, WhatIf, unknown key validation, env precedence).\n- CLI parity sanity checks completed (`az config\nset/get/list/info/delete`) with expected behavior.\n- Local help generation executed (`build/build.ps1 -Configuration Debug\n-GenerateHelpArtifacts`), and generated Config MAML reflects\n`Get-AzConfig*` names.\n\n## Not In Scope / Pending\n\n- Agent help artifact lifecycle/design remains pending as a follow-up\narchitecture change.\n- This PR keeps extension/package/runtime binary identities unchanged\n(e.g., `Microsoft.Azure.Cirrus.*`).\n\n## Notes\n\n- Config MAML output under `src/PS/Config/en-US/` is generated/ignored\nin source control.",
+          "timestamp": "2026-06-30T13:39:20+10:00",
+          "tree_id": "12cf0f503312ddc11b0dcea00411234d7be6e2dd",
+          "url": "https://github.com/Azure/azclips/commit/4e7e1c2ca8f3e138bcfcc1b32b22ffb884e1ba81"
+        },
+        "date": 1782791234536,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5776086.611776789,
+            "unit": "ns",
+            "range": "± 102704.20798662075"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5752381.146696337,
+            "unit": "ns",
+            "range": "± 99032.87729633632"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5755511.005198218,
+            "unit": "ns",
+            "range": "± 98685.98213342404"
           }
         ]
       }
