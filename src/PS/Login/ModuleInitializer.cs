@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
+using Microsoft.Azure.Cirrus.Cmdlets.Common;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Login;
@@ -18,7 +19,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
         {
             services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
             services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
-
+            services.AddSingleton<IHttpPipelineService, PSHttpPipelineService>();
         });
         CirrusServiceProvider.Initialize(ClientType.PowerShell);
     }

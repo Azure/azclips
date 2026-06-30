@@ -17,6 +17,7 @@
 
     <ItemGroup>
         <Compile Include="..\Common\CmdletOutputStreamsFactory.cs" Link="Common\CmdletOutputStreamsFactory.cs" />
+        <Compile Include="..\Common\PSHttpPipelineService.cs" Link="Common\PSHttpPipelineService.cs" />
     </ItemGroup>
 
     <ItemGroup>

@@ -49,6 +49,7 @@ public class Program
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
             services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
+            services.AddSingleton<IHttpPipelineService, CLIHttpPipelineService>();
         });
         CirrusServiceProvider.Initialize(_clientType);
 

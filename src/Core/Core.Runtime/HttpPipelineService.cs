@@ -11,4 +11,10 @@ public class HttpPipelineService(IHttpTerminateHandler httpTerminateHandler, ITr
 {
     public SendAsyncStep HttpPipelineTerminatingStep => httpTerminateHandler.SendAsync;
     public SendAsyncStep HttpRequestMessageTracingStep => tracingInterceptor.SendAsync;
+
+    /// <summary>
+    /// Pipeline step that stamps the User-Agent header on outgoing requests.
+    /// Default is a no-op; CLI and PowerShell clients override this via DI.
+    /// </summary>
+    public virtual SendAsyncStep UserAgentStep => (request, callback, next) => next.SendAsync(request, callback);
 }

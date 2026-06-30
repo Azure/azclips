@@ -7,4 +7,5 @@ public interface IHttpPipelineService
 {
     SendAsyncStep HttpPipelineTerminatingStep { get; }
     SendAsyncStep HttpRequestMessageTracingStep { get; }
+    SendAsyncStep UserAgentStep { get; }
 }
