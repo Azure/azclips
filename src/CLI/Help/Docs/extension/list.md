@@ -1,5 +1,5 @@
 ---
-summary: List discovered installed Cirrus extensions.
+summary: List discovered installed extensions.
 status: ga
 schema: 1.0.0
 online version:

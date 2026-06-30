@@ -1,5 +1,5 @@
 ---
-summary: Show discovery-backed details of an installed Cirrus extension.
+summary: Show discovery-backed details of an installed extension.
 status: ga
 schema: 1.0.0
 online version:

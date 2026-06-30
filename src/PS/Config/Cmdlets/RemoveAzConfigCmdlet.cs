@@ -5,14 +5,11 @@ using System.Management.Automation;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
 
-[Cmdlet(VerbsCommon.Set, "CirrusConfig", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-public class SetCirrusConfigCmdlet : ConfigCmdletBase
+[Cmdlet(VerbsCommon.Remove, "AzConfig", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
+public class RemoveAzConfigCmdlet : ConfigCmdletBase
 {
     [Parameter(Mandatory = true)]
     public string Key { get; set; } = string.Empty;
-
-    [Parameter(Mandatory = true)]
-    public string Value { get; set; } = string.Empty;
 
     [Parameter(Mandatory = false)]
     public SwitchParameter Force { get; set; }
@@ -20,7 +17,7 @@ public class SetCirrusConfigCmdlet : ConfigCmdletBase
     protected override void ProcessRecord()
     {
 
-        if (!ShouldProcess($"config key '{Key}'", "set"))
+        if (!ShouldProcess($"config key '{Key}'", "delete"))
         {
             return;
         }
@@ -29,11 +26,6 @@ public class SetCirrusConfigCmdlet : ConfigCmdletBase
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Key)))
         {
             parameters.Add("Key", Key);
-        }
-
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Value)))
-        {
-            parameters.Add("Value", Value);
         }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Force)))

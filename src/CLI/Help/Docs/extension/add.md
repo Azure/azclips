@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Install an extension package into the user extension directory from a NuGet feed or a local .nupkg file. Use `--name` for package-based installs or `--path` for local artifacts. After installation, the package is discoverable by subsequent Cirrus commands without any manual registry edits.
+Description: Install an extension package into the user extension directory from a NuGet feed or a local .nupkg file. Use `--name` for package-based installs or `--path` for local artifacts. After installation, the package is discoverable by subsequent `az` commands without any manual registry edits.
 
 ### Install from official feed
 

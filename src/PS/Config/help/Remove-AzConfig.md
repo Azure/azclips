@@ -6,21 +6,21 @@ Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01
-title: Set-CirrusConfig
+title: Remove-AzConfig
 ---
 
-# Set-CirrusConfig
+# Remove-AzConfig
 
 ## SYNOPSIS
 
-Set or update a configuration value.
+Delete a configuration value.
 
 ## SYNTAX
 
 ### \_\_AllParameterSets
 
 ```
-Set-CirrusConfig -Key <string> -Value <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzConfig -Key <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -30,26 +30,26 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Set a configuration value using dot notation keys.
-If the key already exists, it will be updated.
-Unknown keys are rejected unless --force is specified.
+Remove a configuration setting by key.
+Once deleted, the setting reverts to its default value (if one exists).
+Unknown keys are rejected unless -Force is specified.
 
 ## EXAMPLES
 
-### Set output format
+### Delete a configuration value
 
-Update the `output.format` setting to `json` so that subsequent commands emit JSON output by default.
+Remove the `output.format` setting. The configuration will revert to its default value (if one exists).
 
 ```powershell
-Set-CirrusConfig -Key output.format -Value json
+Remove-AzConfig -Key output.format
 ```
 
-### Set custom key with force
+### Force delete
 
-Use `-Force` to set a key that is not in the documented configuration schema.
+Use `-Force` to remove an unknown key that is not part of the documented schema.
 
 ```powershell
-Set-CirrusConfig -Key custom.experimental.flag -Value enabled -Force
+Remove-AzConfig -Key custom.experimental.flag -Force
 ```
 
 ## PARAMETERS
@@ -100,27 +100,6 @@ HelpMessage: ""
 ### -Key
 
 Configuration key in dot notation.
-
-```yaml
-Type: System.String
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -Value
-
-Configuration value.
 
 ```yaml
 Type: System.String
