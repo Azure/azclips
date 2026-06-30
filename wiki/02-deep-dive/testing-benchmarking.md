@@ -1,11 +1,11 @@
 ---
 title: "Testing & Benchmarking"
-description: "Cirrus testing architecture: xUnit test framework, ExtensionDispatcher and Program fallback tests, Coverlet code coverage, BenchmarkDotNet integration with CLI/PS benchmarks, AppInsights export, and Chart.js visualization."
+description: "Azclips testing architecture: xUnit test framework, ExtensionDispatcher and Program fallback tests, Coverlet code coverage, BenchmarkDotNet integration with CLI/PS benchmarks, AppInsights export, and Chart.js visualization."
 ---
 
 # Testing & Benchmarking
 
-Cirrus employs a two-tier quality assurance strategy: **xUnit-based unit and integration tests** for correctness, and **BenchmarkDotNet performance benchmarks** for measuring execution overhead across the CLI and PowerShell surfaces. Both tiers integrate with the CI pipeline and Application Insights for tracking quality over time.
+Azclips employs a two-tier quality assurance strategy: **xUnit-based unit and integration tests** for correctness, and **BenchmarkDotNet performance benchmarks** for measuring execution overhead across the CLI and PowerShell surfaces. Both tiers integrate with the CI pipeline and Application Insights for tracking quality over time.
 
 ## Test Architecture Overview
 
@@ -240,9 +240,9 @@ After running, the pipeline generates charts and optionally exports to Applicati
 
 **`InitializeCommon`** resolves the repo root via `RepoLocator.GetRepoRoot()`, used to locate the staged Release artifacts the benchmarks execute.
 
-**`RegisterBenchmarkStubs`** registers DI overrides for benchmark isolation — a stub HTTP terminate handler (returns `{}` 200 OK) plus stub telemetry and auth services — so benchmarks exercise the local CLI/PS pipeline only and never call Azure. It is re-applied before each iteration because `CirrusServiceProvider.Dispose` clears all registrations.
+**`RegisterBenchmarkStubs`** registers DI overrides for benchmark isolation — a stub HTTP terminate handler (returns `{}` 200 OK) plus stub telemetry and auth services — so benchmarks exercise the local CLI/PS pipeline only and never call Azure. It is re-applied before each iteration because the DI container clears all registrations after each iteration as part of its business logic.
 
-**`CleanupCommon`** disposes the DI container after each iteration.
+**`CleanupCommon`** disposes the DI container after each iteration to ensure a clean state for the next benchmark.
 
 `BenchmarkEventPublisher` (`tests/Benchmark/BenchmarkEventListener.cs`) is a no-op `IEventPublisher` implementation used to avoid telemetry/event overhead during benchmarking.
 
