@@ -20,7 +20,7 @@ public class PsColdStartupBenchmarks : StartupBenchmarkBase
     public void Evict() => StartupEviction.Evict();
 
     [Benchmark(Description = "config")]
-    public void Config() => RunToExit(PsStartInfo(StagedModulePath("Config"), "Get-CirrusConfigList"));
+    public void Config() => RunToExit(PsStartInfo(StagedModulePath("Config"), "Get-AzConfigList"));
 
     [Benchmark(Description = "login")]
     public void Login() => RunToExit(PsStartInfo(StagedModulePath("Login"), "Get-AzAccount"));

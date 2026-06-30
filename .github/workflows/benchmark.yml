@@ -62,7 +62,7 @@ jobs:
       - name: Publish CLI dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus CLI Benchmarks'
+          name: 'Azclips CLI Benchmarks'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -87,7 +87,7 @@ jobs:
       - name: Publish PS dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus PS Benchmarks'
+          name: 'Azclips PS Benchmarks'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -113,7 +113,7 @@ jobs:
       - name: Publish CLI startup dashboard (warm, tracked)
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus CLI Startup (warm)'
+          name: 'Azclips CLI Startup (warm)'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliWarmStartupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -129,7 +129,7 @@ jobs:
       - name: Publish PS startup dashboard (warm, tracked)
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus PS Startup (warm)'
+          name: 'Azclips PS Startup (warm)'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsWarmStartupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -146,7 +146,7 @@ jobs:
         if: ${{ hashFiles('artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus CLI Startup (cold)'
+          name: 'Azclips CLI Startup (cold)'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -162,7 +162,7 @@ jobs:
         if: ${{ hashFiles('artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus PS Startup (cold)'
+          name: 'Azclips PS Startup (cold)'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}

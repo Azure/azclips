@@ -21,16 +21,6 @@ namespace Core.Engine
             return subscriber;
         }
 
-        // Benchmark/test seam. When benchmark.resolveOnly is true — set internally via the
-        // CIRRUS_BENCH_RESOLVE_ONLY=true environment variable and resolved through the configuration
-        // service (BenchmarkOptions) — terminate the process the moment the command processor is
-        // resolved (Events.ProcessorAcquired), before ProcessAsync and before any teardown (DI
-        // container dispose, telemetry flush). A startup benchmark spawning this process then
-        // measures process-create -> ready only, leaving all timing to the external harness
-        // (BenchmarkDotNet). The benchmark.resolveOnly key is deliberately absent from the
-        // configuration schema, so it is hidden from `config info` / `config list` and rejected by
-        // `config set` without --force — internal benchmarking use only. No subscriber is attached
-        // unless it is set, so production behaviour is unchanged.
         private IEventSubscriber SubscribeBenchmark(IEventSubscriber subscriber)
         {
             if (configurationService.GetConfiguration<BenchmarkOptions>().ResolveOnly)
