@@ -22,7 +22,6 @@ public abstract class StartupBenchmarkBase
 
     protected string RepoRoot { get; private set; } = null!;
 
-    /// <summary>Resolve repo root once (RepoLocator scans upward for cirrus.slnx).</summary>
     protected void InitializeCommon() => RepoRoot = RepoLocator.GetRepoRoot();
 
     private string CliPath()
