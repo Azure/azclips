@@ -5,9 +5,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 /// <summary>
 /// Lists managed disks in a resource group. Minimum-viable second-namespace leaf — proves the

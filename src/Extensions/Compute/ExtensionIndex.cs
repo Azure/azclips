@@ -6,7 +6,7 @@
 
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute
+namespace Microsoft.Azure.Azclips.Extensions.Compute
 {
     [ExtensionVerb("vm")]
     [ExtensionVerb("disk")]
@@ -17,8 +17,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewVirtualNetworkProcessor",
             InvocationName: "New-VirtualNetwork",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVirtualNetworkProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVirtualNetworkProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewVirtualNetworkProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -36,8 +36,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewNetworkSecurityGroupProcessor",
             InvocationName: "New-NetworkSecurityGroup",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkSecurityGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkSecurityGroupProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewNetworkSecurityGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -61,8 +61,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewNetworkInterfaceProcessor",
             InvocationName: "New-NetworkInterface",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkInterfaceProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -80,8 +80,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewVMProcessor",
             InvocationName: "New-VM",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVMProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -109,8 +109,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "GetVMProcessor",
             InvocationName: "Get-VM_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.GetVMProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.GetVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -124,8 +124,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "ListVMProcessor",
             InvocationName: "Get-VM_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.ListVMProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.ListVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -138,8 +138,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "DeleteVMProcessor",
             InvocationName: "Remove-VM",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.DeleteVMProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.DeleteVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -153,8 +153,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewNetworkInterfaceProcessor_Orchestrator",
             InvocationName: "New-NetworkInterfaceOrchestrator",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -183,8 +183,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewVMOrchestrator",
             InvocationName: "New-VM",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -218,8 +218,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewVirtualNetworkProcessor",
             InvocationName: "vm vnet create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVirtualNetworkProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVirtualNetworkProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewVirtualNetworkProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -237,8 +237,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewNetworkSecurityGroupProcessor",
             InvocationName: "vm nsg create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkSecurityGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkSecurityGroupProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewNetworkSecurityGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -262,8 +262,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewNetworkInterfaceProcessor",
             InvocationName: "vm nic create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkInterfaceProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -281,8 +281,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewVMProcessor",
             InvocationName: "vm create-basic",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVMProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -310,8 +310,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "GetVMProcessor",
             InvocationName: "vm show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.GetVMProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.GetVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -325,8 +325,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "ListVMProcessor",
             InvocationName: "vm list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.ListVMProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.ListVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -339,8 +339,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "DeleteVMProcessor",
             InvocationName: "vm delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.DeleteVMProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.DeleteVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -356,8 +356,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "ListDiskProcessor",
             InvocationName: "disk list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.ListDiskProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListDiskProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.ListDiskProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -370,8 +370,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewNetworkInterfaceProcessor_Orchestrator",
             InvocationName: "vm nic create-orchestrated",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -400,8 +400,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             Name: "NewVMProcessor_Orchestrator",
             InvocationName: "vm create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(Processors.NewVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {

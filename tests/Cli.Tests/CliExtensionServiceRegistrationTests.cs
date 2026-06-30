@@ -55,13 +55,13 @@ public sealed class CliExtensionServiceRegistrationTests
             InvocationName: "vm create",
             Aliases: [],
             FullName: "vm create",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
             ProcessorType: typeof(object),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>());
 
         var info = new DiscoveredExtensionInfo(
-            PackageId: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            PackageId: "Microsoft.Azure.Azclips.Extensions.Compute",
             ResolvedVersion: "1.0.0",
             Verbs: ["vm"],
             Commands: new Dictionary<string, CommandMetadata>

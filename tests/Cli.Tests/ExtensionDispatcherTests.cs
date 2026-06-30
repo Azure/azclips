@@ -169,7 +169,7 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldRouteLeaf_ByLongestPrefixMatch()
     {
         var dispatcher = CreateLeafDispatcher(
-            ("vm", "create", "Microsoft.Azure.Cirrus.Extensions.Compute", false));
+            ("vm", "create", "Microsoft.Azure.Azclips.Extensions.Compute", false));
 
         var invocation = dispatcher.Parse(["vm", "create", "--name", "foo"]);
 
@@ -306,7 +306,7 @@ public class ExtensionDispatcherTests
     {
         // Locks down the parser side of the contract: tokens past the verb cause IsCommandHelp=true.
         var dispatcher = CreateLeafDispatcher(
-            ("deployment", "group create", "Microsoft.Azure.Cirrus.Extensions.Resources", false));
+            ("deployment", "group create", "Microsoft.Azure.Azclips.Extensions.Resources", false));
 
         var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["deployment", "group", "--help"]));
 

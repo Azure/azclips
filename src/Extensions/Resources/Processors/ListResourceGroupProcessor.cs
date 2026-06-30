@@ -4,10 +4,10 @@
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     /// <summary>
     /// Lists resource groups in a subscription. ARM list endpoints return an envelope

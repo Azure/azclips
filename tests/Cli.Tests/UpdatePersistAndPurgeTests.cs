@@ -15,7 +15,7 @@ namespace Cli.Tests;
 /// </summary>
 public class UpdatePersistAndPurgeTests
 {
-    private const string PackageId = "Microsoft.Azure.Cirrus.Extensions.Resources";
+    private const string PackageId = "Microsoft.Azure.Azclips.Extensions.Resources";
 
     private sealed class ThrowingStore : IExtensionRegistryStore
     {

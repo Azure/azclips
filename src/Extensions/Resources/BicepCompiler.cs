@@ -5,7 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources
+namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
     /// <summary>
     /// Thin wrapper over the Bicep CLI used to compile local <c>.bicep</c> templates and

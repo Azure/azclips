@@ -3,10 +3,10 @@
 
 using System.Net.Http.Json;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     /// <summary>
     /// Atomic processor: runs an ARM what-if at the resource group scope

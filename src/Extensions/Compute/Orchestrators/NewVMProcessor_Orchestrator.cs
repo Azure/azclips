@@ -3,9 +3,9 @@
 
 using System.Net.Http.Json;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
     public class NewVMProcessor_Orchestrator : ComputeProcessorBase<VirtualMachine>
     {

@@ -89,7 +89,7 @@ foreach ($ext in $builtins) {
     Write-Host "PASS: Extensions/$ext present"
 }
 
-$resNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'Microsoft.Azure.Cirrus.Extensions.Resources*.nupkg' | Select-Object -First 1
+$resNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'Microsoft.Azure.Azclips.Extensions.Resources*.nupkg' | Select-Object -First 1
 
 if (-not $resNupkg) { throw 'FAIL: Resources nupkg not found.' }
 
