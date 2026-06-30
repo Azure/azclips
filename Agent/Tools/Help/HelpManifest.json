@@ -959,7 +959,7 @@
         },
         {
           "cliName": "json",
-          "psName": "Json",
+          "psName": "AsJson",
           "type": "bool",
           "required": false,
           "description": "Output as JSON."
@@ -1103,7 +1103,7 @@
         },
         {
           "cliName": "json",
-          "psName": "Json",
+          "psName": "AsJson",
           "type": "bool",
           "required": false,
           "description": "Output as JSON."

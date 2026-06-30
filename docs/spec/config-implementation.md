@@ -261,7 +261,7 @@ Add config cmdlets:
 - Set-AzConfig
 - Remove-AzConfig
 - Get-AzConfigList
-- Get-AzConfigInfo (hidden)
+- Get-AzConfigInfo
 
 Cmdlet behavior:
 
