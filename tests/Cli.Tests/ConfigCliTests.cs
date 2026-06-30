@@ -433,11 +433,11 @@ public class ConfigCliTests
 
         var expectedCmdlets = new[]
         {
-            "Get-CirrusConfig",
-            "Set-CirrusConfig",
-            "Remove-CirrusConfig",
-            "Get-CirrusConfigList",
-            "Get-CirrusConfigInfo"
+            "Get-AzConfig",
+            "Set-AzConfig",
+            "Remove-AzConfig",
+            "Get-AzConfigList",
+            "Get-AzConfigInfo"
         };
 
         foreach (var cmdlet in expectedCmdlets)
@@ -475,11 +475,11 @@ public class ConfigCliTests
         Assert.Contains("Microsoft.Azure.Cirrus.Extensions.Config.dll", manifestContent);
 
         // Verify cmdlets are exported
-        Assert.Contains("Get-CirrusConfig", manifestContent);
-        Assert.Contains("Set-CirrusConfig", manifestContent);
-        Assert.Contains("Remove-CirrusConfig", manifestContent);
-        Assert.Contains("Get-CirrusConfigList", manifestContent);
-        Assert.Contains("Get-CirrusConfigInfo", manifestContent);
+        Assert.Contains("Get-AzConfig", manifestContent);
+        Assert.Contains("Set-AzConfig", manifestContent);
+        Assert.Contains("Remove-AzConfig", manifestContent);
+        Assert.Contains("Get-AzConfigList", manifestContent);
+        Assert.Contains("Get-AzConfigInfo", manifestContent);
     }
 
     [Fact]
@@ -487,10 +487,10 @@ public class ConfigCliTests
     {
         var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
 
-        var getMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfig", ClientType.PowerShell);
+        var getMetadata = extensionIndex.GetCommandMetadata("Get-AzConfig", ClientType.PowerShell);
         Assert.Contains("Json", getMetadata.Parameters.Keys);
 
-        var listMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfigList", ClientType.PowerShell);
+        var listMetadata = extensionIndex.GetCommandMetadata("Get-AzConfigList", ClientType.PowerShell);
         Assert.Contains("All", listMetadata.Parameters.Keys);
         Assert.Contains("Json", listMetadata.Parameters.Keys);
     }

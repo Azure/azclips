@@ -257,11 +257,11 @@ Command behavior:
 
 Add config cmdlets:
 
-- Get-CirrusConfig
-- Set-CirrusConfig
-- Remove-CirrusConfig
-- Get-CirrusConfigList
-- Get-CirrusConfigInfo (hidden)
+- Get-AzConfig
+- Set-AzConfig
+- Remove-AzConfig
+- Get-AzConfigList
+- Get-AzConfigInfo (hidden)
 
 Cmdlet behavior:
 
@@ -278,12 +278,12 @@ Cmdlet behavior:
 
 **Key Implementation Details:**
 
-1. **Separate Dispatch Tables:** PS commands registered by cmdlet name (Get-CirrusConfig), CLI by lowercase (get). ExtensionIndex has both s_psTable and s_cliTable; GetCommandMetadata(name, ClientType) dispatches correctly.
+1. **Separate Dispatch Tables:** PS commands registered by cmdlet name (Get-AzConfig), CLI by lowercase (get). ExtensionIndex has both s_psTable and s_cliTable; GetCommandMetadata(name, ClientType) dispatches correctly.
 2. **Module Manifests:**
     - GUID must be valid hex only (0-9, a-f); invalid chars cause import failure
     - RequiredAssemblies path: `../../../artifacts/Debug/Core/` for Core DLLs and Microsoft.Extensions.\* dlls
 3. **Parameter Mapping:** PS uses PascalCase (-AsJson, -IncludeDefaults), cmdlet function maps to CLI command names before calling engine
-4. **ShouldProcess:** Set-CirrusConfig and Remove-CirrusConfig use standard PowerShell ShouldProcess/Confirm semantics
+4. **ShouldProcess:** Set-AzConfig and Remove-AzConfig use standard PowerShell ShouldProcess/Confirm semantics
 5. **Module Initialization:** Config.psm1 initializes DI container and loads all exported functions from exports/ folder
 
 **Tests Passing:**

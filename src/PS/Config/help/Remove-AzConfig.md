@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01
-title: Remove-CirrusConfig
+title: Remove-AzConfig
 ---
 
-# Remove-CirrusConfig
+# Remove-AzConfig
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Delete a configuration value.
 ### \_\_AllParameterSets
 
 ```
-Remove-CirrusConfig -Key <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzConfig -Key <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -41,7 +41,7 @@ Unknown keys are rejected unless --force is specified.
 Remove the `output.format` setting. The configuration will revert to its default value (if one exists).
 
 ```powershell
-Remove-CirrusConfig -Key output.format
+Remove-AzConfig -Key output.format
 ```
 
 ### Force delete
@@ -49,7 +49,7 @@ Remove-CirrusConfig -Key output.format
 Use `-Force` to remove an unknown key that is not part of the documented schema.
 
 ```powershell
-Remove-CirrusConfig -Key custom.experimental.flag -Force
+Remove-AzConfig -Key custom.experimental.flag -Force
 ```
 
 ## PARAMETERS

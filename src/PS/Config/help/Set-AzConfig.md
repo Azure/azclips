@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01
-title: Set-CirrusConfig
+title: Set-AzConfig
 ---
 
-# Set-CirrusConfig
+# Set-AzConfig
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Set or update a configuration value.
 ### \_\_AllParameterSets
 
 ```
-Set-CirrusConfig -Key <string> -Value <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
+Set-AzConfig -Key <string> -Value <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -41,7 +41,7 @@ Unknown keys are rejected unless --force is specified.
 Update the `output.format` setting to `json` so that subsequent commands emit JSON output by default.
 
 ```powershell
-Set-CirrusConfig -Key output.format -Value json
+Set-AzConfig -Key output.format -Value json
 ```
 
 ### Set custom key with force
@@ -49,7 +49,7 @@ Set-CirrusConfig -Key output.format -Value json
 Use `-Force` to set a key that is not in the documented configuration schema.
 
 ```powershell
-Set-CirrusConfig -Key custom.experimental.flag -Value enabled -Force
+Set-AzConfig -Key custom.experimental.flag -Value enabled -Force
 ```
 
 ## PARAMETERS

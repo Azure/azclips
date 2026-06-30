@@ -2,6 +2,10 @@
 
 @NOTE: Delete before merge
 
+## Tracking PR
+
+- Future working PR: Clips 432 update module naming (PR #334)
+
 ## Goal
 
 Prepare a PR similar in shape to PR #319 for the owned surfaces in Config, Extension, and the help system, with explicit tracking for every place where command names, help content, or agent help artifacts may need to change.
@@ -76,6 +80,19 @@ Follow-up requirement:
 - Should this PR include automation for syncing agent help artifacts, or should that land as a separate follow-up?
 - Is `Agent/Tools/Help/HelpManifest.json` subject to the same manual-maintenance problem and therefore part of the same fix?
 - Does the agent snapshot intentionally lag the full CLI help corpus, or is that just current drift?
+
+## Agent Help Artifact Automation Approach (TBD)
+
+- Goal: eliminate manual updates to `Agent/Tools/Help/HelpIndex.json` and `Agent/Tools/Help/HelpManifest.json`.
+- Constraint: keep current agent runtime behavior stable while introducing an automated sync/generation path.
+- Candidate directions to evaluate:
+    - Generate directly into `Agent/Tools/Help/` as a deterministic build/update step.
+    - Generate to `artifacts/help/` and add a single explicit sync command/script that updates agent files.
+    - Replace static checked-in files with a runtime/provider-backed source if startup/runtime constraints allow.
+- Decision output needed:
+    - Selected approach.
+    - Owning script/target/command.
+    - CI enforcement so drift fails fast.
 
 ## Validation Ideas
 

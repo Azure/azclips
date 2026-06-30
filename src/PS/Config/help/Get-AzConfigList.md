@@ -6,21 +6,21 @@ Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01
-title: Get-CirrusConfig
+title: Get-AzConfigList
 ---
 
-# Get-CirrusConfig
+# Get-AzConfigList
 
 ## SYNOPSIS
 
-Retrieve a configuration value.
+List all configuration settings.
 
 ## SYNTAX
 
 ### \_\_AllParameterSets
 
 ```
-Get-CirrusConfig -Key <string> [-AsJson] [<CommonParameters>]
+Get-AzConfigList [-IncludeDefaults] [-AsJson] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -30,33 +30,42 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Get the current value of a configuration setting by key.
-Configuration keys use dot notation (e.g., output.format, core.debug).
-If the key is not found, an error is displayed.
+Display all current configuration values.
+By default, only explicitly-set values are shown.
+Use --all to include default values.
+Output can be formatted as JSON for scripting.
 
 ## EXAMPLES
 
-### Get a configuration value
+### List all configuration
 
-Return the current value of the `output.format` configuration setting.
+Display every explicitly-set configuration value.
 
 ```powershell
-Get-CirrusConfig -Key output.format
+Get-AzConfigList
 ```
 
-### Get output as JSON
+### List with defaults
 
-Return the value formatted as JSON instead of plain text. Useful for piping into `ConvertFrom-Json` in scripts.
+Include default values for keys that have not been explicitly set.
 
 ```powershell
-Get-CirrusConfig -Key output.format -AsJson
+Get-AzConfigList -IncludeDefaults
+```
+
+### List as JSON
+
+Format the output as JSON for downstream scripting.
+
+```powershell
+Get-AzConfigList -AsJson
 ```
 
 ## PARAMETERS
 
 ### -AsJson
 
-Return the configuration value as a JSON string instead of the default plain text. Useful when piping into `ConvertFrom-Json` or capturing structured output for downstream scripts.
+Return the configuration list as a JSON document instead of the default plain text. Useful when piping into `ConvertFrom-Json` or capturing structured output for downstream scripts.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -75,19 +84,19 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -Key
+### -IncludeDefaults
 
-Configuration key in dot notation.
+Include keys that have not been explicitly set, showing their built-in default values. Without this switch only keys with user-assigned values are listed.
 
 ```yaml
-Type: System.String
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
     - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
