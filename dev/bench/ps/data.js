@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782779236232,
+  "lastUpdate": 1782782800778,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1680,6 +1680,48 @@ window.BENCHMARK_DATA = {
             "value": 5769104.825451222,
             "unit": "ns",
             "range": "± 97082.52901775466"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "809e425b209e82d6bd6ca7c7a48564ea1cc6ab5b",
+          "message": "[Benchmark] Remove API benchmark references in documentation and charts (#332)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-30T11:18:50+10:00",
+          "tree_id": "c3b9d1d261c4786565523432157eeaab58c79ccb",
+          "url": "https://github.com/Azure/azclips/commit/809e425b209e82d6bd6ca7c7a48564ea1cc6ab5b"
+        },
+        "date": 1782782800727,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5768917.414659208,
+            "unit": "ns",
+            "range": "± 103018.75561142455"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5730289.860886408,
+            "unit": "ns",
+            "range": "± 104343.97113357892"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5731374.405719494,
+            "unit": "ns",
+            "range": "± 101334.37069614763"
           }
         ]
       }
