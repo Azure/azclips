@@ -10,18 +10,48 @@
       "summary": "Authenticate to Azure and set the current account context.",
       "description": "Authenticate to Azure and persist account context for subsequent commands.",
       "parameters": [
-        { "cliName": "subscription-id", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "tenant-id", "psName": "TenantId", "type": "string", "required": false, "description": "Tenant ID to login to." },
-        { "cliName": "use-device-code", "psName": "UseDeviceCode", "type": "bool", "required": false, "description": "Use device code flow for authentication." }
+        {
+          "cliName": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "tenant-id",
+          "psName": "TenantId",
+          "type": "string",
+          "required": false,
+          "description": "Tenant ID to login to."
+        },
+        {
+          "cliName": "use-device-code",
+          "psName": "UseDeviceCode",
+          "type": "bool",
+          "required": false,
+          "description": "Use device code flow for authentication."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Login with subscription id", "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000" },
-          { "title": "Login with device code", "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code" }
+          {
+            "title": "Login with subscription id",
+            "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "Login with device code",
+            "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
+          }
         ],
         "powerShell": [
-          { "title": "Login with subscription id", "command": "Connect-AzAccount -SubscriptionId 00000000-0000-0000-0000-000000000000" },
-          { "title": "Login with device code", "command": "Connect-AzAccount -SubscriptionId 00000000-0000-0000-0000-000000000000 -UseDeviceCode" }
+          {
+            "title": "Login with subscription id",
+            "command": "Connect-AzAccount -SubscriptionId 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "Login with device code",
+            "command": "Connect-AzAccount -SubscriptionId 00000000-0000-0000-0000-000000000000 -UseDeviceCode"
+          }
         ]
       }
     },
@@ -35,8 +65,10 @@
       "description": "Sign out from the current Azure account context.",
       "parameters": [],
       "examples": {
-        "cli": [ { "title": "Sign out", "command": "az login logout" } ],
-        "powerShell": [ { "title": "Sign out", "command": "Disconnect-AzAccount" } ]
+        "cli": [{ "title": "Sign out", "command": "az login logout" }],
+        "powerShell": [
+          { "title": "Sign out", "command": "Disconnect-AzAccount" }
+        ]
       }
     },
     {
@@ -49,8 +81,12 @@
       "description": "Show the current Azure account context.",
       "parameters": [],
       "examples": {
-        "cli": [ { "title": "Show current account", "command": "az login show" } ],
-        "powerShell": [ { "title": "Show current account", "command": "Get-AzAccount" } ]
+        "cli": [
+          { "title": "Show current account", "command": "az login show" }
+        ],
+        "powerShell": [
+          { "title": "Show current account", "command": "Get-AzAccount" }
+        ]
       }
     },
 
@@ -63,18 +99,51 @@
       "summary": "Create a new resource group.",
       "description": "Provision a new resource group in your Azure subscription. Specify the resource group name, location (region), and subscription ID. An optional resource ID can be provided for advanced scenarios.",
       "parameters": [
-        { "cliName": "subscription-id", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "name", "psName": "Name", "type": "string", "required": true, "description": "The name of the resource group." },
-        { "cliName": "location", "psName": "Location", "type": "string", "required": true, "description": "Location for the resource group." },
-        { "cliName": "resource-id", "psName": "ResourceId", "type": "string", "required": false, "description": "The resource id of the resource group." }
+        {
+          "cliName": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "name",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The name of the resource group."
+        },
+        {
+          "cliName": "location",
+          "psName": "Location",
+          "type": "string",
+          "required": true,
+          "description": "Location for the resource group."
+        },
+        {
+          "cliName": "resource-id",
+          "psName": "ResourceId",
+          "type": "string",
+          "required": false,
+          "description": "The resource id of the resource group."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Create in East US", "command": "az group create --name myresourcegroup --location eastus --subscription-id 00000000-0000-0000-0000-000000000000" },
-          { "title": "Create with explicit resource id", "command": "az group create --name myrg --location westus --resource-id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
+          {
+            "title": "Create in East US",
+            "command": "az group create --name myresourcegroup --location eastus --subscription-id 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "Create with explicit resource id",
+            "command": "az group create --name myrg --location westus --resource-id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+          }
         ],
         "powerShell": [
-          { "title": "Create a resource group", "command": "New-ResourceGroup -Name \"myresourcegroup\" -Location \"eastus\" -SubscriptionId \"00000000-0000-0000-0000-000000000000\"" }
+          {
+            "title": "Create a resource group",
+            "command": "New-ResourceGroup -Name \"myresourcegroup\" -Location \"eastus\" -SubscriptionId \"00000000-0000-0000-0000-000000000000\""
+          }
         ]
       }
     },
@@ -87,16 +156,34 @@
       "summary": "List all resource groups in a subscription.",
       "description": "Retrieve a list of all resource groups in the specified Azure subscription. If no subscription ID is provided, the default subscription from the current login context is used.",
       "parameters": [
-        { "cliName": "subscription-id", "psName": "SubscriptionId", "type": "string", "required": false, "description": "Azure Subscription Id. Defaults to current login context." }
+        {
+          "cliName": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": false,
+          "description": "Azure Subscription Id. Defaults to current login context."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "List with explicit subscription", "command": "az group list --subscription-id 00000000-0000-0000-0000-000000000000" },
-          { "title": "List using default subscription", "command": "az group list" }
+          {
+            "title": "List with explicit subscription",
+            "command": "az group list --subscription-id 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "List using default subscription",
+            "command": "az group list"
+          }
         ],
         "powerShell": [
-          { "title": "List with explicit subscription", "command": "Get-ResourceGroup_List -SubscriptionId \"00000000-0000-0000-0000-000000000000\"" },
-          { "title": "List using default subscription", "command": "Get-ResourceGroup_List" }
+          {
+            "title": "List with explicit subscription",
+            "command": "Get-ResourceGroup_List -SubscriptionId \"00000000-0000-0000-0000-000000000000\""
+          },
+          {
+            "title": "List using default subscription",
+            "command": "Get-ResourceGroup_List"
+          }
         ]
       }
     },
@@ -109,16 +196,37 @@
       "summary": "Show details of a specific resource group.",
       "description": "Display information about a resource group including its name, location, provisioning state, and resource count.",
       "parameters": [
-        { "cliName": "subscription-id", "psName": "SubscriptionId", "type": "string", "required": false, "description": "Azure Subscription Id. Defaults to current login context." },
-        { "cliName": "name", "psName": "Name", "type": "string", "required": false, "description": "The name of the resource group." }
+        {
+          "cliName": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": false,
+          "description": "Azure Subscription Id. Defaults to current login context."
+        },
+        {
+          "cliName": "name",
+          "psName": "Name",
+          "type": "string",
+          "required": false,
+          "description": "The name of the resource group."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Show with explicit subscription", "command": "az group show --name myresourcegroup --subscription-id 00000000-0000-0000-0000-000000000000" },
-          { "title": "Show using default subscription", "command": "az group show --name myresourcegroup" }
+          {
+            "title": "Show with explicit subscription",
+            "command": "az group show --name myresourcegroup --subscription-id 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "Show using default subscription",
+            "command": "az group show --name myresourcegroup"
+          }
         ],
         "powerShell": [
-          { "title": "Show a resource group", "command": "Get-ResourceGroup_Get -Name \"myresourcegroup\" -SubscriptionId \"00000000-0000-0000-0000-000000000000\"" }
+          {
+            "title": "Show a resource group",
+            "command": "Get-ResourceGroup_Get -Name \"myresourcegroup\" -SubscriptionId \"00000000-0000-0000-0000-000000000000\""
+          }
         ]
       }
     },
@@ -132,36 +240,177 @@
       "summary": "Create a VM with the full networking stack (VNet + NSG + NIC + VM) in one call.",
       "description": "Provisions the full networking + VM stack as one operation. Creates a virtual network, network security group, network interface, and virtual machine using the supplied names and parameters.",
       "parameters": [
-        { "cliName": "subscription-id", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "name", "psName": "Name", "type": "string", "required": true, "description": "The name of the virtual machine." },
-        { "cliName": "location", "psName": "Location", "type": "string", "required": true, "description": "Location for all resources." },
-        { "cliName": "resource-group", "psName": "ResourceGroupName", "type": "string", "required": true, "description": "The resource group name." },
-        { "cliName": "vm-size", "psName": "VmSize", "type": "string", "required": true, "description": "The size of the virtual machine." },
-        { "cliName": "admin-username", "psName": "AdminUsername", "type": "string", "required": true, "description": "The administrator username." },
-        { "cliName": "admin-password", "psName": "AdminPassword", "type": "string", "required": true, "description": "The administrator password." },
-        { "cliName": "network-interface-name", "psName": "NetworkInterfaceName", "type": "string", "required": true, "description": "The network interface name to create." },
-        { "cliName": "virtual-network-name", "psName": "VirtualNetworkName", "type": "string", "required": true, "description": "The virtual network name to create." },
-        { "cliName": "network-security-group-name", "psName": "NetworkSecurityGroupName", "type": "string", "required": true, "description": "The network security group name to create." },
-        { "cliName": "subnet-names", "psName": "SubnetNames", "type": "list<string>", "required": false, "description": "Names of the subnets." },
-        { "cliName": "subnet-address-prefixes", "psName": "SubnetAddressPrefixes", "type": "list<list<string>>", "required": false, "description": "Address prefixes for each subnet." },
-        { "cliName": "address-prefixes", "psName": "AddressPrefixes", "type": "list<string>", "required": false, "description": "Address prefixes for the virtual network." },
-        { "cliName": "rule-names", "psName": "RuleNames", "type": "list<string>", "required": false, "description": "Names of the security rules." },
-        { "cliName": "rule-directions", "psName": "RuleDirections", "type": "list<string>", "required": false, "description": "Directions of the security rules." },
-        { "cliName": "rule-protocols", "psName": "RuleProtocols", "type": "list<string>", "required": false, "description": "Protocols of the security rules." },
-        { "cliName": "rule-priorities", "psName": "RulePriorities", "type": "list<int>", "required": false, "description": "Priorities of the security rules." },
-        { "cliName": "rule-source-address-prefixes", "psName": "RuleSourceAddressPrefixes", "type": "list<string>", "required": false, "description": "Source address prefixes of the security rules." },
-        { "cliName": "rule-source-port-ranges", "psName": "RuleSourcePortRanges", "type": "list<string>", "required": false, "description": "Source port ranges of the security rules." },
-        { "cliName": "rule-destination-port-ranges", "psName": "RuleDestinationPortRanges", "type": "list<string>", "required": false, "description": "Destination port ranges of the security rules." },
-        { "cliName": "rule-destination-address-prefixes", "psName": "RuleDestinationAddressPrefixes", "type": "list<string>", "required": false, "description": "Destination address prefixes of the security rules." },
-        { "cliName": "rule-accesses", "psName": "RuleAccesses", "type": "list<string>", "required": false, "description": "Access types (Allow/Deny) of the security rules." }
+        {
+          "cliName": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "name",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The name of the virtual machine."
+        },
+        {
+          "cliName": "location",
+          "psName": "Location",
+          "type": "string",
+          "required": true,
+          "description": "Location for all resources."
+        },
+        {
+          "cliName": "resource-group",
+          "psName": "ResourceGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The resource group name."
+        },
+        {
+          "cliName": "vm-size",
+          "psName": "VmSize",
+          "type": "string",
+          "required": true,
+          "description": "The size of the virtual machine."
+        },
+        {
+          "cliName": "admin-username",
+          "psName": "AdminUsername",
+          "type": "string",
+          "required": true,
+          "description": "The administrator username."
+        },
+        {
+          "cliName": "admin-password",
+          "psName": "AdminPassword",
+          "type": "string",
+          "required": true,
+          "description": "The administrator password."
+        },
+        {
+          "cliName": "network-interface-name",
+          "psName": "NetworkInterfaceName",
+          "type": "string",
+          "required": true,
+          "description": "The network interface name to create."
+        },
+        {
+          "cliName": "virtual-network-name",
+          "psName": "VirtualNetworkName",
+          "type": "string",
+          "required": true,
+          "description": "The virtual network name to create."
+        },
+        {
+          "cliName": "network-security-group-name",
+          "psName": "NetworkSecurityGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The network security group name to create."
+        },
+        {
+          "cliName": "subnet-names",
+          "psName": "SubnetNames",
+          "type": "list<string>",
+          "required": false,
+          "description": "Names of the subnets."
+        },
+        {
+          "cliName": "subnet-address-prefixes",
+          "psName": "SubnetAddressPrefixes",
+          "type": "list<list<string>>",
+          "required": false,
+          "description": "Address prefixes for each subnet."
+        },
+        {
+          "cliName": "address-prefixes",
+          "psName": "AddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Address prefixes for the virtual network."
+        },
+        {
+          "cliName": "rule-names",
+          "psName": "RuleNames",
+          "type": "list<string>",
+          "required": false,
+          "description": "Names of the security rules."
+        },
+        {
+          "cliName": "rule-directions",
+          "psName": "RuleDirections",
+          "type": "list<string>",
+          "required": false,
+          "description": "Directions of the security rules."
+        },
+        {
+          "cliName": "rule-protocols",
+          "psName": "RuleProtocols",
+          "type": "list<string>",
+          "required": false,
+          "description": "Protocols of the security rules."
+        },
+        {
+          "cliName": "rule-priorities",
+          "psName": "RulePriorities",
+          "type": "list<int>",
+          "required": false,
+          "description": "Priorities of the security rules."
+        },
+        {
+          "cliName": "rule-source-address-prefixes",
+          "psName": "RuleSourceAddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Source address prefixes of the security rules."
+        },
+        {
+          "cliName": "rule-source-port-ranges",
+          "psName": "RuleSourcePortRanges",
+          "type": "list<string>",
+          "required": false,
+          "description": "Source port ranges of the security rules."
+        },
+        {
+          "cliName": "rule-destination-port-ranges",
+          "psName": "RuleDestinationPortRanges",
+          "type": "list<string>",
+          "required": false,
+          "description": "Destination port ranges of the security rules."
+        },
+        {
+          "cliName": "rule-destination-address-prefixes",
+          "psName": "RuleDestinationAddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Destination address prefixes of the security rules."
+        },
+        {
+          "cliName": "rule-accesses",
+          "psName": "RuleAccesses",
+          "type": "list<string>",
+          "required": false,
+          "description": "Access types (Allow/Deny) of the security rules."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Create VM with combined networking", "command": "az vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000 --vm-size Standard_D2s_v3 --admin-username azureuser --admin-password <password> --network-interface-name mynic --virtual-network-name myvnet --network-security-group-name mynsg" },
-          { "title": "Create with explicit subnet and address prefixes", "command": "az vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000 --vm-size Standard_D2s_v3 --admin-username azureuser --admin-password <password> --network-interface-name mynic --virtual-network-name myvnet --network-security-group-name mynsg --subnet-names default --address-prefixes 10.0.0.0/16" }
+          {
+            "title": "Create VM with combined networking",
+            "command": "az vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000 --vm-size Standard_D2s_v3 --admin-username azureuser --admin-password <password> --network-interface-name mynic --virtual-network-name myvnet --network-security-group-name mynsg"
+          },
+          {
+            "title": "Create with explicit subnet and address prefixes",
+            "command": "az vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000 --vm-size Standard_D2s_v3 --admin-username azureuser --admin-password <password> --network-interface-name mynic --virtual-network-name myvnet --network-security-group-name mynsg --subnet-names default --address-prefixes 10.0.0.0/16"
+          }
         ],
         "powerShell": [
-          { "title": "Create VM with combined networking", "command": "New-VM -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -Location \"eastus\" -ResourceGroupName \"myrg\" -VmSize \"Standard_D2s_v3\" -AdminUsername \"azureuser\" -AdminPassword \"<password>\" -NetworkInterfaceName \"mynic\" -VirtualNetworkName \"myvnet\" -NetworkSecurityGroupName \"mynsg\"" }
+          {
+            "title": "Create VM with combined networking",
+            "command": "New-VM -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -Location \"eastus\" -ResourceGroupName \"myrg\" -VmSize \"Standard_D2s_v3\" -AdminUsername \"azureuser\" -AdminPassword \"<password>\" -NetworkInterfaceName \"mynic\" -VirtualNetworkName \"myvnet\" -NetworkSecurityGroupName \"mynsg\""
+          }
         ]
       }
     },
@@ -174,16 +423,40 @@
       "summary": "Show details of a specific virtual machine.",
       "description": "Retrieve details of a virtual machine by name in a resource group.",
       "parameters": [
-        { "cliName": "subscription-id", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "name", "psName": "Name", "type": "string", "required": true, "description": "The name of the virtual machine." },
-        { "cliName": "resource-group", "psName": "ResourceGroupName", "type": "string", "required": true, "description": "The resource group name." }
+        {
+          "cliName": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "name",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The name of the virtual machine."
+        },
+        {
+          "cliName": "resource-group",
+          "psName": "ResourceGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The resource group name."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Show a VM", "command": "az vm show --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
+          {
+            "title": "Show a VM",
+            "command": "az vm show --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+          }
         ],
         "powerShell": [
-          { "title": "Show a VM", "command": "Get-VM_Get -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -ResourceGroupName \"myrg\"" }
+          {
+            "title": "Show a VM",
+            "command": "Get-VM_Get -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -ResourceGroupName \"myrg\""
+          }
         ]
       }
     },
@@ -196,15 +469,33 @@
       "summary": "List virtual machines in a resource group.",
       "description": "List all virtual machines in the specified resource group.",
       "parameters": [
-        { "cliName": "subscription-id", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "resource-group", "psName": "ResourceGroupName", "type": "string", "required": true, "description": "The resource group name." }
+        {
+          "cliName": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "resource-group",
+          "psName": "ResourceGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The resource group name."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "List VMs in a resource group", "command": "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
+          {
+            "title": "List VMs in a resource group",
+            "command": "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+          }
         ],
         "powerShell": [
-          { "title": "List VMs in a resource group", "command": "Get-VM_List -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -ResourceGroupName \"myrg\"" }
+          {
+            "title": "List VMs in a resource group",
+            "command": "Get-VM_List -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -ResourceGroupName \"myrg\""
+          }
         ]
       }
     },
@@ -217,16 +508,40 @@
       "summary": "Delete a virtual machine.",
       "description": "Delete a virtual machine by name in a resource group.",
       "parameters": [
-        { "cliName": "subscription-id", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "name", "psName": "Name", "type": "string", "required": true, "description": "The name of the virtual machine." },
-        { "cliName": "resource-group", "psName": "ResourceGroupName", "type": "string", "required": true, "description": "The resource group name." }
+        {
+          "cliName": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "name",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The name of the virtual machine."
+        },
+        {
+          "cliName": "resource-group",
+          "psName": "ResourceGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The resource group name."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Delete a VM", "command": "az vm delete --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
+          {
+            "title": "Delete a VM",
+            "command": "az vm delete --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+          }
         ],
         "powerShell": [
-          { "title": "Delete a VM", "command": "Remove-VM -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -ResourceGroupName \"myrg\"" }
+          {
+            "title": "Delete a VM",
+            "command": "Remove-VM -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -ResourceGroupName \"myrg\""
+          }
         ]
       }
     },
@@ -239,18 +554,63 @@
       "summary": "Create a virtual network (PowerShell only).",
       "description": "Create an Azure virtual network with optional subnets and address prefixes. PowerShell only — no CLI verb.",
       "parameters": [
-        { "cliName": "", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "", "psName": "Name", "type": "string", "required": true, "description": "The name of the virtual network." },
-        { "cliName": "", "psName": "Location", "type": "string", "required": true, "description": "Location for the virtual network." },
-        { "cliName": "", "psName": "ResourceGroupName", "type": "string", "required": true, "description": "The resource group name." },
-        { "cliName": "", "psName": "SubnetNames", "type": "list<string>", "required": false, "description": "Names of the subnets." },
-        { "cliName": "", "psName": "SubnetAddressPrefixes", "type": "list<list<string>>", "required": false, "description": "Address prefixes for each subnet." },
-        { "cliName": "", "psName": "AddressPrefixes", "type": "list<string>", "required": false, "description": "Address prefixes for the virtual network." }
+        {
+          "cliName": "",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The name of the virtual network."
+        },
+        {
+          "cliName": "",
+          "psName": "Location",
+          "type": "string",
+          "required": true,
+          "description": "Location for the virtual network."
+        },
+        {
+          "cliName": "",
+          "psName": "ResourceGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The resource group name."
+        },
+        {
+          "cliName": "",
+          "psName": "SubnetNames",
+          "type": "list<string>",
+          "required": false,
+          "description": "Names of the subnets."
+        },
+        {
+          "cliName": "",
+          "psName": "SubnetAddressPrefixes",
+          "type": "list<list<string>>",
+          "required": false,
+          "description": "Address prefixes for each subnet."
+        },
+        {
+          "cliName": "",
+          "psName": "AddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Address prefixes for the virtual network."
+        }
       ],
       "examples": {
         "cli": [],
         "powerShell": [
-          { "title": "Create a virtual network", "command": "New-VirtualNetwork -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvnet\" -Location \"eastus\" -ResourceGroupName \"myrg\"" }
+          {
+            "title": "Create a virtual network",
+            "command": "New-VirtualNetwork -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvnet\" -Location \"eastus\" -ResourceGroupName \"myrg\""
+          }
         ]
       }
     },
@@ -263,24 +623,105 @@
       "summary": "Create a network security group (PowerShell only).",
       "description": "Create an Azure network security group with optional inbound/outbound rules. PowerShell only — no CLI verb.",
       "parameters": [
-        { "cliName": "", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "", "psName": "Name", "type": "string", "required": true, "description": "The name of the network security group." },
-        { "cliName": "", "psName": "Location", "type": "string", "required": true, "description": "Location for the network security group." },
-        { "cliName": "", "psName": "ResourceGroupName", "type": "string", "required": true, "description": "The resource group name." },
-        { "cliName": "", "psName": "RuleNames", "type": "list<string>", "required": false, "description": "Names of the security rules." },
-        { "cliName": "", "psName": "RuleDirections", "type": "list<string>", "required": false, "description": "Directions of the security rules." },
-        { "cliName": "", "psName": "RuleProtocols", "type": "list<string>", "required": false, "description": "Protocols of the security rules." },
-        { "cliName": "", "psName": "RulePriorities", "type": "list<int>", "required": false, "description": "Priorities of the security rules." },
-        { "cliName": "", "psName": "RuleSourceAddressPrefixes", "type": "list<string>", "required": false, "description": "Source address prefixes." },
-        { "cliName": "", "psName": "RuleSourcePortRanges", "type": "list<string>", "required": false, "description": "Source port ranges." },
-        { "cliName": "", "psName": "RuleDestinationPortRanges", "type": "list<string>", "required": false, "description": "Destination port ranges." },
-        { "cliName": "", "psName": "RuleDestinationAddressPrefixes", "type": "list<string>", "required": false, "description": "Destination address prefixes." },
-        { "cliName": "", "psName": "RuleAccesses", "type": "list<string>", "required": false, "description": "Access types (Allow/Deny)." }
+        {
+          "cliName": "",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The name of the network security group."
+        },
+        {
+          "cliName": "",
+          "psName": "Location",
+          "type": "string",
+          "required": true,
+          "description": "Location for the network security group."
+        },
+        {
+          "cliName": "",
+          "psName": "ResourceGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The resource group name."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleNames",
+          "type": "list<string>",
+          "required": false,
+          "description": "Names of the security rules."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleDirections",
+          "type": "list<string>",
+          "required": false,
+          "description": "Directions of the security rules."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleProtocols",
+          "type": "list<string>",
+          "required": false,
+          "description": "Protocols of the security rules."
+        },
+        {
+          "cliName": "",
+          "psName": "RulePriorities",
+          "type": "list<int>",
+          "required": false,
+          "description": "Priorities of the security rules."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleSourceAddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Source address prefixes."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleSourcePortRanges",
+          "type": "list<string>",
+          "required": false,
+          "description": "Source port ranges."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleDestinationPortRanges",
+          "type": "list<string>",
+          "required": false,
+          "description": "Destination port ranges."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleDestinationAddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Destination address prefixes."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleAccesses",
+          "type": "list<string>",
+          "required": false,
+          "description": "Access types (Allow/Deny)."
+        }
       ],
       "examples": {
         "cli": [],
         "powerShell": [
-          { "title": "Create a NSG", "command": "New-NetworkSecurityGroup -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"mynsg\" -Location \"eastus\" -ResourceGroupName \"myrg\"" }
+          {
+            "title": "Create a NSG",
+            "command": "New-NetworkSecurityGroup -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"mynsg\" -Location \"eastus\" -ResourceGroupName \"myrg\""
+          }
         ]
       }
     },
@@ -293,18 +734,63 @@
       "summary": "Create a network interface (PowerShell only).",
       "description": "Create an Azure network interface, optionally binding it to existing subnets and an NSG. PowerShell only — no CLI verb.",
       "parameters": [
-        { "cliName": "", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "", "psName": "Name", "type": "string", "required": true, "description": "The name of the network interface." },
-        { "cliName": "", "psName": "Location", "type": "string", "required": true, "description": "Location for the network interface." },
-        { "cliName": "", "psName": "ResourceGroupName", "type": "string", "required": true, "description": "The resource group name." },
-        { "cliName": "", "psName": "SubnetIds", "type": "list<string>", "required": false, "description": "Ids of the subnets to bind IP configurations to." },
-        { "cliName": "", "psName": "SubnetAddressPrefixes", "type": "list<list<string>>", "required": false, "description": "Address prefixes for each subnet." },
-        { "cliName": "", "psName": "NetworkSecurityGroupId", "type": "string", "required": false, "description": "Resource id of the network security group to associate." }
+        {
+          "cliName": "",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The name of the network interface."
+        },
+        {
+          "cliName": "",
+          "psName": "Location",
+          "type": "string",
+          "required": true,
+          "description": "Location for the network interface."
+        },
+        {
+          "cliName": "",
+          "psName": "ResourceGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The resource group name."
+        },
+        {
+          "cliName": "",
+          "psName": "SubnetIds",
+          "type": "list<string>",
+          "required": false,
+          "description": "Ids of the subnets to bind IP configurations to."
+        },
+        {
+          "cliName": "",
+          "psName": "SubnetAddressPrefixes",
+          "type": "list<list<string>>",
+          "required": false,
+          "description": "Address prefixes for each subnet."
+        },
+        {
+          "cliName": "",
+          "psName": "NetworkSecurityGroupId",
+          "type": "string",
+          "required": false,
+          "description": "Resource id of the network security group to associate."
+        }
       ],
       "examples": {
         "cli": [],
         "powerShell": [
-          { "title": "Create a NIC", "command": "New-NetworkInterface -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"mynic\" -Location \"eastus\" -ResourceGroupName \"myrg\"" }
+          {
+            "title": "Create a NIC",
+            "command": "New-NetworkInterface -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"mynic\" -Location \"eastus\" -ResourceGroupName \"myrg\""
+          }
         ]
       }
     },
@@ -317,29 +803,140 @@
       "summary": "Create a NIC together with its VNet + NSG in one call (PowerShell only).",
       "description": "Provision a NIC plus the underlying virtual network and network security group as a single combined operation. PowerShell only — no CLI verb.",
       "parameters": [
-        { "cliName": "", "psName": "SubscriptionId", "type": "string", "required": true, "description": "Azure Subscription Id." },
-        { "cliName": "", "psName": "Name", "type": "string", "required": true, "description": "The name of the network interface." },
-        { "cliName": "", "psName": "Location", "type": "string", "required": true, "description": "Location for all resources." },
-        { "cliName": "", "psName": "ResourceGroupName", "type": "string", "required": true, "description": "The resource group name." },
-        { "cliName": "", "psName": "VirtualNetworkName", "type": "string", "required": true, "description": "The virtual network name to create." },
-        { "cliName": "", "psName": "NetworkSecurityGroupName", "type": "string", "required": true, "description": "The network security group name to create." },
-        { "cliName": "", "psName": "SubnetNames", "type": "list<string>", "required": false, "description": "Names of the subnets." },
-        { "cliName": "", "psName": "SubnetAddressPrefixes", "type": "list<list<string>>", "required": false, "description": "Address prefixes for each subnet." },
-        { "cliName": "", "psName": "AddressPrefixes", "type": "list<string>", "required": false, "description": "Address prefixes for the virtual network." },
-        { "cliName": "", "psName": "RuleNames", "type": "list<string>", "required": false, "description": "Names of the security rules." },
-        { "cliName": "", "psName": "RuleDirections", "type": "list<string>", "required": false, "description": "Directions of the security rules." },
-        { "cliName": "", "psName": "RuleProtocols", "type": "list<string>", "required": false, "description": "Protocols of the security rules." },
-        { "cliName": "", "psName": "RulePriorities", "type": "list<int>", "required": false, "description": "Priorities of the security rules." },
-        { "cliName": "", "psName": "RuleSourceAddressPrefixes", "type": "list<string>", "required": false, "description": "Source address prefixes." },
-        { "cliName": "", "psName": "RuleSourcePortRanges", "type": "list<string>", "required": false, "description": "Source port ranges." },
-        { "cliName": "", "psName": "RuleDestinationPortRanges", "type": "list<string>", "required": false, "description": "Destination port ranges." },
-        { "cliName": "", "psName": "RuleDestinationAddressPrefixes", "type": "list<string>", "required": false, "description": "Destination address prefixes." },
-        { "cliName": "", "psName": "RuleAccesses", "type": "list<string>", "required": false, "description": "Access types (Allow/Deny)." }
+        {
+          "cliName": "",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id."
+        },
+        {
+          "cliName": "",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The name of the network interface."
+        },
+        {
+          "cliName": "",
+          "psName": "Location",
+          "type": "string",
+          "required": true,
+          "description": "Location for all resources."
+        },
+        {
+          "cliName": "",
+          "psName": "ResourceGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The resource group name."
+        },
+        {
+          "cliName": "",
+          "psName": "VirtualNetworkName",
+          "type": "string",
+          "required": true,
+          "description": "The virtual network name to create."
+        },
+        {
+          "cliName": "",
+          "psName": "NetworkSecurityGroupName",
+          "type": "string",
+          "required": true,
+          "description": "The network security group name to create."
+        },
+        {
+          "cliName": "",
+          "psName": "SubnetNames",
+          "type": "list<string>",
+          "required": false,
+          "description": "Names of the subnets."
+        },
+        {
+          "cliName": "",
+          "psName": "SubnetAddressPrefixes",
+          "type": "list<list<string>>",
+          "required": false,
+          "description": "Address prefixes for each subnet."
+        },
+        {
+          "cliName": "",
+          "psName": "AddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Address prefixes for the virtual network."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleNames",
+          "type": "list<string>",
+          "required": false,
+          "description": "Names of the security rules."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleDirections",
+          "type": "list<string>",
+          "required": false,
+          "description": "Directions of the security rules."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleProtocols",
+          "type": "list<string>",
+          "required": false,
+          "description": "Protocols of the security rules."
+        },
+        {
+          "cliName": "",
+          "psName": "RulePriorities",
+          "type": "list<int>",
+          "required": false,
+          "description": "Priorities of the security rules."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleSourceAddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Source address prefixes."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleSourcePortRanges",
+          "type": "list<string>",
+          "required": false,
+          "description": "Source port ranges."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleDestinationPortRanges",
+          "type": "list<string>",
+          "required": false,
+          "description": "Destination port ranges."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleDestinationAddressPrefixes",
+          "type": "list<string>",
+          "required": false,
+          "description": "Destination address prefixes."
+        },
+        {
+          "cliName": "",
+          "psName": "RuleAccesses",
+          "type": "list<string>",
+          "required": false,
+          "description": "Access types (Allow/Deny)."
+        }
       ],
       "examples": {
         "cli": [],
         "powerShell": [
-          { "title": "Create combined NIC + VNet + NSG", "command": "New-NetworkInterfaceOrchestrator -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"mynic\" -Location \"eastus\" -ResourceGroupName \"myrg\" -VirtualNetworkName \"myvnet\" -NetworkSecurityGroupName \"mynsg\"" }
+          {
+            "title": "Create combined NIC + VNet + NSG",
+            "command": "New-NetworkInterfaceOrchestrator -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"mynic\" -Location \"eastus\" -ResourceGroupName \"myrg\" -VirtualNetworkName \"myvnet\" -NetworkSecurityGroupName \"mynsg\""
+          }
         ]
       }
     },
@@ -353,16 +950,37 @@
       "summary": "Retrieve a configuration value.",
       "description": "Get the current value of a configuration setting by key. Configuration keys use dot notation (e.g., output.format, core.debug). If the key is not found, an error is displayed.",
       "parameters": [
-        { "cliName": "key", "psName": "Key", "type": "string", "required": true, "description": "Configuration key in dot notation." },
-        { "cliName": "json", "psName": "Json", "type": "bool", "required": false, "description": "Output as JSON." }
+        {
+          "cliName": "key",
+          "psName": "Key",
+          "type": "string",
+          "required": true,
+          "description": "Configuration key in dot notation."
+        },
+        {
+          "cliName": "json",
+          "psName": "Json",
+          "type": "bool",
+          "required": false,
+          "description": "Output as JSON."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Get output format setting", "command": "az config get output.format" },
-          { "title": "Get output as JSON", "command": "az config get output.format --json" }
+          {
+            "title": "Get output format setting",
+            "command": "az config get output.format"
+          },
+          {
+            "title": "Get output as JSON",
+            "command": "az config get output.format --json"
+          }
         ],
         "powerShell": [
-          { "title": "Get a configuration value", "command": "Get-AzConfig -Key \"output.format\"" }
+          {
+            "title": "Get a configuration value",
+            "command": "Get-AzConfig -Key \"output.format\""
+          }
         ]
       }
     },
@@ -373,20 +991,50 @@
       "extension": "config",
       "group": "config",
       "summary": "Set or update a configuration value.",
-      "description": "Set a configuration value using dot notation keys. If the key already exists, it will be updated. Unknown keys are rejected unless --force is specified.",
+      "description": "Set a configuration value using dot notation keys. If the key already exists, it will be updated. Unknown keys are rejected unless --force (CLI) or -Force (PowerShell) is specified.",
       "parameters": [
-        { "cliName": "key", "psName": "Key", "type": "string", "required": true, "description": "Configuration key in dot notation." },
-        { "cliName": "value", "psName": "Value", "type": "string", "required": true, "description": "Configuration value." },
-        { "cliName": "force", "psName": "Force", "type": "bool", "required": false, "description": "Allow unknown keys." }
+        {
+          "cliName": "key",
+          "psName": "Key",
+          "type": "string",
+          "required": true,
+          "description": "Configuration key in dot notation."
+        },
+        {
+          "cliName": "value",
+          "psName": "Value",
+          "type": "string",
+          "required": true,
+          "description": "Configuration value."
+        },
+        {
+          "cliName": "force",
+          "psName": "Force",
+          "type": "bool",
+          "required": false,
+          "description": "Allow unknown keys."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Set output format to JSON", "command": "az config set output.format json" },
-          { "title": "Set a custom key with force", "command": "az config set custom.mykey myvalue --force" }
+          {
+            "title": "Set output format to JSON",
+            "command": "az config set output.format json"
+          },
+          {
+            "title": "Set a custom key with force",
+            "command": "az config set custom.mykey myvalue --force"
+          }
         ],
         "powerShell": [
-          { "title": "Set output format", "command": "Set-AzConfig -Key \"output.format\" -Value \"json\"" },
-          { "title": "Set custom key with force", "command": "Set-AzConfig -Key \"custom.mykey\" -Value \"myvalue\" -Force" }
+          {
+            "title": "Set output format",
+            "command": "Set-AzConfig -Key \"output.format\" -Value \"json\""
+          },
+          {
+            "title": "Set custom key with force",
+            "command": "Set-AzConfig -Key \"custom.mykey\" -Value \"myvalue\" -Force"
+          }
         ]
       }
     },
@@ -397,19 +1045,43 @@
       "extension": "config",
       "group": "config",
       "summary": "Delete a configuration value.",
-      "description": "Remove a configuration setting by key. Once deleted, the setting reverts to its default value (if one exists). Unknown keys are rejected unless --force is specified.",
+      "description": "Remove a configuration setting by key. Once deleted, the setting reverts to its default value (if one exists). Unknown keys are rejected unless --force (CLI) or -Force (PowerShell) is specified.",
       "parameters": [
-        { "cliName": "key", "psName": "Key", "type": "string", "required": true, "description": "Configuration key in dot notation." },
-        { "cliName": "force", "psName": "Force", "type": "bool", "required": false, "description": "Allow unknown keys." }
+        {
+          "cliName": "key",
+          "psName": "Key",
+          "type": "string",
+          "required": true,
+          "description": "Configuration key in dot notation."
+        },
+        {
+          "cliName": "force",
+          "psName": "Force",
+          "type": "bool",
+          "required": false,
+          "description": "Allow unknown keys."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Delete a configuration setting", "command": "az config delete custom.mykey" },
-          { "title": "Force delete without validation", "command": "az config delete custom.mykey --force" }
+          {
+            "title": "Delete a configuration setting",
+            "command": "az config delete custom.mykey"
+          },
+          {
+            "title": "Force delete without validation",
+            "command": "az config delete custom.mykey --force"
+          }
         ],
         "powerShell": [
-          { "title": "Delete a configuration value", "command": "Remove-AzConfig -Key \"custom.mykey\"" },
-          { "title": "Force delete", "command": "Remove-AzConfig -Key \"custom.mykey\" -Force" }
+          {
+            "title": "Delete a configuration value",
+            "command": "Remove-AzConfig -Key \"custom.mykey\""
+          },
+          {
+            "title": "Force delete",
+            "command": "Remove-AzConfig -Key \"custom.mykey\" -Force"
+          }
         ]
       }
     },
@@ -422,18 +1094,36 @@
       "summary": "List all configuration settings.",
       "description": "Display all current configuration values. By default, only explicitly-set values are shown. Use --all (CLI) / -IncludeDefaults (PS) to include default values.",
       "parameters": [
-        { "cliName": "all", "psName": "IncludeDefaults", "type": "bool", "required": false, "description": "Include default values." },
-        { "cliName": "json", "psName": "Json", "type": "bool", "required": false, "description": "Output as JSON." }
+        {
+          "cliName": "all",
+          "psName": "IncludeDefaults",
+          "type": "bool",
+          "required": false,
+          "description": "Include default values."
+        },
+        {
+          "cliName": "json",
+          "psName": "Json",
+          "type": "bool",
+          "required": false,
+          "description": "Output as JSON."
+        }
       ],
       "examples": {
         "cli": [
           { "title": "List current values", "command": "az config list" },
-          { "title": "List including defaults", "command": "az config list --all" },
+          {
+            "title": "List including defaults",
+            "command": "az config list --all"
+          },
           { "title": "List as JSON", "command": "az config list --json" }
         ],
         "powerShell": [
           { "title": "List all configuration", "command": "Get-AzConfigList" },
-          { "title": "List with defaults", "command": "Get-AzConfigList -IncludeDefaults" }
+          {
+            "title": "List with defaults",
+            "command": "Get-AzConfigList -IncludeDefaults"
+          }
         ]
       }
     },
@@ -446,16 +1136,34 @@
       "summary": "Display information about valid configuration keys.",
       "description": "Show metadata about available configuration keys including their descriptions, default values, and allowed value constraints.",
       "parameters": [
-        { "cliName": "keys-only", "psName": "KeysOnly", "type": "bool", "required": false, "description": "Return only valid key names." }
+        {
+          "cliName": "keys-only",
+          "psName": "KeysOnly",
+          "type": "bool",
+          "required": false,
+          "description": "Return only valid key names."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Display configuration schema", "command": "az config info" },
-          { "title": "Display only valid key names", "command": "az config info --keys-only" }
+          {
+            "title": "Display configuration schema",
+            "command": "az config info"
+          },
+          {
+            "title": "Display only valid key names",
+            "command": "az config info --keys-only"
+          }
         ],
         "powerShell": [
-          { "title": "Display configuration schema", "command": "Get-AzConfigInfo" },
-          { "title": "Display only key names", "command": "Get-AzConfigInfo -KeysOnly" }
+          {
+            "title": "Display configuration schema",
+            "command": "Get-AzConfigInfo"
+          },
+          {
+            "title": "Display only key names",
+            "command": "Get-AzConfigInfo -KeysOnly"
+          }
         ]
       }
     },
@@ -469,16 +1177,49 @@
       "summary": "Install a new extension from a package feed or local file (CLI only).",
       "description": "Add a new extension to Cirrus. Extensions can be installed from a NuGet package feed URL or from a local .nupkg file. Once installed, extensions are automatically loaded on next CLI startup. PowerShell support pending.",
       "parameters": [
-        { "cliName": "name", "psName": "", "type": "string", "required": false, "description": "The name of the extension to add (for feed installs)." },
-        { "cliName": "version", "psName": "", "type": "string", "required": false, "description": "The version of the extension to add (for feed installs)." },
-        { "cliName": "feed-url", "psName": "", "type": "string", "required": false, "description": "Feed URL to install the extension from." },
-        { "cliName": "path", "psName": "", "type": "string", "required": false, "description": "Path to the extension .nupkg file to add (for local installs)." }
+        {
+          "cliName": "name",
+          "psName": "",
+          "type": "string",
+          "required": false,
+          "description": "The name of the extension to add (for feed installs)."
+        },
+        {
+          "cliName": "version",
+          "psName": "",
+          "type": "string",
+          "required": false,
+          "description": "The version of the extension to add (for feed installs)."
+        },
+        {
+          "cliName": "feed-url",
+          "psName": "",
+          "type": "string",
+          "required": false,
+          "description": "Feed URL to install the extension from."
+        },
+        {
+          "cliName": "path",
+          "psName": "",
+          "type": "string",
+          "required": false,
+          "description": "Path to the extension .nupkg file to add (for local installs)."
+        }
       ],
       "examples": {
         "cli": [
-          { "title": "Install from official feed", "command": "az extension add --name MyExtension --version 1.0.0 --feed-url https://api.nuget.org/v3/index.json" },
-          { "title": "Install from custom feed", "command": "az extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget" },
-          { "title": "Install from local file", "command": "az extension add --path ./MyExtension.1.0.0.nupkg" }
+          {
+            "title": "Install from official feed",
+            "command": "az extension add --name MyExtension --version 1.0.0 --feed-url https://api.nuget.org/v3/index.json"
+          },
+          {
+            "title": "Install from custom feed",
+            "command": "az extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget"
+          },
+          {
+            "title": "Install from local file",
+            "command": "az extension add --path ./MyExtension.1.0.0.nupkg"
+          }
         ],
         "powerShell": []
       }

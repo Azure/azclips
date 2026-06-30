@@ -215,14 +215,14 @@ namespace Cirrus.Help.Tool.Tests
             CreateHelpFile(loginDir, "Connect-AzAccount.md");
 
             // Second module: missing help file.
-            var (_, configDir) = CreateModule(temp, "Config", "Get-CirrusConfig");
+            var (_, configDir) = CreateModule(temp, "Config", "Get-AzConfig");
             Directory.CreateDirectory(Path.Combine(configDir, "help")); // help/ exists, file does not
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
             var psl9 = report.Errors.Where(e => e.ProblemId == ProblemIds.PSL9_MissingHelpFile).ToList();
             Assert.Single(psl9);
-            Assert.Contains("Get-CirrusConfig", psl9[0].Message, StringComparison.Ordinal);
+            Assert.Contains("Get-AzConfig", psl9[0].Message, StringComparison.Ordinal);
             Assert.Contains("Config", psl9[0].Message, StringComparison.Ordinal);
         }
 

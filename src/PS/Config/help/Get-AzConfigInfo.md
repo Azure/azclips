@@ -31,7 +31,7 @@ This cmdlet has the following aliases,
 ## DESCRIPTION
 
 Show metadata about available configuration keys including their descriptions, default values, and allowed value constraints.
-Use --keys-only to show only valid key names.
+Use --keys-only (CLI) or -KeysOnly (PowerShell) to show only valid key names.
 
 ## EXAMPLES
 
