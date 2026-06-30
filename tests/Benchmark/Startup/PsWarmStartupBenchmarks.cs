@@ -11,7 +11,7 @@ namespace Benchmark.Startup;
 /// CirrusServiceProvider.Initialize + eager RequiredAssemblies load) + first cmdlet, OS page
 /// cache hot. Config imports Login transitively (RequiredModules). Stops at the resolve-only seam.
 /// </summary>
-[SimpleJob(RunStrategy.Monitoring, warmupCount: 1, iterationCount: 10)]
+[SimpleJob(RunStrategy.Monitoring, warmupCount: 10, iterationCount: 100)]
 public class PsWarmStartupBenchmarks : StartupBenchmarkBase
 {
     [GlobalSetup]

@@ -10,7 +10,7 @@ namespace Benchmark.Startup;
 /// PowerShell cold startup: OS page cache evicted before each launch. Only registered by
 /// Program.cs when eviction is available.
 /// </summary>
-[SimpleJob(RunStrategy.ColdStart, iterationCount: 10)]
+[SimpleJob(RunStrategy.ColdStart, iterationCount: 100)]
 public class PsColdStartupBenchmarks : StartupBenchmarkBase
 {
     [GlobalSetup]

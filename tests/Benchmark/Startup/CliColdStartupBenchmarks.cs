@@ -10,7 +10,7 @@ namespace Benchmark.Startup;
 /// CLI cold startup: OS page cache evicted before each launch, so DLLs are re-read from disk
 /// (the "first run after reboot" case). Only registered by Program.cs when eviction is available.
 /// </summary>
-[SimpleJob(RunStrategy.ColdStart, iterationCount: 10)]
+[SimpleJob(RunStrategy.ColdStart, iterationCount: 100)]
 public class CliColdStartupBenchmarks : StartupBenchmarkBase
 {
     [GlobalSetup]

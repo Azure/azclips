@@ -11,7 +11,7 @@ namespace Benchmark.Startup;
 /// Stops at the resolve-only seam. Measures process create + runtime init + DI + extension load
 /// + command resolve for each built-in.
 /// </summary>
-[SimpleJob(RunStrategy.Monitoring, warmupCount: 1, iterationCount: 10)]
+[SimpleJob(RunStrategy.Monitoring, warmupCount: 10, iterationCount: 100)]
 public class CliWarmStartupBenchmarks : StartupBenchmarkBase
 {
     [GlobalSetup]
