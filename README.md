@@ -163,7 +163,7 @@ az config set --key telemetry.enabled --value false
 
 ```powershell
 # PowerShell
-Set-CirrusConfig -Key telemetry.enabled -Value false
+Set-AzConfig -Key telemetry.enabled -Value false
 ```
 
 For details on telemetry and other settings, see [Configuration Management](docs/howto/config.md#valid-configuration-keys).

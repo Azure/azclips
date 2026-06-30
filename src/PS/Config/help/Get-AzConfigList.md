@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01
-title: Get-CirrusConfigList
+title: Get-AzConfigList
 ---
 
-# Get-CirrusConfigList
+# Get-AzConfigList
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ List all configuration settings.
 ### \_\_AllParameterSets
 
 ```
-Get-CirrusConfigList [-IncludeDefaults] [-AsJson] [<CommonParameters>]
+Get-AzConfigList [-IncludeDefaults] [-AsJson] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -42,7 +42,7 @@ Output can be formatted as JSON for scripting.
 Display every explicitly-set configuration value.
 
 ```powershell
-Get-CirrusConfigList
+Get-AzConfigList
 ```
 
 ### List with defaults
@@ -50,7 +50,7 @@ Get-CirrusConfigList
 Include default values for keys that have not been explicitly set.
 
 ```powershell
-Get-CirrusConfigList -IncludeDefaults
+Get-AzConfigList -IncludeDefaults
 ```
 
 ### List as JSON
@@ -58,7 +58,7 @@ Get-CirrusConfigList -IncludeDefaults
 Format the output as JSON for downstream scripting.
 
 ```powershell
-Get-CirrusConfigList -AsJson
+Get-AzConfigList -AsJson
 ```
 
 ## PARAMETERS

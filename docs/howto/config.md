@@ -130,64 +130,64 @@ Import-Module ./src/PS/Config/Config.psd1
 ### Get configuration values or sections
 
 ```powershell
-Get-CirrusConfig -Key core.logging.level
+Get-AzConfig -Key core.logging.level
 # Output: core.logging.level = info [default]
 
-Get-CirrusConfig -Key core.logging.level -AsJson
+Get-AzConfig -Key core.logging.level -AsJson
 # Output: {"Key":"core.logging.level","Value":"info","Source":"default"}
 
 # Retrieve a section (text output)
-Get-CirrusConfig -Key core
+Get-AzConfig -Key core
 
 # Retrieve a subsection as JSON
-Get-CirrusConfig -Key core.logging -AsJson
+Get-AzConfig -Key core.logging -AsJson
 # Output: {"level":"info"}
 
 # Retrieve a section as nested JSON
-Get-CirrusConfig -Key core -AsJson
+Get-AzConfig -Key core -AsJson
 ```
 
 ### Set a configuration value
 
 ```powershell
 # Set a key (will prompt for confirmation)
-Set-CirrusConfig -Key core.logging.level -Value debug
+Set-AzConfig -Key core.logging.level -Value debug
 
 # Set with force (allows unknown keys)
-Set-CirrusConfig -Key core.logging.level -Value debug -Force
+Set-AzConfig -Key core.logging.level -Value debug -Force
 ```
 
 ### List all configuration
 
 ```powershell
 # List user config only
-Get-CirrusConfigList
+Get-AzConfigList
 
 # List with defaults
-Get-CirrusConfigList -IncludeDefaults
+Get-AzConfigList -IncludeDefaults
 
 # Output as JSON
-Get-CirrusConfigList -IncludeDefaults -AsJson
+Get-AzConfigList -IncludeDefaults -AsJson
 ```
 
 ### Delete a configuration value
 
 ```powershell
 # Delete a key (will prompt for confirmation)
-Remove-CirrusConfig -Key core.logging.level
+Remove-AzConfig -Key core.logging.level
 
 # Delete with force (allows unknown keys)
-Remove-CirrusConfig -Key core.logging.level -Force
+Remove-AzConfig -Key core.logging.level -Force
 ```
 
 ### View schema information
 
 ```powershell
 # List all valid configuration keys
-Get-CirrusConfigInfo
+Get-AzConfigInfo
 
 # Output only key names
-Get-CirrusConfigInfo -KeysOnly
+Get-AzConfigInfo -KeysOnly
 ```
 
 ## Environment Variable Mappings
@@ -242,8 +242,8 @@ az config get --key core.logging.level
 **PowerShell:**
 
 ```powershell
-Set-CirrusConfig -Key core.logging.level -Value debug -Force
-Get-CirrusConfig -Key core.logging.level
+Set-AzConfig -Key core.logging.level -Value debug -Force
+Get-AzConfig -Key core.logging.level
 ```
 
 ### Workflow: Check all settings with defaults
@@ -257,7 +257,7 @@ az config list --all
 **PowerShell:**
 
 ```powershell
-Get-CirrusConfigList -IncludeDefaults
+Get-AzConfigList -IncludeDefaults
 ```
 
 ### Workflow: Reset to defaults
@@ -274,8 +274,8 @@ done
 **PowerShell:**
 
 ```powershell
-Get-CirrusConfigList | Where-Object { $_ -notmatch '\[default\]' } | ForEach-Object {
+Get-AzConfigList | Where-Object { $_ -notmatch '\[default\]' } | ForEach-Object {
   $key = ($_ -split ' = ')[0]
-  Remove-CirrusConfig -Key $key -Force
+  Remove-AzConfig -Key $key -Force
 }
 ```

@@ -5,11 +5,11 @@ using System.Management.Automation;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
 
-[Cmdlet(VerbsCommon.Get, "CirrusConfigList")]
-public class GetCirrusConfigListCmdlet : ConfigCmdletBase
+[Cmdlet(VerbsCommon.Get, "AzConfig")]
+public class GetAzConfigCmdlet : ConfigCmdletBase
 {
-    [Parameter(Mandatory = false)]
-    public SwitchParameter IncludeDefaults { get; set; }
+    [Parameter(Mandatory = true)]
+    public string Key { get; set; } = string.Empty;
 
     [Parameter(Mandatory = false)]
     public SwitchParameter AsJson { get; set; }
@@ -18,9 +18,9 @@ public class GetCirrusConfigListCmdlet : ConfigCmdletBase
     {
 
         var parameters = new Dictionary<string, object>();
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(IncludeDefaults)))
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Key)))
         {
-            parameters.Add("All", IncludeDefaults.IsPresent);
+            parameters.Add("Key", Key);
         }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AsJson)))

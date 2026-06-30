@@ -11,7 +11,7 @@ public class ExtensionIndex : IExtensionIndex
     // ── PS Command Metadata ──
     private static readonly CommandMetadata s_getConfig_PS = new(
         Name: "GetConfigCommand",
-        InvocationName: "Get-CirrusConfig",
+        InvocationName: "Get-AzConfig",
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.GetConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
@@ -26,7 +26,7 @@ public class ExtensionIndex : IExtensionIndex
 
     private static readonly CommandMetadata s_setConfig_PS = new(
         Name: "SetConfigCommand",
-        InvocationName: "Set-CirrusConfig",
+        InvocationName: "Set-AzConfig",
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.SetConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
@@ -42,7 +42,7 @@ public class ExtensionIndex : IExtensionIndex
 
     private static readonly CommandMetadata s_removeConfig_PS = new(
         Name: "RemoveConfigCommand",
-        InvocationName: "Remove-CirrusConfig",
+        InvocationName: "Remove-AzConfig",
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.DeleteConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
@@ -57,7 +57,7 @@ public class ExtensionIndex : IExtensionIndex
 
     private static readonly CommandMetadata s_listConfig_PS = new(
         Name: "ListConfigCommand",
-        InvocationName: "Get-CirrusConfigList",
+        InvocationName: "Get-AzConfigList",
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.ListConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
@@ -72,7 +72,7 @@ public class ExtensionIndex : IExtensionIndex
 
     private static readonly CommandMetadata s_infoConfig_PS = new(
         Name: "InfoConfigCommand",
-        InvocationName: "Get-CirrusConfigInfo",
+        InvocationName: "Get-AzConfigInfo",
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.InfoConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
@@ -162,11 +162,11 @@ public class ExtensionIndex : IExtensionIndex
 
     private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
     {
-        ["Get-CirrusConfig"] = s_getConfig_PS,
-        ["Set-CirrusConfig"] = s_setConfig_PS,
-        ["Remove-CirrusConfig"] = s_removeConfig_PS,
-        ["Get-CirrusConfigList"] = s_listConfig_PS,
-        ["Get-CirrusConfigInfo"] = s_infoConfig_PS,
+        ["Get-AzConfig"] = s_getConfig_PS,
+        ["Set-AzConfig"] = s_setConfig_PS,
+        ["Remove-AzConfig"] = s_removeConfig_PS,
+        ["Get-AzConfigList"] = s_listConfig_PS,
+        ["Get-AzConfigInfo"] = s_infoConfig_PS,
     };
     // Full-path keys.
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()

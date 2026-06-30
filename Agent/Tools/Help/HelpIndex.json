@@ -24,11 +24,11 @@
     { "name": "NewNetworkInterfaceProcessor", "cliName": "", "psName": "New-NetworkInterface", "extension": "compute", "group": "vm", "summary": "Create a network interface (PowerShell only)." },
     { "name": "NewNetworkInterfaceProcessor_Orchestrator", "cliName": "", "psName": "New-NetworkInterfaceOrchestrator", "extension": "compute", "group": "vm", "summary": "Create a NIC together with its VNet + NSG in one call (PowerShell only)." },
 
-    { "name": "GetConfigCommand", "cliName": "config get", "psName": "Get-CirrusConfig", "extension": "config", "group": "config", "summary": "Retrieve a configuration value." },
-    { "name": "SetConfigCommand", "cliName": "config set", "psName": "Set-CirrusConfig", "extension": "config", "group": "config", "summary": "Set or update a configuration value." },
-    { "name": "DeleteConfigCommand", "cliName": "config delete", "psName": "Remove-CirrusConfig", "extension": "config", "group": "config", "summary": "Delete a configuration value." },
-    { "name": "ListConfigCommand", "cliName": "config list", "psName": "Get-CirrusConfigList", "extension": "config", "group": "config", "summary": "List all configuration settings." },
-    { "name": "InfoConfigCommand", "cliName": "config info", "psName": "Get-CirrusConfigInfo", "extension": "config", "group": "config", "summary": "Display information about valid configuration keys." },
+    { "name": "GetConfigCommand", "cliName": "config get", "psName": "Get-AzConfig", "extension": "config", "group": "config", "summary": "Retrieve a configuration value." },
+    { "name": "SetConfigCommand", "cliName": "config set", "psName": "Set-AzConfig", "extension": "config", "group": "config", "summary": "Set or update a configuration value." },
+    { "name": "DeleteConfigCommand", "cliName": "config delete", "psName": "Remove-AzConfig", "extension": "config", "group": "config", "summary": "Delete a configuration value." },
+    { "name": "ListConfigCommand", "cliName": "config list", "psName": "Get-AzConfigList", "extension": "config", "group": "config", "summary": "List all configuration settings." },
+    { "name": "InfoConfigCommand", "cliName": "config info", "psName": "Get-AzConfigInfo", "extension": "config", "group": "config", "summary": "Display information about valid configuration keys." },
 
     { "name": "AddExtensionProcessor", "cliName": "extension add", "psName": "", "extension": "extension", "group": "extension", "summary": "Install a new extension from a package feed or local file (CLI only)." }
   ]
