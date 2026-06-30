@@ -4,9 +4,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 /// <summary>
 /// Minimal managed-disk resource representation. The Compute extension contributes leaves

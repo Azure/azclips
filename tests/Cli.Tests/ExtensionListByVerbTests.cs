@@ -19,21 +19,21 @@ public class ExtensionListByVerbTests
     [Fact]
     public void PivotByVerb_ShouldGroupSingleNamespaceContributor()
     {
-        var result = ListExtensionsProcessor.PivotByVerb(new[] { C("Microsoft.Azure.Cirrus.Extensions.Resources", "group") });
+        var result = ListExtensionsProcessor.PivotByVerb(new[] { C("Microsoft.Azure.Azclips.Extensions.Resources", "group") });
 
         Assert.Single(result);
         Assert.True(result.ContainsKey("group"));
-        Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Resources", result["group"].Single().PackageId);
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.Resources", result["group"].Single().PackageId);
     }
 
     [Fact]
     public void PivotByVerb_ShouldDuplicateMultiNamespaceContributorUnderEachVerb()
     {
-        var result = ListExtensionsProcessor.PivotByVerb(new[] { C("Microsoft.Azure.Cirrus.Extensions.Compute", "vm", "disk") });
+        var result = ListExtensionsProcessor.PivotByVerb(new[] { C("Microsoft.Azure.Azclips.Extensions.Compute", "vm", "disk") });
 
         Assert.Equal(2, result.Count);
-        Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", result["vm"].Single().PackageId);
-        Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", result["disk"].Single().PackageId);
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", result["vm"].Single().PackageId);
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", result["disk"].Single().PackageId);
     }
 
     [Fact]
@@ -41,8 +41,8 @@ public class ExtensionListByVerbTests
     {
         var result = ListExtensionsProcessor.PivotByVerb(new[]
         {
-            C("Microsoft.Azure.Cirrus.Extensions.Resources", "group"),
-            C("Microsoft.Azure.Cirrus.Extensions.Compute", "vm", "disk"),
+            C("Microsoft.Azure.Azclips.Extensions.Resources", "group"),
+            C("Microsoft.Azure.Azclips.Extensions.Compute", "vm", "disk"),
         });
 
         Assert.Equal(new[] { "disk", "group", "vm" }, result.Keys.ToArray());
@@ -55,11 +55,11 @@ public class ExtensionListByVerbTests
         {
             C("Zeta.Vm", "vm"),
             C("Alpha.Vm", "vm"),
-            C("Microsoft.Azure.Cirrus.Extensions.Compute", "vm"),
+            C("Microsoft.Azure.Azclips.Extensions.Compute", "vm"),
         });
 
         var vm = result["vm"].Select(r => r.PackageId).ToArray();
-        Assert.Equal(new[] { "Alpha.Vm", "Microsoft.Azure.Cirrus.Extensions.Compute", "Zeta.Vm" }, vm);
+        Assert.Equal(new[] { "Alpha.Vm", "Microsoft.Azure.Azclips.Extensions.Compute", "Zeta.Vm" }, vm);
     }
 
     [Fact]

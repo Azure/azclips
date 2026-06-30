@@ -6,7 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Cirrus.Cmdlets.Common;
 using Core.Telemetry;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Processors;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
 
