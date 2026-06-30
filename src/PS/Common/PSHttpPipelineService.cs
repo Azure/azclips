@@ -7,7 +7,7 @@ using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Core.Runtime;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Common;
+namespace Microsoft.Azure.Azclips.Cmdlets.Common;
 
 /// <summary>
 /// PowerShell-specific HTTP pipeline service that stamps a User-Agent header
