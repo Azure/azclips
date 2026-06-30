@@ -62,7 +62,7 @@ public class ExecutionSessionSeamTests
     // benchmark depends on this — a benchmark-mode subscriber (Engine.SubscribeBenchmark)
     // terminates the process when this event fires, so the spawned process is timed only up to
     // "ready". Here we verify the publication contract in-process; the Environment.Exit behaviour
-    // of the benchmark subscriber itself is verified out-of-process (spawned azv2/pwsh).
+    // of the benchmark subscriber itself is verified out-of-process (spawned az/pwsh).
 
     [Fact]
     public async Task RunAsync_PublishesProcessorAcquired_BeforeExecutingProcessor()
