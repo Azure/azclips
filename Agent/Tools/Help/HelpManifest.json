@@ -347,7 +347,7 @@
     {
       "name": "GetConfigCommand",
       "cliName": "config get",
-      "psName": "Get-CirrusConfig",
+      "psName": "Get-AzConfig",
       "extension": "config",
       "group": "config",
       "summary": "Retrieve a configuration value.",
@@ -362,14 +362,14 @@
           { "title": "Get output as JSON", "command": "az config get output.format --json" }
         ],
         "powerShell": [
-          { "title": "Get a configuration value", "command": "Get-CirrusConfig -Key \"output.format\"" }
+          { "title": "Get a configuration value", "command": "Get-AzConfig -Key \"output.format\"" }
         ]
       }
     },
     {
       "name": "SetConfigCommand",
       "cliName": "config set",
-      "psName": "Set-CirrusConfig",
+      "psName": "Set-AzConfig",
       "extension": "config",
       "group": "config",
       "summary": "Set or update a configuration value.",
@@ -385,15 +385,15 @@
           { "title": "Set a custom key with force", "command": "az config set custom.mykey myvalue --force" }
         ],
         "powerShell": [
-          { "title": "Set output format", "command": "Set-CirrusConfig -Key \"output.format\" -Value \"json\"" },
-          { "title": "Set custom key with force", "command": "Set-CirrusConfig -Key \"custom.mykey\" -Value \"myvalue\" -Force" }
+          { "title": "Set output format", "command": "Set-AzConfig -Key \"output.format\" -Value \"json\"" },
+          { "title": "Set custom key with force", "command": "Set-AzConfig -Key \"custom.mykey\" -Value \"myvalue\" -Force" }
         ]
       }
     },
     {
       "name": "DeleteConfigCommand",
       "cliName": "config delete",
-      "psName": "Remove-CirrusConfig",
+      "psName": "Remove-AzConfig",
       "extension": "config",
       "group": "config",
       "summary": "Delete a configuration value.",
@@ -408,15 +408,15 @@
           { "title": "Force delete without validation", "command": "az config delete custom.mykey --force" }
         ],
         "powerShell": [
-          { "title": "Delete a configuration value", "command": "Remove-CirrusConfig -Key \"custom.mykey\"" },
-          { "title": "Force delete", "command": "Remove-CirrusConfig -Key \"custom.mykey\" -Force" }
+          { "title": "Delete a configuration value", "command": "Remove-AzConfig -Key \"custom.mykey\"" },
+          { "title": "Force delete", "command": "Remove-AzConfig -Key \"custom.mykey\" -Force" }
         ]
       }
     },
     {
       "name": "ListConfigCommand",
       "cliName": "config list",
-      "psName": "Get-CirrusConfigList",
+      "psName": "Get-AzConfigList",
       "extension": "config",
       "group": "config",
       "summary": "List all configuration settings.",
@@ -432,15 +432,15 @@
           { "title": "List as JSON", "command": "az config list --json" }
         ],
         "powerShell": [
-          { "title": "List all configuration", "command": "Get-CirrusConfigList" },
-          { "title": "List with defaults", "command": "Get-CirrusConfigList -IncludeDefaults" }
+          { "title": "List all configuration", "command": "Get-AzConfigList" },
+          { "title": "List with defaults", "command": "Get-AzConfigList -IncludeDefaults" }
         ]
       }
     },
     {
       "name": "InfoConfigCommand",
       "cliName": "config info",
-      "psName": "Get-CirrusConfigInfo",
+      "psName": "Get-AzConfigInfo",
       "extension": "config",
       "group": "config",
       "summary": "Display information about valid configuration keys.",
@@ -454,8 +454,8 @@
           { "title": "Display only valid key names", "command": "az config info --keys-only" }
         ],
         "powerShell": [
-          { "title": "Display configuration schema", "command": "Get-CirrusConfigInfo" },
-          { "title": "Display only key names", "command": "Get-CirrusConfigInfo -KeysOnly" }
+          { "title": "Display configuration schema", "command": "Get-AzConfigInfo" },
+          { "title": "Display only key names", "command": "Get-AzConfigInfo -KeysOnly" }
         ]
       }
     },
