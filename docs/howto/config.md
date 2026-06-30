@@ -19,6 +19,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `telemetry.appInsightsInstrumentationKey`     | string | (empty)     | Application Insights key                                                                        |
 | `telemetry.zipkinEndpoint`                    | string | (empty)     | Zipkin tracing endpoint                                                                         |
 | `agent.enabled`                               | bool   | `false`     | Enable AI agent fallback (opt-in: `az config set --key agent.enabled --value true`)            |
+| `agent.provider`                              | string | `builtin`   | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login) |
 | `agent.sessionStyle`                          | string | `oneShot`   | Agent interaction mode: `oneShot` (single plan, then stop) or `interactive` (multi-turn)        |
 | `agent.trace.enabled`                         | bool   | `false`     | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation     |
 | `agent.trace.path`                            | string | `~/.cirrus/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write) |

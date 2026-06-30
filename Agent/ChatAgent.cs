@@ -243,7 +243,7 @@ public sealed class ChatAgent : IAsyncDisposable
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".cirrus"),
+                ".azclips"),
             Streaming = true,
             SystemMessage = new SystemMessageConfig { Content = systemPrompt },
             Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
