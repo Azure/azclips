@@ -1,11 +1,11 @@
 ---
 title: "Testing & Benchmarking"
-description: "Cirrus testing architecture: xUnit test framework, ExtensionDispatcher and Program fallback tests, Coverlet code coverage, BenchmarkDotNet integration with API/CLI/PS benchmarks, AppInsights export, and Chart.js visualization."
+description: "Azclips testing architecture: xUnit test framework, ExtensionDispatcher and Program fallback tests, Coverlet code coverage, BenchmarkDotNet integration with CLI/PS benchmarks, AppInsights export, and Chart.js visualization."
 ---
 
 # Testing & Benchmarking
 
-Cirrus employs a two-tier quality assurance strategy: **xUnit-based unit and integration tests** for correctness, and **BenchmarkDotNet performance benchmarks** for measuring execution overhead across the API, CLI, and PowerShell surfaces. Both tiers integrate with the CI pipeline and Application Insights for tracking quality over time.
+Azclips employs a two-tier quality assurance strategy: **xUnit-based unit and integration tests** for correctness, and **BenchmarkDotNet performance benchmarks** for measuring execution overhead across the CLI and PowerShell surfaces. Both tiers integrate with the CI pipeline and Application Insights for tracking quality over time.
 
 ## Test Architecture Overview
 
@@ -19,8 +19,7 @@ flowchart TB
         end
         subgraph Perf["Benchmark"]
             Prog["Program.cs<br>Runner + Config"]
-            Base["BenchmarkBase<br>Auth + Cleanup"]
-            API["API.ResourceGroupBenchmarks"]
+            Base["BenchmarkBase<br>Stub HTTP + DI"]
             CLIB["CLI.ResourceGroupBenchmarks"]
             PSB["PS.ResourceGroupBenchmarks"]
             AIE["AppInsightsExporter"]
@@ -40,7 +39,6 @@ flowchart TB
     PFT --> xUnit
     xUnit --> Coverlet
 
-    API --> Base
     CLIB --> Base
     PSB --> Base
     Prog --> BDN
@@ -56,7 +54,6 @@ flowchart TB
     style PFT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Prog fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Base fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style API fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style CLIB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style PSB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style AIE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -184,7 +181,7 @@ The CI pipeline (`build-and-test.yml`) runs tests with `--verbosity normal` (`.g
 
 ## BenchmarkDotNet Integration
 
-The benchmark project provides performance comparison across all three product surfaces: direct API calls, CLI invocations, and PowerShell cmdlet execution.
+The benchmark project provides performance comparison across both product surfaces: CLI invocations and PowerShell cmdlet execution. HTTP is short-circuited by a stub terminate handler, so benchmarks measure the local CLI/PS pipeline only and never call Azure.
 
 ### Benchmark Project Structure
 
@@ -210,7 +207,7 @@ Project references connect to Core.Runtime, Core.DependencyInjection, and Extens
 
 **Configuration** (`tests/Benchmark/Program.cs:30`):
 - Column providers: Mean, StdDev, Median statistics
-- Exporters: `JsonExporter.Brief` and `MarkdownExporter.GitHub`
+- Exporters: `JsonExporter.FullCompressed` and `MarkdownExporter.GitHub`
 - Time unit: seconds (`tests/Benchmark/Program.cs:42`)
 - Optimization validator disabled for realistic measurements
 
@@ -218,7 +215,7 @@ Project references connect to Core.Runtime, Core.DependencyInjection, and Extens
 
 ```bash
 dotnet run -- --product CLI    # Only CLI benchmarks
-dotnet run -- --product API    # Only API benchmarks
+dotnet run -- --product PS     # Only PS benchmarks
 dotnet run -- --product ALL    # All benchmarks (default)
 dotnet run -- --local          # Skip App Insights upload
 ```
@@ -226,34 +223,28 @@ dotnet run -- --local          # Skip App Insights upload
 **Benchmark types** are statically defined (`tests/Benchmark/Program.cs:81`):
 
 ```csharp
-typeof(API.ResourceGroupBenchmarks),   // line 83
-typeof(CLI.ResourceGroupBenchmarks),   // line 84
-typeof(PS.ResourceGroupBenchmarks)     // line 85
+typeof(CLI.ResourceGroupBenchmarks),
+typeof(PS.ResourceGroupBenchmarks)
 ```
 
 After running, the pipeline generates charts and optionally exports to Application Insights (`tests/Benchmark/Program.cs:53`).
 
 ### BenchmarkBase Class
 
-`BenchmarkBase` (`tests/Benchmark/BenchmarkBase.cs:16`) provides common setup for all benchmark classes:
+`BenchmarkBase` (`tests/Benchmark/BenchmarkBase.cs`) provides common setup shared by the CLI and PS benchmark base classes:
 
 **Protected state**:
-- `SubscriptionId`, `AccessToken` — authentication credentials (`tests/Benchmark/BenchmarkBase.cs:18`)
-- `InstanceId` — unique ID per run to avoid conflicts (`tests/Benchmark/BenchmarkBase.cs:20`)
-- `CreatedResourceGroups` — list for cleanup tracking (`tests/Benchmark/BenchmarkBase.cs:23`)
+- `RepoRoot` — repository root, discovered once during setup
+- `RgCounter` — incrementing counter for unique resource-group names per invocation
+- `SubscriptionId` — a fixed stub subscription GUID (no real Azure account is used)
 
-**Constants**:
-- `TestLocation = "eastus"` (`tests/Benchmark/BenchmarkBase.cs:26`)
-- `TestRgPrefix = "benchmark-rg-"` (`tests/Benchmark/BenchmarkBase.cs:27`)
-- `ApiVersion = "2025-04-01"` (`tests/Benchmark/BenchmarkBase.cs:28`)
+**`InitializeCommon`** resolves the repo root via `RepoLocator.GetRepoRoot()`, used to locate the staged Release artifacts the benchmarks execute.
 
-**`InitializeCommon`** (`tests/Benchmark/BenchmarkBase.cs:33`) bootstraps the DI container via `CirrusServiceProvider.Initialize(clientType)`, locates the repo root by searching for `cirrus.slnx`, and acquires an auth token using `IAuthService.AcquireTokenSilentlyAsync` (`tests/Benchmark/BenchmarkBase.cs:51`).
+**`RegisterBenchmarkStubs`** registers DI overrides for benchmark isolation — a stub HTTP terminate handler (returns `{}` 200 OK) plus stub telemetry and auth services — so benchmarks exercise the local CLI/PS pipeline only and never call Azure. It is re-applied before each iteration because the DI container clears all registrations after each iteration as part of its business logic.
 
-**`CleanupResourceGroups`** (`tests/Benchmark/BenchmarkBase.cs:65`) iterates `CreatedResourceGroups` and sends DELETE requests to the Azure Resource Manager API with Bearer authentication (`tests/Benchmark/BenchmarkBase.cs:74`).
+**`CleanupCommon`** disposes the DI container after each iteration to ensure a clean state for the next benchmark.
 
-**`RunProcess`** (`tests/Benchmark/BenchmarkBase.cs:100`) executes external processes (CLI binary, PowerShell) with stdout/stderr capture and deadlock prevention.
-
-**`BenchmarkEventListener`** (`tests/Benchmark/BenchmarkBase.cs:145`) is a no-op `IEventListener` implementation used during API-level benchmarks to avoid telemetry overhead.
+`BenchmarkEventPublisher` (`tests/Benchmark/BenchmarkEventListener.cs`) is a no-op `IEventPublisher` implementation used to avoid telemetry/event overhead during benchmarking.
 
 ## Benchmark Data Flow
 
@@ -264,28 +255,26 @@ sequenceDiagram
     participant Prog as Program.Main
     participant BDN as BenchmarkDotNet
     participant Base as BenchmarkBase
-    participant Azure as Azure REST API
+    participant Pipe as CLI / PS pipeline (stub HTTP)
     participant CG as ChartGenerator
     participant AIE as AppInsightsExporter
     participant AI as Application Insights
 
     Dev->>Prog: dotnet run -- --product ALL
-    Prog->>Prog: Parse --product and --local flags
+    Prog->>Prog: Parse --product, --local, --ci flags
     Prog->>BDN: BenchmarkRunner.Run(types, config)
 
     BDN->>Base: InitializeCommon()
-    Base->>Base: CirrusServiceProvider.Initialize()
-    Base->>Base: AcquireTokenSilentlyAsync()
-    Note over Base: Auth ready, InstanceId generated
+    Base->>Base: Resolve repo root
+    Note over Base: RegisterBenchmarkStubs() before each iteration
 
     loop For each benchmark method
-        BDN->>Azure: Execute operation (API / CLI / PS)
-        Azure-->>BDN: Response
+        BDN->>Pipe: Execute operation (CLI / PS)
+        Pipe-->>BDN: Stub HTTP 200 {} response
         BDN->>BDN: Record timing statistics
     end
 
-    BDN->>Base: CleanupResourceGroups()
-    Base->>Azure: DELETE benchmark-rg-* resources
+    BDN->>Base: CleanupCommon() (dispose DI container)
 
     BDN-->>Prog: Summary[] results
 
@@ -343,37 +332,34 @@ The `ParseMethod` helper (`tests/Benchmark/AppInsightsExporter.cs:90`) extracts 
 
 The `Generate` method (`tests/Benchmark/ChartGenerator.cs:21`) produces three files:
 
-1. **Grouped bar chart** (`benchmark-comparison-{timestamp}.html`) — Chart.js interactive chart comparing API, CLI, and PS times (`tests/Benchmark/ChartGenerator.cs:29`)
+1. **Grouped bar chart** (`benchmark-comparison-{timestamp}.html`) — Chart.js interactive chart comparing CLI and PS times (`tests/Benchmark/ChartGenerator.cs:29`)
 2. **Details chart** (`benchmark-details-{timestamp}.html`) — horizontal bar chart with per-method breakdown (`tests/Benchmark/ChartGenerator.cs:34`)
-3. **JSON summary** (`benchmark-summary-{timestamp}.json`) — machine-readable results and overhead calculations (`tests/Benchmark/ChartGenerator.cs:39`)
+3. **JSON summary** (`benchmark-summary-{timestamp}.json`) — machine-readable results and per-operation timings (`tests/Benchmark/ChartGenerator.cs:39`)
 
 ### Data Models
 
 ```csharp
-// ChartGenerator.cs:434
 public record ChartDataPoint(string Method, string Product, double MeanSeconds);
 ```
 
 ```csharp
-// ChartGenerator.cs:436
 internal class OverheadData
 {
     public string Operation { get; set; }
-    public double ApiTime { get; set; }
     public double CliTime { get; set; }
     public double PsTime { get; set; }
 }
 ```
 
-### Overhead Calculation
+### Operation Timings
 
-`CalculateOverhead` (`tests/Benchmark/ChartGenerator.cs:79`) compares API times against CLI and PS times for three operations: `"List RG"`, `"Create RG"`, and `"Get RG"`. The HTML chart displays overhead as `+Xs` relative to the API baseline (`tests/Benchmark/ChartGenerator.cs:218`).
+`CalculateOverhead` (`tests/Benchmark/ChartGenerator.cs`) collects CLI and PS mean times for three operations: `"List RG"`, `"Create RG"`, and `"Get RG"`. The details chart renders these side by side in a per-operation comparison table.
 
 ### Chart.js Configuration
 
-The grouped bar chart (`tests/Benchmark/ChartGenerator.cs:99`) uses:
+The grouped bar chart (`tests/Benchmark/ChartGenerator.cs`) uses:
 
-- Three datasets: API (green `#10b981`), CLI (blue `#3b82f6`), PS (purple `#8b5cf6`)
+- Two datasets: CLI (blue `#3b82f6`), PS (purple `#8b5cf6`)
 - Responsive layout with `maintainAspectRatio: false`
 - Y-axis in seconds with `beginAtZero: true`
 - Custom tooltip showing `{value}s` format
@@ -407,7 +393,7 @@ The full build pipeline (`.github/workflows/build.yml:6`) runs a matrix strategy
 | `tests/Cli.Tests/Cli.Tests.csproj` | Project references to CLI, Engine, Agent |
 | `tests/Directory.Build.props` | xUnit 2.9.3, Coverlet 6.0.4, analyzer config |
 | `tests/Benchmark/Program.cs` | BenchmarkDotNet runner, product filtering, chart generation |
-| `tests/Benchmark/BenchmarkBase.cs` | Auth setup, resource cleanup, `BenchmarkEventListener` |
+| `tests/Benchmark/BenchmarkBase.cs` | Repo root discovery, stub HTTP/DI registration, `BenchmarkEventPublisher` |
 | `tests/Benchmark/Benchmark.csproj` | BenchmarkDotNet 0.13.12, PowerShell SDK 7.4.0 |
 | `tests/Benchmark/AppInsightsExporter.cs` | Metric and event telemetry export |
 | `tests/Benchmark/ChartGenerator.cs` | Chart.js HTML, JSON summary, overhead calculation |

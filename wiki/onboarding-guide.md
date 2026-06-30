@@ -913,7 +913,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 # With coverage
 dotnet test --collect:"XPlat Code Coverage"
 
-# Benchmarks (requires authenticated Azure session)
+# Benchmarks (CLI + PS, stubbed HTTP — no Azure calls; add --local to skip App Insights upload)
 dotnet run --project tests/Benchmark/Benchmark.csproj
 ```
 
@@ -937,12 +937,11 @@ public void Parse_ShouldThrowArgumentException_WhenArgsEmpty()
 public void Parse_ShouldThrowDispatchHelpException_WhenHelpFlagProvided(string helpFlag)
 ```
 
-**`tests/Benchmark/`** — Performance benchmarks for API, CLI, and PowerShell paths:
+**`tests/Benchmark/`** — Performance benchmarks for CLI and PowerShell paths:
 
-- `API/ResourceGroupBenchmarks.cs` — Pure HTTP performance (no CLI overhead).
 - `CLI/ResourceGroupBenchmarks.cs` — End-to-end CLI invocation performance.
 - `PS/ResourceGroupBenchmarks.cs` — PowerShell cmdlet performance.
-- `BenchmarkBase.cs` — Shared setup: authenticate, create/cleanup resource groups.
+- `BenchmarkBase.cs` — Shared setup: repo root discovery and stub HTTP/DI registration.
 - `ChartGenerator.cs` — Generate benchmark result charts.
 - `AppInsightsExporter.cs` — Export benchmark results to Application Insights.
 
@@ -950,10 +949,10 @@ Benchmark configuration:
 
 ```csharp
 [MemoryDiagnoser]
-[WarmupCount(1)]
-[IterationCount(5)]
-[SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
-public class ResourceGroupBenchmarks : BenchmarkBase
+[InvocationCount(invocationCount: 1, unrollFactor: 1)]
+[IterationCount(10000)]
+[Outliers(OutlierMode.RemoveAll)]
+public abstract class CLIBenchmarkBase : BenchmarkBase
 ```
 
 ### Dev Container with Zipkin
@@ -1152,7 +1151,7 @@ Read these source files in order to build a complete mental model:
 │       └── Resources/                  # Resources.psm1, Resources.psd1, exports/*.ps1
 ├── tests/
 │   ├── Cli.Tests/                      # xUnit: dispatch and fallback tests
-│   └── Benchmark/                      # BenchmarkDotNet: API, CLI, PS benchmarks
+│   └── Benchmark/                      # BenchmarkDotNet: CLI, PS benchmarks
 ├── build/                              # PowerShell build scripts
 ├── scripts/                            # deploy.sh
 ├── docs/spec/                          # Design specifications
