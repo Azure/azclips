@@ -32,7 +32,7 @@ This cmdlet has the following aliases,
 
 Set a configuration value using dot notation keys.
 If the key already exists, it will be updated.
-Unknown keys are rejected unless --force (CLI) or -Force (PowerShell) is specified.
+Unknown keys are rejected unless -Force is specified.
 
 ## EXAMPLES
 

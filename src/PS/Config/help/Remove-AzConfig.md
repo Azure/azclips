@@ -32,7 +32,7 @@ This cmdlet has the following aliases,
 
 Remove a configuration setting by key.
 Once deleted, the setting reverts to its default value (if one exists).
-Unknown keys are rejected unless --force (CLI) or -Force (PowerShell) is specified.
+Unknown keys are rejected unless -Force is specified.
 
 ## EXAMPLES
 

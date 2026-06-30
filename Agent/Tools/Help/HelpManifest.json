@@ -991,7 +991,7 @@
       "extension": "config",
       "group": "config",
       "summary": "Set or update a configuration value.",
-      "description": "Set a configuration value using dot notation keys. If the key already exists, it will be updated. Unknown keys are rejected unless --force (CLI) or -Force (PowerShell) is specified.",
+      "description": "Set a configuration value using dot notation keys. If the key already exists, it will be updated. Unknown keys are rejected unless -Force is specified.",
       "parameters": [
         {
           "cliName": "key",
@@ -1045,7 +1045,7 @@
       "extension": "config",
       "group": "config",
       "summary": "Delete a configuration value.",
-      "description": "Remove a configuration setting by key. Once deleted, the setting reverts to its default value (if one exists). Unknown keys are rejected unless --force (CLI) or -Force (PowerShell) is specified.",
+      "description": "Remove a configuration setting by key. Once deleted, the setting reverts to its default value (if one exists). Unknown keys are rejected unless -Force is specified.",
       "parameters": [
         {
           "cliName": "key",
