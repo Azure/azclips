@@ -4,10 +4,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Microsoft.Azure.Cirrus.Extensions.Resources;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     /// <summary>
     /// Shared orchestrator base for resource-group-scoped deployment commands (create and

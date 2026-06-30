@@ -71,7 +71,7 @@ public class ConfigCliTests
         fixture.ExecuteCli(["config", "delete", "--key", "core.logging.level", "--force"]);
 
         var getAfterDeleteOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = info [default]", getAfterDeleteOutput.Single());
+        Assert.Contains("core.logging.level = error [default]", getAfterDeleteOutput.Single());
 
     }
 
@@ -100,7 +100,7 @@ public class ConfigCliTests
         Assert.Contains("Deleted core.logging.level", deleteOutput.Single());
 
         var getDeletedOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = info [default]", getDeletedOutput.Single());
+        Assert.Contains("core.logging.level = error [default]", getDeletedOutput.Single());
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public class ConfigCliTests
 
         var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
 
-        Assert.Contains("logging.level = info", output.Single());
+        Assert.Contains("logging.level = error", output.Single());
     }
 
     [Fact]

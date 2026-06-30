@@ -6,7 +6,7 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace Microsoft.Azure.Cirrus.ExtensionRuntime.Json
+namespace Microsoft.Azure.Azclips.ExtensionRuntime.Json
 {
     
 

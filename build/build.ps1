@@ -238,6 +238,21 @@ foreach ($_script in @('az.completions.ps1', 'az.completions.bash', 'az.completi
 }
 Write-Host "Copied completion scripts to bin/" -ForegroundColor Green
 
+# Also emit completion artifacts into artifacts/<Configuration>/Core.Cli/ for packaging
+$_cliArtifactDir = "$PSScriptRoot/../artifacts/$Configuration/Core.Cli"
+if (Test-Path $_cliArtifactDir) {
+    if ($_completionsJson) {
+        Write-Utf8NoBomFile -Path "$_cliArtifactDir/az.completions.json" -Content ($_completionsJson -join '')
+    }
+    foreach ($_script in @('az.completions.ps1', 'az.completions.bash', 'az.completions.zsh')) {
+        $_src = Join-Path $_completionsDir $_script
+        if (Test-Path $_src) {
+            Write-Utf8NoBomFile -Path "$_cliArtifactDir/$_script" -Content (Get-Content -Path $_src -Raw) -NormalizeLf
+        }
+    }
+    Write-Host "Copied completion artifacts to artifacts/$Configuration/Core.Cli/" -ForegroundColor Green
+}
+
 if ($GenerateHelpArtifacts)
 {
     $repoRoot = Resolve-Path "$PSScriptRoot/.."

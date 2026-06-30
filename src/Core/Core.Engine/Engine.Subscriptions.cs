@@ -5,7 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
 using System.Diagnostics;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Core.Engine
 {

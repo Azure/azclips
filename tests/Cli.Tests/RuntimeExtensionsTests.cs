@@ -3,8 +3,8 @@
 
 using System.Net;
 using System.Text;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
-using JsonNode = Microsoft.Azure.Cirrus.ExtensionRuntime.Json.JsonNode;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using JsonNode = Microsoft.Azure.Azclips.ExtensionRuntime.Json.JsonNode;
 
 namespace Cli.Tests;
 
