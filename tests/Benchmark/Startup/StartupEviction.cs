@@ -8,7 +8,8 @@ namespace Benchmark.Startup;
 
 /// <summary>
 /// Best-effort OS page-cache eviction for cold-start measurement.
-/// Linux (CI): sync + drop_caches via passwordless sudo. Windows (dev): EmptyStandbyList.exe.
+/// Linux (CI): sync + drop_caches via passwordless sudo. Windows (dev): an in-process standby-list
+/// purge (see <see cref="WindowsPageCacheEvictor"/>) — no external tool required.
 /// When eviction is not available the cold benchmarks are skipped by Program.cs (never reported
 /// as cold-but-actually-warm).
 /// </summary>
@@ -24,6 +25,27 @@ public static class StartupEviction
         {
             Console.WriteLine("[Startup] cold eviction unavailable at runtime — launch was NOT cold");
         }
+    }
+
+    /// <summary>
+    /// Human-readable reason cold eviction is unavailable on this machine, used to give the operator
+    /// an actionable hint (e.g. "run elevated") instead of a bare skip message.
+    /// </summary>
+    public static string DescribeUnavailable()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return IsWindowsAdministrator()
+                ? "Windows standby-list purge failed unexpectedly"
+                : "Windows cold runs require an elevated (Administrator) terminal";
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Linux cold runs require /proc/sys/vm/drop_caches and passwordless sudo";
+        }
+
+        return "cold eviction is only supported on Windows and Linux";
     }
 
     private static bool TryEvict(bool probe)
@@ -42,13 +64,12 @@ public static class StartupEviction
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                var tool = FindTool("EmptyStandbyList.exe");
-                if (tool is null) return false;
-                // EmptyStandbyList requires elevation; without it the evict would fail at runtime,
-                // so treat a non-elevated process as "cannot evict" rather than falsely cold.
-                if (!IsWindowsAdministrator()) return false;
+                // Purging the standby list requires SeProfileSingleProcessPrivilege, which is only
+                // grantable to an elevated process. CanPurge() verifies that without mutating the
+                // cache, so it doubles as the probe-path capability check.
+                if (!WindowsPageCacheEvictor.CanPurge()) return false;
                 if (probe) return true;
-                return Run(tool, "standbylist");
+                return WindowsPageCacheEvictor.PurgeStandbyList();
             }
 
             return false; // macOS / other — not part of the supported cold matrix
@@ -65,20 +86,6 @@ public static class StartupEviction
         using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
         var principal = new System.Security.Principal.WindowsPrincipal(identity);
         return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-    }
-
-    private static string? FindTool(string fileName)
-    {
-        var local = Path.Combine(AppContext.BaseDirectory, fileName);
-        if (File.Exists(local)) return local;
-
-        var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-        foreach (var dir in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-        {
-            var candidate = Path.Combine(dir.Trim(), fileName);
-            if (File.Exists(candidate)) return candidate;
-        }
-        return null;
     }
 
     private static bool RunBash(string script) => Run("/bin/bash", $"-c \"{script}\"");

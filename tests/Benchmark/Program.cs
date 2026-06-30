@@ -212,7 +212,8 @@ public class Program
         }
         else
         {
-            Console.WriteLine("[Startup] cold eviction unavailable — skipping cold startup benchmarks");
+            Console.WriteLine(
+                $"[Startup] cold eviction unavailable ({Startup.StartupEviction.DescribeUnavailable()}) — skipping cold startup benchmarks");
         }
 
         return types.ToArray();
