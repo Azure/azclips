@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782695514174,
+  "lastUpdate": 1782778880242,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1680,6 +1680,48 @@ window.BENCHMARK_DATA = {
             "value": 963662.8103862318,
             "unit": "ns",
             "range": "± 294308.87062518916"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yangan@microsoft.com",
+            "name": "YangAn-microsoft",
+            "username": "YangAn-microsoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "65acccb8220cb55fc7aa7f5439b9915ebcc298b7",
+          "message": "refactor(extensions): rename Cirrus to Azclips for Resources, Compute, ExtensionRuntime (#330)\n\nScoped Cirrus→Azclips rename of three extension projects, as a\nprerequisite for private-preview packaging. Project folder/.csproj file\nnames unchanged; CLI executable stays `az`.\n\n**Renamed identifiers**\n- `Microsoft.Azure.Cirrus.Extensions.Resources` →\n`Microsoft.Azure.Azclips.Extensions.Resources`\n- `Microsoft.Azure.Cirrus.Extensions.Compute` →\n`Microsoft.Azure.Azclips.Extensions.Compute`\n- `Microsoft.Azure.Cirrus.ExtensionRuntime` →\n`Microsoft.Azure.Azclips.ExtensionRuntime`\n\n**Compatibility:** the rest of the repo keeps its `Cirrus` naming and\nstill builds — only minimal references TO the renamed assemblies were\nre-pointed (`Core.Engine/Engine.Subscriptions.cs` using, Core.Runtime\nusings, `PS/{Resources,Compute}.psd1` dll paths, packaging nupkg globs).\nNo compat shim needed: in-tree consumers rebuild against the new name;\nRest/Help reach the assemblies via path-based\nProjectReference/reflection. Host dispatch already supports both\n`azclips` and `cirrus` prefixes (Constants.cs / ExtensionHints.targets),\nso verb→packageId→assembly resolution works unchanged.\n\n**Breaking surface (acceptable pre-release):** package-id/assembly-name\nchange for the three assemblies.\n\n**Validation:** `dotnet build cirrus.slnx` clean; Cli.Tests 281 passed/4\nskipped; Core.Extensions.Tests 56 passed. Live Azure smoke (`az group\nlist/show/create`, `az rest` GET/DELETE round-trip, `az vm list`)\nconfirmed all three renamed extensions load & dispatch; PS validated via\nreflection (`Microsoft.Azure.Azclips.Extensions.Resources` loads, 5\nprocessors resolve). New repeatable smoke scripts:\n`tests/Scripts/CLI/AzclipsRenameSmoke.sh`,\n`tests/Scripts/PS/AzclipsRenameSmoke.ps1`.\n\n**Follow-ups (non-blocking, out of scope):**\n- `devops/scripts/packaging/common/inject_builtin_extensions.{sh,ps1}`\nhardcode the old `Microsoft.Azure.Cirrus.Extensions.` prefix for the\nlean profile — pre-existing, not triggered here (trio aren't built-ins);\nresolve when `extension`/`config`/`login` are renamed.\n- Docs/wiki prose and XML-doc `<c>` examples left as-is (optional\ncosmetic).",
+          "timestamp": "2026-06-30T10:19:20+10:00",
+          "tree_id": "267051c59a3b4d6e6d55a0920fa526aa486b9808",
+          "url": "https://github.com/Azure/azclips/commit/65acccb8220cb55fc7aa7f5439b9915ebcc298b7"
+        },
+        "date": 1782778879731,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 990327.7899378632,
+            "unit": "ns",
+            "range": "± 305225.5305515031"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 958804.0695347674,
+            "unit": "ns",
+            "range": "± 300191.1966985131"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 959621.3766629989,
+            "unit": "ns",
+            "range": "± 291320.6555816142"
           }
         ]
       }
