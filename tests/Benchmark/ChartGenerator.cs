@@ -43,7 +43,7 @@ public static class ChartGenerator
         var jsonData = new
         {
             Timestamp = timestamp,
-            Results = chartData.Select(x => new { x.Method, x.Product, MeanSeconds = Math.Round(x.MeanSeconds, 4) }),
+            Results = chartData.Select(x => new { x.Method, x.Product, x.Mode, MeanSeconds = Math.Round(x.MeanSeconds, 4) }),
             Operations = timings.Select(x => new { x.Operation, x.CliTime, x.PsTime })
         };
         File.WriteAllText(jsonPath, JsonSerializer.Serialize(jsonData, new JsonSerializerOptions { WriteIndented = true }));
@@ -317,46 +317,30 @@ public static class ChartGenerator
     {
         var maxValue = data.Max(x => x.MeanSeconds);
 
-        // Group by product
-        var byProduct = data.GroupBy(x => x.Product).OrderBy(g => g.Key);
+        var productSections = GenerateProductSections(data, maxValue);
+        var startupComparison = GenerateStartupComparison(data);
 
-        var productSections = string.Join("\n", byProduct.Select(g =>
-        {
-            var bars = string.Join("\n", g.Select(x =>
-            {
-                var widthPercent = (x.MeanSeconds / maxValue) * 100;
-                var barClass = x.Product switch
-                {
-                    "CLI" => "bar-cli",
-                    "PS" => "bar-ps",
-                    "STARTUP-CLI" => "bar-startup-cli",
-                    "STARTUP-PS" => "bar-startup-ps",
-                    _ => "bar-other"
-                };
-                return $@"
-            <div class=""bar-container"">
-                <div class=""bar-label"">{x.Method}</div>
-                <div class=""bar-wrapper"">
-                    <div class=""bar {barClass}"" style=""width: {widthPercent:F1}%""></div>
-                    <span class=""bar-value"">{x.MeanSeconds:F4}s</span>
-                </div>
-            </div>";
-            }));
-
-            return $@"
-        <div class=""product-section"">
-            <h3>{g.Key} Benchmarks</h3>
-            {bars}
-        </div>";
-        }));
-
-        // Comparison table
+        // Comparison table (RG operations across CLI/PS). Hidden when empty, e.g. a startup-only run.
         var comparisonRows = string.Join("\n", timings.Where(x => x.CliTime > 0 || x.PsTime > 0).Select(x => $@"
             <tr>
                 <td><strong>{x.Operation}</strong></td>
                 <td>{x.CliTime:F4}s</td>
                 <td>{x.PsTime:F4}s</td>
             </tr>"));
+
+        var crossProductSection = string.IsNullOrWhiteSpace(comparisonRows) ? "" : $@"
+    <div class=""chart"">
+        <h2>Cross-Product Comparison</h2>
+        <p style=""color: #666; margin-bottom: 20px;"">Side-by-side execution time for each operation across CLI and PowerShell.</p>
+        <table class=""comparison-table"">
+            <tr>
+                <th>Operation</th>
+                <th>CLI</th>
+                <th>PS</th>
+            </tr>
+            {comparisonRows}
+        </table>
+    </div>";
 
         return $@"<!DOCTYPE html>
 <html>
@@ -376,7 +360,9 @@ public static class ChartGenerator
         .bar-cli {{ background: linear-gradient(90deg, #2196F3, #64B5F6); }}
         .bar-ps {{ background: linear-gradient(90deg, #9C27B0, #BA68C8); }}
         .bar-startup-cli {{ background: linear-gradient(90deg, #FF9800, #FFB74D); }}
+        .bar-startup-cli-cold {{ background: linear-gradient(90deg, #E65100, #FB8C00); }}
         .bar-startup-ps {{ background: linear-gradient(90deg, #009688, #4DB6AC); }}
+        .bar-startup-ps-cold {{ background: linear-gradient(90deg, #00695C, #00897B); }}
         .bar-other {{ background: linear-gradient(90deg, #757575, #BDBDBD); }}
         .bar-value {{ margin-left: 10px; font-weight: bold; color: #333; white-space: nowrap; }}
         .legend {{ display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; }}
@@ -385,6 +371,8 @@ public static class ChartGenerator
         .comparison-table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
         .comparison-table th, .comparison-table td {{ padding: 12px; text-align: left; border-bottom: 1px solid #eee; }}
         .comparison-table th {{ background: #f9f9f9; font-weight: 600; }}
+        .delta-pos {{ color: #c0392b; font-weight: 600; }}
+        .delta-neg {{ color: #1e8449; font-weight: 600; }}
         .timestamp {{ color: #999; font-size: 12px; margin-top: 20px; }}
     </style>
 </head>
@@ -397,27 +385,170 @@ public static class ChartGenerator
         <div class=""legend"">
             <div class=""legend-item""><div class=""legend-color"" style=""background: #2196F3;""></div> CLI (az.exe)</div>
             <div class=""legend-item""><div class=""legend-color"" style=""background: #9C27B0;""></div> PS (pwsh.exe)</div>
-            <div class=""legend-item""><div class=""legend-color"" style=""background: #FF9800;""></div> Startup CLI (az.exe)</div>
-            <div class=""legend-item""><div class=""legend-color"" style=""background: #009688;""></div> Startup PS (pwsh.exe)</div>
+            <div class=""legend-item""><div class=""legend-color"" style=""background: #FF9800;""></div> Startup CLI — Warm</div>
+            <div class=""legend-item""><div class=""legend-color"" style=""background: #E65100;""></div> Startup CLI — Cold</div>
+            <div class=""legend-item""><div class=""legend-color"" style=""background: #009688;""></div> Startup PS — Warm</div>
+            <div class=""legend-item""><div class=""legend-color"" style=""background: #00695C;""></div> Startup PS — Cold</div>
         </div>
     </div>
-
-    <div class=""chart"">
-        <h2>Cross-Product Comparison</h2>
-        <p style=""color: #666; margin-bottom: 20px;"">Side-by-side execution time for each operation across CLI and PowerShell.</p>
-        <table class=""comparison-table"">
-            <tr>
-                <th>Operation</th>
-                <th>CLI</th>
-                <th>PS</th>
-            </tr>
-            {comparisonRows}
-        </table>
-    </div>
+{startupComparison}
+{crossProductSection}
 
     <p class=""timestamp"">Generated: {timestamp}</p>
 </body>
 </html>";
+    }
+
+    /// <summary>Preferred display order for startup operations so warm and cold sections line up row-for-row.</summary>
+    private static readonly string[] ExtensionOrder = { "config", "login", "extension" };
+
+    private static int ExtOrder(string method)
+    {
+        var idx = Array.IndexOf(ExtensionOrder, method.ToLowerInvariant());
+        return idx < 0 ? int.MaxValue : idx;
+    }
+
+    /// <summary>
+    /// Render the "Execution Time by Product" bar sections. Startup benchmarks are split by run mode so
+    /// warm and cold never share a section — each lands under its own labelled heading.
+    /// </summary>
+    private static string GenerateProductSections(List<ChartDataPoint> data, double maxValue)
+    {
+        // Group key includes Mode so STARTUP-CLI warm and STARTUP-CLI cold become distinct sections.
+        var groups = data
+            .GroupBy(x => (x.Product, x.Mode))
+            .OrderBy(g => SectionSort(g.Key.Product, g.Key.Mode).product)
+            .ThenBy(g => SectionSort(g.Key.Product, g.Key.Mode).mode);
+
+        return string.Join("\n", groups.Select(g =>
+        {
+            var bars = string.Join("\n", g
+                .OrderBy(x => ExtOrder(x.Method))
+                .ThenBy(x => x.Method)
+                .Select(x =>
+                {
+                    var widthPercent = maxValue > 0 ? (x.MeanSeconds / maxValue) * 100 : 0;
+                    var barClass = BarClass(x);
+                    return $@"
+            <div class=""bar-container"">
+                <div class=""bar-label"">{x.Method}</div>
+                <div class=""bar-wrapper"">
+                    <div class=""bar {barClass}"" style=""width: {widthPercent:F1}%""></div>
+                    <span class=""bar-value"">{x.MeanSeconds:F4}s</span>
+                </div>
+            </div>";
+                }));
+
+            return $@"
+        <div class=""product-section"">
+            <h3>{SectionTitle(g.Key.Product, g.Key.Mode)}</h3>
+            {bars}
+        </div>";
+        }));
+    }
+
+    private static string BarClass(ChartDataPoint x) => x.Product switch
+    {
+        "CLI" => "bar-cli",
+        "PS" => "bar-ps",
+        "STARTUP-CLI" => x.Mode == "cold" ? "bar-startup-cli-cold" : "bar-startup-cli",
+        "STARTUP-PS" => x.Mode == "cold" ? "bar-startup-ps-cold" : "bar-startup-ps",
+        _ => "bar-other"
+    };
+
+    private static (int product, int mode) SectionSort(string product, string mode)
+    {
+        var p = product switch
+        {
+            "CLI" => 0,
+            "PS" => 1,
+            "STARTUP-CLI" => 2,
+            "STARTUP-PS" => 3,
+            _ => 9
+        };
+        var m = mode switch { "warm" => 0, "cold" => 1, _ => 0 };
+        return (p, m);
+    }
+
+    private static string SectionTitle(string product, string mode)
+    {
+        var label = product switch
+        {
+            "STARTUP-CLI" => "Startup CLI (az.exe)",
+            "STARTUP-PS" => "Startup PS (pwsh.exe)",
+            "CLI" => "CLI",
+            "PS" => "PS",
+            _ => product
+        };
+        return mode switch
+        {
+            "warm" => $"{label} — Warm (page cache hot)",
+            "cold" => $"{label} — Cold (page cache evicted)",
+            _ => $"{label} Benchmarks"
+        };
+    }
+
+    /// <summary>
+    /// Render a Warm-vs-Cold comparison table for startup benchmarks. Returns an empty string when the run
+    /// produced no startup data (e.g. a CLI/PS-only run, or cold skipped because eviction was unavailable).
+    /// </summary>
+    private static string GenerateStartupComparison(List<ChartDataPoint> data)
+    {
+        var startup = data.Where(x => !string.IsNullOrEmpty(x.Mode)).ToList();
+        if (startup.Count == 0) return "";
+
+        var rows = startup
+            .GroupBy(x => (Family: x.Product == "STARTUP-PS" ? "PS" : "CLI", Op: x.Extension))
+            .Select(g => (
+                g.Key.Family,
+                g.Key.Op,
+                Warm: g.FirstOrDefault(p => p.Mode == "warm")?.MeanSeconds,
+                Cold: g.FirstOrDefault(p => p.Mode == "cold")?.MeanSeconds))
+            .OrderBy(r => r.Family)
+            .ThenBy(r => ExtOrder(r.Op))
+            .ToList();
+
+        static string Cell(double? v) => v.HasValue ? $"{v.Value:F4}s" : "—";
+
+        static string DeltaCells(double? warm, double? cold)
+        {
+            if (!warm.HasValue || !cold.HasValue) return "<td>—</td><td>—</td>";
+            var delta = cold.Value - warm.Value;
+            var ratio = warm.Value > 0 ? cold.Value / warm.Value : 0;
+            var cls = delta >= 0 ? "delta-pos" : "delta-neg";
+            var sign = delta >= 0 ? "+" : "";
+            return $@"<td class=""{cls}"">{sign}{delta:F4}s</td><td class=""{cls}"">{ratio:F2}×</td>";
+        }
+
+        var body = string.Join("\n", rows.Select(r => $@"
+            <tr>
+                <td><strong>{r.Family}</strong></td>
+                <td>{r.Op}</td>
+                <td>{Cell(r.Warm)}</td>
+                <td>{Cell(r.Cold)}</td>
+                {DeltaCells(r.Warm, r.Cold)}
+            </tr>"));
+
+        return $@"
+    <div class=""chart"">
+        <h2>Startup: Warm vs Cold</h2>
+        <p style=""color: #666; margin-bottom: 20px;"">
+            <strong>Warm</strong> = OS page cache hot (DLLs served from RAM).
+            <strong>Cold</strong> = standby list purged before each launch (DLLs re-read from disk).
+            A positive Δ (cold slower than warm) confirms eviction is taking effect.
+        </p>
+        <table class=""comparison-table"">
+            <tr>
+                <th>Product</th>
+                <th>Operation</th>
+                <th>Warm (mean)</th>
+                <th>Cold (mean)</th>
+                <th>Δ (Cold − Warm)</th>
+                <th>Cold ÷ Warm</th>
+            </tr>
+            {body}
+        </table>
+    </div>";
     }
 }
 
