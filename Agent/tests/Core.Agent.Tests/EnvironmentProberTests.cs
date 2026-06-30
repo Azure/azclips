@@ -8,7 +8,7 @@ namespace Core.Agent.Tests;
 /// Contract tests for <see cref="EnvironmentProber"/>. Assert on the snapshot
 /// properties the caller consumes — NOT the string format of
 /// <see cref="EnvironmentSnapshot.FormatForSystemPrompt"/>.
-/// Format-string assertions are the anti-pattern from cirrus-anti-patterns §B
+/// Format-string assertions are an anti-pattern
 /// (rename a label, test breaks; user never sees the label).
 /// </summary>
 public class EnvironmentProberTests

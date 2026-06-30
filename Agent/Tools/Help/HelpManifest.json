@@ -1175,7 +1175,7 @@
       "extension": "extension",
       "group": "extension",
       "summary": "Install a new extension from a package feed or local file (CLI only).",
-      "description": "Add a new extension to Cirrus. Extensions can be installed from a NuGet package feed URL or from a local .nupkg file. Once installed, extensions are automatically loaded on next CLI startup. PowerShell support pending.",
+      "description": "Add a new extension to Azclips. Extensions can be installed from a NuGet package feed URL or from a local .nupkg file. Once installed, extensions are automatically loaded on next CLI startup. PowerShell support pending.",
       "parameters": [
         {
           "cliName": "name",
