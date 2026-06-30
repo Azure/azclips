@@ -3,7 +3,7 @@
 
 using System.Collections;
 using Core.Extensions;
-using Microsoft.Azure.Azclips.Extensions.Extension.Processors;
+using Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 using Xunit;
 
 namespace Cli.Tests;

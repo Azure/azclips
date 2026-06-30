@@ -6,7 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
+namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "ResourceGroup", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class NewResourceGroupCmdlet : PSCmdlet

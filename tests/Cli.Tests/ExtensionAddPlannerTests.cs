@@ -18,7 +18,7 @@ namespace Cli.Tests;
 /// Skips <c>ExtensionInstaller</c> / NuGet extraction (no nupkg packaging, no <c>~/.azclips</c>
 /// involvement) and stages compiled fixture DLLs into temp directories the test owns. The
 /// planner is the same code path
-/// <see cref="Microsoft.Azure.Azclips.Extensions.Extension.Processors.AddExtensionProcessor.Process()"/>
+/// <see cref="Microsoft.Azure.Cirrus.Extensions.Extension.Processors.AddExtensionProcessor.Process()"/>
 /// runs after extraction, so a passing test proves the contract end-to-end from "leaves on disk"
 /// to "registry decision".
 /// </remarks>

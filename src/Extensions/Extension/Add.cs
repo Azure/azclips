@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
 
-namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 
 public class AddExtensionProcessor : IProcessor
 {
@@ -276,11 +276,11 @@ public class AddExtensionProcessor : IProcessor
     /// <c>vm</c> and <c>disk</c>), so accepting a verb would silently install the whole package.
     /// Symmetric with the remove/show/update/pin/unpin commands.
     /// <list type="number">
-    ///   <item>Dotted token → passthrough (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Azclips.Extensions.Compute</c>).</item>
+    ///   <item>Dotted token → passthrough (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</item>
     ///   <item>Bare token matching a verb in <see cref="ExtensionHintTable"/> → throw
     ///         <see cref="CirrusErrorException.UsageError(string, IReadOnlyDictionary{string, object?}?)"/>
     ///         pointing at the owning package id.</item>
-    ///   <item>Otherwise → first-party <c>Microsoft.Azure.Azclips.Extensions.{name}</c> prefix-strip
+    ///   <item>Otherwise → legacy <c>Microsoft.Azure.Cirrus.Extensions.{name}</c> prefix-strip
     ///         (first-party short names like <c>Resources</c>, <c>Compute</c>).</item>
     /// </list>
     /// </summary>
@@ -314,7 +314,7 @@ public class AddExtensionProcessor : IProcessor
         }
 
         // (3) First-party prefix-strip fallback.
-        return $"Microsoft.Azure.Azclips.Extensions.{name}";
+        return $"Microsoft.Azure.Cirrus.Extensions.{name}";
     }
 
     private static void PurgeSiblingVersions(string installRoot, string packageId, string keepVersion)

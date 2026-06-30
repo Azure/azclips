@@ -58,7 +58,7 @@ namespace Core.Extensions.Tests
             {
                 Extensions =
                 {
-                    ["Microsoft.Azure.Azclips.Extensions.Compute"] = new ExtensionRegistryEntry
+                    ["Microsoft.Azure.Cirrus.Extensions.Compute"] = new ExtensionRegistryEntry
                     {
                         Verb = "vm",
                         Version = "1.1.0",
@@ -82,7 +82,7 @@ namespace Core.Extensions.Tests
 
             Assert.Equal(2, loaded.Extensions.Count);
 
-            var compute = loaded.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"];
+            var compute = loaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
             Assert.Null(compute.Verb);
             Assert.Equal("1.1.0", compute.Version);
             Assert.False(compute.Pinned);
@@ -107,7 +107,7 @@ namespace Core.Extensions.Tests
             {
                 Extensions =
                 {
-                    ["Microsoft.Azure.Azclips.Extensions.Compute"] = new ExtensionRegistryEntry
+                    ["Microsoft.Azure.Cirrus.Extensions.Compute"] = new ExtensionRegistryEntry
                     {
                         Verb = "vm",
                         Version = "1.0.0",
@@ -118,8 +118,8 @@ namespace Core.Extensions.Tests
 
             var loaded = store.Load();
 
-            Assert.True(loaded.Extensions.ContainsKey("microsoft.azure.azclips.extensions.compute"));
-            Assert.True(loaded.Extensions.ContainsKey("MICROSOFT.AZURE.AZCLIPS.EXTENSIONS.COMPUTE"));
+            Assert.True(loaded.Extensions.ContainsKey("microsoft.azure.cirrus.extensions.compute"));
+            Assert.True(loaded.Extensions.ContainsKey("MICROSOFT.AZURE.CIRRUS.EXTENSIONS.COMPUTE"));
         }
 
         [Fact]
@@ -201,7 +201,7 @@ namespace Core.Extensions.Tests
                 {
                   "schemaVersion": 1,
                   "extensions": {
-                    "Microsoft.Azure.Azclips.Extensions.Compute": {
+                    "Microsoft.Azure.Cirrus.Extensions.Compute": {
                       "verb": "vm",
                       "version": "1.0.0",
                       "pinned": false,
@@ -213,7 +213,7 @@ namespace Core.Extensions.Tests
 
             var loaded = store.Load();
 
-            var entry = loaded.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"];
+            var entry = loaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
             Assert.Single(entry.Contributions);
             Assert.Equal("vm", entry.Contributions[0].Verb);
             Assert.Equal(string.Empty, entry.Contributions[0].Path);
@@ -231,7 +231,7 @@ namespace Core.Extensions.Tests
             {
                 Extensions =
                 {
-                    ["Microsoft.Azure.Azclips.Extensions.Compute"] = new ExtensionRegistryEntry
+                    ["Microsoft.Azure.Cirrus.Extensions.Compute"] = new ExtensionRegistryEntry
                     {
                         Version = "1.1.0",
                         InstalledAt = DateTimeOffset.UtcNow,
@@ -248,7 +248,7 @@ namespace Core.Extensions.Tests
             store.Save(original);
             var loaded = store.Load();
 
-            var entry = loaded.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"];
+            var entry = loaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
             Assert.Null(entry.Verb);
             Assert.Empty(entry.Contributions);
             Assert.Empty(entry.Namespaces);
@@ -328,7 +328,7 @@ namespace Core.Extensions.Tests
                 {
                   "schemaVersion": 1,
                   "extensions": {
-                    "Microsoft.Azure.Azclips.Extensions.Compute": {
+                    "Microsoft.Azure.Cirrus.Extensions.Compute": {
                       "verb": "vm",
                       "version": "1.0.0",
                       "installedAt": "2026-04-12T10:23:00+00:00"

@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
+namespace Microsoft.Azure.Cirrus.Extensions.Config.Commands;
 
 public sealed class InfoConfigCommand : ConfigCommandBase
 {

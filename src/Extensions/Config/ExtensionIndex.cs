@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Azclips.Extensions.Config;
+namespace Microsoft.Azure.Cirrus.Extensions.Config;
 
 [ExtensionVerb("config")]
 public class ExtensionIndex : IExtensionIndex
@@ -13,8 +13,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "GetConfigCommand",
         InvocationName: "Get-AzConfig",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.GetConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.GetConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.GetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -28,8 +28,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "SetConfigCommand",
         InvocationName: "Set-AzConfig",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.SetConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.SetConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.SetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -44,8 +44,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "RemoveConfigCommand",
         InvocationName: "Remove-AzConfig",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.DeleteConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.DeleteConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.DeleteConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -59,8 +59,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "ListConfigCommand",
         InvocationName: "Get-AzConfigList",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.ListConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.ListConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -74,8 +74,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "InfoConfigCommand",
         InvocationName: "Get-AzConfigInfo",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.InfoConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.InfoConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.InfoConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -89,8 +89,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "GetConfigCommand",
         InvocationName: "config get",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.GetConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.GetConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.GetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -104,8 +104,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "SetConfigCommand",
         InvocationName: "config set",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.SetConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.SetConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.SetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -120,8 +120,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "DeleteConfigCommand",
         InvocationName: "config delete",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.DeleteConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.DeleteConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.DeleteConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -135,8 +135,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "ListConfigCommand",
         InvocationName: "config list",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.ListConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.ListConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -150,8 +150,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "InfoConfigCommand",
         InvocationName: "config info",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.InfoConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.InfoConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
         ProcessorType: typeof(Commands.InfoConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {

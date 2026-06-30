@@ -11,7 +11,7 @@ using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 
-namespace Microsoft.Azure.Azclips.Extensions.Extension;
+namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 
 /// <summary>
 /// Installs Azclips extensions from NuGet feeds or local packages using official NuGet APIs.

@@ -15,7 +15,7 @@ namespace Cli.Tests;
 /// </summary>
 public class RegistryLookupTests
 {
-    private const string PackageId = "Microsoft.Azure.Azclips.Extensions.Resources";
+    private const string PackageId = "Microsoft.Azure.Cirrus.Extensions.Resources";
 
     private static ExtensionRegistry RegistryWith(ExtensionRegistryEntry entry, string id = PackageId)
     {
@@ -42,7 +42,7 @@ public class RegistryLookupTests
     {
         var registry = RegistryWith(MultiNamespaceEntry());
 
-        Assert.True(RegistryLookup.TryFind(registry, "MICROSOFT.AZURE.AZCLIPS.EXTENSIONS.RESOURCES", out var match));
+        Assert.True(RegistryLookup.TryFind(registry, "MICROSOFT.AZURE.CIRRUS.EXTENSIONS.RESOURCES", out var match));
         Assert.Equal(PackageId, match.Key);
     }
 
@@ -163,7 +163,7 @@ public class RegistryLookupTests
     [Theory]
     [InlineData("Microsoft.Azure.Azclips.Extensions.Login", "Login")]
     [InlineData("microsoft.azure.azclips.extensions.login", "login")]
-    [InlineData("Microsoft.Azure.Azclips.Extensions.Compute", "Compute")]
+    [InlineData("Microsoft.Azure.Cirrus.Extensions.Compute", "Compute")]
     [InlineData("microsoft.azure.cirrus.extensions.compute", "compute")]
     [InlineData("Contoso.MyExtension", "Contoso.MyExtension")]
     [InlineData("Compute", "Compute")]

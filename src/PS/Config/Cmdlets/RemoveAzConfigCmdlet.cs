@@ -3,7 +3,7 @@
 
 using System.Management.Automation;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Config;
+namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
 
 [Cmdlet(VerbsCommon.Remove, "AzConfig", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 public class RemoveAzConfigCmdlet : ConfigCmdletBase
