@@ -23,9 +23,7 @@ public static class EnvironmentVariableMappings
         ("PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
         ("AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
         ("CIRRUS_NO_EXTENSION_CACHE", "assemblyLoading.bypassExtensionCache"),
-        // Internal-only startup-benchmark seam → BenchmarkOptions.ResolveOnly. Deliberately NOT in
-        // ConfigurationSchema, so it stays hidden from `config info` / `config list --all` and is
-        // rejected by `config set` without --force. For benchmarking use only.
+        // Internal-only startup-benchmark seam → BenchmarkOptions.ResolveOnly.
         ("AZCLIPS_BENCH_RESOLVE_ONLY", "benchmark.resolveOnly"),
     ];
 

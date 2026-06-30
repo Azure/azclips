@@ -36,8 +36,6 @@ public sealed class ConfigurationService(
         [typeof(ExtensionsOptions)] = "extensions",
         [typeof(ClientsOptions)] = "clients",
         [typeof(DefaultsOptions)] = "defaults",
-        // Internal-only benchmark seam section; deliberately absent from ConfigurationSchema so it
-        // stays hidden from `config info` / `config list`. See Core.Abstractions.BenchmarkOptions.
         [typeof(BenchmarkOptions)] = "benchmark"
     };
 

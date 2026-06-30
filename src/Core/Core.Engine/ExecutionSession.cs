@@ -15,7 +15,7 @@ internal class ExecutionSession : ISession
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
-    
+
     private readonly OutputStreamAdapter outputStreamAdapter;
 
     internal Channel<object> OutputChannel = null!;
@@ -60,9 +60,6 @@ internal class ExecutionSession : ISession
         EventBus.Token.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
         var processor = await GetProcessor();
-        // Lifecycle seam: processor fully resolved and bound, not yet executed. In benchmark mode
-        // a subscriber (Engine.SubscribeBenchmark) terminates the process on this event, so the
-        // spawned process is timed up to "ready" only — execution and teardown are excluded.
         await EventBus.Publish(Events.ProcessorAcquired);
         await processor.ProcessAsync();
     }
@@ -106,7 +103,6 @@ internal class ExecutionSession : ISession
             {
                 EventBus.Token.ThrowIfCancellationRequested();
                 var processor = await GetProcessor();
-                // Lifecycle seam (PowerShell path); see RunAsync. Benchmark mode terminates here.
                 await EventBus.Publish(Events.ProcessorAcquired);
                 await processor.ProcessAsync();
             }

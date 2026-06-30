@@ -69,7 +69,6 @@ public static class StartupEviction
 
     private static string? FindTool(string fileName)
     {
-        // 1) next to the benchmark binary (repo tooling), 2) PATH
         var local = Path.Combine(AppContext.BaseDirectory, fileName);
         if (File.Exists(local)) return local;
 
