@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
     {
         public override async Task ProcessAsync() {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-            var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
+            var authContextService = AzclipsServiceProvider.GetRequiredService<IAuthContextService>();
             AuthContext Context =  authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()!;
             await WriteOutput(Context);
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);

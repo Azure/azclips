@@ -52,7 +52,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
 
         try
         {
-            // Import module — triggers CirrusServiceProvider.Initialize(PowerShell) in .psm1
+            // Import module — triggers AzclipsServiceProvider.Initialize(PowerShell) in .psm1
             using (var import = PowerShell.Create())
             {
                 import.Runspace = runspace;
@@ -73,7 +73,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
         }
         finally
         {
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
             runspace.Close();
             runspace.Dispose();
         }

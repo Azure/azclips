@@ -6,6 +6,6 @@ using Xunit;
 namespace Cli.Tests;
 
 [CollectionDefinition("Cirrus Service Provider Tests", DisableParallelization = true)]
-public sealed class CirrusServiceProviderCollectionDefinition
+public sealed class AzclipsServiceProviderCollectionDefinition
 {
 }

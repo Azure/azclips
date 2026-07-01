@@ -79,7 +79,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     {
         var extensionsRoot = _extensionsRoot;
 
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             // Loaders read the staged versioned payload (<root>/<pkg>/<ver>/<dll>).
             services.RemoveAll<IExtensionLoader>();

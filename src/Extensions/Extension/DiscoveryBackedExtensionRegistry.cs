@@ -91,7 +91,7 @@ internal static class DiscoveryBackedExtensionRegistry
 
     private static List<DiscoveredExtensionInfo> RunDiscoverySession()
     {
-        var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
         var discoveredInfos = new List<DiscoveredExtensionInfo>();
 
         var outputStreams = new OutputStreams(

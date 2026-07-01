@@ -72,12 +72,12 @@ public class NewNetworkInterfaceCmdlet : PSCmdlet
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "NetworkInterfaceError", ErrorCategory.NotSpecified);
-        engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected override void ProcessRecord()
     {
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
