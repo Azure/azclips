@@ -22,6 +22,12 @@
     <None Remove="tests\**" />
     <Content Remove="tests\**" />
     <EmbeddedResource Remove="tests\**" />
+    <!-- Commands/ is its own extension project (Agent.Commands.csproj); do not
+         include its sources in the Core.Agent exe build. -->
+    <Compile Remove="Commands\**" />
+    <None Remove="Commands\**" />
+    <Content Remove="Commands\**" />
+    <EmbeddedResource Remove="Commands\**" />
   </ItemGroup>
 
   <ItemGroup>
