@@ -77,8 +77,8 @@ _az() {
                 local subs_output params_output
                 subs_output="$(echo "$json" | jq -r '._subcommands[]? // empty' 2>/dev/null)"
                 params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
-                [[ -n "$subs_output" ]] && candidates+=("${(@f)subs_output}")
-                [[ -n "$params_output" ]] && candidates+=("${(@f)params_output}")
+                [[ -n "$subs_output" ]] && candidates+=("${(@f)$subs_output}")
+                [[ -n "$params_output" ]] && candidates+=("${(@f)$params_output}")
             fi
             _az_debug "level=1 group=$group candidates=(${candidates[*]})"
             ;;
