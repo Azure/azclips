@@ -25,15 +25,22 @@ _az_resolve_exe() {
         echo "$script_dir/az"
         return
     fi
+    if [[ -x "$script_dir/az.exe" ]]; then
+        echo "$script_dir/az.exe"
+        return
+    fi
     # 2. Walk up to find repo root (look for cirrus.slnx), then check artifacts/
     local dir="$script_dir"
     while [[ -n "$dir" && "$dir" != "/" ]]; do
         if [[ -f "$dir/cirrus.slnx" ]]; then
             local cfg
             for cfg in Release Debug; do
-                local candidate="$dir/artifacts/$cfg/Core.Cli/az"
-                if [[ -x "$candidate" ]]; then
-                    echo "$candidate"
+                if [[ -x "$dir/artifacts/$cfg/Core.Cli/az" ]]; then
+                    echo "$dir/artifacts/$cfg/Core.Cli/az"
+                    return
+                fi
+                if [[ -x "$dir/artifacts/$cfg/Core.Cli/az.exe" ]]; then
+                    echo "$dir/artifacts/$cfg/Core.Cli/az.exe"
                     return
                 fi
             done
