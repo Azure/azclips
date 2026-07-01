@@ -10,17 +10,6 @@ namespace Benchmark.Startup;
 /// In-process Windows OS page-cache evictor. Purges the system standby page list directly via the
 /// memory-manager command <c>NtSetSystemInformation(SystemMemoryListInformation, MemoryPurgeStandbyList)</c>
 /// </summary>
-/// <remarks>
-/// When a process exits, its file-backed image pages (the az.exe / pwsh DLLs and EXEs) are not freed
-/// immediately — they move to the OS <em>standby list</em>, where they satisfy the next launch from RAM
-/// instead of disk. That is precisely the "warm" case. Purging the standby list returns those pages to
-/// the free list, so the next launch re-reads them from disk: the "cold" case we want to measure.
-///
-/// Purging the standby list requires <c>SeProfileSingleProcessPrivilege</c>, which the OS only grants to
-/// an elevated (Administrator) process. <see cref="PurgeStandbyList"/> enables that privilege on the
-/// current token, then issues the command. A non-elevated process cannot purge the cache, so callers must
-/// treat that as "cannot run cold" rather than reporting a warm launch as cold.
-/// </remarks>
 [SupportedOSPlatform("windows")]
 internal static class WindowsPageCacheEvictor
 {

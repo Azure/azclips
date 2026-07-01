@@ -22,6 +22,7 @@ on:
 permissions:
   contents: read
 
+#TODO: Parallelize benchmark runs and run filtering based on files changed
 jobs:
   benchmark:
     name: Run benchmarks and gate regressions
