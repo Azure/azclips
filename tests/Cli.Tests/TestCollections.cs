@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Cli.Tests;
 
-[CollectionDefinition("Cirrus Service Provider Tests", DisableParallelization = true)]
+[CollectionDefinition("Azclips Service Provider Tests", DisableParallelization = true)]
 public sealed class AzclipsServiceProviderCollectionDefinition
 {
 }
