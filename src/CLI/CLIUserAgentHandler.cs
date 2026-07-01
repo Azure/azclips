@@ -2,26 +2,20 @@
 // Licensed under the MIT License.
 
 using System.Reflection;
-using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Core.Runtime;
 
 namespace Core.Cli;
 
 /// <summary>
-/// CLI-specific HTTP pipeline service that stamps a User-Agent header
-/// on every outgoing ARM request, following the azure-cli convention:
-/// <c>AZURECLI/{version} ({platform}) dotnet/{runtime}</c>
+/// CLI-specific User-Agent handler that stamps
+/// <c>AZURECLI/{version} dotnet/{runtime}</c> on every outgoing ARM request.
 /// </summary>
-public class CLIHttpPipelineService(
-    IHttpTerminateHandler httpTerminateHandler,
-    ITracingInterceptor tracingInterceptor)
-    : HttpPipelineService(httpTerminateHandler, tracingInterceptor)
+public class CLIUserAgentHandler : IUserAgentHandler
 {
     private static readonly string s_userAgent = BuildUserAgent();
 
-    public override SendAsyncStep UserAgentStep => (request, callback, next) =>
+    public SendAsyncStep SendAsync => (request, callback, next) =>
     {
         if (!request.Headers.UserAgent.TryParseAdd(s_userAgent))
         {
@@ -50,7 +44,7 @@ public class CLIHttpPipelineService(
 
     private static string GetProductVersion()
     {
-        var asm = typeof(CLIHttpPipelineService).Assembly;
+        var asm = typeof(CLIUserAgentHandler).Assembly;
         var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
         var version = info?.InformationalVersion ?? asm.GetName().Version?.ToString() ?? "0.0.0";
         // Strip "+commitsha" suffix appended by the .NET SDK SourceRevisionId

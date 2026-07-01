@@ -2,26 +2,20 @@
 // Licensed under the MIT License.
 
 using System.Reflection;
-using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Core.Runtime;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Common;
 
 /// <summary>
-/// PowerShell-specific HTTP pipeline service that stamps a User-Agent header
-/// on every outgoing ARM request, following the Az PowerShell convention:
-/// <c>Azclips.Login/{moduleVersion} AzurePowershell/{productVersion} PSVersion/{psVersion}</c>
+/// PowerShell-specific User-Agent handler that stamps
+/// <c>AzurePowershell/v{productVersion} PSVersion/v{psVersion}</c> on every outgoing ARM request.
 /// </summary>
-public class PSHttpPipelineService(
-    IHttpTerminateHandler httpTerminateHandler,
-    ITracingInterceptor tracingInterceptor)
-    : HttpPipelineService(httpTerminateHandler, tracingInterceptor)
+public class PSUserAgentHandler : IUserAgentHandler
 {
     private static readonly string s_userAgent = BuildUserAgent();
 
-    public override SendAsyncStep UserAgentStep => (request, callback, next) =>
+    public SendAsyncStep SendAsync => (request, callback, next) =>
     {
         var moduleAgent = GetCallingModuleAgent();
         var ua = moduleAgent is not null ? $"{moduleAgent} {s_userAgent}" : s_userAgent;
@@ -68,7 +62,7 @@ public class PSHttpPipelineService(
 
     private static string GetProductVersion()
     {
-        var asm = typeof(PSHttpPipelineService).Assembly;
+        var asm = typeof(PSUserAgentHandler).Assembly;
         var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
         var version = info?.InformationalVersion ?? asm.GetName().Version?.ToString() ?? "0.0.0";
         var plus = version.IndexOf('+');

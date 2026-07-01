@@ -3,6 +3,7 @@
 
 using System.Management.Automation;
 using Core.Abstractions;
+using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
@@ -15,17 +16,17 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 {
     public void OnImport()
     {
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
             services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
-            services.AddSingleton<IHttpPipelineService, PSHttpPipelineService>();
+            services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
         });
-        CirrusServiceProvider.Initialize(ClientType.PowerShell);
+        AzclipsServiceProvider.Initialize(ClientType.PowerShell);
     }
 
     public void OnRemove(PSModuleInfo module)
     {
-        CirrusServiceProvider.Dispose();
+        AzclipsServiceProvider.Dispose();
     }
 }
