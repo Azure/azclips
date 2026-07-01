@@ -39,7 +39,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected IEventPublisher Publisher = null!;
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
-        protected AuthContext AuthContext = null!;
+        protected Profile Profile = null!;
 
         /// <summary>
         /// ARM / Azure management endpoints the rest command is allowed to target. The pipeline's
@@ -112,7 +112,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            AuthContext = context.AuthHandler.AuthContext;
+            Profile = context.AuthHandler.Profile ?? throw new InvalidOperationException("No profile is available. Please sign in.");
 
             return this;
         }
@@ -320,7 +320,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         {
             string subscriptionId = !string.IsNullOrWhiteSpace(SubscriptionId)
                 ? SubscriptionId.Trim()
-                : AuthContext?.SubscriptionId ?? "";
+                : Profile?.SubscriptionId ?? "";
 
             if (string.IsNullOrWhiteSpace(subscriptionId))
             {
@@ -442,12 +442,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             // gets sent is the one that is host-checked.
             if (url.Contains(SubscriptionToken, StringComparison.Ordinal))
             {
-                if (AuthContext is null || string.IsNullOrWhiteSpace(AuthContext.SubscriptionId))
+                if (Profile is null || string.IsNullOrWhiteSpace(Profile.SubscriptionId))
                 {
                     throw new InvalidOperationException($"The URL contains '{SubscriptionToken}' but no subscription is available in the current auth context. Sign in first or use an explicit subscription id.");
                 }
 
-                url = url.Replace(SubscriptionToken, AuthContext.SubscriptionId, StringComparison.Ordinal);
+                url = url.Replace(SubscriptionToken, Profile.SubscriptionId, StringComparison.Ordinal);
             }
 
             // A leading-slash path (e.g. "/subscriptions/.../resourcegroups") is, by REST/HTTP

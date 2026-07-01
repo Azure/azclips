@@ -7,12 +7,12 @@ namespace Core.Agent.Probes;
 /// <summary>Builds an <see cref="EnvironmentSnapshot"/> on demand.</summary>
 public sealed class EnvironmentProber
 {
-    private readonly IAuthContextService _authContext;
+    private readonly IProfileService _profileService;
     private readonly string _flavor;
 
-    public EnvironmentProber(IAuthContextService authContext, string flavor)
+    public EnvironmentProber(IProfileService profileService, string flavor)
     {
-        _authContext = authContext;
+        _profileService = profileService;
         _flavor = flavor;
     }
 
@@ -25,8 +25,8 @@ public sealed class EnvironmentProber
         var stdinInteractive = Safe(() => !Console.IsInputRedirected, false);
         var browserAvailable = Safe(() => EnvironmentProbes.IsBrowserAvailable(sshSession), false);
 
-        AuthContext? ctx = null;
-        try { ctx = await _authContext.GetCurrentContextAsync(ct).ConfigureAwait(false); } catch { }
+        Profile? ctx = null;
+        try { ctx = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false); } catch { }
 
         var signedIn = !string.IsNullOrEmpty(ctx?.SubscriptionId);
         return new EnvironmentSnapshot(

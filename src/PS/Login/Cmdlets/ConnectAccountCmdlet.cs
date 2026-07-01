@@ -8,9 +8,11 @@ using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
-[Cmdlet(VerbsCommunications.Connect, "AzAccount", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-public class ConnectAzAccountCmdlet : PSCmdlet
+[Cmdlet(VerbsCommunications.Connect, CommandNoun, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+public class ConnectAccountCmdlet : PSCmdlet
 {
+    private const string CommandNoun = Constants.CommandPrefix + "Account";
+    private const string CommandName = VerbsCommunications.Connect + "-" + CommandNoun;
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
@@ -23,6 +25,12 @@ public class ConnectAzAccountCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public SwitchParameter UseDeviceCode { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? OutProfile { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -47,10 +55,18 @@ public class ConnectAzAccountCmdlet : PSCmdlet
         {
             parameters.Add("UseDeviceCode", UseDeviceCode.IsPresent);
         }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(OutProfile)))
+        {
+            parameters.Add("OutProfile", OutProfile!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Login", "Connect-AzAccount", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation(Constants.ExtensionName, CommandName, parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

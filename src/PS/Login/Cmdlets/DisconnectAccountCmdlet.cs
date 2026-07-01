@@ -8,9 +8,11 @@ using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
-[Cmdlet(VerbsCommunications.Disconnect, "AzAccount", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-public class DisconnectAzAccountCmdlet : PSCmdlet
+[Cmdlet(VerbsCommunications.Disconnect, CommandNoun, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+public class DisconnectAccountCmdlet : PSCmdlet
 {
+    private const string CommandNoun = Constants.CommandPrefix + "Account";
+    private const string CommandName = VerbsCommunications.Disconnect + "-" + CommandNoun;
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
@@ -25,7 +27,7 @@ public class DisconnectAzAccountCmdlet : PSCmdlet
     {
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
-        if (!ShouldProcess("Az Account", "Disconnect"))
+        if (!ShouldProcess("Signed in user", "Disconnect"))
         {
             return;
         }
@@ -33,7 +35,7 @@ public class DisconnectAzAccountCmdlet : PSCmdlet
         var parameters = new Dictionary<string, object>();
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Login", "Disconnect-AzAccount", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation(Constants.ExtensionName, CommandName, parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

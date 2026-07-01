@@ -49,9 +49,11 @@ namespace Core.Extensions
                 {
                     Leaves = new[] { "add", "list", "show", "remove", "update", "pin", "unpin" },
                 },
-                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login")
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
+                ["logout"] = new("logout", "Microsoft.Azure.Azclips.Extensions.Login"),
+                ["profile"] = new("profile", "Microsoft.Azure.Cirrus.Extensions.Login")
                 {
-                    Leaves = new[] { "logout", "show" },
+                    Leaves = new[] { "list", "show", "switch", "remove" },
                 },
                 ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config")
                 {

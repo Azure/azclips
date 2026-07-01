@@ -97,7 +97,7 @@ public sealed class ChatAgent : IAsyncDisposable
     public static async Task<ChatAgent> CreateAsync(
         string flavor,
         IAuthService auth,
-        IAuthContextService authContext,
+        IProfileService profileService,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -119,7 +119,7 @@ public sealed class ChatAgent : IAsyncDisposable
         try
         {
             return await CreateCoreAsync(
-                client, flavor, auth, authContext, azExePath, approvalSink,
+                client, flavor, auth, profileService, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, ct).ConfigureAwait(false);
         }
         catch
@@ -133,7 +133,7 @@ public sealed class ChatAgent : IAsyncDisposable
         CopilotClient client,
         string flavor,
         IAuthService auth,
-        IAuthContextService authContext,
+        IProfileService profileService,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -147,10 +147,10 @@ public sealed class ChatAgent : IAsyncDisposable
         var armDetails = new ArmDetailsClient(auth);
         var cacheTools = new CachedResourceTools(armDetails);
         var helpTools = new HelpTools();
-        var skuTools = new AvailableLocationsTool(auth, authContext);
+        var skuTools = new AvailableLocationsTool(auth, profileService);
         var submitTool = new SubmitResponseTool();
         var planTool = new ProposePlanTool();
-        var prober = new EnvironmentProber(authContext, flavor);
+        var prober = new EnvironmentProber(profileService, flavor);
 
         ChatAgent? self = null;
         SessionErrored? earlyError = null;

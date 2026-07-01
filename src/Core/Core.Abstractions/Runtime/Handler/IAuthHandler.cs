@@ -8,7 +8,11 @@ namespace Core.Abstractions.Runtime.Handler
     /// </summary>
     public interface IAuthHandler
     {
-        AuthContext AuthContext { get; set; }
+        /// <summary>
+        /// The resolved profile providing connection state (tenant, subscription) for token
+        /// acquisition. Null when no profile is available; token acquisition is skipped in that case.
+        /// </summary>
+        Profile? Profile { get; set; }
 
         /// <summary>
         /// Acquires an access token. Implementation injected at runtime.

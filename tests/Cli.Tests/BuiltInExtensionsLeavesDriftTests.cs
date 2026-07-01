@@ -21,6 +21,7 @@ public class BuiltInExtensionsLeavesDriftTests
         {
             { "extension", new Microsoft.Azure.Cirrus.Extensions.Extension.ExtensionIndex() },
             { "login",     new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
+            { "profile",   new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
             { "config",    new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex()    },
         };
 

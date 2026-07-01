@@ -16,6 +16,9 @@ public class GetVMCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     [Parameter(ParameterSetName = "List", Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
@@ -53,6 +56,11 @@ public class GetVMCmdlet : PSCmdlet
 
         var parameterSetName = ParameterSetName;
         var commandName = $"Get-VM_{parameterSetName}";
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
+
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Compute", commandName, parameters, false, moduleName, moduleVersion);

@@ -48,13 +48,13 @@ public sealed class AvailableLocationsTool
     };
 
     private readonly IAuthService _authService;
-    private readonly IAuthContextService _authContext;
+    private readonly IProfileService _profileService;
     private readonly HttpClient _http;
 
-    public AvailableLocationsTool(IAuthService authService, IAuthContextService authContext, HttpClient? http = null)
+    public AvailableLocationsTool(IAuthService authService, IProfileService profileService, HttpClient? http = null)
     {
         _authService = authService;
-        _authContext = authContext;
+        _profileService = profileService;
         _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
 
         FindAvailableLocations = AIFunctionFactory.Create(FindAvailableLocationsAsync, new AIFunctionFactoryOptions
@@ -81,7 +81,7 @@ public sealed class AvailableLocationsTool
         string vmSize,
         [Description("Optional explicit list of locations to probe. Defaults to ~8 common regions when omitted.")]
         string[]? candidateLocations = null,
-        [Description("Optional subscription id. Defaults to the current AuthContext subscription.")]
+        [Description("Optional subscription id. Defaults to the active profile's subscription.")]
         string? subscriptionId = null,
         CancellationToken ct = default)
     {
@@ -104,14 +104,14 @@ public sealed class AvailableLocationsTool
         // Resolve subscription
         if (string.IsNullOrWhiteSpace(subscriptionId))
         {
-            var ctx = await _authContext.GetCurrentContextAsync(ct).ConfigureAwait(false);
+            var ctx = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
             subscriptionId = ctx?.SubscriptionId;
             if (string.IsNullOrWhiteSpace(subscriptionId))
             {
                 var err = JsonSerializer.Serialize(new
                 {
                     error = "no_subscription",
-                    hint = "Pass subscriptionId or set the current AuthContext first.",
+                    hint = "Pass subscriptionId or set the active profile first.",
                 }, Json);
                 scope.SetResult("error=no_subscription");
                 return err;
