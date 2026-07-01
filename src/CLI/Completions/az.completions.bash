@@ -146,4 +146,7 @@ _az_completions() {
 
 complete -F _az_completions az
 
+# Show all completions on first Tab press (like PowerShell's MenuComplete)
+bind 'set show-all-if-ambiguous on' 2>/dev/null
+
 echo "az tab completion registered (bash, dynamic)."
