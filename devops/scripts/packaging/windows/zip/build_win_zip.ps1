@@ -115,6 +115,21 @@ try {
     Write-Host "Publishing CLI (Release, $Rid)"
     dotnet publish $CliProject -c Release -r $Rid --self-contained true -o $cliWinScDir
 
+    # Publish the Agent executable into a dedicated agent/ subdir next to the
+    # CLI host. Isolating agent's ~100+MB dependency closure (Copilot SDK, MSAL,
+    # Azure.ResourceManager, ...) from the CLI's own dlls avoids assembly
+    # collisions during install. FindAgentExe in src/CLI/Program.cs probes this
+    # exact path first.
+    Write-Host "Publishing Agent exe (Release, $Rid)"
+    $agentPublishDir = Join-Path $cliWinScDir 'agent'
+    dotnet publish (Join-Path $repoRoot 'Agent/Core.Agent.csproj') -c Release -r $Rid --self-contained true -o $agentPublishDir
+
+    # Publish the Agent.Commands extension into builtin-publish/ so the inject
+    # script picks it up in the same pass as Login/Config.
+    Write-Host "Publishing Agent.Commands extension (Release)"
+    $agentExtDir = Join-Path $builtinPublishRoot 'Microsoft.Azure.Azclips.Extensions.Agent'
+    dotnet publish (Join-Path $repoRoot 'Agent/Commands/Agent.Commands.csproj') -c Release -o $agentExtDir
+
     if (-not (Test-Path -Path $injectScriptPath -PathType Leaf)) {
         throw "Injector script not found at $injectScriptPath"
     }
