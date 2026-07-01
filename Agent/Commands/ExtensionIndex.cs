@@ -50,8 +50,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ProcessorType: typeof(ResourceFindProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["query"] = new("Query", "query", typeof(string), "Substring to match against resource names.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["kind"]  = new("Kind", "kind", typeof(string), "Resource kind filter (e.g. 'resources', 'resource-groups'). Defaults to all kinds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), "Name pattern to match against cached Azure resource names.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["kind"] = new("Kind", "kind", typeof(string), "Optional kind filter (tenant | subscription | resourceGroup | resource). Defaults to all kinds.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

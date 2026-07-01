@@ -2,7 +2,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
-using Core.Agent.Probes;
+using Core.Agent.Tools.Env;
 using Core.Agent.Tools;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Help;

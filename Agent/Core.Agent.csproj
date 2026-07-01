@@ -28,6 +28,12 @@
     <None Remove="Commands\**" />
     <Content Remove="Commands\**" />
     <EmbeddedResource Remove="Commands\**" />
+    <!-- Tools/ is its own class library (Core.Agent.Tools.csproj) that the
+         extension and this exe both consume via ProjectReference below. -->
+    <Compile Remove="Tools\**" />
+    <None Remove="Tools\**" />
+    <Content Remove="Tools\**" />
+    <EmbeddedResource Remove="Tools\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -46,17 +52,19 @@
          These follow the code: they were on Core.Tui when the entry lived there. -->
     <ProjectReference Include="..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
     <ProjectReference Include="..\src\Core\Core.Runtime\Core.Runtime.csproj" />
+    <!-- Agent tool implementations (EnvironmentProber / HelpTools /
+         CachedResourceTools / AvailableLocationsTool) live in their own class
+         library so Agent.Commands (the extension) can consume them without
+         pulling in the whole azclips-agent.exe assembly. -->
+    <ProjectReference Include="Tools\Core.Agent.Tools.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- These files are already picked up as None items by the SDK's default glob
          (EnableDefaultNoneItems=true); Update just sets CopyToOutputDirectory on them.
          If default-item collection is ever disabled, switch these to Include (and add
-         EnableDefaultNoneItems=false) so prompts/help still reach the output dir. -->
+         EnableDefaultNoneItems=false) so prompts still reach the output dir. -->
     <None Update="prompts\*.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Tools\Help\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update=".env" Condition="Exists('.env')">

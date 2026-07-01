@@ -4,7 +4,7 @@
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Agent.Probes;
+using Core.Agent.Tools.Env;
 using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors

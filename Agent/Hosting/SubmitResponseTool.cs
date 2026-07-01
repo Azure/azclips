@@ -2,7 +2,7 @@ using System.ComponentModel;
 using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
-namespace Core.Agent.Tools;
+namespace Core.Agent.Hosting;
 
 /// <summary>
 /// Terminal tool every agent session ends with. The LLM calls submit_response

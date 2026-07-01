@@ -36,9 +36,12 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <ProjectReference Include="..\Core.Agent.csproj">
-            <Private>false</Private>
-            <ExcludeAssets>runtime</ExcludeAssets>
-        </ProjectReference>
+        <!-- Agent tool implementations (EnvironmentProber / HelpTools /
+             CachedResourceTools / AvailableLocationsTool). Copy the runtime dll
+             into the extension output so the assembly is resolvable when the CLI
+             loads the extension. Its transitive dependency closure (Azure.Identity,
+             Azure.ResourceManager, Microsoft.Extensions.AI) is required by the tool
+             logic. -->
+        <ProjectReference Include="..\Tools\Core.Agent.Tools.csproj" />
     </ItemGroup>
 </Project>

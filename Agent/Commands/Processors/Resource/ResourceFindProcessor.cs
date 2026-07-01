@@ -11,10 +11,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
 {
     public class ResourceFindProcessor : AgentProcessorBase
     {
-        [ArgumentInfo(Required = true, Description = @"Substring to match against resource names.", SerializedName = @"query")]
-        public string Query { get; set; } = string.Empty;
+        [ArgumentInfo(Required = true, Description = @"Name pattern to match. Exact match preferred, falls back to substring, then Levenshtein typo correction.", SerializedName = @"name")]
+        public string Name { get; set; } = string.Empty;
 
-        [ArgumentInfo(Required = false, Description = @"Resource kind filter (e.g. 'resources', 'resource-groups'). Defaults to all kinds.", SerializedName = @"kind")]
+        [ArgumentInfo(Required = false, Description = @"Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched.", SerializedName = @"kind")]
         public string? Kind { get; set; }
 
         public override async Task ProcessAsync()
@@ -27,7 +27,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
 
             var args = new AIFunctionArguments
             {
-                ["query"] = Query,
+                ["namePattern"] = Name,
             };
             if (!string.IsNullOrWhiteSpace(Kind))
             {
