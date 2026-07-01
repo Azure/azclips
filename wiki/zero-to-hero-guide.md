@@ -87,7 +87,7 @@ services.AddSingleton<ILoggingService, ConsoleLoggingService>();
 public class MyEngine(IAuthService auth, ILoggingService logger) { }
 ```
 
-In Cirrus, `AzclipsServiceProvider.Initialize()` sets up the entire DI container (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs`).
+In Azclips, `AzclipsServiceProvider.Initialize()` sets up the entire DI container (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs`).
 
 #### Pattern Matching & Switch Expressions
 
@@ -153,7 +153,7 @@ At its core, DI in .NET follows three steps:
    var auth = provider.GetRequiredService<IAuthService>();
 ```
 
-In Cirrus, step 1 happens in `AzclipsServiceProvider.Initialize()`, step 2 at the end of that method, and step 3 happens throughout the codebase via constructor injection or direct `GetRequiredService` calls.
+In Azclips, step 1 happens in `AzclipsServiceProvider.Initialize()`, step 2 at the end of that method, and step 3 happens throughout the codebase via constructor injection or direct `GetRequiredService` calls.
 
 #### Assembly Loading
 
