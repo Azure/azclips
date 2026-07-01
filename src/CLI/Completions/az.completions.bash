@@ -43,8 +43,7 @@ _az_resolve_exe() {
     fi
 }
 
-# Cache: associative array group -> json file path (temp files)
-declare -A _az_cache
+# Cache for top-level groups (populated on first tab)
 _az_top_level=""
 
 _az_query() {
