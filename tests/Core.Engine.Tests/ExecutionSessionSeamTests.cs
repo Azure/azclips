@@ -7,6 +7,10 @@ using Core.Engine;
 
 namespace Core.Engine.Tests;
 
+[CollectionDefinition(nameof(ExecutionSessionSeamTests), DisableParallelization = true)]
+public sealed class ExecutionSessionSeamTestsCollection { }
+
+[Collection(nameof(ExecutionSessionSeamTests))]
 public class ExecutionSessionSeamTests
 {
     private sealed class SeamStubProcessor : IProcessor

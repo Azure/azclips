@@ -74,10 +74,11 @@ public abstract class StartupBenchmarkBase
     {
         using var p = Process.Start(psi)
             ?? throw new InvalidOperationException($"Process.Start returned null for {psi.FileName}");
-        // Output at the seam is negligible; sequential drain before WaitForExit is safe here.
-        _ = p.StandardOutput.ReadToEnd();
-        _ = p.StandardError.ReadToEnd();
+        // Drain stdout/stderr concurrently to avoid deadlocks when either stream fills its buffer.
+        var stdoutTask = p.StandardOutput.ReadToEndAsync();
+        var stderrTask = p.StandardError.ReadToEndAsync();
         p.WaitForExit();
+        Task.WaitAll(stdoutTask, stderrTask);
         if (p.ExitCode != 0)
         {
             throw new InvalidOperationException(

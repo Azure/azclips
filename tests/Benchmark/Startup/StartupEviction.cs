@@ -102,9 +102,10 @@ public static class StartupEviction
         };
         using var p = Process.Start(psi);
         if (p is null) return false;
-        _ = p.StandardOutput.ReadToEnd();
-        _ = p.StandardError.ReadToEnd();
+        var stdoutTask = p.StandardOutput.ReadToEndAsync();
+        var stderrTask = p.StandardError.ReadToEndAsync();
         p.WaitForExit();
+        Task.WaitAll(stdoutTask, stderrTask);
         return p.ExitCode == 0;
     }
 }
