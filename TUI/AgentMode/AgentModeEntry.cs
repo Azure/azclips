@@ -30,14 +30,14 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        CirrusServiceProvider.Initialize(ClientType.TUI);
+        AzclipsServiceProvider.Initialize(ClientType.TUI);
 
         TraceAgentRenderer? trace = null;
         try
         {
-            var auth        = CirrusServiceProvider.GetRequiredService<IAuthService>();
-            var authContext = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
-            var config      = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+            var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
+            var authContext = AzclipsServiceProvider.GetRequiredService<IAuthContextService>();
+            var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             // Prompt is chosen by interaction mode: oneShot → oneshot.md,
             // interactive → inline.md. (tui.md exists for a future full-screen
@@ -127,7 +127,7 @@ public static class AgentModeEntry
         finally
         {
             trace?.Dispose();
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
         }
     }
 

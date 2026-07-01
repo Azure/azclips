@@ -14,7 +14,7 @@ using System.Collections.Concurrent;
 
 namespace Core.DependencyInjection;
 
-public static class CirrusServiceProvider
+public static class AzclipsServiceProvider
 {
     private static volatile IServiceProvider? _serviceProvider;
     private static readonly object _lock = new();
@@ -96,7 +96,7 @@ public static class CirrusServiceProvider
     public static T GetRequiredService<T>() where T : notnull
     {
         return (_serviceProvider ?? throw new InvalidOperationException(
-            "CirrusServiceProvider has not been initialized. Call Initialize() first."))
+            "AzclipsServiceProvider has not been initialized. Call Initialize() first."))
             .GetRequiredService<T>();
     }
 
@@ -107,7 +107,7 @@ public static class CirrusServiceProvider
     public static object GetRequiredService(Type serviceType)
     {
         return (_serviceProvider ?? throw new InvalidOperationException(
-            "CirrusServiceProvider has not been initialized. Call Initialize() first."))
+            "AzclipsServiceProvider has not been initialized. Call Initialize() first."))
             .GetRequiredService(serviceType);
     }
 

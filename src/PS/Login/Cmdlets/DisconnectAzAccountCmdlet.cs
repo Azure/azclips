@@ -18,12 +18,12 @@ public class DisconnectAzAccountCmdlet : PSCmdlet
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "LoginError", ErrorCategory.AuthenticationError);
-        engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected override void ProcessRecord()
     {
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         if (!ShouldProcess("Az Account", "Disconnect"))
         {

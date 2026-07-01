@@ -45,7 +45,7 @@ artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Login/
 Both `.psm1` files follow an identical bootstrap pattern. For example, `Login.psm1` (`src/PS/Login/Login.psm1:1-15`):
 
 1. **Dot-source telemetry** (`Login.psm1:2`) — `. (Join-Path $PSScriptRoot '..\TelemetryHelper.ps1')`
-2. **Initialise DI container** (`Login.psm1:5`) — `[Core.DependencyInjection.CirrusServiceProvider]::Initialize([Core.Abstractions.ClientType]::PowerShell)`
+2. **Initialise DI container** (`Login.psm1:5`) — `[Core.DependencyInjection.AzclipsServiceProvider]::Initialize([Core.Abstractions.ClientType]::PowerShell)`
 3. **Register cleanup** (`Login.psm1:6-8`) — disposes the DI container on module removal via `$MyInvocation.MyCommand.ScriptBlock.Module.OnRemove`.
 4. **Auto-load exports** (`Login.psm1:10-14`) — dot-sources every `.ps1` file in `./exports/`.
 5. **Export functions** (`Login.psm1:15`) — `Export-ModuleMember -Function *`.
@@ -60,7 +60,7 @@ graph TB
         Manifest["Load RequiredAssemblies<br>(Core DLLs + Extension DLL)"]
         PSM["Execute Login.psm1"]
         Telem["Dot-source TelemetryHelper.ps1"]
-        DI["CirrusServiceProvider.Initialize<br>(ClientType.PowerShell)"]
+        DI["AzclipsServiceProvider.Initialize<br>(ClientType.PowerShell)"]
         Exports["Dot-source exports/*.ps1"]
         Ready["Module Ready<br>Functions exported"]
     end
@@ -177,7 +177,7 @@ Every PowerShell cmdlet follows the same five-step pattern to delegate execution
 sequenceDiagram
     autonumber
     participant PS as PowerShell Cmdlet
-    participant DI as CirrusServiceProvider
+    participant DI as AzclipsServiceProvider
     participant Engine as IEngine (CLIEngine)
     participant Ext as Extension Assembly
     participant Azure as Azure API
@@ -211,7 +211,7 @@ $activity = Start-CmdletActivity -CmdletName "Connect-AzAccount" -Parameters $PS
 **2. Get the engine from DI** (`Connect-AzAccount.ps1:15`)
 
 ```powershell
-$engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService(
+$engine = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService(
     [Core.Abstractions.IEngine])
 ```
 
@@ -249,7 +249,7 @@ Success and failure are recorded via `Complete-CmdletActivity` in the `end` bloc
 Lazy-loads the `ITelemetryService` from the DI container (`TelemetryHelper.ps1:7-20`):
 
 ```powershell
-[Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService(
+[Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService(
     [Core.Abstractions.ITelemetryService])
 ```
 
@@ -386,4 +386,4 @@ graph TB
 | New-ResourceGroup | `src/PS/Resources/exports/New-ResourceGroup.ps1` |
 | Get-ResourceGroup | `src/PS/Resources/exports/Get-ResourceGroup.ps1` |
 | Telemetry helper | `src/PS/TelemetryHelper.ps1` |
-| DI container | `src/Core/Core.DependencyInjection/CirrusServiceProvider.cs` |
+| DI container | `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` |

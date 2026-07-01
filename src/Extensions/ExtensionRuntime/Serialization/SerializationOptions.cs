@@ -5,7 +5,7 @@
 using System;
 using System.Linq;
 
-namespace Microsoft.Azure.Cirrus.ExtensionRuntime.Json
+namespace Microsoft.Azure.Azclips.ExtensionRuntime.Json
 {
     internal class SerializationOptions
     {

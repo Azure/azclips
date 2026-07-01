@@ -1,5 +1,5 @@
 ---
-summary: Remove an installed Cirrus extension package.
+summary: Remove an installed extension package.
 status: ga
 schema: 1.0.0
 online version:

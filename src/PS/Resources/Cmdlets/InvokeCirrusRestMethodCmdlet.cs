@@ -6,7 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Cirrus.Cmdlets.Common;
 using Core.Telemetry;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Processors;
+using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
 
@@ -70,12 +70,12 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "ResourcesError", ErrorCategory.NotSpecified);
-        engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected override void ProcessRecord()
     {
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {

@@ -6,7 +6,7 @@
 
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources
+namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
     [ExtensionVerb("group")]
     [ExtensionVerb("deployment")]
@@ -18,8 +18,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "NewResourceGroupProcessor",
             InvocationName: "New-ResourceGroup",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.NewResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -33,8 +33,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "GetResourceGroupProcessor",
             InvocationName: "Get-ResourceGroup_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.GetResourceGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.GetResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -47,8 +47,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "ListResourceGroupProcessor",
             InvocationName: "Get-ResourceGroup_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.ListResourceGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.ListResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -60,8 +60,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "New-ResourceGroupDeployment",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -86,8 +86,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "RestProcessor_Orchestrator",
             InvocationName: "Invoke-CirrusRestMethod",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.RestProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RestProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.RestProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -109,8 +109,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
             InvocationName: "New-ResourceGroupDeploymentWhatIf",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -135,8 +135,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "NewResourceGroupProcessor",
             InvocationName: "group create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.NewResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -150,8 +150,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "GetResourceGroupProcessor",
             InvocationName: "group show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.GetResourceGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.GetResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -164,8 +164,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "ListResourceGroupProcessor",
             InvocationName: "group list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.ListResourceGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.ListResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -177,8 +177,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment group create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -203,8 +203,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "RestProcessor_Orchestrator",
             InvocationName: "rest",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.RestProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RestProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.RestProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -226,8 +226,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Name: "NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
             InvocationName: "deployment group what-if",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
             ProcessorType: typeof(Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {

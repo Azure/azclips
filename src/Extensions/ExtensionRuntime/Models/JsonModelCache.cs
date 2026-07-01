@@ -5,7 +5,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace Microsoft.Azure.Cirrus.ExtensionRuntime.Json
+namespace Microsoft.Azure.Azclips.ExtensionRuntime.Json
 {
     internal static class JsonModelCache
     {

@@ -6,7 +6,7 @@ using System;
 using System.Reflection;
 using System.Runtime.Serialization;
 
-namespace Microsoft.Azure.Cirrus.ExtensionRuntime.Json
+namespace Microsoft.Azure.Azclips.ExtensionRuntime.Json
 {
     
 

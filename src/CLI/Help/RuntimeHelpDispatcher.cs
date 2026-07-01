@@ -36,14 +36,16 @@ public sealed class RuntimeHelpDispatcher
     private readonly HashSet<string> _builtInPackageIds;
     private readonly ExtensionHintTable _hintTable;
     private readonly TextWriter _output;
+    private readonly OutputStreams _streams;
 
-    public RuntimeHelpDispatcher(IEngine engine)
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams)
         : this(
             engine,
             BuiltInExtensions.Map,
             ExtensionHintTable.Default,
             new RuntimeHelpRenderer(),
-            Console.Out)
+            Console.Out,
+            streams)
     {
     }
 
@@ -52,7 +54,8 @@ public sealed class RuntimeHelpDispatcher
         IReadOnlyDictionary<string, BuiltInExtension> builtIns,
         ExtensionHintTable hintTable,
         IHelpRenderer renderer,
-        TextWriter output)
+        TextWriter output,
+        OutputStreams streams)
     {
         _engine = engine;
         _builtInPackageIds = builtIns.Values
@@ -61,6 +64,7 @@ public sealed class RuntimeHelpDispatcher
         _hintTable = hintTable;
         _renderer = renderer;
         _output = output;
+        _streams = streams;
     }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
@@ -195,11 +199,11 @@ public sealed class RuntimeHelpDispatcher
 
                 await Task.CompletedTask;
             },
-            WriteVerbose: async (_, _) => { await Task.CompletedTask; },
-            WriteDebug: async (_, _) => { await Task.CompletedTask; },
-            WriteWarning: async (_, _) => { await Task.CompletedTask; },
-            WriteError: async (_, _) => { await Task.CompletedTask; },
-            WriteInformation: async (_, _) => { await Task.CompletedTask; });
+            WriteVerbose: _streams.WriteVerbose,
+            WriteDebug: _streams.WriteDebug,
+            WriteWarning: _streams.WriteWarning,
+            WriteError: _streams.WriteError,
+            WriteInformation: _streams.WriteInformation);
 
         try
         {

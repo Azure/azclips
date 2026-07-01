@@ -4,10 +4,10 @@
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     /// <summary>
     /// Runs an ARM what-if operation at the resource group scope

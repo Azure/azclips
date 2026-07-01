@@ -67,8 +67,8 @@ public class AddExtensionProcessor : IProcessor
             throw CirrusErrorException.UsageError("Either Name or Path must be provided to add an extension.");
         }
 
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        var loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
 
         // Tag the activity with extension dimensions early so failed installs (mid-iteration

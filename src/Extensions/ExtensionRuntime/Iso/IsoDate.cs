@@ -5,7 +5,7 @@
 using System;
 using System.Text;
 
-namespace Microsoft.Azure.Cirrus.ExtensionRuntime.Json
+namespace Microsoft.Azure.Azclips.ExtensionRuntime.Json
 {
     internal struct IsoDate
     {

@@ -3,9 +3,9 @@
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     public class GetResourceGroupProcessor : ResourcesProcessorBase<ResourceGroup>
     {

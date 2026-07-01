@@ -22,7 +22,7 @@ namespace Benchmark.CLI;
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class CLIBenchmarkBase : BenchmarkBase
 {
-    private const string PackageIdPrefix = "Microsoft.Azure.Cirrus.Extensions.";
+    private const string PackageIdPrefix = "Microsoft.Azure.Azclips.Extensions.";
 
     /// <summary>
     /// Short extension names (the segment after <see cref="PackageIdPrefix"/>) whose verbs this
@@ -79,7 +79,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     {
         var extensionsRoot = _extensionsRoot;
 
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             // Loaders read the staged versioned payload (<root>/<pkg>/<ver>/<dll>).
             services.RemoveAll<IExtensionLoader>();

@@ -1,5 +1,5 @@
 ---
-summary: Update an installed Cirrus extension to a newer version.
+summary: Update an installed extension to a newer version.
 status: ga
 schema: 1.0.0
 online version:

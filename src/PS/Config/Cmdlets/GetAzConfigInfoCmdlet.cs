@@ -5,8 +5,8 @@ using System.Management.Automation;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
 
-[Cmdlet(VerbsCommon.Get, "CirrusConfigInfo")]
-public class GetCirrusConfigInfoCmdlet : ConfigCmdletBase
+[Cmdlet(VerbsCommon.Get, "AzConfigInfo")]
+public class GetAzConfigInfoCmdlet : ConfigCmdletBase
 {
     [Parameter(Mandatory = false)]
     public SwitchParameter KeysOnly { get; set; }

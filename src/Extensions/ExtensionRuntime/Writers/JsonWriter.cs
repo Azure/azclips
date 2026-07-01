@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Web;
 
-namespace Microsoft.Azure.Cirrus.ExtensionRuntime.Json
+namespace Microsoft.Azure.Azclips.ExtensionRuntime.Json
 {
     internal class JsonWriter
     {

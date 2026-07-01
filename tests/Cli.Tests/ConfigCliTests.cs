@@ -71,7 +71,7 @@ public class ConfigCliTests
         fixture.ExecuteCli(["config", "delete", "--key", "core.logging.level", "--force"]);
 
         var getAfterDeleteOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = info [default]", getAfterDeleteOutput.Single());
+        Assert.Contains("core.logging.level = error [default]", getAfterDeleteOutput.Single());
 
     }
 
@@ -100,7 +100,7 @@ public class ConfigCliTests
         Assert.Contains("Deleted core.logging.level", deleteOutput.Single());
 
         var getDeletedOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = info [default]", getDeletedOutput.Single());
+        Assert.Contains("core.logging.level = error [default]", getDeletedOutput.Single());
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public class ConfigCliTests
 
         var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
 
-        Assert.Contains("logging.level = info", output.Single());
+        Assert.Contains("logging.level = error", output.Single());
     }
 
     [Fact]
@@ -345,8 +345,8 @@ public class ConfigCliTests
                 Environment.SetEnvironmentVariable(key, null);
             }
 
-            CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.OverrideRegistration(services =>
+            AzclipsServiceProvider.Dispose();
+            AzclipsServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
@@ -357,7 +357,7 @@ public class ConfigCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            CirrusServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(ClientType.CLI);
         }
 
         public IReadOnlyList<string> ExecuteCli(string[] args)
@@ -366,7 +366,7 @@ public class ConfigCliTests
 
             var dispatcher = new ExtensionDispatcher();
             var invocation = dispatcher.Parse(args);
-            var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+            var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
             var streams = new OutputStreams(
                 WriteOutput: (value, _) =>
@@ -388,7 +388,7 @@ public class ConfigCliTests
 
         public void Dispose()
         {
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
 
             foreach (var entry in _originalEnvironment)
             {
@@ -433,11 +433,11 @@ public class ConfigCliTests
 
         var expectedCmdlets = new[]
         {
-            "Get-CirrusConfig",
-            "Set-CirrusConfig",
-            "Remove-CirrusConfig",
-            "Get-CirrusConfigList",
-            "Get-CirrusConfigInfo"
+            "Get-AzConfig",
+            "Set-AzConfig",
+            "Remove-AzConfig",
+            "Get-AzConfigList",
+            "Get-AzConfigInfo"
         };
 
         foreach (var cmdlet in expectedCmdlets)
@@ -475,11 +475,11 @@ public class ConfigCliTests
         Assert.Contains("Microsoft.Azure.Cirrus.Extensions.Config.dll", manifestContent);
 
         // Verify cmdlets are exported
-        Assert.Contains("Get-CirrusConfig", manifestContent);
-        Assert.Contains("Set-CirrusConfig", manifestContent);
-        Assert.Contains("Remove-CirrusConfig", manifestContent);
-        Assert.Contains("Get-CirrusConfigList", manifestContent);
-        Assert.Contains("Get-CirrusConfigInfo", manifestContent);
+        Assert.Contains("Get-AzConfig", manifestContent);
+        Assert.Contains("Set-AzConfig", manifestContent);
+        Assert.Contains("Remove-AzConfig", manifestContent);
+        Assert.Contains("Get-AzConfigList", manifestContent);
+        Assert.Contains("Get-AzConfigInfo", manifestContent);
     }
 
     [Fact]
@@ -487,10 +487,10 @@ public class ConfigCliTests
     {
         var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
 
-        var getMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfig", ClientType.PowerShell);
+        var getMetadata = extensionIndex.GetCommandMetadata("Get-AzConfig", ClientType.PowerShell);
         Assert.Contains("Json", getMetadata.Parameters.Keys);
 
-        var listMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfigList", ClientType.PowerShell);
+        var listMetadata = extensionIndex.GetCommandMetadata("Get-AzConfigList", ClientType.PowerShell);
         Assert.Contains("All", listMetadata.Parameters.Keys);
         Assert.Contains("Json", listMetadata.Parameters.Keys);
     }

@@ -7,9 +7,9 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     /// <summary>
     /// Universal authenticated HTTP passthrough, mirroring <c>az rest</c> (Option 2 parity): no LRO

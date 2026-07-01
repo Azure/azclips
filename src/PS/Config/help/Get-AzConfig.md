@@ -6,21 +6,21 @@ Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01
-title: Get-CirrusConfigInfo
+title: Get-AzConfig
 ---
 
-# Get-CirrusConfigInfo
+# Get-AzConfig
 
 ## SYNOPSIS
 
-Display information about valid configuration keys.
+Retrieve a configuration value.
 
 ## SYNTAX
 
 ### \_\_AllParameterSets
 
 ```
-Get-CirrusConfigInfo [-KeysOnly] [<CommonParameters>]
+Get-AzConfig -Key <string> [-AsJson] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -30,32 +30,33 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Show metadata about available configuration keys including their descriptions, default values, and allowed value constraints.
-Use --keys-only to show only valid key names.
+Get the current value of a configuration setting by key.
+Configuration keys use dot notation (e.g., output.format, core.debug).
+If the key is not found, an error is displayed.
 
 ## EXAMPLES
 
-### Display configuration schema
+### Get a configuration value
 
-Show every valid configuration key together with its description, default value, and accepted values.
+Return the current value of the `output.format` configuration setting.
 
 ```powershell
-Get-CirrusConfigInfo
+Get-AzConfig -Key output.format
 ```
 
-### Display only key names
+### Get output as JSON
 
-List just the valid key identifiers — useful for tab-completion or scripting.
+Return the value formatted as JSON instead of plain text. Useful for piping into `ConvertFrom-Json` in scripts.
 
 ```powershell
-Get-CirrusConfigInfo -KeysOnly
+Get-AzConfig -Key output.format -AsJson
 ```
 
 ## PARAMETERS
 
-### -KeysOnly
+### -AsJson
 
-Return only valid keys.
+Return the configuration value as a JSON string instead of the default plain text. Useful when piping into `ConvertFrom-Json` or capturing structured output for downstream scripts.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -66,6 +67,27 @@ ParameterSets:
     - Name: (All)
       Position: Named
       IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -Key
+
+Configuration key in dot notation.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: true
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false

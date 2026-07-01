@@ -149,7 +149,7 @@ fi
 
 echo ""
 echo "[4/4] Install Resources extension and verify command resolves"
-RES_NUPKG=$(find "$EXT_PACK_DIR" -name "Microsoft.Azure.Cirrus.Extensions.Resources*.nupkg" | head -1)
+RES_NUPKG=$(find "$EXT_PACK_DIR" -name "Microsoft.Azure.Azclips.Extensions.Resources*.nupkg" | head -1)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
   exit 1

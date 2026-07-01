@@ -1,29 +1,21 @@
-Cirrus Third-Party Notices
+Azclips Third-Party Notices
 
-This NOTICE file is a pre-release placeholder for third-party attribution review.
+This NOTICE file provides third-party attribution for the Azclips project.
 
-Before public MIT release, the engineering owner must run the Microsoft-approved open source dependency scan and NOTICE generation process, then replace this placeholder with the generated third-party notices if required.
-
-Known source of third-party dependency metadata:
+Sources of third-party dependency metadata:
 
 - .NET project PackageReference entries across all *.csproj files (e.g., src/, tests/, Agent/, TUI/, tools/)
 - npm dependencies under wiki/
-- Any generated, vendored, or copied assets added before release
-
-No final third-party attribution determination has been made in this draft file.
+- Any generated, vendored, or copied assets included in the release
 
 ---
 
-Third-Party Dependencies (preliminary)
+Third-Party Dependencies
 
-This is a preliminary inventory of third-party packages referenced via NuGet by
-the distributable Cirrus components (including the `az` CLI, `cirrus-agent`, the
-`az-tui` dashboard, and the `Cirrus.*` PowerShell modules).
-It exists to aid pre-release review only. The authoritative NOTICE must
-be generated with Component Governance against the built artifacts, which captures
-the full (transitive) dependency tree and the complete license text for each
-component. Names, versions, and licenses below reflect the declarations on `main`
-and are subject to change.
+The following top-level third-party packages are referenced via NuGet by the
+distributable Azclips components (including the `az` CLI, `cirrus-agent`, the
+`az-tui` dashboard, and the `Cirrus.*` PowerShell modules). Names, versions, and
+declared licenses reflect the resolved declarations after restore.
 
 Scope notes:
 
@@ -36,7 +28,7 @@ Scope notes:
 - In the distributable PowerShell cmdlet projects under src/PS/, System.Management.Automation is referenced with PrivateAssets="all" and is
   provided by the PowerShell host at runtime rather than redistributed.
 - AI capabilities are provided by calling the Azure OpenAI service through
-  Microsoft SDKs; no third-party AI model is bundled or distributed with Cirrus.
+  Microsoft SDKs; no third-party AI model is bundled or distributed with Azclips.
 
 MIT License:
 

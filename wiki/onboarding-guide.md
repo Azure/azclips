@@ -7,13 +7,13 @@ description: "Dense, opinionated architectural deep-dive for senior/principal en
 
 ## 1. Executive Summary
 
-Cirrus is an extension-based CLI framework for Azure resource management that ships as a single binary (`az`) and a set of PowerShell modules (`Cirrus.Login`, `Cirrus.Resources`). The architecture centers on an `OrchestratorEngine` that first attempts structured command dispatch through dynamically-loaded extension DLLs — each extension registering commands via an `IExtensionIndex` with separate CLI and PowerShell lookup tables — and falls back to an AI-powered `AgentEngine` backed by Azure OpenAI when structured parsing fails. Extensions are loaded into isolated `AssemblyLoadContext` instances, sharing only `Core.*` assemblies with the host process via `ExcludeAssets=runtime` in their `.csproj` files. PowerShell modules wrap the same C# core through `CirrusServiceProvider`, a thread-safe singleton DI container initialized once per process. The target API surface is Azure Resource Manager (`management.azure.com`), with authentication handled by MSAL and all operations instrumented via OpenTelemetry with export to local files, Azure Monitor, and Zipkin (debug builds only). The system is pinned to .NET SDK 10.0.203 via `global.json` with `rollForward: latestMinor`.
+Azclips is an extension-based CLI framework for Azure resource management that ships as a single binary (`az`) and a set of PowerShell modules (`Azclips.Login`, `Azclips.Resources`). The architecture centers on an `OrchestratorEngine` that first attempts structured command dispatch through dynamically-loaded extension DLLs — each extension registering commands via an `IExtensionIndex` with separate CLI and PowerShell lookup tables — and falls back to an AI-powered `AgentEngine` backed by Azure OpenAI when structured parsing fails. Extensions are loaded into isolated `AssemblyLoadContext` instances, sharing only `Core.*` assemblies with the host process via `ExcludeAssets=runtime` in their `.csproj` files. PowerShell modules wrap the same C# core through `AzclipsServiceProvider`, a thread-safe singleton DI container initialized once per process. The target API surface is Azure Resource Manager (`management.azure.com`), with authentication handled by MSAL and all operations instrumented via OpenTelemetry with export to local files, Azure Monitor, and Zipkin (debug builds only). The system is pinned to .NET SDK 10.0.203 via `global.json` with `rollForward: latestMinor`.
 
 ---
 
 ## 2. The Core Architectural Insight
 
-The defining architectural decision in Cirrus is **exception-driven orchestration with AI fallback**. Rather than explicitly routing commands through a type-safe dispatch tree, the `OrchestratorEngine` tries the structured path first and catches exceptions to trigger AI assistance. This is deliberate: it means any new extension command is automatically available without modifying routing logic, and unrecognized natural-language input gracefully degrades to AI help.
+The defining architectural decision in Azclips is **exception-driven orchestration with AI fallback**. Rather than explicitly routing commands through a type-safe dispatch tree, the `OrchestratorEngine` tries the structured path first and catches exceptions to trigger AI assistance. This is deliberate: it means any new extension command is automatically available without modifying routing logic, and unrecognized natural-language input gracefully degrades to AI help.
 
 Here is the pattern expressed as Python pseudocode to clarify the C# control flow:
 
@@ -68,7 +68,7 @@ graph TB
 
     subgraph DI["Dependency Injection"]
         style DI fill:#161b22,stroke:#30363d,color:#e6edf3
-        CSP["CirrusServiceProvider<br>Thread-safe singleton container"]
+        CSP["AzclipsServiceProvider<br>Thread-safe singleton container"]
         BS["Bootstrapper<br>Lazy service registration"]
     end
 
@@ -204,9 +204,9 @@ graph TB
 
 ### Architecture Walk-Through
 
-**CLI path:** `Program.Main` → `CirrusServiceProvider.Initialize(ClientType.CLI)` → `ExtensionDispatcher.Parse(args)` produces an `ICommandInvocation` → `IEngine.Process()` on `CLIEngine` → delegates to `OrchestratorEngine.ExecuteCommandAsync()`.
+**CLI path:** `Program.Main` → `AzclipsServiceProvider.Initialize(ClientType.CLI)` → `ExtensionDispatcher.Parse(args)` produces an `ICommandInvocation` → `IEngine.Process()` on `CLIEngine` → delegates to `OrchestratorEngine.ExecuteCommandAsync()`.
 
-**PowerShell path:** `.psm1` module root calls `CirrusServiceProvider.Initialize(ClientType.PowerShell)` → cmdlet `.ps1` scripts build a `PSCommandInvocation` → `PSEngine.Process()` runs the command on a worker thread, pumps output back to the caller's runspace via `Channel<T>`.
+**PowerShell path:** `.psm1` module root calls `AzclipsServiceProvider.Initialize(ClientType.PowerShell)` → cmdlet `.ps1` scripts build a `PSCommandInvocation` → `PSEngine.Process()` runs the command on a worker thread, pumps output back to the caller's runspace via `Channel<T>`.
 
 **AI path:** When `DefaultCommandEngine` throws (command not found, parse error), `OrchestratorEngine` catches the exception and calls `AgentEngine.ExecuteCommandAsync()` → `CloudAgent.CreateAsync(flavor)` → streams response from Azure OpenAI → parses JSON response → if `type == "executable_command"`, extracts the command and retries the structured path.
 
@@ -419,7 +419,7 @@ classDiagram
 | `CommandBinder` | Module loader | `src/Core/Core.Engine/CommandBinder.cs` | Find module DLL in subdirectory → `Assembly.LoadFrom` → find `IModule` → match subcommand |
 | `CloudAgent` | AI client | `src/Core/Core.Agent/CloudAgent.cs` | Load `.env` → create `AzureOpenAIClient` → stream chat completions |
 | `Bootstrapper` | DI setup | `src/Core/Core.Engine/Bootstrapper.cs` | `Lazy<Task<IServiceProvider>>` → register all singletons |
-| `CirrusServiceProvider` | Global DI | `src/Core/Core.DependencyInjection/CirrusServiceProvider.cs` | Double-checked locking → `ServiceCollection` → `BuildServiceProvider()` |
+| `AzclipsServiceProvider` | Global DI | `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | Double-checked locking → `ServiceCollection` → `BuildServiceProvider()` |
 | `LoginProcessor` | Extension cmd | `src/Extensions/Login/Processors/Login.cs` | MSAL interactive/device-code → save `AuthContext` |
 | `NewResourceGroupProcessor` | Extension cmd | `src/Extensions/Resources/Processors/NewResourceGroup.cs` | PUT to `management.azure.com` → parse response |
 | `AddExtensionProcessor` | Extension cmd | `src/Extensions/Extension/Add.cs` | `ExtensionInstaller` → NuGet resolve → extract to `~/.cirrus/extensions/` |
@@ -431,7 +431,7 @@ sequenceDiagram
     autonumber
     participant User
     participant Program as Program.Main
-    participant CSP as CirrusServiceProvider
+    participant CSP as AzclipsServiceProvider
     participant ED as ExtensionDispatcher
     participant CGI as CommandGroupIndex
     participant Engine as CLIEngine
@@ -913,7 +913,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 # With coverage
 dotnet test --collect:"XPlat Code Coverage"
 
-# Benchmarks (requires authenticated Azure session)
+# Benchmarks (CLI + PS, stubbed HTTP — no Azure calls; add --local to skip App Insights upload)
 dotnet run --project tests/Benchmark/Benchmark.csproj
 ```
 
@@ -937,12 +937,11 @@ public void Parse_ShouldThrowArgumentException_WhenArgsEmpty()
 public void Parse_ShouldThrowDispatchHelpException_WhenHelpFlagProvided(string helpFlag)
 ```
 
-**`tests/Benchmark/`** — Performance benchmarks for API, CLI, and PowerShell paths:
+**`tests/Benchmark/`** — Performance benchmarks for CLI and PowerShell paths:
 
-- `API/ResourceGroupBenchmarks.cs` — Pure HTTP performance (no CLI overhead).
 - `CLI/ResourceGroupBenchmarks.cs` — End-to-end CLI invocation performance.
 - `PS/ResourceGroupBenchmarks.cs` — PowerShell cmdlet performance.
-- `BenchmarkBase.cs` — Shared setup: authenticate, create/cleanup resource groups.
+- `BenchmarkBase.cs` — Shared setup: repo root discovery and stub HTTP/DI registration.
 - `ChartGenerator.cs` — Generate benchmark result charts.
 - `AppInsightsExporter.cs` — Export benchmark results to Application Insights.
 
@@ -950,10 +949,10 @@ Benchmark configuration:
 
 ```csharp
 [MemoryDiagnoser]
-[WarmupCount(1)]
-[IterationCount(5)]
-[SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
-public class ResourceGroupBenchmarks : BenchmarkBase
+[InvocationCount(invocationCount: 1, unrollFactor: 1)]
+[IterationCount(10000)]
+[Outliers(OutlierMode.RemoveAll)]
+public abstract class CLIBenchmarkBase : BenchmarkBase
 ```
 
 ### Dev Container with Zipkin
@@ -1101,7 +1100,7 @@ Read these source files in order to build a complete mental model:
 12. **`src/Core/Core.Engine/ExtensionLoader.cs`** — Both loaders and their `AssemblyLoadContext` implementations.
 13. **`src/Core/Core.Engine/CommandParser.cs`** and **`CommandBinder.cs`** — Argument parsing and dynamic module loading.
 14. **`src/Core/Core.Engine/PSEngine.cs`** — The PowerShell engine with `Channel<T>` output routing.
-15. **`src/Core/Core.DependencyInjection/CirrusServiceProvider.cs`** — Thread-safe global DI container.
+15. **`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs`** — Thread-safe global DI container.
 16. **`src/Core/Core.Engine/Bootstrapper.cs`** — All service registrations in one place.
 17. **`src/Extensions/Resources/Processors/NewResourceGroup.cs`** — A complete processor implementation showing ARM API calls.
 18. **`src/Extensions/Resources/ExtensionIndex.cs`** — How commands are registered per-extension.
@@ -1120,7 +1119,7 @@ Read these source files in order to build a complete mental model:
 | `src/Core/Core.Engine/CommandBinder.cs` | ~142 | Dynamic module discovery and loading |
 | `src/Core/Core.Agent/CloudAgent.cs` | ~115 | Azure OpenAI client with conversation history |
 | `src/Extensions/Extension/ExtensionInstaller.cs` | ~298 | Full NuGet API client for extension install |
-| `src/Core/Core.DependencyInjection/CirrusServiceProvider.cs` | ~75 | Global DI container |
+| `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | ~75 | Global DI container |
 | `src/Core/Core.Telemetry/TelemetryService.cs` | ~80 | OpenTelemetry setup with 3 exporters |
 
 ### Project Structure Map
@@ -1133,7 +1132,7 @@ Read these source files in order to build a complete mental model:
 │   │   │                               # IExtensionIndex, IAuthService, ITelemetryService
 │   │   ├── Core.Agent/                 # CloudAgent, prompt.md, .env loading
 │   │   ├── Core.Authentication/        # MsalAuthService, AuthContextService
-│   │   ├── Core.DependencyInjection/   # CirrusServiceProvider (global DI)
+│   │   ├── Core.DependencyInjection/   # AzclipsServiceProvider (global DI)
 │   │   ├── Core.Engine/                # OrchestratorEngine, DefaultCommandEngine,
 │   │   │                               # AgentEngine, PSEngine, CLIEngine,
 │   │   │                               # Bootstrapper, ExtensionLoader,
@@ -1152,7 +1151,7 @@ Read these source files in order to build a complete mental model:
 │       └── Resources/                  # Resources.psm1, Resources.psd1, exports/*.ps1
 ├── tests/
 │   ├── Cli.Tests/                      # xUnit: dispatch and fallback tests
-│   └── Benchmark/                      # BenchmarkDotNet: API, CLI, PS benchmarks
+│   └── Benchmark/                      # BenchmarkDotNet: CLI, PS benchmarks
 ├── build/                              # PowerShell build scripts
 ├── scripts/                            # deploy.sh
 ├── docs/spec/                          # Design specifications
@@ -1165,7 +1164,7 @@ Read these source files in order to build a complete mental model:
 
 These are properties that must be preserved across all changes:
 
-1. **Bootstrapper pattern.** All DI registration goes through `Bootstrapper` / `CirrusServiceProvider`. Do not instantiate services manually in `Program.cs`.
+1. **Bootstrapper pattern.** All DI registration goes through `Bootstrapper` / `AzclipsServiceProvider`. Do not instantiate services manually in `Program.cs`.
 2. **Extension isolation.** Every extension must load in its own `AssemblyLoadContext`. Never add extension assemblies to the host's default context.
 3. **ExcludeAssets=runtime.** Every extension project must use `<ExcludeAssets>runtime</ExcludeAssets>` for Core references. Without this, extension NuGet packages will bundle Core DLLs and cause type identity failures.
 4. **Exception-based fallback.** The orchestrator's try/catch pattern is intentional. Do not replace it with explicit command existence checks unless you also handle natural language routing.
