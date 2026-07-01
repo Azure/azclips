@@ -7,9 +7,9 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Configuration.Options;
 using Core.DependencyInjection;
-using Microsoft.Azure.Cirrus.Extensions.Version.Models;
+using Microsoft.Azure.Azclips.Extensions.Version.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Version.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Version.Processors;
 
 public class GetVersionProcessor : IProcessor
 {
@@ -49,8 +49,18 @@ public class GetVersionProcessor : IProcessor
         return new VersionInformation
         {
             AzCli = SafeGet(GetAzCliVersion, static () => "unknown"),
-            Runtime = SafeGet(GetRuntimeInformation, static () => new RuntimeInfo()),
-            Paths = SafeGet(GetConfigurationPaths, static () => new PathInfo())
+            Runtime = SafeGet(GetRuntimeInformation, static () => new RuntimeInfo
+            {
+                DotNet = "unknown",
+                Os = "unknown",
+                Architecture = "unknown"
+            }),
+            Paths = SafeGet(GetConfigurationPaths, static () => new PathInfo
+            {
+                Install = "unknown",
+                Config = "unknown",
+                Extensions = "unknown"
+            })
         };
     }
 

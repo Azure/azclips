@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Microsoft.Azure.Cirrus.Extensions.Version;
+using Microsoft.Azure.Azclips.Extensions.Version;
 using Xunit;
 
 namespace Cli.Tests;
@@ -39,7 +39,7 @@ public class VersionExtensionIndexTests
 
         Assert.Equal("version", metadata.InvocationName);
         Assert.Equal("GetVersionProcessor", metadata.Name);
-        Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Version", metadata.AssemblyName);
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.Version", metadata.AssemblyName);
     }
 
     /// <summary>
@@ -54,7 +54,7 @@ public class VersionExtensionIndexTests
 
     /// <summary>
     /// Version is CLI-only, so the PowerShell command table is empty. This encodes the decision to
-    /// ship no <c>Get-CirrusVersion</c> cmdlet (mirroring the <c>extension</c> built-in).
+    /// ship no <c>Get-AzclipsVersion</c> cmdlet (mirroring the <c>extension</c> built-in).
     /// </summary>
     [Fact]
     public void GetCommandKeys_PowerShell_ShouldBeEmpty()

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Cirrus.Extensions.Version.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Version.Models;
 
 /// <summary>
 /// Aggregated version information for AzCli, runtime, and configuration paths.

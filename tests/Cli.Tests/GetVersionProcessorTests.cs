@@ -4,8 +4,8 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Microsoft.Azure.Cirrus.Extensions.Version.Models;
-using Microsoft.Azure.Cirrus.Extensions.Version.Processors;
+using Microsoft.Azure.Azclips.Extensions.Version.Models;
+using Microsoft.Azure.Azclips.Extensions.Version.Processors;
 using Xunit;
 using GetEventData = System.Func<object>;
 
@@ -16,7 +16,7 @@ namespace Cli.Tests;
 /// diagnostic that must NEVER fail, so these exercise the processor through its public
 /// <see cref="GetVersionProcessor.ProcessAsync"/> path using hand-written fakes for the runtime
 /// context (publisher, output) — matching the stub-based style used elsewhere in Cli.Tests
-/// (no mocking framework). The paths section resolves through <c>CirrusServiceProvider</c>, which
+/// (no mocking framework). The paths section resolves through <c>AzclipsServiceProvider</c>, which
 /// is not initialized here; the processor's defensive fallbacks must keep the command succeeding.
 /// </summary>
 public class GetVersionProcessorTests
@@ -93,7 +93,7 @@ public class GetVersionProcessorTests
     }
 
     /// <summary>
-    /// Core "never fail" contract. Path resolution goes through <c>CirrusServiceProvider</c>, which
+    /// Core "never fail" contract. Path resolution goes through <c>AzclipsServiceProvider</c>, which
     /// is deliberately left uninitialized here so the internal lookup throws. The processor must
     /// catch that and still emit a populated object with <c>"unknown"</c> path placeholders instead
     /// of propagating the exception — `az version` is a diagnostic that must always succeed.
@@ -101,7 +101,7 @@ public class GetVersionProcessorTests
     [Fact]
     public async Task ProcessAsync_ShouldNeverFail_WhenServiceProviderUninitialized()
     {
-        // CirrusServiceProvider is not initialized in this offline test, so path resolution throws
+        // AzclipsServiceProvider is not initialized in this offline test, so path resolution throws
         // internally. The processor must swallow that and still emit a populated object with safe
         // "unknown" fallbacks rather than propagating the failure.
         var output = new FakeOutputHandler();

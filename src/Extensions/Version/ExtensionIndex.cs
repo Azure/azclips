@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Version;
+namespace Microsoft.Azure.Azclips.Extensions.Version;
 
 [ExtensionVerb("version")]
 public class ExtensionIndex : IExtensionIndex
@@ -13,8 +13,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "GetVersionProcessor",
         InvocationName: "version",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Version.Processors.GetVersionProcessor",
-        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Version",
+        FullName: "Microsoft.Azure.Azclips.Extensions.Version.Processors.GetVersionProcessor",
+        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Version",
         ProcessorType: typeof(Processors.GetVersionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>(),
         ParameterAliases: new Dictionary<string, string>()
