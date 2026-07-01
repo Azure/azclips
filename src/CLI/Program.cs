@@ -395,8 +395,13 @@ public class Program
         var baseDir = AppContext.BaseDirectory;
         foreach (var candidate in new[]
         {
-            Path.Combine(baseDir, "azclips-agent.exe"),
-            Path.Combine(baseDir, "azclips-agent"),
+            // Packaged layout: azclips-agent.exe + its dependency closure live
+            // in a dedicated agent/ subdir next to az.exe, published by
+            // build_win_zip.ps1 to avoid dll collisions with the CLI host.
+            Path.Combine(baseDir, "agent", "azclips-agent.exe"),
+            Path.Combine(baseDir, "agent", "azclips-agent"),
+            // Local dev layout: `dotnet build` publishes each project to its
+            // own artifacts/Debug/<ExtName>/ directory.
             Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent.exe"),
             Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent"),
         })
