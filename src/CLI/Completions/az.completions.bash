@@ -3,7 +3,7 @@
 # Or add to your ~/.bashrc to auto-load on every session.
 # Requires: jq
 #
-# Completions are resolved dynamically by invoking `az --completions [group]`
+# Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 
 _az_resolve_exe() {
@@ -100,11 +100,18 @@ _az_completions() {
             local group="${words[1]}"
             local sub="${words[2]}"
             local json
-            json="$(_az_query "$group" "$sub")"
+            # If sub is a flag, query group-level params only
+            if [[ "$sub" == --* ]]; then
+                json="$(_az_query "$group")"
+            else
+                json="$(_az_query "$group" "$sub")"
+            fi
             local params=""
             if [[ -n "$json" ]]; then
                 # Try subcommand-specific params first, then group-level
-                params=$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)
+                if [[ "$sub" != --* ]]; then
+                    params=$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)
+                fi
                 if [[ -z "$params" ]]; then
                     params=$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)
                 fi

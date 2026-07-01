@@ -93,15 +93,22 @@ _az() {
             # Level 2+: parameters for the command
             group="${words[2]:l}"
             local sub="${words[3]:l}"
-            json="$(_az_query "$group" "$sub")"
+            # If sub is a flag, query group-level params only
+            if [[ "$sub" == --* ]]; then
+                json="$(_az_query "$group")"
+            else
+                json="$(_az_query "$group" "$sub")"
+            fi
             if [[ -n "$json" ]]; then
                 local params_output
                 # Try subcommand-specific params, then group-level
-                params_output="$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)"
+                if [[ "$sub" != --* ]]; then
+                    params_output="$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)"
+                fi
                 if [[ -z "$params_output" ]]; then
                     params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
                 fi
-                [[ -n "$params_output" ]] && params=("${(@f)params_output}")
+                [[ -n "$params_output" ]] && params=("${(@f)$params_output}")
             fi
 
             # Filter out already-used flags
