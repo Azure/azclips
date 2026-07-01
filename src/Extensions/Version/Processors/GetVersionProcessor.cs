@@ -114,7 +114,7 @@ public class GetVersionProcessor : IProcessor
         // the config service throw; degrade to the placeholders above rather than fail the command.
         try
         {
-            var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+            var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
             var configFilePath = configurationService.GetConfigFilePath();
             info.Config = Path.GetDirectoryName(configFilePath) ?? configFilePath;
