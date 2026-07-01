@@ -1,10 +1,13 @@
 #compdef az
-# az Tab Completion for zsh (native compinit/compdef)
+# az Tab Completion for zsh (Dynamic)
 # Usage:
 #   autoload -U compinit && compinit
 #   source <path-to>/az.completions.zsh
 # Or add to your ~/.zshrc to auto-load on every session.
 # Requires: jq
+#
+# Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
+# at tab time. This ensures completions match whichever `az` binary is on PATH.
 
 # Opt-in debug logging:
 #   export az_COMPLETION_DEBUG=1
@@ -15,140 +18,106 @@ _az_debug() {
     print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$log_file"
 }
 
-_az_subcommand_children() {
-    local json_file="$1"
-    local group="$2"
-    shift 2
-
-    local -a prefix_words subcommands entry_words children
-    local -A seen
-    local prefix_len entry child match i
-
-    prefix_words=("$@")
-    prefix_len=${#prefix_words[@]}
-    subcommands=("${(@f)$(jq -r --arg g "$group" '.[$g]._subcommands[]? // empty' "$json_file" 2>/dev/null)}")
-
-    for entry in "${subcommands[@]}"; do
-        entry_words=("${(@s: :)entry}")
-        (( ${#entry_words[@]} <= prefix_len )) && continue
-
-        match=1
-        for (( i = 1; i <= prefix_len; i++ )); do
-            [[ "${entry_words[i]}" == "${prefix_words[i]}" ]] || {
-                match=0
-                break
-            }
-        done
-
-        (( match )) || continue
-
-        child="${entry_words[$((prefix_len + 1))]}"
-        [[ -n "$child" && -z "${seen[$child]-}" ]] || continue
-
-        seen[$child]=1
-        children+=("$child")
+_az_resolve_exe() {
+    local script_dir="${${(%):-%x}:A:h}"
+    # 1. Same directory as this script
+    if [[ -x "$script_dir/az" ]]; then
+        echo "$script_dir/az"
+        return
+    fi
+    # 2. Walk up to find repo root (look for cirrus.slnx), then check artifacts/
+    local dir="$script_dir"
+    while [[ -n "$dir" && "$dir" != "/" ]]; do
+        if [[ -f "$dir/cirrus.slnx" ]]; then
+            local cfg
+            for cfg in Release Debug; do
+                local candidate="$dir/artifacts/$cfg/Core.Cli/az"
+                if [[ -x "$candidate" ]]; then
+                    echo "$candidate"
+                    return
+                fi
+            done
+            break
+        fi
+        dir="${dir:h}"
     done
-
-    if (( ${#children[@]} > 0 )); then
-        print -rl -- "${children[@]}"
+    # 3. Fall back to PATH
+    if (( $+commands[az] )); then
+        echo "${commands[az]}"
     fi
 }
 
-_az_path_params() {
-    local json_file="$1"
-    local group="$2"
-    local command_path="$3"
-
-    jq -r --arg g "$group" --arg p "$command_path" '.[$g][$p][]? // empty' "$json_file" 2>/dev/null
+_az_query() {
+    local exe
+    exe="$(_az_resolve_exe)"
+    [[ -n "$exe" ]] || return 1
+    "$exe" --completions "$@" 2>/dev/null
 }
 
 _az() {
-    local json_file
-
     _az_debug "enter _az CURRENT=$CURRENT words=(${words[*]})"
 
-    # Allow the JSON path to be overridden via environment variable (useful for tests)
-    if [[ -n "${AZ_COMPLETIONS_JSON:-}" && -f "$AZ_COMPLETIONS_JSON" ]]; then
-        json_file="$AZ_COMPLETIONS_JSON"
-    else
-        # Resolve the directory of THIS script so the sibling JSON file is found
-        # regardless of where the shell's CWD is.
-        local script_dir="${${(%):-%x}:A:h}"
-        json_file="$script_dir/az.completions.json"
-        if [[ ! -f "$json_file" ]]; then
-            local repo_root="${script_dir:h:h:h}"
-            json_file="$repo_root/bin/az.completions.json"
-        fi
-    fi
-    _az_debug "json_file=$json_file"
-
-    if [[ ! -f "$json_file" ]]; then
-        _az_debug "missing completions json: $json_file"
-        return 1
-    fi
-
     local -a candidates prefix_words subcommands params used_params available
-    local group command_path
+    local group json
 
     case $CURRENT in
         2)
-            # Level 0: complete top-level command groups (jq returns keys sorted)
-            candidates=("${(@f)$(jq -r 'keys[]' "$json_file" 2>/dev/null)}")
+            # Level 0: complete top-level command groups
+            json="$(_az_query)"
+            if [[ -n "$json" ]]; then
+                candidates=("${(@f)$(echo "$json" | jq -r 'keys[]' 2>/dev/null)}")
+            fi
             _az_debug "level=0 candidates=(${candidates[*]})"
             ;;
-        *)
-            # Level 1+: complete the next subcommand token when children exist;
-            # otherwise complete flags for the fully selected command path.
+        3)
+            # Level 1: subcommands + group params
             group="${words[2]:l}"
-            prefix_words=()
+            json="$(_az_query "$group")"
+            if [[ -n "$json" ]]; then
+                local subs_output params_output
+                subs_output="$(echo "$json" | jq -r '._subcommands[]? // empty' 2>/dev/null)"
+                params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
+                [[ -n "$subs_output" ]] && candidates+=("${(@f)subs_output}")
+                [[ -n "$params_output" ]] && candidates+=("${(@f)params_output}")
+            fi
+            _az_debug "level=1 group=$group candidates=(${candidates[*]})"
+            ;;
+        *)
+            # Level 2+: parameters for the command
+            group="${words[2]:l}"
+            local sub="${words[3]:l}"
+            json="$(_az_query "$group" "$sub")"
+            if [[ -n "$json" ]]; then
+                local params_output
+                # Try subcommand-specific params, then group-level
+                params_output="$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)"
+                if [[ -z "$params_output" ]]; then
+                    params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
+                fi
+                [[ -n "$params_output" ]] && params=("${(@f)params_output}")
+            fi
+
+            # Filter out already-used flags
             local i
             for (( i = 2; i < CURRENT; i++ )); do
-                [[ "${words[i]}" == --* ]] && break
-                prefix_words+=("${words[i]:l}")
-            done
-            command_path="${(j: :)prefix_words}"
-            _az_debug "level=1+ group=$group path=$command_path"
-
-            local subcommand_output
-            subcommand_output="$(_az_subcommand_children "$json_file" "$group" "${prefix_words[@]}")"
-            if [[ -n "$subcommand_output" ]]; then
-                subcommands=("${(@f)subcommand_output}")
-                candidates=("${subcommands[@]}")
-                _az_debug "next subcommand candidates=(${candidates[*]})"
-            else
-                local params_output
-                params_output="$(_az_path_params "$json_file" "$group" "$command_path")"
-                if [[ -n "$params_output" ]]; then
-                    params=("${(@f)params_output}")
-                else
-                    params=()
+                if [[ "${words[i]}" == --* ]]; then
+                    used_params+=("${words[i]}")
                 fi
-                _az_debug "path params=(${params[*]})"
+            done
 
-                # Collect flags that already appear on the command line.
-                used_params=()
-                for (( i = 2; i < CURRENT; i++ )); do
-                    if [[ "${words[i]}" == --* ]]; then
-                        used_params+=("${words[i]}")
+            local p already_used u
+            for p in "${params[@]}"; do
+                already_used=0
+                for u in "${used_params[@]}"; do
+                    if [[ "$p" == "$u" ]]; then
+                        already_used=1
+                        break
                     fi
                 done
-                _az_debug "used_params=(${used_params[*]})"
-
-                # Build the available list by excluding already-used flags.
-                local p already_used u
-                for p in "${params[@]}"; do
-                    already_used=0
-                    for u in "${used_params[@]}"; do
-                        if [[ "$p" == "$u" ]]; then
-                            already_used=1
-                            break
-                        fi
-                    done
-                    (( ! already_used )) && available+=("$p")
-                done
-                candidates=("${available[@]}")
-                _az_debug "available=(${available[*]})"
-            fi
+                (( ! already_used )) && available+=("$p")
+            done
+            candidates=("${available[@]}")
+            _az_debug "level=2+ group=$group sub=$sub candidates=(${candidates[*]})"
             ;;
     esac
 
@@ -158,4 +127,4 @@ _az() {
 }
 compdef _az az
 
-echo "az tab completion registered (zsh)."
+echo "az tab completion registered (zsh, dynamic)."
