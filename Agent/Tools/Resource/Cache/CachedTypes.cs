@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Core.Agent.Tools.Cache;
+namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// On-disk cache file envelope. Every cache JSON file under

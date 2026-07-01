@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Core.Agent.Tools.Cache;
+using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Tools.Help;

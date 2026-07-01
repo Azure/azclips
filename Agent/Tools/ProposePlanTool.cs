@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using Core.Agent.Tools.Cache;
+using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Tools;
