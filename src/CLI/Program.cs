@@ -38,36 +38,36 @@ public class Program
             return 0;
         }
 
-        AzclipsServiceProvider.PrependRegistration(services =>
+        CirrusServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
             services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
             services.AddSingleton<PropertyParser>();
             services.AddCliExtensionDispatch();
         });
-        AzclipsServiceProvider.OverrideRegistration(services =>
+        CirrusServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
             services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
             services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
         });
-        AzclipsServiceProvider.Initialize(_clientType);
+        CirrusServiceProvider.Initialize(_clientType);
 
         // Shell tab-completion metadata (after DI so generator can resolve IEngine directly)
         int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
         if (completionExit.HasValue)
             return completionExit.Value;
 
-        _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-        var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+        _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
 
-        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
         try
         {
             using var activity = telemetryService.StartRootActivity();
-            var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
+            var dispatcher = CirrusServiceProvider.GetRequiredService<ExtensionDispatcher>();
             args = ParseDebugFlag(args, out var debugOverride);
             var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(configurationService, debugOverride);
             streams = BuildStreams(effectiveLogLevel);
@@ -81,7 +81,7 @@ public class Program
                 using var commandActivity =
                     telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
 
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ??
                              throw new InvalidOperationException("Engine service not found.");
                 using ISession session =
                     engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
@@ -92,8 +92,8 @@ public class Program
             }
             catch (DispatchHelpException)
             {
-                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+                var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
                 var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
@@ -101,8 +101,8 @@ public class Program
             }
             catch (RuntimeExtensionHelpException helpException)
             {
-                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+                var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
                 try
                 {
                     var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderExtensionHelp(helpException);
@@ -147,7 +147,7 @@ public class Program
         }
         finally
         {
-            AzclipsServiceProvider.Dispose();
+            CirrusServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
     }
@@ -288,7 +288,7 @@ public class Program
         // original error rather than spawning the agent on an unknown state.
         try
         {
-            var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+            var config = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
             if (!config.GetConfiguration<AgentOptions>().Enabled)
             {
                 return 1;
