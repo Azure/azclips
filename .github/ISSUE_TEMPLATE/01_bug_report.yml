@@ -4,14 +4,11 @@ labels: ["bug", "private-preview"]
 body:
   - type: markdown
     attributes:
-      value: >
+      value: |
         Thanks for helping us test **azclips**!
 
-
         - Please make sure you are running the latest private-preview build.
-
         - Search the [existing issues](https://github.com/Azure/azclips/issues) first to avoid duplicates.
-
         - **⚠ Remove any sensitive information** (usernames, passwords, tokens, subscription IDs, tenant IDs) before submitting.
   - type: dropdown
     id: surface
