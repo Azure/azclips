@@ -18,10 +18,10 @@ _az_resolve_exe() {
         echo "$script_dir/az.exe"
         return
     fi
-    # 2. Walk up to find repo root (look for cirrus.slnx), then check artifacts/
+    # 2. Walk up to find repo root (look for global.json), then check artifacts/
     local dir="$script_dir"
     while [[ -n "$dir" && "$dir" != "/" ]]; do
-        if [[ -f "$dir/cirrus.slnx" ]]; then
+        if [[ -f "$dir/global.json" ]]; then
             local cfg
             for cfg in Release Debug; do
                 if [[ -x "$dir/artifacts/$cfg/Core.Cli/az" ]]; then

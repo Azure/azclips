@@ -19,10 +19,10 @@ function global:_azResolveExe {
     $local = Join-Path $PSScriptRoot 'az'
     if (Test-Path $local) { return $local }
 
-    # 2. Walk up to find repo root (look for cirrus.slnx), then check artifacts/
+    # 2. Walk up to find repo root (look for global.json), then check artifacts/
     $dir = $PSScriptRoot
     while ($dir) {
-        if (Test-Path (Join-Path $dir 'cirrus.slnx')) {
+        if (Test-Path (Join-Path $dir 'global.json')) {
             foreach ($cfg in 'Release', 'Debug') {
                 $candidate = Join-Path $dir "artifacts/$cfg/Core.Cli/az.exe"
                 if (Test-Path $candidate) { return $candidate }
