@@ -38,11 +38,16 @@ body:
       description: Commands, behaviors, docs, or guarantees you'd need before relying on azclips.
     validations:
       required: false
-  - type: input
+  - type: dropdown
     id: rating
     attributes:
-      label: Overall impression (1-5)
+      label: Overall impression
       description: 1 = poor, 5 = excellent.
-      placeholder: e.g., 4
+      options:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
     validations:
       required: false
