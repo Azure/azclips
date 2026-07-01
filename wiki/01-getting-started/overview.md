@@ -43,7 +43,7 @@ graph TB
 
     subgraph Infrastructure["Infrastructure"]
         style Infrastructure fill:#161b22,stroke:#30363d,color:#e6edf3
-        DI["CirrusServiceProvider"]
+        DI["AzclipsServiceProvider"]
         Auth["MsalAuthService"]
         Telemetry["OpenTelemetry + Zipkin"]
         Cloud["Azure OpenAI<br>(CloudAgent)"]
@@ -85,7 +85,7 @@ graph TB
 |---------|-------------|
 | **Extension Loading** | Dynamically loads command extensions via custom `AssemblyLoadContext` with dependency isolation (`src/Core/Core.Engine/ExtensionLoader.cs:15-44`). Supports both built-in and multi-version (NuGet semver) loaders. |
 | **AI Fallback** | When `DefaultCommandEngine` throws, `OrchestratorEngine` automatically invokes `AgentEngine` backed by Azure OpenAI (`src/Core/Core.Engine/OrchestratorEngine.cs:94-114`). |
-| **Dual Interface** | The same business logic is exposed through both the `az` CLI binary and PowerShell modules (`Login`, `Resources`), sharing a common DI container (`src/Core/Core.DependencyInjection/CirrusServiceProvider.cs:1-30`). |
+| **Dual Interface** | The same business logic is exposed through both the `az` CLI binary and PowerShell modules (`Login`, `Resources`), sharing a common DI container (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:1-30`). |
 | **Structured Telemetry** | OpenTelemetry with Zipkin exporter in DEBUG builds; Azure Monitor exporter for production (`src/Core/Core.Telemetry/`). |
 | **MSAL Authentication** | Browser-based interactive auth via MSAL, with dev-container helpers that bridge VS Code's browser (`src/Core/Core.Authentication/`). |
 
@@ -228,7 +228,7 @@ All services are registered as **singletons** inside `Bootstrapper.RegisterServi
 - `AgentEngine` — singleton, receives flavour from env var (`Bootstrapper.cs:85-91`)
 - `ICommandEngine` → `OrchestratorEngine` — factory resolves both child engines (`Bootstrapper.cs:98-105`)
 
-The DI container is initialised once per process via `CirrusServiceProvider.Initialize(ClientType)` (`src/Core/Core.DependencyInjection/CirrusServiceProvider.cs:1-30`), which is called from `Program.cs:24` for the CLI and from each PowerShell module script (e.g., `src/PS/Login/Login.psm1:5`).
+The DI container is initialised once per process via `AzclipsServiceProvider.Initialize(ClientType)` (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:1-30`), which is called from `Program.cs:24` for the CLI and from each PowerShell module script (e.g., `src/PS/Login/Login.psm1:5`).
 
 ### Build Artefact Layout
 
@@ -255,7 +255,7 @@ Extensions are loaded at runtime from sub-directories relative to the CLI binary
 | Default command engine | `src/Core/Core.Engine/DefaultCommandEngine.cs` |
 | AI agent engine | `src/Core/Core.Engine/AgentEngine.cs` |
 | Cloud agent (OpenAI) | `src/Core/Core.Agent/CloudAgent.cs` |
-| DI container | `src/Core/Core.DependencyInjection/CirrusServiceProvider.cs` |
+| DI container | `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` |
 | Bootstrapper | `src/Core/Core.Engine/Bootstrapper.cs` |
 | Extension loader | `src/Core/Core.Engine/ExtensionLoader.cs` |
 | Command group index | `src/CLI/Parser/CommandGroupIndex.cs` |

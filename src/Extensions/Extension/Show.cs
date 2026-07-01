@@ -37,7 +37,7 @@ public class ShowExtensionProcessor : IProcessor
             throw CirrusErrorException.UsageError("Name is required to show an extension.");
         }
 
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var _ = telemetryService.StartActivity($"{nameof(ShowExtensionProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();

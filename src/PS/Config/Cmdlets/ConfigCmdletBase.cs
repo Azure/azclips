@@ -18,12 +18,12 @@ public abstract class ConfigCmdletBase : PSCmdlet
     {
         Streams = CmdletOutputStreamsFactory.Create(this, "ConfigError", ErrorCategory.NotSpecified);
 
-        Engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        Engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected void ExecuteInvocation(Dictionary<string, object> parameters)
     {
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var commandName = MyInvocation.MyCommand.Name;
 

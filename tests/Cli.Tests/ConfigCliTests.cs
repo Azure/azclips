@@ -345,8 +345,8 @@ public class ConfigCliTests
                 Environment.SetEnvironmentVariable(key, null);
             }
 
-            CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.OverrideRegistration(services =>
+            AzclipsServiceProvider.Dispose();
+            AzclipsServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
@@ -357,7 +357,7 @@ public class ConfigCliTests
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            CirrusServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(ClientType.CLI);
         }
 
         public IReadOnlyList<string> ExecuteCli(string[] args)
@@ -366,7 +366,7 @@ public class ConfigCliTests
 
             var dispatcher = new ExtensionDispatcher();
             var invocation = dispatcher.Parse(args);
-            var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+            var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
             var streams = new OutputStreams(
                 WriteOutput: (value, _) =>
@@ -388,7 +388,7 @@ public class ConfigCliTests
 
         public void Dispose()
         {
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
 
             foreach (var entry in _originalEnvironment)
             {

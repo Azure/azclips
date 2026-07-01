@@ -33,7 +33,7 @@ public abstract class ConfigCommandBase : IProcessor
 
     public abstract Task ProcessAsync();
 
-    protected static IConfigurationService GetConfigurationService() => CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+    protected static IConfigurationService GetConfigurationService() => AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
     /// <summary>
     /// Normalizes a configuration key by replacing colons with dots and removing empty entries.
@@ -48,7 +48,7 @@ public abstract class ConfigCommandBase : IProcessor
                 .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 
-    protected static ITelemetryService GetTelemetryService() => CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+    protected static ITelemetryService GetTelemetryService() => AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
 
     protected static IConfigurationSchema GetConfigurationSchema() => GetConfigurationService().GetSchema();
 

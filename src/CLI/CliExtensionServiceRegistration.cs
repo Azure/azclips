@@ -64,7 +64,7 @@ public static class CliExtensionServiceRegistration
     {
         try
         {
-            var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+            var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
             var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
 
             // Open a transient discovery session to enumerate all installed extensions.

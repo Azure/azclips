@@ -15,8 +15,8 @@ function Get-ResourceGroup {
     begin {
         # Start telemetry activity
         $script:activity = Start-CmdletActivity -CmdletName "Get-ResourceGroup" -Parameters $PSBoundParameters
-        
-        $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
+
+        $engine = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             if ($value -is [System.Collections.IEnumerable]) {

@@ -8,7 +8,7 @@ function Get-AzAccount {
     begin {
         $script:activity = Start-CmdletActivity -CmdletName "Get-AzAccount" -Parameters $PSBoundParameters
 
-        $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
+        $engine = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             $PSCmdlet.WriteObject($value)

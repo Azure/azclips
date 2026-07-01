@@ -14,17 +14,17 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 {
     public void OnImport()
     {
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
             services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
 
         });
-        CirrusServiceProvider.Initialize(ClientType.PowerShell);
+        AzclipsServiceProvider.Initialize(ClientType.PowerShell);
     }
 
     public void OnRemove(PSModuleInfo module)
     {
-        CirrusServiceProvider.Dispose();
+        AzclipsServiceProvider.Dispose();
     }
 }

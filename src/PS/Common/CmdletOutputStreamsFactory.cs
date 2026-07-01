@@ -110,7 +110,7 @@ internal static class CmdletOutputStreamsFactory
 
     private static LogLevel ResolveEffectiveLevel()
     {
-        var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+        var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
         var configured = configurationService.GetConfiguration<CoreOptions>().Logging.Level;
         return Parse(configured);
     }

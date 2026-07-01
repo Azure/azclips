@@ -41,7 +41,7 @@ internal static class CompletionGenerator
     {
         commandContext ??= new List<string>();
 
-        var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
         // Parse command context: first token is command group name (verb)
         string? commandGroupName = commandContext.Count > 0 ? commandContext[0].ToLowerInvariant() : null;

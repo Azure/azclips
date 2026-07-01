@@ -55,8 +55,8 @@ public class UpdateExtensionProcessor : IProcessor
             throw CirrusErrorException.UsageError("Name is required to update an extension.");
         }
 
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        var loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.StartActivity($"{nameof(UpdateExtensionProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
