@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782790878626,
+  "lastUpdate": 1782888840931,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1806,6 +1806,48 @@ window.BENCHMARK_DATA = {
             "value": 961605.9523261631,
             "unit": "ns",
             "range": "± 317681.828153435"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f411a0f51f435858899bfaf818a310c7e997fcc",
+          "message": "Update references to AzclipsServiceProvider (#339)\n\nRename service provider to `AzclipsServiceProvider`",
+          "timestamp": "2026-07-01T16:52:02+10:00",
+          "tree_id": "5d5f3e08b59af05ef6692b537e010ff5f0fab19b",
+          "url": "https://github.com/Azure/azclips/commit/8f411a0f51f435858899bfaf818a310c7e997fcc"
+        },
+        "date": 1782888840531,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1001900.7730092037,
+            "unit": "ns",
+            "range": "± 305424.7214313026"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 965712.1516606642,
+            "unit": "ns",
+            "range": "± 318804.3309167145"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 966081.0515206082,
+            "unit": "ns",
+            "range": "± 318026.11406262673"
           }
         ]
       }
