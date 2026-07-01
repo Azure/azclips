@@ -26,6 +26,8 @@ function global:_azResolveExe {
             foreach ($cfg in 'Release', 'Debug') {
                 $candidate = Join-Path $dir "artifacts/$cfg/Core.Cli/az.exe"
                 if (Test-Path $candidate) { return $candidate }
+                $candidate = Join-Path $dir "artifacts/$cfg/Core.Cli/az"
+                if (Test-Path $candidate) { return $candidate }
             }
             break
         }
@@ -56,7 +58,7 @@ function global:_azQueryCompletions {
 }
 
 function global:_azGetTopLevelGroups {
-    if ($global:_azTopLevelGroups) { return $global:_azTopLevelGroups }
+    if ($null -ne $global:_azTopLevelGroups) { return $global:_azTopLevelGroups }
     $tree = _azQueryCompletions
     if ($tree -and $tree.Count -gt 0) {
         $global:_azTopLevelGroups = @($tree.Keys | Sort-Object)
