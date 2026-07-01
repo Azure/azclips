@@ -57,6 +57,10 @@ namespace Core.Extensions
                 {
                     Leaves = new[] { "get", "set", "delete", "list", "info" },
                 },
+                ["version"] = new("version", "Microsoft.Azure.Cirrus.Extensions.Version")
+                {
+                    Leaves = Array.Empty<string>(),
+                },
             };
 
         /// <summary>
