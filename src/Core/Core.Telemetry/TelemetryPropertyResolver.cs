@@ -79,7 +79,7 @@ public static class TelemetryPropertyResolver
         var product = typeof(TelemetryPropertyResolver).Assembly
             .GetCustomAttribute<AssemblyProductAttribute>()?.Product;
 
-        return !string.IsNullOrEmpty(product) ? product : "Cirrus";
+        return !string.IsNullOrEmpty(product) ? product : "Azclips";
     }
 
     private static string ResolveTelemetryVersion()

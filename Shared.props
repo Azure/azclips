@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Product>Cirrus</Product>
+    <Product>Azclips</Product>
     <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
     <RepoSrc>$(RepoRoot)src/</RepoSrc>
     <RepoArtifacts>$(RepoRoot)artifacts/</RepoArtifacts>
