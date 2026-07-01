@@ -7,7 +7,6 @@ using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
-using Microsoft.Azure.Azclips.Cmdlets.Common;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Login;
