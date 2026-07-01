@@ -13,12 +13,16 @@ namespace Core.Abstractions
     /// help and completions.
     /// </summary>
     /// <param name="Name">
-    /// The short, human-readable name of the command, typically the processor's type name.
+    /// The internal, human-readable name of the command, typically the processor's type name. Used for
+    /// diagnostics and to correlate the command with its backing processor rather than for invocation.
     /// Example: <c>"NewResourceGroupProcessor"</c>.
     /// </param>
     /// <param name="InvocationName">
-    /// The unique key used to look up and invoke the command in the discovered command table. Commands
-    /// are keyed by this value, so it must be unique within an extension.
+    /// The client-facing invocation token that end users type to run the command, and the unique key under
+    /// which the command is registered in the discovered command table. Commands are keyed by this value
+    /// (for example, the discovery session emits a <c>Dictionary&lt;InvocationName, CommandMetadata&gt;</c>),
+    /// so it must be unique within an extension.
+    /// Kept as an explicit field so an <c>ExtensionIndex</c> can be serialized without relying on the CLR type.
     /// Example: <c>"New-ResourceGroup"</c> (PowerShell verb-noun) or <c>"Get-ResourceGroup_List"</c>.
     /// </param>
     /// <param name="Aliases">
