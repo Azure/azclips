@@ -108,6 +108,7 @@ public static class ChartGenerator
         }).ToList();
     }
 
+    //TODO: Refactor chart generation
     private static string GenerateGroupedBarChart(List<OverheadData> timings, string timestamp)
     {
         var operations = timings.Select(x => $"'{x.Operation}'").ToArray();
