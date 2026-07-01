@@ -5,12 +5,12 @@ using Core.DependencyInjection;
 using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Core.Tui.AgentMode;
+namespace Core.Agent.AgentMode;
 
 /// <summary>
-/// TUI-process entry point for agent mode — spawned by the classic CLI when an
-/// invocation fails. Owns the chat loop, banner, and stdin so the approval pump
-/// and prompt share a single reader.
+/// Standalone agent-process entry point (azclips-agent.exe) — spawned by the
+/// classic CLI when an invocation fails. Owns the chat loop, banner, and stdin
+/// so the approval pump and prompt share a single reader.
 /// </summary>
 public static class AgentModeEntry
 {
@@ -30,7 +30,10 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        AzclipsServiceProvider.Initialize(ClientType.TUI);
+        // Agent runs as its own process (azclips-agent.exe), spawned by the CLI
+        // as its error-handling fallback — so it initializes as ClientType.CLI
+        // (was TUI back when this entry lived inside Core.Tui and borrowed its shell).
+        AzclipsServiceProvider.Initialize(ClientType.CLI);
 
         TraceAgentRenderer? trace = null;
         try

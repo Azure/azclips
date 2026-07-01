@@ -314,16 +314,16 @@ public class Program
         }
 
         // Recursion guard: a failed az invoked by powershell from inside an
-        // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
+        // already-running agent process must NOT spawn another agent.
         if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
         {
             return 1;
         }
 
-        var tuiExe = FindTuiExe();
-        if (tuiExe is null)
+        var agentExe = FindAgentExe();
+        if (agentExe is null)
         {
-            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside az");
+            _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
             return 1;
         }
 
@@ -331,7 +331,7 @@ public class Program
         {
             var psi = new ProcessStartInfo
             {
-                FileName = tuiExe,
+                FileName = agentExe,
                 // Inherit stdio so streaming tokens, y/n prompt, device-code links
                 // all show live in the user's terminal.
                 UseShellExecute = false,
@@ -349,7 +349,7 @@ public class Program
                 psi.ArgumentList.Add(errorText);
             }
 
-            // The child TUI takes over Ctrl+C (it cancels the session). The parent
+            // The child agent takes over Ctrl+C (it cancels the session). The parent
             // must also intercept it — otherwise Ctrl+C kills the parent first, the
             // shell redraws its prompt, and the child's remaining output prints onto
             // that prompt ("terminal hijack"). Intercept-only here; the child owns the
@@ -390,15 +390,15 @@ public class Program
         return sb.ToString();
     }
 
-    private static string? FindTuiExe()
+    private static string? FindAgentExe()
     {
         var baseDir = AppContext.BaseDirectory;
         foreach (var candidate in new[]
         {
-            Path.Combine(baseDir, "Core.Tui.exe"),
-            Path.Combine(baseDir, "Core.Tui"),
-            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui.exe"),
-            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui"),
+            Path.Combine(baseDir, "azclips-agent.exe"),
+            Path.Combine(baseDir, "azclips-agent"),
+            Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent.exe"),
+            Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent"),
         })
         {
             if (File.Exists(candidate)) return Path.GetFullPath(candidate);
