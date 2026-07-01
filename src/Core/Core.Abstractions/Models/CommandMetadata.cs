@@ -6,6 +6,47 @@
 
 namespace Core.Abstractions
 {
+    /// <summary>
+    /// Describes a single command that an extension exposes, including how it is invoked and which
+    /// processor and parameters back it. Instances are declared in an extension's <c>ExtensionIndex</c>
+    /// and consumed by the engine to discover, bind, and execute commands, and by the CLI to render
+    /// help and completions.
+    /// </summary>
+    /// <param name="Name">
+    /// The short, human-readable name of the command, typically the processor's type name.
+    /// Example: <c>"NewResourceGroupProcessor"</c>.
+    /// </param>
+    /// <param name="InvocationName">
+    /// The unique key used to look up and invoke the command in the discovered command table. Commands
+    /// are keyed by this value, so it must be unique within an extension.
+    /// Example: <c>"New-ResourceGroup"</c> (PowerShell verb-noun) or <c>"Get-ResourceGroup_List"</c>.
+    /// </param>
+    /// <param name="Aliases">
+    /// Alternate invocation names that also resolve to this command. Use an empty list when there are
+    /// no aliases. Example: <c>["new-rg"]</c>.
+    /// </param>
+    /// <param name="FullName">
+    /// The fully-qualified type name of the processor that implements the command, including its namespace.
+    /// Example: <c>"Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupProcessor"</c>.
+    /// </param>
+    /// <param name="AssemblyName">
+    /// The name of the assembly that contains the processor. Used to locate and load the command at runtime.
+    /// Example: <c>"Microsoft.Azure.Azclips.Extensions.Resources"</c>.
+    /// </param>
+    /// <param name="ProcessorType">
+    /// The CLR <see cref="System.Type"/> of the processor that executes the command. Used to instantiate the
+    /// processor. Example: <c>typeof(Processors.NewResourceGroupProcessor)</c>.
+    /// </param>
+    /// <param name="Parameters">
+    /// The command's parameters keyed by their canonical parameter name. Each entry carries the parameter's
+    /// type, description, whether it is required, and allowed values.
+    /// Example: <c>["Name"] = new("Name", "Name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: [], AllowedValues: [])</c>.
+    /// </param>
+    /// <param name="ParameterAliases">
+    /// A map from an alias to the canonical parameter name it resolves to, used during argument parsing so
+    /// that alternate spellings bind to the correct parameter. Use an empty dictionary when there are none.
+    /// Example: <c>["-g"] = "ResourceGroupName"</c>.
+    /// </param>
     public record CommandMetadata(
         string Name,
         string InvocationName,
