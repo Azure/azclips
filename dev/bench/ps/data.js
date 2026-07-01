@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782889197050,
+  "lastUpdate": 1782892542255,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1806,6 +1806,48 @@ window.BENCHMARK_DATA = {
             "value": 5771243.8102937825,
             "unit": "ns",
             "range": "± 101246.48363587959"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "07a42b3362275f35515e755bd917f00c72b33a85",
+          "message": "{Core.Configuration} Update dependency versions (#343)\n\n## Overview\nAlign Core.Configuration package versions with the repo's net10 baseline\nby upgrading Microsoft.Extensions.* references from 9.0.0 to 10.0.0.\n\n## What Changed\n- Updated the following in\nsrc/Core/Core.Configuration/Core.Configuration.csproj:\n  - Microsoft.Extensions.Configuration: 9.0.0 -> 10.0.0\n  - Microsoft.Extensions.Configuration.Binder: 9.0.0 -> 10.0.0\n  - Microsoft.Extensions.Configuration.Json: 9.0.0 -> 10.0.0\n- Microsoft.Extensions.DependencyInjection.Abstractions: 9.0.0 -> 10.0.0\n\n## Why\nCore.Configuration was the only Core project still pinned to 9.x while\nthe repo targets net10 and sibling Core projects already use 10.0.0\nMicrosoft.Extensions dependencies.\n\n## Validation\n- dotnet build cirrus.slnx\n- dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~Config\" (42 passed)\n- Manual PowerShell regression: Get-AzConfig / Set-AzConfig /\nRemove-AzConfig (including -WhatIf and confirmation)\n- Manual CLI regression: az config list/get/set/delete flows",
+          "timestamp": "2026-07-01T15:47:44+08:00",
+          "tree_id": "875458f2e3bd119fc327bf5d011a5b576dcb9849",
+          "url": "https://github.com/Azure/azclips/commit/07a42b3362275f35515e755bd917f00c72b33a85"
+        },
+        "date": 1782892542208,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5775798.1447293125,
+            "unit": "ns",
+            "range": "± 98235.95820914174"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5774496.001149822,
+            "unit": "ns",
+            "range": "± 98473.61199253701"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5766203.064008274,
+            "unit": "ns",
+            "range": "± 100646.54502483024"
           }
         ]
       }
