@@ -60,8 +60,8 @@ features:
 | [📊 Telemetry](/02-deep-dive/telemetry)                           | OpenTelemetry observability                                |
 | [🧪 Testing](/02-deep-dive/testing-benchmarking)                  | Test framework and benchmarks                              |
 | [🏗️ Build & CI/CD](/02-deep-dive/build-cicd)                     | Build system and deployment                                |
-| [📈 Benchmark Dashboard (CLI)](/dev/bench/cli/index.html)         | Continuous benchmark results for the CLI                   |
-| [📈 Benchmark Dashboard (PS)](/dev/bench/ps/index.html)           | Continuous benchmark results for the PowerShell modules    |
-| [📈 Benchmark Dashboard (CLI)](/dev/bench/startup-cli/index.html) | Continuous benchmark results for the CLI startup           |
-| [📈 Benchmark Dashboard (PS)](/dev/bench/startup-ps/index.html)   | Continuous benchmark results for the PowerShell startup    |
+|| [📈 Benchmark Dashboard (CLI)](/dev/bench/cli/index.html)                 | Continuous benchmark results for the CLI                   |
+|| [📈 Benchmark Dashboard (PS)](/dev/bench/ps/index.html)                  | Continuous benchmark results for the PowerShell modules    |
+|| [📈 Startup Benchmark Dashboard (CLI)](/dev/bench/startup-cli/index.html) | Continuous startup benchmark results for the CLI           |
+|| [📈 Startup Benchmark Dashboard (PS)](/dev/bench/startup-ps/index.html)   | Continuous startup benchmark results for PowerShell        |
 
