@@ -38,8 +38,8 @@ public class RemoveExtensionProcessor : IProcessor
             throw CirrusErrorException.UsageError("Name is required to remove an extension.");
         }
 
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        var loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.StartActivity($"{nameof(RemoveExtensionProcessor)}.{nameof(Process)}");
 
         // Built-in verbs aren't in the registry; give a clear error rather than "not found".

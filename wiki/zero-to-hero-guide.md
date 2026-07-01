@@ -87,7 +87,7 @@ services.AddSingleton<ILoggingService, ConsoleLoggingService>();
 public class MyEngine(IAuthService auth, ILoggingService logger) { }
 ```
 
-In Cirrus, `CirrusServiceProvider.Initialize()` sets up the entire DI container (`src/Core/Core.DependencyInjection/CirrusServiceProvider.cs`).
+In Azclips, `AzclipsServiceProvider.Initialize()` sets up the entire DI container (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs`).
 
 #### Pattern Matching & Switch Expressions
 
@@ -153,7 +153,7 @@ At its core, DI in .NET follows three steps:
    var auth = provider.GetRequiredService<IAuthService>();
 ```
 
-In Cirrus, step 1 happens in `CirrusServiceProvider.Initialize()`, step 2 at the end of that method, and step 3 happens throughout the codebase via constructor injection or direct `GetRequiredService` calls.
+In Azclips, step 1 happens in `AzclipsServiceProvider.Initialize()`, step 2 at the end of that method, and step 3 happens throughout the codebase via constructor injection or direct `GetRequiredService` calls.
 
 #### Assembly Loading
 
@@ -390,7 +390,7 @@ graph TB
 All services are registered as singletons in a chain of extension methods:
 
 ```csharp
-// CirrusServiceProvider.cs — the complete registration chain
+// AzclipsServiceProvider.cs — the complete registration chain
 new ServiceCollection()
     .RegisterRuntimeServices()        // ILoggingService, IOutputAdapter
     .RegisterAuthenticationServices() // IAuthService, IAuthContextService
@@ -613,7 +613,7 @@ Read these files in order to understand the full architecture:
 | Order | File | Why |
 |-------|------|-----|
 | 1 | `src/CLI/Program.cs` | Entry point — see the full flow |
-| 2 | `src/Core/Core.DependencyInjection/CirrusServiceProvider.cs` | How DI wires everything |
+| 2 | `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | How DI wires everything |
 | 3 | `src/Core/Core.Engine/OrchestratorEngine.cs` | The heart — orchestration logic |
 | 4 | `src/Core/Core.Engine/DefaultCommandEngine.cs` | Structured command execution |
 | 5 | `src/Core/Core.Engine/AgentEngine.cs` | AI fallback engine |
@@ -735,7 +735,7 @@ az storage list --SubscriptionId <your-sub>
 | **CLIEngine** | Entry point for CLI host (`ClientType.CLI`) |
 | **PSEngine** | Entry point for PowerShell host (`ClientType.PowerShell`) |
 | **Bootstrapper** | Service registration and DI container setup (used by PSEngine) |
-| **CirrusServiceProvider** | Static singleton DI container (used by CLI and extensions) |
+| **AzclipsServiceProvider** | Static singleton DI container (used by CLI and extensions) |
 | **CommandParser** | Parses string args into `ParseResult` (commands + options) |
 | **CommandBinder** | Loads extension DLLs and finds matching `ICommand` |
 | **ExtensionLoader** | Loads extension assemblies with isolation |
@@ -780,7 +780,7 @@ az storage list --SubscriptionId <your-sub>
 | `src/Core/Core.Abstractions/IExtensionIndex.cs` | Extension registry interface |
 | `src/Core/Core.Abstractions/CLIContracts.cs` | IProcessor and delegates |
 | `src/Core/Core.Abstractions/ClientType.cs` | CLI vs PowerShell enum |
-| `src/Core/Core.DependencyInjection/CirrusServiceProvider.cs` | DI container |
+| `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | DI container |
 | `src/Core/Core.Engine/OrchestratorEngine.cs` | Smart fallback orchestrator |
 | `src/Core/Core.Engine/DefaultCommandEngine.cs` | Structured command engine |
 | `src/Core/Core.Engine/AgentEngine.cs` | AI agent engine |

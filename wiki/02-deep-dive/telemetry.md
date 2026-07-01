@@ -269,7 +269,7 @@ This means every console log automatically appears as an event in the distribute
 The `Get-TelemetryService` function (`src/PS/TelemetryHelper.ps1:7`) lazily initializes and caches a module-scoped telemetry service:
 
 ```powershell
-$script:TelemetryService = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService(
+$script:TelemetryService = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService(
     [Core.Abstractions.ITelemetryService])
 ```
 

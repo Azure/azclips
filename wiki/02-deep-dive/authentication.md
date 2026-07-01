@@ -294,7 +294,7 @@ The `ProcessorContext` assembles `AuthHandler`, `OutputHandler`, and `TelemetryH
 | `UseDeviceCode` | `bool` | No | `false` | 20-24 |
 
 The `ProcessAsync` method (lines 26-48):
-1. Resolves `IAuthService` and `IAuthContextService` from `CirrusServiceProvider` (lines 29-31)
+1. Resolves `IAuthService` and `IAuthContextService` from `AzclipsServiceProvider` (lines 29-31)
 2. Creates a `LoginRequest` with `TenantId`, `SubscriptionId`, and `UseDeviceCodeFlow` (lines 33-38)
 3. Calls `authService.LoginAsync(loginRequest).GetAwaiter().GetResult()` — note the synchronous blocking (line 40)
 4. Creates an `AuthContext` with the subscription and tenant from the result (lines 41-45)

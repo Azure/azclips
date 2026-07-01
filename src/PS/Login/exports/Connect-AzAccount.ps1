@@ -9,7 +9,7 @@ function Connect-AzAccount {
 
         [Parameter(Mandatory = $false)]
         [string] $TenantId,
-        
+
         [Parameter(Mandatory = $false)]
         [string] $UseDeviceCode
     )
@@ -18,7 +18,7 @@ function Connect-AzAccount {
         # Start telemetry activity
         $script:activity = Start-CmdletActivity -CmdletName "Connect-AzAccount" -Parameters $PSBoundParameters
 
-        $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
+        $engine = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             $PSCmdlet.WriteObject($value)

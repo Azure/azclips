@@ -30,9 +30,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         public override async Task ProcessAsync()
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-            var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-            var authService = CirrusServiceProvider.GetRequiredService<IAuthService>();
-            var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
+            var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+            var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
+            var authContextService = AzclipsServiceProvider.GetRequiredService<IAuthContextService>();
 
             LoginRequest loginRequest = new()
             {
