@@ -1,6 +1,6 @@
 # Configuration Management
 
-Cirrus stores user-scope configuration in a global JSON file.
+Azclips stores user-scope configuration in a global JSON file.
 
 Configuration follows strict precedence: **command args > environment variables > global config > defaults**.
 
@@ -14,7 +14,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `core.engine.extensionIndexCacheSize`         | int    | `512`              | LFU cache capacity for extension index (entry count)                                              |
 | `assemblyLoading.versionedInstallationDir`    | string | (system)           | Versioned assembly installation directory                                                         |
 | `assemblyLoading.builtinInstallationDir`      | string | (system)           | Built-in assembly directory                                                                       |
-| `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Cirrus.Extensions.` (DEBUG), empty (Release)   |
+| `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release) |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                  |
 | `telemetry.appInsightsInstrumentationKey`     | string | (empty)            | Application Insights key                                                                          |
 | `telemetry.zipkinEndpoint`                    | string | (empty)            | Zipkin tracing endpoint                                                                           |
@@ -197,7 +197,7 @@ You can override configuration using environment variables:
 
 | Environment Variable                                                | Maps to                      |
 | ------------------------------------------------------------------- | ---------------------------- |
-| `CIRRUS_LOG_LEVEL`                                                  | `core.logging.level`         |
+| `AZCLIPS_LOG_LEVEL`                                                 | `core.logging.level`         |
 | `PS_HTTP_MAX_RETRIES` / `AZURE_PS_HTTP_MAX_RETRIES`                 | `core.http.maxRetries`       |
 | `PS_HTTP_MAX_RETRIES_FOR_429` / `AZURE_PS_HTTP_MAX_RETRIES_FOR_429` | `core.http.maxRetriesFor429` |
 | `ZIPKIN_ENDPOINT`                                                   | `telemetry.zipkinEndpoint`   |

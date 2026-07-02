@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cirrus ships as both a standalone CLI (`az`) and a set of PowerShell modules. Both surfaces share the same extension assemblies and core engine, but differ in how they build, package, load extensions, and manage assembly isolation.
+Azclips ships as both a standalone CLI (`az`) and a set of PowerShell modules. Both surfaces share the same extension assemblies and core engine, but differ in how they build, package, load extensions, and manage assembly isolation.
 
 > Items marked **[Proposal]** describe planned changes not yet implemented on `main`.
 > Items marked **[CLI]** or **[PS]** are specific to that surface.
@@ -11,7 +11,7 @@ Cirrus ships as both a standalone CLI (`az`) and a set of PowerShell modules. Bo
 
 ## 1. Architecture at a Glance
 
-Cirrus produces three categories of build artifact:
+Azclips produces three categories of build artifact:
 
 - **Core CLI** (`az.exe`) — Self-contained host process bundling the engines, AI agent, DI container, and auth
 - **Extensions** (`.nupkg` / DLL) — Dynamically loaded at runtime, carrying their own dependencies
@@ -63,7 +63,7 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 
 ### 3.1 Discovery Is Authoritative
 
-Cirrus uses **runtime discovery** to determine what extensions are installed and what they contribute. At startup, `DiscoverySession` walks the file system (`~/.azclips/extensions/` + builtin `Extensions/`) to enumerate all available extensions and versions. This discovery output is the **authoritative source of truth** — it determines what the CLI can dispatch to, what help shows, and what the extension API lists.
+Azclips uses **runtime discovery** to determine what extensions are installed and what they contribute. At startup, `DiscoverySession` walks the file system (`~/.azclips/extensions/` + builtin `Extensions/`) to enumerate all available extensions and versions. This discovery output is the **authoritative source of truth** — it determines what the CLI can dispatch to, what help shows, and what the extension API lists.
 
 The registry (`~/.azclips/extensions/registry.json`) is a **preferences layer** on top of discovery. It stores user choices (pinned versions, active-version overrides, install metadata) but does **not** determine installed state. If an extension is present on disk but missing from the registry, it is still discovered and available.
 
@@ -109,7 +109,7 @@ When multiple versions of an extension are installed, `DiscoverySession` resolve
 Example:
 
 ```
-~/.azclips/extensions/Microsoft.Azure.Cirrus.Extensions.Compute/
+~/.azclips/extensions/Microsoft.Azure.Azclips.Extensions.Compute/
   0.9.0/
   1.0.0/
   1.1.0/  ← Latest; selected unless registry overrides
@@ -117,7 +117,7 @@ Example:
 registry.json:
   {
     "extensions": {
-      "Microsoft.Azure.Cirrus.Extensions.Compute": {
+      "Microsoft.Azure.Azclips.Extensions.Compute": {
         "version": "1.0.0",           ← Pinned to this version
         "pinned": true
       }
@@ -246,7 +246,7 @@ PowerShell modules load all assemblies into the host's default ALC via `Required
 
 - For PowerShell, there are in fact **3** different runtime contexts that could cause conflicts between each other:
     1. The PowerShell host process and its loaded assemblies
-    2. The `runtime` / `command host` shared across all Cirrus PowerShell modules
+    2. The `runtime` / `command host` shared across all Azclips PowerShell modules
     3. The individual extension assemblies loaded by the command host
 - If we would like to share the type between extension and PowerShell host, we have to load the extension assembly into the default ALC, which means all extensions share the same ALC and can conflict with each other.
 - When developing configuration commands, we already see conflicts between `System.Text.Json` versions used by the PowerShell host and the extension, causing runtime errors.
@@ -285,7 +285,7 @@ publish/win-x64/
 
 **MSIX packaging** is supported via `Core.Cli.appxmanifest` for Windows distribution.
 
-> **[Proposal]** Replace the static `Bootstrapper` with `CirrusHostBuilder`, a non-static builder exposing `AddCirrusCore()` / `AddCirrusCli()` / `AddCirrusPS()` and scoped DI per invocation.
+> **[Proposal]** Replace the static `Bootstrapper` with `AzclipsHostBuilder`, a non-static builder exposing `AddAzclipsCore()` / `AddAzclipsCli()` / `AddAzclipsPS()` and scoped DI per invocation.
 
 > **[Proposal]** Extract CLI argument parsing from `CLIEngine` into standalone DI-registered services: `ArgumentParser`, `PropertyParser`, `CommandResolver`.
 
@@ -296,7 +296,7 @@ publish/win-x64/
 **Target production layout** (not yet implemented):
 
 ```
-Cirrus/
+Azclips/
   Login/
     Login.psd1, Login.psm1, exports/*.ps1
     lib/                            ← Assembled DLLs
