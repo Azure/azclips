@@ -1,11 +1,11 @@
 ---
 title: "Zero-to-Hero Learning Path"
-description: "Progressive onboarding guide for engineers new to C# or the Cirrus codebase"
+description: "Progressive onboarding guide for engineers new to C# or the Azclips codebase"
 ---
 
 # Zero-to-Hero Learning Path
 
-Welcome to Cirrus! This guide takes you from zero familiarity with C# and .NET to productive contributor, building each concept on the last. If you're experienced with Python (or any other language), you'll find side-by-side comparisons throughout.
+Welcome to Azclips! This guide takes you from zero familiarity with C# and .NET to productive contributor, building each concept on the last. If you're experienced with Python (or any other language), you'll find side-by-side comparisons throughout.
 
 ---
 
@@ -19,8 +19,8 @@ If you know Python, you already understand 80% of the concepts — C# just expre
 
 | Python                        | C#                                | Notes                     |
 | ----------------------------- | --------------------------------- | ------------------------- |
-| `name = "cirrus"`             | `var name = "cirrus";`            | C# infers type with `var` |
-| `name: str = "cirrus"`        | `string name = "cirrus";`         | Explicit typing           |
+| `name = "azclips"`            | `var name = "azclips";`           | C# infers type with `var` |
+| `name: str = "azclips"`       | `string name = "azclips";`        | Explicit typing           |
 | `count: Optional[int] = None` | `int? count = null;`              | Nullable value type       |
 | `label: str \| None = None`   | `string? label = null;`           | Nullable reference type   |
 | `PI = 3.14`                   | `const double PI = 3.14;`         | Compile-time constant     |
@@ -132,7 +132,7 @@ new ServiceCollection()
     .BuildServiceProvider();
 ```
 
-Cirrus uses this pattern extensively for DI registration (`src/Core/*/DIRegisterExtensions.cs`).
+Azclips uses this pattern extensively for DI registration (`src/Core/*/DIRegisterExtensions.cs`).
 
 ---
 
@@ -157,7 +157,7 @@ In Azclips, step 1 happens in `AzclipsServiceProvider.Initialize()`, step 2 at t
 
 #### Assembly Loading
 
-.NET applications are compiled into assemblies (DLLs). Cirrus dynamically loads extension DLLs at runtime:
+.NET applications are compiled into assemblies (DLLs). Azclips dynamically loads extension DLLs at runtime:
 
 ```mermaid
 graph LR
@@ -182,7 +182,7 @@ This is like Python's `importlib.import_module()` but with type safety and isola
 
 #### Middleware Pipeline
 
-The HTTP pipeline in Cirrus uses the chain-of-responsibility pattern — think Python decorators stacked on a function:
+The HTTP pipeline in Azclips uses the chain-of-responsibility pattern — think Python decorators stacked on a function:
 
 ```python
 # Python analogy
@@ -194,7 +194,7 @@ def send_request(request):
 ```
 
 ```csharp
-// C# — same concept in Cirrus's HttpPipeline
+// C# — same concept in the Azclips HttpPipeline
 pipeline.Prepend(commandAuthHandler.SendAsync)  // Add auth header
 // Terminal handler: HttpClientFactory sends the actual request
 ```
@@ -207,7 +207,7 @@ pipeline.Prepend(commandAuthHandler.SendAsync)  // Add auth header
 
 Users want to say `az "create a resource group named test in eastus"` instead of memorizing `az group create --Name test --Location eastus --SubscriptionId <guid>`. The AI agent bridges natural language to structured commands.
 
-#### How It Works in Cirrus
+#### How It Works in Azclips
 
 ```mermaid
 sequenceDiagram
@@ -252,7 +252,7 @@ The `CloudAgent` (`src/Core/Core.Agent/CloudAgent.cs`) wraps the Azure OpenAI SD
 
 To call Azure APIs, you need a bearer token. Getting one requires OAuth2 flows — interactive browser login, device codes, token refresh, cache management. MSAL (Microsoft Authentication Library) abstracts all of this.
 
-#### How Cirrus Uses MSAL
+#### How Azclips Uses MSAL
 
 The `MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs`) provides:
 
@@ -262,7 +262,7 @@ The `MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs`) provid
 4. **Token Cache Persistence** — Saves tokens to `LocalAppData/.azclips/MSAL.cache` (or `MSAL.cache.plaintext` in explicit plaintext mode)
 
 ```python
-# Python pseudocode for how MSAL works in Cirrus
+# Python pseudocode for how MSAL works in Azclips
 class MsalAuthService:
     def login(self, request):
         if request.use_device_code:
@@ -289,13 +289,13 @@ The `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`) 
 
 ### 5. The Big Picture
 
-**Cirrus in one sentence:** An extension-based CLI framework that dynamically loads Azure management commands and falls back to AI when structured parsing fails.
+**Azclips in one sentence:** An extension-based CLI framework that dynamically loads Azure management commands and falls back to AI when structured parsing fails.
 
 #### Engine vs Car Analogy
 
-Think of Cirrus as a **car engine**, and Azure as the **car**:
+Think of Azclips as a **car engine**, and Azure as the **car**:
 
-| Engine (Cirrus Owns)           | Car (Azure Provides)          |
+| Engine (Azclips Owns)          | Car (Azure Provides)          |
 | ------------------------------ | ----------------------------- |
 | Command parsing & routing      | Resource groups, VMs, storage |
 | Extension loading & isolation  | REST API endpoints            |
@@ -303,7 +303,7 @@ Think of Cirrus as a **car engine**, and Azure as the **car**:
 | Telemetry & observability      | Subscription management       |
 | PowerShell integration         | Cloud resource lifecycle      |
 
-Cirrus never manages Azure resources directly — it orchestrates the tooling that talks to Azure.
+Azclips never manages Azure resources directly — it orchestrates the tooling that talks to Azure.
 
 #### Core Entities
 
@@ -525,14 +525,14 @@ The AI agent (`src/Core/Core.Agent/CloudAgent.cs`) is configured via:
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/Azure/cirrus.git && cd cirrus
+git clone https://github.com/Azure/azclips.git && cd azclips
 
 # 2. Open in VS Code and reopen in container
 code .
 # Press Ctrl+Shift+P then "Dev Containers: Reopen in Container"
 
 # 3. Build
-dotnet build -c Release cirrus.slnx
+dotnet build -c Release *.slnx
 
 # 4. Run the CLI
 ./artifacts/Release/Core.Cli/az --help
@@ -548,7 +548,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 dotnet --info  # Should show 10.0.203
 
 # 2. Build
-dotnet build cirrus.slnx
+dotnet build *.slnx
 
 # 3. Add CLI to PATH
 export PATH="$PWD/artifacts/Debug/Core.Cli:$PATH"
@@ -713,8 +713,8 @@ _index.Add("Storage", "Storage");
 #### Step 6: Add to Solution and Build
 
 ```bash
-dotnet sln cirrus.slnx add src/Extensions/Storage/Extensions.Storage.csproj
-dotnet build cirrus.slnx
+dotnet sln *.slnx add src/Extensions/Storage/Extensions.Storage.csproj
+dotnet build *.slnx
 az storage list --SubscriptionId <your-sub>
 ```
 
@@ -726,7 +726,7 @@ az storage list --SubscriptionId <your-sub>
 
 | Term                            | Definition                                                               |
 | ------------------------------- | ------------------------------------------------------------------------ |
-| **az**                          | The CLI binary produced by the Cirrus project                            |
+| **az**                          | The CLI binary produced by the Azclips project                           |
 | **Extension**                   | A dynamically loaded DLL providing commands for a specific Azure service |
 | **Module**                      | An `IModule` implementation that returns a collection of commands        |
 | **Command**                     | An `ICommand` implementation that performs a single operation            |
@@ -803,7 +803,7 @@ az storage list --SubscriptionId <your-sub>
 | `src/CLI/Parser/ExtensionDispatcher.cs`                       | Command routing                  |
 | `src/CLI/Parser/CommandGroupIndex.cs`                         | Extension lookup                 |
 | `global.json`                                                 | SDK version pinning              |
-| `cirrus.slnx`                                                 | Solution file                    |
+| `*.slnx`                                                      | Solution file                    |
 
 ### Further Reading
 
