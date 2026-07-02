@@ -1,8 +1,8 @@
 import { withMermaid } from 'vitepress-plugin-mermaid'
 
 export default withMermaid({
-  title: 'Cirrus Wiki',
-  description: 'Technical documentation for the Cirrus CLI framework — a .NET 9.0 extension-based CLI with AI-powered natural language capabilities for Azure resource management',
+  title: 'Azclips Wiki',
+  description: 'Technical documentation for Project Azclips — a .NET 10 extension-based CLI (the `az` binary) for Azure resource management, with an out-of-process AI agent fallback, an interactive Terminal UI, and mirrored PowerShell cmdlets',
   appearance: 'dark',
   ignoreDeadLinks: true,
 
@@ -19,7 +19,7 @@ export default withMermaid({
 
   themeConfig: {
     logo: '/logo.svg',
-    siteTitle: 'Cirrus Wiki',
+    siteTitle: 'Azclips Wiki',
 
     outline: { level: [2, 3] },
 
@@ -54,10 +54,12 @@ export default withMermaid({
         collapsed: false,
         items: [
           { text: 'Core Engine & Orchestration', link: '/02-deep-dive/core-engine-orchestration' },
-          { text: 'Extension System', link: '/02-deep-dive/extension-system' },
-          { text: 'Authentication', link: '/02-deep-dive/authentication' },
-          { text: 'AI Agent Integration', link: '/02-deep-dive/ai-agent' },
           { text: 'HTTP Pipeline & Runtime', link: '/02-deep-dive/http-pipeline' },
+          { text: 'Authentication (MSAL)', link: '/02-deep-dive/authentication' },
+          { text: 'Extension System', link: '/02-deep-dive/extension-system' },
+          { text: 'Configuration & Profile Management', link: '/02-deep-dive/configuration-profiles' },
+          { text: 'AI Agent', link: '/02-deep-dive/ai-agent' },
+          { text: 'Terminal UI (TUI)', link: '/02-deep-dive/terminal-ui' },
           { text: 'Telemetry & Observability', link: '/02-deep-dive/telemetry' },
           { text: 'Testing & Benchmarking', link: '/02-deep-dive/testing-benchmarking' },
           { text: 'Build & CI/CD', link: '/02-deep-dive/build-cicd' },
@@ -66,7 +68,7 @@ export default withMermaid({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/Azure/cirrus' },
+      { icon: 'github', link: 'https://github.com/Azure/azclips' },
     ],
 
     search: {

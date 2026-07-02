@@ -1,287 +1,160 @@
 ---
-title: "Environment Setup & Development"
-description: "Step-by-step guide to setting up the Cirrus development environment — dev containers, .NET SDK, build system, debugging, and testing."
+title: Environment Setup
+description: Prerequisites, solution layout, build commands, and artifact/output conventions for building the Azclips az CLI and PowerShell modules on .NET 10.
+outline: deep
 ---
 
-# Environment Setup & Development
+# Environment Setup
+
+## Why This Matters
+
+Project Azclips is a multi-project .NET 10 solution that produces both a native-style `az` binary and a set of PowerShell modules that load the *same* compiled Core assemblies. Because the PowerShell manifests reference DLLs by their build-output path (for example `../../../artifacts/Debug/Core/Core.Engine.dll` in `src/PS/Compute/Compute.psd1:60`), your toolchain and output layout must match what the projects expect. Getting the SDK version, output paths, and shared build properties right up front is what makes every downstream surface — CLI, PowerShell, TUI — work from a single `dotnet build`.
 
 ## Prerequisites
 
-| Requirement | Version / Detail | Source |
-|-------------|-----------------|--------|
-| **.NET SDK** | 10.0.203 (`latestMinor` roll-forward) | `global.json:3` |
-| **PowerShell** | 7.5+ (Core edition) | `src/PS/Login/Login.psd1:36` |
-| **Docker** | Required for dev container | `.devcontainer/docker-compose.yml` |
-| **VS Code** | With C# DevKit extension | `.devcontainer/devcontainer.json:71-73` |
-| **Git** | Any recent version | — |
+| Requirement | Version | Why | Source |
+| --- | --- | --- | --- |
+| .NET SDK | **10.0.203** (roll-forward `latestMinor`) | Target framework is `net10.0` | `global.json:3` |
+| PowerShell | **7.0+** | Running the PowerShell modules | `README.md:76` |
+| Azure subscription | — | Live ARM calls (`az login`, `az group create`) | `README.md:77` |
+| PlatyPS | **1.0.1** (only for help artifacts) | `-GenerateHelpArtifacts`; auto-installed by `build/Install-BuildDependencies.ps1` | `README.md:78` |
 
-::: tip
-The fastest path to a working environment is the **VS Code Dev Container**. It installs the SDK, PowerShell, browser helpers, and Zipkin automatically.
-:::
+The SDK pin is deliberate. `global.json` requests `10.0.203` with `"rollForward": "latestMinor"` (`global.json:1`), meaning any installed 10.0.x SDK at or above that patch is acceptable, but a 9.x or 11.x SDK is not.
 
-## Dev Container Setup
+```mermaid
+graph LR
+    SDK[".NET SDK 10.0.203<br>global.json"] --> BUILD["dotnet build -c Release<br>azclips.slnx"]
+    PS7["PowerShell 7+"] --> MODULES["Import PS modules"]
+    PLATY["PlatyPS 1.0.1"] --> HELP["Help artifacts<br>(optional)"]
+    BUILD --> AZ["artifacts/Release/Core.Cli/az"]
+    BUILD --> DLLS["artifacts/&lt;Config&gt;/Core/*.dll"]
+    DLLS --> MODULES
+    AZ --> RUN["az --help"]
 
-The repository ships a complete multi-container development environment defined in `.devcontainer/`. Opening the repo in VS Code and selecting **"Reopen in Container"** provisions everything needed.
+    style SDK fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PS7 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PLATY fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style BUILD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style AZ fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style DLLS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style MODULES fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style HELP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style RUN fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+```
 
-### Container Architecture
+## Solution Layout
+
+The solution is defined in the modern XML `azclips.slnx` format (`azclips.slnx:1`). It groups projects into logical folders:
+
+| Folder | Projects | Role |
+| --- | --- | --- |
+| `/src/CLI/` | `Core.Cli` | The `az` binary entry point. |
+| `/src/Core/` | `Core.Abstractions`, `Core.Authentication`, `Core.Engine`, `Core.Telemetry`, `Core.Runtime`, `Core.DependencyInjection`, `Core.AssemblyLoading`, `Core.ArgumentParsing`, `Core.Configuration`, `Core.Extensions` | The 10-project core engine. |
+| `/src/Extensions/` | `ExtensionRuntime`, `Extension`, `Resources`, `Login`, `Config`, `Compute` | The 6 dynamically-loaded extensions. |
+| `/TUI/` | `Core.Tui` | Interactive terminal UI / agent-mode host. |
+| `/Agent/` | `Core.Agent` (+ tests) | GitHub Copilot SDK integration. |
+| `/src/PS/` | `Cmdlets.Resources`, `Cmdlets.Compute`, `Cmdlets.Login`, `Cmdlets.Config` | Mirrored PowerShell cmdlets. |
+| `/tests/` | `Cli.Tests`, `Benchmark`, `Cmdlets.Tests`, `Tests.Common`, `Core.Extensions.Tests`, `Core.Telemetry.Tests`, and fixtures | Test suites. |
+| `/tools/` | `Azclips.Help.Tool` (+ tests) | Help artifact generation. |
+
+## Building
+
+The canonical build produces a Release `az` binary:
+
+```bash
+# From the repo root
+dotnet build -c Release azclips.slnx
+
+# The CLI binary lands here:
+./artifacts/Release/Core.Cli/az --help
+
+# Add it to PATH for convenience:
+export PATH="$PWD/artifacts/Release/Core.Cli:$PATH"
+```
+
+This matches the documented Quick Start (`README.md:80`). PowerShell helper scripts live under `build/`:
+
+| Script | Purpose |
+| --- | --- |
+| `build/build.ps1` | Orchestrated build wrapper. |
+| `build/Install-BuildDependencies.ps1` | Installs PlatyPS 1.0.1 and other build deps. |
+| `build/New-PSHelpMarkdown.ps1` | Generates PowerShell help markdown. |
+| `build/Set-ModuleConfiguration.ps1` | Configures module manifests. |
+
+> **Note:** The catalogue prompt references a `scripts/deploy.sh`, but the current tree ships PowerShell build scripts under `build/` (verified: no `deploy.sh` exists). Prefer the `build/*.ps1` scripts above.
+
+## Output & Artifact Conventions
+
+Output paths are driven centrally by `Shared.props`. Every project writes to `artifacts/$(Configuration)/$(ExtName)/` and does **not** append the target framework to the path (`Shared.props:8`):
+
+```xml
+<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+<OutputPath>$(RepoArtifacts)$(Configuration)/$(ExtName)/</OutputPath>
+<PublishDir>$(OutputPath)</PublishDir>
+```
+
+That is why the CLI ends up at `artifacts/Release/Core.Cli/az` and Core DLLs at `artifacts/<Config>/Core/*.dll` — exactly the locations the `.psd1` manifests hard-reference (`src/PS/Compute/Compute.psd1:59`).
+
+Shared compiler behavior comes from `src/Directory.Build.props`, which every project imports (`src/Directory.Build.props:1`):
+
+| Property | Value | Effect |
+| --- | --- | --- |
+| `TargetFramework` | `net10.0` | .NET 10 everywhere (`:4`). |
+| `ImplicitUsings` | `enable` | Global usings on (`:5`). |
+| `Nullable` | `enable` | Nullable reference types on (`:6`). |
+| `TreatWarningsAsErrors` | `true` | Warnings fail the build (`:10`). |
+| `EnableNETAnalyzers` / `AnalysisLevel` | `true` / `latest` | Latest analyzer rules (`:7`). |
 
 ```mermaid
 graph TB
-    subgraph DevEnv["Dev Container Environment"]
-        style DevEnv fill:#161b22,stroke:#30363d,color:#e6edf3
-        App["App Container<br>.NET 10.0 + PowerShell 7.5"]
-        Zipkin["Zipkin Container<br>openzipkin/zipkin"]
-        VSCode["VS Code Server<br>C# DevKit"]
+    subgraph props["Build Property Inheritance"]
+        SP["Shared.props<br>Product=Azclips, OutputPath"]
+        DBP["src/Directory.Build.props<br>net10.0, Nullable, TreatWarningsAsErrors"]
     end
-
-    subgraph Ports["Forwarded Ports"]
-        style Ports fill:#161b22,stroke:#30363d,color:#e6edf3
-        P9411["9411 — Zipkin UI"]
-        P5000["50000-50009 — App Ports"]
+    subgraph out["artifacts/&lt;Configuration&gt;/"]
+        CLIOUT["Core.Cli/az"]
+        COREOUT["Core/*.dll"]
+        EXTOUT["Microsoft.Azure.Azclips.Extensions.*/"]
     end
+    SP --> CLIOUT
+    SP --> COREOUT
+    SP --> EXTOUT
+    DBP --> CLIOUT
+    DBP --> COREOUT
 
-    App -->|"ZIPKIN_ENDPOINT<br>http://zipkin:9411/api/v2/spans"| Zipkin
-    Zipkin --> P9411
-    App --> P5000
-    VSCode --> App
-
-    style App fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Zipkin fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style VSCode fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style P9411 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style P5000 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style DBP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CLIOUT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style COREOUT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style EXTOUT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style props fill:#161b22,stroke:#30363d,color:#e6edf3
+    style out fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-### Docker Compose Services
+## Where User State Lands
 
-The `docker-compose.yml` (`.devcontainer/docker-compose.yml:1-30`) defines two services:
+At runtime, user-scoped state is created under two roots, both centralized in `HomePaths`:
 
-**App service** (`docker-compose.yml:2-16`) — the primary development container built from `Dockerfile` with the workspace mounted at `/workspaces/cirrus:cached`. Environment variables `ZIPKIN_ENDPOINT` and `BROWSER` are injected automatically. The container runs `sleep infinity` so VS Code can attach.
+- `~/.azclips/` — home root for `config.json`, the `extensions/` folder, `arm-cache/`, and `trace/` (`src/Core/Core.Abstractions/HomePaths.cs:12`).
+- `{LocalApplicationData}/.azclips/` — auth context and profiles, e.g. `context.json` (`src/Core/Core.Abstractions/HomePaths.cs:47`).
 
-**Zipkin service** (`docker-compose.yml:18-30`) — the `openzipkin/zipkin` image exposes port **9411** with a health check (every 5 s, 3 s timeout, 5 retries, 10 s start period). Restart policy is `unless-stopped`.
+## Verify Your Setup
 
-### Post-Create Script
-
-`.devcontainer/post-create.sh` runs once after the container is built:
-
-1. Installs `platyPS` PowerShell module for help generation (`post-create.sh:5`).
-2. Installs `Az.Accounts` for Azure context support (`post-create.sh:8`).
-3. Appends the CLI artefact directory to `PATH` in `.bashrc` (`post-create.sh:12-17`).
-4. Creates browser symlinks (`xdg-open`, `gnome-open`, `kfmclient`) so MSAL interactive auth can open VS Code's embedded browser (`post-create.sh:24-30`).
-
-### Post-Start Script
-
-`.devcontainer/post-start.sh` runs on every container start and re-creates the browser symlinks to ensure MSAL authentication flows work after container restarts.
-
-### Environment Variables
-
-| Variable | Value | Set In |
-|----------|-------|--------|
-| `PATH` | Includes `artifacts/Debug/Core.Cli` and `artifacts/Release/Core.Cli` | `devcontainer.json:60-61` |
-| `BROWSER` | VS Code browser helper path | `devcontainer.json:62` |
-| `ZIPKIN_ENDPOINT` | `http://zipkin:9411/api/v2/spans` | `devcontainer.json:63` |
-| `AZURECLI_FLAVOR` | `"azure cli"` (default) or `"azure powershell"` | Runtime |
-| `AZURE_OPENAI_ENDPOINT` | Your Azure OpenAI endpoint | `.env` file |
-| `AZURE_OPENAI_API_KEY` | API key | `.env` file |
-| `AZURE_OPENAI_DEPLOYMENT` | Deployment name | `.env` file |
-
-## Building the Solution
-
-### Quick Build
+Confirm your SDK resolves to what `global.json` pins:
 
 ```bash
-dotnet build azclips.slnx
+dotnet --info        # Version should be 10.0.x (>= 10.0.203)
+dotnet --version     # Honors global.json roll-forward
 ```
 
-The PowerShell build wrapper (`build/build.ps1:1`) does the same:
-
-```powershell
-dotnet build "$PSScriptRoot/../azclips.slnx"
-```
-
-### Release Build
-
-```bash
-dotnet build -c Release azclips.slnx
-```
-
-### Build Properties
-
-The build system uses a layered MSBuild property hierarchy:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant MSBuild
-    participant Shared as Shared.props
-    participant SrcProps as src/Directory.Build.props
-    participant TestProps as tests/Directory.Build.props
-    participant Project as Individual .csproj
-
-    MSBuild->>Shared: Import root properties
-    Shared-->>MSBuild: RepoRoot, RepoSrc, OutputPath template
-    MSBuild->>SrcProps: Import source conventions
-    SrcProps-->>MSBuild: net9, Nullable, TreatWarningsAsErrors
-    MSBuild->>Project: Merge with project-specific settings
-    Note over MSBuild,Project: Output → artifacts/{Config}/{ExtName}/
-    MSBuild->>TestProps: Import test conventions
-    TestProps-->>MSBuild: xUnit packages, CA1707 suppression
-```
-
-**`Shared.props:2-11`** defines the artefact layout. Key properties:
-
-| Property | Value | Effect |
-|----------|-------|--------|
-| `RepoArtifacts` | `$(RepoRoot)artifacts/` | Root output directory |
-| `OutputPath` | `$(RepoArtifacts)$(Configuration)/$(ExtName)/` | Per-extension output |
-| `AppendTargetFrameworkToOutputPath` | `false` | Flattens TFM folder |
-
-**`src/Directory.Build.props:4-10`** enables strict code analysis:
-
-- `TargetFramework` = `net9`
-- `Nullable` = `enable`
-- `TreatWarningsAsErrors` = `true`
-- `EnforceCodeStyleInBuild` = `true`
-- `AnalysisLevel` = `latest`
-
-**`tests/Directory.Build.props:11-13`** relaxes these for test projects — warnings are **not** treated as errors and `CA1707` (underscores in identifiers) is suppressed to allow `Method_Should_When` naming.
-
-### Artefact Output
-
-After a successful build the `artifacts/` directory contains:
-
-```
-artifacts/
-├── Debug/
-│   ├── Core.Cli/
-│   │   └── az              ← CLI executable
-│   ├── Core/                 ← Shared core DLLs
-│   ├── Microsoft.Azure.Azclips.Extensions.Login/
-│   ├── Microsoft.Azure.Azclips.Extensions.Resources/
-│   └── Microsoft.Azure.Azclips.Extensions.Extension/
-└── Release/                  ← Same structure
-```
-
-## Running the CLI
-
-Once built, the CLI is available at:
-
-```bash
-# Debug build (default)
-./artifacts/Debug/Core.Cli/az
-
-# Release build
-./artifacts/Release/Core.Cli/az
-```
-
-Inside the dev container, both paths are on `PATH` (`devcontainer.json:60-61`), so you can invoke:
-
-```bash
-az --help
-az group list -SubscriptionId <id>
-az "create a resource group named test in eastus"
-```
-
-## Running Tests
-
-### Unit Tests
-
-```bash
-dotnet test tests/Cli.Tests/Cli.Tests.csproj
-```
-
-### With Coverage
-
-```bash
-dotnet test --collect:"XPlat Code Coverage"
-```
-
-Coverage is collected via **Coverlet 6.0.4** (`tests/Directory.Build.props:17`). The test SDK uses **Microsoft.NET.Test.Sdk 17.14.1** and **xUnit 2.9.3** (`tests/Directory.Build.props:18-19`).
-
-### CI Pipeline Tests
-
-The GitHub Actions workflow `.github/workflows/build-and-test.yml` runs on every PR:
-
-1. `dotnet restore` → `dotnet build` → `dotnet test`
-2. **E2E CLI**: executes `./artifacts/Debug/Core.Cli/az --help` to verify the binary starts.
-3. **E2E PowerShell**: imports the Login module and verifies exported commands:
-   ```powershell
-   Import-Module ./src/PS/Login/Login.psd1
-   Get-Command -Module Login
-   ```
-
-## VS Code Debug Configurations
-
-`.vscode/launch.json` defines **seven** launch profiles. All use `coreclr` type and launch the `az` binary from `artifacts/Debug/Core.Cli/` with `integratedTerminal` console. A `dotnet: build` pre-launch task (`.vscode/tasks.json:4-13`) compiles the solution first.
-
-| # | Profile                     | Purpose | Key Args |
-|---|-----------------------------|---------|----------|
-| 1 | `.NET Core Attach`          | Attach debugger to running process | — |
-| 2 | `C#: group create Debug`    | Test resource group creation | `group create -SubscriptionId … -Name yabo-test-group-1 -Location eastus` |
-| 3 | `C#: group show Debug`      | Test resource group retrieval | `group show -SubscriptionId … -Name …` |
-| 4 | `C#: login show Debug`      | Test login status | `login show` |
-| 5 | `C#: logout Debug`          | Test logout | `login logout` |
-| 6 | `az: natural language (AI)` | Test AI fallback with a prompt | `"create a resource group"` |
-| 7 | `az: help`                  | Test help output | `--help` |
-
-All profiles point to the same program path (`launch.json:18`):
-
-```
-${workspaceFolder}/artifacts/Debug/Core.Cli/az
-```
-
-## Telemetry & Tracing
-
-Cirrus uses **OpenTelemetry 1.8.1** for distributed tracing. In DEBUG builds, traces export to the local Zipkin container via the `ZIPKIN_ENDPOINT` environment variable.
-
-| Package | Version | Condition |
-|---------|---------|-----------|
-| `OpenTelemetry` | 1.8.1 | Always |
-| `OpenTelemetry.Instrumentation.Http` | 1.8.1 | Always |
-| `OpenTelemetry.Exporter.Zipkin` | 1.8.1 | DEBUG only |
-| `Azure.Monitor.OpenTelemetry.Exporter` | 1.2.0 | Release |
-
-To view traces, navigate to **http://localhost:9411** in your browser (port forwarded by the dev container at `devcontainer.json:45-48`).
-
-## AI Agent Configuration
-
-The `AgentEngine` requires Azure OpenAI credentials. Create a `.env` file in `src/Core/Core.Agent/` (see `.env.example`):
-
-```env
-AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com/
-AZURE_OPENAI_API_KEY=<key>
-AZURE_OPENAI_DEPLOYMENT=<deployment-name>
-```
-
-`CloudAgent.CreateAsync()` (`src/Core/Core.Agent/CloudAgent.cs:35-50`) searches for this file in four locations: `AppContext.BaseDirectory`, current directory, assembly directory, and `bin/`.
-
-## Common Issues & Solutions
-
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| `dotnet build` fails with SDK error | Wrong SDK version | Run `dotnet --info` and compare with `global.json:3` (expects 10.0.203) |
-| MSAL browser window doesn't open | Missing symlinks | Re-run `.devcontainer/post-start.sh` or recreate symlinks manually |
-| Zipkin UI unavailable | Container not healthy | Run `docker compose -f .devcontainer/docker-compose.yml ps` and check health |
-| `CA1707` warnings in tests | Underscore naming convention | Already suppressed in `tests/Directory.Build.props:12` — verify import chain |
-| Extension DLL not found | Build output mismatch | Ensure `Shared.props:6-8` `$(ExtName)` is set correctly in the extension `.csproj` |
-| AI agent returns no response | Missing `.env` | Create `.env` with OpenAI credentials in `src/Core/Core.Agent/` |
-| PowerShell module won't import | Missing assemblies | Build the solution first — module manifests reference `artifacts/Debug/Core/` DLLs |
+If `dotnet --version` reports a 9.x SDK or errors on the pin, install the .NET 10 SDK before building.
 
 ## References
 
-| Source | Path |
-|--------|------|
-| Dev container config | `.devcontainer/devcontainer.json` |
-| Docker Compose | `.devcontainer/docker-compose.yml` |
-| Post-create setup | `.devcontainer/post-create.sh` |
-| Post-start script | `.devcontainer/post-start.sh` |
-| SDK version | `global.json` |
-| Root build properties | `Shared.props` |
-| Source build properties | `src/Directory.Build.props` |
-| Test build properties | `tests/Directory.Build.props` |
-| Debug configurations | `.vscode/launch.json` |
-| Build tasks | `.vscode/tasks.json` |
-| Build script | `build/build.ps1` |
-| Solution file | `azclips.slnx` |
-| CI workflow | `.github/workflows/build-and-test.yml` |
-| Cloud agent config | `src/Core/Core.Agent/CloudAgent.cs` |
+- `global.json:1` — SDK pin `10.0.203`, `rollForward: latestMinor`.
+- `azclips.slnx:1` — solution layout (CLI, Core, Extensions, TUI, Agent, PS, tests, tools).
+- `Shared.props:8` — `OutputPath` / artifacts convention.
+- `src/Directory.Build.props:1` — shared build properties (`net10.0`, Nullable, TreatWarningsAsErrors).
+- `README.md:71` — Prerequisites and build Quick Start.
+- `src/Core/Core.Abstractions/HomePaths.cs:12` — `~/.azclips` and LocalApplicationData roots.
+- `src/PS/Compute/Compute.psd1:59` — PowerShell manifest referencing artifact DLLs.
