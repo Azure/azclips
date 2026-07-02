@@ -10,8 +10,8 @@
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 
 # Opt-in debug logging:
-#   export az_COMPLETION_DEBUG=1
-#   export az_COMPLETION_DEBUG_LOG=/tmp/az_completion_debug.log
+#   export AZ_COMPLETION_DEBUG=1
+#   export AZ_COMPLETION_DEBUG_LOG=/tmp/az_completion_debug.log
 _az_debug() {
     [[ -n "${AZ_COMPLETION_DEBUG:-}" ]] || return 0
     local log_file="${AZ_COMPLETION_DEBUG_LOG:-/tmp/az_completion_debug.log}"
