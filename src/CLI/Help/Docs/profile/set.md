@@ -10,5 +10,5 @@ Description: Set the active profile persistently. The named profile must already
 ### Set the active profile
 
 ```bash
-az profile set dev
+az profile set --name dev
 ```

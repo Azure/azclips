@@ -1,7 +1,7 @@
 namespace Core.Abstractions;
 
 /// <summary>
-/// A named connection context describing how Cirrus talks to a cloud service.
+/// A named connection context describing how Azclips talks to a cloud service.
 /// Profiles are the single source of truth for connection state, superseding the
 /// former single <c>AuthContext</c>. All fields use language <c>default</c> values
 /// when not explicitly set. <see cref="CloudName"/> is a stored property with no

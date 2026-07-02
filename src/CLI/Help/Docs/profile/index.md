@@ -22,5 +22,5 @@ az profile show --active
 ### Set the active profile
 
 ```bash
-az profile set myprofile
+az profile set --name dev
 ```

@@ -10,9 +10,9 @@ namespace Cli.Tests;
 /// correctly renders strings, primitives, complex objects, and collections.
 /// </summary>
 // One test redirects the process-global Console.Out to capture output end-to-end.
-// Join the non-parallel "Cirrus Service Provider Tests" collection so it never runs
+// Join the non-parallel "Azclips Service Provider Tests" collection so it never runs
 // concurrently with engine-based tests that write log lines to Console.
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class CliOutputFormatterTests
 {
     // ── String pass-through ──────────────────────────────────────────

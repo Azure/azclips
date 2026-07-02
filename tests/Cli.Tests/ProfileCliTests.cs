@@ -14,7 +14,7 @@ namespace Cli.Tests;
 /// End-to-end CLI tests for login-profile integration and profile management commands, exercised
 /// through the real Engine with an in-memory profile store and a stub auth service.
 /// </summary>
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public sealed class ProfileCliTests
 {
     // ── login ──

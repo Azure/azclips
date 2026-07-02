@@ -11,7 +11,7 @@ public sealed class ProfileServiceTests : IDisposable
 
     public ProfileServiceTests()
     {
-        _dir = Path.Combine(Path.GetTempPath(), "cirrus-profile-tests", Guid.NewGuid().ToString("N"));
+        _dir = Path.Combine(Path.GetTempPath(), "azclips-profile-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_dir);
         _service = new ProfileService(new ConsoleLoggingService(), _dir);
     }
