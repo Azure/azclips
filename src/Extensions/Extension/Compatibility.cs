@@ -6,4 +6,4 @@
 
 using Core.Abstractions;
 
-[assembly: CirrusCompatibility(MinCoreVersion = "1.0.0")]
+[assembly: AzclipsCompatibility(MinCoreVersion = "1.0.0")]

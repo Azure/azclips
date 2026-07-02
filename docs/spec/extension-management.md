@@ -339,7 +339,7 @@ Catches conflicts at PR time, before any artifact ships.
 `extension add` step 4 (§4.3):
 
 1. **Built-in verb rejection.** Any leaf whose first token is a built-in verb (`extension`, `login`, `config`) is rejected immediately, even if no installed extension currently claims that root.
-2. **Compat metadata check** (§6). Hard fail if the candidate's `[CirrusCompatibility]` range excludes the current `core`.
+2. **Compat metadata check** (§6). Hard fail if the candidate's `[AzclipsCompatibility]` range excludes the current `core`.
 3. **Per-leaf collisions against registry.** All collisions across the candidate's full leaf set are accumulated and surfaced as a single `LeafConflict` (§3.2). No `--force` override.
 
 Namespace-level conflicts no longer exist — multiple extensions declaring the same `[ExtensionVerb]` is fine and expected.
@@ -365,7 +365,7 @@ Extensions declare a `core` version range; the host enforces it at install (hard
 Assembly-level attribute defined in `Core.Abstractions`:
 
 ```csharp
-[assembly: CirrusCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
+[assembly: AzclipsCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
 ```
 
 Both fields optional. Missing attribute = assumed compatible (matches az-cli and Az PS — strict mode would block every undecorated dev/internal extension for negligible safety gain). SemVer with pre-release ordering via NuGet's `SemanticVersion`.
@@ -456,7 +456,7 @@ Tracked, not v1.
 - **Feed-fetch path for `extension-hints.json`.** Additive — no host change beyond fetch + cache read. Same schema, fetched on a TTL (lean toward 24h), written to `~/.azclips/cache/extension-hints.json`. Resolution becomes cache-first if fresh, embedded fallback if cache is missing or stale. Stale fallback is silent — no "hints may be outdated" warning. Compat-aware filtering: once feed entries populate `minCoreVersion`/`maxCoreVersion`, the host can pre-filter suggestions whose package would fail the install-time compat check.
 - **Feed endpoint location.** Per-`core`-release GitHub asset, Cirrus-owned blob, or NuGet feed metadata. Pick when wiring up the fetch.
 - **`extension list --available`.** Comes for free when the feed exists; out of v1 scope until then.
-- **Host core-version source-of-truth.** Today `Add.cs` and any future runtime-side caller pass the literal `"1.0.0"` to `CompatibilityGuard`. Establish a single host version (az-cli's `__version__` is the model) and thread it through. Until then `[CirrusCompatibility]` ranges are checked against the literal — fine for v1 since no breaking host change has shipped, but the literal must move when one does.
+- **Host core-version source-of-truth.** Today `Add.cs` and any future runtime-side caller pass the literal `"1.0.0"` to `CompatibilityGuard`. Establish a single host version (az-cli's `__version__` is the model) and thread it through. Until then `[AzclipsCompatibility]` ranges are checked against the literal — fine for v1 since no breaking host change has shipped, but the literal must move when one does.
 - **Runtime warn-and-skip in the dispatch path** (§5.3). Install-time hard fail catches the common case (operator-driven `extension add`); a runtime check protects against side-loaded packages or post-install host upgrades. Cleanest hook is a registry-side filter applied at `LeafIndex.Build` time so incompatible packages disappear from live routing with a stderr warning. Deferred only because it inherits the host-version source-of-truth question above.
 - **`HostExtensionRequirements` (inverse direction).** `Dictionary<string, VersionRange>` in `Core.Runtime` paralleling az-cli's `EXTENSION_VERSION_REQUIREMENTS`. Checked inside `CompatibilityGuard` after the extension's own range passes. Populated by the host team in the same PR that introduces a breaking change against a specific extension.
 - **`CIRRUS_DISABLE_COMPAT_CHECK` env var.** Neither az-cli nor Az PS has one. Runtime warn-and-skip is already forgiving. Additive in ~3 lines when needed.
