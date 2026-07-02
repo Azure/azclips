@@ -36,7 +36,16 @@ Use the repository conventions in [AGENTS.md](AGENTS.md) for coding style, proje
 - Link related issues, specs, or design notes when available.
 - Add or update tests for new behavior and bug fixes.
 - Update documentation when behavior, setup, support, or security guidance changes.
+- For user-facing PowerShell module changes, update `src/PS/<Module>/ChangeLog.md` under `## Upcoming Release`.
 - Prefer Conventional Commit style in commit messages when practical, such as `feat(auth): add token cache` or `fix(cli): handle empty command input`.
+
+## Changelog Entries
+
+- Add PowerShell module release notes under `## Upcoming Release` in the matching `src/PS/<Module>/ChangeLog.md` file.
+- Write entries from the user's perspective and in past tense.
+- Do not add `## Version` headers manually; stable release automation creates them.
+- Do not add changelog entries for test-only or internal-only changes.
+- Mention related GitHub issues when applicable.
 
 ## Reviews and Maintainer Expectations
 

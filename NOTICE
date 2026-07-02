@@ -14,7 +14,7 @@ Third-Party Dependencies
 
 The following top-level third-party packages are referenced via NuGet by the
 distributable Azclips components (including the `az` CLI, `cirrus-agent`, the
-`az-tui` dashboard, and the `Cirrus.*` PowerShell modules). Names, versions, and
+`az-tui` dashboard, and the `Azclips.*` PowerShell modules). Names, versions, and
 declared licenses reflect the resolved declarations after restore.
 
 Scope notes:
@@ -37,11 +37,11 @@ MIT License:
 - Azure.Monitor.OpenTelemetry.Exporter (1.8.0)
 - DotNetEnv (3.1.1)
 - Microsoft.Extensions.AI (9.10.0)
-- Microsoft.Extensions.Configuration (9.0.0)
-- Microsoft.Extensions.Configuration.Binder (9.0.0)
-- Microsoft.Extensions.Configuration.Json (9.0.0)
+- Microsoft.Extensions.Configuration (10.0.0)
+- Microsoft.Extensions.Configuration.Binder (10.0.0)
+- Microsoft.Extensions.Configuration.Json (10.0.0)
 - Microsoft.Extensions.DependencyInjection (10.0.0)
-- Microsoft.Extensions.DependencyInjection.Abstractions (9.0.0)
+- Microsoft.Extensions.DependencyInjection.Abstractions (10.0.0)
 - Microsoft.Identity.Client (4.67.2)
 - Microsoft.Identity.Client (4.79.2)
 - Microsoft.Identity.Client.Extensions.Msal (4.67.2)

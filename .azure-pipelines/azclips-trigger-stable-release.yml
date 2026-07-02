@@ -63,6 +63,12 @@ stages:
       fetchDepth: 0
       persistCredentials: true
 
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
     - bash: |
         set -euo pipefail
 
@@ -79,7 +85,7 @@ stages:
         fi
 
         if ! command -v gh >/dev/null 2>&1; then
-          echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically and generate changelog entries."
+          echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
           exit 1
         fi
 
@@ -163,6 +169,7 @@ stages:
         fi
 
         release_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+        changelog_release_timestamp="$(date -u '+%Y-%m-%d %H:%M UTC')"
         tag_name="v$target_version.$release_timestamp"
         target_assembly_version="$target_version.0"
         target_file_version="$target_version.0"
@@ -177,33 +184,6 @@ stages:
           exit 1
         fi
 
-        latest_stable_tag="$(git tag --merged "refs/remotes/origin/$target_branch" --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$' | sort -Vr | head -n 1 || true)"
-        if [[ -n "$latest_stable_tag" ]]; then
-          changelog_range="$latest_stable_tag..refs/remotes/origin/$target_branch"
-          echo "Collecting changelog PRs from $latest_stable_tag to $target_branch"
-        else
-          changelog_range="refs/remotes/origin/$target_branch"
-          echo "No prior stable tag found. Collecting changelog PRs from $target_branch history."
-        fi
-
-        declare -A changelog_seen_pr_numbers=()
-        declare -A changelog_pr_subjects=()
-        changelog_pr_numbers=()
-        while IFS= read -r changelog_subject; do
-          pr_number=""
-          if [[ "$changelog_subject" =~ \(\#([0-9]+)\) ]]; then
-            pr_number="${BASH_REMATCH[1]}"
-          elif [[ "$changelog_subject" =~ pull\ request\ \#([0-9]+) ]]; then
-            pr_number="${BASH_REMATCH[1]}"
-          fi
-
-          if [[ -n "$pr_number" && -z "${changelog_seen_pr_numbers[$pr_number]:-}" ]]; then
-            changelog_seen_pr_numbers[$pr_number]=1
-            changelog_pr_subjects[$pr_number]="$changelog_subject"
-            changelog_pr_numbers+=("$pr_number")
-          fi
-        done < <(git log --first-parent --format='%s' "$changelog_range")
-
         echo "Target branch: $target_branch"
         echo "Current CLI version: $current_version"
         echo "Requested bump: $bump_type"
@@ -213,7 +193,6 @@ stages:
         echo "Target stable version: $target_version"
         echo "Target assembly version: $target_assembly_version"
         echo "Target file version: $target_file_version"
-        echo "Changelog PR count: ${#changelog_pr_numbers[@]}"
         echo "Release branch: $release_branch"
 
         git checkout -B "$release_branch"
@@ -280,51 +259,56 @@ stages:
           exit 1
         fi
 
-        changelog_tmp="$(mktemp)"
-        release_timestamp="$(date -u '+%Y-%m-%d %H:%M UTC')"
-        {
-          echo "## v$target_version - $release_timestamp"
-          echo
-          if (( ${#changelog_pr_numbers[@]} == 0 )); then
-            echo "- No merged pull requests found since previous stable tag."
-          else
-            for pr_number in "${changelog_pr_numbers[@]}"; do
-              pr_metadata=()
-              mapfile -t pr_metadata < <(gh pr view "$pr_number" --repo "$repo" --json title,url,author --jq '.title, .url, (.author.login // "")' 2>/dev/null || true)
-              pr_title="${pr_metadata[0]:-}"
-              pr_url="${pr_metadata[1]:-}"
-              pr_author="${pr_metadata[2]:-}"
+        echo "##vso[task.setvariable variable=StableVersion]$target_version"
+        echo "##vso[task.setvariable variable=StableTag]$tag_name"
+        echo "##vso[task.setvariable variable=StableVersionBranch]$release_branch"
+        echo "##vso[task.setvariable variable=StableTargetBranch]$target_branch"
+        echo "##vso[task.setvariable variable=StableReleaseTimestamp]$changelog_release_timestamp"
+      displayName: Prepare Stable Release Branch
+      env:
+        GH_TOKEN: $(GitHubToken)
 
-              if [[ -z "$pr_title" ]]; then
-                pr_title="${changelog_pr_subjects[$pr_number]:-Merged pull request #$pr_number}"
-              fi
+    - task: PowerShell@2
+      displayName: Update Release Changelog
+      inputs:
+        pwsh: true
+        filePath: devops/scripts/publishing/Update-ReleaseChangelog.ps1
+        arguments: -RepoRoot "$(Build.SourcesDirectory)" -Version "$(StableVersion)" -ReleaseTimestamp "$(StableReleaseTimestamp)" -AllowEmpty
 
-              if [[ -n "$pr_url" && -n "$pr_author" ]]; then
-                printf -- '- [#%s](%s) %s (@%s)\n' "$pr_number" "$pr_url" "$pr_title" "$pr_author"
-              elif [[ -n "$pr_url" ]]; then
-                printf -- '- [#%s](%s) %s\n' "$pr_number" "$pr_url" "$pr_title"
-              else
-                printf -- '- #%s %s\n' "$pr_number" "$pr_title"
-              fi
-            done
-          fi
-          echo
-        } > "$changelog_tmp"
+    - task: PowerShell@2
+      displayName: Generate NOTICE
+      inputs:
+        pwsh: true
+        filePath: devops/scripts/compliance/generate_notice.ps1
+        arguments: -RepoRoot "$(Build.SourcesDirectory)" -UpdateNotice
 
-        if [[ -s "$changelog_file" ]]; then
-          cat "$changelog_file" >> "$changelog_tmp"
-        fi
-        mv "$changelog_tmp" "$changelog_file"
+    - bash: |
+        set -euo pipefail
+
+        target_version='$(StableVersion)'
+        target_branch='$(StableTargetBranch)'
+        release_branch='$(StableVersionBranch)'
+        tag_name='$(StableTag)'
+        repo='$(GitHubTargetRepo)'
+        core_project='src/CLI/Core.Cli.csproj'
+        changelog_file='CHANGELOG.md'
 
         git config user.name "Cirrus Release Automation"
         git config user.email "cirrus-release-automation@microsoft.com"
-        git add "$core_project" "$changelog_file"
+        git_add_paths=(
+          "$core_project"
+          "$changelog_file"
+          NOTICE
+          src/PS/*/ChangeLog.md
+          src/PS/*/*.psd1
+        )
+        git add "${git_add_paths[@]}"
         git commit -m "Bump CLI version to $target_version"
         basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
         git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$release_branch"
 
         pr_title="Trigger stable release $target_version"
-        pr_body="Updates src/CLI/Core.Cli.csproj to $target_version and prepends CHANGELOG.md with merged PRs since the previous stable tag. After this PR merges to $target_branch, azclips-trigger-stable-release will run again from the main version change, tag the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain."
+        pr_body="Updates src/CLI/Core.Cli.csproj to $target_version, aggregates module ChangeLog.md entries into CHANGELOG.md and PowerShell module manifests, and refreshes root NOTICE from repository dependency metadata. After this PR merges to $target_branch, azclips-trigger-stable-release will run again from the main version change, tag the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain."
 
         gh pr create \
           --repo "$repo" \
@@ -337,7 +321,7 @@ stages:
         echo "##vso[task.setvariable variable=StableTag;isOutput=true]$tag_name"
         echo "##vso[task.setvariable variable=StableVersionBranch;isOutput=true]$release_branch"
       name: CreateStableReleasePr
-      displayName: Create Stable Release Branch And PR
+      displayName: Commit Stable Release Changes And Open PR
       env:
         GH_TOKEN: $(GitHubToken)
 
@@ -419,9 +403,9 @@ stages:
         echo "Files changed in triggering commit:"
         printf '%s\n' "$changed_files"
 
-        unexpected_changed_files="$(printf '%s\n' "$changed_files" | grep -Ev '^(src/CLI/Core\.Cli\.csproj|CHANGELOG\.md)$' || true)"
+        unexpected_changed_files="$(printf '%s\n' "$changed_files" | grep -Ev '^(src/CLI/Core\.Cli\.csproj|CHANGELOG\.md|NOTICE|src/PS/[^/]+/ChangeLog\.md|src/PS/[^/]+/[^/]+\.psd1)$' || true)"
         if [[ -n "$unexpected_changed_files" ]]; then
-          echo "Commit changed files outside src/CLI/Core.Cli.csproj and CHANGELOG.md. Skipping stable tag creation."
+          echo "Commit changed files outside stable version metadata, release notes, PowerShell manifests, and NOTICE. Skipping stable tag creation."
           printf '%s\n' "$unexpected_changed_files"
           exit 0
         fi
@@ -446,7 +430,7 @@ stages:
           exit 0
         fi
 
-        echo "Confirmed triggering commit only changes stable version metadata and optional CHANGELOG.md release notes."
+        echo "Confirmed triggering commit only changes stable version metadata, release notes, PowerShell manifests, and root NOTICE."
 
         core_project_tmp="$(mktemp)"
         git show "$source_commit:src/CLI/Core.Cli.csproj" > "$core_project_tmp"
