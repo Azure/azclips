@@ -61,11 +61,24 @@ public class GetVersionProcessor : IProcessor
             return "unknown";
         }
 
-        return entryAssembly.GetName().Version?.ToString()
-                      ?? "unknown";
+        // Prefer the InformationalVersion (the value declared in the CLI csproj, e.g. "0.1.3") to
+        // match how the CLI version is authored; fall back to the numeric AssemblyName.Version
+        // (e.g. "0.1.3.0") only when the attribute is absent.
+        var informationalVersion =
+            entryAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrEmpty(informationalVersion))
+        {
+            // The .NET SDK appends "+<source revision id>" (SemVer build metadata) to the authored
+            // value; strip it so we report just the declared version (e.g. "0.1.3" instead of
+            // "0.1.3+9f50d509..."). Any pre-release suffix before the '+' (e.g. "-beta") is preserved.
+            var buildMetadataStart = informationalVersion.IndexOf('+');
+            return buildMetadataStart < 0
+                ? informationalVersion
+                : informationalVersion[..buildMetadataStart];
+        }
 
+        return entryAssembly.GetName().Version?.ToString() ?? "unknown";
     }
-        
 
     private static RuntimeInfo GetRuntimeInformation()
     {
