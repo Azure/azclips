@@ -1,4 +1,4 @@
-name: "Disallow New Cirrus References"
+name: "Disallow New Legacy Name References"
 
 on:
   pull_request:
@@ -24,9 +24,9 @@ jobs:
       - name: "Scan for new references"
         shell: bash
         env:
-          FORBIDDEN_DISPLAY: "Cirrus"
-          FORBIDDEN_PATTERN: "cirrus"
-          SELF_WORKFLOW: .github/workflows/disallow-cirrus-references.yml
+          FORBIDDEN_DISPLAY: "legacy project name"
+          FORBIDDEN_PATTERN: "[cC][iI][rR][rR][uU][sS]"
+          SELF_WORKFLOW: .github/workflows/disallow-legacy-name-references.yml
         run: |
           set -euo pipefail
 

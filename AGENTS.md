@@ -15,13 +15,13 @@
 - **Bootstrapper Pattern**: `Core.Engine.Bootstrapper` registers all services via DI container, returns `ICommandEngine`
 - **Orchestrator**: `OrchestratorEngine` tries `DefaultCommandEngine` first, falls back to `AgentEngine` (AI) on failure
 - **Module System**: Service modules (Group, Login, etc.) provide Business/ logic, CLI Commands, and PowerShell Cmdlets
-- **PowerShell**: Separate modules (Cirrus.Login, Cirrus.Group, Cirrus.Agent) with meta-module (Cirrus.psd1)
+- **PowerShell**: Separate modules under `src/PS/`, such as Login, Resources, Config, and Compute.
 
 ## Build, Test, and Development Commands
 - **Build and deploy**: `./scripts/deploy.sh` (builds solution, publishes CLI to bin/, copies PowerShell modules)
 - **Build only**: `dotnet build azclips.slnx`
 - **Run CLI**: `./bin/az group list` or `./bin/az "create a resource group"`
-- **PowerShell**: `Import-Module ./bin/Cirrus.psd1` (imports all modules) or individual modules
+- **PowerShell**: Import individual modules from `./bin/` after deployment.
 - **Run tests**: `dotnet test tests/Cli.Tests/Cli.Tests.csproj`
 - **Run tests with coverage**: `dotnet test --collect:"XPlat Code Coverage"`
 - **Verify SDK**: `dotnet --info` (must match `global.json` version)
@@ -31,7 +31,7 @@
 - Naming: PascalCase for types/methods/properties; camelCase for locals/params; interfaces prefixed with `I`; test projects suffixed with `.Tests`
 - Features: `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` are set; prefer modern language features
 - Organize namespaces to mirror folders, e.g., `Core.Authentication.*`, `Group.Business.*`
-- PowerShell: Module manifests (.psd1) in `<Module>/<Module>/` folder, e.g., `src/Group/Group/Cirrus.Group.psd1`
+- PowerShell: Module manifests (.psd1) live under each module folder, e.g., `src/PS/Login/Login.psd1`
 
 ## Testing Guidelines
 - Framework: xUnit (`[Fact]`, `[Theory]`). Place tests under `tests/<Project>.Tests`

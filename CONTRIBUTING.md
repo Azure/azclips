@@ -1,6 +1,6 @@
-# Contributing to Cirrus
+# Contributing to Azclips
 
-Thank you for your interest in Cirrus. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from private preview to public release.
+Thank you for your interest in Azclips. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from private preview to public release.
 
 During private preview, maintainers may limit pull request acceptance to scoped fixes, documentation updates, and changes aligned with preview goals.
 
