@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782969800777,
+  "lastUpdate": 1782974887499,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1974,6 +1974,48 @@ window.BENCHMARK_DATA = {
             "value": 5752213.17331813,
             "unit": "ns",
             "range": "± 99938.39392499298"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9b0c9975e52c1cbdf320bd25fe86f0b702c3b128",
+          "message": "Update references solution references to azclips.slnx (#353)\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-02T14:40:04+08:00",
+          "tree_id": "68018e48dbcff7df164eb65e8a3c07aebbdb96ad",
+          "url": "https://github.com/Azure/azclips/commit/9b0c9975e52c1cbdf320bd25fe86f0b702c3b128"
+        },
+        "date": 1782974887448,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5792619.107257326,
+            "unit": "ns",
+            "range": "± 97130.53261801129"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5743086.701750372,
+            "unit": "ns",
+            "range": "± 94995.20170837357"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5743695.701748332,
+            "unit": "ns",
+            "range": "± 98714.70644198732"
           }
         ]
       }
