@@ -62,7 +62,7 @@ jobs:
       - name: Publish CLI dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus CLI Benchmarks'
+          name: 'Azclips CLI Benchmarks'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -87,7 +87,7 @@ jobs:
       - name: Publish PS dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus PS Benchmarks'
+          name: 'Azclips PS Benchmarks'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
