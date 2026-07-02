@@ -1,8 +1,8 @@
-#  Architecture: Azure CLI and PowerShell with AI Agent Fallback
+# Azclips Architecture: Azure CLI and PowerShell with AI Agent Fallback
 
 ## Overview
 
- is a modular Azure CLI tool with **AI-powered fallback** for natural language commands, typo correction, and "how to" questions. The architecture uses:
+Azclips is a modular Azure CLI tool with **AI-powered fallback** for natural language commands, typo correction, and "how to" questions. The architecture uses:
 
 1. **Exception-Driven Fallback** - Standard command parsing in try-catch, AI agent invoked on exception
 2. **Extension System** - Dynamic module loading via DLL discovery (Login.dll, Resources.dll)
@@ -193,7 +193,7 @@ New-ResourceGroup -Name mygroup -Location eastus
 | **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
 | **Help Tool**                | `tools/Help/.Help.Tool/`                             | Build-time validators + manifest emitter      |
 | **Login Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Login/`     | Authentication commands                       |
-| **Resources Extension**      | `artifacts/*/Microsoft.Azure..Extensions.Resources/` | Resource management commands                  |
+| **Resources Extension**      | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Resources/` | Resource management commands                  |
 
 ### Dependency Graph
 
@@ -826,7 +826,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 
 **Impact:** Potential code duplication between extensions
 
-**Future:** Could create shared .Core library for common logic
+**Future:** Could create shared Azclips.Core library for common logic
 
 ---
 
@@ -877,10 +877,10 @@ artifacts/
       Login.psd1                                      ← PowerShell Login module
       Login.psm1
       Microsoft.Azure.Azclips.Extensions.Login.dll
-    Microsoft.Azure..Extensions.Resources/
+    Microsoft.Azure.Azclips.Extensions.Resources/
       Resources.psd1
       Resources.psm1
-      Microsoft.Azure..Extensions.Resources.dll
+      Microsoft.Azure.Azclips.Extensions.Resources.dll
 ```
 
 ### Running the CLI
@@ -915,7 +915,7 @@ New-ResourceGroup -Name test -Location eastus
 ### Potential Improvements
 
 1. **Shared Business Library**
-    - Create `.Core.Business` NuGet package
+    - Create `Azclips.Core.Business` NuGet package
     - Extensions reference it instead of duplicating logic
     - Consistent behavior across all extensions
 

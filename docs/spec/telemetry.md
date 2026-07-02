@@ -1,6 +1,6 @@
 # Telemetry
 
-Telemetry of  is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations performed by  and exports them to local files, Azure Application Insights.
+Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations performed by  and exports them to local files, Azure Application Insights.
 
 ## Glossary
 
@@ -77,7 +77,7 @@ public async Task Foo()
 | `command`             | CLI/PS | Command path, e.g., `az group list`           |
 | `parameter`           | CLI/PS | Parameters with values masked as `***`        |
 | `IsMicrosoftInternal` | CLI/PS | Whether the command is run by internal user   |
-| `productName`         | CLI/PS | Product running the command ()          |
+| `productName`         | CLI/PS | Product running the command                   |
 | `productVersion`      | CLI/PS | Product version number                        |
 | `schemaVersion`       | CLI/PS | Schema version number                         |
 | `telemetryVersion`    | CLI/PS | Telemetry version number                      |
