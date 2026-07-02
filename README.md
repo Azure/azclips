@@ -50,7 +50,7 @@ azclips/
 │       ├── Core.Cli/             # CLI binary 'az' + dependencies + Resources module
 │       ├── Microsoft.Azure.Azclips.Extensions.Login/     # Login extension + PowerShell module
 │       └── Microsoft.Azure.Azclips.Extensions.Resources/  # Resources extension
-├── 📄 global.json               # .NET SDK version (9.0)
+├── 📄 global.json               # .NET SDK version (10.0.203)
 ├── 📄 azclips.slnx              # Main solution file
 ├── 📄 Shared.props             # Shared build configuration
 ├── 📄 AGENTS.md                # Repository guidelines for AI agents

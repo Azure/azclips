@@ -5,9 +5,8 @@
 - `src/Core/` – Core framework (Abstractions, Engine with Bootstrapper, Implementation, Agent, CLI)
 - `src/Agent/`, `src/Group/`, `src/Login/` – Service modules with Business/, Cmdlets/, Commands/ structure
 - `tests/` – xUnit test projects (`Cli.Tests`) with Coverlet configured in `tests/Directory.Build.props`.
-- `bin/` – Published binaries after running `./scripts/deploy.sh` (az CLI + PowerShell modules)
+- `artifacts/` – Build outputs from `dotnet build`, including CLI binaries and staged extension/module assets.
 - `build/` – PowerShell build scripts
-- `scripts/` – Deployment scripts (`deploy.sh`)
 - `docs/spec/` – Design notes and specifications
 - `global.json` – Pins the .NET SDK (use the version declared here)
 
@@ -18,10 +17,9 @@
 - **PowerShell**: Separate modules under `src/PS/`, such as Login, Resources, Config, and Compute.
 
 ## Build, Test, and Development Commands
-- **Build and deploy**: `./scripts/deploy.sh` (builds solution, publishes CLI to bin/, copies PowerShell modules)
-- **Build only**: `dotnet build azclips.slnx`
+- **Build**: `dotnet build azclips.slnx`
 - **Run CLI**: `./bin/az group list` or `./bin/az "create a resource group"`
-- **PowerShell**: Import individual modules from `./bin/` after deployment.
+- **PowerShell**: Build the solution, then import individual module manifests from `src/PS/<Module>/<Module>.psd1`; use `build/Set-ModuleConfiguration.ps1` when staging modules under `artifacts/<Configuration>/PS`.
 - **Run tests**: `dotnet test tests/Cli.Tests/Cli.Tests.csproj`
 - **Run tests with coverage**: `dotnet test --collect:"XPlat Code Coverage"`
 - **Verify SDK**: `dotnet --info` (must match `global.json` version)
