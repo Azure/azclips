@@ -34,10 +34,10 @@ public sealed class TraceOptions
     public bool Enabled { get; set; } = false;
 
     // Where the JSONL trace files go (one file per session). Defaults to
-    // ~/.cirrus/trace to match the schema/docs default; the leading ~ is expanded
+    // ~/.azclips/trace to match the schema/docs default; the leading ~ is expanded
     // to the user profile at the point of use (AgentModeEntry.ExpandHome). The
     // directory is created on first write if it doesn't exist.
-    public string Path { get; set; } = "~/.cirrus/trace";
+    public string Path { get; set; } = "~/.azclips/trace";
 }
 
 public sealed class BuiltinProviderOptions

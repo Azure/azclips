@@ -8,8 +8,8 @@ namespace Core.Authentication;
 
 public class AuthContextService(ILoggingService Logger, ITelemetryService TelemetryService) : IAuthContextService // todo: testability, consider injecting file system abstractions
 {
-    private static readonly string ContextDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
-    private static readonly string ContextFilePath = Path.Combine(ContextDirectory, "context.json");
+    private static readonly string ContextFilePath = HomePaths.GetDefaultAuthContextFilePath();
+    private static readonly string ContextDirectory = Path.GetDirectoryName(ContextFilePath)!;
     private AuthContext? _currentContext;
 
     public async Task SaveContextAsync(AuthContext authContext, CancellationToken cancellationToken = default)

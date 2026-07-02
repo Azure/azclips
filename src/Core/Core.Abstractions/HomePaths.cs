@@ -13,6 +13,9 @@ public static class HomePaths
     public const string ExtensionsDirectoryName = "extensions";
     public const string RegistryFileName = "registry.json";
     public const string ConfigFileName = "config.json";
+    public const string TraceDirectoryName = "trace";
+    public const string ArmCacheDirectoryName = "arm-cache";
+    public const string AuthContextFileName = "context.json";
 
     public static string GetDefaultHomeRoot(string? userProfilePath = null)
     {
@@ -31,4 +34,22 @@ public static class HomePaths
 
     public static string GetDefaultConfigFilePath(string? userProfilePath = null)
         => Path.Combine(GetDefaultHomeRoot(userProfilePath), ConfigFileName);
+
+    public static string GetDefaultTraceDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultHomeRoot(userProfilePath), TraceDirectoryName);
+
+    public static string GetDefaultArmCacheDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultHomeRoot(userProfilePath), ArmCacheDirectoryName);
+
+    public static string GetDefaultLocalAppDataRoot(string? localApplicationDataPath = null)
+    {
+        var local = string.IsNullOrWhiteSpace(localApplicationDataPath)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+            : localApplicationDataPath;
+
+        return Path.Combine(local, DefaultHomeDirectoryName);
+    }
+
+    public static string GetDefaultAuthContextFilePath(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), AuthContextFileName);
 }

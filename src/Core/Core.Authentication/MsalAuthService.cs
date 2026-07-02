@@ -85,7 +85,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
     {
-        var cacheDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
+        var cacheDirectory = HomePaths.GetDefaultLocalAppDataRoot();
         var filename = "MSAL.cache";
         if (plaintextUnsafe)
         {
