@@ -24,13 +24,13 @@ namespace Cli.Tests;
 /// Because the provider is process-wide static state, this class joins the serialized
 /// service-provider collection and resets the provider around every test.
 /// </summary>
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class GetVersionProcessorTests : IDisposable
 {
     // The processor derives Paths.Config from the directory of the configuration file path, so use a
     // deterministic file path to assert the exact value the processor reports.
     private static readonly string ConfigFilePath =
-        Path.Combine(Path.GetTempPath(), "cirrus-version-tests", Guid.NewGuid().ToString("N"), "config.json");
+        Path.Combine(Path.GetTempPath(), "azclips-version-tests", Guid.NewGuid().ToString("N"), "config.json");
 
     // xUnit builds a fresh instance per test; start and end from a disposed provider so the static
     // container state never leaks between tests regardless of execution order.
@@ -236,7 +236,9 @@ public class GetVersionProcessorTests : IDisposable
     /// <summary>Inert auth handler: the version processor never acquires tokens, so this throws if used.</summary>
     private sealed class StubAuthHandler : IAuthHandler
     {
-        public AuthContext AuthContext { get; set; } = new("test-tenant", "test-subscription");
+        // The version processor performs no authentication, so no profile is required (null mirrors the
+        // "no profile available" state the interface documents).
+        public Profile? Profile { get; set; }
 
         public AcquireTokenAsyncDelegate AcquireTokenAsyncDefault { get; set; } =
             (_, _, _, _) => throw new NotSupportedException("Token acquisition is not exercised in version tests.");
