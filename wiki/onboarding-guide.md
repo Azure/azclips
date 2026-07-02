@@ -96,7 +96,7 @@ graph TB
     subgraph Extensions["Extension System"]
         style Extensions fill:#161b22,stroke:#30363d,color:#e6edf3
         BEL["BuiltinExtensionLoader<br>Compiled-in extensions"]
-        MVEL["MultiVersionExtensionLoader<br>~/.cirrus/extensions/"]
+        MVEL["MultiVersionExtensionLoader<br>~/.azclips/extensions/"]
         EI["ExtensionInstaller<br>NuGet API integration"]
         ALC["AssemblyLoadContext<br>Isolated loading"]
     end
@@ -111,7 +111,7 @@ graph TB
     subgraph Infra["Infrastructure"]
         style Infra fill:#161b22,stroke:#30363d,color:#e6edf3
         AUTH["MsalAuthService<br>Interactive + Device Code"]
-        CTX["AuthContextService<br>~/.cirrus/context.json"]
+        CTX["AuthContextService<br>~/.azclips/context.json"]
         TEL["TelemetryService<br>OpenTelemetry + Azure Monitor"]
         OUT["ConsoleOutputAdapter<br>IOutputAdapter"]
         HTTP["HttpPipeline<br>Auth + Telemetry handlers"]
@@ -422,7 +422,7 @@ classDiagram
 | `AzclipsServiceProvider` | Global DI | `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | Double-checked locking → `ServiceCollection` → `BuildServiceProvider()` |
 | `LoginProcessor` | Extension cmd | `src/Extensions/Login/Processors/Login.cs` | MSAL interactive/device-code → save `AuthContext` |
 | `NewResourceGroupProcessor` | Extension cmd | `src/Extensions/Resources/Processors/NewResourceGroup.cs` | PUT to `management.azure.com` → parse response |
-| `AddExtensionProcessor` | Extension cmd | `src/Extensions/Extension/Add.cs` | `ExtensionInstaller` → NuGet resolve → extract to `~/.cirrus/extensions/` |
+| `AddExtensionProcessor` | Extension cmd | `src/Extensions/Extension/Add.cs` | `ExtensionInstaller` → NuGet resolve → extract to `~/.azclips/extensions/` |
 
 ### Execution Flow: `az group list --SubscriptionId abc123`
 
@@ -505,7 +505,7 @@ graph TB
         style Loading fill:#161b22,stroke:#30363d,color:#e6edf3
         IEL["IExtensionLoader<br>LoadExtension(folder, name, version)"]
         BEL["BuiltinExtensionLoader<br>Built-in extensions dir"]
-        MVEL["MultiVersionExtensionLoader<br>~/.cirrus/extensions/"]
+        MVEL["MultiVersionExtensionLoader<br>~/.azclips/extensions/"]
     end
 
     subgraph Isolation["Assembly Isolation"]
@@ -520,7 +520,7 @@ graph TB
         EI["ExtensionInstaller<br>NuGet API client"]
         FEED["NuGet Feed<br>nuget.org or custom"]
         LOCAL["Local .nupkg<br>PackageArchiveReader"]
-        DIR["~/.cirrus/extensions/<br>packageId/version/"]
+        DIR["~/.azclips/extensions/<br>packageId/version/"]
     end
 
     IEL <|.. BEL
@@ -553,7 +553,7 @@ graph TB
 | Aspect | `BuiltinExtensionLoader` | `MultiVersionExtensionLoader` |
 |--------|--------------------------|-------------------------------|
 | **Source** | `src/Core/Core.Engine/ExtensionLoader.cs` | Same file |
-| **Directory** | Build output directory (e.g., `artifacts/Debug/`) | `~/.cirrus/extensions/` |
+| **Directory** | Build output directory (e.g., `artifacts/Debug/`) | `~/.azclips/extensions/` |
 | **Version support** | None — returns `null` if version specified | Full semantic versioning via `NuGetVersion` |
 | **Resolution** | `AssemblyDependencyResolver` (reads `.deps.json`) | Directory-based: scans for DLLs by name |
 | **Version selection** | N/A | Latest semantic version if version not specified |
@@ -606,7 +606,7 @@ All extension `.csproj` files reference `Core.*` projects with `<ExcludeAssets>r
 3. **Install from local `.nupkg`** files using `PackageArchiveReader`.
 4. **Select the nearest framework** via `NuGetFramework(".NETCoreApp", Environment.Version)`.
 
-Installation directory structure: `~/.cirrus/extensions/{packageId}/{version}/`
+Installation directory structure: `~/.azclips/extensions/{packageId}/{version}/`
 
 ### Command Registration via ExtensionIndex
 
@@ -660,7 +660,7 @@ public static string ResolveAssemblyName(this string extensionName)
 ### File System Layout
 
 ```
-~/.cirrus/                              # Main application data directory
+~/.azclips/                              # Main application data directory
 ├── context.json                        # Active authentication context (JSON)
 └── extensions/                         # User-installed extensions
     └── {packageId}/
@@ -675,14 +675,14 @@ public static string ResolveAssemblyName(this string extensionName)
     └── *.json                          # Individual trace exports
 ```
 
-### Authentication Context: `~/.cirrus/context.json`
+### Authentication Context: `~/.azclips/context.json`
 
 Managed by `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`):
 
 ```csharp
 private static readonly string ContextDirectory =
     Path.Combine(Environment.GetFolderPath(
-        Environment.SpecialFolder.LocalApplicationData), ".cirrus");
+        Environment.SpecialFolder.LocalApplicationData), ".azclips");
 private static readonly string ContextFilePath =
     Path.Combine(ContextDirectory, "context.json");
 ```
@@ -736,14 +736,14 @@ Three export targets are configured:
 2. **Azure Monitor** — Application Insights (hardcoded instrumentation key).
 3. **Zipkin** — Only in `#if DEBUG` builds, endpoint configurable via `ZIPKIN_ENDPOINT`.
 
-### Extensions: `~/.cirrus/extensions/`
+### Extensions: `~/.azclips/extensions/`
 
 Managed by `ExtensionInstaller` (`src/Extensions/Extension/ExtensionInstaller.cs`):
 
 ```csharp
 InstallPath = installPath ?? Path.Combine(
     Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-    ".cirrus", "extensions");
+    ".azclips", "extensions");
 ```
 
 Extensions are stored as flat directories of extracted NuGet package contents, organized by package ID and semantic version.
