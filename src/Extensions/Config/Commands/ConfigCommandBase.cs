@@ -10,7 +10,7 @@ using Core.Abstractions.Runtime;
 using Core.Configuration.Options;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Config.Commands;
+namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
 public abstract class ConfigCommandBase : IProcessor
 {

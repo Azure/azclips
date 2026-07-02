@@ -38,15 +38,15 @@
 
 ### Extensions Config
 
-- [ ] Rename namespace `Microsoft.Azure.Cirrus.Extensions.Config` to AzClips naming in:
-    - [ ] `src/Extensions/Config/Commands/ConfigCommandBase.cs`
-    - [ ] `src/Extensions/Config/Commands/DeleteConfigCommand.cs`
-    - [ ] `src/Extensions/Config/Commands/GetConfigCommand.cs`
-    - [ ] `src/Extensions/Config/Commands/InfoConfigCommand.cs`
-    - [ ] `src/Extensions/Config/Commands/ListConfigCommand.cs`
-    - [ ] `src/Extensions/Config/Commands/SetConfigCommand.cs`
-    - [ ] `src/Extensions/Config/ExtensionIndex.cs`
-- [ ] Update reflection strings (`FullName`, `AssemblyName`) in `src/Extensions/Config/ExtensionIndex.cs` to match renamed namespaces/assemblies.
+- [x] Rename namespace `Microsoft.Azure.Cirrus.Extensions.Config` to AzClips naming in:
+    - [x] `src/Extensions/Config/Commands/ConfigCommandBase.cs`
+    - [x] `src/Extensions/Config/Commands/DeleteConfigCommand.cs`
+    - [x] `src/Extensions/Config/Commands/GetConfigCommand.cs`
+    - [x] `src/Extensions/Config/Commands/InfoConfigCommand.cs`
+    - [x] `src/Extensions/Config/Commands/ListConfigCommand.cs`
+    - [x] `src/Extensions/Config/Commands/SetConfigCommand.cs`
+    - [x] `src/Extensions/Config/ExtensionIndex.cs`
+- [x] Update reflection strings (`FullName`, `AssemblyName`) in `src/Extensions/Config/ExtensionIndex.cs` to match renamed namespaces/assemblies.
 
 ### Help tooling
 
