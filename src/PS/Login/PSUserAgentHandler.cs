@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Reflection;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
@@ -9,11 +8,11 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
 /// <summary>
 /// PowerShell-specific User-Agent handler that stamps
-/// <c>AzurePowershell/v{productVersion} PSVersion/v{psVersion}</c> on every outgoing ARM request.
+/// <c>AzurePowershell/v0.1.0</c> on every outgoing ARM request.
 /// </summary>
 public class PSUserAgentHandler : IUserAgentHandler
 {
-    private static readonly string s_userAgent = BuildUserAgent();
+    private static readonly string s_userAgent = "AzurePowershell/v0.1.0";
 
     public SendAsyncStep SendAsync => (request, callback, next) =>
     {
@@ -26,16 +25,6 @@ public class PSUserAgentHandler : IUserAgentHandler
         }
         return next.SendAsync(request, callback);
     };
-
-    private static string BuildUserAgent()
-    {
-        var productVersion = GetProductVersion();
-        var psVersion = GetPSVersion();
-
-        // Base UA without module info — module segment is added per-request
-        // when the calling module is known.
-        return $"AzurePowershell/v{productVersion} PSVersion/v{psVersion}";
-    }
 
     /// <summary>
     /// Builds the module-specific prefix (e.g. "Az.Accounts/0.1.0") by inspecting the
@@ -58,35 +47,5 @@ public class PSUserAgentHandler : IUserAgentHandler
         }
 
         return null;
-    }
-
-    private static string GetProductVersion()
-    {
-        var asm = typeof(PSUserAgentHandler).Assembly;
-        var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-        var version = info?.InformationalVersion ?? asm.GetName().Version?.ToString() ?? "0.0.0";
-        var plus = version.IndexOf('+');
-        return plus >= 0 ? version[..plus] : version;
-    }
-
-    private static string GetPSVersion()
-    {
-        try
-        {
-            // $PSVersionTable.PSVersion is available via the PSVersion environment variable
-            // set by PowerShell, or we can read it from the hosting runtime.
-            var ps = System.Management.Automation.PowerShell.Create();
-            var result = ps.AddScript("$PSVersionTable.PSVersion.ToString()").Invoke<string>();
-            if (result.Count > 0 && !string.IsNullOrEmpty(result[0]))
-            {
-                return result[0];
-            }
-        }
-        catch
-        {
-            // Fallback if PowerShell runspace is unavailable.
-        }
-
-        return Environment.Version.ToString();
     }
 }

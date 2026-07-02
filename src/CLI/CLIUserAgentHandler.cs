@@ -9,7 +9,7 @@ namespace Core.Cli;
 
 /// <summary>
 /// CLI-specific User-Agent handler that stamps
-/// <c>AZURECLI/{version} dotnet/{runtime}</c> on every outgoing ARM request.
+/// <c>AZURECLI/{version}</c> on every outgoing ARM request.
 /// </summary>
 public class CLIUserAgentHandler : IUserAgentHandler
 {
@@ -29,7 +29,6 @@ public class CLIUserAgentHandler : IUserAgentHandler
         var parts = new List<string>
         {
             $"AZURECLI/{GetProductVersion()}",
-            $"dotnet/{Environment.Version}",
         };
 
         // Honour AZ_INSTALLER env var (e.g. "PIP", "MSI", "DOCKER") like azure-cli does.
