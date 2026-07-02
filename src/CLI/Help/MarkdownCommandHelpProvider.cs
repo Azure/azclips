@@ -109,9 +109,8 @@ public static class MarkdownCommandHelpProvider
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current != null)
         {
-            var azclipsSolutionPath = Path.Combine(current.FullName, "azclips.slnx");
-            var cirrusSolutionPath = Path.Combine(current.FullName, "cirrus.slnx");
-            if (File.Exists(azclipsSolutionPath) || File.Exists(cirrusSolutionPath))
+            var solutionPath = Path.Combine(current.FullName, "azclips.slnx");
+            if (File.Exists(solutionPath))
             {
                 return current.FullName;
             }

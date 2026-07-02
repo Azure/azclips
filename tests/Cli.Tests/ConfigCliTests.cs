@@ -418,14 +418,12 @@ public class ConfigCliTests
         // Resolve path from test assembly location
         var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
         var repoRoot = Path.GetDirectoryName(testAssemblyPath);
-        while (!string.IsNullOrEmpty(repoRoot)
-               && !File.Exists(Path.Combine(repoRoot, "azclips.slnx"))
-               && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
+        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "azclips.slnx")))
         {
             repoRoot = Path.GetDirectoryName(repoRoot);
         }
 
-        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing azclips.slnx (or legacy cirrus.slnx) from test assembly location.");
+        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing azclips.slnx from test assembly location.");
 
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
@@ -457,14 +455,12 @@ public class ConfigCliTests
         // Resolve path from test assembly location
         var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
         var repoRoot = Path.GetDirectoryName(testAssemblyPath);
-        while (!string.IsNullOrEmpty(repoRoot)
-               && !File.Exists(Path.Combine(repoRoot, "azclips.slnx"))
-               && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
+        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "azclips.slnx")))
         {
             repoRoot = Path.GetDirectoryName(repoRoot);
         }
 
-        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing azclips.slnx (or legacy cirrus.slnx) from test assembly location.");
+        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing azclips.slnx from test assembly location.");
 
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");

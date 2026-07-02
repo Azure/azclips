@@ -328,7 +328,7 @@ Integration:
 **Test Patterns:**
 
 - Fixture per test with temp directory and environment variable isolation (cache originals, clear on setup, restore on teardown)
-- Path detection: Walk up from test assembly to find cirrus.slnx (survives different build configurations)
+- Path detection: Walk up from test assembly to find azclips.slnx (survives different build configurations)
 - Shared fixture for both CLI and PS (same underlying engine, different surfaces)
 - Config test suite passing for CLI, PS, schema, and service coverage
 

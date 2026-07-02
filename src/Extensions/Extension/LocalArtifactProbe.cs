@@ -57,8 +57,7 @@ public static class LocalArtifactProbe
 
     /// <summary>
     /// Walks up the directory tree from <paramref name="startDirectory"/> looking for
-    /// <c>azclips.slnx</c> (or legacy <c>cirrus.slnx</c>). Returns the directory containing it,
-    /// or <c>null</c> if the walk
+    /// <c>azclips.slnx</c>. Returns the directory containing it, or <c>null</c> if the walk
     /// reaches a root without finding one.
     /// </summary>
     private static string? FindRepoRoot(string startDirectory)
@@ -66,8 +65,7 @@ public static class LocalArtifactProbe
         var dir = new DirectoryInfo(startDirectory);
         while (dir is not null)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "azclips.slnx"))
-                || File.Exists(Path.Combine(dir.FullName, "cirrus.slnx")))
+            if (File.Exists(Path.Combine(dir.FullName, "azclips.slnx")))
             {
                 return dir.FullName;
             }

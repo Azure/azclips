@@ -12,7 +12,7 @@ namespace Cli.Tests;
 /// Pin on-disk casing of help-system folders. Windows is case-insensitive, so drift
 /// like <c>src/CLI/help/</c> compiles locally while Linux CI silently finds zero files.
 /// </summary>
-/// <remarks>Walks up to <c>cirrus.slnx</c>; skipped if the test process can't find the repo root.</remarks>
+/// <remarks>Walks up to <c>azclips.slnx</c>; skipped if the test process can't find the repo root.</remarks>
 public class HelpPathsCasingTests
 {
     [Fact]
@@ -111,7 +111,7 @@ public class HelpPathsCasingTests
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current is not null)
         {
-            if (File.Exists(Path.Combine(current.FullName, "cirrus.slnx")))
+            if (File.Exists(Path.Combine(current.FullName, "azclips.slnx")))
             {
                 return current.FullName;
             }

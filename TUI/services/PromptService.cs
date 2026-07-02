@@ -11,9 +11,9 @@ namespace Core.Tui.Services;
 /// </summary>
 class PromptService
 {
-    private static readonly string CirrusDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
-    private static readonly string ContextFilePath = Path.Combine(CirrusDir, "context.json");
+    private static readonly string AzclipsDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
+    private static readonly string ContextFilePath = Path.Combine(AzclipsDir, "context.json");
 
     // Cached ARM-resolved names
     private string? _cachedTenantId;
@@ -116,10 +116,10 @@ class PromptService
                 .WithRedirectUri("http://localhost")
                 .Build();
 
-            var cacheFile = Path.Combine(CirrusDir, "MSAL.cache.plaintext");
+            var cacheFile = Path.Combine(AzclipsDir, "MSAL.cache.plaintext");
             if (!File.Exists(cacheFile)) return (null, null);
 
-            var storageProps = new StorageCreationPropertiesBuilder("MSAL.cache.plaintext", CirrusDir)
+            var storageProps = new StorageCreationPropertiesBuilder("MSAL.cache.plaintext", AzclipsDir)
                 .WithUnprotectedFile()
                 .Build();
             var cacheHelper = MsalCacheHelper.CreateAsync(storageProps).GetAwaiter().GetResult();

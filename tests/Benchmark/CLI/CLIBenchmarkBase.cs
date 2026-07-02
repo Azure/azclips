@@ -104,7 +104,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         if (!Directory.Exists(sourceBuildDir))
         {
             throw new DirectoryNotFoundException(
-                $"Extension build output not found: '{sourceBuildDir}'. Run `dotnet build cirrus.slnx -c Release`.");
+                $"Extension build output not found: '{sourceBuildDir}'. Run `dotnet build azclips.slnx -c Release`.");
         }
 
         var prefix = packageId + ".";
@@ -117,7 +117,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             }
         }
         throw new FileNotFoundException(
-            $"No '{packageId}.*.nupkg' found in '{sourceBuildDir}'. Run `dotnet build cirrus.slnx -c Release`.");
+            $"No '{packageId}.*.nupkg' found in '{sourceBuildDir}'. Run `dotnet build azclips.slnx -c Release`.");
     }
 
     private static void TryDeleteDirectory(string path)

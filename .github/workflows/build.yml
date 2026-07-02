@@ -25,7 +25,7 @@ jobs:
                              # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
 
     env:
-      Solution_Name: cirrus.slnx
+      Solution_Name: azclips.slnx
       Certificate_Directory: .  # Store certificate in the root directory
 
     steps:
@@ -270,7 +270,7 @@ jobs:
       #     $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
       #     $moduleDir = "${{ steps.extract-metadata.outputs.module_dir }}"
       #     $publishDir = "./publish/$moduleName"
-      #     $buildOutput = "./artifacts/Release/Microsoft.Azure.Cirrus.Extensions.$moduleName"
+      #     $buildOutput = "./artifacts/Release/Microsoft.Azure.Azclips.Extensions.$moduleName"
           
       #     Write-Host "Publishing module: $moduleName"
       #     Write-Host "Source: $moduleDir"
@@ -287,7 +287,7 @@ jobs:
       #     Copy-Item -Path "$buildOutput/*.dll" -Destination $publishDir
           
       #     # Rename the main DLL to match what the module manifest expects
-      #     $mainDll = Join-Path $publishDir "Microsoft.Azure.Cirrus.Extensions.$moduleName.dll"
+      #     $mainDll = Join-Path $publishDir "Microsoft.Azure.Azclips.Extensions.$moduleName.dll"
       #     if (Test-Path $mainDll) {
       #       Rename-Item -Path $mainDll -NewName "$moduleName.dll"
       #       Write-Host "Renamed to: $moduleName.dll"

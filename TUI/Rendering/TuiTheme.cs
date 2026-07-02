@@ -195,7 +195,7 @@ class TuiTheme
     private static string ConfigPath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "cirrus", "tui-theme.json");
+            "azclips", "tui-theme.json");
 
     public void Save()
     {
@@ -278,7 +278,7 @@ class TuiTheme
     /// <summary>
     /// Creates the base Hex1b theme used by the terminal.
     /// </summary>
-    public static Hex1bTheme CreateBaseTheme() => Hex1bThemes.Ocean.Clone("cirrus");
+    public static Hex1bTheme CreateBaseTheme() => Hex1bThemes.Ocean.Clone("azclips");
 
     /// <summary>
     /// Wraps a widget in a ThemePanel that applies the standard menu bar /

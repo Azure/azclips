@@ -1,8 +1,8 @@
-# Cirrus Architecture: Azure CLI and PowerShell with AI Agent Fallback
+# Azclips Architecture: Azure CLI and PowerShell with AI Agent Fallback
 
 ## Overview
 
-Cirrus is a modular Azure CLI tool with **AI-powered fallback** for natural language commands, typo correction, and "how to" questions. The architecture uses:
+Azclips is a modular Azure CLI tool with **AI-powered fallback** for natural language commands, typo correction, and "how to" questions. The architecture uses:
 
 1. **Exception-Driven Fallback** - Standard command parsing in try-catch, AI agent invoked on exception
 2. **Extension System** - Dynamic module loading via DLL discovery (Login.dll, Resources.dll)
@@ -191,9 +191,9 @@ New-ResourceGroup -Name mygroup -Location eastus
 | **CLI Help Markdown**        | `src/CLI/Help/Docs/<ext>/*.md`                             | Authored CLI help source (frontmatter + body) |
 | **PowerShell Help Markdown** | `src/PS/<Module>/help/*.md`                                | Authored PowerShell help (PlatyPS → MAML)     |
 | **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
-| **Help Tool**                | `tools/Help/Cirrus.Help.Tool/`                             | Build-time validators + manifest emitter      |
+| **Help Tool**                | `tools/Help/Azclips.Help.Tool/`                             | Build-time validators + manifest emitter      |
 | **Login Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Login/`     | Authentication commands                       |
-| **Resources Extension**      | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Resources/` | Resource management commands                  |
+| **Resources Extension**      | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Resources/` | Resource management commands                  |
 
 ### Dependency Graph
 
@@ -826,7 +826,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 
 **Impact:** Potential code duplication between extensions
 
-**Future:** Could create shared Cirrus.Core library for common logic
+**Future:** Could create shared Azclips.Core library for common logic
 
 ---
 
@@ -845,7 +845,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 **Build Command:**
 
 ```bash
-dotnet build -c Release cirrus.slnx
+dotnet build -c Release azclips.slnx
 ```
 
 **Steps:**
@@ -877,10 +877,10 @@ artifacts/
       Login.psd1                                      ← PowerShell Login module
       Login.psm1
       Microsoft.Azure.Azclips.Extensions.Login.dll
-    Microsoft.Azure.Cirrus.Extensions.Resources/
+    Microsoft.Azure.Azclips.Extensions.Resources/
       Resources.psd1
       Resources.psm1
-      Microsoft.Azure.Cirrus.Extensions.Resources.dll
+      Microsoft.Azure.Azclips.Extensions.Resources.dll
 ```
 
 ### Running the CLI
@@ -890,7 +890,7 @@ artifacts/
 ./artifacts/Release/Core.Cli/az group create --name test --location eastus
 
 # Or add to PATH
-export PATH="$PATH:/workspaces/cirrus/artifacts/Release/Core.Cli"
+export PATH="$PATH:/workspaces/azclips/artifacts/Release/Core.Cli"
 az --help
 ```
 
@@ -915,7 +915,7 @@ New-ResourceGroup -Name test -Location eastus
 ### Potential Improvements
 
 1. **Shared Business Library**
-    - Create `Cirrus.Core.Business` NuGet package
+    - Create `Azclips.Core.Business` NuGet package
     - Extensions reference it instead of duplicating logic
     - Consistent behavior across all extensions
 
