@@ -33,11 +33,10 @@ public sealed class TraceOptions
     // Off by default — recording writes nothing until the user opts in.
     public bool Enabled { get; set; } = false;
 
-    // Where the JSONL trace files go (one file per session). Defaults to
-    // ~/.azclips/trace to match the schema/docs default; the leading ~ is expanded
-    // to the user profile at the point of use (AgentModeEntry.ExpandHome). The
-    // directory is created on first write if it doesn't exist.
-    public string Path { get; set; } = "~/.azclips/trace";
+    // Where the JSONL trace files go (one file per session). Defaults to the
+    // user-scoped Azclips trace directory resolved by HomePaths. The directory
+    // is created on first write if it doesn't exist.
+    public string Path { get; set; } = HomePaths.GetDefaultTraceDirectory();
 }
 
 public sealed class BuiltinProviderOptions
