@@ -31,5 +31,4 @@ public class PathInfo
 {
     public string Install { get; set; } = string.Empty;
     public string Config { get; set; } = string.Empty;
-    public string Extensions { get; set; } = string.Empty;
 }

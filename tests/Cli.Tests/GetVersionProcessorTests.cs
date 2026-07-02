@@ -4,23 +4,52 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Version.Models;
 using Microsoft.Azure.Azclips.Extensions.Version.Processors;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using GetEventData = System.Func<object>;
 
 namespace Cli.Tests;
 
 /// <summary>
-/// Offline, deterministic tests for <see cref="GetVersionProcessor"/>. The version command is a
-/// diagnostic that must NEVER fail, so these exercise the processor through its public
+/// Offline, deterministic tests for <see cref="GetVersionProcessor"/>, exercised through its public
 /// <see cref="GetVersionProcessor.ProcessAsync"/> path using hand-written fakes for the runtime
-/// context (publisher, output) — matching the stub-based style used elsewhere in Cli.Tests
-/// (no mocking framework). The paths section resolves through <c>AzclipsServiceProvider</c>, which
-/// is not initialized here; the processor's defensive fallbacks must keep the command succeeding.
+/// context (publisher, output) — matching the stub-based style used elsewhere in Cli.Tests (no
+/// mocking framework). Path resolution pulls an <see cref="IConfigurationService"/> from
+/// <c>AzclipsServiceProvider</c>, and the processor deliberately does NOT swallow failures, so the
+/// happy-path tests initialize the container with a fake configuration service (mirroring CLI
+/// startup) while a dedicated test asserts that an uninitialized container surfaces the error.
+/// Because the provider is process-wide static state, this class joins the serialized
+/// service-provider collection and resets the provider around every test.
 /// </summary>
-public class GetVersionProcessorTests
+[Collection("Cirrus Service Provider Tests")]
+public class GetVersionProcessorTests : IDisposable
 {
+    // The processor derives Paths.Config from the directory of the configuration file path, so use a
+    // deterministic file path to assert the exact value the processor reports.
+    private static readonly string ConfigFilePath =
+        Path.Combine(Path.GetTempPath(), "cirrus-version-tests", Guid.NewGuid().ToString("N"), "config.json");
+
+    // xUnit builds a fresh instance per test; start and end from a disposed provider so the static
+    // container state never leaks between tests regardless of execution order.
+    public GetVersionProcessorTests() => AzclipsServiceProvider.Dispose();
+
+    public void Dispose() => AzclipsServiceProvider.Dispose();
+
+    /// <summary>
+    /// Initializes <c>AzclipsServiceProvider</c> with a fake <see cref="IConfigurationService"/> so
+    /// the processor can resolve configuration paths, mirroring how <c>az version</c> runs after the
+    /// CLI has started the DI container.
+    /// </summary>
+    private static void InitializeServiceProvider()
+    {
+        AzclipsServiceProvider.OverrideRegistration(services =>
+            services.AddSingleton<IConfigurationService>(new FakeConfigurationService(ConfigFilePath)));
+        AzclipsServiceProvider.Initialize(ClientType.CLI);
+    }
+
     /// <summary>
     /// Builds a <see cref="GetVersionProcessor"/> wired to inert fakes: the pipeline and auth
     /// handler throw if touched (the processor makes no network/auth calls), while the output and
@@ -46,6 +75,7 @@ public class GetVersionProcessorTests
     [Fact]
     public async Task ProcessAsync_ShouldWriteSingleVersionInformation()
     {
+        InitializeServiceProvider();
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(output);
 
@@ -62,6 +92,7 @@ public class GetVersionProcessorTests
     [Fact]
     public async Task ProcessAsync_ShouldPopulateCliVersion()
     {
+        InitializeServiceProvider();
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(output);
 
@@ -79,6 +110,7 @@ public class GetVersionProcessorTests
     [Fact]
     public async Task ProcessAsync_ShouldPopulateRuntimeInformation()
     {
+        InitializeServiceProvider();
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(output);
 
@@ -93,17 +125,35 @@ public class GetVersionProcessorTests
     }
 
     /// <summary>
-    /// Core "never fail" contract. Path resolution goes through <c>AzclipsServiceProvider</c>, which
-    /// is deliberately left uninitialized here so the internal lookup throws. The processor must
-    /// catch that and still emit a populated object with <c>"unknown"</c> path placeholders instead
-    /// of propagating the exception — `az version` is a diagnostic that must always succeed.
+    /// Path resolution goes through <c>AzclipsServiceProvider</c>, which is deliberately left
+    /// uninitialized here (the constructor disposed it). The processor intentionally does NOT swallow
+    /// the resulting failure — section gathering is undefended so an initialization/configuration
+    /// problem surfaces cleanly instead of being masked by an "unknown" placeholder. Asserts the
+    /// exception propagates out of <see cref="GetVersionProcessor.ProcessAsync"/> and that no partial
+    /// result is written.
     /// </summary>
     [Fact]
-    public async Task ProcessAsync_ShouldNeverFail_WhenServiceProviderUninitialized()
+    public async Task ProcessAsync_ShouldThrow_WhenServiceProviderUninitialized()
     {
-        // AzclipsServiceProvider is not initialized in this offline test, so path resolution throws
-        // internally. The processor must swallow that and still emit a populated object with safe
-        // "unknown" fallbacks rather than propagating the failure.
+        // The provider is disposed (constructor), so IConfigurationService cannot be resolved and the
+        // undefended path gathering must bubble the initialization error up through ProcessAsync.
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(output);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Empty(output.WrittenValues);
+    }
+
+    /// <summary>
+    /// With the container initialized, the processor reports the configuration directory derived from
+    /// <see cref="IConfigurationService.GetConfigFilePath"/> — matching the config-driven paths the
+    /// CLI actually uses. Asserts the reported <c>Config</c> path is the directory of that file.
+    /// </summary>
+    [Fact]
+    public async Task ProcessAsync_ShouldReportConfigDirectory_FromConfigurationService()
+    {
+        InitializeServiceProvider();
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(output);
 
@@ -111,8 +161,7 @@ public class GetVersionProcessorTests
 
         var info = Assert.IsType<VersionInformation>(output.WrittenValues.Single());
         Assert.NotNull(info.Paths);
-        Assert.Equal("unknown", info.Paths.Config);
-        Assert.Equal("unknown", info.Paths.Extensions);
+        Assert.Equal(Path.GetDirectoryName(ConfigFilePath), info.Paths.Config);
     }
 
     /// <summary>
@@ -123,6 +172,7 @@ public class GetVersionProcessorTests
     [Fact]
     public async Task ProcessAsync_ShouldPublishLifecycleEvents()
     {
+        InitializeServiceProvider();
         var output = new FakeOutputHandler();
         var publisher = new FakeEventPublisher();
         var processor = CreateProcessor(output, publisher);
@@ -135,8 +185,36 @@ public class GetVersionProcessorTests
 
     // ----- Fakes -------------------------------------------------------------------------------
     // Hand-written test doubles (no mocking framework, matching Cli.Tests convention). Only the
-    // output and publisher record anything; the auth handler and HTTP pipeline throw if used,
-    // documenting that the version processor performs no authentication or network I/O.
+    // output, publisher, and configuration service record/return anything; the auth handler and HTTP
+    // pipeline throw if used, documenting that the version processor performs no authentication or
+    // network I/O.
+
+    /// <summary>
+    /// Minimal <see cref="IConfigurationService"/> returning a fixed config file path. The version
+    /// processor only calls <see cref="GetConfigFilePath"/>; every other member is unreachable in
+    /// these tests and throws to document that.
+    /// </summary>
+    private sealed class FakeConfigurationService(string configFilePath) : IConfigurationService
+    {
+        public string GetConfigFilePath() => configFilePath;
+
+        public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
+            => throw new NotSupportedException("The version processor does not read configuration values.");
+
+        public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public IConfigurationSchema GetSchema() => throw new NotSupportedException();
+    }
 
     /// <summary>Captures every value the processor writes so tests can assert on the emitted object.</summary>
     private sealed class FakeOutputHandler : IOutputHandler

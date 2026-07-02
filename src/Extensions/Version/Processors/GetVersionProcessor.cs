@@ -41,64 +41,32 @@ public class GetVersionProcessor : IProcessor
         await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
     }
 
-    // Every section is gathered defensively: the version command must NEVER fail, so a fault in
-    // any single gatherer degrades that section to a safe fallback instead of throwing. All data
-    // sources are cross-platform .NET APIs (reflection + System.Runtime.InteropServices); nothing
-    // here is OS-specific.
+    // Sections are not wrapped defensively: if something goes wrong, exceptions are bubbled up
+    // to diagnose initialization or configuration problems cleanly instead of falling back.
     private VersionInformation GatherVersionInformation()
     {
+        var entryAssembly = Assembly.GetEntryAssembly();
+
         return new VersionInformation
         {
-            AzCli = SafeGet(GetAzCliVersion, static () => "unknown"),
-            Runtime = SafeGet(GetRuntimeInformation, static () => new RuntimeInfo
-            {
-                DotNet = "unknown",
-                Os = "unknown",
-                Architecture = "unknown"
-            }),
-            Paths = SafeGet(GetConfigurationPaths, static () => new PathInfo
-            {
-                Install = "unknown",
-                Config = "unknown",
-                Extensions = "unknown"
-            })
+            AzCli = GetAzCliVersion(entryAssembly),
+            Runtime = GetRuntimeInformation(),
+            Paths = GetConfigurationPaths(entryAssembly)
         };
     }
 
-    // Runs a gatherer and swallows any failure, returning a safe fallback. The broad catch is
-    // intentional and required: `az version` is a diagnostic command that must always succeed,
-    // even on a misconfigured or partially initialized host.
-    private static T SafeGet<T>(Func<T> gather, Func<T> fallbackFactory)
+    private static string GetAzCliVersion(Assembly? entryAssembly)
     {
-        try
+        if (entryAssembly == null)
         {
-            return gather();
+            return "unknown";
         }
-        catch
-        {
-            return fallbackFactory();
-        }
-    }
 
-    private string GetAzCliVersion()
-    {
-        var asm = Assembly.GetEntryAssembly() ?? typeof(GetVersionProcessor).Assembly;
-        var version = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-                      ?? asm.GetName().Version?.ToString()
+        return entryAssembly.GetName().Version?.ToString()
                       ?? "unknown";
 
-        return StripGitHash(version);
     }
-
-    /// <summary>
-    /// Strips git commit hash metadata from version strings.
-    /// Example: "1.0.0+9fd0dfb8..." becomes "1.0.0"
-    /// </summary>
-    private static string StripGitHash(string version)
-    {
-        var plusIndex = version.IndexOf('+');
-        return plusIndex > 0 ? version.Substring(0, plusIndex) : version;
-    }
+        
 
     private RuntimeInfo GetRuntimeInformation()
     {
@@ -110,50 +78,29 @@ public class GetVersionProcessor : IProcessor
         };
     }
 
-    private PathInfo GetConfigurationPaths()
+    private static PathInfo GetConfigurationPaths(Assembly? entryAssembly)
     {
         // Install location never depends on config, so resolve it first and independently.
         var info = new PathInfo
         {
-            Install = GetInstallLocation(),
-            Config = "unknown",
-            Extensions = "unknown"
+            Install = GetInstallLocation(entryAssembly),
+            Config = "unknown"
         };
 
         // Resolve from the configuration system so the reported paths match what the CLI actually
-        // uses (config-driven, honoring user overrides). A corrupt/unreadable config.json makes
-        // the config service throw; degrade to the placeholders above rather than fail the command.
-        try
-        {
-            var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+        // uses (config-driven, honoring user overrides).
+        var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
-            var configFilePath = configurationService.GetConfigFilePath();
-            info.Config = Path.GetDirectoryName(configFilePath) ?? configFilePath;
-
-            info.Extensions = configurationService
-                .GetConfiguration<AssemblyLoadingOptions>()
-                .VersionedInstallationDir;
-        }
-        catch
-        {
-            // Configuration unavailable or invalid — keep the safe placeholders.
-        }
+        var configFilePath = configurationService.GetConfigFilePath();
+        info.Config = Path.GetDirectoryName(configFilePath) ?? configFilePath;
 
         return info;
     }
 
-    // Entry-assembly location is empty (not null) under single-file publish; normalize both to
-    // "unknown" and guard the rare reflection failure so this can never throw.
-    private static string GetInstallLocation()
+    // Entry-assembly location is empty (not null) under single-file publish; normalize to "unknown".
+    private static string GetInstallLocation(Assembly? entryAssembly)
     {
-        try
-        {
-            var location = Assembly.GetEntryAssembly()?.Location;
-            return string.IsNullOrEmpty(location) ? "unknown" : location;
-        }
-        catch
-        {
-            return "unknown";
-        }
+        var location = entryAssembly?.Location;
+        return string.IsNullOrEmpty(location) ? "unknown" : location;
     }
 }
