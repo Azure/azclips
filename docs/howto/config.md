@@ -205,8 +205,8 @@ You can override configuration using environment variables:
 
 Configuration is stored at:
 
-- **Windows**: `%USERPROFILE%\.cirrus\config.json`
-- **Linux/macOS**: `$HOME/.cirrus/config.json`
+- **Windows**: `%USERPROFILE%\.azclips\config.json`
+- **Linux/macOS**: `$HOME/.azclips/config.json`
 
 ## Verification
 
