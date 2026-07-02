@@ -55,8 +55,12 @@ internal static class CompletionScriptEmitter
             return 0;
         }
 
+        // Derive the command name from the binary (e.g. "az", "myaz")
+        var cmdName = Path.GetFileNameWithoutExtension(exePath);
+
         var script = File.ReadAllText(scriptPath);
         var patched = PatchResolver(script, shell, exePath);
+        patched = PatchRegistration(patched, shell, cmdName);
         Console.Write(patched);
         return 0;
     }
@@ -88,6 +92,46 @@ internal static class CompletionScriptEmitter
         return ReplaceFunction(script,
             "function global:_azResolveExe {",
             $"function global:_azResolveExe {{\n    return '{exePath}'\n}}");
+    }
+
+    /// <summary>
+    /// Replaces the command registration lines so the script registers
+    /// completions for the actual binary name (e.g. "myaz" instead of "az").
+    /// </summary>
+    private static string PatchRegistration(string script, string shell, string cmdName)
+    {
+        if (cmdName.Equals("az", StringComparison.OrdinalIgnoreCase))
+            return script; // default names, no patching needed
+
+        var cmdExe = cmdName + ".exe";
+
+        if (shell is "bash")
+        {
+            script = script.Replace(
+                "complete -F _az_completions az az.exe",
+                $"complete -F _az_completions {cmdName} {cmdExe}");
+        }
+        else if (shell is "zsh")
+        {
+            script = script.Replace(
+                "compdef _az az az.exe",
+                $"compdef _az {cmdName} {cmdExe}");
+            script = script.Replace(
+                "#compdef az",
+                $"#compdef {cmdName}");
+        }
+        else
+        {
+            // PowerShell: patch both ArgumentCompleter and TabExpansion2 regex
+            script = script.Replace(
+                "foreach ($_cmd in @('az', 'az.exe'))",
+                $"foreach ($_cmd in @('{cmdName}', '{cmdExe}'))");
+            script = script.Replace(
+                @"'^\s*az(\.exe)?\s'",
+                $@"'^\s*{System.Text.RegularExpressions.Regex.Escape(cmdName)}(\.exe)?\s'");
+        }
+
+        return script;
     }
 
     /// <summary>
