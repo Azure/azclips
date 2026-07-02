@@ -102,7 +102,7 @@
 
 ### Intentionally retained names
 
-- PowerShell cmdlet implementation namespaces/usings under `src/PS/**/Cmdlets` remain `Microsoft.Azure.Cirrus.Cmdlets.*` for compatibility with existing binary/module surfaces in this PR.
+- None in scoped Phase 3 paths. PowerShell cmdlet namespaces/usings under `src/PS/**/Cmdlets` were migrated to `Microsoft.Azure.Azclips.Cmdlets.*`.
 
 ## PR notes template
 

@@ -4,9 +4,9 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Microsoft.Azure.Cirrus.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "ResourceGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class NewResourceGroupDeploymentCmdlet : PSCmdlet

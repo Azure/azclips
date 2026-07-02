@@ -4,7 +4,7 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Microsoft.Azure.Cirrus.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
