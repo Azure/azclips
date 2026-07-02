@@ -113,7 +113,7 @@ The CLI automatically tries extension-based parsing first. On parse or execution
 
 ### PowerShell Usage
 
-Azclips provides PowerShell modules in [`src/PS`](src/PS) that can be used directly without building.
+Azclips provides PowerShell modules in [`src/PS`](src/PS). Build the solution before importing binary-backed modules so their assemblies are available under `artifacts/`.
 
 ```powershell
 # Import the Login module (binary module with cmdlets)
