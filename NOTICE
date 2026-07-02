@@ -13,8 +13,8 @@ Sources of third-party dependency metadata:
 Third-Party Dependencies
 
 The following top-level third-party packages are referenced via NuGet by the
-distributable Azclips components (including the `az` CLI, `cirrus-agent`, the
-`az-tui` dashboard, and the `Cirrus.*` PowerShell modules). Names, versions, and
+distributable Azclips components (including the `az` CLI, `azclips-agent`, the
+`az-tui` dashboard, and the `Azclips.*` PowerShell modules). Names, versions, and
 declared licenses reflect the resolved declarations after restore.
 
 Scope notes:
