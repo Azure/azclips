@@ -15,6 +15,9 @@ public class RemoveVMCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
     [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
 
@@ -46,6 +49,11 @@ public class RemoveVMCmdlet : PSCmdlet
             { "Name", Name },
             { "ResourceGroupName", ResourceGroupName },
         };
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

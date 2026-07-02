@@ -5,11 +5,12 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Core.Extensions
 {
     /// <summary>
-    /// File-backed registry store. Default path is <c>~/.cirrus/extensions/registry.json</c>.
+    /// File-backed registry store. Default path is <c>~/.azclips/extensions/registry.json</c>.
     /// Writes are atomic: serialize to a sibling <c>.tmp</c> file then rename over the target.
     /// </summary>
     public sealed class FileExtensionRegistryStore : IExtensionRegistryStore
@@ -278,12 +279,11 @@ namespace Core.Extensions
         }
 
         /// <summary>
-        /// Computes the default registry path: <c>~/.cirrus/extensions/registry.json</c>.
+        /// Computes the default registry path: <c>~/.azclips/extensions/registry.json</c>.
         /// </summary>
         public static string DefaultPath()
         {
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            return System.IO.Path.Combine(home, ".cirrus", "extensions", "registry.json");
+            return HomePaths.GetDefaultRegistryPath();
         }
     }
 }

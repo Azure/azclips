@@ -119,12 +119,12 @@ public class ExtensionDispatcherTests
             "Login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
-        var commandHelp = helpProvider.GetCommandHelp(["login", "show"]);
+        var commandHelp = helpProvider.GetCommandHelp(["login"]);
 
         Assert.NotNull(groupHelp);
         Assert.NotNull(commandHelp);
         Assert.Equal("login", groupHelp!.GroupPath);
-        Assert.Equal("login show", commandHelp!.CommandPath);
+        Assert.Equal("login", commandHelp!.CommandPath);
     }
 
     // -------- Longest-prefix dispatch --------
@@ -275,7 +275,7 @@ public class ExtensionDispatcherTests
         // command name "extension remove Resources". See BuiltInExtensions.Map.
         var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
         {
-            ["extension"] = new("extension", "Microsoft.Azure.Cirrus.Extensions.Extension")
+            ["extension"] = new("extension", "Microsoft.Azure.Azclips.Extensions.Extension")
             {
                 Leaves = new[] { "add", "list", "show", "remove" },
             },

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
-    <AssemblyName>cirrus-agent</AssemblyName>
+    <AssemblyName>azclips-agent</AssemblyName>
     <RootNamespace>Core.Agent</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

@@ -1,13 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+using Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 using Xunit;
 
 namespace Cli.Tests;
 
 /// <summary>
-/// <see cref="LocalArtifactProbe"/> walks up looking for <c>cirrus.slnx</c> and
+/// <see cref="LocalArtifactProbe"/> walks up looking for <c>azclips.slnx</c> and
 /// surfaces a freshly built <c>.nupkg</c> in <c>artifacts/Debug/</c> as an <c>--path</c> hint when
 /// the feed lookup misses. These tests pin the four observable behaviors: (1) silent null when
 /// no slnx is found, (2) silent null when slnx exists but no artifact matches, (3) returns the
@@ -34,7 +34,7 @@ public class LocalArtifactProbeTests : IDisposable
         Directory.CreateDirectory(repo);
         if (withSlnx)
         {
-            File.WriteAllText(Path.Combine(repo, "cirrus.slnx"), "<Solution />");
+            File.WriteAllText(Path.Combine(repo, "azclips.slnx"), "<Solution />");
         }
         return repo;
     }

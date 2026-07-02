@@ -22,7 +22,7 @@ public class ExtensionHelpManifestBuilderTests
 
         Assert.Equal("login", manifest.Verb);
         Assert.Equal("1.0.0-alpha", manifest.Version);
-        Assert.Equal(3, manifest.Commands.Count);
+        Assert.Single(manifest.Commands);
 
         var loginCommand = Assert.Single(manifest.Commands, c => c.CliName == "login");
         Assert.Equal("Connect-AzAccount", loginCommand.PsName);
@@ -39,16 +39,18 @@ public class ExtensionHelpManifestBuilderTests
     {
         var index = new ExtensionIndex();
 
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0-alpha", "login");
-        var helpIndex = ExtensionHelpManifestBuilder.BuildIndex([manifest]);
+        // login and logout are peer top-level verbs; each yields its own manifest.
+        var loginManifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0-alpha", "login");
+        var logoutManifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0-alpha", "logout");
+        var helpIndex = ExtensionHelpManifestBuilder.BuildIndex([loginManifest, logoutManifest]);
 
-        var group = Assert.Single(helpIndex.Groups);
-        Assert.Equal("login", group.Verb);
+        Assert.Equal(2, helpIndex.Groups.Count);
+        Assert.Contains(helpIndex.Groups, g => g.Verb == "login");
+        Assert.Contains(helpIndex.Groups, g => g.Verb == "logout");
 
-        Assert.Equal(3, helpIndex.Commands.Count);
+        Assert.Equal(2, helpIndex.Commands.Count);
         Assert.Contains(helpIndex.Commands, c => c.CliName == "login" && c.PsName == "Connect-AzAccount");
-        Assert.Contains(helpIndex.Commands, c => c.CliName == "login logout" && c.PsName == "Disconnect-AzAccount");
-        Assert.Contains(helpIndex.Commands, c => c.CliName == "login show" && c.PsName == "Get-AzAccount");
+        Assert.Contains(helpIndex.Commands, c => c.CliName == "logout" && c.PsName == "Disconnect-AzAccount");
     }
 
     [Fact]
@@ -98,11 +100,11 @@ public class ExtensionHelpManifestBuilderTests
     public void BuildManifest_ShouldHandleCommandsWithNoParameters()
     {
         var index = new ExtensionIndex();
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "login");
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "logout");
 
-        // login show / login logout have no parameters
-        var showCommand = Assert.Single(manifest.Commands, c => c.CliName == "login show");
-        Assert.Empty(showCommand.Parameters);
+        // logout has no parameters
+        var logoutCommand = Assert.Single(manifest.Commands, c => c.CliName == "logout");
+        Assert.Empty(logoutCommand.Parameters);
     }
 
     [Fact]

@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 public class AddExtensionProcessor : IProcessor
 {
@@ -127,7 +127,7 @@ public class AddExtensionProcessor : IProcessor
         try
         {
             // Compatibility check before any expensive validation. Reads
-            // [CirrusCompatibility] via MetadataLoadContext (no exec); failure rolls back below.
+            // [AzclipsCompatibility] via MetadataLoadContext (no exec); failure rolls back below.
             // TODO: replace literal "1.0.0" with a single host-version source-of-truth.
             var compatResult = CompatibilityGuard.CheckAssembly(installPath, currentCoreVersion: "1.0.0");
             if (!compatResult.IsCompatible)

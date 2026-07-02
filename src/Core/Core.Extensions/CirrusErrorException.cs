@@ -61,7 +61,7 @@ public class CirrusErrorException : Exception
         => new("UsageError", 2, message, details);
 
     /// <summary>
-    /// Compatibility violation: the extension's <c>[CirrusCompatibility]</c> declared range
+    /// Compatibility violation: the extension's <c>[AzclipsCompatibility]</c> declared range
     /// excludes the current core version, or the host requires a newer version of this
     /// specific extension via <c>HostExtensionRequirements</c>. Surfaced at install time as a
     /// hard error with no disk write; surfaced at load time as a warn-and-skip log line.

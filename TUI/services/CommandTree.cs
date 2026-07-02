@@ -39,7 +39,7 @@ static class CommandTree
                 new("--use-device-code", "Use device code flow for authentication", false),
             ]),
             new("logout", "Logout from Azure", []),
-            new("show", "Show current auth context", []),
+            new("show", "Show the active profile", []), // todo: outdated
         ]),
         new("extension", "Manage extensions", [
             new("add", "Add an extension", [

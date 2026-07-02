@@ -27,7 +27,7 @@ Help resolution in Cirrus is **discovery-first**:
 This means:
 
 - Help is always in sync with what's installed — no stale verb→package mappings.
-- If a new extension is added to `~/.cirrus/extensions/`, its verbs appear in help immediately.
+- If a new extension is added to `~/.azclips/extensions/`, its verbs appear in help immediately.
 - Unknown verbs suggest an install command via the embedded hint table (fallback only).
 
 ## Quick Start — CLI
@@ -284,7 +284,7 @@ Cirrus uses a **discovery-backed model** for help resolution:
 2. **Verb help** (`az vm --help`) resolves the owning package by querying what's currently installed via discovery. If no installed extension owns the verb, the system falls back to an embedded hint table to suggest which package to install.
 3. **Command help** (`az vm create --help`) works the same way — owned by the discovered extension.
 
-This means help is always in sync with what's actually installed. If you drop a new extension into `~/.cirrus/extensions/`, the next `az --help` immediately shows its verbs without any registry update required.
+This means help is always in sync with what's actually installed. If you drop a new extension into `~/.azclips/extensions/`, the next `az --help` immediately shows its verbs without any registry update required.
 
 ### CLI Help
 
@@ -296,7 +296,7 @@ This means help is always in sync with what's actually installed. If you drop a 
 
 If the verb is not found in discovered extensions, a structured error lists the owning package (from the embedded hint table) and suggests `az extension add --name <Package>`.
 
-Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build copies these files to `artifacts/<Config>/Core.Cli/help/`, and at runtime `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing during development, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
+Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build copies these files to `artifacts/<Config>/Core.Cli/help/`, and at runtime `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing during development, the provider walks up to `azclips.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
 
 ### PowerShell Help
 
@@ -310,7 +310,7 @@ Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build co
 ### Standard build (no help validation)
 
 ```powershell
-dotnet build cirrus.slnx
+dotnet build azclips.slnx
 ```
 
 ### Full help pipeline

@@ -97,7 +97,7 @@ public sealed class ChatAgent : IAsyncDisposable
     public static async Task<ChatAgent> CreateAsync(
         string flavor,
         IAuthService auth,
-        IAuthContextService authContext,
+        IProfileService profileService,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -119,7 +119,7 @@ public sealed class ChatAgent : IAsyncDisposable
         try
         {
             return await CreateCoreAsync(
-                client, flavor, auth, authContext, azExePath, approvalSink,
+                client, flavor, auth, profileService, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, ct).ConfigureAwait(false);
         }
         catch
@@ -133,7 +133,7 @@ public sealed class ChatAgent : IAsyncDisposable
         CopilotClient client,
         string flavor,
         IAuthService auth,
-        IAuthContextService authContext,
+        IProfileService profileService,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -147,10 +147,10 @@ public sealed class ChatAgent : IAsyncDisposable
         var armDetails = new ArmDetailsClient(auth);
         var cacheTools = new CachedResourceTools(armDetails);
         var helpTools = new HelpTools();
-        var skuTools = new AvailableLocationsTool(auth, authContext);
+        var skuTools = new AvailableLocationsTool(auth, profileService);
         var submitTool = new SubmitResponseTool();
         var planTool = new ProposePlanTool();
-        var prober = new EnvironmentProber(authContext, flavor);
+        var prober = new EnvironmentProber(profileService, flavor);
 
         ChatAgent? self = null;
         SessionErrored? earlyError = null;
@@ -241,9 +241,7 @@ public sealed class ChatAgent : IAsyncDisposable
         return new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
-            ConfigDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".cirrus"),
+            ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
             Streaming = true,
             SystemMessage = new SystemMessageConfig { Content = systemPrompt },
             Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
@@ -529,7 +527,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         // Both built-in shell tools take a "command" arg and may contain a bare
         // "az" that PowerShell would resolve via PATH. Rewrite to the absolute
-        // az.exe path so the agent always invokes the cirrus binary that
+        // az.exe path so the agent always invokes the azclips binary that
         // launched it, regardless of what else is on PATH.
         if (!string.Equals(input.ToolName, "bash",       StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(input.ToolName, "powershell", StringComparison.OrdinalIgnoreCase))
@@ -766,7 +764,7 @@ public sealed class ChatAgent : IAsyncDisposable
             if (token.StartsWith('-')) break;                 // first flag ends the verb
             if (!IsCommandToken(token)) return null;          // non-command token (e.g. CJK / punctuation) → not a command
             verb.Add(token);
-            if (verb.Count >= 4) break;                       // cirrus verbs are short; cap to avoid eating args
+            if (verb.Count >= 4) break;                       // azclips verbs are short; cap to avoid eating args
         }
         return verb.Count > 0 ? string.Join(' ', verb) : null;
     }

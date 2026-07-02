@@ -17,11 +17,14 @@ public interface IAuthService
     Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Logs out the current user. Tokens and cached credentials will be cleared.
+    /// Signs out a single account by removing it from the MSAL token cache. The account is identified
+    /// by its user principal name (MSAL <c>IAccount.Username</c>). When <paramref name="userPrincipalName"/>
+    /// is null or empty, no account is removed.
     /// </summary>
+    /// <param name="userPrincipalName">The user principal name of the account to remove from the token cache.</param>
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous logout operation.</returns>
-    Task LogoutAsync(CancellationToken cancellationToken = default);
+    Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Acquires a token silently for the specified scopes and tenant.

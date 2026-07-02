@@ -10,4 +10,5 @@ public record ProcessorContext
     (IRuntimeHttpPipeline HttpPipeline,
      IEventPublisher Publisher,
      IAuthHandler AuthHandler,
-     IOutputHandler OutputHandler);
+     IOutputHandler OutputHandler,
+     Profile? Profile = null);

@@ -8,25 +8,32 @@ namespace Core.Agent.Tests;
 /// Contract tests for <see cref="EnvironmentProber"/>. Assert on the snapshot
 /// properties the caller consumes — NOT the string format of
 /// <see cref="EnvironmentSnapshot.FormatForSystemPrompt"/>.
-/// Format-string assertions are the anti-pattern from cirrus-anti-patterns §B
+/// Format-string assertions are an anti-pattern
 /// (rename a label, test breaks; user never sees the label).
 /// </summary>
 public class EnvironmentProberTests
 {
-    private sealed class FakeAuthContext : IAuthContextService
+    private sealed class FakeProfileService : IProfileService
     {
-        private readonly AuthContext? _ctx;
-        public FakeAuthContext(AuthContext? ctx) => _ctx = ctx;
-        public Task<AuthContext?> GetCurrentContextAsync(CancellationToken ct = default) => Task.FromResult(_ctx);
-        public Task SaveContextAsync(AuthContext c, CancellationToken ct = default) => Task.CompletedTask;
-        public Task ClearContextAsync(CancellationToken ct = default) => Task.CompletedTask;
+        private readonly Profile? _profile;
+        public FakeProfileService(Profile? profile) => _profile = profile;
+        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyCollection<Profile>>(_profile is null ? Array.Empty<Profile>() : new[] { _profile });
+        public Task<Profile?> GetProfileAsync(string name, CancellationToken ct = default) =>
+            Task.FromResult(_profile is not null && _profile.Name == name ? _profile : null);
+        public Task SaveProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<bool> RemoveProfileAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) => Task.FromResult(_profile?.Name);
+        public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) => Task.FromResult(_profile);
+        public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     [Fact]
     public async Task SignedIn_SnapshotExposesSubAndTenant()
     {
-        var ctx = new AuthContext(TenantId: "tenant-1", SubscriptionId: "sub-1");
-        var prober = new EnvironmentProber(new FakeAuthContext(ctx), flavor: "azure cli");
+        var profile = new Profile { Name = "default", TenantId = "tenant-1", SubscriptionId = "sub-1", CloudName = "AzureCloud" };
+        var prober = new EnvironmentProber(new FakeProfileService(profile), flavor: "azure cli");
 
         var snap = await prober.ProbeAsync();
 
@@ -38,7 +45,7 @@ public class EnvironmentProberTests
     [Fact]
     public async Task NotSignedIn_SnapshotReportsAbsence()
     {
-        var prober = new EnvironmentProber(new FakeAuthContext(null), flavor: "azure cli");
+        var prober = new EnvironmentProber(new FakeProfileService(null), flavor: "azure cli");
 
         var snap = await prober.ProbeAsync();
 
@@ -48,20 +55,28 @@ public class EnvironmentProberTests
     }
 
     [Fact]
-    public async Task AuthContextService_Throws_ProberStillReturnsSnapshot()
+    public async Task ProfileService_Throws_ProberStillReturnsSnapshot()
     {
-        var prober = new EnvironmentProber(new ThrowingAuthContext(), flavor: "azure cli");
+        var prober = new EnvironmentProber(new ThrowingProfileService(), flavor: "azure cli");
 
         var snap = await prober.ProbeAsync();
 
         Assert.False(snap.SignedIn);
     }
 
-    private sealed class ThrowingAuthContext : IAuthContextService
+    private sealed class ThrowingProfileService : IProfileService
     {
-        public Task<AuthContext?> GetCurrentContextAsync(CancellationToken ct = default) =>
+        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
             throw new InvalidOperationException("auth backend down");
-        public Task SaveContextAsync(AuthContext c, CancellationToken ct = default) => Task.CompletedTask;
-        public Task ClearContextAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task<Profile?> GetProfileAsync(string name, CancellationToken ct = default) =>
+            throw new InvalidOperationException("auth backend down");
+        public Task SaveProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<bool> RemoveProfileAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) =>
+            throw new InvalidOperationException("auth backend down");
+        public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) =>
+            throw new InvalidOperationException("auth backend down");
+        public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
     }
 }

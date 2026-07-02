@@ -19,8 +19,10 @@ public class BuiltInExtensionsLeavesDriftTests
     public static TheoryData<string, IExtensionIndex> BuiltIns =>
         new()
         {
-            { "extension", new Microsoft.Azure.Cirrus.Extensions.Extension.ExtensionIndex() },
+            { "extension", new Microsoft.Azure.Azclips.Extensions.Extension.ExtensionIndex() },
             { "login",     new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
+            { "logout",     new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
+            { "profile",   new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
             { "config",    new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex()    },
             { "version",   new Microsoft.Azure.Azclips.Extensions.Version.ExtensionIndex()    },
         };
@@ -33,7 +35,7 @@ public class BuiltInExtensionsLeavesDriftTests
             .OrderBy(l => l, StringComparer.Ordinal)
             .ToArray();
 
-        // s_cliTable keys are full paths ("extension add", "login show", or just "login" for
+        // s_cliTable keys are full paths ("extension add", "profile show", or just "login" for
         // the bare-verb leaf). Strip the "{verb} " prefix; the bare-verb leaf becomes empty
         // string and is seeded implicitly by LeafIndex, so it's not expected in Leaves.
         var prefix = verb + " ";

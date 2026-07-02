@@ -116,7 +116,7 @@ The fallback tenant ID `72f988bf-86f1-41af-91ab-2d7cd011db47` is the Microsoft c
 
 **Cache location** (line 85):
 ```
-{Environment.SpecialFolder.LocalApplicationData}/.cirrus/MSAL.cache[.plaintext]
+{Environment.SpecialFolder.LocalApplicationData}/.azclips/MSAL.cache[.plaintext]
 ```
 
 **Platform-specific encryption** (lines 94-104):
@@ -211,7 +211,7 @@ sequenceDiagram
 ```csharp
 private static readonly string ContextDirectory =
     Path.Combine(Environment.GetFolderPath(
-        Environment.SpecialFolder.LocalApplicationData), ".cirrus");        // line 8
+        Environment.SpecialFolder.LocalApplicationData), ".azclips");        // line 8
 private static readonly string ContextFilePath =
     Path.Combine(ContextDirectory, "context.json");                         // line 9
 ```

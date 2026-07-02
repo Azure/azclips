@@ -4,7 +4,7 @@ namespace Core.Agent.Tools.Cache;
 
 /// <summary>
 /// Single source of truth for "what searchable cache kinds exist". Each
-/// kind maps 1:1 to a JSON file under <c>~/.cirrus/arm-cache/</c> and
+/// kind maps 1:1 to a JSON file under <c>~/.azclips/arm-cache/</c> and
 /// drives parameter validation, dispatch, and tool descriptions across
 /// the three diagnostic tools (find_resources, get_resource_tree,
 /// get_resource_details).

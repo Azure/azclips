@@ -42,7 +42,7 @@ public abstract class BenchmarkBase
         {
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IAuthContextService, StubAuthContextService>();
+            services.AddSingleton<IProfileService, StubProfileService>();
             services.AddSingleton<IAuthService, StubAuthService>();
         });
     }

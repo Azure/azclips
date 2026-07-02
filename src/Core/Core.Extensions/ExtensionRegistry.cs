@@ -9,7 +9,7 @@ using System.Text.Json.Serialization;
 namespace Core.Extensions
 {
     /// <summary>
-    /// Root document persisted at <c>~/.cirrus/extensions/registry.json</c>.
+    /// Root document persisted at <c>~/.azclips/extensions/registry.json</c>.
     /// Tracks every installed (non-built-in) extension. Built-ins live in the host's static seed.
     /// </summary>
     /// <remarks>

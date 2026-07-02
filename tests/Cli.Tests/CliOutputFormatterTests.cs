@@ -9,6 +9,10 @@ namespace Cli.Tests;
 /// Tests for <see cref="Core.Cli.CliOutputFormatter"/> ensuring CLI output
 /// correctly renders strings, primitives, complex objects, and collections.
 /// </summary>
+// One test redirects the process-global Console.Out to capture output end-to-end.
+// Join the non-parallel "Azclips Service Provider Tests" collection so it never runs
+// concurrently with engine-based tests that write log lines to Console.
+[Collection("Azclips Service Provider Tests")]
 public class CliOutputFormatterTests
 {
     // ── String pass-through ──────────────────────────────────────────

@@ -36,7 +36,7 @@ public static class AgentModeEntry
         try
         {
             var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            var authContext = AzclipsServiceProvider.GetRequiredService<IAuthContextService>();
+            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             // Prompt is chosen by interaction mode: oneShot → oneshot.md,
@@ -90,7 +90,7 @@ public static class AgentModeEntry
             await using var agent = await ChatAgent.CreateAsync(
                 flavor: flavor,
                 auth: auth,
-                authContext: authContext,
+                profileService: profileService,
                 azExePath: az,
                 approvalSink: approval,
                 renderer: renderer,

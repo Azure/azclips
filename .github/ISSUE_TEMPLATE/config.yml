@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & Discussion
+    url: https://github.com/Azure/azclips/discussions
+    about: For general questions, setup help, or discussion, please start a Discussion instead of opening an issue.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/Azure/azclips/security/policy
+    about: Please report security issues privately via our security policy, not as a public issue.

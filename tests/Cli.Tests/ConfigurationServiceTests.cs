@@ -49,7 +49,7 @@ public class ConfigurationServiceTests
         var service = fixture.CreateService();
         await service.SetConfigurationAsync("core.logging.level", "info");
 
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
 
         try
         {
@@ -59,7 +59,7 @@ public class ConfigurationServiceTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 

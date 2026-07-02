@@ -16,6 +16,9 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = true)]
@@ -117,6 +120,11 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ValidationLevel)))
         {
             parameters.Add("ValidationLevel", ValidationLevel!);
+        }
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
