@@ -137,18 +137,7 @@ stages:
           exit 1
         fi
 
-        assets=()
-        excluded_assets=()
-        for asset in "${discovered_assets[@]}"; do
-          case "$(basename "$asset")" in
-            *macos-x86_64*)
-              excluded_assets+=("$asset")
-              ;;
-            *)
-              assets+=("$asset")
-              ;;
-          esac
-        done
+        assets=("${discovered_assets[@]}")
 
         if [[ ${#assets[@]} -eq 0 ]]; then
           echo "ERROR: No publishable .tar.gz or .zip release assets remain after filtering."
@@ -158,11 +147,6 @@ stages:
         echo "Signed source pipeline: $signed_pipeline_name"
         echo "Signed source build id: $signed_build_id"
         echo "Signed artifact: $signed_artifact_name"
-
-        if [[ ${#excluded_assets[@]} -gt 0 ]]; then
-          echo "Assets excluded from GitHub release (${#excluded_assets[@]}):"
-          printf '  %s\n' "${excluded_assets[@]}"
-        fi
 
         echo "Assets to upload (${#assets[@]}):"
         printf '  %s\n' "${assets[@]}"
@@ -181,9 +165,9 @@ stages:
           base="${base%.tar.gz}"
           base="${base%.zip}"
 
-          for stem in azcli-lean azcli; do
+          for stem in "$cli_lean_archive_stem" "$cli_archive_stem"; do
             [[ "$base" == "$stem"-* ]] || continue
-            for label in linux-x64 linux-arm64 win-x64 win-arm64 macos-arm64 macos-x86_64; do
+            for label in "${cli_rid_labels[@]}"; do
               [[ "$base" == *-"$label" ]] || continue
               version="${base#"$stem"-}"
               version="${version%-"$label"}"
@@ -194,7 +178,7 @@ stages:
             done
           done
 
-          for stem in azcli-extensions azps-cmdlets; do
+          for stem in "$cli_extensions_archive_stem" "$ps_cmdlets_archive_stem"; do
             if [[ "$base" == "$stem"-* ]]; then
               version="${base#"$stem"-}"
               if [[ -n "$version" && "$version" != "$base" ]]; then
@@ -235,6 +219,19 @@ stages:
             printf '%s\n' "$default_value"
           fi
         }
+
+        cli_archive_stem="$(read_artifact_config cli_archive_stem azcli)"
+        cli_lean_archive_stem="$(read_artifact_config cli_lean_archive_stem azcli-lean)"
+        cli_extensions_archive_stem="$(read_artifact_config cli_extensions_archive_stem azcli-extensions)"
+        ps_cmdlets_archive_stem="$(read_artifact_config ps_cmdlets_archive_stem azps-cmdlets)"
+        cli_rid_labels=(
+          "$(read_artifact_config linux_x64_label linux-x64)"
+          "$(read_artifact_config linux_arm64_label linux-arm64)"
+          "$(read_artifact_config windows_x64_label win-x64)"
+          "$(read_artifact_config windows_arm64_label win-arm64)"
+          "$(read_artifact_config macos_arm64_label macos-arm64)"
+          "$(read_artifact_config macos_x64_label macos-x86_64)"
+        )
 
         mapfile -t derived_versions < <(
           for archive in "${distribution_archives[@]}"; do

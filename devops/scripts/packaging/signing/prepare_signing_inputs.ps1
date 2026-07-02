@@ -32,6 +32,31 @@ if (-not (Test-Path $UnsignedRoot)) {
   throw "Unsigned artifact root was not found: $UnsignedRoot"
 }
 
+function Resolve-SafeDirectoryArgument {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Name
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    throw "$Name must not be empty."
+  }
+
+  $fullPath = [System.IO.Path]::GetFullPath($Path)
+  $rootPath = [System.IO.Path]::GetPathRoot($fullPath)
+  if ($fullPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) -eq $rootPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)) {
+    throw "$Name must not resolve to a filesystem root: $fullPath"
+  }
+
+  return $fullPath
+}
+
+$WorkingRoot = Resolve-SafeDirectoryArgument -Path $WorkingRoot -Name 'WorkingRoot'
+$ReleaseRoot = Resolve-SafeDirectoryArgument -Path $ReleaseRoot -Name 'ReleaseRoot'
+
 $windowsRoot = Join-Path $WorkingRoot 'windows-extracted'
 $nupkgRoot = Join-Path $WorkingRoot 'nupkg'
 $nupkgExtractRoot = Join-Path $WorkingRoot 'nupkg-extracted'

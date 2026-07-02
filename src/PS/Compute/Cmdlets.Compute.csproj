@@ -2,7 +2,7 @@
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Compute</AssemblyName>
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Compute</RootNamespace>
-        <Description>PowerShell binary cmdlets for Cirrus Compute module</Description>
+        <Description>PowerShell binary cmdlets for Azclips Compute module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 

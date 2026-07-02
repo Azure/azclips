@@ -26,7 +26,8 @@ while IFS= read -r package_path; do
     exit 1
   fi
 
-  release_name="azcli.extensions.${extension_name,,}.$version.nupkg"
+  extension_name_lower="$(printf '%s' "$extension_name" | tr '[:upper:]' '[:lower:]')"
+  release_name="azcli.extensions.$extension_name_lower.$version.nupkg"
   release_path="$(dirname "$package_path")/$release_name"
 
   rm -f "$release_path"

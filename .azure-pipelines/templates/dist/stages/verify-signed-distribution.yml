@@ -34,7 +34,10 @@ stages:
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
-    - checkout: none
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      retryCountOnTaskFailure: 3
 
     - ${{ if eq(parameters.signed_artifact_source, 'current') }}:
       - task: DownloadPipelineArtifact@2
@@ -61,6 +64,48 @@ stages:
         echo "Signed artifact root: $signed_root"
         find "$signed_root" -maxdepth 4 -type f | sort | sed -n '1,300p'
 
+        read_artifact_config() {
+          local key="$1"
+          local default_value="$2"
+          local config_path="$(Build.SourcesDirectory)/devops/scripts/packaging/config/artifact_naming.config"
+          local configured_value=""
+
+          if [[ -f "$config_path" ]] && configured_value="$(awk -F= -v key="$key" '
+              BEGIN { found = 0 }
+              /^[[:space:]]*(#|$)/ { next }
+              {
+                k=$1
+                sub(/^[[:space:]]+/, "", k)
+                sub(/[[:space:]]+$/, "", k)
+                if (k == key) {
+                  v=$0
+                  sub(/^[^=]*=/, "", v)
+                  print v
+                  found = 1
+                  exit
+                }
+              }
+              END { if (!found) exit 1 }
+            ' "$config_path")"; then
+            printf '%s\n' "$configured_value"
+          else
+            printf '%s\n' "$default_value"
+          fi
+        }
+
+        cli_archive_stem="$(read_artifact_config cli_archive_stem azcli)"
+        cli_lean_archive_stem="$(read_artifact_config cli_lean_archive_stem azcli-lean)"
+        cli_extensions_archive_stem="$(read_artifact_config cli_extensions_archive_stem azcli-extensions)"
+        ps_cmdlets_archive_stem="$(read_artifact_config ps_cmdlets_archive_stem azps-cmdlets)"
+        cli_rid_labels=(
+          "$(read_artifact_config linux_x64_label linux-x64)"
+          "$(read_artifact_config linux_arm64_label linux-arm64)"
+          "$(read_artifact_config windows_x64_label win-x64)"
+          "$(read_artifact_config windows_arm64_label win-arm64)"
+          "$(read_artifact_config macos_arm64_label macos-arm64)"
+          "$(read_artifact_config macos_x64_label macos-x86_64)"
+        )
+
         mapfile -t release_assets < <(find "$signed_root" -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) ! -name '*.snupkg' | sort)
         if [[ ${#release_assets[@]} -eq 0 ]]; then
           echo "ERROR: No signed release assets found under $signed_root."
@@ -75,15 +120,23 @@ stages:
           exit 1
         fi
 
-        mapfile -t cli_extension_archives < <(printf '%s\n' "${distribution_archives[@]}" | grep -E '/azcli-extensions-[^/]+\.tar\.gz$' || true)
+        mapfile -t cli_extension_archives < <(
+          for archive in "${distribution_archives[@]}"; do
+            [[ "$(basename "$archive")" == "$cli_extensions_archive_stem"-*.tar.gz ]] && printf '%s\n' "$archive"
+          done
+        )
         if [[ ${#cli_extension_archives[@]} -eq 0 ]]; then
-          echo "ERROR: Signed distribution artifact must contain azcli-extensions-<version>.tar.gz."
+          echo "ERROR: Signed distribution artifact must contain $cli_extensions_archive_stem-<version>.tar.gz."
           exit 1
         fi
 
-        mapfile -t ps_cmdlet_archives < <(printf '%s\n' "${distribution_archives[@]}" | grep -E '/azps-cmdlets-[^/]+\.tar\.gz$' || true)
+        mapfile -t ps_cmdlet_archives < <(
+          for archive in "${distribution_archives[@]}"; do
+            [[ "$(basename "$archive")" == "$ps_cmdlets_archive_stem"-*.tar.gz ]] && printf '%s\n' "$archive"
+          done
+        )
         if [[ ${#ps_cmdlet_archives[@]} -eq 0 ]]; then
-          echo "ERROR: Signed distribution artifact must contain azps-cmdlets-<version>.tar.gz."
+          echo "ERROR: Signed distribution artifact must contain $ps_cmdlets_archive_stem-<version>.tar.gz."
           exit 1
         fi
 
@@ -168,9 +221,9 @@ stages:
           base="${base%.tar.gz}"
           base="${base%.zip}"
 
-          for stem in azcli-lean azcli; do
+          for stem in "$cli_lean_archive_stem" "$cli_archive_stem"; do
             [[ "$base" == "$stem"-* ]] || continue
-            for label in linux-x64 linux-arm64 win-x64 win-arm64 macos-arm64 macos-x86_64; do
+            for label in "${cli_rid_labels[@]}"; do
               [[ "$base" == *-"$label" ]] || continue
               version="${base#"$stem"-}"
               version="${version%-"$label"}"
@@ -181,7 +234,7 @@ stages:
             done
           done
 
-          for stem in azcli-extensions azps-cmdlets; do
+          for stem in "$cli_extensions_archive_stem" "$ps_cmdlets_archive_stem"; do
             if [[ "$base" == "$stem"-* ]]; then
               version="${base#"$stem"-}"
               if [[ -n "$version" && "$version" != "$base" ]]; then
