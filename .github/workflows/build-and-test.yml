@@ -23,14 +23,14 @@ jobs:
           global-json-file: global.json
 
       - name: Restore dependencies
-        run: dotnet restore cirrus.slnx
+        run: dotnet restore azclips.slnx
 
       - name: Build
-        run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
+        run: dotnet build azclips.slnx --no-restore --configuration Debug # Should be Release but
         # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
       - name: Run tests
-        run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
+        run: dotnet test azclips.slnx --no-build --configuration Debug --verbosity normal
 
       - name: E2E - CLI Help
         run: |
@@ -65,10 +65,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore dependencies
-        run: dotnet restore cirrus.slnx
+        run: dotnet restore azclips.slnx
 
       - name: Build
-        run: dotnet build cirrus.slnx --no-restore --configuration Debug
+        run: dotnet build azclips.slnx --no-restore --configuration Debug
 
       - name: Validate help content
         run: |

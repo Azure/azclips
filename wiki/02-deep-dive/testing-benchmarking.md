@@ -372,9 +372,9 @@ The `Build and Test` workflow (`.github/workflows/build-and-test.yml:1`) runs on
 
 | Step | Command | Line |
 |---|---|---|
-| Restore | `dotnet restore cirrus.slnx` | 22 |
-| Build | `dotnet build cirrus.slnx --no-restore --configuration Debug` | 25 |
-| Unit tests | `dotnet test cirrus.slnx --no-build --configuration Debug` | 29 |
+| Restore | `dotnet restore azclips.slnx` | 22 |
+| Build | `dotnet build azclips.slnx --no-restore --configuration Debug` | 25 |
+| Unit tests | `dotnet test azclips.slnx --no-build --configuration Debug` | 29 |
 | E2E CLI | `./artifacts/Debug/Core.Cli/az --help` | 33 |
 | E2E PowerShell | `Import-Module ./src/PS/Login/Login.psd1` | 44 |
 

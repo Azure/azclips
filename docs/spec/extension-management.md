@@ -74,7 +74,7 @@ All under `az extension`. Kebab-case CLI convention.
 
 The same rule applies to `extension remove/show/update/pin/unpin --name <token>`: only the package id (full or short suffix) is a valid selector. A miss is enriched with a "did you mean _PackageId_?" hint when the token is a verb or namespace contributed by exactly one installed package — diagnostic only, never auto-resolves the destructive action.
 
-When `extension add --name <token>` misses every configured feed, the resulting `ExtensionNotFound` (exit 4) probes the local repo via `LocalArtifactProbe.Find` (walks up from cwd looking for `cirrus.slnx`, then globs `artifacts/Debug/<packageId>/<packageId>.*.nupkg`) and surfaces the most recently written match as an `--path` suggestion in the error message. Suggestion-only — never auto-installs from local builds.
+When `extension add --name <token>` misses every configured feed, the resulting `ExtensionNotFound` (exit 4) probes the local repo via `LocalArtifactProbe.Find` (walks up from cwd looking for `azclips.slnx`, then globs `artifacts/Debug/<packageId>/<packageId>.*.nupkg`) and surfaces the most recently written match as an `--path` suggestion in the error message. Suggestion-only — never auto-installs from local builds.
 
 ### 3.2 Conflict at install time
 

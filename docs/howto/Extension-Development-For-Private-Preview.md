@@ -32,7 +32,7 @@
 # Create a new Extension Project
 * Create a new directory `Cirrus/src/Extensions/{ExtensionName}`
 * Create a new file `Cirrus/src/Extensions/{ExtensionsName}/Extensions.{ExtensionName}.csproj`
-* Add `Cirrus/src/Extensions/{ExtensionsName}/Extensions.{ExtensionName}.csproj` to `Cirrus/cirrus.slnx`
+* Add `Cirrus/src/Extensions/{ExtensionsName}/Extensions.{ExtensionName}.csproj` to `Cirrus/azclips.slnx`
 * Content 
 ```
 <Project Sdk="Microsoft.NET.Sdk">
@@ -152,7 +152,7 @@ Ask LLM to review `Cirrus/src/Extensions/{ExtensionName}/ExtensionIndex.cs` and 
 
 # Manual Verification
 * Go to root of `Cirrus`
-* `dotnet build cirrus.slnx`
+* `dotnet build azclips.slnx`
 * For CLI, `Cirrus\artifacts\Debug\Core.Cli\az.exe {CommandGroupName} {Command} ...`
 * For PowerShell
     * `Import-module Cirrus\src\PS\Login\login.psd1`

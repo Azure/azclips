@@ -296,7 +296,7 @@ This means help is always in sync with what's actually installed. If you drop a 
 
 If the verb is not found in discovered extensions, a structured error lists the owning package (from the embedded hint table) and suggests `az extension add --name <Package>`.
 
-Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build copies these files to `artifacts/<Config>/Core.Cli/help/`, and at runtime `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing during development, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
+Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build copies these files to `artifacts/<Config>/Core.Cli/help/`, and at runtime `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing during development, the provider walks up to `azclips.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
 
 ### PowerShell Help
 
@@ -310,7 +310,7 @@ Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build co
 ### Standard build (no help validation)
 
 ```powershell
-dotnet build cirrus.slnx
+dotnet build azclips.slnx
 ```
 
 ### Full help pipeline

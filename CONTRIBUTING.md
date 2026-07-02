@@ -23,7 +23,7 @@ Contributions may require signing the Microsoft Contributor License Agreement (C
 Install the .NET SDK version pinned in [global.json](global.json), then build and test locally:
 
 ```bash
-dotnet build cirrus.slnx
+dotnet build azclips.slnx
 dotnet test tests/Cli.Tests/Cli.Tests.csproj
 ```
 

@@ -845,7 +845,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 **Build Command:**
 
 ```bash
-dotnet build -c Release cirrus.slnx
+dotnet build -c Release azclips.slnx
 ```
 
 **Steps:**
