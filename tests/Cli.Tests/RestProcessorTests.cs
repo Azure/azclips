@@ -30,11 +30,13 @@ public class RestProcessorTests
         FakeEventPublisher? publisher = null)
     {
         var processor = new RestProcessor_Orchestrator();
+        var profile = new Profile() { TenantId = "test-tenant", SubscriptionId = subscriptionId };
         var context = new ProcessorContext(
             pipeline,
             publisher ?? new FakeEventPublisher(),
-            new FakeAuthHandler(new AuthContext("test-tenant", subscriptionId)),
-            output);
+            new FakeAuthHandler(profile),
+            output,
+            Profile: profile);
         processor.Init(context);
         return processor;
     }
@@ -516,9 +518,9 @@ public class RestProcessorTests
 
     private sealed class FakeAuthHandler : IAuthHandler
     {
-        public FakeAuthHandler(AuthContext authContext) => AuthContext = authContext;
+        public FakeAuthHandler(Profile? profile) => Profile = profile;
 
-        public AuthContext AuthContext { get; set; }
+        public Profile? Profile { get; set; }
 
         public AcquireTokenAsyncDelegate AcquireTokenAsyncDefault { get; set; } =
             (_, _, _, _) => throw new NotSupportedException("Token acquisition is not exercised in these offline tests.");

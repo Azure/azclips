@@ -15,6 +15,9 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
     [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
 
@@ -80,6 +83,11 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationPortRanges)))      { parameters.Add("RuleDestinationPortRanges", RuleDestinationPortRanges!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

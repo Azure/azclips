@@ -134,7 +134,7 @@ public sealed class ArmDetailsClientLocalTests
         public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task LogoutAsync(CancellationToken cancellationToken = default)
+        public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
     }
 }

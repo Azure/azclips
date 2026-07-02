@@ -3,5 +3,3 @@ Group
 
 Commands:
     login : Authenticate to Azure.
-    logout : Sign out from the current Azure account context.
-    show : Show the current Azure account context.

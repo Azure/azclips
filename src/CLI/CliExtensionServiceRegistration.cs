@@ -15,7 +15,7 @@ namespace Core.Cli;
 
 /// <summary>
 /// Registers verb-to-package resolution as DI services so hosts (and tests/benchmarks) can supply a
-/// scoped registry store instead of the hard-coded ~/.cirrus default.
+/// scoped registry store instead of the hard-coded ~/.azclips default.
 /// </summary>
 public static class CliExtensionServiceRegistration
 {

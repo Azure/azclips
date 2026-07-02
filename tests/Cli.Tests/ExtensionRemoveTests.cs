@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+using Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 using Xunit;
 
 namespace Cli.Tests;

@@ -15,6 +15,9 @@ public class GetResourceGroupCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     [Parameter(ParameterSetName = "List", Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
@@ -44,6 +47,11 @@ public class GetResourceGroupCmdlet : PSCmdlet
 
         var parameterSetName = ParameterSetName;
         var commandName = $"Get-ResourceGroup_{parameterSetName}";
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
+
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Resources", commandName, parameters, false, moduleName, moduleVersion);

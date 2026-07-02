@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension;
+namespace Microsoft.Azure.Azclips.Extensions.Extension;
 
 [ExtensionVerb("extension")]
 public class ExtensionIndex : IExtensionIndex
@@ -13,8 +13,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "AddExtensionProcessor",
         InvocationName: "extension add",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.AddExtensionProcessor",
-        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        FullName: "Microsoft.Azure.Azclips.Extensions.Extension.Processors.AddExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Extension",
         ProcessorType: typeof(Processors.AddExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -32,8 +32,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "ListExtensionsProcessor",
         InvocationName: "extension list",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.ListExtensionsProcessor",
-        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        FullName: "Microsoft.Azure.Azclips.Extensions.Extension.Processors.ListExtensionsProcessor",
+        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Extension",
         ProcessorType: typeof(Processors.ListExtensionsProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -46,8 +46,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "ShowExtensionProcessor",
         InvocationName: "extension show",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.ShowExtensionProcessor",
-        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        FullName: "Microsoft.Azure.Azclips.Extensions.Extension.Processors.ShowExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Extension",
         ProcessorType: typeof(Processors.ShowExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -61,8 +61,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "RemoveExtensionProcessor",
         InvocationName: "extension remove",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.RemoveExtensionProcessor",
-        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        FullName: "Microsoft.Azure.Azclips.Extensions.Extension.Processors.RemoveExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Extension",
         ProcessorType: typeof(Processors.RemoveExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -75,8 +75,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "UpdateExtensionProcessor",
         InvocationName: "extension update",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.UpdateExtensionProcessor",
-        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        FullName: "Microsoft.Azure.Azclips.Extensions.Extension.Processors.UpdateExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Extension",
         ProcessorType: typeof(Processors.UpdateExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -92,8 +92,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "PinExtensionProcessor",
         InvocationName: "extension pin",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.PinExtensionProcessor",
-        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        FullName: "Microsoft.Azure.Azclips.Extensions.Extension.Processors.PinExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Extension",
         ProcessorType: typeof(Processors.PinExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
@@ -106,8 +106,8 @@ public class ExtensionIndex : IExtensionIndex
         Name: "UnpinExtensionProcessor",
         InvocationName: "extension unpin",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.UnpinExtensionProcessor",
-        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        FullName: "Microsoft.Azure.Azclips.Extensions.Extension.Processors.UnpinExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Extension",
         ProcessorType: typeof(Processors.UnpinExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {

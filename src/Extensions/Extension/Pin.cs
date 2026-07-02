@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 public class PinExtensionProcessor : IProcessor
 {

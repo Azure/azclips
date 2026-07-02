@@ -147,7 +147,7 @@ The CLI host project copies the markdown corpus to its build output as content:
 </ItemGroup>
 ```
 
-At runtime the provider resolves `<AppContext.BaseDirectory>/help/<ext>/<key>.md` first, with a dev-loop fallback that walks up to `cirrus.slnx` and reads `src/CLI/Help/Docs/<ext>/<key>.md` directly. There is no embedded-resource path today.
+At runtime the provider resolves `<AppContext.BaseDirectory>/help/<ext>/<key>.md` first, with a dev-loop fallback that walks up to `azclips.slnx` and reads `src/CLI/Help/Docs/<ext>/<key>.md` directly. There is no embedded-resource path today.
 
 Markdown is hand-authored today. Codegen may interject at this layer in the future (e.g. emitting templates from `IExtensionIndex`); the on-disk contract downstream stays the same.
 
@@ -167,7 +167,7 @@ Cold-path guarantees:
 
 Tree shape mirrors azure-cli: `az --help` lists groups, `az group --help` lists subcommands, `az group create --help` shows full command help. Global arguments (`--help`, `--debug`, `--output`) are owned by the CLI host and surface on every page.
 
-The runtime supports a source-tree fallback for repo contributors: if the packaged file at `<AppContext.BaseDirectory>/help/<ext>/<key>.md` is **missing**, the provider walks up from `AppContext.BaseDirectory` looking for `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<ext>/`. The fallback only fires on absence — a stale copy in the build output will be served as-is, so the inner loop is still "edit `.md`, rebuild, see new help."
+The runtime supports a source-tree fallback for repo contributors: if the packaged file at `<AppContext.BaseDirectory>/help/<ext>/<key>.md` is **missing**, the provider walks up from `AppContext.BaseDirectory` looking for `azclips.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<ext>/`. The fallback only fires on absence — a stale copy in the build output will be served as-is, so the inner loop is still "edit `.md`, rebuild, see new help."
 
 ---
 

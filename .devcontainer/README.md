@@ -1,6 +1,6 @@
 # Dev Container Configuration
 
-This directory contains the configuration for the Cirrus development container.
+This directory contains the configuration for the azclips development container.
 
 ## Files
 
@@ -81,7 +81,7 @@ Zipkin is automatically started when you open the dev container. To view traces:
 
 1. Build and run the application in DEBUG mode:
    ```bash
-   dotnet build -c Debug cirrus.slnx
+   dotnet build -c Debug azclips.slnx
    ./artifacts/Debug/Core.Cli/az group create --Name mygroup --Location eastus --SubscriptionId <your-subscription-id>
    ```
    
@@ -142,7 +142,7 @@ If Zipkin is running but you don't see any traces:
 
 1. Make sure you built the application in DEBUG mode:
    ```bash
-   dotnet build -c Debug cirrus.slnx
+   dotnet build -c Debug azclips.slnx
    ```
 
 2. Verify the ZIPKIN_ENDPOINT environment variable:

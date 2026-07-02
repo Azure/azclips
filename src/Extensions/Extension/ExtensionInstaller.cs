@@ -11,10 +11,10 @@ using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension;
+namespace Microsoft.Azure.Azclips.Extensions.Extension;
 
 /// <summary>
-/// Installs Cirrus extensions from NuGet feeds or local packages using official NuGet APIs.
+/// Installs Azclips extensions from NuGet feeds or local packages using official NuGet APIs.
 /// </summary>
 public class ExtensionInstaller
 {
@@ -27,9 +27,7 @@ public class ExtensionInstaller
     public ExtensionInstaller(ILoggingService logger, string? installPath = null, string? feedUrl = null)
     {
         _logger = logger;
-        InstallPath = installPath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".cirrus", "extensions");
+        InstallPath = installPath ?? HomePaths.GetDefaultExtensionsRoot();
 
         TargetFramework = new NuGetFramework(".NETCoreApp", Environment.Version);
         FeedUrl = feedUrl;

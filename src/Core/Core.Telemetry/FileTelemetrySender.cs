@@ -17,8 +17,8 @@ namespace Core.Telemetry;
 /// </summary>
 public class FileTelemetrySender : ITelemetrySender
 {
-    private const string FallbackSourceName = "CirrusTelemetryUploader";
-    private const string TraceDirectoryName = "Cirrus";
+    private const string FallbackSourceName = "AzclipsTelemetryUploader";
+    private const string TraceDirectoryName = "Azclips";
 
     /// <summary>
     /// Gets the shared trace directory for the background uploader picks up all files from one location.

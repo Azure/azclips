@@ -9,7 +9,7 @@ description: "Comprehensive overview of the Cirrus CLI framework — an extensio
 
 Cirrus is an extension-based command-line framework built on .NET 10 that provides **two complementary interfaces** for managing Azure resources: a structured CLI (producing the `az` binary) and a set of PowerShell modules. When a user issues a command that the structured engine cannot resolve, Cirrus automatically falls back to an **AI-powered agent** that interprets natural language and either answers the question or extracts a concrete command for retry.
 
-The solution is organised in the modern `.slnx` format (`cirrus.slnx:1-24`) and pins its SDK to **10.0.203** via `global.json:2-5` with a `latestMinor` roll-forward policy so contributors stay on a consistent toolchain.
+The solution is organised in the modern `.slnx` format (`azclips.slnx:1-24`) and pins its SDK to **10.0.203** via `global.json:2-5` with a `latestMinor` roll-forward policy so contributors stay on a consistent toolchain.
 
 ## High-Level Architecture
 
@@ -110,7 +110,7 @@ graph TB
 graph LR
     subgraph Root["cirrus/"]
         style Root fill:#161b22,stroke:#30363d,color:#e6edf3
-        SLN["cirrus.slnx"]
+        SLN["azclips.slnx"]
         Global["global.json"]
         Shared["Shared.props"]
     end
@@ -260,7 +260,7 @@ Extensions are loaded at runtime from sub-directories relative to the CLI binary
 | Extension loader | `src/Core/Core.Engine/ExtensionLoader.cs` |
 | Command group index | `src/CLI/Parser/CommandGroupIndex.cs` |
 | Extension dispatcher | `src/CLI/Parser/ExtensionDispatcher.cs` |
-| Solution file | `cirrus.slnx` |
+| Solution file | `azclips.slnx` |
 | SDK version | `global.json` |
 | Shared build props | `Shared.props` |
 | Source build props | `src/Directory.Build.props` |

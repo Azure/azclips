@@ -4,7 +4,7 @@ services:
       context: ..
       dockerfile: .devcontainer/Dockerfile
     volumes:
-      - ..:/workspaces/cirrus:cached
+      - ..:/workspaces/azclips:cached
     # Set environment variables
     environment:
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
