@@ -43,7 +43,7 @@ public static class ChartGenerator
         var jsonData = new
         {
             Timestamp = timestamp,
-            Results = chartData.Select(x => new { x.Method, x.Product, x.Mode, MeanSeconds = Math.Round(x.MeanSeconds, 4) }),
+            Results = chartData.Select(x => new { x.Method, x.Product, x.Mode, x.Extension, MeanSeconds = Math.Round(x.MeanSeconds, 4) }),
             Operations = timings.Select(x => new { x.Operation, x.CliTime, x.PsTime })
         };
         File.WriteAllText(jsonPath, JsonSerializer.Serialize(jsonData, new JsonSerializerOptions { WriteIndented = true }));
