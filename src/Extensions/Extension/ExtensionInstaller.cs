@@ -27,7 +27,7 @@ public class ExtensionInstaller
     public ExtensionInstaller(ILoggingService logger, string? installPath = null, string? feedUrl = null)
     {
         _logger = logger;
-        InstallPath = installPath ?? ExtensionHomePaths.GetDefaultExtensionsRoot();
+        InstallPath = installPath ?? HomePaths.GetDefaultExtensionsRoot();
 
         TargetFramework = new NuGetFramework(".NETCoreApp", Environment.Version);
         FeedUrl = feedUrl;

@@ -34,7 +34,7 @@ public sealed class AssemblyLoadingOptions
     {
         // Always use ~/.azclips/extensions regardless of build configuration.
         // Installed extensions live there, even during local development.
-        return ExtensionHomePaths.GetDefaultExtensionsRoot();
+        return HomePaths.GetDefaultExtensionsRoot();
     }
 
     private static string GetDefaultExtensionFolderPrefix()

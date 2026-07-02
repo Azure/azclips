@@ -283,7 +283,7 @@ namespace Core.Extensions
         /// </summary>
         public static string DefaultPath()
         {
-            return ExtensionHomePaths.GetDefaultRegistryPath();
+            return HomePaths.GetDefaultRegistryPath();
         }
     }
 }
