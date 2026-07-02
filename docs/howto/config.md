@@ -50,13 +50,13 @@ Use explicit parameter names for CLI config commands:
 # Retrieve a single key
 az config get --key core.logging.level
 
-# Output: core.logging.level = info [default]
+# Output: core.logging.level = error [default]
 
 # Retrieve a section (text output)
 az config get --key core
 
 # Example output:
-#   logging.level = info
+#   logging.level = error
 #   engine.extensionIndexCacheSize = 512
 #   http.maxRetries = 3
 #   http.maxRetriesFor429 = 5
@@ -66,7 +66,7 @@ az config get --key core.logging --json
 
 # Example output:
 # {
-#   "level": "info"
+#   "level": "error"
 # }
 
 # Retrieve a section as nested JSON
@@ -132,17 +132,17 @@ Import-Module ./src/PS/Config/Config.psd1
 
 ```powershell
 Get-AzConfig -Key core.logging.level
-# Output: core.logging.level = info [default]
+# Output: core.logging.level = error [default]
 
 Get-AzConfig -Key core.logging.level -AsJson
-# Output: {"Key":"core.logging.level","Value":"info","Source":"default"}
+# Output: {"Key":"core.logging.level","Value":"error","Source":"default"}
 
 # Retrieve a section (text output)
 Get-AzConfig -Key core
 
 # Retrieve a subsection as JSON
 Get-AzConfig -Key core.logging -AsJson
-# Output: {"level":"info"}
+# Output: {"level":"error"}
 
 # Retrieve a section as nested JSON
 Get-AzConfig -Key core -AsJson
