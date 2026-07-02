@@ -1,48 +1,102 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# az Tab Completion for PowerShell
+# az Tab Completion for PowerShell (Dynamic)
 # Usage: . <path-to>/az.completions.ps1
 # Or add to your $PROFILE to auto-load on every session.
+#
+# Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
+# at tab time. This ensures completions match whichever `az` binary is on PATH.
 
-# Load command tree from pre-generated JSON file (built by build/build.ps1)
-$global:_azCommandTree = $null
+# Cache: group -> hashtable (populated on first access per session)
+$global:_azCompletionCache = @{}
+$global:_azTopLevelGroups = $null
 
-$_jsonFile = Join-Path $PSScriptRoot 'az.completions.json'
-if (Test-Path $_jsonFile) {
-    $global:_azCommandTree = Get-Content $_jsonFile -Raw | ConvertFrom-Json -AsHashtable
-} else {
-    # Fallback: try generating at load time via az --completions
-    $_azExe = Join-Path $PSScriptRoot 'az.exe'
-    if (-not (Test-Path $_azExe)) {
-        $_azExe = (Get-Command az -ErrorAction SilentlyContinue)?.Source
+function global:_azResolveExe {
+    # 1. Same directory as this script (e.g. artifacts/Release/Core.Cli/)
+    $local = Join-Path $PSScriptRoot 'az.exe'
+    if (Test-Path $local) { return $local }
+    $local = Join-Path $PSScriptRoot 'az'
+    if (Test-Path $local) { return $local }
+
+    # 2. Walk up to find repo root (look for global.json), then check artifacts/
+    $dir = $PSScriptRoot
+    while ($dir) {
+        if (Test-Path (Join-Path $dir 'global.json')) {
+            foreach ($cfg in 'Release', 'Debug') {
+                $candidate = Join-Path $dir "artifacts/$cfg/Core.Cli/az.exe"
+                if (Test-Path $candidate) { return $candidate }
+                $candidate = Join-Path $dir "artifacts/$cfg/Core.Cli/az"
+                if (Test-Path $candidate) { return $candidate }
+            }
+            break
+        }
+        $parent = Split-Path $dir -Parent
+        if ($parent -eq $dir) { break }
+        $dir = $parent
     }
-    $json = $null
-    if ($_azExe) { $json = & $_azExe --completions 2>$null }
-    if ($json) { $json = ($json | Where-Object { $_ -match '^\s*\{' }) -join '' }
-    if ($json -and $json -ne '{}') {
-        $global:_azCommandTree = $json | ConvertFrom-Json -AsHashtable
-    }
+
+    # 3. Fall back to PATH
+    $cmd = Get-Command az -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    return $null
 }
 
-if (-not $global:_azCommandTree -or $global:_azCommandTree.Count -eq 0) {
-    Write-Warning "az completions data not found. Run 'build/build.ps1' to generate. Tab completion unavailable."
-    $global:_azCommandTree = @{}
+function global:_azQueryCompletions {
+    param([string[]]$context)
+    $exe = _azResolveExe
+    if (-not $exe) { return $null }
+    $args_ = @('--completions') + $context
+    try {
+        $json = & $exe @args_ 2>$null
+        if ($json) {
+            $joined = ($json | Where-Object { $_ -match '^\s*[\{\[]' }) -join ''
+            if ($joined) { return $joined | ConvertFrom-Json -AsHashtable }
+        }
+    } catch {}
+    return $null
+}
+
+function global:_azGetTopLevelGroups {
+    if ($null -ne $global:_azTopLevelGroups) { return $global:_azTopLevelGroups }
+    $tree = _azQueryCompletions
+    if ($tree -and $tree.Count -gt 0) {
+        $global:_azTopLevelGroups = @($tree.Keys | Sort-Object)
+        # Cache full tree as well
+        foreach ($k in $tree.Keys) {
+            $global:_azCompletionCache[$k] = $tree[$k]
+        }
+    } else {
+        $global:_azTopLevelGroups = @()
+    }
+    return $global:_azTopLevelGroups
+}
+
+function global:_azGetGroupDef {
+    param([string]$group)
+    if ($global:_azCompletionCache.ContainsKey($group)) {
+        return $global:_azCompletionCache[$group]
+    }
+    # Dynamic fetch for this group
+    $tree = _azQueryCompletions @($group)
+    if ($tree -and $tree.Count -gt 0) {
+        $global:_azCompletionCache[$group] = $tree
+        return $tree
+    }
+    return $null
 }
 
 # Core completion logic — returns CompletionResult[] for a given input line and cursor
 function global:_azGetCompletions {
     param([string]$inputText, [int]$cursorPos)
 
-    $tree = $global:_azCommandTree
-    if (-not $tree -or $tree.Count -eq 0) { return @() }
-
     $textUpToCursor = $inputText.Substring(0, $cursorPos)
     $allTokens = @($textUpToCursor -split '\s+' | Where-Object { $_ -ne '' })
     $completedArgs = @($allTokens | Select-Object -Skip 1)
     $isCompletingNewToken = $textUpToCursor.EndsWith(' ')
 
-    $topLevelGroups = @($tree.Keys | Sort-Object)
+    $topLevelGroups = _azGetTopLevelGroups
+    if (-not $topLevelGroups -or $topLevelGroups.Count -eq 0) { return @() }
 
     # --- Level 0: completing command group ---
     if ($completedArgs.Count -eq 0 -or ($completedArgs.Count -eq 1 -and -not $isCompletingNewToken)) {
@@ -53,9 +107,9 @@ function global:_azGetCompletions {
     }
 
     $group = $completedArgs[0].ToLower()
-    if (-not $tree.ContainsKey($group)) { return @() }
+    $groupDef = _azGetGroupDef $group
+    if (-not $groupDef) { return @() }
 
-    $groupDef = $tree[$group]
     $subcommands = if ($groupDef.ContainsKey('_subcommands')) { $groupDef['_subcommands'] } else { @() }
 
     # --- Level 1: completing subcommand ---
@@ -110,11 +164,13 @@ function global:_azGetCompletions {
     })
 }
 
-# Register native argument completer (fallback for scripts that invoke completions directly)
-Register-ArgumentCompleter -Native -CommandName az -ScriptBlock {
-    param($wordToComplete, $commandAst, $cursorPosition)
-    $line = $commandAst.ToString()
-    _azGetCompletions $line $cursorPosition
+# Register native argument completer for both az and az.exe
+foreach ($_cmd in @('az', 'az.exe')) {
+    Register-ArgumentCompleter -Native -CommandName $_cmd -ScriptBlock {
+        param($wordToComplete, $commandAst, $cursorPosition)
+        $line = $commandAst.ToString()
+        _azGetCompletions $line $cursorPosition
+    }
 }
 
 # Override TabExpansion2 so PSReadLine's MenuComplete works for az
@@ -149,7 +205,7 @@ function global:TabExpansion2 {
         $line = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $inputScript } else { $ast.Extent.Text }
         $cursor = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $cursorColumn } else { $positionOfCursor.Offset }
 
-        if ($line -match '^\s*az\s') {
+        if ($line -match '^\s*(\S*[\\/])?az(\.exe)?\s') {
             $results = @(_azGetCompletions $line $cursor)
             if ($results.Count -gt 0) {
                 $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
@@ -175,4 +231,4 @@ function global:TabExpansion2 {
 # Bind Tab to MenuComplete for dropdown-style display
 Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 
-Write-Host "az tab completion registered. Press Tab after 'az ' to see suggestions." -ForegroundColor Green
+Write-Host "az tab completion registered (dynamic). Press Tab after 'az ' to see suggestions." -ForegroundColor Green

@@ -216,17 +216,6 @@ Invoke-CirrusBuild -Configuration $Configuration
 # Ensure bin/ output directory exists before writing any artifacts
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot/../bin" | Out-Null
 
-# Generate tab-completion metadata (shared JSON for PowerShell, Bash, and zsh)
-$_completionsJson = $null
-$_cliProject = "$PSScriptRoot/../src/CLI/Core.Cli.csproj"
-if (Test-Path $_cliProject) {
-    $_completionsJson = dotnet run --no-build --project $_cliProject -- --completions 2>$null | Where-Object { $_ -match '^\s*\{' }
-}
-if ($_completionsJson) {
-    Write-Utf8NoBomFile -Path "$PSScriptRoot/../bin/az.completions.json" -Content ($_completionsJson -join '')
-    Write-Host "Generated bin/az.completions.json" -ForegroundColor Green
-}
-
 # Copy shell completion scripts from source to bin/
 $_completionsDir = "$PSScriptRoot/../src/CLI/Completions"
 foreach ($_script in @('az.completions.ps1', 'az.completions.bash', 'az.completions.zsh')) {
@@ -241,9 +230,6 @@ Write-Host "Copied completion scripts to bin/" -ForegroundColor Green
 # Also emit completion artifacts into artifacts/<Configuration>/Core.Cli/ for packaging
 $_cliArtifactDir = "$PSScriptRoot/../artifacts/$Configuration/Core.Cli"
 if (Test-Path $_cliArtifactDir) {
-    if ($_completionsJson) {
-        Write-Utf8NoBomFile -Path "$_cliArtifactDir/az.completions.json" -Content ($_completionsJson -join '')
-    }
     foreach ($_script in @('az.completions.ps1', 'az.completions.bash', 'az.completions.zsh')) {
         $_src = Join-Path $_completionsDir $_script
         if (Test-Path $_src) {
