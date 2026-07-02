@@ -228,7 +228,7 @@ public class ArmClient : IDisposable
             var responseBody = await response.Content.ReadAsStringAsync();
 
             // Debug: append ARG query + response to log file
-            var debugDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
+            var debugDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
             Directory.CreateDirectory(debugDir);
             var debugFile = Path.Combine(debugDir, "arg-debug.log");
             var logEntry = $"[{DateTime.Now:HH:mm:ss}] KQL: {kql}\nStatus: {response.StatusCode}\nResponse:\n{responseBody}\n---\n";

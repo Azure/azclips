@@ -23,6 +23,6 @@ jobs:
 
   - script: |
       set -euo pipefail
-      dotnet restore cirrus.slnx
-      dotnet test cirrus.slnx -c Release --verbosity normal
+      dotnet restore azclips.slnx
+      dotnet test azclips.slnx -c Release --verbosity normal
     displayName: Run Unit Tests

@@ -70,11 +70,11 @@ All under `az extension`. Kebab-case CLI convention.
 | `az extension unpin <name>`                    | Remove the pin.                                                                                                                                                                                                   |
 | `az extension show <name>`                     | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.                                                                                                              |
 
-`extension add --name <token>` resolves two ways: **dotted token** → passthrough (full package id, including third-party); **bare token** that is _not_ a known verb → legacy `Microsoft.Azure.Cirrus.Extensions.{name}` prefix-strip. A bare token that **is** a known verb in the embedded `ExtensionHintTable` is rejected with a usage error pointing the user at the owning package id (e.g. `add --name disk` errors with "use `--name Compute`"). The unit of install is a package, not a verb — accepting a verb here would silently pull in unrelated sibling verbs (Compute ships both `vm` and `disk`).
+`extension add --name <token>` resolves two ways: **dotted token** → passthrough (full package id, including third-party); **bare token** that is _not_ a known verb → legacy `Microsoft.Azure.Azclips.Extensions.{name}` prefix-strip. A bare token that **is** a known verb in the embedded `ExtensionHintTable` is rejected with a usage error pointing the user at the owning package id (e.g. `add --name disk` errors with "use `--name Compute`"). The unit of install is a package, not a verb — accepting a verb here would silently pull in unrelated sibling verbs (Compute ships both `vm` and `disk`).
 
 The same rule applies to `extension remove/show/update/pin/unpin --name <token>`: only the package id (full or short suffix) is a valid selector. A miss is enriched with a "did you mean _PackageId_?" hint when the token is a verb or namespace contributed by exactly one installed package — diagnostic only, never auto-resolves the destructive action.
 
-When `extension add --name <token>` misses every configured feed, the resulting `ExtensionNotFound` (exit 4) probes the local repo via `LocalArtifactProbe.Find` (walks up from cwd looking for `cirrus.slnx`, then globs `artifacts/Debug/<packageId>/<packageId>.*.nupkg`) and surfaces the most recently written match as an `--path` suggestion in the error message. Suggestion-only — never auto-installs from local builds.
+When `extension add --name <token>` misses every configured feed, the resulting `ExtensionNotFound` (exit 4) probes the local repo via `LocalArtifactProbe.Find` (walks up from cwd looking for `azclips.slnx`, then globs `artifacts/Debug/<packageId>/<packageId>.*.nupkg`) and surfaces the most recently written match as an `--path` suggestion in the error message. Suggestion-only — never auto-installs from local builds.
 
 ### 3.2 Conflict at install time
 
@@ -87,8 +87,8 @@ When `extension add --name <token>` misses every configured feed, the resulting 
     ```
     > az extension add Contoso.Foo
     error: [LeafConflict] Extension 'Contoso.Foo' has 2 leaf conflicts with already-installed extensions.
-      - leaf 'vm contoso-magic' is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'
-      - leaf 'disk contoso-extra' is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'
+      - leaf 'vm contoso-magic' is already owned by 'Microsoft.Azure.Azclips.Extensions.Compute'
+      - leaf 'disk contoso-extra' is already owned by 'Microsoft.Azure.Azclips.Extensions.Compute'
     Remove the conflicting extension(s) first or rename the offending leaves.
     ```
 
@@ -104,7 +104,7 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 
     ```
     > az vm list
-    Error: 'vm list' is provided by extension 'Microsoft.Azure.Cirrus.Extensions.Compute',
+    Error: 'vm list' is provided by extension 'Microsoft.Azure.Azclips.Extensions.Compute',
     which is not installed. Install it with:
       az extension add --name Compute
     ```
@@ -145,7 +145,7 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
                     "leafKey": "vm contoso-magic",
                     "verb": "vm",
                     "path": "contoso-magic",
-                    "existingPackageId": "Microsoft.Azure.Cirrus.Extensions.Compute",
+                    "existingPackageId": "Microsoft.Azure.Azclips.Extensions.Compute",
                 },
             ],
         },
@@ -163,20 +163,20 @@ Default output groups by extension:
 
 ```
 PackageId                                       Version   Namespaces             Pinned  InstalledAt
-Microsoft.Azure.Cirrus.Extensions.Compute       1.1.0     vm, disk               no      2026-04-12
-Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0     group                  no      2026-04-12
+Microsoft.Azure.Azclips.Extensions.Compute       1.1.0     vm, disk               no      2026-04-12
+Microsoft.Azure.Azclips.Extensions.Resources     1.0.0     group                  no      2026-04-12
 ```
 
 `--by-verb` regroups verb-headed:
 
 ```
 vm
-  Microsoft.Azure.Cirrus.Extensions.Compute       1.1.0
+  Microsoft.Azure.Azclips.Extensions.Compute       1.1.0
   Contoso.VmPreviewExt                            0.3.0-preview
 disk
-  Microsoft.Azure.Cirrus.Extensions.Compute       1.1.0
+  Microsoft.Azure.Azclips.Extensions.Compute       1.1.0
 group
-  Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0
+  Microsoft.Azure.Azclips.Extensions.Resources     1.0.0
 ```
 
 JSON shapes are stable: default is `[{packageId, version, namespaces, ...}]`; `--by-verb` is `{verb: [{packageId, version, ...}]}`.
@@ -193,7 +193,7 @@ A single JSON file at `~/.azclips/extensions/registry.json`:
 {
     "schemaVersion": 2,
     "extensions": {
-        "Microsoft.Azure.Cirrus.Extensions.Compute": {
+        "Microsoft.Azure.Azclips.Extensions.Compute": {
             "version": "1.1.0",
             "pinned": false,
             "source": "https://api.nuget.org/v3/index.json",
@@ -224,7 +224,7 @@ A single JSON file at `~/.azclips/extensions/registry.json`:
 
 1. **Per-leaf ownership is a stack of contributors, top-wins.** Each `(verb, path)` resolves to an ordered list; dispatch routes to the top. v1 enforces depth ≤ 1 via install-time rejection (§3.2), so callers always observe stacks of length 1. vNext `--override` pushes; `extension remove` pops, which naturally restores the contributor underneath. Built-ins are seeded as the bottom entry of their leaves' stacks at process start (§4.6); the seed is not persisted to `registry.json`. Collision-detection and dispatch code never branch on builtin-ness, only on "is the stack non-empty."
 2. **Error responses enumerate per-leaf conflicts as an array.** `LeafConflict` `details` carries every colliding `(verb, path)` from a single `add`. The `code` field is the contract (§3.4); `message` and field names inside `details` are free to evolve. Tests MUST assert on `code`, never on `message`.
-3. **PowerShell parity is cmdlet-shaped, not leaf-shaped.** The Cirrus PS modules expose flat cmdlet mappings (e.g. `Get-CirrusResourceGroup`) rather than `(verb, path)` leaves. The CLI ↔ PS bridge runs at the cmdlet-to-command-metadata layer, so PS does not consume `Contributions` directly and is unaffected by stack-vs-pointer changes to the registry shape.
+3. **PowerShell parity is cmdlet-shaped, not leaf-shaped.** The Azure PS modules expose flat cmdlet mappings (e.g. `Get-AzResourceGroup`) rather than `(verb, path)` leaves. The CLI ↔ PS bridge runs at the cmdlet-to-command-metadata layer, so PS does not consume `Contributions` directly and is unaffected by stack-vs-pointer changes to the registry shape.
 
 ### 4.2 Where contributions are declared
 
@@ -274,7 +274,7 @@ az vm create --name foo
        │
        ▼
   args[0..n] = longest-prefix match against LeafIndex (verb, path) keys
-       │  ↓ ("vm", "create")  →  "Microsoft.Azure.Cirrus.Extensions.Compute" v1.1.0
+       │  ↓ ("vm", "create")  →  "Microsoft.Azure.Azclips.Extensions.Compute" v1.1.0
        ▼
   CompatibilityGuard.Assert(asm)         ← warn-and-skip on failure (§6)
        │
@@ -312,8 +312,8 @@ A hardcoded seed dict in the host, merged with the on-disk registry at startup:
 ### 4.7 Registry hardening
 
 - **Discovery-first installed state.** Runtime routing and extension listing are driven by discovery of on-disk payloads; `registry.json` is treated as a preferences overlay only. Missing payloads therefore disappear naturally from live routing without a separate reconciliation pass.
-- **Concurrency guard.** `FileExtensionRegistryStore` captures the file's last-write timestamp at `Load()` and checks it at `Save()`. A mismatch throws `CirrusErrorException.RegistryConcurrency` so two interleaved CLI invocations can't silently overwrite each other.
-- **Invariant check.** `FileExtensionRegistryStore.Load()` enforces the leaf-uniqueness invariant by scanning every entry's `Contributions`; duplicates across packages throw `CirrusErrorException.RegistryInvalid` with both offending package ids. Catches hand-edited corruption before it reaches the `LeafIndex`.
+- **Concurrency guard.** `FileExtensionRegistryStore` captures the file's last-write timestamp at `Load()` and checks it at `Save()`. A mismatch throws `AzclipsErrorException.RegistryConcurrency` so two interleaved CLI invocations can't silently overwrite each other.
+- **Invariant check.** `FileExtensionRegistryStore.Load()` enforces the leaf-uniqueness invariant by scanning every entry's `Contributions`; duplicates across packages throw `AzclipsErrorException.RegistryInvalid` with both offending package ids. Catches hand-edited corruption before it reaches the `LeafIndex`.
 
 ### 4.8 Telemetry
 
@@ -401,18 +401,18 @@ v1 ships an embedded `extension-hints.json`. Schema is feed-ready so the fetch h
     "generatedAt": "2026-05-28T10:00:00Z",
     "sourceHostVersion": "1.2.0",
     "leaves": {
-        "vm": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "vm": { "packageId": "Microsoft.Azure.Azclips.Extensions.Compute" },
         "vm create": {
-            "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute",
+            "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
         },
-        "vm list": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
-        "disk": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "vm list": { "packageId": "Microsoft.Azure.Azclips.Extensions.Compute" },
+        "disk": { "packageId": "Microsoft.Azure.Azclips.Extensions.Compute" },
         "disk list": {
-            "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute",
+            "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
         },
-        "group": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Resources" },
+        "group": { "packageId": "Microsoft.Azure.Azclips.Extensions.Resources" },
         "group create": {
-            "packageId": "Microsoft.Azure.Cirrus.Extensions.Resources",
+            "packageId": "Microsoft.Azure.Azclips.Extensions.Resources",
         },
     },
 }
@@ -454,13 +454,13 @@ On dispatch miss, `ExtensionHintTable` walks the longest-prefix path against `ex
 Tracked, not v1.
 
 - **Feed-fetch path for `extension-hints.json`.** Additive — no host change beyond fetch + cache read. Same schema, fetched on a TTL (lean toward 24h), written to `~/.azclips/cache/extension-hints.json`. Resolution becomes cache-first if fresh, embedded fallback if cache is missing or stale. Stale fallback is silent — no "hints may be outdated" warning. Compat-aware filtering: once feed entries populate `minCoreVersion`/`maxCoreVersion`, the host can pre-filter suggestions whose package would fail the install-time compat check.
-- **Feed endpoint location.** Per-`core`-release GitHub asset, Cirrus-owned blob, or NuGet feed metadata. Pick when wiring up the fetch.
+- **Feed endpoint location.** Per-`core`-release GitHub asset, Azclips-owned blob, or NuGet feed metadata. Pick when wiring up the fetch.
 - **`extension list --available`.** Comes for free when the feed exists; out of v1 scope until then.
 - **Host core-version source-of-truth.** Today `Add.cs` and any future runtime-side caller pass the literal `"1.0.0"` to `CompatibilityGuard`. Establish a single host version (az-cli's `__version__` is the model) and thread it through. Until then `[AzclipsCompatibility]` ranges are checked against the literal — fine for v1 since no breaking host change has shipped, but the literal must move when one does.
 - **Runtime warn-and-skip in the dispatch path** (§5.3). Install-time hard fail catches the common case (operator-driven `extension add`); a runtime check protects against side-loaded packages or post-install host upgrades. Cleanest hook is a registry-side filter applied at `LeafIndex.Build` time so incompatible packages disappear from live routing with a stderr warning. Deferred only because it inherits the host-version source-of-truth question above.
 - **`HostExtensionRequirements` (inverse direction).** `Dictionary<string, VersionRange>` in `Core.Runtime` paralleling az-cli's `EXTENSION_VERSION_REQUIREMENTS`. Checked inside `CompatibilityGuard` after the extension's own range passes. Populated by the host team in the same PR that introduces a breaking change against a specific extension.
-- **`CIRRUS_DISABLE_COMPAT_CHECK` env var.** Neither az-cli nor Az PS has one. Runtime warn-and-skip is already forgiving. Additive in ~3 lines when needed.
-- **`CirrusCmdletBase : PSCmdlet`** so the PS surface gets `CompatibilityGuard.CheckAssembly` for free in `BeginProcessing`, instead of duplicating the guard call across the ~12 cmdlet entry points across four modules. Skipped in v1 because the base type doesn't exist yet and rebasing every cmdlet is its own refactor.
+- **`AZCLIPS_DISABLE_COMPAT_CHECK` env var.** Neither az-cli nor Az PS has one. Runtime warn-and-skip is already forgiving. Additive in ~3 lines when needed.
+- **`AzclipsCmdletBase : PSCmdlet`** so the PS surface gets `CompatibilityGuard.CheckAssembly` for free in `BeginProcessing`, instead of duplicating the guard call across the ~12 cmdlet entry points across four modules. Skipped in v1 because the base type doesn't exist yet and rebasing every cmdlet is its own refactor.
 - **Bounded LRU on the ALC cache** if memory matters (§4.5). Worst case ~100MB for 20 extensions today, acceptable for the TUI. Revisit only if profiling demands it.
 - **Multi-version retention.** `versions: [...]` + `activeVersion`, additive schema change. Strict single-version is the v1 stance; matches az-cli.
 - **Latency / cache guardrails.** (a) If needed, add caching around discovery metadata collection on network home dirs (SMB/NFS/OneDrive); local-SSD impact today is negligible. (b) BenchmarkDotNet target in `tests/Benchmark/` asserting a leaf-miss hot path stays under a p99 budget (~300ms), plus an assembly-load-counter contract test asserting the dispatcher never spins up an ALC on miss. Insurance against drift toward az-cli's load-everything-on-CNF behavior.
@@ -469,7 +469,7 @@ Tracked, not v1.
 - **Trust / signing / provenance.** Anything in `~/.azclips/extensions/` loads today. Shared namespaces mean unsigned third-party extensions can contribute leaves under first-party verbs (namespace squatting). Revisit before the first third-party extension ships.
 - **Registry hygiene gaps.** Schema-versioning commitment ("how many versions back do we read indefinitely?"); roaming home directories; system-wide installs. Current posture: per-user, unsupported on roaming.
 - **PowerShell parity definition.** "Same surface" vs. "same shape when both exist." Decide post-v1.
-- **PowerShell CNF integration with the embedded hint catalog.** The hint catalog already works for the CLI dispatcher's verb-miss → extension-name suggestion path. Whether the PS surface should consume the same catalog from a CNF (Command-Not-Found) handler is open: PS modules are loaded by name (`Import-Module Cirrus.Vm`) rather than dispatched by verb, so the unknown-verb shape doesn't map cleanly. Revisit when the PS team has a concrete scenario.
+- **PowerShell CNF integration with the embedded hint catalog.** The hint catalog already works for the CLI dispatcher's verb-miss → extension-name suggestion path. Whether the PS surface should consume the same catalog from a CNF (Command-Not-Found) handler is open: PS modules are loaded by name (`Import-Module Az.Compute`) rather than dispatched by verb, so the unknown-verb shape doesn't map cleanly. Revisit when the PS team has a concrete scenario.
 - **Empty-namespace declarations.** How does an extension declare a namespace it owns but ships zero leaves under (e.g. a future "Networking" extension wanting `network` for help-text purposes only)? Low priority; revisit if a use case appears.
 
 ---
