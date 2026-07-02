@@ -6,8 +6,7 @@ namespace Core.Cli
     internal static class Constants
     {
         internal const string azclipsPrefix = "Microsoft.Azure.Azclips.Extensions.";
-        internal const string cirrusPrefix = "Microsoft.Azure.Cirrus.Extensions.";
-        internal static readonly string[] extensionPackagePrefixes = [azclipsPrefix, cirrusPrefix];
+        internal static readonly string[] extensionPackagePrefixes = [azclipsPrefix];
 
         /// <summary>
         /// Strips a known extension package prefix from the front of <paramref name="packageId"/> if
@@ -17,9 +16,9 @@ namespace Core.Cli
         /// <remarks>
         /// Registry keys are stored with <see cref="System.StringComparer.OrdinalIgnoreCase"/>
         /// and NuGet package ids are case-insensitive on the wire, so a registry that holds
-        /// e.g. <c>microsoft.azure.cirrus.extensions.compute</c> would not match an ordinal
+        /// e.g. <c>microsoft.azure.azclips.extensions.compute</c> would not match an ordinal
         /// (case-sensitive) prefix check; the loader would then re-prepend the prefix and
-        /// look for <c>Microsoft.Azure.Cirrus.Extensions.microsoft.azure.cirrus.extensions.compute</c>.
+        /// look for <c>Microsoft.Azure.Azclips.Extensions.microsoft.azure.azclips.extensions.compute</c>.
         /// </remarks>
         internal static string StripKnownExtensionPrefix(string packageId)
         {

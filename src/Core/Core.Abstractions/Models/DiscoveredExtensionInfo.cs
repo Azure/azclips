@@ -12,7 +12,7 @@ namespace Core.Abstractions
     /// resolved version.
     /// </summary>
     /// <param name="PackageId">
-    /// Full NuGet package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).
+    /// Full NuGet package id (e.g. <c>Microsoft.Azure.Azclips.Extensions.Compute</c>).
     /// Derived from <see cref="CommandMetadata.AssemblyName"/> when available.
     /// </param>
     /// <param name="ResolvedVersion">

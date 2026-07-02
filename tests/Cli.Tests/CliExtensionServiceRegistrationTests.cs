@@ -26,7 +26,7 @@ public sealed class CliExtensionServiceRegistrationTests
     public void Dispatcher_ResolvesVerb_FromInjectedRegistryStore()
     {
         var registry = new ExtensionRegistry();
-        registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Widget"] = new ExtensionRegistryEntry
+        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Widget"] = new ExtensionRegistryEntry
         {
             Verb = "widget",
             Version = "1.0.0",

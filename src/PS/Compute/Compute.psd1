@@ -33,7 +33,7 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'Cirrus - Compute'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -71,7 +71,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 # TypesToProcess = @()
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Compute.dll')
+NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Compute.dll')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()
@@ -97,7 +97,7 @@ PrivateData = @{
         LicenseUri = 'https://aka.ms/azps-license'
 
         # A URL to the main website for this project.
-        ProjectUri = 'https://github.com/Azure/cirrus'
+        ProjectUri = 'https://github.com/Azure/azclips'
 
         # A URL to an icon representing this module.
         # IconUri = ''

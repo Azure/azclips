@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+using Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 using Xunit;
 
 namespace Cli.Tests;
@@ -52,7 +52,7 @@ public class ExtensionRemoveTests
     public void BuildInstalledRegistryFromFilesystem_ShouldSkipPackageDirectoryWithoutValidVersionFolder()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
-        var packageId = "Microsoft.Azure.Cirrus.Extensions.Invalid";
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Invalid";
         var packageDir = Path.Combine(tempRoot, packageId);
 
         try

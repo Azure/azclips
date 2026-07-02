@@ -137,9 +137,9 @@ internal static class CompletionGenerator
             foreach (var dir in Directory.EnumerateDirectories(root))
             {
                 var dirName = Path.GetFileName(dir);
-                if (dirName.StartsWith(Constants.cirrusPrefix, StringComparison.OrdinalIgnoreCase))
+                if (dirName.StartsWith(Constants.azclipsPrefix, StringComparison.OrdinalIgnoreCase))
                 {
-                    var shortName = dirName[Constants.cirrusPrefix.Length..];
+                    var shortName = dirName[Constants.azclipsPrefix.Length..];
                     if (!string.IsNullOrEmpty(shortName) && seen.Add(shortName))
                     {
                         yield return shortName;

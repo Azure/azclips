@@ -15,7 +15,7 @@ namespace Core.Extensions.Tests
             new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
                 ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
-                ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config"),
+                ["config"] = new("config", "Microsoft.Azure.Azclips.Extensions.Config"),
             };
 
         private static InMemoryRegistryStore EmptyStore() => new(new ExtensionRegistry());
@@ -57,7 +57,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void TryResolve_ShouldReturnRegistryEntry_WhenVerbIsInstalled()
         {
-            var store = StoreWith("Microsoft.Azure.Cirrus.Extensions.Compute", "vm", "1.1.0");
+            var store = StoreWith("Microsoft.Azure.Azclips.Extensions.Compute", "vm", "1.1.0");
             var resolver = new ExtensionResolver(store, TestBuiltIns);
 
             var found = resolver.TryResolve("vm", out var resolved);
@@ -65,7 +65,7 @@ namespace Core.Extensions.Tests
             Assert.True(found);
             Assert.NotNull(resolved);
             Assert.False(BuiltInExtensions.IsBuiltInVerb(resolved!.Verb));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", resolved.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", resolved.PackageId);
             Assert.Equal("1.1.0", resolved.Version);
         }
 

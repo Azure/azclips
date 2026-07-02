@@ -9,8 +9,7 @@ using Core.Abstractions;
 public class DefaultAssemblyLoadingProvider(): IAssemblyLoadingProvider
 {
     private const string azclipsPrefix = "Microsoft.Azure.Azclips.Extensions.";
-    private const string cirrusPrefix = "Microsoft.Azure.Cirrus.Extensions.";
-    private static readonly string[] s_extensionPackagePrefixes = [azclipsPrefix, cirrusPrefix];
+    private static readonly string[] s_extensionPackagePrefixes = [azclipsPrefix];
 
     public Assembly LoadExtension(string extensionName, string? extensionVersion = null)
     {

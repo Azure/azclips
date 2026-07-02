@@ -6,7 +6,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Config;
+using Microsoft.Azure.Azclips.Extensions.Config;
 using Tests.Common.Utilities;
 using Xunit;
 
@@ -275,7 +275,7 @@ public class ExtensionDispatcherTests
         // command name "extension remove Resources". See BuiltInExtensions.Map.
         var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
         {
-            ["extension"] = new("extension", "Microsoft.Azure.Cirrus.Extensions.Extension")
+            ["extension"] = new("extension", "Microsoft.Azure.Azclips.Extensions.Extension")
             {
                 Leaves = new[] { "add", "list", "show", "remove" },
             },
