@@ -17,7 +17,7 @@ namespace Core.Agent.Tests;
 ///
 /// Each test owns its own temp cache directory and ResourceCache instance
 /// so they are fully parallel-safe and independent of the user's real
-/// ~/.cirrus/arm-cache content.
+/// ~/.azclips/arm-cache content.
 /// </summary>
 public sealed class ResourceCacheFindResourcesTests : IDisposable
 {
@@ -27,7 +27,7 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
     public ResourceCacheFindResourcesTests()
     {
-        _cacheDir = Path.Combine(Path.GetTempPath(), "cirrus-cache-tests-" + Guid.NewGuid().ToString("N"));
+        _cacheDir = Path.Combine(Path.GetTempPath(), "azclips-cache-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_cacheDir);
         SeedDefaultFixture();
     }
