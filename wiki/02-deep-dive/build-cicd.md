@@ -9,7 +9,7 @@ Cirrus uses a layered build system with MSBuild property inheritance, two GitHub
 
 ## Solution Structure
 
-The solution file `azclips.slnx` (`azclips.slnx:1`) organizes 12 projects into four logical folders:
+The solution file `azclips.slnx` (`azclips.slnx:1`) organizes the repo projects into logical folders:
 
 ```mermaid
 flowchart TB

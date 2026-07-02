@@ -372,11 +372,11 @@ The `Build and Test` workflow (`.github/workflows/build-and-test.yml:1`) runs on
 
 | Step | Command | Line |
 |---|---|---|
-| Restore | `dotnet restore azclips.slnx` | 22 |
-| Build | `dotnet build azclips.slnx --no-restore --configuration Debug` | 25 |
-| Unit tests | `dotnet test azclips.slnx --no-build --configuration Debug` | 29 |
-| E2E CLI | `./artifacts/Debug/Core.Cli/az --help` | 33 |
-| E2E PowerShell | `Import-Module ./src/PS/Login/Login.psd1` | 44 |
+| Restore | `dotnet restore azclips.slnx` | 26 |
+| Build | `dotnet build azclips.slnx --no-restore --configuration Debug` | 29 |
+| Unit tests | `dotnet test azclips.slnx --no-build --configuration Debug` | 33 |
+| E2E CLI | `./artifacts/Debug/Core.Cli/az --help` | 37 |
+| E2E PowerShell | `Import-Module ./src/PS/Login/Login.psd1` | 47 |
 
 The PowerShell E2E step validates module import and command discovery (`.github/workflows/build-and-test.yml:46`).
 
