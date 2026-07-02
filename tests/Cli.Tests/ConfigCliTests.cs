@@ -136,7 +136,7 @@ public class ConfigCliTests
         Assert.Contains("core.logging.level = debug [global config]", globalOutput.Single());
 
         // Set environment variable (this persists for subsequent CLI invocations within the fixture)
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
 
         try
         {
@@ -146,7 +146,7 @@ public class ConfigCliTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 
@@ -225,7 +225,7 @@ public class ConfigCliTests
         using var fixture = new ConfigCommandFixture();
 
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
 
         try
         {
@@ -234,7 +234,7 @@ public class ConfigCliTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 
@@ -255,7 +255,7 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "{\"kind\":\"structured\",\"enabled\":true}");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "{\"kind\":\"structured\",\"enabled\":true}");
 
         try
         {
@@ -267,7 +267,7 @@ public class ConfigCliTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 
@@ -321,7 +321,7 @@ public class ConfigCliTests
     {
         private static readonly string[] s_environmentKeys =
         [
-            "CIRRUS_LOG_LEVEL",
+            "AZCLIPS_LOG_LEVEL",
             "ZIPKIN_ENDPOINT",
             "PS_HTTP_MAX_RETRIES",
             "AZURE_PS_HTTP_MAX_RETRIES",

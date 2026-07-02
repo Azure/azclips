@@ -182,7 +182,7 @@ Function ListConfigurationAsync(includeDefaults):
 **Key Implementation Details:**
 
 - Lock + atomic writes: Acquire lock → read file → modify in-memory JSON → write temp file → replace original → release lock. Prevents corruption on concurrent writes.
-- Environment Mapping: CIRRUS_LOG_LEVEL → core.logging.level via explicit GetEnvironmentOverrides() mapping
+- Environment Mapping: AZCLIPS_LOG_LEVEL → core.logging.level via explicit GetEnvironmentOverrides() mapping
 - Default precedence: Defaults come from reflection on option classes, not flattened service dict
 - Source attribution tracked: [default], [env], [config file] in output
 
@@ -383,7 +383,7 @@ Integration:
 3. **Path Resolution:** Walk up from test assembly location rather than using relative paths
 4. **PS vs CLI Parameter Names:** Map between -AsJson (PS) and json (CLI) in cmdlet function
 5. **ShouldProcess Confirmation:** Set/Remove cmdlets rely on standard PowerShell WhatIf/Confirm behavior
-6. **Env Override Mapping:** CIRRUS_LOG_LEVEL must explicitly map to core.logging.level; not automatic
+6. **Env Override Mapping:** AZCLIPS_LOG_LEVEL must explicitly map to core.logging.level; not automatic
 
 ## Known Limitations / Future Work
 
