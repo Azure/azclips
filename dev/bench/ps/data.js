@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782974887499,
+  "lastUpdate": 1782978243702,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -2016,6 +2016,50 @@ window.BENCHMARK_DATA = {
             "value": 5743695.701748332,
             "unit": "ns",
             "range": "± 98714.70644198732"
+          }
+        ]
+      }
+    ],
+    "Azclips PS Benchmarks": [
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8adcc5bb87b20fb41e813c85688129bf358c47b3",
+          "message": "Update root branding references to Azclips (#357)\n\n## Summary\n- Update root-level documentation branding from Cirrus to Azclips\n- Update workflow display/output names to Azclips\n- Remove obsolete legacy-name and AZv2 reference guard workflows\n\n## Validation\n- `dotnet build azclips.slnx`\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-02T17:36:11+10:00",
+          "tree_id": "93971f01756ed4c27bce28521c1de5955a0731c7",
+          "url": "https://github.com/Azure/azclips/commit/8adcc5bb87b20fb41e813c85688129bf358c47b3"
+        },
+        "date": 1782978243650,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5794950.591686761,
+            "unit": "ns",
+            "range": "± 97415.23913851535"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5786897.988149499,
+            "unit": "ns",
+            "range": "± 98724.72979638811"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5769324.032334294,
+            "unit": "ns",
+            "range": "± 99951.48562629212"
           }
         ]
       }
