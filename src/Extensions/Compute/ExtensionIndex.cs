@@ -454,6 +454,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["vm delete"]   = s_deleteVM_CLI,
             ["disk list"]   = s_listDisk_CLI,
         };
+
+        // Per-processor --profile / -Profile override (workaround until a global-parameter framework
+        // exists). Injected into every command so Compute processors accept the parameter; the Engine
+        // resolves the named profile before the processor runs.
+        static ExtensionIndex()
+        {
+            foreach (var metadata in s_cliTable.Values)
+            {
+                metadata.Parameters.TryAdd("profile", new ParameterMetadata("Profile", "profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
+            }
+            foreach (var metadata in s_psTable.Values)
+            {
+                metadata.Parameters.TryAdd("Profile", new ParameterMetadata("Profile", "Profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
+            }
+        }
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
         {

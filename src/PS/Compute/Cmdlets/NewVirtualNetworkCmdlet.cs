@@ -15,6 +15,9 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
     [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
 
@@ -64,6 +67,11 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))
         {
             parameters.Add("AddressPrefixes", AddressPrefixes!);
+        }
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;

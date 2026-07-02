@@ -16,6 +16,9 @@ public class NewResourceGroupCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = true)]
@@ -41,6 +44,11 @@ public class NewResourceGroupCmdlet : PSCmdlet
         }
         parameters.Add("Name", Name);
         parameters.Add("Location", Location);
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

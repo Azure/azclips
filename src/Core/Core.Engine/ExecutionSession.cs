@@ -22,7 +22,7 @@ internal class ExecutionSession : ISession
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
     internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, IProcessor> BindProcessor { get; set; } = null!;
-    internal Func<ExecutionSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
+    internal Func<ExecutionSession, string?, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
@@ -212,10 +212,17 @@ internal class ExecutionSession : ISession
 
     private async Task<IProcessor> GetProcessor()
     {
-        // Create context with channel-based output handler
-        ProcessorContext processorContext = await CreateProcessorContext(this);
-
         CommandMetadata commandMetadata = GetExtensionIndex().GetCommandMetadata(Invocation.CommandName, clientType);
+
+        // Global-parameter pre-binding pass: resolve and normalize the global --profile/-Profile
+        // value from the raw invocation parameters BEFORE the processor context is created, because
+        // the context (which carries the resolved Profile?) is injected via Init() ahead of the
+        // command-specific argument binding below.
+        string? profileName = ExtractGlobalProfileParameter(commandMetadata);
+
+        // Create context with channel-based output handler
+        ProcessorContext processorContext = await CreateProcessorContext(this, profileName);
+
         IProcessor processor = commandMetadata.GetInstance().Init(processorContext);
         try
         {
@@ -227,6 +234,48 @@ internal class ExecutionSession : ISession
         }
         return processor;
     }
+
+    /// <summary>
+    /// Extracts the global <c>--profile</c>/<c>-Profile</c> value from the raw invocation parameters,
+    /// normalizing surface aliases/casing via the command metadata. Returns null when the command does
+    /// not declare a profile parameter or none was supplied.
+    /// </summary>
+    private string? ExtractGlobalProfileParameter(CommandMetadata commandMetadata)
+    {
+        const string canonicalName = "Profile";
+        foreach (var (key, value) in Invocation.Parameters)
+        {
+            string resolvedKey = key;
+            if (!commandMetadata.Parameters.ContainsKey(resolvedKey)
+                && commandMetadata.ParameterAliases != null
+                && commandMetadata.ParameterAliases.TryGetValue(resolvedKey, out var canonicalKey))
+            {
+                resolvedKey = canonicalKey;
+            }
+
+            bool isProfile =
+                (commandMetadata.Parameters.TryGetValue(resolvedKey, out var metadata)
+                    && string.Equals(metadata.Name, canonicalName, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(key, canonicalName, StringComparison.OrdinalIgnoreCase);
+
+            if (isProfile)
+            {
+                return CoerceToString(value);
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Flattens a raw parameter value (scalar or CLI list-of-lists) to a single string.</summary>
+    private static string? CoerceToString(object? value) => value switch
+    {
+        null => null,
+        string s => s,
+        List<List<string>> listOfLists => listOfLists.SelectMany(l => l).FirstOrDefault(),
+        List<string> list => list.FirstOrDefault(),
+        IEnumerable<string> enumerable => enumerable.FirstOrDefault(),
+        _ => value.ToString()
+    };
 
     /// <summary>
     /// Releases the unmanaged resources used by Engine and optionally releases managed resources.

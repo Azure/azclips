@@ -119,12 +119,12 @@ public class ExtensionDispatcherTests
             "Login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
-        var commandHelp = helpProvider.GetCommandHelp(["login", "show"]);
+        var commandHelp = helpProvider.GetCommandHelp(["login"]);
 
         Assert.NotNull(groupHelp);
         Assert.NotNull(commandHelp);
         Assert.Equal("login", groupHelp!.GroupPath);
-        Assert.Equal("login show", commandHelp!.CommandPath);
+        Assert.Equal("login", commandHelp!.CommandPath);
     }
 
     // -------- Longest-prefix dispatch --------

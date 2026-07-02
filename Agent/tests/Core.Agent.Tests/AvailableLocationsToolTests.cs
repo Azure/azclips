@@ -31,7 +31,7 @@ public class AvailableLocationsToolTests
 
         var tool = new AvailableLocationsTool(
             new FakeAuthService(),
-            new FakeAuthContext(SubId),
+            new FakeProfileService(SubId),
             http);
 
         var root = await InvokeAsync(tool.FindAvailableLocations, new
@@ -69,7 +69,7 @@ public class AvailableLocationsToolTests
     {
         var tool = new AvailableLocationsTool(
             new FakeAuthService(),
-            new FakeAuthContext(SubId),
+            new FakeProfileService(SubId),
             new HttpClient(new FakeHandler(_ => "{}")));
 
         var root = await InvokeAsync(tool.FindAvailableLocations, new { vmSize = "" });
@@ -82,7 +82,7 @@ public class AvailableLocationsToolTests
     {
         var tool = new AvailableLocationsTool(
             new FakeAuthService(),
-            new FakeAuthContext(subscriptionId: null),
+            new FakeProfileService(subscriptionId: null),
             new HttpClient(new FakeHandler(_ => "{}")));
 
         var root = await InvokeAsync(tool.FindAvailableLocations, new { vmSize = "Standard_D2s_v5" });
@@ -96,7 +96,7 @@ public class AvailableLocationsToolTests
         var http = new HttpClient(new FakeHandler(_ => null, statusCode: HttpStatusCode.Forbidden, body: "denied"));
         var tool = new AvailableLocationsTool(
             new FakeAuthService(),
-            new FakeAuthContext(SubId),
+            new FakeProfileService(SubId),
             http);
 
         var root = await InvokeAsync(tool.FindAvailableLocations, new
@@ -191,7 +191,7 @@ public class AvailableLocationsToolTests
     {
         public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
-        public Task LogoutAsync(CancellationToken cancellationToken = default) =>
+        public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
         public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AuthResult
@@ -204,16 +204,23 @@ public class AvailableLocationsToolTests
             });
     }
 
-    private sealed class FakeAuthContext : IAuthContextService
+    private sealed class FakeProfileService : IProfileService
     {
-        private readonly string? _sub;
-        public FakeAuthContext(string? subscriptionId) => _sub = subscriptionId;
+        private readonly Profile? _profile;
+        public FakeProfileService(string? subscriptionId) =>
+            _profile = subscriptionId is null
+                ? null
+                : new Profile { Name = "default", TenantId = "fake-tenant", SubscriptionId = subscriptionId, CloudName = "AzureCloud" };
 
-        public Task<AuthContext?> GetCurrentContextAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<AuthContext?>(_sub is null ? null : new AuthContext("fake-tenant", _sub));
-        public Task SaveContextAsync(AuthContext authContext, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-        public Task ClearContextAsync(CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Profile>>(_profile is null ? Array.Empty<Profile>() : new[] { _profile });
+        public Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_profile is not null && _profile.Name == name ? _profile : null);
+        public Task SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> RemoveProfileAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<string?> GetActiveProfileNameAsync(CancellationToken cancellationToken = default) => Task.FromResult(_profile?.Name);
+        public Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) => Task.FromResult(_profile);
+        public Task SetActiveProfileNameAsync(string? name, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }
