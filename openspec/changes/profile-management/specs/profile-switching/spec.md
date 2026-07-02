@@ -1,16 +1,16 @@
 ## ADDED Requirements
 
-### Requirement: Switch active profile
-The system SHALL provide a `profile switch <name>` command that changes the active profile persistently without re-authentication.
+### Requirement: Set active profile
+The system SHALL provide a `profile set <name>` command that changes the active profile persistently without re-authentication.
 
-#### Scenario: Switch to an existing profile
-- **WHEN** user runs `azv2 profile switch staging`
+#### Scenario: Set to an existing profile
+- **WHEN** user runs `azv2 profile set staging`
 - **THEN** the active profile SHALL be set to "staging"
 - **AND** subsequent commands SHALL use the "staging" profile's tenant, subscription, and cloud
 - **AND** no MSAL login flow SHALL be triggered
 
-#### Scenario: Switch to a non-existent profile
-- **WHEN** user runs `azv2 profile switch nonexistent`
+#### Scenario: Set to a non-existent profile
+- **WHEN** user runs `azv2 profile set nonexistent`
 - **THEN** the system SHALL display an error indicating the profile does not exist
 - **AND** the active profile SHALL remain unchanged
 

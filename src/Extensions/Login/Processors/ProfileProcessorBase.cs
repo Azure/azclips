@@ -4,7 +4,7 @@ using Core.Abstractions.Runtime;
 namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
 {
     /// <summary>
-    /// Base for profile management processors (list/show/switch/remove). These commands operate
+    /// Base for profile management processors (list/show/set/remove). These commands operate
     /// without requiring a resolved <see cref="Profile"/> on the context.
     /// </summary>
     public abstract class ProfileProcessorBase : IProcessor

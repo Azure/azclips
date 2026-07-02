@@ -34,7 +34,7 @@
 - [x] 5.1 Add `ProfileProcessorBase.cs` in Login extension (similar to `LoginProcessorBase`)
 - [x] 5.2 Implement `ProfileListProcessor` — list all profiles, indicate active
 - [x] 5.3 Implement `ProfileShowProcessor` — show full details of a single profile by name
-- [x] 5.4 Implement `ProfileSwitchProcessor` — set active profile (validate exists, no re-auth)
+- [x] 5.4 Implement `ProfileSetProcessor` — set active profile (validate exists, no re-auth)
 - [x] 5.5 Implement `ProfileRemoveProcessor` — delete profile, handle active removal (clear active pointer — no fallback to temp)
 - [x] 5.6 Register all profile processors in Login `ExtensionIndex.cs` (CLI table under "profile" group, PS table with Cirrus noun)
 
@@ -52,14 +52,14 @@
 
 ## 8. PowerShell Integration
 
-- [x] 8.1 Add PowerShell cmdlets for profile processors using the `OutputStreams` / `engine.OpenExecutionSession()` pattern (Get-CirrusProfile, Switch-CirrusProfile, Remove-CirrusProfile)
+- [x] 8.1 Add PowerShell cmdlets for profile processors using the `OutputStreams` / `engine.OpenExecutionSession()` pattern (Get-CirrusProfile, Set-CirrusProfile, Remove-CirrusProfile)
 - [x] 8.2 Update Login module manifest (`Login.psd1`) with new exported cmdlets and add `ModuleInitializer` registration if needed
 - [x] 8.3 Add `-Profile` parameter to Resource, Compute, and Login PowerShell cmdlets (same resolution logic as CLI `--profile`)
 
 ## 9. Tests
 
 - [x] 9.1 Unit tests for `ProfileService`: CRUD operations, active profile management, persistence, atomic writes, profile name validation
-- [x] 9.2 Unit tests for profile processors: list, show, switch, remove (including edge cases like remove-active clears pointer)
+- [x] 9.2 Unit tests for profile processors: list, show, set, remove (including edge cases like remove-active clears pointer)
 - [x] 9.3 Unit tests for login integration: --out-profile, temp auto-create, temp is reserved, --profile re-auth, --profile + --out-profile fails fast, login returns the Profile
 - [x] 9.4 Integration tests for profile resolution order in Engine: --profile flag → active → null (error at point of use)
 - [x] 9.5 Tests for first-run/bootstrap scenarios: login succeeds with no active profile, profile list returns empty with no profiles, resource and compute commands fail clearly with null profile

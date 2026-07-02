@@ -53,7 +53,7 @@ namespace Core.Extensions
                 ["logout"] = new("logout", "Microsoft.Azure.Azclips.Extensions.Login"),
                 ["profile"] = new("profile", "Microsoft.Azure.Cirrus.Extensions.Login")
                 {
-                    Leaves = new[] { "list", "show", "switch", "remove" },
+                    Leaves = new[] { "list", "show", "set", "remove" },
                 },
                 ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config")
                 {

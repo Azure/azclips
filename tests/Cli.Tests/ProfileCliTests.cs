@@ -193,29 +193,29 @@ public sealed class ProfileCliTests
         Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "show"]));
     }
 
-    // ── profile switch ──
+    // ── profile set ──
 
     [Fact]
-    public async Task ProfileSwitch_ShouldSetActiveProfile()
+    public async Task ProfileSet_ShouldSetActiveProfile()
     {
         using var fixture = new ProfileCliFixture();
         fixture.SeedProfile("prod", "sub-1");
         fixture.SeedProfile("staging", "sub-2");
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
-        fixture.ExecuteCli(["profile", "switch", "staging"]);
+        fixture.ExecuteCli(["profile", "set", "staging"]);
 
         Assert.Equal("staging", await fixture.Profiles.GetActiveProfileNameAsync());
     }
 
     [Fact]
-    public async Task ProfileSwitch_NonExistent_ShouldFail_AndLeaveActiveUnchanged()
+    public async Task ProfileSet_NonExistent_ShouldFail_AndLeaveActiveUnchanged()
     {
         using var fixture = new ProfileCliFixture();
         fixture.SeedProfile("prod", "sub-1");
         await fixture.Profiles.SetActiveProfileNameAsync("prod");
 
-        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "switch", "nope"]));
+        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "set", "nope"]));
         Assert.Equal("prod", await fixture.Profiles.GetActiveProfileNameAsync());
     }
 

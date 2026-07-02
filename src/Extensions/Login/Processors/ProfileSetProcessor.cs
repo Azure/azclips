@@ -5,7 +5,7 @@ using Core.DependencyInjection;
 namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
 {
     /// <summary>Sets the active profile persistently. Validates existence; performs no re-authentication.</summary>
-    public class ProfileSwitchProcessor : ProfileProcessorBase
+    public class ProfileSetProcessor : ProfileProcessorBase
     {
         [ArgumentInfo(
         Required = true,

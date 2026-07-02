@@ -19,7 +19,7 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 - `"temp"` is a reserved profile name used exclusively by bare login
 
 **Non-Goals:**
-- Commands for creating or modifying profiles directly (e.g. `profile create`, `profile set`) — deferred to a future configuration-management change
+- Commands for creating or modifying profiles directly (e.g. `profile create`) — deferred to a future configuration-management change
 - Sovereign cloud MSAL endpoint wiring (follow-up work)
 - Global parameter framework (dependency, not blocker — `--profile` implemented per-processor as workaround, scoped to Resource and Login for this change)
 - Profile import/export or sharing between machines
@@ -73,7 +73,7 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 **Decision**: `azv2 logout` signs out the active profile. When an active profile exists, it (1) removes that profile's associated account from the shared MSAL token cache and (2) clears the active-profile pointer. The account is identified by the profile's `UserPrincipalName` (which maps to MSAL's `IAccount.Username`). The profile definition itself is retained — only the active pointer is cleared. When no profile is active, logout is a no-op. `IAuthService.LogoutAsync` is narrowed from "remove all cached accounts" to "remove the single account matching a supplied `UserPrincipalName`"; when the active profile has no `UserPrincipalName`, no account is removed but the active pointer is still cleared.
 
-**Rationale**: The MSAL cache is shared across profiles and stores tokens keyed by tenant+user, so a blanket cache clear would sign out accounts belonging to other profiles. Targeting removal by the active profile's `UserPrincipalName` scopes logout to the account the user is actually signing out of. Clearing the active pointer (rather than deleting the profile) matches user expectations: logging out ends the session but preserves the named connection so it can be re-activated with `profile switch` or refreshed with `login --profile`. Gating both steps on the presence of an active profile keeps `logout` safe to run at any time.
+**Rationale**: The MSAL cache is shared across profiles and stores tokens keyed by tenant+user, so a blanket cache clear would sign out accounts belonging to other profiles. Targeting removal by the active profile's `UserPrincipalName` scopes logout to the account the user is actually signing out of. Clearing the active pointer (rather than deleting the profile) matches user expectations: logging out ends the session but preserves the named connection so it can be re-activated with `profile set` or refreshed with `login --profile`. Gating both steps on the presence of an active profile keeps `logout` safe to run at any time.
 
 **Alternative considered**: (A) Keep the no-op skeleton — rejected now that profile semantics are settled. (B) Remove all cached accounts on logout — rejected because it signs out accounts shared by other profiles. (C) Also delete the active profile definition — rejected because it discards reusable connection state; `profile remove` is the explicit path for deletion.
 

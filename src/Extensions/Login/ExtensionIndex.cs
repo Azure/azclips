@@ -16,12 +16,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
         private const string PSCommandPrefix = "Az";
 
 #region PS Command Metadata
-        private static readonly CommandMetadata s_login_PS = new(
+        private static readonly CommandMetadata psLogin = new(
             Name: nameof(Processors.LoginProcessor),
             InvocationName: $"Connect-{PSCommandPrefix}Account",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.LoginProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.LoginProcessor).FullName!,
+            AssemblyName: typeof(Processors.LoginProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -33,32 +33,32 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_logout_PS = new(
+        private static readonly CommandMetadata psLogout = new(
             Name: nameof(Processors.LogoutProcessor),
             InvocationName: $"Disconnect-{PSCommandPrefix}Account",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.LogoutProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.LogoutProcessor).FullName!,
+            AssemblyName: typeof(Processors.LogoutProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.LogoutProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_profileList_PS = new(
+        private static readonly CommandMetadata psProfileList = new(
             Name: nameof(Processors.ProfileListProcessor),
             InvocationName: $"Get-{PSCommandPrefix}Profile_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileListProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.ProfileListProcessor).FullName!,
+            AssemblyName: typeof(Processors.ProfileListProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.ProfileListProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_profileShow_PS = new(
+        private static readonly CommandMetadata psProfileShow = new(
             Name: nameof(Processors.ProfileShowProcessor),
             InvocationName: $"Get-{PSCommandPrefix}Profile_Show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileShowProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.ProfileShowProcessor).FullName!,
+            AssemblyName: typeof(Processors.ProfileShowProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.ProfileShowProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -67,25 +67,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_profileSwitch_PS = new(
-            Name: nameof(Processors.ProfileSwitchProcessor),
+        private static readonly CommandMetadata psProfileSet = new(
+            Name: nameof(Processors.ProfileSetProcessor),
             InvocationName: $"Set-{PSCommandPrefix}Profile",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileSwitchProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
-            ProcessorType: typeof(Processors.ProfileSwitchProcessor),
+            FullName: typeof(Processors.ProfileSetProcessor).FullName!,
+            AssemblyName: typeof(Processors.ProfileSetProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.ProfileSetProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Name"] = new("Name", "Name", typeof(string), "The name of the profile to activate.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_profileRemove_PS = new(
+        private static readonly CommandMetadata psProfileRemove = new(
             Name: nameof(Processors.ProfileRemoveProcessor),
             InvocationName: $"Remove-{PSCommandPrefix}Profile",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileRemoveProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.ProfileRemoveProcessor).FullName!,
+            AssemblyName: typeof(Processors.ProfileRemoveProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.ProfileRemoveProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -96,12 +96,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
 #endregion
 
 #region CLI Command Metadata
-        private static readonly CommandMetadata s_login_CLI = new(
+        private static readonly CommandMetadata cliLogin = new(
             Name: nameof(Processors.LoginProcessor),
             InvocationName: "login",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.LoginProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.LoginProcessor).FullName!,
+            AssemblyName: typeof(Processors.LoginProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -113,32 +113,32 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_logout_CLI = new(
+        private static readonly CommandMetadata cliLogout = new(
             Name: nameof(Processors.LogoutProcessor),
             InvocationName: "logout",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.LogoutProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.LogoutProcessor).FullName!,
+            AssemblyName: typeof(Processors.LogoutProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.LogoutProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_profileList_CLI = new(
+        private static readonly CommandMetadata cliProfileList = new(
             Name: nameof(Processors.ProfileListProcessor),
             InvocationName: "profile list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileListProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.ProfileListProcessor).FullName!,
+            AssemblyName: typeof(Processors.ProfileListProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.ProfileListProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_profileShow_CLI = new(
+        private static readonly CommandMetadata cliProfileShow = new(
             Name: nameof(Processors.ProfileShowProcessor),
             InvocationName: "profile show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileShowProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.ProfileShowProcessor).FullName!,
+            AssemblyName: typeof(Processors.ProfileShowProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.ProfileShowProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -148,25 +148,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             },
             ParameterAliases: new Dictionary<string, string> { [""] = "name" }
         );
-        private static readonly CommandMetadata s_profileSwitch_CLI = new(
-            Name: nameof(Processors.ProfileSwitchProcessor),
+        private static readonly CommandMetadata cliProfileSet = new(
+            Name: nameof(Processors.ProfileSetProcessor),
             InvocationName: "profile set",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileSwitchProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
-            ProcessorType: typeof(Processors.ProfileSwitchProcessor),
+            FullName: typeof(Processors.ProfileSetProcessor).FullName!,
+            AssemblyName: typeof(Processors.ProfileSetProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.ProfileSetProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["name"] = new("Name", "name", typeof(string), "The name of the profile to activate.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { [""] = "name" }
         );
-        private static readonly CommandMetadata s_profileRemove_CLI = new(
+        private static readonly CommandMetadata cliProfileRemove = new(
             Name: nameof(Processors.ProfileRemoveProcessor),
             InvocationName: "profile remove",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileRemoveProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
+            FullName: typeof(Processors.ProfileRemoveProcessor).FullName!,
+            AssemblyName: typeof(Processors.ProfileRemoveProcessor).Assembly.GetName().Name!,
             ProcessorType: typeof(Processors.ProfileRemoveProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -176,36 +176,31 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
         );
 #endregion
 
-        // ── Dispatch Tables ──
-        private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
-        {
-            [$"Connect-{PSCommandPrefix}Account"]    = s_login_PS,
-            [$"Disconnect-{PSCommandPrefix}Account"] = s_logout_PS,
-            [$"Get-{PSCommandPrefix}Profile_List"]   = s_profileList_PS,
-            [$"Get-{PSCommandPrefix}Profile_Show"]   = s_profileShow_PS,
-            [$"Switch-{PSCommandPrefix}Profile"]     = s_profileSwitch_PS,
-            [$"Remove-{PSCommandPrefix}Profile"]     = s_profileRemove_PS,
-        };
-        private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
-        {
-            ["login"]          = s_login_CLI,
-            ["logout"]   = s_logout_CLI,
-            ["profile list"]   = s_profileList_CLI,
-            ["profile show"]   = s_profileShow_CLI,
-            ["profile switch"] = s_profileSwitch_CLI,
-            ["profile remove"] = s_profileRemove_CLI,
-        };
+#region Command Tables
+        private static readonly Dictionary<string, CommandMetadata> psTable = BuildCommandTable(
+            psLogin,
+            psLogout,
+            psProfileList,
+            psProfileShow,
+            psProfileSet,
+            psProfileRemove
+        );
+        private static readonly Dictionary<string, CommandMetadata> cliTable = BuildCommandTable(
+            cliLogin,
+            cliLogout,
+            cliProfileList,
+            cliProfileShow,
+            cliProfileSet,
+            cliProfileRemove
+        );
+        private static Dictionary<string, CommandMetadata> BuildCommandTable(params CommandMetadata[] commands) =>
+            commands.ToDictionary(cmd => cmd.InvocationName, cmd => cmd);
+#endregion
 
-        // ── Lookup ──
+#region Interface Implementation
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
         {
-            var table = clientType switch
-            {
-                ClientType.PowerShell => s_psTable,
-                ClientType.CLI => s_cliTable,
-                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
-            };
-            return table.TryGetValue(name, out var metadata)
+            return GetCommandTable(clientType).TryGetValue(name, out var metadata)
                 ? metadata
                 : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
         }
@@ -214,8 +209,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
         {
             return clientType switch
             {
-                ClientType.PowerShell => s_psTable,
-                ClientType.CLI => s_cliTable,
+                ClientType.PowerShell => psTable,
+                ClientType.CLI => cliTable,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }
@@ -223,8 +218,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
         {
             return clientType switch
             {
-                ClientType.PowerShell => s_psTable.Keys,
-                ClientType.CLI => s_cliTable.Keys,
+                ClientType.PowerShell => psTable.Keys,
+                ClientType.CLI => cliTable.Keys,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }
@@ -234,7 +229,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             return GetCommandTable(clientType).Values;
         }
 
-        private static readonly IReadOnlyList<string> s_verbs = ["login", "logout", "profile"];
-        public IReadOnlyList<string> GetVerbs() => s_verbs;
+        private static readonly IReadOnlyList<string> Verbs = ["login", "logout", "profile"];
+        public IReadOnlyList<string> GetVerbs() => Verbs;
     }
+#endregion
 }
