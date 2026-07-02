@@ -23,16 +23,16 @@
 
 ### Project and package metadata
 
-- [ ] Update extension config package metadata in `src/Extensions/Config/Extensions.Config.csproj`:
-    - [ ] `AssemblyName`
-    - [ ] `RootNamespace`
-    - [ ] `ExtName`
-    - [ ] `Description`
-    - [ ] `RepositoryUrl`
-    - [ ] `PackageId`
-- [ ] Update PS Config metadata in `src/PS/Config/Cmdlets.Config.csproj` and `src/PS/Config/Config.psd1`.
-- [ ] Update PS Resources metadata in `src/PS/Resources/Cmdlets.Resources.csproj` and `src/PS/Resources/Resources.psd1`.
-- [ ] Update PS Compute metadata in `src/PS/Compute/Cmdlets.Compute.csproj` and `src/PS/Compute/Compute.psd1`.
+- [x] Update extension config package metadata in `src/Extensions/Config/Extensions.Config.csproj`:
+    - [x] `AssemblyName`
+    - [x] `RootNamespace`
+    - [x] `ExtName`
+    - [x] `Description`
+    - [x] `RepositoryUrl`
+    - [x] `PackageId`
+- [x] Update PS Config metadata in `src/PS/Config/Cmdlets.Config.csproj` and `src/PS/Config/Config.psd1`.
+- [x] Update PS Resources metadata in `src/PS/Resources/Cmdlets.Resources.csproj` and `src/PS/Resources/Resources.psd1`.
+- [x] Update PS Compute metadata in `src/PS/Compute/Cmdlets.Compute.csproj` and `src/PS/Compute/Compute.psd1`.
 
 ## Phase 2 - Namespace and identifier renames (code-level)
 
