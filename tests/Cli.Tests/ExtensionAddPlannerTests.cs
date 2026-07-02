@@ -15,7 +15,7 @@ namespace Cli.Tests;
 /// <c>(verb, path)</c> tuples) or collide (same tuple, different package id).
 /// </summary>
 /// <remarks>
-/// Skips <c>ExtensionInstaller</c> / NuGet extraction (no nupkg packaging, no <c>~/.cirrus</c>
+/// Skips <c>ExtensionInstaller</c> / NuGet extraction (no nupkg packaging, no <c>~/.azclips</c>
 /// involvement) and stages compiled fixture DLLs into temp directories the test owns. The
 /// planner is the same code path
 /// <see cref="Microsoft.Azure.Azclips.Extensions.Extension.Processors.AddExtensionProcessor.Process()"/>
