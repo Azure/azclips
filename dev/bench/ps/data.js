@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782968935483,
+  "lastUpdate": 1782969800777,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1932,6 +1932,48 @@ window.BENCHMARK_DATA = {
             "value": 5757644.323358743,
             "unit": "ns",
             "range": "± 99583.15393003619"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c887db8e32c01e01827031796b7803df553aaa1f",
+          "message": "{Extensions/Config} Change ext/config housing from `.cirrus` to `.azclips` (#349)\n\n## Summary\n\nSwitch default user-scoped extension/config/auth paths from `.cirrus` to\n`.azclips` (hard cutover).\n\n## What Changed\n\n- Added shared home-path helper (`HomePaths`) and replaced scattered\ndefault-path literals.\n- Extension defaults now resolve to `~/.azclips/extensions`\n(install/discovery/registry defaults).\n- Config/auth/trace/cache defaults moved to `.azclips`-based paths.\n- Renamed extension module identity from\n`Microsoft.Azure.Cirrus.Extensions.Extension` to\n`Microsoft.Azure.Azclips.Extensions.Extension`.\n- Updated in-scope docs/wiki references from `.cirrus` to `.azclips`.\n\n## Non-Goals\n\n- No migration from existing `~/.cirrus/*` state.\n- No dual-read/fallback behavior.\n\n## Validation\n\n- Automated: extension/config/agent targeted test slices passed.\n- Manual: isolated runtime validation from `C:/temp/clips-test`\nconfirmed `az extension add --path ...` installs under\n`~/.azclips/extensions` and commands resolve from that location.\n\n## Deferred Follow-up\n\n- Coupling registry default-path derivation directly to\n`assemblyLoading.versionedInstallationDir` overrides.\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-02T15:13:50+10:00",
+          "tree_id": "f8e3036eb07affaec2fbd255505ed76928af040e",
+          "url": "https://github.com/Azure/azclips/commit/c887db8e32c01e01827031796b7803df553aaa1f"
+        },
+        "date": 1782969800725,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5756667.43492209,
+            "unit": "ns",
+            "range": "± 100484.12098459247"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5759598.425947056,
+            "unit": "ns",
+            "range": "± 100843.85715801489"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5752213.17331813,
+            "unit": "ns",
+            "range": "± 99938.39392499298"
           }
         ]
       }
