@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782994535456,
+  "lastUpdate": 1783035127500,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -2102,6 +2102,48 @@ window.BENCHMARK_DATA = {
             "value": 5773155.639236151,
             "unit": "ns",
             "range": "± 101074.48634822734"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4409cbd1324c7716337eb9baab21a317df3ccb40",
+          "message": "[Benchmark] Update product references to azclips (#350)\n\nUpdate product references to `azclips`.",
+          "timestamp": "2026-07-03T09:24:09+10:00",
+          "tree_id": "85c82e18273a56554039a03f9ea4647901b6f5da",
+          "url": "https://github.com/Azure/azclips/commit/4409cbd1324c7716337eb9baab21a317df3ccb40"
+        },
+        "date": 1783035127446,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5787674.101556242,
+            "unit": "ns",
+            "range": "± 99007.10070914666"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5787857.711314286,
+            "unit": "ns",
+            "range": "± 99347.44706182445"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5761396.664492505,
+            "unit": "ns",
+            "range": "± 102903.83406567267"
           }
         ]
       }
