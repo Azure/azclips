@@ -1,8 +1,8 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
-using Cirrus.Help.Tool;
-using Cirrus.Help.Tool.Validation;
+using Azclips.Help.Tool;
+using Azclips.Help.Tool.Validation;
 using Core.Abstractions;
 using Core.Cli.Help;
 using Core.Runtime;
@@ -24,12 +24,10 @@ var aggregateReport = new ValidationReport();
 string[] knownExtensionPrefixes =
 [
     "Microsoft.Azure.Azclips.Extensions.",
-    "Microsoft.Azure.Cirrus.Extensions.",
 ];
 string[] knownCmdletAssemblyPatterns =
 [
     "Microsoft.Azure.Azclips.Cmdlets.*.dll",
-    "Microsoft.Azure.Cirrus.Cmdlets.*.dll",
 ];
 
 var structureReport = new MarkdownStructureValidator().Validate(repoRoot);

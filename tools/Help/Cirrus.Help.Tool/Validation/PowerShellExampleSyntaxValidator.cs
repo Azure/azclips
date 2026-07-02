@@ -6,7 +6,7 @@ using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Text.RegularExpressions;
 
-namespace Cirrus.Help.Tool.Validation
+namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Validates PowerShell examples in help markdown against the live <see cref="CmdletIndex"/>:
@@ -265,13 +265,13 @@ namespace Cirrus.Help.Tool.Validation
 
             if (!cmdlets.TryGet(name, out var metadata))
             {
-                // Inside a help example, every command leader must be a registered Cirrus cmdlet.
+                // Inside a help example, every command leader must be a registered AzClips cmdlet.
                 // Native commands (`az`, `dotnet`, `git`), built-in PS cmdlets we don't ship, or
                 // plain typos all fall here. We deliberately do not whitelist anything — help docs
-                // exist to demonstrate Cirrus cmdlets, not arbitrary shell commands.
+                // exist to demonstrate AzClips cmdlets, not arbitrary shell commands.
                 report.AddError(
                     ProblemIds.PSL1_UnknownCmdlet,
-                    $"Unknown cmdlet '{name}' in PowerShell example. Not registered by any Cirrus cmdlet assembly.",
+                    $"Unknown cmdlet '{name}' in PowerShell example. Not registered by any AzClips cmdlet assembly.",
                     locator);
                 return;
             }

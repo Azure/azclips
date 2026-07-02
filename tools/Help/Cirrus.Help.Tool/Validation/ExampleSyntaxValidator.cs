@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Core.Cli.Help;
 
-namespace Cirrus.Help.Tool.Validation
+namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Validates CLI examples in help markdown against the live <see cref="IExtensionIndex"/>:

@@ -3,7 +3,7 @@
 
 using Core.Cli.Help;
 
-namespace Cirrus.Help.Tool.Tests
+namespace Azclips.Help.Tool.Tests
 {
     /// <summary>
     /// Tests for the hand-rolled <see cref="FrontmatterParser"/>

@@ -3,7 +3,7 @@
 
 using System.Text.RegularExpressions;
 
-namespace Cirrus.Help.Tool.Validation
+namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Shared helpers that flag stub content left over from scaffolding (TODO markers,

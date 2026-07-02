@@ -2,9 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Management.Automation;
-using Cirrus.Help.Tool.Validation;
+using Azclips.Help.Tool.Validation;
 
-namespace Cirrus.Help.Tool.Tests
+namespace Azclips.Help.Tool.Tests
 {
     public class PowerShellExampleSyntaxValidatorTests
     {
@@ -208,7 +208,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldError_OnNativeCommand()
         {
             // Help docs are for cmdlets, not arbitrary shell commands. Anything the parser sees
-            // as a CommandAst leader must resolve to a registered Cirrus cmdlet (PSL1).
+            // as a CommandAst leader must resolve to a registered AzClips cmdlet (PSL1).
             // This is the rule that catches `az ...` baked into a PowerShell help example.
             var content = Fence("az login --subscription-id 00000000-0000-0000-0000-000000000000");
 

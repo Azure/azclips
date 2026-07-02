@@ -4,7 +4,7 @@
 using System.Management.Automation;
 using System.Reflection;
 
-namespace Cirrus.Help.Tool.Validation
+namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Static metadata for one cmdlet: <c>Verb-Noun</c> name, the union of <c>[Parameter]</c>

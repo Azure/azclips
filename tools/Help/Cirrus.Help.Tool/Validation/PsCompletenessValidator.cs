@@ -3,7 +3,7 @@
 
 using System.Management.Automation.Language;
 
-namespace Cirrus.Help.Tool.Validation
+namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Validates that every cmdlet exported by a PowerShell module's <c>.psd1</c> manifest
@@ -13,7 +13,7 @@ namespace Cirrus.Help.Tool.Validation
     /// <remarks>
     /// Reads the source manifest at <c>src/PS/&lt;Module&gt;/&lt;Module&gt;.psd1</c> (not the
     /// staged copy under <c>artifacts/Debug/PS/</c>) so the rule fails before the build
-    /// script's <c>Publish-CirrusHelpArtifacts</c> step silently skips modules without help.
+    /// script's <c>Publish-AzclipsHelpArtifacts</c> step silently skips modules without help.
     /// </remarks>
     public sealed class PsCompletenessValidator
     {

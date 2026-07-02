@@ -50,14 +50,14 @@
 
 ### Help tooling
 
-- [ ] Rename namespaces/usings from `Cirrus.Help.Tool` to AzClips naming in:
-    - [ ] `tools/Help/Cirrus.Help.Tool/Program.cs`
-    - [ ] `tools/Help/Cirrus.Help.Tool/Scaffolder.cs`
-    - [ ] `tools/Help/Cirrus.Help.Tool/Validation/*.cs`
-    - [ ] `tools/Help/Cirrus.Help.Tool.Tests/*.cs`
-- [ ] Update test project reference path/name in `tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj` if project/folder names are renamed.
-- [ ] Update Cirrus command-prefix constants in `tools/Help/Cirrus.Help.Tool/Program.cs`.
-- [ ] Update validator/test message text mentioning Cirrus where branding should change.
+- [x] Rename namespaces/usings from `Cirrus.Help.Tool` to AzClips naming in:
+    - [x] `tools/Help/Cirrus.Help.Tool/Program.cs`
+    - [x] `tools/Help/Cirrus.Help.Tool/Scaffolder.cs`
+    - [x] `tools/Help/Cirrus.Help.Tool/Validation/*.cs`
+    - [x] `tools/Help/Cirrus.Help.Tool.Tests/*.cs`
+- [x] Update test project reference path/name in `tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj` if project/folder names are renamed. (Not required in this pass: project/folder names were not renamed.)
+- [x] Update Cirrus command-prefix constants in `tools/Help/Cirrus.Help.Tool/Program.cs`.
+- [x] Update validator/test message text mentioning Cirrus where branding should change.
 
 ### Extension management code paths
 
@@ -75,7 +75,8 @@
 - [ ] Decide strategy for `Invoke-CirrusRestMethod`:
     - [ ] Keep as compatibility alias only.
     - [ ] Introduce new AzClips cmdlet name and keep old alias.
-    - [ ] Fully rename and update docs/examples.
+    - [x] Fully rename and update docs/examples.
+- [x] Decision note: hard cutoff for `Invoke-CirrusRestMethod` naming (no compatibility alias retained).
 - [ ] If changing name, update both code and indices:
     - [ ] `src/PS/Resources/Cmdlets/InvokeCirrusRestMethodCmdlet.cs`
     - [ ] `src/Extensions/Resources/ExtensionIndex.cs`

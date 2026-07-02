@@ -3,7 +3,7 @@
 
 using Core.Cli.Help;
 
-namespace Cirrus.Help.Tool.Validation
+namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Validates that markdown help files under <c>src/CLI/Help/Docs/{extension}/</c> meet
