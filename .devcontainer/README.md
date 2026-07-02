@@ -1,6 +1,6 @@
 # Dev Container Configuration
 
-This directory contains the configuration for the Cirrus development container.
+This directory contains the configuration for the azclips development container.
 
 ## Files
 

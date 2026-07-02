@@ -6,7 +6,7 @@
 
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "app",
-	"workspaceFolder": "/workspaces/cirrus",
+	"workspaceFolder": "/workspaces/azclips",
 
 	// Increase memory limits for running local LLM models 
 	//
