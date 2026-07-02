@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782977887187,
+  "lastUpdate": 1782994178293,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -2144,6 +2144,48 @@ window.BENCHMARK_DATA = {
             "value": 975042.0506253126,
             "unit": "ns",
             "range": "± 302166.58255797497"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a2eea436822b9d3787252d6a2783d4c06764773",
+          "message": "feat(completions): switch to dynamic runtime discovery (#340)\n\nShell completion scripts now invoke 'az --completions [group] [sub]' at\ntab time instead of reading a static JSON file. This ensures completions\nalways match whichever az binary is on PATH.\n\n- Refactored az.completions.ps1, .bash, .zsh to dynamic mode\n- Removed JSON generation step from build/build.ps1\n- Updated README to reflect new architecture\n- Resolver walks up to repo root to find artifacts/*/Core.Cli/az.exe\n\n---------\n\nCo-authored-by: Julie Zhu <105691024+yanzhudd@users.noreply.github.com>",
+          "timestamp": "2026-07-02T22:07:21+10:00",
+          "tree_id": "7e60adfc708b3a99235bce702fb53674d938d3b3",
+          "url": "https://github.com/Azure/azclips/commit/1a2eea436822b9d3787252d6a2783d4c06764773"
+        },
+        "date": 1782994177888,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 988151.5639947964,
+            "unit": "ns",
+            "range": "± 308086.98982445255"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 973881.8281984596,
+            "unit": "ns",
+            "range": "± 322257.72871519567"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 966701.9544726836,
+            "unit": "ns",
+            "range": "± 310291.3821997783"
           }
         ]
       }
