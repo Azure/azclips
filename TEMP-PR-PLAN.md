@@ -61,14 +61,14 @@
 
 ### Extension management code paths
 
-- [ ] Replace hardcoded extension prefix `Microsoft.Azure.Cirrus.Extensions.` in `src/Extensions/Extension/Add.cs`.
-- [ ] Update user-facing error text "Cirrus extensions..." in `src/Extensions/Extension/Add.cs`.
-- [ ] Update solution-root probe from `cirrus.slnx` in:
-    - [ ] `src/Extensions/Extension/LocalArtifactProbe.cs`
-    - [ ] `src/CLI/Help/MarkdownCommandHelpProvider.cs`
-- [ ] Review `CirrusErrorException` references in extension management files and decide:
+- [x] Replace hardcoded extension prefix `Microsoft.Azure.Cirrus.Extensions.` in `src/Extensions/Extension/Add.cs`.
+- [x] Update user-facing error text "Cirrus extensions..." in `src/Extensions/Extension/Add.cs`.
+- [x] Update solution-root probe from `cirrus.slnx` in:
+    - [x] `src/Extensions/Extension/LocalArtifactProbe.cs`
+    - [x] `src/CLI/Help/MarkdownCommandHelpProvider.cs`
+- [x] Review `CirrusErrorException` references in extension management files and decide:
     - [ ] Keep type name for compatibility for now.
-    - [ ] Or rename type and migrate all call sites together.
+    - [x] Or rename type and migrate all call sites together.
 
 ### PowerShell cmdlet naming
 

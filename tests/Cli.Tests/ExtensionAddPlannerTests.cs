@@ -99,7 +99,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
             Contributions = new List<Contribution>(firstContribs),
         };
 
-        var ex = Assert.Throws<CirrusErrorException>(() =>
+        var ex = Assert.Throws<AzclipsErrorException>(() =>
             ExtensionAddPlanner.PlanContributions(
                 "Cirrus.Tests.Fixtures.SharedAlpha.Impostor",
                 new[] { "sharedverb" },
@@ -167,7 +167,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
             "sharedverb gamma",
         };
 
-        var ex = Assert.Throws<CirrusErrorException>(() =>
+        var ex = Assert.Throws<AzclipsErrorException>(() =>
             ExtensionAddPlanner.PlanContributions(
                 "Candidate.Pkg",
                 new[] { "sharedverb" },
@@ -231,7 +231,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         // Every leaf-key's first token must match a declared [ExtensionVerb]. The build-time
         // hint generator catches this at PR time; the planner enforces it again at install
         // time so a hand-rolled DLL can't slip through.
-        var ex = Assert.Throws<CirrusErrorException>(() =>
+        var ex = Assert.Throws<AzclipsErrorException>(() =>
             ExtensionAddPlanner.PlanContributions(
                 "Cirrus.Tests.Fixtures.SharedAlpha",
                 new[] { "sharedverb" },

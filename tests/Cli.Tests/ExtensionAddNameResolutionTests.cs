@@ -30,22 +30,22 @@ public class ExtensionAddNameResolutionTests
     [Fact]
     public void ResolvePackageId_ShouldThrowUsageError_WhenNameIsAVerb()
     {
-        var hints = HintsWith(("vm", "Microsoft.Azure.Cirrus.Extensions.Compute"));
+        var hints = HintsWith(("vm", "Microsoft.Azure.Azclips.Extensions.Compute"));
 
-        var ex = Assert.Throws<CirrusErrorException>(
+        var ex = Assert.Throws<AzclipsErrorException>(
             () => AddExtensionProcessor.ResolvePackageId("vm", hints));
 
         Assert.Equal("UsageError", ex.Code);
         Assert.Contains("--name Compute", ex.Message);
-        Assert.Contains("Microsoft.Azure.Cirrus.Extensions.Compute", ex.Message);
+        Assert.Contains("Microsoft.Azure.Azclips.Extensions.Compute", ex.Message);
     }
 
     [Fact]
     public void ResolvePackageId_ShouldThrowUsageError_WhenNameIsAVerb_CaseInsensitive()
     {
-        var hints = HintsWith(("vm", "Microsoft.Azure.Cirrus.Extensions.Compute"));
+        var hints = HintsWith(("vm", "Microsoft.Azure.Azclips.Extensions.Compute"));
 
-        var ex = Assert.Throws<CirrusErrorException>(
+        var ex = Assert.Throws<AzclipsErrorException>(
             () => AddExtensionProcessor.ResolvePackageId("VM", hints));
 
         Assert.Equal("UsageError", ex.Code);
@@ -55,11 +55,11 @@ public class ExtensionAddNameResolutionTests
     public void ResolvePackageId_ShouldPrefixStrip_WhenNameMissesHintAndIsBare()
     {
         // "Resources" is a first-party short name, not a verb in the catalog.
-        var hints = HintsWith(("vm", "Microsoft.Azure.Cirrus.Extensions.Compute"));
+        var hints = HintsWith(("vm", "Microsoft.Azure.Azclips.Extensions.Compute"));
 
         var result = AddExtensionProcessor.ResolvePackageId("Resources", hints);
 
-        Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Resources", result);
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.Resources", result);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class ExtensionAddNameResolutionTests
     {
         // A dotted token is a fully qualified package id and is trusted as-is, even if a
         // collision-shaped key is in the hint catalog. Don't second-guess the user.
-        var hints = HintsWith(("Contoso.Foo", "Microsoft.Azure.Cirrus.Extensions.Compute"));
+        var hints = HintsWith(("Contoso.Foo", "Microsoft.Azure.Azclips.Extensions.Compute"));
 
         var result = AddExtensionProcessor.ResolvePackageId("Contoso.Foo", hints);
 
@@ -80,10 +80,10 @@ public class ExtensionAddNameResolutionTests
         var hints = new ExtensionHintTable();
 
         var result = AddExtensionProcessor.ResolvePackageId(
-            "Microsoft.Azure.Cirrus.Extensions.Compute",
+            "Microsoft.Azure.Azclips.Extensions.Compute",
             hints);
 
-        Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", result);
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", result);
     }
 
     [Fact]

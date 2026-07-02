@@ -107,7 +107,7 @@ namespace Core.Extensions
                 var current = File.GetLastWriteTimeUtc(_path);
                 if (current != expected)
                 {
-                    throw CirrusErrorException.RegistryConcurrency(
+                    throw AzclipsErrorException.RegistryConcurrency(
                         $"Registry file '{_path}' was modified by another process between this command's read " +
                         $"and write. Retry the command. (expected write time {expected:o}, current {current:o})",
                         new Dictionary<string, object?>
@@ -179,7 +179,7 @@ namespace Core.Extensions
         /// <summary>
         /// Verifies the leaf-uniqueness invariant: no two contributions in the registry may
         /// declare the same <c>(verb, path)</c> tuple, whether they belong to different entries
-        /// or to the same entry. Throws <see cref="CirrusErrorException.RegistryInvalid"/> on
+        /// or to the same entry. Throws <see cref="AzclipsErrorException.RegistryInvalid"/> on
         /// violation so callers can recover (e.g. by editing the file).
         /// </summary>
         /// <remarks>
@@ -198,7 +198,7 @@ namespace Core.Extensions
                     var key = string.IsNullOrEmpty(c.Path) ? c.Verb : $"{c.Verb} {c.Path}";
                     if (!perEntrySeen.Add(key))
                     {
-                        throw CirrusErrorException.RegistryInvalid(
+                        throw AzclipsErrorException.RegistryInvalid(
                             $"Registry entry '{packageId}' contains duplicate contribution '{key}'. " +
                             $"Edit registry.json to remove the duplicate, or run 'az extension remove' " +
                             $"and reinstall.",
@@ -211,7 +211,7 @@ namespace Core.Extensions
                     if (seen.TryGetValue(key, out var owner) &&
                         !string.Equals(owner, packageId, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw CirrusErrorException.RegistryInvalid(
+                        throw AzclipsErrorException.RegistryInvalid(
                             $"Registry contains duplicate contribution '{key}' claimed by both '{owner}' and '{packageId}'. " +
                             $"Edit registry.json to remove one, or run 'az extension remove' for the offender.",
                             new Dictionary<string, object?>

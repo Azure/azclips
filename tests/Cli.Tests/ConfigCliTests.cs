@@ -11,7 +11,7 @@ using Core.DependencyInjection;
 using Core.Runtime;
 using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Azure.Cirrus.Extensions.Config.Commands;
+using Microsoft.Azure.Azclips.Extensions.Config.Commands;
 using Tests.Common.Stubs;
 
 namespace Cli.Tests;
@@ -418,12 +418,14 @@ public class ConfigCliTests
         // Resolve path from test assembly location
         var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
         var repoRoot = Path.GetDirectoryName(testAssemblyPath);
-        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
+        while (!string.IsNullOrEmpty(repoRoot)
+               && !File.Exists(Path.Combine(repoRoot, "azclips.slnx"))
+               && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
         {
             repoRoot = Path.GetDirectoryName(repoRoot);
         }
 
-        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing cirrus.slnx from test assembly location.");
+        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing azclips.slnx (or legacy cirrus.slnx) from test assembly location.");
 
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
@@ -445,7 +447,7 @@ public class ConfigCliTests
             Assert.Contains(cmdlet, manifestContent);
         }
 
-        Assert.Contains("Microsoft.Azure.Cirrus.Cmdlets.Config.dll", manifestContent);
+        Assert.Contains("Microsoft.Azure.Azclips.Cmdlets.Config.dll", manifestContent);
         Assert.Contains("FunctionsToExport = @()", manifestContent);
     }
 
@@ -455,12 +457,14 @@ public class ConfigCliTests
         // Resolve path from test assembly location
         var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
         var repoRoot = Path.GetDirectoryName(testAssemblyPath);
-        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
+        while (!string.IsNullOrEmpty(repoRoot)
+               && !File.Exists(Path.Combine(repoRoot, "azclips.slnx"))
+               && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
         {
             repoRoot = Path.GetDirectoryName(repoRoot);
         }
 
-        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing cirrus.slnx from test assembly location.");
+        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing azclips.slnx (or legacy cirrus.slnx) from test assembly location.");
 
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
@@ -472,7 +476,7 @@ public class ConfigCliTests
         Assert.Contains("Core.Configuration.dll", manifestContent);
         Assert.Contains("Core.Engine.dll", manifestContent);
         Assert.Contains("Core.DependencyInjection.dll", manifestContent);
-        Assert.Contains("Microsoft.Azure.Cirrus.Extensions.Config.dll", manifestContent);
+        Assert.Contains("Microsoft.Azure.Azclips.Extensions.Config.dll", manifestContent);
 
         // Verify cmdlets are exported
         Assert.Contains("Get-AzConfig", manifestContent);
@@ -485,7 +489,7 @@ public class ConfigCliTests
     [Fact]
     public void ExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
     {
-        var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
+        var extensionIndex = new Microsoft.Azure.Azclips.Extensions.Config.ExtensionIndex();
 
         var getMetadata = extensionIndex.GetCommandMetadata("Get-AzConfig", ClientType.PowerShell);
         Assert.Contains("Json", getMetadata.Parameters.Keys);

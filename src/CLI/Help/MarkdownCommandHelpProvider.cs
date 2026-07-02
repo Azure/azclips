@@ -80,7 +80,7 @@ public static class MarkdownCommandHelpProvider
             ? "index.md"
             : commandKey.Replace(' ', '-').ToLowerInvariant() + ".md";
 
-        // Repo-aware preference: if we can locate `cirrus.slnx` from BaseDirectory we're
+        // Repo-aware preference: if we can locate `azclips.slnx` from BaseDirectory we're
         // running against a developer build, so prefer the source markdown — authors
         // can edit `src/CLI/Help/Docs/...` and see results without rebuilding. If no repo
         // root is reachable (shipped install), fall back to the packaged copy next to
@@ -109,8 +109,9 @@ public static class MarkdownCommandHelpProvider
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current != null)
         {
-            var solutionPath = Path.Combine(current.FullName, "cirrus.slnx");
-            if (File.Exists(solutionPath))
+            var azclipsSolutionPath = Path.Combine(current.FullName, "azclips.slnx");
+            var cirrusSolutionPath = Path.Combine(current.FullName, "cirrus.slnx");
+            if (File.Exists(azclipsSolutionPath) || File.Exists(cirrusSolutionPath))
             {
                 return current.FullName;
             }
