@@ -1,6 +1,6 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Cirrus.Cmdlets.Resources.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
@@ -33,7 +33,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-`Invoke-CirrusRestMethod` is a universal authenticated ARM REST passthrough, mirroring `az rest` and `Invoke-AzRestMethod`. It sends an arbitrary HTTP request through the already-authenticated Cirrus pipeline to Azure Resource Manager and returns the raw response: the HTTP status code, the response headers, and the response body. When the response body is JSON, a parsed `Json` representation is also returned alongside the raw content.
+`Invoke-CirrusRestMethod` is a universal authenticated ARM REST passthrough, mirroring `az rest` and `Invoke-AzRestMethod`. It sends an arbitrary HTTP request through the already-authenticated AzClips pipeline to Azure Resource Manager and returns the raw response: the HTTP status code, the response headers, and the response body. When the response body is JSON, a parsed `Json` representation is also returned alongside the raw content.
 
 The target URL can be supplied two ways. In **Uri mode**, pass `-Uri` with an absolute ARM URL or a relative ARM path (relative paths are prefixed with `https://management.azure.com`, and the token `{subscriptionId}` is replaced with the current subscription). In **ByParameters mode**, build the URL piece-wise from `-SubscriptionId`, `-ResourceGroupName`, `-ResourceProviderName`, `-ResourceType`, `-Name`, and `-ApiVersion`. The two modes are mutually exclusive.
 

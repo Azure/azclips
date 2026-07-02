@@ -16,10 +16,10 @@
 
 ### PowerShell help markdown
 
-- [ ] Update external help file names from `Microsoft.Azure.Cirrus.*` to target branding in `src/PS/Config/help/*.md`.
-- [ ] Update external help file names from `Microsoft.Azure.Cirrus.*` to target branding in `src/PS/Resources/help/*.md`.
-- [ ] Update external help file names from `Microsoft.Azure.Cirrus.*` to target branding in `src/PS/Compute/help/*.md`.
-- [ ] Review and update all prose/examples that mention Cirrus in `src/PS/Resources/help/Invoke-CirrusRestMethod.md`.
+- [x] Update external help file names from `Microsoft.Azure.Cirrus.*` to target branding in `src/PS/Config/help/*.md`.
+- [x] Update external help file names from `Microsoft.Azure.Cirrus.*` to target branding in `src/PS/Resources/help/*.md`.
+- [x] Update external help file names from `Microsoft.Azure.Cirrus.*` to target branding in `src/PS/Compute/help/*.md`.
+- [x] Review and update all prose/examples that mention Cirrus in `src/PS/Resources/help/Invoke-CirrusRestMethod.md`.
 
 ### Project and package metadata
 
