@@ -111,7 +111,7 @@ graph TB
     subgraph Infra["Infrastructure"]
         style Infra fill:#161b22,stroke:#30363d,color:#e6edf3
         AUTH["MsalAuthService<br>Interactive + Device Code"]
-        CTX["AuthContextService<br>LocalAppData/.azclips/context.json"]
+        CTX["AuthContextService<br>{Environment.SpecialFolder.LocalApplicationData}/.azclips/context.json"]
         TEL["TelemetryService<br>OpenTelemetry + Azure Monitor"]
         OUT["ConsoleOutputAdapter<br>IOutputAdapter"]
         HTTP["HttpPipeline<br>Auth + Telemetry handlers"]
@@ -678,7 +678,7 @@ public static string ResolveAssemblyName(this string extensionName)
 └── context.json                        # Active authentication context (JSON)
 ```
 
-### Authentication Context: `LocalAppData/.azclips/context.json`
+### Authentication Context: `{Environment.SpecialFolder.LocalApplicationData}/.azclips/context.json`
 
 Managed by `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`):
 

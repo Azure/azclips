@@ -76,7 +76,7 @@ if (-not (Test-Path -Path $azExe -PathType Leaf)) {
 Write-Host 'PASS: az.exe found'
 
 $builtins = @(
-    'Microsoft.Azure.Cirrus.Extensions.Extension',
+    'Microsoft.Azure.Azclips.Extensions.Extension',
     'Microsoft.Azure.Azclips.Extensions.Login',
     'Microsoft.Azure.Cirrus.Extensions.Config'
 )

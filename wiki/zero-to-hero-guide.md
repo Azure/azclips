@@ -259,7 +259,7 @@ The `MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs`) provid
 1. **Interactive Login** — Opens browser, redirects to `http://localhost:50000` after auth
 2. **Device Code Flow** — Displays a code for headless environments
 3. **Silent Token Acquisition** — Refreshes tokens from cache without user interaction
-4. **Token Cache Persistence** — Saves tokens to `LocalAppData/.azclips/MSAL.cache` (or `MSAL.cache.plaintext` in explicit plaintext mode)
+4. **Token Cache Persistence** — Saves tokens under `{Environment.SpecialFolder.LocalApplicationData}/.azclips/MSAL.cache` (or `MSAL.cache.plaintext` in explicit plaintext mode)
 
 ```python
 # Python pseudocode for how MSAL works in Azclips
@@ -281,7 +281,7 @@ class MsalAuthService:
         raise Exception("No cached token - login required")
 ```
 
-The `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`) persists the current `TenantId` and `SubscriptionId` to `LocalAppData/.azclips/context.json` so they're available across CLI invocations.
+The `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`) persists the current `TenantId` and `SubscriptionId` under `{Environment.SpecialFolder.LocalApplicationData}/.azclips/context.json` so they're available across CLI invocations.
 
 ---
 
