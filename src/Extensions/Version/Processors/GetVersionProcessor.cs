@@ -29,9 +29,10 @@ public class GetVersionProcessor : IProcessor
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-        await Publisher.Publish(Events.ProcessorBeforeAPICall, "Gathering version information.");
+        // `az version` is a purely local gather (reflection + RuntimeInformation) with no API call,
+        // so it publishes only the processor lifecycle events. The Start/End pair is bracketed by a
+        // telemetry activity in the engine; there is no request/response stage to surface.
         var versionInfo = GatherVersionInformation();
-        await Publisher.Publish(Events.ProcessorAfterAPICall, "Version information gathered.");
 
         // Write the structured object, consistent with every other extension. The CLI output
         // formatter serializes it to JSON (like `az version`); PowerShell renders a rich object.
