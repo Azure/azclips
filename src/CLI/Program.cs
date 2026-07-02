@@ -240,7 +240,7 @@ public class Program
         return result.ToArray();
     }
 
-    // Strips `--no-cache` and propagates the bypass via the CIRRUS_NO_EXTENSION_CACHE env var,
+    // Strips `--no-cache` and propagates the bypass via AZCLIPS/CIRRUS env vars,
     // which AssemblyLoadingOptions.BypassExtensionCache reads through ConfigurationService.
     // Test hook for benchmarking.
     private static string[] ParseNoCacheFlag(string[] args)
@@ -249,6 +249,7 @@ public class Program
         {
             return args;
         }
+        Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
         Environment.SetEnvironmentVariable("CIRRUS_NO_EXTENSION_CACHE", "true");
         return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
     }

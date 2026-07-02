@@ -258,7 +258,7 @@ The `MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs`) provid
 1. **Interactive Login** — Opens browser, redirects to `http://localhost:50000` after auth
 2. **Device Code Flow** — Displays a code for headless environments
 3. **Silent Token Acquisition** — Refreshes tokens from cache without user interaction
-4. **Token Cache Persistence** — Saves tokens to `~/.azclips/MSAL.cache.plaintext`
+4. **Token Cache Persistence** — Saves tokens to `LocalAppData/.azclips/MSAL.cache.plaintext`
 
 ```python
 # Python pseudocode for how MSAL works in Cirrus
@@ -280,7 +280,7 @@ class MsalAuthService:
         raise Exception("No cached token - login required")
 ```
 
-The `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`) persists the current `TenantId` and `SubscriptionId` to `~/.azclips/context.json` so they're available across CLI invocations.
+The `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`) persists the current `TenantId` and `SubscriptionId` to `LocalAppData/.azclips/context.json` so they're available across CLI invocations.
 
 ---
 
@@ -756,7 +756,7 @@ az storage list --SubscriptionId <your-sub>
 | **EventListener** | Handles signals/events during command execution |
 | **EventData** | Event payload with ID, message, request/response |
 | **MsalAuthService** | MSAL-based token acquisition service |
-| **AuthContextService** | Persists auth state to `~/.azclips/context.json` |
+| **AuthContextService** | Persists auth state to `LocalAppData/.azclips/context.json` |
 | **AuthContext** | Contains `TenantId` and `SubscriptionId` |
 | **TelemetryService** | OpenTelemetry `ActivitySource` wrapper |
 | **FileExporter** | Custom exporter writing traces to local files |

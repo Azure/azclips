@@ -16,8 +16,8 @@ public sealed class AssemblyLoadingOptions
     /// <summary>
     /// When true, <see cref="Core.Cli.MultiVersionExtensionLoader"/> skips its process-wide ALC cache
     /// and constructs a fresh <see cref="System.Runtime.Loader.AssemblyLoadContext"/> on every load.
-    /// Test/benchmark hook; set via the <c>--no-cache</c> CLI flag or <c>CIRRUS_NO_EXTENSION_CACHE</c>
-    /// environment variable.
+    /// Test/benchmark hook; set via the <c>--no-cache</c> CLI flag or
+    /// <c>AZCLIPS_NO_EXTENSION_CACHE</c>/<c>CIRRUS_NO_EXTENSION_CACHE</c> environment variable.
     /// </summary>
     public bool BypassExtensionCache { get; set; }
 
