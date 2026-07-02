@@ -35,7 +35,7 @@ src/PS/<Module>/help/*.md       ◄── PowerShell corpus (Get-Help, MAML via 
         │       └── PowerShell: full example list, MAML XML
         │
         └── build time ───────────────────────────────────────────
-              Cirrus.Help.Tool (dotnet run)
+              .Help.Tool (dotnet run)
                 ├── MarkdownStructureValidator
                 ├── HelpCompletenessValidator           (CLI: per extension)
                 ├── ExampleSyntaxValidator              (CLI examples)
@@ -54,7 +54,7 @@ Two consumers, one source. The CLI runtime reads markdown from the host's conten
 
 ## 3. Help Routing via Discovery (Runtime Model)
 
-Help resolution in Cirrus is **discovery-backed**. The runtime uses the same `DiscoverySession` that powers extension dispatch and listing to route help requests. This ensures help is always in sync with what's actually installed.
+Help resolution in  is **discovery-backed**. The runtime uses the same `DiscoverySession` that powers extension dispatch and listing to route help requests. This ensures help is always in sync with what's actually installed.
 
 ### 3.1 Root Help (`az --help`)
 
@@ -175,8 +175,8 @@ The runtime supports a source-tree fallback for repo contributors: if the packag
 
 PowerShell help is delivered the standard way: a `.dll-Help.xml` MAML file colocated with the cmdlet assembly. Built from the same markdown corpus:
 
-1. `Cirrus.Help.Tool` parses markdown for every command in a PS extension.
-2. It emits `artifacts/help/powershell/Microsoft.Azure.Cirrus.Cmdlets.<Ext>.dll-Help.xml`.
+1. `.Help.Tool` parses markdown for every command in a PS extension.
+2. It emits `artifacts/help/powershell/Microsoft.Azure..Cmdlets.<Ext>.dll-Help.xml`.
 3. `build.ps1 -GenerateHelpArtifacts` copies the XML into `src/PS/<Module>/en-US/` (handles both `RootModule` and `NestedModules` manifests).
 
 Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Examples preserve quoting and surface in `-Examples` mode.
@@ -185,7 +185,7 @@ Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Exampl
 
 ## 7. Build-Time Validation Pipeline
 
-`Cirrus.Help.Tool` runs five validators in order, each emitting structured `ValidationIssue`s with a stable `ProblemId`. CI surfaces the tool via the `help-validate` job in [build-and-test.yml](../../.github/workflows/build-and-test.yml).
+`.Help.Tool` runs five validators in order, each emitting structured `ValidationIssue`s with a stable `ProblemId`. CI surfaces the tool via the `help-validate` job in [build-and-test.yml](../../.github/workflows/build-and-test.yml).
 
 | Validator                          | Checks                                                                                                                                                                                                                                                                                                                                                    | Failure mode                              |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
@@ -199,7 +199,7 @@ Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Exampl
 
 All five validators run over every extension before the tool exits; errors are aggregated, grouped by `ProblemId`, and the tool returns non-zero if any error was collected (warnings alone still exit 0). Manifest emission for a given extension is skipped if that extension has completeness errors.
 
-Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.Tool.Tests/).
+Tests live in [tools/Help/.Help.Tool.Tests/](../../tools/Help/.Help.Tool.Tests/).
 
 ---
 

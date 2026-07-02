@@ -25,7 +25,7 @@ Create the appx package using the MakeAppx tool:
 (Optional) Create a local certificate for signing the package:
 
 ```powershell
-New-SelfSignedCertificate -Type Custom -KeyUsage DigitalSignature -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}") -Subject "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" -FriendlyName "CirrusSelfSignedCertificate"
+New-SelfSignedCertificate -Type Custom -KeyUsage DigitalSignature -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}") -Subject "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" -FriendlyName "azclipsSelfSignedCertificate"
 ```
 
 Sign the package using the SignTool:
@@ -38,8 +38,8 @@ To Install, you should trust the certificate used to sign the package first. You
 
 ```powershell
 # Export to a .cer file
-Export-Certificate -Cert "Cert:\CurrentUser\My\<Your Certificate Thumbprint Here>" -FilePath "$env:TEMP\cirrus-cert.cer"
+Export-Certificate -Cert "Cert:\CurrentUser\My\<Your Certificate Thumbprint Here>" -FilePath "$env:TEMP\azclips-cert.cer"
 
 # Import to Trusted Root (requires admin privileges)
-Import-Certificate -FilePath "$env:TEMP\cirrus-cert.cer" -CertStoreLocation Cert:\LocalMachine\Root
+Import-Certificate -FilePath "$env:TEMP\azclips-cert.cer" -CertStoreLocation Cert:\LocalMachine\Root
 ```
