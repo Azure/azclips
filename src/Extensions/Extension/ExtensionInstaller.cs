@@ -27,9 +27,7 @@ public class ExtensionInstaller
     public ExtensionInstaller(ILoggingService logger, string? installPath = null, string? feedUrl = null)
     {
         _logger = logger;
-        InstallPath = installPath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".cirrus", "extensions");
+        InstallPath = installPath ?? ExtensionHomePaths.GetDefaultExtensionsRoot();
 
         TargetFramework = new NuGetFramework(".NETCoreApp", Environment.Version);
         FeedUrl = feedUrl;

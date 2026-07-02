@@ -55,7 +55,7 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 ### 2.3 How Extensions Are Packaged
 
 - **Builtin** — shipped alongside the CLI host in an `Extensions/` subdirectory
-- **User-installed** — downloaded as NuGet packages via `az extension add`, placed in `~/.cirrus/extensions/<PackageId>/<Version>/`; latest semantic version is selected automatically
+- **User-installed** — downloaded as NuGet packages via `az extension add`, placed in `~/.azclips/extensions/<PackageId>/<Version>/`; latest semantic version is selected automatically
 
 ---
 
@@ -63,9 +63,9 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 
 ### 3.1 Discovery Is Authoritative
 
-Cirrus uses **runtime discovery** to determine what extensions are installed and what they contribute. At startup, `DiscoverySession` walks the file system (`~/.cirrus/extensions/` + builtin `Extensions/`) to enumerate all available extensions and versions. This discovery output is the **authoritative source of truth** — it determines what the CLI can dispatch to, what help shows, and what the extension API lists.
+Cirrus uses **runtime discovery** to determine what extensions are installed and what they contribute. At startup, `DiscoverySession` walks the file system (`~/.azclips/extensions/` + builtin `Extensions/`) to enumerate all available extensions and versions. This discovery output is the **authoritative source of truth** — it determines what the CLI can dispatch to, what help shows, and what the extension API lists.
 
-The registry (`~/.cirrus/extensions/registry.json`) is a **preferences layer** on top of discovery. It stores user choices (pinned versions, active-version overrides, install metadata) but does **not** determine installed state. If an extension is present on disk but missing from the registry, it is still discovered and available.
+The registry (`~/.azclips/extensions/registry.json`) is a **preferences layer** on top of discovery. It stores user choices (pinned versions, active-version overrides, install metadata) but does **not** determine installed state. If an extension is present on disk but missing from the registry, it is still discovered and available.
 
 ### 3.2 DiscoveredExtensionInfo
 
@@ -90,7 +90,7 @@ public sealed record DiscoveredExtensionInfo(
 
 The discovery process is **index-only**. It does not execute command processors, but it does load extension assemblies and instantiate the extension index type to read declared verbs/commands.
 
-1. Walk `~/.cirrus/extensions/<packageId>/` — find all installed versions
+1. Walk `~/.azclips/extensions/<packageId>/` — find all installed versions
 2. Resolve the version to inspect (registry preference if present, otherwise latest semver)
 3. Load the extension assembly for the selected version
 4. Instantiate `IExtensionIndex`, then call `GetVerbs()` and `GetCommandTable()`
@@ -109,7 +109,7 @@ When multiple versions of an extension are installed, `DiscoverySession` resolve
 Example:
 
 ```
-~/.cirrus/extensions/Microsoft.Azure.Cirrus.Extensions.Compute/
+~/.azclips/extensions/Microsoft.Azure.Cirrus.Extensions.Compute/
   0.9.0/
   1.0.0/
   1.1.0/  ← Latest; selected unless registry overrides
@@ -233,7 +233,7 @@ A custom `AssemblyLoadContext` per extension with one rule:
 
 Each extension is loaded into its own `ExtensionLoadContext`. Two loaders are tried in order:
 
-1. `MultiVersionExtensionLoader` — user-installed extensions at `~/.cirrus/extensions/`
+1. `MultiVersionExtensionLoader` — user-installed extensions at `~/.azclips/extensions/`
 2. `BuiltinExtensionLoader` — bundled extensions at `<appDir>/Extensions/`
 
 Each loader creates a fresh ALC per extension. Dependencies between extensions cannot conflict.

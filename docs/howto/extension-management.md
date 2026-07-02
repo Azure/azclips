@@ -8,7 +8,7 @@ For extension **authoring**, see [Extension-Development-For-Private-Preview.md](
 
 An extension is a NuGet package that contributes one or more top-level command **namespaces** to `az`. For example, the Compute extension contributes `vm` and `disk`, so installing it makes `az vm list` and `az disk create` work.
 
-Installed extensions live under `~/.cirrus/extensions/<packageId>/<version>/`. Cirrus **discovers** them automatically at runtime by walking the extensions directory — no install manifest is required. User preferences (pinning, version selection) are stored in `~/.cirrus/extensions/registry.json` as an optional overlay on top of discovered extensions.
+Installed extensions live under `~/.azclips/extensions/<packageId>/<version>/`. Cirrus **discovers** them automatically at runtime by walking the extensions directory — no install manifest is required. User preferences (pinning, version selection) are stored in `~/.azclips/extensions/registry.json` as an optional overlay on top of discovered extensions.
 
 Built-in namespaces (`extension`, `login`, `config`) are part of the host and cannot be removed.
 
@@ -16,7 +16,7 @@ Built-in namespaces (`extension`, `login`, `config`) are part of the host and ca
 
 Cirrus uses a **discovery-first** approach to extension management:
 
-1. **Discovery** (source of truth): At runtime, Cirrus walks `~/.cirrus/extensions/` to find all installed packages and versions. This is what determines which extensions are available for dispatch, help, and listing.
+1. **Discovery** (source of truth): At runtime, Cirrus walks `~/.azclips/extensions/` to find all installed packages and versions. This is what determines which extensions are available for dispatch, help, and listing.
 2. **Registry** (preferences layer): `registry.json` records user preferences — pinned versions, active-version overrides, install timestamps — but is **not** the authoritative source of installed state. If an extension is present on disk but has no registry entry, it is still discovered and available.
 3. **Resilience**: If `registry.json` is missing or corrupted, Cirrus continues to work with discovered extensions. Users only lose their pinning preferences.
 
@@ -160,7 +160,7 @@ The pinned state is persisted in `registry.json` and consulted at runtime; unpin
 az extension remove <name>
 ```
 
-Deletes `~/.cirrus/extensions/<packageId>/` and the registry entry. Built-in namespaces (`extension`, `login`, `config`) cannot be removed.
+Deletes `~/.azclips/extensions/<packageId>/` and the registry entry. Built-in namespaces (`extension`, `login`, `config`) cannot be removed.
 
 ## Compatibility metadata
 
@@ -230,8 +230,8 @@ $env:CIRRUS_NO_EXTENSION_CACHE = "true"
 
 | Path                                                | Contents                                                                                                                                      |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/.cirrus/extensions/<packageId>/<version>/`       | Extracted DLLs for one installed version. **Authoritative source** for installed extensions.                                                  |
-| `~/.cirrus/extensions/registry.json`                | User preferences (pinning, active version override, install metadata). Optional; discovery works even if missing.                             |
+| `~/.azclips/extensions/<packageId>/<version>/`      | Extracted DLLs for one installed version. **Authoritative source** for installed extensions.                                                  |
+| `~/.azclips/extensions/registry.json`               | User preferences (pinning, active version override, install metadata). Optional; discovery works even if missing.                             |
 | `az.dll` (embedded resource `extension-hints.json`) | Build-time catalog of first-party verb → package mappings. Used for the unknown-verb suggestion in case no installed extension owns the verb. |
 
 ## Exit code reference
