@@ -1,6 +1,6 @@
-# Cirrus Benchmark Suite
+# Azclips Benchmark Suite
 
-Performance benchmarking for Cirrus CLI/PowerShell engine, comparing execution time across CLI and PowerShell products.
+Performance benchmarking for Azclips CLI/PowerShell engine, comparing execution time across CLI and PowerShell products.
 
 ## Quick Start
 
