@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782892542255,
+  "lastUpdate": 1782954931334,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1848,6 +1848,48 @@ window.BENCHMARK_DATA = {
             "value": 5766203.064008274,
             "unit": "ns",
             "range": "± 100646.54502483024"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f60c1316ee19021c1b69eca2e159a6033dcace3f",
+          "message": "refactor(agent): rename cirrus to azclips across agent-owned code (#348)\n\n## Summary\n\nRenames `cirrus` → `azclips` across code owned by the Agent squad, as\npart\nof the repo-wide rebrand. This PR only touches Agent-owned code; the\ncore-layer paths and PowerShell cmdlet renames are being handled\nseparately by the owning squads.\n\nThe changes fall into two groups:\n\n**1. Identifier / path / text rename** (`cirrus` → `Azclips` /\n`azclips`):\n\n- Assembly and trace identifiers (`cirrus-agent` → `azclips-agent`,\n  `Cirrus.Agent` → `Azclips.Agent`)\n- Agent-owned user paths (`~/.cirrus/arm-cache/` →\n`~/.azclips/arm-cache/`;\n  Copilot SDK config dir `.cirrus` → `.azclips`)\n- LLM-facing text — the three prompts (`oneshot.md` / `inline.md` /\n  `tui.md`) now say \"Azclips\" in the title and self-intro, and use\n  `azclips` in error text (e.g. `the command isn't in azclips`)\n- Tool descriptions (`HelpTools`, `HelpIndex.json`, `HelpManifest.json`)\n- Environment probe field `CirrusVersion` → `AzclipsVersion`\n- Builtin-provider APIM route `.../cirrus/openai/` →\n`.../azclips/openai/`\n  (**⚠️ needs matching APIM redeploy**, see azure-client-tools-copilot\n  PR #1867)\n- New `agent.provider` row in `docs/howto/config.md` and matching\n  `ConfigurationSchema.cs` description\n\n**2. Hard-rule sentence added to all three prompts** so the LLM doesn't\napply its classic Azure CLI training knowledge to our `az`:\n\n> This `az` is Azclips — Microsoft's next-gen Azure CLI, NOT the classic\n> Azure CLI (azure-cli). Your training knowledge about classic `az`\n> (parameter names, defaults, which commands exist) may be wrong here.\n> Verify every command with `get_command()`; never assume classic-CLI\n> syntax.",
+          "timestamp": "2026-07-02T11:07:42+10:00",
+          "tree_id": "ffaa1804b30fc83a87d220c12a6a8d4435599567",
+          "url": "https://github.com/Azure/azclips/commit/f60c1316ee19021c1b69eca2e159a6033dcace3f"
+        },
+        "date": 1782954931286,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5763616.007391403,
+            "unit": "ns",
+            "range": "± 101536.08091493974"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5750826.923635539,
+            "unit": "ns",
+            "range": "± 102159.61381233635"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5728787.367412141,
+            "unit": "ns",
+            "range": "± 102454.49592510394"
           }
         ]
       }
