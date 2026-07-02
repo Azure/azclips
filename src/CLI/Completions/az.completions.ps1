@@ -164,11 +164,13 @@ function global:_azGetCompletions {
     })
 }
 
-# Register native argument completer (fallback for scripts that invoke completions directly)
-Register-ArgumentCompleter -Native -CommandName az -ScriptBlock {
-    param($wordToComplete, $commandAst, $cursorPosition)
-    $line = $commandAst.ToString()
-    _azGetCompletions $line $cursorPosition
+# Register native argument completer for both az and az.exe
+foreach ($_cmd in @('az', 'az.exe')) {
+    Register-ArgumentCompleter -Native -CommandName $_cmd -ScriptBlock {
+        param($wordToComplete, $commandAst, $cursorPosition)
+        $line = $commandAst.ToString()
+        _azGetCompletions $line $cursorPosition
+    }
 }
 
 # Override TabExpansion2 so PSReadLine's MenuComplete works for az
@@ -203,7 +205,7 @@ function global:TabExpansion2 {
         $line = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $inputScript } else { $ast.Extent.Text }
         $cursor = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $cursorColumn } else { $positionOfCursor.Offset }
 
-        if ($line -match '^\s*az\s') {
+        if ($line -match '^\s*(\S*[\\/])?az(\.exe)?\s') {
             $results = @(_azGetCompletions $line $cursor)
             if ($results.Count -gt 0) {
                 $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))

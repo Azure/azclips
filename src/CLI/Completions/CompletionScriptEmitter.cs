@@ -60,7 +60,7 @@ internal static class CompletionScriptEmitter
 
         var script = File.ReadAllText(scriptPath);
         var patched = PatchResolver(script, shell, exePath);
-        patched = PatchRegistration(patched, shell, cmdName);
+        patched = PatchRegistration(patched, shell, cmdName, exePath);
         Console.Write(patched);
         return 0;
     }
@@ -98,37 +98,50 @@ internal static class CompletionScriptEmitter
     /// Replaces the command registration lines so the script registers
     /// completions for the actual binary name (e.g. "myaz" instead of "az").
     /// </summary>
-    private static string PatchRegistration(string script, string shell, string cmdName)
+    private static string PatchRegistration(string script, string shell, string cmdName, string exePath)
     {
-        if (cmdName.Equals("az", StringComparison.OrdinalIgnoreCase))
-            return script; // default names, no patching needed
-
         var cmdExe = cmdName + ".exe";
+        // Normalize path separators for shell scripts
+        var shellPath = exePath.Replace("\\", "/");
 
         if (shell is "bash")
         {
+            // Register basename(s) + the full path so both 'az <Tab>' and '/path/to/az <Tab>' work
+            var names = cmdName.Equals("az", StringComparison.OrdinalIgnoreCase)
+                ? $"az az.exe \"{shellPath}\""
+                : $"{cmdName} {cmdExe} \"{shellPath}\"";
             script = script.Replace(
                 "complete -F _az_completions az az.exe",
-                $"complete -F _az_completions {cmdName} {cmdExe}");
+                $"complete -F _az_completions {names}");
         }
         else if (shell is "zsh")
         {
+            var names = cmdName.Equals("az", StringComparison.OrdinalIgnoreCase)
+                ? $"az az.exe '{shellPath}'"
+                : $"{cmdName} {cmdExe} '{shellPath}'";
             script = script.Replace(
                 "compdef _az az az.exe",
-                $"compdef _az {cmdName} {cmdExe}");
-            script = script.Replace(
-                "#compdef az",
-                $"#compdef {cmdName}");
+                $"compdef _az {names}");
+            if (!cmdName.Equals("az", StringComparison.OrdinalIgnoreCase))
+            {
+                script = script.Replace(
+                    "#compdef az",
+                    $"#compdef {cmdName}");
+            }
         }
         else
         {
-            // PowerShell: patch both ArgumentCompleter and TabExpansion2 regex
-            script = script.Replace(
-                "foreach ($_cmd in @('az', 'az.exe'))",
-                $"foreach ($_cmd in @('{cmdName}', '{cmdExe}'))");
-            script = script.Replace(
-                @"'^\s*az(\.exe)?\s'",
-                $@"'^\s*{System.Text.RegularExpressions.Regex.Escape(cmdName)}(\.exe)?\s'");
+            // PowerShell: patch ArgumentCompleter names.
+            // TabExpansion2 regex already matches any path ending in az(.exe).
+            if (!cmdName.Equals("az", StringComparison.OrdinalIgnoreCase))
+            {
+                script = script.Replace(
+                    "foreach ($_cmd in @('az', 'az.exe'))",
+                    $"foreach ($_cmd in @('{cmdName}', '{cmdExe}'))");
+                script = script.Replace(
+                    @"'^\s*(\S*[\\/])?az(\.exe)?\s'",
+                    $@"'^\s*(\S*[\\/])?{System.Text.RegularExpressions.Regex.Escape(cmdName)}(\.exe)?\s'");
+            }
         }
 
         return script;
