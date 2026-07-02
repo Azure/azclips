@@ -8,7 +8,7 @@ namespace Core.Tui.Rendering;
 static class HelpRenderer
 {
     private static readonly string HelpMarkdown = """
-        # Cirrus Help
+        # Azclips Help
 
         ## Basics
 

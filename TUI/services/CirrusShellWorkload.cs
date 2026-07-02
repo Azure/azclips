@@ -10,7 +10,7 @@ namespace Core.Tui.Services;
 /// Prompt is rendered as ANSI output (read-only). User input is captured as raw bytes.
 /// The cursor naturally stays in the editable region — no reflection hacks needed.
 /// </summary>
-sealed class CirrusShellWorkload : IHex1bTerminalWorkloadAdapter
+sealed class CustomShellWorkload : IHex1bTerminalWorkloadAdapter
 {
     private readonly AppState _state;
     private readonly Channel<byte[]> _outputChannel = Channel.CreateUnbounded<byte[]>();
@@ -26,7 +26,7 @@ sealed class CirrusShellWorkload : IHex1bTerminalWorkloadAdapter
     private const string ClearLine = "\x1b[2K";
     private const string CursorToCol1 = "\x1b[1G"; // move cursor to column 1
 
-    public CirrusShellWorkload(AppState state, int width = 80, int height = 3)
+    public CustomShellWorkload(AppState state, int width = 80, int height = 3)
     {
         _state = state;
         _width = width;

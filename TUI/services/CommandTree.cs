@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Core.Tui.Services;
 
 /// <summary>
-/// Static command tree for Cirrus CLI autocomplete.
+/// Static command tree for AzClips CLI autocomplete.
 /// Mirrors the command groups, subcommands, and arguments registered in the extension system.
 /// </summary>
 static class CommandTree

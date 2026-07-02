@@ -58,7 +58,7 @@ public static class AgentModeEntry
             IAgentRenderer renderer = consoleRenderer;
             if (agentOpts.Trace.Enabled && !string.IsNullOrWhiteSpace(agentOpts.Trace.Path))
             {
-                // Expand a leading ~ (the documented default is ~/.cirrus/trace) — .NET
+                // Expand a leading ~ (the documented default is ~/.azclips/trace) — .NET
                 // does NOT expand it, so without this the trace lands in a literal "~"
                 // directory. Resolve to an absolute path so the announced location works.
                 var traceDir = ExpandHome(agentOpts.Trace.Path);
@@ -82,7 +82,7 @@ public static class AgentModeEntry
                 onQuit:  () => cts.Cancel());
             var approval = new ConsoleApprovalPrompt(spinner, renderer, abortWatcher: watcher);
 
-            // Funnel cirrus-internal logs through the renderer so they don't
+            // Funnel Azclips-internal logs through the renderer so they don't
             // race the spinner. Verbose/Debug/Info dropped; Warn/Error become
             // HostLogEmitted events the renderer draws under its lock.
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
@@ -349,7 +349,7 @@ public static class AgentModeEntry
     }
 
     // .NET does not expand a leading "~"; do it ourselves so the documented default
-    // (~/.cirrus/trace) resolves under the user profile instead of a literal "~" dir.
+    // (~/.azclips/trace) resolves under the user profile instead of a literal "~" dir.
     private static string ExpandHome(string path)
     {
         if (path == "~")
