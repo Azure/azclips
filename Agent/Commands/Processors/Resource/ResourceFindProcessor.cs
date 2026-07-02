@@ -21,7 +21,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-            var authService = CirrusServiceProvider.GetRequiredService<IAuthService>();
+            var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var armDetails = new ArmDetailsClient(authService);
             var tool = new CachedResourceTools(armDetails);
 

@@ -21,7 +21,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-            var authContext = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
+            var authContext = AzclipsServiceProvider.GetRequiredService<IAuthContextService>();
             var prober = new EnvironmentProber(authContext, flavor: "cli");
             var snapshot = await prober.ProbeAsync(Token);
 
