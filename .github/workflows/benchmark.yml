@@ -7,7 +7,7 @@ on:
       - 'src/**'
       - 'tests/Benchmark/**'
       - 'global.json'
-      - 'cirrus.slnx'
+      - 'azclips.slnx'
       - '.github/workflows/benchmark.yml'
   pull_request:
     branches: [main]
@@ -15,7 +15,7 @@ on:
       - 'src/**'
       - 'tests/Benchmark/**'
       - 'global.json'
-      - 'cirrus.slnx'
+      - 'azclips.slnx'
       - '.github/workflows/benchmark.yml'
   workflow_dispatch:
 
@@ -41,7 +41,7 @@ jobs:
           global-json-file: global.json
 
       - name: Restore + build
-        run: dotnet build cirrus.slnx --configuration Release
+        run: dotnet build azclips.slnx --configuration Release
 
       # Stage PowerShell module manifests into artifacts/Release/PS/<Module>/.
       # The PS benchmarks import these instead of the tracked src/PS/<Module>/<Module>.psd1
@@ -62,7 +62,7 @@ jobs:
       - name: Publish CLI dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus CLI Benchmarks'
+          name: 'Azclips CLI Benchmarks'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -87,7 +87,7 @@ jobs:
       - name: Publish PS dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Cirrus PS Benchmarks'
+          name: 'Azclips PS Benchmarks'
           tool: 'benchmarkdotnet'
           output-file-path: artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
