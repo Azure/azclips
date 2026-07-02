@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783034768424,
+  "lastUpdate": 1783035670868,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -2228,6 +2228,48 @@ window.BENCHMARK_DATA = {
             "value": 967461.0639255702,
             "unit": "ns",
             "range": "± 309974.8775634121"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f4fe46ee722a53732d3fa008589c23ee759664ad",
+          "message": "{Help/Config} Update internals from `Cirrus` to `AzClips` (#354)\n\n## Summary\n- Renamed scoped Help/Config/Extension-management internals from\n`Cirrus` to `AzClips`.\n- Completed help tooling rename to `tools/Help/Azclips.Help.Tool` (+\ntests) and updated solution/build/workflow references.\n- Finalized `Invoke-AzclipsRestMethod` hard-cut rename across cmdlet\nexport, extension metadata, and help markdown.\n- Resolved help validation regressions (`login/show.md` orphan,\n`Invoke-CirrusRestMethod.md` mismatch).\n- Fixed help tool runtime loader conflict by deduplicating assembly\nloads by identity.\n- Migrated PowerShell cmdlet implementation namespaces/usings in\n`src/PS/**/Cmdlets` from `Microsoft.Azure.Cirrus.Cmdlets.*` to\n`Microsoft.Azure.Azclips.Cmdlets.*`.\n\n## Key Compatibility Decisions\n- `Invoke-CirrusRestMethod` compatibility alias was **not** retained\n(intentional hard cutoff).\n\n## Validation\n- `dotnet build azclips.slnx` succeeded.\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` succeeded.\n- `dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj` succeeded.\n- `dotnet test\ntools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj`\nsucceeded.\n- `dotnet run --project\ntools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj --configuration\nDebug -- --artifacts-root artifacts/Debug --output-root artifacts/help`\nsucceeded (`Help validation: no issues`).",
+          "timestamp": "2026-07-03T09:38:54+10:00",
+          "tree_id": "a6c71bcea53c9c70fad23a7823adb53d61598d2a",
+          "url": "https://github.com/Azure/azclips/commit/f4fe46ee722a53732d3fa008589c23ee759664ad"
+        },
+        "date": 1783035670281,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1001379.0852511507,
+            "unit": "ns",
+            "range": "± 326357.4974230405"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 978143.1548774387,
+            "unit": "ns",
+            "range": "± 323564.80797810643"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 974053.5937562537,
+            "unit": "ns",
+            "range": "± 297907.90939761535"
           }
         ]
       }
