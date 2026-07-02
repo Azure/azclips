@@ -85,20 +85,24 @@
 
 ## Phase 3 - Cleanup and consistency
 
-- [ ] Update remaining scoped comments/prose mentioning Cirrus in:
-    - [ ] `src/Extensions/Resources/Orchestrators/NewResourceGroupDeploymentProcessor_Orchestrator.cs`
-    - [ ] `src/Extensions/Resources/Orchestrators/NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.cs`
-    - [ ] `src/Extensions/Resources/Orchestrators/RestProcessor_Orchestrator.cs`
-    - [ ] `src/CLI/Help/RuntimeHelpDispatcher.cs` (comment mention)
-- [ ] Verify repository links changed from `https://github.com/Azure/cirrus` in scoped files.
-- [ ] Verify temporary test-prefix strings (for example `cirrus-help-tests-`) are intentionally kept or renamed.
+- [x] Update remaining scoped comments/prose mentioning Cirrus in:
+    - [x] `src/Extensions/Resources/Orchestrators/NewResourceGroupDeploymentProcessor_Orchestrator.cs`
+    - [x] `src/Extensions/Resources/Orchestrators/NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.cs`
+    - [x] `src/Extensions/Resources/Orchestrators/RestProcessor_Orchestrator.cs`
+    - [x] `src/CLI/Help/RuntimeHelpDispatcher.cs` (comment mention)
+- [x] Verify repository links changed from `https://github.com/Azure/cirrus` in scoped files.
+- [x] Verify temporary test-prefix strings (for example `cirrus-help-tests-`) are intentionally kept or renamed.
 
 ## Validation checklist
 
-- [ ] Build solution (`dotnet: build`).
-- [ ] Run focused tests for changed areas (help tooling, extension config/management, PS resources/config/compute).
-- [ ] Run grep again in scoped paths and confirm no unintended `Cirrus|cirrus` remains.
-- [ ] Confirm any intentionally retained names are documented in PR notes.
+- [x] Build solution (`dotnet: build`).
+- [x] Run focused tests for changed areas (help tooling, extension config/management, PS resources/config/compute).
+- [x] Run grep again in scoped paths and confirm no unintended `Cirrus|cirrus` remains.
+- [x] Confirm any intentionally retained names are documented in PR notes.
+
+### Intentionally retained names
+
+- PowerShell cmdlet implementation namespaces/usings under `src/PS/**/Cmdlets` remain `Microsoft.Azure.Cirrus.Cmdlets.*` for compatibility with existing binary/module surfaces in this PR.
 
 ## PR notes template
 

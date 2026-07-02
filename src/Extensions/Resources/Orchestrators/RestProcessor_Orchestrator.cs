@@ -346,7 +346,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             // interleaving slashes, and the ?api-version= query) are emitted literally. EscapeDataString
             // leaves unreserved characters (letters, digits, '-', '.', '_', '~') intact, so legitimate
             // values like a GUID subscription id, 'Microsoft.Storage', 'storageAccounts' or
-            // 'cirrus-test-group-1' are unchanged, while a stray '/' becomes %2F.
+            // 'azclips-test-group-1' are unchanged, while a stray '/' becomes %2F.
             var builder = new StringBuilder();
             builder.Append("/subscriptions/").Append(System.Uri.EscapeDataString(subscriptionId));
 
