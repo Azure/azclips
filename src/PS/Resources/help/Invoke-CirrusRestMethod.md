@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 06/18/2026
 PlatyPS schema version: 2024-05-01
-title: Invoke-CirrusRestMethod
+title: Invoke-AzclipsRestMethod
 ---
 
-# Invoke-CirrusRestMethod
+# Invoke-AzclipsRestMethod
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Send an authenticated REST request to Azure Resource Manager and return the raw 
 ### \_\_AllParameterSets
 
 ```
-Invoke-CirrusRestMethod [-Method <string>] [-Uri <string>] [-Payload <string>] [-Headers <Object>]
+Invoke-AzclipsRestMethod [-Method <string>] [-Uri <string>] [-Payload <string>] [-Headers <Object>]
  [-SubscriptionId <string>] [-ResourceGroupName <string>] [-ResourceProviderName <string>]
  [-ResourceType <string[]>] [-Name <string[]>] [-ApiVersion <string>] [-UriParameters <Object>]
  [<CommonParameters>]
@@ -33,7 +33,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-`Invoke-CirrusRestMethod` is a universal authenticated ARM REST passthrough, mirroring `az rest` and `Invoke-AzRestMethod`. It sends an arbitrary HTTP request through the already-authenticated AzClips pipeline to Azure Resource Manager and returns the raw response: the HTTP status code, the response headers, and the response body. When the response body is JSON, a parsed `Json` representation is also returned alongside the raw content.
+`Invoke-AzclipsRestMethod` is a universal authenticated ARM REST passthrough, mirroring `az rest` and `Invoke-AzRestMethod`. It sends an arbitrary HTTP request through the already-authenticated AzClips pipeline to Azure Resource Manager and returns the raw response: the HTTP status code, the response headers, and the response body. When the response body is JSON, a parsed `Json` representation is also returned alongside the raw content.
 
 The target URL can be supplied two ways. In **Uri mode**, pass `-Uri` with an absolute ARM URL or a relative ARM path (relative paths are prefixed with `https://management.azure.com`, and the token `{subscriptionId}` is replaced with the current subscription). In **ByParameters mode**, build the URL piece-wise from `-SubscriptionId`, `-ResourceGroupName`, `-ResourceProviderName`, `-ResourceType`, `-Name`, and `-ApiVersion`. The two modes are mutually exclusive.
 
@@ -46,7 +46,7 @@ This cmdlet performs no long-running-operation polling and no automatic paginati
 Send a `GET` to an absolute ARM path and read the parsed JSON from the response.
 
 ```powershell
-Invoke-CirrusRestMethod -Method GET -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+Invoke-AzclipsRestMethod -Method GET -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
 ```
 
 ### Example 2: Get a resource group built from parameters (ByParameters mode)
@@ -54,7 +54,7 @@ Invoke-CirrusRestMethod -Method GET -Uri "/subscriptions/{subscriptionId}/resour
 Build the ARM URL piece-wise instead of passing a full URI. The default method is `GET`.
 
 ```powershell
-Invoke-CirrusRestMethod -ResourceGroupName myRg -ApiVersion 2021-04-01
+Invoke-AzclipsRestMethod -ResourceGroupName myRg -ApiVersion 2021-04-01
 ```
 
 ### Example 3: Create or update a resource group with a JSON payload
@@ -62,7 +62,7 @@ Invoke-CirrusRestMethod -ResourceGroupName myRg -ApiVersion 2021-04-01
 Send a `PUT` with a request body and a custom header.
 
 ```powershell
-Invoke-CirrusRestMethod -Method PUT -Uri "/subscriptions/{subscriptionId}/resourcegroups/myRg?api-version=2021-04-01" -Payload '{"location":"eastus"}' -Headers @{ 'Content-Type' = 'application/json' }
+Invoke-AzclipsRestMethod -Method PUT -Uri "/subscriptions/{subscriptionId}/resourcegroups/myRg?api-version=2021-04-01" -Payload '{"location":"eastus"}' -Headers @{ 'Content-Type' = 'application/json' }
 ```
 
 ## PARAMETERS

@@ -77,11 +77,11 @@
     - [ ] Introduce new AzClips cmdlet name and keep old alias.
     - [x] Fully rename and update docs/examples.
 - [x] Decision note: hard cutoff for `Invoke-CirrusRestMethod` naming (no compatibility alias retained).
-- [ ] If changing name, update both code and indices:
-    - [ ] `src/PS/Resources/Cmdlets/InvokeCirrusRestMethodCmdlet.cs`
-    - [ ] `src/Extensions/Resources/ExtensionIndex.cs`
-    - [ ] `src/PS/Resources/help/Invoke-CirrusRestMethod.md`
-    - [ ] `src/PS/Resources/Resources.psd1`
+- [x] If changing name, update both code and indices:
+    - [x] `src/PS/Resources/Cmdlets/InvokeCirrusRestMethodCmdlet.cs`
+    - [x] `src/Extensions/Resources/ExtensionIndex.cs`
+    - [x] `src/PS/Resources/help/Invoke-CirrusRestMethod.md`
+    - [x] `src/PS/Resources/Resources.psd1`
 
 ## Phase 3 - Cleanup and consistency
 

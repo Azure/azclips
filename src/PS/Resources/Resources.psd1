@@ -86,7 +86,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Reso
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-ResourceGroup', 'Get-ResourceGroup', 'New-ResourceGroupDeployment', 'New-ResourceGroupDeploymentWhatIf', 'Invoke-CirrusRestMethod'
+CmdletsToExport = 'New-ResourceGroup', 'Get-ResourceGroup', 'New-ResourceGroupDeployment', 'New-ResourceGroupDeploymentWhatIf', 'Invoke-AzclipsRestMethod'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec',
