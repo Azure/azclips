@@ -1,37 +1,37 @@
 # Configuration Management
 
-Cirrus stores user-scope configuration in a global JSON file.
+Azclips stores user-scope configuration in a global JSON file.
 
 Configuration follows strict precedence: **command args > environment variables > global config > defaults**.
 
 ## Valid Configuration Keys
 
-| Key                                           | Type   | Default     | Notes                                                                                           |
-| --------------------------------------------- | ------ | ----------- | ----------------------------------------------------------------------------------------------- |
-| `core.logging.level`                          | string | `info`      | Log level: `debug`, `info`, `warn`, `error`                                                     |
-| `core.http.maxRetries`                        | int    | `3`         | Max HTTP request retries                                                                        |
-| `core.http.maxRetriesFor429`                  | int    | `5`         | Max retries for 429 (rate limit) responses                                                      |
-| `core.engine.extensionIndexCacheSize`         | int    | `512`       | LFU cache capacity for extension index (entry count)                                            |
-| `assemblyLoading.versionedInstallationDir`    | string | (system)    | Versioned assembly installation directory                                                       |
-| `assemblyLoading.builtinInstallationDir`      | string | (system)    | Built-in assembly directory                                                                     |
-| `assemblyLoading.extensionFolderPrefix`       | string | (see notes) | Extension assembly folder prefix; `Microsoft.Azure.Cirrus.Extensions.` (DEBUG), empty (Release) |
-| `telemetry.enabled`                           | bool   | `true`      | Enable telemetry                                                                                |
-| `telemetry.appInsightsInstrumentationKey`     | string | (empty)     | Application Insights key                                                                        |
-| `telemetry.zipkinEndpoint`                    | string | (empty)     | Zipkin tracing endpoint                                                                         |
-| `agent.enabled`                               | bool   | `false`     | Enable AI agent fallback (opt-in: `az config set --key agent.enabled --value true`)            |
-| `agent.provider`                              | string | `builtin`   | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login) |
-| `agent.sessionStyle`                          | string | `oneShot`   | Agent interaction mode: `oneShot` (single plan, then stop) or `interactive` (multi-turn)        |
-| `agent.trace.enabled`                         | bool   | `false`     | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation     |
-| `agent.trace.path`                            | string | `~/.azclips/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write) |
-| `extensions.resources.arm.apiVersionOverride` | string | (empty)     | Override ARM API version                                                                        |
-| `clients.cli.output.format`                   | string | `table`     | CLI output format: `json`, `table`, `tsv`, `yaml`                                               |
-| `clients.powershell.output.format`            | string | `object`    | PowerShell output format: `object`, `json`, `table`                                             |
-| `defaults.group`                              | string | (empty)     | Default resource group                                                                          |
-| `defaults.location`                           | string | (empty)     | Default location                                                                                |
-| `defaults.web`                                | string | (empty)     | Default web app name                                                                            |
-| `defaults.vm`                                 | string | (empty)     | Default VM name                                                                                 |
-| `defaults.vmss`                               | string | (empty)     | Default VMSS name                                                                               |
-| `defaults.acr`                                | string | (empty)     | Default ACR name                                                                                |
+| Key                                           | Type   | Default            | Notes                                                                                                                                                                  |
+| --------------------------------------------- | ------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core.logging.level`                          | string | `error`            | Log level: `debug`, `info`, `warn`, `error`                                                                                                                            |
+| `core.http.maxRetries`                        | int    | `3`                | Max HTTP request retries                                                                                                                                               |
+| `core.http.maxRetriesFor429`                  | int    | `5`                | Max retries for 429 (rate limit) responses                                                                                                                             |
+| `core.engine.extensionIndexCacheSize`         | int    | `512`              | LFU cache capacity for extension index (entry count)                                                                                                                   |
+| `assemblyLoading.versionedInstallationDir`    | string | (system)           | Versioned assembly installation directory                                                                                                                              |
+| `assemblyLoading.builtinInstallationDir`      | string | (system)           | Built-in assembly directory                                                                                                                                            |
+| `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                       |
+| `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                       |
+| `telemetry.appInsightsInstrumentationKey`     | string | (empty)            | Application Insights key                                                                                                                                               |
+| `telemetry.zipkinEndpoint`                    | string | (empty)            | Zipkin tracing endpoint                                                                                                                                                |
+| `agent.enabled`                               | bool   | `false`            | Enable AI agent fallback (opt-in: `az config set --key agent.enabled --value true`)                                                                                    |
+| `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login) |
+| `agent.sessionStyle`                          | string | `oneShot`          | Agent interaction mode: `oneShot` (single plan, then stop) or `interactive` (multi-turn)                                                                               |
+| `agent.trace.enabled`                         | bool   | `false`            | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation                                                                            |
+| `agent.trace.path`                            | string | `~/.azclips/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write)                                                                      |
+| `extensions.resources.arm.apiVersionOverride` | string | (empty)            | Override ARM API version                                                                                                                                               |
+| `clients.cli.output.format`                   | string | `table`            | CLI output format: `json`, `table`, `tsv`, `yaml`                                                                                                                      |
+| `clients.powershell.output.format`            | string | `object`           | PowerShell output format: `object`, `json`, `table`                                                                                                                    |
+| `defaults.group`                              | string | (empty)            | Default resource group                                                                                                                                                 |
+| `defaults.location`                           | string | (empty)            | Default location                                                                                                                                                       |
+| `defaults.web`                                | string | (empty)            | Default web app name                                                                                                                                                   |
+| `defaults.vm`                                 | string | (empty)            | Default VM name                                                                                                                                                        |
+| `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                      |
+| `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                       |
 
 ## CLI Usage
 
@@ -50,13 +50,13 @@ Use explicit parameter names for CLI config commands:
 # Retrieve a single key
 az config get --key core.logging.level
 
-# Output: core.logging.level = info [default]
+# Output: core.logging.level = error [default]
 
 # Retrieve a section (text output)
 az config get --key core
 
 # Example output:
-#   logging.level = info
+#   logging.level = error
 #   engine.extensionIndexCacheSize = 512
 #   http.maxRetries = 3
 #   http.maxRetriesFor429 = 5
@@ -66,7 +66,7 @@ az config get --key core.logging --json
 
 # Example output:
 # {
-#   "level": "info"
+#   "level": "error"
 # }
 
 # Retrieve a section as nested JSON
@@ -132,17 +132,17 @@ Import-Module ./src/PS/Config/Config.psd1
 
 ```powershell
 Get-AzConfig -Key core.logging.level
-# Output: core.logging.level = info [default]
+# Output: core.logging.level = error [default]
 
 Get-AzConfig -Key core.logging.level -AsJson
-# Output: {"Key":"core.logging.level","Value":"info","Source":"default"}
+# Output: {"Key":"core.logging.level","Value":"error","Source":"default"}
 
 # Retrieve a section (text output)
 Get-AzConfig -Key core
 
 # Retrieve a subsection as JSON
 Get-AzConfig -Key core.logging -AsJson
-# Output: {"level":"info"}
+# Output: {"level":"error"}
 
 # Retrieve a section as nested JSON
 Get-AzConfig -Key core -AsJson
@@ -197,7 +197,7 @@ You can override configuration using environment variables:
 
 | Environment Variable                                                | Maps to                      |
 | ------------------------------------------------------------------- | ---------------------------- |
-| `CIRRUS_LOG_LEVEL`                                                  | `core.logging.level`         |
+| `AZCLIPS_LOG_LEVEL`                                                 | `core.logging.level`         |
 | `PS_HTTP_MAX_RETRIES` / `AZURE_PS_HTTP_MAX_RETRIES`                 | `core.http.maxRetries`       |
 | `PS_HTTP_MAX_RETRIES_FOR_429` / `AZURE_PS_HTTP_MAX_RETRIES_FOR_429` | `core.http.maxRetriesFor429` |
 | `ZIPKIN_ENDPOINT`                                                   | `telemetry.zipkinEndpoint`   |
@@ -206,8 +206,8 @@ You can override configuration using environment variables:
 
 Configuration is stored at:
 
-- **Windows**: `%USERPROFILE%\.cirrus\config.json`
-- **Linux/macOS**: `$HOME/.cirrus/config.json`
+- **Windows**: `%USERPROFILE%\.azclips\config.json`
+- **Linux/macOS**: `$HOME/.azclips/config.json`
 
 ## Verification
 

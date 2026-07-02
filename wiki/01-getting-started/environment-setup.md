@@ -157,8 +157,8 @@ artifacts/
 │   │   └── az              ← CLI executable
 │   ├── Core/                 ← Shared core DLLs
 │   ├── Microsoft.Azure.Azclips.Extensions.Login/
-│   ├── Microsoft.Azure.Cirrus.Extensions.Resources/
-│   └── Microsoft.Azure.Cirrus.Extensions.Extension/
+│   ├── Microsoft.Azure.Azclips.Extensions.Resources/
+│   └── Microsoft.Azure.Azclips.Extensions.Extension/
 └── Release/                  ← Same structure
 ```
 

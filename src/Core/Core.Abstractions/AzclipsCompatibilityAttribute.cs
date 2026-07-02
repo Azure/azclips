@@ -7,7 +7,7 @@
 namespace Core.Abstractions
 {
     /// <summary>
-    /// Declares the range of Cirrus core (host) versions an extension is compatible with.
+    /// Declares the range of Azclips core (host) versions an extension is compatible with.
     /// Applied at the assembly level on extension DLLs.
     /// </summary>
     /// <remarks>
@@ -23,11 +23,11 @@ namespace Core.Abstractions
     /// Example usage on an extension's <c>AssemblyInfo.cs</c> (or any source file):
     /// </para>
     /// <code>
-    /// [assembly: CirrusCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
+    /// [assembly: AzclipsCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
     /// </code>
     /// </remarks>
     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
-    public sealed class CirrusCompatibilityAttribute : Attribute
+    public sealed class AzclipsCompatibilityAttribute : Attribute
     {
         /// <summary>
         /// Minimum core version this extension supports, inclusive. <c>null</c> = no lower bound.

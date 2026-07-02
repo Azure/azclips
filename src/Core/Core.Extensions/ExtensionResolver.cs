@@ -25,7 +25,7 @@ namespace Core.Extensions
     /// Source order, per the spec:
     /// <list type="number">
     ///   <item>Built-in seed (<see cref="BuiltInExtensions.Map"/>) — wins on conflict.</item>
-    ///   <item>On-disk registry (<c>~/.cirrus/extensions/registry.json</c>).</item>
+    ///   <item>On-disk registry (<c>~/.azclips/extensions/registry.json</c>).</item>
     /// </list>
     /// </remarks>
     public interface IExtensionResolver

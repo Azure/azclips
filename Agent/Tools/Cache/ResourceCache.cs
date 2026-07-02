@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Core.Agent.Tools.Cache;
 
@@ -22,9 +23,7 @@ public sealed class ResourceCache
     private static readonly Lazy<ResourceCache> _instance = new(() => new ResourceCache());
     public static ResourceCache Current => _instance.Value;
 
-    public static string DefaultCacheDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".azclips", "arm-cache");
+    public static string DefaultCacheDir => HomePaths.GetDefaultArmCacheDirectory();
 
     private static readonly JsonSerializerOptions Json = new()
     {

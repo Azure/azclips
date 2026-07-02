@@ -24,7 +24,7 @@
 - **PowerShell module routing.** Cross-client compat metadata (§6) is shared; PS module load/isolation has its own model. See [extension-framework.md](./extension-framework.md) §4.4.
 - **NativeAOT.** Conflicts with dynamic loading regardless of routing topology.
 - **Marketplace / catalog UX.** Discovery beyond the embedded hint catalog is vNext.
-- **Trust / signing / provenance.** Anything in `~/.cirrus/extensions/` loads.
+- **Trust / signing / provenance.** Anything in `~/.azclips/extensions/` loads.
 - **Feed-fetch path for the hint catalog.** v1 is embed-only; the feed half is vNext.
 
 ---
@@ -64,7 +64,7 @@ All under `az extension`. Kebab-case CLI convention.
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `az extension add <pkg>[@<version>] [--force]` | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. `--force` is required to overwrite an existing pinned installation (the pin is then carried forward). |
 | `az extension list`                            | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§3.5).                                                                               |
-| `az extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.cirrus/extensions/<pkg>/`. Errors on built-in extensions.                                                                                                             |
+| `az extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.azclips/extensions/<pkg>/`. Errors on built-in extensions.                                                                                                            |
 | `az extension update <name>[@<version>]`       | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.                                                                                                               |
 | `az extension pin <name>[@<version>]`          | Lock active version. With no version, pins the currently installed version.                                                                                                                                       |
 | `az extension unpin <name>`                    | Remove the pin.                                                                                                                                                                                                   |
@@ -187,7 +187,7 @@ JSON shapes are stable: default is `[{packageId, version, namespaces, ...}]`; `-
 
 ### 4.1 Registry schema (v2)
 
-A single JSON file at `~/.cirrus/extensions/registry.json`:
+A single JSON file at `~/.azclips/extensions/registry.json`:
 
 ```jsonc
 {
@@ -259,7 +259,7 @@ public class ExtensionIndex : IExtensionIndex { ... }
 `extension add` is multi-step and transactional:
 
 1. Resolve package from feed (or accept `--path` for a local nupkg).
-2. Extract DLLs to `~/.cirrus/extensions/<pkg>/<version>/`.
+2. Extract DLLs to `~/.azclips/extensions/<pkg>/<version>/`.
 3. Read `[ExtensionVerb]` declarations and `s_cliTable` keys from the candidate DLLs in a throwaway ALC. No extension code executes.
 4. Validate: built-in verbs rejected; compat metadata against current `core` (§6); per-leaf `(verb, path)` collisions enumerated against the registry.
 5. Update `registry.json` transactionally (write-with-timestamp-guard, §4.7).
@@ -339,7 +339,7 @@ Catches conflicts at PR time, before any artifact ships.
 `extension add` step 4 (§4.3):
 
 1. **Built-in verb rejection.** Any leaf whose first token is a built-in verb (`extension`, `login`, `config`) is rejected immediately, even if no installed extension currently claims that root.
-2. **Compat metadata check** (§6). Hard fail if the candidate's `[CirrusCompatibility]` range excludes the current `core`.
+2. **Compat metadata check** (§6). Hard fail if the candidate's `[AzclipsCompatibility]` range excludes the current `core`.
 3. **Per-leaf collisions against registry.** All collisions across the candidate's full leaf set are accumulated and surfaced as a single `LeafConflict` (§3.2). No `--force` override.
 
 Namespace-level conflicts no longer exist — multiple extensions declaring the same `[ExtensionVerb]` is fine and expected.
@@ -365,7 +365,7 @@ Extensions declare a `core` version range; the host enforces it at install (hard
 Assembly-level attribute defined in `Core.Abstractions`:
 
 ```csharp
-[assembly: CirrusCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
+[assembly: AzclipsCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
 ```
 
 Both fields optional. Missing attribute = assumed compatible (matches az-cli and Az PS — strict mode would block every undecorated dev/internal extension for negligible safety gain). SemVer with pre-release ordering via NuGet's `SemanticVersion`.
@@ -453,10 +453,10 @@ On dispatch miss, `ExtensionHintTable` walks the longest-prefix path against `ex
 
 Tracked, not v1.
 
-- **Feed-fetch path for `extension-hints.json`.** Additive — no host change beyond fetch + cache read. Same schema, fetched on a TTL (lean toward 24h), written to `~/.cirrus/cache/extension-hints.json`. Resolution becomes cache-first if fresh, embedded fallback if cache is missing or stale. Stale fallback is silent — no "hints may be outdated" warning. Compat-aware filtering: once feed entries populate `minCoreVersion`/`maxCoreVersion`, the host can pre-filter suggestions whose package would fail the install-time compat check.
+- **Feed-fetch path for `extension-hints.json`.** Additive — no host change beyond fetch + cache read. Same schema, fetched on a TTL (lean toward 24h), written to `~/.azclips/cache/extension-hints.json`. Resolution becomes cache-first if fresh, embedded fallback if cache is missing or stale. Stale fallback is silent — no "hints may be outdated" warning. Compat-aware filtering: once feed entries populate `minCoreVersion`/`maxCoreVersion`, the host can pre-filter suggestions whose package would fail the install-time compat check.
 - **Feed endpoint location.** Per-`core`-release GitHub asset, Cirrus-owned blob, or NuGet feed metadata. Pick when wiring up the fetch.
 - **`extension list --available`.** Comes for free when the feed exists; out of v1 scope until then.
-- **Host core-version source-of-truth.** Today `Add.cs` and any future runtime-side caller pass the literal `"1.0.0"` to `CompatibilityGuard`. Establish a single host version (az-cli's `__version__` is the model) and thread it through. Until then `[CirrusCompatibility]` ranges are checked against the literal — fine for v1 since no breaking host change has shipped, but the literal must move when one does.
+- **Host core-version source-of-truth.** Today `Add.cs` and any future runtime-side caller pass the literal `"1.0.0"` to `CompatibilityGuard`. Establish a single host version (az-cli's `__version__` is the model) and thread it through. Until then `[AzclipsCompatibility]` ranges are checked against the literal — fine for v1 since no breaking host change has shipped, but the literal must move when one does.
 - **Runtime warn-and-skip in the dispatch path** (§5.3). Install-time hard fail catches the common case (operator-driven `extension add`); a runtime check protects against side-loaded packages or post-install host upgrades. Cleanest hook is a registry-side filter applied at `LeafIndex.Build` time so incompatible packages disappear from live routing with a stderr warning. Deferred only because it inherits the host-version source-of-truth question above.
 - **`HostExtensionRequirements` (inverse direction).** `Dictionary<string, VersionRange>` in `Core.Runtime` paralleling az-cli's `EXTENSION_VERSION_REQUIREMENTS`. Checked inside `CompatibilityGuard` after the extension's own range passes. Populated by the host team in the same PR that introduces a breaking change against a specific extension.
 - **`CIRRUS_DISABLE_COMPAT_CHECK` env var.** Neither az-cli nor Az PS has one. Runtime warn-and-skip is already forgiving. Additive in ~3 lines when needed.
@@ -466,7 +466,7 @@ Tracked, not v1.
 - **Latency / cache guardrails.** (a) If needed, add caching around discovery metadata collection on network home dirs (SMB/NFS/OneDrive); local-SSD impact today is negligible. (b) BenchmarkDotNet target in `tests/Benchmark/` asserting a leaf-miss hot path stays under a p99 budget (~300ms), plus an assembly-load-counter contract test asserting the dispatcher never spins up an ALC on miss. Insurance against drift toward az-cli's load-everything-on-CNF behavior.
 - **Explicit `--override` for `extension add`** (informed by az-cli's `overwrite_order_in_cli.md`). v1 rejects all leaf collisions at install time, no exceptions. vNext relaxes this with an opt-in `--override "verb path[, ...]"` flag that lets a new extension take ownership of specific leaves while preserving the **stack** model committed in §4.1: the displaced contributor is pushed down (not removed), `extension list --by-verb` annotates the override, and `extension remove` of the top-of-stack contributor restores the next one underneath. Built-in displacement uses the same mechanism. This is a strict improvement over az-cli's silent alphabetical-name-wins overwrite (no audit trail, no restore-on-remove, see [`doc/overwrite_order_in_cli.md`](https://github.com/Azure/azure-cli/blob/main/doc/overwrite_order_in_cli.md)). Schema cost: additive only — a `displaced: [...]` field on the contribution object plus an `overriddenAt` timestamp.
 - **Aggregated namespace help.** Whether `az vm --help` auto-merges leaves across contributors or each contributor advertises separately. The per-leaf ownership model guarantees the data shape; help branch decides the rendering.
-- **Trust / signing / provenance.** Anything in `~/.cirrus/extensions/` loads today. Shared namespaces mean unsigned third-party extensions can contribute leaves under first-party verbs (namespace squatting). Revisit before the first third-party extension ships.
+- **Trust / signing / provenance.** Anything in `~/.azclips/extensions/` loads today. Shared namespaces mean unsigned third-party extensions can contribute leaves under first-party verbs (namespace squatting). Revisit before the first third-party extension ships.
 - **Registry hygiene gaps.** Schema-versioning commitment ("how many versions back do we read indefinitely?"); roaming home directories; system-wide installs. Current posture: per-user, unsupported on roaming.
 - **PowerShell parity definition.** "Same surface" vs. "same shape when both exist." Decide post-v1.
 - **PowerShell CNF integration with the embedded hint catalog.** The hint catalog already works for the CLI dispatcher's verb-miss → extension-name suggestion path. Whether the PS surface should consume the same catalog from a CNF (Command-Not-Found) handler is open: PS modules are loaded by name (`Import-Module Cirrus.Vm`) rather than dispatched by verb, so the unknown-verb shape doesn't map cleanly. Revisit when the PS team has a concrete scenario.

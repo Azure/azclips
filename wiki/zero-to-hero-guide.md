@@ -1,11 +1,11 @@
 ---
 title: "Zero-to-Hero Learning Path"
-description: "Progressive onboarding guide for engineers new to C# or the Cirrus codebase"
+description: "Progressive onboarding guide for engineers new to C# or the Azclips codebase"
 ---
 
 # Zero-to-Hero Learning Path
 
-Welcome to Cirrus! This guide takes you from zero familiarity with C# and .NET to productive contributor, building each concept on the last. If you're experienced with Python (or any other language), you'll find side-by-side comparisons throughout.
+Welcome to Azclips! This guide takes you from zero familiarity with C# and .NET to productive contributor, building each concept on the last. If you're experienced with Python (or any other language), you'll find side-by-side comparisons throughout.
 
 ---
 
@@ -17,15 +17,15 @@ If you know Python, you already understand 80% of the concepts — C# just expre
 
 #### Type System & Variables
 
-| Python | C# | Notes |
-|--------|-----|-------|
-| `name = "cirrus"` | `var name = "cirrus";` | C# infers type with `var` |
-| `name: str = "cirrus"` | `string name = "cirrus";` | Explicit typing |
-| `count: Optional[int] = None` | `int? count = null;` | Nullable value type |
-| `label: str \| None = None` | `string? label = null;` | Nullable reference type |
-| `PI = 3.14` | `const double PI = 3.14;` | Compile-time constant |
-| `items: list[str]` | `List<string> items` | Generic collection |
-| `mapping: dict[str, int]` | `Dictionary<string, int> mapping` | Generic dictionary |
+| Python                        | C#                                | Notes                     |
+| ----------------------------- | --------------------------------- | ------------------------- |
+| `name = "azclips"`            | `var name = "azclips";`           | C# infers type with `var` |
+| `name: str = "azclips"`       | `string name = "azclips";`        | Explicit typing           |
+| `count: Optional[int] = None` | `int? count = null;`              | Nullable value type       |
+| `label: str \| None = None`   | `string? label = null;`           | Nullable reference type   |
+| `PI = 3.14`                   | `const double PI = 3.14;`         | Compile-time constant     |
+| `items: list[str]`            | `List<string> items`              | Generic collection        |
+| `mapping: dict[str, int]`     | `Dictionary<string, int> mapping` | Generic dictionary        |
 
 #### Async/Await
 
@@ -132,7 +132,7 @@ new ServiceCollection()
     .BuildServiceProvider();
 ```
 
-Cirrus uses this pattern extensively for DI registration (`src/Core/*/DIRegisterExtensions.cs`).
+Azclips uses this pattern extensively for DI registration (`src/Core/*/DIRegisterExtensions.cs`).
 
 ---
 
@@ -157,7 +157,7 @@ In Azclips, step 1 happens in `AzclipsServiceProvider.Initialize()`, step 2 at t
 
 #### Assembly Loading
 
-.NET applications are compiled into assemblies (DLLs). Cirrus dynamically loads extension DLLs at runtime:
+.NET applications are compiled into assemblies (DLLs). Azclips dynamically loads extension DLLs at runtime:
 
 ```mermaid
 graph LR
@@ -182,7 +182,7 @@ This is like Python's `importlib.import_module()` but with type safety and isola
 
 #### Middleware Pipeline
 
-The HTTP pipeline in Cirrus uses the chain-of-responsibility pattern — think Python decorators stacked on a function:
+The HTTP pipeline in Azclips uses the chain-of-responsibility pattern — think Python decorators stacked on a function:
 
 ```python
 # Python analogy
@@ -194,7 +194,7 @@ def send_request(request):
 ```
 
 ```csharp
-// C# — same concept in Cirrus's HttpPipeline
+// C# — same concept in the Azclips HttpPipeline
 pipeline.Prepend(commandAuthHandler.SendAsync)  // Add auth header
 // Terminal handler: HttpClientFactory sends the actual request
 ```
@@ -207,7 +207,7 @@ pipeline.Prepend(commandAuthHandler.SendAsync)  // Add auth header
 
 Users want to say `az "create a resource group named test in eastus"` instead of memorizing `az group create --Name test --Location eastus --SubscriptionId <guid>`. The AI agent bridges natural language to structured commands.
 
-#### How It Works in Cirrus
+#### How It Works in Azclips
 
 ```mermaid
 sequenceDiagram
@@ -228,6 +228,7 @@ sequenceDiagram
 ```
 
 The `CloudAgent` (`src/Core/Core.Agent/CloudAgent.cs`) wraps the Azure OpenAI SDK:
+
 1. Loads a system prompt from `prompt.md` with flavor substitution (`{{flavor}}` → `"azure cli"` or `"azure powershell"`)
 2. Maintains conversation history across turns
 3. Streams responses token-by-token for responsive UI
@@ -235,13 +236,13 @@ The `CloudAgent` (`src/Core/Core.Agent/CloudAgent.cs`) wraps the Azure OpenAI SD
 
 #### Response Types
 
-| Type | Meaning | What Happens |
-|------|---------|--------------|
+| Type                 | Meaning                         | What Happens                                    |
+| -------------------- | ------------------------------- | ----------------------------------------------- |
 | `executable_command` | AI generated a complete command | Extracted and executed via DefaultCommandEngine |
-| `sample_command` | Help with placeholder values | Displayed to user, not executed |
-| `question` | AI needs more info | User prompted, conversation continues |
-| `confirmation` | Dangerous operation warning | User must confirm |
-| `exit` | User wants to stop | Conversation ends |
+| `sample_command`     | Help with placeholder values    | Displayed to user, not executed                 |
+| `question`           | AI needs more info              | User prompted, conversation continues           |
+| `confirmation`       | Dangerous operation warning     | User must confirm                               |
+| `exit`               | User wants to stop              | Conversation ends                               |
 
 ---
 
@@ -251,17 +252,17 @@ The `CloudAgent` (`src/Core/Core.Agent/CloudAgent.cs`) wraps the Azure OpenAI SD
 
 To call Azure APIs, you need a bearer token. Getting one requires OAuth2 flows — interactive browser login, device codes, token refresh, cache management. MSAL (Microsoft Authentication Library) abstracts all of this.
 
-#### How Cirrus Uses MSAL
+#### How Azclips Uses MSAL
 
 The `MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs`) provides:
 
 1. **Interactive Login** — Opens browser, redirects to `http://localhost:50000` after auth
 2. **Device Code Flow** — Displays a code for headless environments
 3. **Silent Token Acquisition** — Refreshes tokens from cache without user interaction
-4. **Token Cache Persistence** — Saves tokens to `~/.cirrus/MSAL.cache.plaintext`
+4. **Token Cache Persistence** — Saves tokens under `{Environment.SpecialFolder.LocalApplicationData}/.azclips/MSAL.cache` (or `MSAL.cache.plaintext` in explicit plaintext mode)
 
 ```python
-# Python pseudocode for how MSAL works in Cirrus
+# Python pseudocode for how MSAL works in Azclips
 class MsalAuthService:
     def login(self, request):
         if request.use_device_code:
@@ -280,7 +281,7 @@ class MsalAuthService:
         raise Exception("No cached token - login required")
 ```
 
-The `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`) persists the current `TenantId` and `SubscriptionId` to `~/.cirrus/context.json` so they're available across CLI invocations.
+The `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`) persists the current `TenantId` and `SubscriptionId` under `{Environment.SpecialFolder.LocalApplicationData}/.azclips/context.json` so they're available across CLI invocations.
 
 ---
 
@@ -288,35 +289,35 @@ The `AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs`) 
 
 ### 5. The Big Picture
 
-**Cirrus in one sentence:** An extension-based CLI framework that dynamically loads Azure management commands and falls back to AI when structured parsing fails.
+**Azclips in one sentence:** An extension-based CLI framework that dynamically loads Azure management commands and falls back to AI when structured parsing fails.
 
 #### Engine vs Car Analogy
 
-Think of Cirrus as a **car engine**, and Azure as the **car**:
+Think of Azclips as a **car engine**, and Azure as the **car**:
 
-| Engine (Cirrus Owns) | Car (Azure Provides) |
-|----------------------|---------------------|
-| Command parsing & routing | Resource groups, VMs, storage |
-| Extension loading & isolation | REST API endpoints |
+| Engine (Azclips Owns)          | Car (Azure Provides)          |
+| ------------------------------ | ----------------------------- |
+| Command parsing & routing      | Resource groups, VMs, storage |
+| Extension loading & isolation  | REST API endpoints            |
 | AI natural language processing | Authentication infrastructure |
-| Telemetry & observability | Subscription management |
-| PowerShell integration | Cloud resource lifecycle |
+| Telemetry & observability      | Subscription management       |
+| PowerShell integration         | Cloud resource lifecycle      |
 
-Cirrus never manages Azure resources directly — it orchestrates the tooling that talks to Azure.
+Azclips never manages Azure resources directly — it orchestrates the tooling that talks to Azure.
 
 #### Core Entities
 
-| Entity | Interface | Purpose |
-|--------|-----------|---------|
-| Engine | `IEngine` | Entry point for CLI or PowerShell host |
-| Command Engine | `ICommandEngine` | Executes commands (structured or AI) |
-| Command | `ICommand` | Single executable command |
-| Module | `IModule` | Collection of commands in an extension |
-| Extension Index | `IExtensionIndex` | Registry of commands in an extension |
-| Auth Service | `IAuthService` | Token acquisition |
-| Auth Context | `IAuthContextService` | Persistent auth state |
-| Output Adapter | `IOutputAdapter` | Host-agnostic output |
-| Telemetry | `ITelemetryService` | OpenTelemetry tracing |
+| Entity          | Interface             | Purpose                                |
+| --------------- | --------------------- | -------------------------------------- |
+| Engine          | `IEngine`             | Entry point for CLI or PowerShell host |
+| Command Engine  | `ICommandEngine`      | Executes commands (structured or AI)   |
+| Command         | `ICommand`            | Single executable command              |
+| Module          | `IModule`             | Collection of commands in an extension |
+| Extension Index | `IExtensionIndex`     | Registry of commands in an extension   |
+| Auth Service    | `IAuthService`        | Token acquisition                      |
+| Auth Context    | `IAuthContextService` | Persistent auth state                  |
+| Output Adapter  | `IOutputAdapter`      | Host-agnostic output                   |
+| Telemetry       | `ITelemetryService`   | OpenTelemetry tracing                  |
 
 ---
 
@@ -404,6 +405,7 @@ The `clientType` parameter (`ClientType.CLI` or `ClientType.PowerShell`) determi
 #### Environment-Driven Behavior
 
 The `AZURECLI_FLAVOR` environment variable changes the orchestrator's behavior:
+
 - `"azure cli"` (default) — Try structured commands first, fall back to AI
 - `"azure powershell"` — Skip structured parsing, go direct to AI
 
@@ -445,13 +447,13 @@ sequenceDiagram
 
 #### Data Invariants
 
-| Entity | Invariant | Enforced By |
-|--------|-----------|-------------|
-| `AuthContext` | Must have `TenantId` and `SubscriptionId` | `required` keyword |
-| `ParseResult` | `Commands` is never null | Constructor |
-| `ICommand` | Must implement `ExecuteAsync` | Interface contract |
-| `IExtensionIndex` | CLI and PS tables must be populated | Constructor |
-| Extension DLLs | Must contain exactly one `IModule` | `CommandBinder.Bind()` |
+| Entity            | Invariant                                 | Enforced By            |
+| ----------------- | ----------------------------------------- | ---------------------- |
+| `AuthContext`     | Must have `TenantId` and `SubscriptionId` | `required` keyword     |
+| `ParseResult`     | `Commands` is never null                  | Constructor            |
+| `ICommand`        | Must implement `ExecuteAsync`             | Interface contract     |
+| `IExtensionIndex` | CLI and PS tables must be populated       | Constructor            |
+| Extension DLLs    | Must contain exactly one `IModule`        | `CommandBinder.Bind()` |
 
 ---
 
@@ -488,20 +490,20 @@ src/Extensions/Name/
 The AI agent (`src/Core/Core.Agent/CloudAgent.cs`) is configured via:
 
 1. **Environment variables** in `.env`:
-   - `AZURE_OPENAI_ENDPOINT` — Your Azure OpenAI resource URL
-   - `AZURE_OPENAI_API_KEY` — API key
-   - `AZURE_OPENAI_DEPLOYMENT` — Model deployment name (e.g., `gpt-4o-mini`)
+    - `AZURE_OPENAI_ENDPOINT` — Your Azure OpenAI resource URL
+    - `AZURE_OPENAI_API_KEY` — API key
+    - `AZURE_OPENAI_DEPLOYMENT` — Model deployment name (e.g., `gpt-4o-mini`)
 
 2. **System prompt** (`src/Core/Core.Agent/prompt.md`):
-   - Defines the JSON response schema
-   - Includes `{{flavor}}` placeholder for CLI vs PowerShell context
-   - Contains examples of typo correction, how-to answers, and command generation
+    - Defines the JSON response schema
+    - Includes `{{flavor}}` placeholder for CLI vs PowerShell context
+    - Contains examples of typo correction, how-to answers, and command generation
 
 3. **Conversation loop** (`src/Core/Core.Engine/AgentEngine.cs`):
-   - Maintains chat history for multi-turn conversations
-   - Displays spinner animation during AI processing
-   - Parses JSON responses to determine action type
-   - Feeds extracted commands back to `DefaultCommandEngine` for execution
+    - Maintains chat history for multi-turn conversations
+    - Displays spinner animation during AI processing
+    - Parses JSON responses to determine action type
+    - Feeds extracted commands back to `DefaultCommandEngine` for execution
 
 ---
 
@@ -511,26 +513,26 @@ The AI agent (`src/Core/Core.Agent/CloudAgent.cs`) is configured via:
 
 #### Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| .NET SDK | 10.0.203 | Build & runtime |
-| PowerShell | 7.0+ | PS module testing |
-| Docker | Latest | Dev container |
-| VS Code | Latest | IDE |
-| Git | Latest | Version control |
+| Tool       | Version  | Purpose           |
+| ---------- | -------- | ----------------- |
+| .NET SDK   | 10.0.203 | Build & runtime   |
+| PowerShell | 7.0+     | PS module testing |
+| Docker     | Latest   | Dev container     |
+| VS Code    | Latest   | IDE               |
+| Git        | Latest   | Version control   |
 
 #### Quick Start (Dev Container — Recommended)
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/Azure/cirrus.git && cd cirrus
+git clone https://github.com/Azure/azclips.git && cd azclips
 
 # 2. Open in VS Code and reopen in container
 code .
 # Press Ctrl+Shift+P then "Dev Containers: Reopen in Container"
 
 # 3. Build
-dotnet build -c Release cirrus.slnx
+dotnet build -c Release *.slnx
 
 # 4. Run the CLI
 ./artifacts/Release/Core.Cli/az --help
@@ -546,7 +548,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 dotnet --info  # Should show 10.0.203
 
 # 2. Build
-dotnet build cirrus.slnx
+dotnet build *.slnx
 
 # 3. Add CLI to PATH
 export PATH="$PWD/artifacts/Debug/Core.Cli:$PATH"
@@ -557,12 +559,12 @@ az --help
 
 #### Common Mistakes
 
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| SDK not found | Wrong .NET version | Install SDK 10.0.203 |
-| Extension not found | Build config mismatch | Rebuild with matching config |
-| MSAL error | Container browser issue | Set `BROWSER` env var |
-| AI not responding | Missing `.env` file | Create `src/Core/Core.Agent/.env` |
+| Problem             | Cause                   | Fix                               |
+| ------------------- | ----------------------- | --------------------------------- |
+| SDK not found       | Wrong .NET version      | Install SDK 10.0.203              |
+| Extension not found | Build config mismatch   | Rebuild with matching config      |
+| MSAL error          | Container browser issue | Set `BROWSER` env var             |
+| AI not responding   | Missing `.env` file     | Create `src/Core/Core.Agent/.env` |
 
 ---
 
@@ -586,12 +588,12 @@ dotnet test --filter "MethodName=ExtensionDispatcher_HelpFlag_ShouldNotThrow"
 
 #### What's Tested
 
-| Test Class | Tests | Status |
-|------------|-------|--------|
-| `ExtensionDispatcherTests` | Empty args, help flags, unknown commands | All run |
-| `ProgramFallbackTests` | Help flag handling | Runs |
-| `ProgramFallbackTests` | Natural language fallback | Skipped (requires AI) |
-| `ProgramFallbackTests` | PowerShell flavor | Skipped (requires AI) |
+| Test Class                 | Tests                                    | Status                |
+| -------------------------- | ---------------------------------------- | --------------------- |
+| `ExtensionDispatcherTests` | Empty args, help flags, unknown commands | All run               |
+| `ProgramFallbackTests`     | Help flag handling                       | Runs                  |
+| `ProgramFallbackTests`     | Natural language fallback                | Skipped (requires AI) |
+| `ProgramFallbackTests`     | PowerShell flavor                        | Skipped (requires AI) |
 
 #### Benchmarks
 
@@ -610,18 +612,18 @@ The benchmark project uses BenchmarkDotNet to measure CLI and PowerShell command
 
 Read these files in order to understand the full architecture:
 
-| Order | File | Why |
-|-------|------|-----|
-| 1 | `src/CLI/Program.cs` | Entry point — see the full flow |
-| 2 | `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | How DI wires everything |
-| 3 | `src/Core/Core.Engine/OrchestratorEngine.cs` | The heart — orchestration logic |
-| 4 | `src/Core/Core.Engine/DefaultCommandEngine.cs` | Structured command execution |
-| 5 | `src/Core/Core.Engine/AgentEngine.cs` | AI fallback engine |
-| 6 | `src/Core/Core.Abstractions/IEngine.cs` | Core contracts |
-| 7 | `src/Core/Core.Abstractions/ICommand.cs` | Command interface |
-| 8 | `src/Core/Core.Engine/ExtensionLoader.cs` | Dynamic loading |
-| 9 | `src/Extensions/Resources/ExtensionIndex.cs` | Example extension |
-| 10 | `src/Core/Core.Agent/CloudAgent.cs` | AI agent implementation |
+| Order | File                                                          | Why                             |
+| ----- | ------------------------------------------------------------- | ------------------------------- |
+| 1     | `src/CLI/Program.cs`                                          | Entry point — see the full flow |
+| 2     | `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | How DI wires everything         |
+| 3     | `src/Core/Core.Engine/OrchestratorEngine.cs`                  | The heart — orchestration logic |
+| 4     | `src/Core/Core.Engine/DefaultCommandEngine.cs`                | Structured command execution    |
+| 5     | `src/Core/Core.Engine/AgentEngine.cs`                         | AI fallback engine              |
+| 6     | `src/Core/Core.Abstractions/IEngine.cs`                       | Core contracts                  |
+| 7     | `src/Core/Core.Abstractions/ICommand.cs`                      | Command interface               |
+| 8     | `src/Core/Core.Engine/ExtensionLoader.cs`                     | Dynamic loading                 |
+| 9     | `src/Extensions/Resources/ExtensionIndex.cs`                  | Example extension               |
+| 10    | `src/Core/Core.Agent/CloudAgent.cs`                           | AI agent implementation         |
 
 #### How to Trace a Request
 
@@ -711,8 +713,8 @@ _index.Add("Storage", "Storage");
 #### Step 6: Add to Solution and Build
 
 ```bash
-dotnet sln cirrus.slnx add src/Extensions/Storage/Extensions.Storage.csproj
-dotnet build cirrus.slnx
+dotnet sln *.slnx add src/Extensions/Storage/Extensions.Storage.csproj
+dotnet build *.slnx
 az storage list --SubscriptionId <your-sub>
 ```
 
@@ -722,86 +724,86 @@ az storage list --SubscriptionId <your-sub>
 
 ### Glossary
 
-| Term | Definition |
-|------|-----------|
-| **az** | The CLI binary produced by the Cirrus project |
-| **Extension** | A dynamically loaded DLL providing commands for a specific Azure service |
-| **Module** | An `IModule` implementation that returns a collection of commands |
-| **Command** | An `ICommand` implementation that performs a single operation |
-| **OrchestratorEngine** | The smart fallback engine that tries structured parsing then AI |
-| **DefaultCommandEngine** | Executes structured commands via parsing and binding |
-| **AgentEngine** | Processes natural language input via Azure OpenAI |
-| **CloudAgent** | Wrapper around Azure OpenAI chat completions API |
-| **CLIEngine** | Entry point for CLI host (`ClientType.CLI`) |
-| **PSEngine** | Entry point for PowerShell host (`ClientType.PowerShell`) |
-| **Bootstrapper** | Service registration and DI container setup (used by PSEngine) |
-| **AzclipsServiceProvider** | Static singleton DI container (used by CLI and extensions) |
-| **CommandParser** | Parses string args into `ParseResult` (commands + options) |
-| **CommandBinder** | Loads extension DLLs and finds matching `ICommand` |
-| **ExtensionLoader** | Loads extension assemblies with isolation |
-| **BuiltinExtensionLoader** | Loads from application directory Extensions folder |
-| **MultiVersionExtensionLoader** | Loads from `~/.cirrus/extensions/` with version selection |
-| **ExtensionLoadContext** | `AssemblyLoadContext` for extension isolation |
-| **ExtensionIndex** | `IExtensionIndex` implementation with CLI and PS command tables |
-| **ExtensionDispatcher** | Routes CLI args to the correct extension |
-| **CommandGroupIndex** | Maps command group names to extension names |
-| **ExtensionInstaller** | Installs extensions from NuGet or local packages |
-| **HttpPipeline** | Chain-of-responsibility HTTP middleware |
-| **SendAsync** | HTTP pipeline step delegate |
-| **ISendAsyncFactory** | Creates middleware pipeline steps |
-| **ISendAsyncTerminalFactory** | Creates the terminal HTTP handler |
-| **AuthHandler** | Pipeline handler that adds bearer tokens |
-| **OutputHandler** | Pipeline handler for routing output |
-| **TelemetryHandler** | Pipeline handler for activity tracking |
-| **EventListener** | Handles signals/events during command execution |
-| **EventData** | Event payload with ID, message, request/response |
-| **MsalAuthService** | MSAL-based token acquisition service |
-| **AuthContextService** | Persists auth state to `~/.cirrus/context.json` |
-| **AuthContext** | Contains `TenantId` and `SubscriptionId` |
-| **TelemetryService** | OpenTelemetry `ActivitySource` wrapper |
-| **FileExporter** | Custom exporter writing traces to local files |
-| **ActivitySource** | .NET API for creating distributed tracing spans |
-| **ParseResult** | Parsed command structure (commands list + options dict) |
-| **ArgumentInfo** | Attribute for command parameter metadata |
-| **ClientType** | Enum: `CLI` or `PowerShell` |
-| **IProcessor** | Interface for command execution pipeline |
-| **ProcessorContext** | Composed context with auth, output, telemetry handlers |
-| **AZURECLI_FLAVOR** | Environment variable controlling orchestrator behavior |
-| **MSIX** | Windows application packaging format used for distribution |
+| Term                            | Definition                                                               |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| **az**                          | The CLI binary produced by the Azclips project                           |
+| **Extension**                   | A dynamically loaded DLL providing commands for a specific Azure service |
+| **Module**                      | An `IModule` implementation that returns a collection of commands        |
+| **Command**                     | An `ICommand` implementation that performs a single operation            |
+| **OrchestratorEngine**          | The smart fallback engine that tries structured parsing then AI          |
+| **DefaultCommandEngine**        | Executes structured commands via parsing and binding                     |
+| **AgentEngine**                 | Processes natural language input via Azure OpenAI                        |
+| **CloudAgent**                  | Wrapper around Azure OpenAI chat completions API                         |
+| **CLIEngine**                   | Entry point for CLI host (`ClientType.CLI`)                              |
+| **PSEngine**                    | Entry point for PowerShell host (`ClientType.PowerShell`)                |
+| **Bootstrapper**                | Service registration and DI container setup (used by PSEngine)           |
+| **AzclipsServiceProvider**      | Static singleton DI container (used by CLI and extensions)               |
+| **CommandParser**               | Parses string args into `ParseResult` (commands + options)               |
+| **CommandBinder**               | Loads extension DLLs and finds matching `ICommand`                       |
+| **ExtensionLoader**             | Loads extension assemblies with isolation                                |
+| **BuiltinExtensionLoader**      | Loads from application directory Extensions folder                       |
+| **MultiVersionExtensionLoader** | Loads from `~/.azclips/extensions/` with version selection               |
+| **ExtensionLoadContext**        | `AssemblyLoadContext` for extension isolation                            |
+| **ExtensionIndex**              | `IExtensionIndex` implementation with CLI and PS command tables          |
+| **ExtensionDispatcher**         | Routes CLI args to the correct extension                                 |
+| **CommandGroupIndex**           | Maps command group names to extension names                              |
+| **ExtensionInstaller**          | Installs extensions from NuGet or local packages                         |
+| **HttpPipeline**                | Chain-of-responsibility HTTP middleware                                  |
+| **SendAsync**                   | HTTP pipeline step delegate                                              |
+| **ISendAsyncFactory**           | Creates middleware pipeline steps                                        |
+| **ISendAsyncTerminalFactory**   | Creates the terminal HTTP handler                                        |
+| **AuthHandler**                 | Pipeline handler that adds bearer tokens                                 |
+| **OutputHandler**               | Pipeline handler for routing output                                      |
+| **TelemetryHandler**            | Pipeline handler for activity tracking                                   |
+| **EventListener**               | Handles signals/events during command execution                          |
+| **EventData**                   | Event payload with ID, message, request/response                         |
+| **MsalAuthService**             | MSAL-based token acquisition service                                     |
+| **AuthContextService**          | Persists auth state to `LocalAppData/.azclips/context.json`              |
+| **AuthContext**                 | Contains `TenantId` and `SubscriptionId`                                 |
+| **TelemetryService**            | OpenTelemetry `ActivitySource` wrapper                                   |
+| **FileExporter**                | Custom exporter writing traces to local files                            |
+| **ActivitySource**              | .NET API for creating distributed tracing spans                          |
+| **ParseResult**                 | Parsed command structure (commands list + options dict)                  |
+| **ArgumentInfo**                | Attribute for command parameter metadata                                 |
+| **ClientType**                  | Enum: `CLI` or `PowerShell`                                              |
+| **IProcessor**                  | Interface for command execution pipeline                                 |
+| **ProcessorContext**            | Composed context with auth, output, telemetry handlers                   |
+| **AZURECLI_FLAVOR**             | Environment variable controlling orchestrator behavior                   |
+| **MSIX**                        | Windows application packaging format used for distribution               |
 
 ### Key File Reference
 
-| File | Purpose |
-|------|---------|
-| `src/CLI/Program.cs` | CLI entry point with AI fallback |
-| `src/Core/Core.Abstractions/IEngine.cs` | Core engine interface |
-| `src/Core/Core.Abstractions/ICommand.cs` | Command interface |
-| `src/Core/Core.Abstractions/IModule.cs` | Module interface |
-| `src/Core/Core.Abstractions/IExtensionIndex.cs` | Extension registry interface |
-| `src/Core/Core.Abstractions/CLIContracts.cs` | IProcessor and delegates |
-| `src/Core/Core.Abstractions/ClientType.cs` | CLI vs PowerShell enum |
-| `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | DI container |
-| `src/Core/Core.Engine/OrchestratorEngine.cs` | Smart fallback orchestrator |
-| `src/Core/Core.Engine/DefaultCommandEngine.cs` | Structured command engine |
-| `src/Core/Core.Engine/AgentEngine.cs` | AI agent engine |
-| `src/Core/Core.Engine/CLIEngine.cs` | CLI host engine |
-| `src/Core/Core.Engine/PSEngine.cs` | PowerShell host engine |
-| `src/Core/Core.Engine/Bootstrapper.cs` | Service registration |
-| `src/Core/Core.Engine/ExtensionLoader.cs` | Dynamic DLL loading |
-| `src/Core/Core.Engine/CommandParser.cs` | Argument parsing |
-| `src/Core/Core.Engine/CommandBinder.cs` | Command resolution |
-| `src/Core/Core.Agent/CloudAgent.cs` | Azure OpenAI wrapper |
-| `src/Core/Core.Agent/prompt.md` | AI system prompt |
-| `src/Core/Core.Authentication/MsalAuthService.cs` | MSAL auth |
-| `src/Core/Core.Authentication/AuthContextService.cs` | Auth persistence |
-| `src/Core/Core.Runtime/HttpPipeline.cs` | HTTP middleware |
-| `src/Core/Core.Telemetry/TelemetryService.cs` | OpenTelemetry |
-| `src/Core/Core.Telemetry/FileExporter.cs` | Local trace export |
-| `src/Extensions/Resources/ExtensionIndex.cs` | Example extension |
-| `src/CLI/Parser/ExtensionDispatcher.cs` | Command routing |
-| `src/CLI/Parser/CommandGroupIndex.cs` | Extension lookup |
-| `global.json` | SDK version pinning |
-| `cirrus.slnx` | Solution file |
+| File                                                          | Purpose                          |
+| ------------------------------------------------------------- | -------------------------------- |
+| `src/CLI/Program.cs`                                          | CLI entry point with AI fallback |
+| `src/Core/Core.Abstractions/IEngine.cs`                       | Core engine interface            |
+| `src/Core/Core.Abstractions/ICommand.cs`                      | Command interface                |
+| `src/Core/Core.Abstractions/IModule.cs`                       | Module interface                 |
+| `src/Core/Core.Abstractions/IExtensionIndex.cs`               | Extension registry interface     |
+| `src/Core/Core.Abstractions/CLIContracts.cs`                  | IProcessor and delegates         |
+| `src/Core/Core.Abstractions/ClientType.cs`                    | CLI vs PowerShell enum           |
+| `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` | DI container                     |
+| `src/Core/Core.Engine/OrchestratorEngine.cs`                  | Smart fallback orchestrator      |
+| `src/Core/Core.Engine/DefaultCommandEngine.cs`                | Structured command engine        |
+| `src/Core/Core.Engine/AgentEngine.cs`                         | AI agent engine                  |
+| `src/Core/Core.Engine/CLIEngine.cs`                           | CLI host engine                  |
+| `src/Core/Core.Engine/PSEngine.cs`                            | PowerShell host engine           |
+| `src/Core/Core.Engine/Bootstrapper.cs`                        | Service registration             |
+| `src/Core/Core.Engine/ExtensionLoader.cs`                     | Dynamic DLL loading              |
+| `src/Core/Core.Engine/CommandParser.cs`                       | Argument parsing                 |
+| `src/Core/Core.Engine/CommandBinder.cs`                       | Command resolution               |
+| `src/Core/Core.Agent/CloudAgent.cs`                           | Azure OpenAI wrapper             |
+| `src/Core/Core.Agent/prompt.md`                               | AI system prompt                 |
+| `src/Core/Core.Authentication/MsalAuthService.cs`             | MSAL auth                        |
+| `src/Core/Core.Authentication/AuthContextService.cs`          | Auth persistence                 |
+| `src/Core/Core.Runtime/HttpPipeline.cs`                       | HTTP middleware                  |
+| `src/Core/Core.Telemetry/TelemetryService.cs`                 | OpenTelemetry                    |
+| `src/Core/Core.Telemetry/FileExporter.cs`                     | Local trace export               |
+| `src/Extensions/Resources/ExtensionIndex.cs`                  | Example extension                |
+| `src/CLI/Parser/ExtensionDispatcher.cs`                       | Command routing                  |
+| `src/CLI/Parser/CommandGroupIndex.cs`                         | Extension lookup                 |
+| `global.json`                                                 | SDK version pinning              |
+| `*.slnx`                                                      | Solution file                    |
 
 ### Further Reading
 

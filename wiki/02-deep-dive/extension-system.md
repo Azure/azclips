@@ -269,7 +269,7 @@ The `InstallExtensionAsync` method (lines 46-68) orchestrates:
 
 The default install path (`src/Extensions/Extension/ExtensionInstaller.cs:27-29`):
 ```
-{Environment.SpecialFolder.UserProfile}/.cirrus/extensions
+{Environment.SpecialFolder.UserProfile}/.azclips/extensions
 ```
 
 The target framework is detected from the current runtime version (line 31), ensuring extensions match the running .NET version.

@@ -1,6 +1,6 @@
 # Extension Management
 
-How to install, list, update, pin, and remove Cirrus extensions, plus what to do when something goes wrong.
+How to install, list, update, pin, and remove Azclips extensions, plus what to do when something goes wrong.
 
 For extension **authoring**, see [Extension-Development-For-Private-Preview.md](./Extension-Development-For-Private-Preview.md). For the full design, see [docs/spec/extension-management.md](../spec/extension-management.md).
 
@@ -8,24 +8,24 @@ For extension **authoring**, see [Extension-Development-For-Private-Preview.md](
 
 An extension is a NuGet package that contributes one or more top-level command **namespaces** to `az`. For example, the Compute extension contributes `vm` and `disk`, so installing it makes `az vm list` and `az disk create` work.
 
-Installed extensions live under `~/.cirrus/extensions/<packageId>/<version>/`. Cirrus **discovers** them automatically at runtime by walking the extensions directory — no install manifest is required. User preferences (pinning, version selection) are stored in `~/.cirrus/extensions/registry.json` as an optional overlay on top of discovered extensions.
+Installed extensions live under `~/.azclips/extensions/<packageId>/<version>/`. Azclips **discovers** them automatically at runtime by walking the extensions directory — no install manifest is required. User preferences (pinning, version selection) are stored in `~/.azclips/extensions/registry.json` as an optional overlay on top of discovered extensions.
 
 Built-in namespaces (`extension`, `login`, `config`) are part of the host and cannot be removed.
 
 ## Discovery-First Model
 
-Cirrus uses a **discovery-first** approach to extension management:
+Azclips uses a **discovery-first** approach to extension management:
 
-1. **Discovery** (source of truth): At runtime, Cirrus walks `~/.cirrus/extensions/` to find all installed packages and versions. This is what determines which extensions are available for dispatch, help, and listing.
+1. **Discovery** (source of truth): At runtime, Azclips walks `~/.azclips/extensions/` to find all installed packages and versions. This is what determines which extensions are available for dispatch, help, and listing.
 2. **Registry** (preferences layer): `registry.json` records user preferences — pinned versions, active-version overrides, install timestamps — but is **not** the authoritative source of installed state. If an extension is present on disk but has no registry entry, it is still discovered and available.
-3. **Resilience**: If `registry.json` is missing or corrupted, Cirrus continues to work with discovered extensions. Users only lose their pinning preferences.
+3. **Resilience**: If `registry.json` is missing or corrupted, Azclips continues to work with discovered extensions. Users only lose their pinning preferences.
 
 ## Quick start
 
 ```bash
 # Discover what provides a verb you don't have
 az vm list
-# → Error: 'vm list' is provided by extension 'Microsoft.Azure.Cirrus.Extensions.Compute',
+# → Error: 'vm list' is provided by extension 'Microsoft.Azure.Azclips.Extensions.Compute',
 #   which is not installed. Install it with:
 #     az extension add --name Compute
 
@@ -46,14 +46,14 @@ az extension add --name <token> [--version <v>] [--feed-url <url>] [--pin] [--fo
 az extension add --path <path-to.nupkg> [--pin] [--force]
 ```
 
-| Flag         | Purpose                                                                                                                                                                                                                                                                                                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name`     | Package identifier. Accepts the full id (`Microsoft.Azure.Cirrus.Extensions.Compute`) or its short suffix (`Compute`). Verbs and namespaces (e.g. `vm`, `disk`) are **not** accepted — typing one returns a usage error pointing at the owning package id. The unit of install is a package, not a verb (the Compute package ships both `vm` and `disk`). |
-| `--version`  | Specific version. Defaults to feed's latest.                                                                                                                                                                                                                                                                                                              |
-| `--feed-url` | Override the configured NuGet feed.                                                                                                                                                                                                                                                                                                                       |
-| `--path`     | Install from a local `.nupkg` (skips feed lookup entirely).                                                                                                                                                                                                                                                                                               |
-| `--pin`      | Lock this version against future `extension update`.                                                                                                                                                                                                                                                                                                      |
-| `--force`    | Overwrite an existing pinned installation. The pin carries forward to the new version.                                                                                                                                                                                                                                                                    |
+| Flag         | Purpose                                                                                                                                                                                                                                                                                                                                                    |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name`     | Package identifier. Accepts the full id (`Microsoft.Azure.Azclips.Extensions.Compute`) or its short suffix (`Compute`). Verbs and namespaces (e.g. `vm`, `disk`) are **not** accepted — typing one returns a usage error pointing at the owning package id. The unit of install is a package, not a verb (the Compute package ships both `vm` and `disk`). |
+| `--version`  | Specific version. Defaults to feed's latest.                                                                                                                                                                                                                                                                                                               |
+| `--feed-url` | Override the configured NuGet feed.                                                                                                                                                                                                                                                                                                                        |
+| `--path`     | Install from a local `.nupkg` (skips feed lookup entirely).                                                                                                                                                                                                                                                                                                |
+| `--pin`      | Lock this version against future `extension update`.                                                                                                                                                                                                                                                                                                       |
+| `--force`    | Overwrite an existing pinned installation. The pin carries forward to the new version.                                                                                                                                                                                                                                                                     |
 
 ### Resolving `--name`
 
@@ -61,7 +61,7 @@ Both of these install the same package:
 
 ```bash
 az extension add --name Compute                                      # short suffix
-az extension add --name Microsoft.Azure.Cirrus.Extensions.Compute    # full id
+az extension add --name Microsoft.Azure.Azclips.Extensions.Compute    # full id
 ```
 
 Third-party packages must use the dotted form: `az extension add --name Contoso.Foo`.
@@ -78,20 +78,20 @@ The same rule applies to `remove`, `show`, `update`, `pin`, and `unpin` — only
 
 ### Local development install
 
-When `--name` misses every configured feed and you're inside the `cirrus` repo, the error message includes a `--path` hint pointing at your most recent local build:
+When `--name` misses every configured feed and you're inside the repo root, the error message includes a `--path` hint pointing at your most recent local build:
 
 ```
 Error: [ExtensionNotFound] ...
 A local build artifact was found. Try:
-  az extension add --path "C:\src\cirrus\artifacts\Debug\Microsoft.Azure.Cirrus.Extensions.Compute\Microsoft.Azure.Cirrus.Extensions.Compute.1.0.0-alpha.nupkg"
+  az extension add --path "C:\src\azclips\artifacts\Debug\Microsoft.Azure.Azclips.Extensions.Compute\Microsoft.Azure.Azclips.Extensions.Compute.1.0.0-alpha.nupkg"
 ```
 
-The probe walks up from cwd looking for `cirrus.slnx`, then globs `artifacts/Debug/<packageId>/`. It's suggestion-only — Cirrus never auto-installs from local builds.
+The probe walks up from cwd looking for the repo root, then globs `artifacts/Debug/<packageId>/`. It's suggestion-only — Azclips never auto-installs from local builds.
 
 ### What `add` validates
 
 1. Built-in verb collision (`extension`, `login`, `config`) — rejected.
-2. Compatibility metadata (`[CirrusCompatibility]`) — hard fail if the candidate excludes the current `core` version.
+2. Compatibility metadata (extension compatibility attribute) — hard fail if the candidate excludes the current `core` version.
 3. Per-leaf `(verb, path)` collisions against the registry — see [Conflicts](#conflicts-on-install).
 
 ## Listing — `extension list`
@@ -108,18 +108,18 @@ Default output:
 
 ```
 PackageId                                       Version   Namespaces             Pinned  InstalledAt
-Microsoft.Azure.Cirrus.Extensions.Compute       1.1.0     vm, disk               no      2026-04-12
-Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0     group                  no      2026-04-12
+Microsoft.Azure.Azclips.Extensions.Compute      1.1.0     vm, disk               no      2026-04-12
+Microsoft.Azure.Azclips.Extensions.Resources    1.0.0     group                  no      2026-04-12
 ```
 
 `--by-verb` is useful when multiple packages contribute to the same namespace:
 
 ```
 vm
-  Microsoft.Azure.Cirrus.Extensions.Compute       1.1.0
+  Microsoft.Azure.Azclips.Extensions.Compute      1.1.0
   Contoso.VmPreviewExt                            0.3.0-preview
 group
-  Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0
+  Microsoft.Azure.Azclips.Extensions.Resources    1.0.0
 ```
 
 JSON output reflects the union of discovered extensions. **Note:** `installed-at` is metadata from the registry if available; if missing (for example, an extension copied to disk without an install record), runtime discovery defaults it to the current UTC timestamp for that invocation.
@@ -160,14 +160,14 @@ The pinned state is persisted in `registry.json` and consulted at runtime; unpin
 az extension remove <name>
 ```
 
-Deletes `~/.cirrus/extensions/<packageId>/` and the registry entry. Built-in namespaces (`extension`, `login`, `config`) cannot be removed.
+Deletes `~/.azclips/extensions/<packageId>/` and the registry entry. Built-in namespaces (`extension`, `login`, `config`) cannot be removed.
 
 ## Compatibility metadata
 
 Extensions can declare a supported `core` version range:
 
 ```csharp
-[assembly: CirrusCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
+[assembly: AzclipsCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
 ```
 
 - Both bounds optional. Missing attribute = assumed compatible.
@@ -187,8 +187,8 @@ A `(verb, path)` you're trying to add is already owned by another installed exte
 
 ```
 error: [LeafConflict] Extension 'Contoso.Foo' has 2 leaf conflicts with already-installed extensions.
-  - leaf 'vm contoso-magic' is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'
-  - leaf 'disk contoso-extra' is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'
+  - leaf 'vm contoso-magic' is already owned by 'Microsoft.Azure.Azclips.Extensions.Compute'
+  - leaf 'disk contoso-extra' is already owned by 'Microsoft.Azure.Azclips.Extensions.Compute'
 Remove the conflicting extension(s) first or rename the offending leaves.
 ```
 
@@ -200,7 +200,7 @@ There's no `--force` for collisions. Either `remove` the conflicting extension f
 
 ### `CompatibilityViolation` (exit 7)
 
-The extension's `[CirrusCompatibility]` range excludes your `core` version. Either upgrade Cirrus, or install a different version of the extension.
+The extension's compatibility range excludes your `core` version. Either upgrade Azclips, or install a different version of the extension.
 
 ### `RegistryConcurrency` (exit 8)
 
@@ -212,7 +212,7 @@ The on-disk `registry.json` violates the leaf-uniqueness invariant — usually f
 
 ### Force a fresh assembly load — `--no-cache`
 
-Cirrus caches loaded extension assemblies per `(packageId, version)` for the life of the process. Long-running hosts (TUI) benefit; one-shot CLI invocations are unaffected. To force a fresh load (debugging, benchmarking):
+Azclips caches loaded extension assemblies per `(packageId, version)` for the life of the process. Long-running hosts (TUI) benefit; one-shot CLI invocations are unaffected. To force a fresh load (debugging, benchmarking):
 
 ```bash
 az --no-cache vm list
@@ -223,15 +223,15 @@ Or set the config / env var to disable caching globally:
 ```bash
 az config set --key assemblyLoading.bypassExtensionCache --value true
 # or
-$env:CIRRUS_NO_EXTENSION_CACHE = "true"
+$env:AZCLIPS_NO_EXTENSION_CACHE = "true"
 ```
 
 ## Where things live
 
 | Path                                                | Contents                                                                                                                                      |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/.cirrus/extensions/<packageId>/<version>/`       | Extracted DLLs for one installed version. **Authoritative source** for installed extensions.                                                  |
-| `~/.cirrus/extensions/registry.json`                | User preferences (pinning, active version override, install metadata). Optional; discovery works even if missing.                             |
+| `~/.azclips/extensions/<packageId>/<version>/`      | Extracted DLLs for one installed version. **Authoritative source** for installed extensions.                                                  |
+| `~/.azclips/extensions/registry.json`               | User preferences (pinning, active version override, install metadata). Optional; discovery works even if missing.                             |
 | `az.dll` (embedded resource `extension-hints.json`) | Build-time catalog of first-party verb → package mappings. Used for the unknown-verb suggestion in case no installed extension owns the verb. |
 
 ## Exit code reference

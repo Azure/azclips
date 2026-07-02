@@ -19,7 +19,7 @@ public class BuiltInExtensionsLeavesDriftTests
     public static TheoryData<string, IExtensionIndex> BuiltIns =>
         new()
         {
-            { "extension", new Microsoft.Azure.Cirrus.Extensions.Extension.ExtensionIndex() },
+            { "extension", new Microsoft.Azure.Azclips.Extensions.Extension.ExtensionIndex() },
             { "login",     new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
             { "logout",     new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
             { "profile",   new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },

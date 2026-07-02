@@ -241,9 +241,7 @@ public sealed class ChatAgent : IAsyncDisposable
         return new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
-            ConfigDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".azclips"),
+            ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
             Streaming = true,
             SystemMessage = new SystemMessageConfig { Content = systemPrompt },
             Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)

@@ -37,7 +37,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     {
         InitializeCommon();
 
-        // Benchmark-scoped extensions home: a copy of the real ~/.cirrus/extensions layout that the
+        // Benchmark-scoped extensions home: a copy of the real ~/.azclips/extensions layout that the
         // resolver, reconciler, and MultiVersionExtensionLoader all agree on.
         _extensionsRoot = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "extensions");
         TryDeleteDirectory(_extensionsRoot);

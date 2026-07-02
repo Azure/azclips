@@ -70,7 +70,7 @@ if [[ ! -f "$az" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Cirrus.Extensions.Extension" ]]; then
+if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Extension" ]]; then
   echo "FAIL: Built-in Extension manager bundle missing"
   exit 1
 fi
