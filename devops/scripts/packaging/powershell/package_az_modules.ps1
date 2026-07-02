@@ -100,6 +100,45 @@ function New-AzModulePackage
     $moduleRoot = Join-Path $ModulesRoot $Definition.PackageName
     Remove-Item -Path $moduleRoot -Recurse -Force -ErrorAction SilentlyContinue
 
+    if ($Definition.IsRollup)
+    {
+        $null = New-Item -ItemType Directory -Path $moduleRoot -Force
+
+        $rootModulePath = Join-Path $moduleRoot "$($Definition.PackageName).psm1"
+        $rootModuleContent = @(
+            '$ErrorActionPreference = ''Stop'''
+            ''
+        )
+        foreach ($dependency in @($Definition.ModuleList))
+        {
+            $rootModuleContent += "Import-Module $($dependency.ModuleName) -RequiredVersion '$($dependency.ModuleVersion)' -Global -ErrorAction Stop"
+        }
+        Set-Content -Path $rootModulePath -Value $rootModuleContent -Encoding utf8
+
+        $manifestPath = Join-Path $moduleRoot "$($Definition.PackageName).psd1"
+        New-ModuleManifest `
+            -Path $manifestPath `
+            -RootModule "$($Definition.PackageName).psm1" `
+            -ModuleVersion $Definition.Version `
+            -Guid $Definition.Guid `
+            -Author 'Microsoft Corporation' `
+            -CompanyName 'Microsoft Corporation' `
+            -Copyright 'Microsoft Corporation. All rights reserved.' `
+            -Description 'Azclips PowerShell cmdlets rollup module' `
+            -PowerShellVersion '7.6' `
+            -CompatiblePSEditions @('Core') `
+            -RequiredModules @() `
+            -ModuleList @() `
+            -FunctionsToExport @() `
+            -CmdletsToExport @() `
+            -Tags @('Azure', 'ResourceManager', 'ARM', 'Provider', 'Azclips') `
+            -ProjectUri 'https://github.com/Azure/azclips' `
+            -LicenseUri 'https://aka.ms/azps-license' `
+            -ReleaseNotes '* First preview'
+
+        return $moduleRoot
+    }
+
     $binRoot = Join-Path $moduleRoot 'bin'
     $extensionsRoot = Join-Path $moduleRoot 'Extensions'
     $helpRoot = Join-Path $moduleRoot 'en-US'
@@ -154,13 +193,13 @@ function New-AzModulePackage
 
         $rootModuleContent += @(
             "`$dependencyModule = Get-Module -Name '$($dependency.ModuleName)'"
-            "if (`$dependencyModule -ne `$null -and `$dependencyModule.Version -lt [System.Version]'$($dependency.ModuleVersion)')",
+            "if (`$dependencyModule -ne `$null -and `$dependencyModule.Version -ne [System.Version]'$($dependency.ModuleVersion)')",
             '{',
-            "    Write-Error 'This module requires $($dependency.ModuleName) version $($dependency.ModuleVersion). An earlier version of $($dependency.ModuleName) is imported in the current PowerShell session. Please open a new session before importing this module.' -ErrorAction Stop",
+            "    Write-Error 'This module requires $($dependency.ModuleName) version $($dependency.ModuleVersion). A different version of $($dependency.ModuleName) is imported in the current PowerShell session. Please open a new session before importing this module.' -ErrorAction Stop",
             '}',
             'elseif ($dependencyModule -eq $null)',
             '{',
-            "    Import-Module $($dependency.ModuleName) -MinimumVersion '$($dependency.ModuleVersion)' -Scope Global -ErrorAction Stop",
+            "    Import-Module $($dependency.ModuleName) -RequiredVersion '$($dependency.ModuleVersion)' -Scope Global -ErrorAction Stop",
             '}',
             ''
         )
@@ -275,7 +314,7 @@ function Update-NupkgManifestModuleList
     try
     {
         Expand-Archive -Path $PackagePath -DestinationPath $extractRoot -Force
-        $manifestPath = Get-ChildItem -Path $extractRoot -Filter 'Az.*.psd1' -File | Select-Object -First 1 -ExpandProperty FullName
+        $manifestPath = Get-ChildItem -Path $extractRoot -Filter '*.psd1' -File | Select-Object -First 1 -ExpandProperty FullName
         if (-not $manifestPath)
         {
             throw "No module manifest was found in package: $PackagePath"
@@ -301,6 +340,11 @@ function Get-AzPackageName
         [Parameter(Mandatory = $true)]
         [string]$SourceModule
     )
+
+    if ($SourceModule -eq 'Az')
+    {
+        return 'Az'
+    }
 
     return "Az.$SourceModule"
 }
@@ -369,7 +413,7 @@ function Assert-InstalledModuleImport
 
         Write-Host "Imported $ModuleName from local repository install root: $($loadedModule.Path)"
         Write-Host "Validated $ModuleName cmdlets: $($expectedCmdlets -join ', ')"
-    } -Args $InstallRoot, $Definition.PackageName, ($Definition.CmdletsToExport | ConvertTo-Json -Compress)
+    } -Args $InstallRoot, $Definition.PackageName, (ConvertTo-Json -InputObject @($Definition.CmdletsToExport) -Compress)
 
     if ($LASTEXITCODE -ne 0)
     {
@@ -399,7 +443,7 @@ Remove-Item -Path $modulesRoot, $repositoryRoot, $installRoot -Recurse -Force -E
 $null = New-Item -ItemType Directory -Path $modulesRoot, $repositoryRoot, $installRoot -Force
 
 $packageDefinitions = Get-ChildItem -Path $resolvedSourcePsRoot -Filter '*.psd1' -Recurse |
-    Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Login') { 0 } else { 1 } } }, FullName |
+    Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Login') { 0 } elseif ($_.BaseName -eq 'Az') { 2 } else { 1 } } }, FullName |
     ForEach-Object {
         $manifestData = Import-PowerShellDataFile -Path $_.FullName
         $sourceModule = $_.BaseName
@@ -419,6 +463,7 @@ $packageDefinitions = Get-ChildItem -Path $resolvedSourcePsRoot -Filter '*.psd1'
             CmdletsToExport = @($manifestData.CmdletsToExport)
             Guid = [string]$manifestData.Guid
             ModuleList = $moduleList
+            IsRollup = $sourceModule -eq 'Az'
         }
     }
 

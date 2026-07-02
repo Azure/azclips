@@ -47,6 +47,13 @@ stages:
     sequence: ${{ parameters.sequence }}
     ubuntu_pool: ${{ parameters.ubuntu_pool }}
 
+- template: component-governance.yml
+  parameters:
+    stage_name: ComponentGovernance
+    display_name: Component Governance
+    windows_pool: ${{ parameters.windows_pool }}
+    depends_on: Init
+
 - stage: BuildCommon
   displayName: Build (CLI) Common
   dependsOn: Init
@@ -201,6 +208,7 @@ stages:
   - ValidateLinux
   - ValidateWindows
   - ValidateMacOS
+  - ComponentGovernance
   condition: always()
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
@@ -214,6 +222,7 @@ stages:
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
+    ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]
   jobs:
   - template: ../jobs/finalize-build-summary.yml
     parameters:

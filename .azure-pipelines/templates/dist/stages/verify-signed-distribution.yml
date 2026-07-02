@@ -87,6 +87,79 @@ stages:
           exit 1
         fi
 
+        validate_ps_cmdlets_archive() {
+          local archive="$1"
+          local extract_root
+          extract_root="$(mktemp -d)"
+          tar -xzf "$archive" -C "$extract_root"
+
+          python3 - "$extract_root" <<'PY'
+        import os
+        import re
+        import sys
+        import xml.etree.ElementTree as ET
+        import zipfile
+
+        extract_root = sys.argv[1]
+        entries = sorted(os.listdir(extract_root))
+        if any('/' in entry for entry in entries):
+            raise SystemExit('ERROR: azps-cmdlets archive must not contain a root folder.')
+
+        if 'InstallModule.ps1' not in entries:
+            raise SystemExit('ERROR: azps-cmdlets archive must contain InstallModule.ps1.')
+
+        packages = {entry: os.path.join(extract_root, entry) for entry in entries if entry.endswith('.nupkg')}
+        rollups = sorted(name for name in packages if re.match(r'^Az\.\d', name))
+        if len(rollups) != 1:
+            raise SystemExit(f'ERROR: Expected exactly one Az.<version>.nupkg rollup package. Found {len(rollups)}.')
+
+        with zipfile.ZipFile(packages[rollups[0]]) as archive:
+            nuspec_names = [name for name in archive.namelist() if name.endswith('.nuspec')]
+            if not nuspec_names:
+                raise SystemExit(f'ERROR: Rollup package has no nuspec: {rollups[0]}')
+            root = ET.fromstring(archive.read(nuspec_names[0]))
+
+        namespace = ''
+        if root.tag.startswith('{'):
+            namespace = root.tag.split('}', 1)[0] + '}'
+
+        dependencies_root = root.find(f'.//{namespace}dependencies')
+        if dependencies_root is None:
+            raise SystemExit(f'ERROR: Rollup package has no dependencies: {rollups[0]}')
+
+        dependencies = []
+        for dependency in dependencies_root.iter(f'{namespace}dependency'):
+            dependency_id = dependency.attrib.get('id')
+            dependency_version = dependency.attrib.get('version')
+            if dependency_id and dependency_id.startswith('Az.'):
+                dependencies.append((dependency_id, dependency_version))
+
+        if not dependencies:
+            raise SystemExit(f'ERROR: Rollup package has no Az.* dependencies: {rollups[0]}')
+
+        expected = {rollups[0], 'InstallModule.ps1'}
+        for dependency_id, dependency_version in dependencies:
+            package_name = f'{dependency_id}.{dependency_version}.nupkg'
+            if package_name not in packages:
+                raise SystemExit(f'ERROR: Rollup dependency package is missing from archive: {package_name}')
+            expected.add(package_name)
+
+        extra_packages = sorted(set(packages) - (expected - {'InstallModule.ps1'}))
+        if extra_packages:
+            raise SystemExit(f'ERROR: azps-cmdlets archive contains packages outside the Az rollup dependency graph: {", ".join(extra_packages)}')
+
+        print('Verified azps-cmdlets archive contents:')
+        for entry in sorted(expected):
+            print(f'  {entry}')
+        PY
+
+          rm -rf "$extract_root"
+        }
+
+        for archive in "${ps_cmdlet_archives[@]}"; do
+          validate_ps_cmdlets_archive "$archive"
+        done
+
         extract_distribution_version() {
           local archive="$1"
           local name base stem label version

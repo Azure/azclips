@@ -1,0 +1,111 @@
+parameters:
+- name: stage_name
+  type: string
+  default: ComponentGovernance
+- name: display_name
+  type: string
+  default: Component Governance
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: depends_on
+  type: object
+  default: []
+- name: scan_root
+  type: string
+  default: '$(Build.SourcesDirectory)'
+
+stages:
+- stage: ${{ parameters.stage_name }}
+  displayName: ${{ parameters.display_name }}
+  dependsOn: ${{ parameters.depends_on }}
+  condition: succeeded()
+  jobs:
+  - job: ComponentGovernanceAndPoliCheck
+    displayName: Component Governance and PoliCheck
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      retryCountOnTaskFailure: 3
+
+    - task: PowerShell@2
+      displayName: Prepare Compliance Results Directory
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: New-Item -ItemType Directory -Force -Path '$(Build.ArtifactStagingDirectory)/security'
+
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: PowerShell@2
+      displayName: Restore .NET Dependencies
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: dotnet restore '$(Build.SourcesDirectory)/cirrus.slnx'
+
+    - task: PowerShell@2
+      displayName: Generate Third-Party NOTICE Draft
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $noticeDraft = '$(Build.ArtifactStagingDirectory)/security/NOTICE.generated'
+          pwsh -NoProfile -File '$(Build.SourcesDirectory)/devops/scripts/compliance/generate_notice.ps1' `
+            -RepoRoot '$(Build.SourcesDirectory)' `
+            -OutputPath $noticeDraft `
+            -SkipRestore
+
+          $rootNotice = '$(Build.SourcesDirectory)/NOTICE'
+          if (Test-Path -Path $rootNotice -PathType Leaf) {
+            $generated = (Get-Content -Path $noticeDraft -Raw) -replace "`r`n", "`n"
+            $committed = (Get-Content -Path $rootNotice -Raw) -replace "`r`n", "`n"
+            if ($generated -ne $committed) {
+              Write-Host '##vso[task.logissue type=warning]Generated NOTICE differs from the committed root NOTICE. Review NOTICE.generated during the version bump PR and update NOTICE if needed.'
+            }
+          }
+          else {
+            Write-Host '##vso[task.logissue type=warning]Root NOTICE file was not found.'
+          }
+
+    - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+      displayName: Component Detection
+      continueOnError: true
+
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-policheck.PoliCheck@2
+      displayName: Run PoliCheck
+      inputs:
+        targetType: F
+        targetArgument: ${{ parameters.scan_root }}
+        result: $(Build.ArtifactStagingDirectory)/security/PoliCheck.xml
+
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
+      displayName: Publish Security Analysis Logs
+      condition: succeededOrFailed()
+      inputs:
+        ArtifactName: CodeAnalysisLogs
+        ArtifactType: Container
+        PublishProcessedResults: false
+        AllTools: true
+
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
+      displayName: Analyze Security Results
+      inputs:
+        GdnBreakAllTools: false
+        GdnBreakGdnToolPoliCheck: true
+        GdnBreakGdnToolPoliCheckSeverity: Error
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Compliance Results
+      condition: succeededOrFailed()
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/security
+        artifact: Compliance_Results_${{ parameters.stage_name }}
+        publishLocation: pipeline

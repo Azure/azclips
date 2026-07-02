@@ -102,6 +102,7 @@ stages:
     - ValidateWindows
     - ValidateMacOS
     - Finalize
+    - ComponentGovernance
     SourceProject: ${{ variables.SourceProject }}
     source_pipeline_name: ${{ variables.ReleasePipelineName }}
     source_build_id: $(Build.BuildId)
@@ -111,10 +112,17 @@ stages:
     esrp_service_connection: ${{ variables.ESRPServiceConnection }}
     macos_bundle_id: ${{ variables.MacOSBundleId }}
 
+- template: templates/dist/stages/component-governance.yml
+  parameters:
+    stage_name: SignedComponentGovernance
+    display_name: Component Governance For Signed Artifacts
+    windows_pool: ${{ variables.windows_pool }}
+    depends_on: AssembleSignedArtifacts
+
 - template: templates/dist/stages/verify-signed-distribution.yml
   parameters:
     ubuntu_pool: ${{ variables.ubuntu_pool }}
-    dependency_stage: AssembleSignedArtifacts
+    dependency_stage: SignedComponentGovernance
     SourceProject: ${{ variables.SourceProject }}
     signed_pipeline_name: ${{ variables.ReleasePipelineName }}
     signed_build_id: $(Build.BuildId)

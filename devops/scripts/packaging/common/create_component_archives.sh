@@ -97,6 +97,27 @@ CLI_ARCHIVE_STEM="${CLI_ARCHIVE_STEM:-$(read_artifact_config cli_archive_stem az
 CLI_LEAN_ARCHIVE_STEM="${CLI_LEAN_ARCHIVE_STEM:-$(read_artifact_config cli_lean_archive_stem azcli-lean)}"
 CLI_EXTENSIONS_ARCHIVE_STEM="${CLI_EXTENSIONS_ARCHIVE_STEM:-$(read_artifact_config cli_extensions_archive_stem azcli-extensions)}"
 PS_CMDLETS_ARCHIVE_STEM="${PS_CMDLETS_ARCHIVE_STEM:-$(read_artifact_config ps_cmdlets_archive_stem azps-cmdlets)}"
+INSTALL_MODULE_SCRIPT="${INSTALL_MODULE_SCRIPT:-$PACKAGING_ROOT/powershell/InstallModule.ps1}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
+NOTICE_FILE="${NOTICE_FILE:-$REPO_ROOT/NOTICE}"
+LICENSE_FILE="${LICENSE_FILE:-$REPO_ROOT/LICENSE}"
+
+copy_legal_files() {
+  local destination_root="$1"
+
+  if [[ ! -f "$NOTICE_FILE" ]]; then
+    echo "ERROR: NOTICE file was not found: $NOTICE_FILE"
+    exit 1
+  fi
+
+  if [[ ! -f "$LICENSE_FILE" ]]; then
+    echo "ERROR: LICENSE file was not found: $LICENSE_FILE"
+    exit 1
+  fi
+
+  cp "$NOTICE_FILE" "$destination_root/NOTICE"
+  cp "$LICENSE_FILE" "$destination_root/LICENSE"
+}
 
 resolve_config_label() {
   local key="$1"
@@ -178,12 +199,102 @@ create_archive() {
     package_names+=("$(basename "$package_path")")
   done
 
+  local staging_root
+  staging_root="$(mktemp -d)"
+  trap 'rm -rf "$staging_root"' RETURN
+
+  for package_path in "${package_paths[@]}"; do
+    cp "$package_path" "$staging_root/"
+  done
+  copy_legal_files "$staging_root"
+
   mkdir -p "$(dirname "$archive_path")"
   rm -f "$archive_path"
-  tar -czf "$archive_path" -C "$source_root" "${package_names[@]}"
+  tar -czf "$archive_path" -C "$staging_root" "${package_names[@]}" NOTICE LICENSE
+  echo "Created $archive_path"
+}
+
+create_ps_cmdlets_archive() {
+  local source_root="$1"
+  local archive_path="$2"
+
+  if [[ ! -d "$source_root" ]]; then
+    echo "ERROR: PowerShell cmdlet source root not found: $source_root"
+    exit 1
+  fi
+
+  if [[ ! -f "$INSTALL_MODULE_SCRIPT" ]]; then
+    echo "ERROR: InstallModule.ps1 was not found: $INSTALL_MODULE_SCRIPT"
+    exit 1
+  fi
+
+  mapfile -t package_names < <(python3 - "$source_root" <<'PY'
+import os
+import re
+import sys
+import xml.etree.ElementTree as ET
+import zipfile
+
+source_root = sys.argv[1]
+packages = {name: os.path.join(source_root, name) for name in os.listdir(source_root) if name.endswith('.nupkg')}
+rollups = sorted(name for name in packages if re.match(r'^Az\.\d', name))
+if len(rollups) != 1:
+    raise SystemExit(f"ERROR: Expected exactly one Az.<version>.nupkg rollup package under {source_root}; found {len(rollups)}.")
+
+rollup = rollups[0]
+selected = [rollup]
+
+with zipfile.ZipFile(packages[rollup]) as archive:
+    nuspec_names = [name for name in archive.namelist() if name.endswith('.nuspec')]
+    if not nuspec_names:
+        raise SystemExit(f"ERROR: Rollup package has no nuspec: {rollup}")
+    root = ET.fromstring(archive.read(nuspec_names[0]))
+
+namespace = ''
+if root.tag.startswith('{'):
+    namespace = root.tag.split('}', 1)[0] + '}'
+
+dependencies_root = root.find(f'.//{namespace}dependencies')
+if dependencies_root is None:
+    raise SystemExit(f"ERROR: Rollup package has no dependencies: {rollup}")
+
+dependencies = []
+for dependency in dependencies_root.iter(f'{namespace}dependency'):
+    dependency_id = dependency.attrib.get('id')
+    dependency_version = dependency.attrib.get('version')
+    if dependency_id and dependency_id.startswith('Az.'):
+        dependencies.append((dependency_id, dependency_version))
+
+if not dependencies:
+    raise SystemExit(f"ERROR: Rollup package has no Az.* dependencies: {rollup}")
+
+for dependency_id, dependency_version in dependencies:
+    package_name = f'{dependency_id}.{dependency_version}.nupkg'
+    if package_name not in packages:
+        raise SystemExit(f"ERROR: Rollup dependency package is missing: {package_name}")
+    selected.append(package_name)
+
+for name in selected:
+    print(name)
+PY
+  )
+
+  local staging_root
+  staging_root="$(mktemp -d)"
+  trap 'rm -rf "$staging_root"' RETURN
+
+  for package_name in "${package_names[@]}"; do
+    cp "$source_root/$package_name" "$staging_root/"
+  done
+  cp "$INSTALL_MODULE_SCRIPT" "$staging_root/InstallModule.ps1"
+  copy_legal_files "$staging_root"
+
+  mkdir -p "$(dirname "$archive_path")"
+  rm -f "$archive_path"
+  tar -czf "$archive_path" -C "$staging_root" "${package_names[@]}" InstallModule.ps1 NOTICE LICENSE
   echo "Created $archive_path"
 }
 
 mkdir -p "$OUTPUT_ROOT"
 create_archive "$CLI_EXTENSIONS_ROOT" 'azcli.extensions.*.nupkg' "$OUTPUT_ROOT/$CLI_EXTENSIONS_ARCHIVE_STEM-$ARTIFACT_VERSION_SEGMENT.tar.gz" 'CLI extension'
-create_archive "$PSGALLERY_ROOT" 'Az.*.nupkg' "$OUTPUT_ROOT/$PS_CMDLETS_ARCHIVE_STEM-$ARTIFACT_VERSION_SEGMENT.tar.gz" 'PowerShell cmdlet'
+create_ps_cmdlets_archive "$PSGALLERY_ROOT" "$OUTPUT_ROOT/$PS_CMDLETS_ARCHIVE_STEM-$ARTIFACT_VERSION_SEGMENT.tar.gz"

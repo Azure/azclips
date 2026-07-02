@@ -27,14 +27,15 @@ function Get-AzModuleDefinitions
     )
 
     Get-ChildItem -Path $SourcePsRoot -Filter '*.psd1' -Recurse |
-        Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Login') { 0 } else { 1 } } }, FullName |
+        Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Login') { 0 } elseif ($_.BaseName -eq 'Az') { 2 } else { 1 } } }, FullName |
         ForEach-Object {
             $manifestData = Import-PowerShellDataFile -Path $_.FullName
             $sourceModule = $_.BaseName
+            $packageName = if ($sourceModule -eq 'Az') { 'Az' } else { "Az.$sourceModule" }
 
             [pscustomobject]@{
                 SourceModule = $sourceModule
-                PackageName = "Az.$sourceModule"
+                PackageName = $packageName
                 Version = [string]$manifestData.ModuleVersion
                 CmdletsToExport = @($manifestData.CmdletsToExport)
             }
@@ -86,7 +87,7 @@ function Assert-InstalledModuleImport
 
         Write-Host "Imported $ModuleName from local gallery install root: $($loadedModule.Path)"
         Write-Host "Validated $ModuleName cmdlets: $($expectedCmdlets -join ', ')"
-    } -Args $InstallRoot, $Definition.PackageName, ($Definition.CmdletsToExport | ConvertTo-Json -Compress)
+    } -Args $InstallRoot, $Definition.PackageName, (ConvertTo-Json -InputObject @($Definition.CmdletsToExport) -Compress)
 
     if ($LASTEXITCODE -ne 0)
     {

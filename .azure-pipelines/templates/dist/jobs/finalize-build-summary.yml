@@ -31,7 +31,22 @@ jobs:
       echo "ValidateLinux: $(ValidateLinuxResult)"
       echo "ValidateWindows: $(ValidateWindowsResult)"
       echo "ValidateMacOS: $(ValidateMacOSResult)"
+      echo "ComponentGovernance: $(ComponentGovernanceResult)"
     displayName: Stage Summary
+
+  - bash: |
+      set -euo pipefail
+
+      case "$(ComponentGovernanceResult)" in
+        Succeeded|SucceededWithIssues)
+          echo "Component Governance completed with acceptable result: $(ComponentGovernanceResult)"
+          ;;
+        *)
+          echo "ERROR: Component Governance did not complete successfully. Result: $(ComponentGovernanceResult)"
+          exit 1
+          ;;
+      esac
+    displayName: Validate Component Governance Result
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Common Distribution Artifacts
