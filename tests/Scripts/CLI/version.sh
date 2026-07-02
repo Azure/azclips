@@ -6,4 +6,4 @@
 
 # Happy path: structured version information for the CLI host, loaded runtime,
 # and configuration paths. Expect a JSON object with azCli, runtime, and paths.
-az version
+version

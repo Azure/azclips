@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Configuration.Options;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Version.Models;
 
@@ -43,7 +42,7 @@ public class GetVersionProcessor : IProcessor
 
     // Sections are not wrapped defensively: if something goes wrong, exceptions are bubbled up
     // to diagnose initialization or configuration problems cleanly instead of falling back.
-    private VersionInformation GatherVersionInformation()
+    private static VersionInformation GatherVersionInformation()
     {
         var entryAssembly = Assembly.GetEntryAssembly();
 
@@ -68,7 +67,7 @@ public class GetVersionProcessor : IProcessor
     }
         
 
-    private RuntimeInfo GetRuntimeInformation()
+    private static RuntimeInfo GetRuntimeInformation()
     {
         return new RuntimeInfo
         {
