@@ -37,6 +37,11 @@ public class Program
             return 0;
         }
 
+        // Emit shell completion script (no DI needed)
+        int? scriptExit = CompletionScriptEmitter.TryHandle(args);
+        if (scriptExit.HasValue)
+            return scriptExit.Value;
+
         CirrusServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
