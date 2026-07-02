@@ -139,6 +139,6 @@ _az() {
     _az_debug "final candidates=(${candidates[*]}) count=${#candidates[@]}"
     return 0
 }
-compdef _az az
+compdef _az az az.exe
 
 echo "az tab completion registered (zsh, dynamic)."

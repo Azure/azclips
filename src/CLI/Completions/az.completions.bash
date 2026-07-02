@@ -144,7 +144,7 @@ _az_completions() {
     esac
 }
 
-complete -F _az_completions az
+complete -F _az_completions az az.exe
 
 # Show all completions on first Tab press (like PowerShell's MenuComplete)
 bind 'set show-all-if-ambiguous on' 2>/dev/null
