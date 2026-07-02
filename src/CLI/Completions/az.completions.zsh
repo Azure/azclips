@@ -71,6 +71,7 @@ _az() {
         2)
             # Level 0: complete top-level command groups
             json="$(_az_query)"
+            _az_debug "json=$json"
             if [[ -n "$json" ]]; then
                 candidates=("${(@f)$(echo "$json" | jq -r 'keys[]' 2>/dev/null)}")
             fi
@@ -80,12 +81,24 @@ _az() {
             # Level 1: subcommands + group params
             group="${words[2]:l}"
             json="$(_az_query "$group")"
+            _az_debug "json=$json"
             if [[ -n "$json" ]]; then
                 local subs_output params_output
+                local -a arr
+
                 subs_output="$(echo "$json" | jq -r '._subcommands[]? // empty' 2>/dev/null)"
+                if [[ -n "$subs_output" ]]; then
+                    arr=("${(f)subs_output}")
+                    candidates+=("${arr[@]}")
+                fi
+
                 params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
-                [[ -n "$subs_output" ]] && candidates+=("${(@f)$subs_output}")
-                [[ -n "$params_output" ]] && candidates+=("${(@f)$params_output}")
+                if [[ -n "$params_output" ]]; then
+                    arr=("${(f)params_output}")
+                    candidates+=("${arr[@]}")
+                fi
+
+                _az_debug "candidates=(${candidates[*]})"
             fi
             _az_debug "level=1 group=$group candidates=(${candidates[*]})"
             ;;
@@ -99,6 +112,7 @@ _az() {
             else
                 json="$(_az_query "$group" "$sub")"
             fi
+            _az_debug "json=$json"
             if [[ -n "$json" ]]; then
                 local params_output
                 # Try subcommand-specific params, then group-level
@@ -108,7 +122,12 @@ _az() {
                 if [[ -z "$params_output" ]]; then
                     params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
                 fi
-                [[ -n "$params_output" ]] && params=("${(@f)$params_output}")
+
+                if [[ -n "$params_output" ]]; then
+                    local -a arr
+                    arr=("${(f)params_output}")
+                    params=("${arr[@]}")
+                fi
             fi
 
             # Filter out already-used flags
