@@ -3,8 +3,8 @@
     { "name": "login", "summary": "Authenticate to Azure and manage account context.", "extension": "login", "prefix": "login" },
     { "name": "group", "summary": "Manage resource groups in your Azure subscription.", "extension": "resources", "prefix": "group" },
     { "name": "vm", "summary": "Manage compute resources (virtual networks, NSGs, network interfaces, and virtual machines).", "extension": "compute", "prefix": "vm" },
-    { "name": "config", "summary": "Manage local Cirrus configuration settings and preferences.", "extension": "config", "prefix": "config" },
-    { "name": "extension", "summary": "Manage Cirrus extensions and extension packages.", "extension": "extension", "prefix": "extension" }
+    { "name": "config", "summary": "Manage local Azclips configuration settings and preferences.", "extension": "config", "prefix": "config" },
+    { "name": "extension", "summary": "Manage Azclips extensions and extension packages.", "extension": "extension", "prefix": "extension" }
   ],
   "commands": [
     { "name": "LoginProcessor", "cliName": "login", "psName": "Connect-AzAccount", "extension": "login", "group": "login", "summary": "Authenticate to Azure and set the current account context." },

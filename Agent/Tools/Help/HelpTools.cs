@@ -8,8 +8,8 @@ using Microsoft.Extensions.AI;
 namespace Core.Agent.Tools.Help;
 
 /// <summary>
-/// Two AI agent tools that READ the embedded cirrus help corpus:
-///   • list_commands — flat catalog of every cirrus command (cliName + psName + summary)
+/// Two AI agent tools that READ the embedded azclips help corpus:
+///   • list_commands — flat catalog of every azclips command (cliName + psName + summary)
 ///   • get_command   — full HelpCommand for one verb (parameters + examples + description)
 ///
 /// Data source is two static JSON files copied to output (HelpIndex.json / HelpManifest.json)
@@ -71,7 +71,7 @@ public sealed class HelpTools
         ListCommands = AIFunctionFactory.Create(ListCommandsImpl, new AIFunctionFactoryOptions
         {
             Name = "list_commands",
-            Description = "Return the full catalog of cirrus commands across all extensions. " +
+            Description = "Return the full catalog of azclips commands across all extensions. " +
                 "Each entry has cliName (e.g. 'vm create-combined', empty string when no CLI verb), " +
                 "psName (e.g. 'New-VMCombined', empty string when no PS cmdlet), extension, group, summary. " +
                 "Use FIRST when you don't already know whether a command exists or what its exact name is. " +
@@ -82,7 +82,7 @@ public sealed class HelpTools
         GetCommand = AIFunctionFactory.Create(GetCommandImpl, new AIFunctionFactoryOptions
         {
             Name = "get_command",
-            Description = "Return the full HelpCommand for one cirrus verb: parameters (cliName/psName, type, required, description), " +
+            Description = "Return the full HelpCommand for one azclips verb: parameters (cliName/psName, type, required, description), " +
                 "examples (cli[] and powerShell[]), description, summary. " +
                 "Pass 'name' as the cliName (e.g. 'vm create-combined') OR the psName (e.g. 'New-VMCombined') — " +
                 "lookup is case-insensitive and searches both surfaces. " +

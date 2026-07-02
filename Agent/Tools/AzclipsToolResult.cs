@@ -12,7 +12,7 @@ namespace Core.Agent.Tools;
 /// <param name="ModelText">Text the LLM receives as tool_result. Plain prose / labeled blocks, not JSON.</param>
 /// <param name="IsError">Whether the call's outcome is an error (drives red vs green in renderers).</param>
 /// <param name="UserDisplay">Optional one-line human summary. If null, renderers fall back to a trimmed <see cref="ModelText"/>.</param>
-public sealed record CirrusToolResult(
+public sealed record AzclipsToolResult(
     string ModelText,
     bool IsError = false,
     string? UserDisplay = null);

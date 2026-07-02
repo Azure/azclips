@@ -37,7 +37,7 @@ public sealed class AvailableLocationsTool
     private static readonly string[] ArmScope = { "https://management.azure.com/.default" };
     private static readonly Regex LocationName = new(@"^[a-z0-9]+$", RegexOptions.Compiled);
 
-    // Default candidate set covers the regions cirrus customers hit 95% of
+    // Default candidate set covers the regions azclips customers hit 95% of
     // the time. Keeping it small bounds tool latency to ~one ARM round-trip
     // (all calls run in parallel). LLM can override with `candidateLocations`.
     private static readonly string[] DefaultCandidates =

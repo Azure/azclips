@@ -40,10 +40,10 @@ public sealed class EnvironmentProber
             SubscriptionId: string.IsNullOrEmpty(ctx?.SubscriptionId) ? null : ctx!.SubscriptionId,
             TenantId: string.IsNullOrEmpty(ctx?.TenantId) ? null : ctx!.TenantId,
             Flavor: _flavor,
-            CirrusVersion: Safe(GetCirrusVersion, "unknown"));
+            AzclipsVersion: Safe(GetAzclipsVersion, "unknown"));
     }
 
-    private static string GetCirrusVersion()
+    private static string GetAzclipsVersion()
     {
         var asm = Assembly.GetEntryAssembly() ?? typeof(EnvironmentProber).Assembly;
         var v = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
