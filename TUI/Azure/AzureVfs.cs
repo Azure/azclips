@@ -11,13 +11,13 @@ namespace Core.Tui.Azure;
 ///         └─ {resourceGroupName} (resourceGroup — from ARG)
 ///            └─ {resourceName} [{resourceType}] (resource — from ARG)
 ///
-/// Tenant comes from IAuthContextService (Core.Authentication).
+/// Tenant comes from the active profile (IProfileService).
 /// Subscriptions, resource groups, and resources all use Azure Resource Graph.
 /// </summary>
 public class AzureVfs
 {
     private readonly ArmClient _arm;
-    private readonly IAuthContextService _authContextService;
+    private readonly IProfileService _profileService;
     private AzureResourceTree? _tree;
     private Task? _treePreloadTask;
 
@@ -29,10 +29,10 @@ public class AzureVfs
     public string? TenantId => _tenantId;
     public bool IsAuthenticated => _arm.IsAuthenticated;
 
-    public AzureVfs(ArmClient arm, IAuthContextService authContextService)
+    public AzureVfs(ArmClient arm, IProfileService profileService)
     {
         _arm = arm;
-        _authContextService = authContextService;
+        _profileService = profileService;
     }
 
     /// <summary>
@@ -41,8 +41,8 @@ public class AzureVfs
     public async Task<bool> TryAuthenticateAsync()
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var context = await _authContextService.GetCurrentContextAsync();
-        Console.Error.WriteLine($"[startup]     GetCurrentContextAsync: {sw.ElapsedMilliseconds}ms");
+        var context = await _profileService.GetActiveProfileAsync();
+        Console.Error.WriteLine($"[startup]     GetActiveProfileAsync: {sw.ElapsedMilliseconds}ms");
         var tenantId = context?.TenantId;
         sw.Restart();
         var ok = await _arm.TryAuthenticateAsync(tenantId);
@@ -61,7 +61,7 @@ public class AzureVfs
     /// </summary>
     public async Task SetInitialPathAsync()
     {
-        var context = await _authContextService.GetCurrentContextAsync();
+        var context = await _profileService.GetActiveProfileAsync();
         var tenantId = context?.TenantId;
         var subscriptionId = context?.SubscriptionId;
         if (string.IsNullOrEmpty(tenantId)) return;

@@ -46,6 +46,11 @@ public record AuthResult
     public required string TenantId;
 
     /// <summary>
+    /// The authenticated account's user principal name (from MSAL <c>IAccount.Username</c>), if available.
+    /// </summary>
+    public string? UserPrincipalName;
+
+    /// <summary>
     /// The correlation ID used for the authentication request.
     /// </summary>
     public required Guid CorrelationId;

@@ -17,6 +17,7 @@ internal static class AuthResultExtensions
             Scopes = [.. msalAuthResult.Scopes], // create a copy of the scopes array to not reference MSAL's internal array
             TenantId = msalAuthResult.TenantId,
             CorrelationId = msalAuthResult.CorrelationId,
+            UserPrincipalName = msalAuthResult.Account?.Username,
         };
     }
 }

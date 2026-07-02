@@ -351,7 +351,7 @@ public class ConfigCliTests
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
-                services.AddSingleton<IAuthContextService, StubAuthContextService>();
+                services.AddSingleton<IProfileService, StubProfileService>();
                 services.AddSingleton<IAuthService, StubAuthService>();
                 // Register CLI-specific services for argument parsing
                 services.AddSingleton<Core.Cli.PropertyParser>();

@@ -26,16 +26,16 @@ public class RuntimeHelpRendererTests
     }
 
     [Fact]
-    public void RenderCommand_ShouldMatchFixture_ForLoginShowCommand()
+    public void RenderCommand_ShouldMatchFixture_ForLogoutCommand()
     {
         var renderer = new RuntimeHelpRenderer();
-        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex().GetCommandTable(ClientType.CLI), "Login");
-        var command = helpProvider.GetCommandHelp(["login", "show"]);
+        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex().GetCommandTable(ClientType.CLI), "logout");
+        var command = helpProvider.GetCommandHelp(["logout"]);
 
         Assert.NotNull(command);
 
         var actual = string.Join(Environment.NewLine, renderer.RenderCommand(command!, terminalWidth: null));
-        var expected = LoadFixture("Login.RuntimeCommandHelp.show.txt");
+        var expected = LoadFixture("Login.RuntimeCommandHelp.logout.txt");
 
         Assert.Equal(NormalizeLineEndings(expected), NormalizeLineEndings(actual));
     }

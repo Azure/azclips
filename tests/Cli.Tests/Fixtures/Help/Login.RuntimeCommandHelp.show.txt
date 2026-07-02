@@ -1,9 +1,0 @@
-Command
-    az login show : Show the current Azure account context.
-
-Arguments
-    (none)
-
-Examples
-    Show current account context
-        az login show
