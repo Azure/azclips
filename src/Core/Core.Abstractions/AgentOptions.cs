@@ -41,7 +41,7 @@ public sealed class TraceOptions
 
 public sealed class BuiltinProviderOptions
 {
-    public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/cirrus/openai/";
+    public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
     public string Scope { get; set; } = "https://management.core.windows.net//.default";
     public string ModelId { get; set; } = "gpt-5.4";
     public string ApiVersion { get; set; } = "2025-04-01-preview";

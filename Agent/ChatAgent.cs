@@ -527,7 +527,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         // Both built-in shell tools take a "command" arg and may contain a bare
         // "az" that PowerShell would resolve via PATH. Rewrite to the absolute
-        // az.exe path so the agent always invokes the cirrus binary that
+        // az.exe path so the agent always invokes the azclips binary that
         // launched it, regardless of what else is on PATH.
         if (!string.Equals(input.ToolName, "bash",       StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(input.ToolName, "powershell", StringComparison.OrdinalIgnoreCase))
@@ -764,7 +764,7 @@ public sealed class ChatAgent : IAsyncDisposable
             if (token.StartsWith('-')) break;                 // first flag ends the verb
             if (!IsCommandToken(token)) return null;          // non-command token (e.g. CJK / punctuation) → not a command
             verb.Add(token);
-            if (verb.Count >= 4) break;                       // cirrus verbs are short; cap to avoid eating args
+            if (verb.Count >= 4) break;                       // azclips verbs are short; cap to avoid eating args
         }
         return verb.Count > 0 ? string.Join(' ', verb) : null;
     }

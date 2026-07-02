@@ -27,7 +27,7 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
     public ResourceCacheFindResourcesTests()
     {
-        _cacheDir = Path.Combine(Path.GetTempPath(), "cirrus-cache-tests-" + Guid.NewGuid().ToString("N"));
+        _cacheDir = Path.Combine(Path.GetTempPath(), "azclips-cache-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_cacheDir);
         SeedDefaultFixture();
     }

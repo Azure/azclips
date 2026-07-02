@@ -7,7 +7,7 @@ namespace Core.Agent.Tools.Cache;
 /// Adapter exposing <see cref="IAuthService"/> as an Azure SDK
 /// <see cref="TokenCredential"/>. Lets ARM SDK clients (e.g.,
 /// <see cref="Azure.ResourceManager.ArmClient"/>) authenticate through
-/// the cirrus-internal MSAL pipeline (single ClientId / shared cache /
+/// the azclips-internal MSAL pipeline (single ClientId / shared cache /
 /// shared telemetry) instead of carrying their own credential chain.
 /// </summary>
 internal sealed class AuthServiceTokenCredential : TokenCredential

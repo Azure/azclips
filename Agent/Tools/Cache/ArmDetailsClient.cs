@@ -31,7 +31,7 @@ public sealed class ArmDetailsClient
         lock (_lock)
         {
             if (_client is not null) return _client;
-            // Route ARM SDK auth through the cirrus-internal MSAL pipeline
+            // Route ARM SDK auth through the azclips-internal MSAL pipeline
             // (single ClientId, shared MSAL cache, shared telemetry).
             _client = new ArmClient(new AuthServiceTokenCredential(_authService));
             return _client;

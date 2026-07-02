@@ -9,9 +9,9 @@ namespace Core.Agent.Tests;
 /// Contract tests for <see cref="HelpTools"/>. The agent's behavior depends on
 /// the JSON shape these tools return (list_commands → catalog with cliName/psName;
 /// get_command → full HelpCommand or error=not_found). We assert on that JSON
-/// contract — NOT on internal field formatting (anti-pattern B).
+/// contract — NOT on internal field formatting (a known anti-pattern).
 ///
-/// Also acts as a regression guard for cirrus-anti-patterns §A: HelpIndex.json
+/// Also acts as a regression guard: HelpIndex.json
 /// and HelpManifest.json must stay in sync (same command count). If a future
 /// edit adds a command to one file but forgets the other, this fails loudly.
 /// </summary>
