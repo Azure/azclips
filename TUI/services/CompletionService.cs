@@ -193,7 +193,7 @@ class CompletionService
 
         if ("az".StartsWith(trimmed, StringComparison.OrdinalIgnoreCase))
         {
-            var azSuggestion = new List<Suggestion> { new("az", "Azure CLI") };
+            var azSuggestion = new List<Suggestion> { new("az", "Azclips CLI") };
             return historySuggestions.Concat(azSuggestion).ToList();
         }
 
