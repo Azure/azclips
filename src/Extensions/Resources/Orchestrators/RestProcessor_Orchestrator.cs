@@ -112,8 +112,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            Profile = context.AuthHandler.Profile ?? throw new InvalidOperationException("No profile is available. Please sign in.");
-
+            Profile = context.Profile ?? throw new InvalidOperationException("No profile is available. Please sign in.");
             return this;
         }
 

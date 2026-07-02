@@ -30,11 +30,13 @@ public class RestProcessorTests
         FakeEventPublisher? publisher = null)
     {
         var processor = new RestProcessor_Orchestrator();
+        var profile = new Profile() { TenantId = "test-tenant", SubscriptionId = subscriptionId };
         var context = new ProcessorContext(
             pipeline,
             publisher ?? new FakeEventPublisher(),
-            new FakeAuthHandler(new Profile { TenantId = "test-tenant", SubscriptionId = subscriptionId }),
-            output);
+            new FakeAuthHandler(profile),
+            output,
+            Profile: profile);
         processor.Init(context);
         return processor;
     }

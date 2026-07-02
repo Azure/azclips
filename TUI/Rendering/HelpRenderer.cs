@@ -21,10 +21,11 @@ static class HelpRenderer
 
         | Command | Description |
         |---------|-------------|
+        | `login` | Login to Azure |
+        | `logout` | Logout from Azure |
+        | `profile show --active` | Show the active profile |
         | `group list` | List resource groups |
         | `group create` | Create a resource group |
-        | `login` | Login to Azure |
-        | `login show` | Show the active profile |
         | `extension add` | Add an extension |
 
         ## Keyboard Shortcuts

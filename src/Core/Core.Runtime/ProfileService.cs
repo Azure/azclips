@@ -19,9 +19,9 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     private readonly string _profilesFilePath;
     private readonly string _activeProfileFilePath;
 
-    public ProfileService(ILoggingService Logger, string? baseDirectory = null)
+    public ProfileService(ILoggingService logger, string? baseDirectory = null)
     {
-        _logger = Logger;
+        _logger = logger;
         _azclipsDirectory = string.IsNullOrWhiteSpace(baseDirectory) ? DefaultAzclipsDirectory : baseDirectory;
         _profilesFilePath = Path.Combine(_azclipsDirectory, "profiles.json");
         _activeProfileFilePath = Path.Combine(_azclipsDirectory, "active-profile");

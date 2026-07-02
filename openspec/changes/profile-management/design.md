@@ -67,8 +67,6 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 **Future consideration**: The `Profile` exposed via `ProcessorContext` should be read-only — only designated processors (e.g., `LoginProcessor`) should be able to mutate profile state. Guardrails to enforce this are out of scope for this change but should be addressed before the profile model expands further.
 
-**Future consideration**: The `Profile` exposed via `ProcessorContext` should be read-only — only designated processors (e.g., `LoginProcessor`) should be able to mutate profile state. Guardrails to enforce this are out of scope for this change but should be addressed before the profile model expands further.
-
 ### 6. Logout signs out the active profile
 
 **Decision**: `az logout` signs out the active profile. When an active profile exists, it (1) removes that profile's associated account from the shared MSAL token cache and (2) clears the active-profile pointer. The account is identified by the profile's `UserPrincipalName` (which maps to MSAL's `IAccount.Username`). The profile definition itself is retained — only the active pointer is cleared. When no profile is active, logout is a no-op. `IAuthService.LogoutAsync` is narrowed from "remove all cached accounts" to "remove the single account matching a supplied `UserPrincipalName`"; when the active profile has no `UserPrincipalName`, no account is removed but the active pointer is still cleared.
