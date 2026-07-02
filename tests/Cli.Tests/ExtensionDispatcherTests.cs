@@ -275,7 +275,7 @@ public class ExtensionDispatcherTests
         // command name "extension remove Resources". See BuiltInExtensions.Map.
         var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
         {
-            ["extension"] = new("extension", "Microsoft.Azure.Cirrus.Extensions.Extension")
+            ["extension"] = new("extension", "Microsoft.Azure.Azclips.Extensions.Extension")
             {
                 Leaves = new[] { "add", "list", "show", "remove" },
             },

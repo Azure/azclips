@@ -280,7 +280,7 @@ publish/win-x64/
   Core.*.dll                       ← Core framework (host ALC)
   prompt.md                        ← AI agent system prompt
   Extensions/                      ← Builtin extensions (each in own ALC)
-    Microsoft.Azure.Cirrus.Extensions.Extension/
+    Microsoft.Azure.Azclips.Extensions.Extension/
 ```
 
 **MSIX packaging** is supported via `Core.Cli.appxmanifest` for Windows distribution.

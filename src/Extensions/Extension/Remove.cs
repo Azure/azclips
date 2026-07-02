@@ -7,7 +7,7 @@ using Core.DependencyInjection;
 using Core.Extensions;
 using NuGet.Versioning;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 public class RemoveExtensionProcessor : IProcessor
 {
