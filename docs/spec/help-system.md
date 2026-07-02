@@ -35,7 +35,7 @@ src/PS/<Module>/help/*.md       ◄── PowerShell corpus (Get-Help, MAML via 
         │       └── PowerShell: full example list, MAML XML
         │
         └── build time ───────────────────────────────────────────
-              .Help.Tool (dotnet run)
+              Azclips.Help.Tool (dotnet run)
                 ├── MarkdownStructureValidator
                 ├── HelpCompletenessValidator           (CLI: per extension)
                 ├── ExampleSyntaxValidator              (CLI examples)
@@ -199,7 +199,7 @@ Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Exampl
 
 All five validators run over every extension before the tool exits; errors are aggregated, grouped by `ProblemId`, and the tool returns non-zero if any error was collected (warnings alone still exit 0). Manifest emission for a given extension is skipped if that extension has completeness errors.
 
-Tests live in [tools/Help/.Help.Tool.Tests/](../../tools/Help/Azclips.Help.Tool.Tests/).
+Tests live in [tools/Help/Azclips.Help.Tool.Tests/](../../tools/Help/Azclips.Help.Tool.Tests/).
 
 ---
 

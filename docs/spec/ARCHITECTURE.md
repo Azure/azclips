@@ -191,7 +191,7 @@ New-ResourceGroup -Name mygroup -Location eastus
 | **CLI Help Markdown**        | `src/CLI/Help/Docs/<ext>/*.md`                             | Authored CLI help source (frontmatter + body) |
 | **PowerShell Help Markdown** | `src/PS/<Module>/help/*.md`                                | Authored PowerShell help (PlatyPS → MAML)     |
 | **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
-| **Help Tool**                | `tools/Help/.Help.Tool/`                             | Build-time validators + manifest emitter      |
+| **Help Tool**                | `tools/Help/Azclips.Help.Tool/`                             | Build-time validators + manifest emitter      |
 | **Login Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Login/`     | Authentication commands                       |
 | **Resources Extension**      | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Resources/` | Resource management commands                  |
 
