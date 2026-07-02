@@ -14,7 +14,7 @@ using NuGet.Versioning;
 namespace Microsoft.Azure.Azclips.Extensions.Extension;
 
 /// <summary>
-/// Installs Cirrus extensions from NuGet feeds or local packages using official NuGet APIs.
+/// Installs Azclips extensions from NuGet feeds or local packages using official NuGet APIs.
 /// </summary>
 public class ExtensionInstaller
 {
