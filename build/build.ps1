@@ -14,7 +14,7 @@ function Invoke-CirrusBuild
         [Parameter(Mandatory)][ValidateSet('Debug', 'Release')][string]$Configuration
     )
 
-    dotnet build "$PSScriptRoot/../cirrus.slnx" --configuration $Configuration
+    dotnet build "$PSScriptRoot/../azclips.slnx" --configuration $Configuration
     if ($LASTEXITCODE -ne 0) { throw "dotnet build failed (exit $LASTEXITCODE)." }
 
     # Update .psd1 module manifests to reference the correct artifact paths.

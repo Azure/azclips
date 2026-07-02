@@ -51,7 +51,7 @@ cirrus/
 │       ├── Microsoft.Azure.Azclips.Extensions.Login/     # Login extension + PowerShell module
 │       └── Microsoft.Azure.Cirrus.Extensions.Resources/  # Resources extension
 ├── 📄 global.json               # .NET SDK version (9.0)
-├── 📄 cirrus.slnx              # Main solution file
+├── 📄 azclips.slnx              # Main solution file
 ├── 📄 Shared.props             # Shared build configuration
 ├── 📄 AGENTS.md                # Repository guidelines for AI agents
 ├── 📄 CHANGELOG.md             # Version history
@@ -81,7 +81,7 @@ cirrus/
 
 ```bash
 # Build the solution
-dotnet build -c Release cirrus.slnx
+dotnet build -c Release azclips.slnx
 
 # The CLI binary is produced at artifacts/Release/Core.Cli/az
 # Add to PATH for convenient access

@@ -19,7 +19,7 @@
 
 ## Build, Test, and Development Commands
 - **Build and deploy**: `./scripts/deploy.sh` (builds solution, publishes CLI to bin/, copies PowerShell modules)
-- **Build only**: `dotnet build cirrus.slnx`
+- **Build only**: `dotnet build azclips.slnx`
 - **Run CLI**: `./bin/az group list` or `./bin/az "create a resource group"`
 - **PowerShell**: `Import-Module ./bin/Cirrus.psd1` (imports all modules) or individual modules
 - **Run tests**: `dotnet test tests/Cli.Tests/Cli.Tests.csproj`

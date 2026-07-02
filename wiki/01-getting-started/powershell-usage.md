@@ -21,7 +21,7 @@ A shared helper module `src/PS/TelemetryHelper.ps1` provides telemetry functions
 Build the solution first so the required assemblies exist under `artifacts/`:
 
 ```powershell
-dotnet build cirrus.slnx
+dotnet build azclips.slnx
 
 # Import individual modules
 Import-Module ./src/PS/Login/Login.psd1

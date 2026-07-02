@@ -34,7 +34,7 @@ rm -rf "$EXT_PACK_DIR" "$BUILTIN_PUBLISH_ROOT" "$CLI_FD_DIR"
 mkdir -p "$EXT_PACK_DIR" "$BUILTIN_PUBLISH_ROOT"
 
 echo "[common 2/5] Restore solution"
-dotnet restore cirrus.slnx
+dotnet restore azclips.slnx
 
 echo "[common 3/5] Publish CLI (framework-dependent)"
 dotnet publish "$CLI_PROJECT" -c Release --no-restore -o "$CLI_FD_DIR"

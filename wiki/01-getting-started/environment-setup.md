@@ -90,19 +90,19 @@ The `docker-compose.yml` (`.devcontainer/docker-compose.yml:1-30`) defines two s
 ### Quick Build
 
 ```bash
-dotnet build cirrus.slnx
+dotnet build azclips.slnx
 ```
 
 The PowerShell build wrapper (`build/build.ps1:1`) does the same:
 
 ```powershell
-dotnet build "$PSScriptRoot/../cirrus.slnx"
+dotnet build "$PSScriptRoot/../azclips.slnx"
 ```
 
 ### Release Build
 
 ```bash
-dotnet build -c Release cirrus.slnx
+dotnet build -c Release azclips.slnx
 ```
 
 ### Build Properties
@@ -282,6 +282,6 @@ AZURE_OPENAI_DEPLOYMENT=<deployment-name>
 | Debug configurations | `.vscode/launch.json` |
 | Build tasks | `.vscode/tasks.json` |
 | Build script | `build/build.ps1` |
-| Solution file | `cirrus.slnx` |
+| Solution file | `azclips.slnx` |
 | CI workflow | `.github/workflows/build-and-test.yml` |
 | Cloud agent config | `src/Core/Core.Agent/CloudAgent.cs` |

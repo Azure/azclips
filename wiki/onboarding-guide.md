@@ -989,7 +989,7 @@ Access Zipkin at `http://localhost:9411` to inspect distributed traces. Every `A
 
 ```bash
 # Build entire solution
-dotnet build cirrus.slnx
+dotnet build azclips.slnx
 
 # Deploy (build + publish + copy PS modules)
 ./scripts/deploy.sh
@@ -1176,7 +1176,7 @@ Read these source files in order to build a complete mental model:
 ├── scripts/                            # deploy.sh
 ├── docs/spec/                          # Design specifications
 ├── global.json                         # .NET SDK 10.0.203 pin
-├── cirrus.slnx                         # Solution file
+├── azclips.slnx                         # Solution file
 └── AGENTS.md                           # Repository coding guidelines
 ```
 

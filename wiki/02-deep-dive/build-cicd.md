@@ -9,11 +9,11 @@ Cirrus uses a layered build system with MSBuild property inheritance, two GitHub
 
 ## Solution Structure
 
-The solution file `cirrus.slnx` (`cirrus.slnx:1`) organizes 12 projects into four logical folders:
+The solution file `azclips.slnx` (`azclips.slnx:1`) organizes the repo projects into logical folders:
 
 ```mermaid
 flowchart TB
-    subgraph Solution["cirrus.slnx"]
+    subgraph Solution["azclips.slnx"]
         direction TB
         subgraph CLI["src/CLI/"]
             CoreCli["Core.Cli.csproj<br>az executable"]
@@ -303,7 +303,7 @@ flowchart TB
 
 The lightweight PR gate pipeline (`.github/workflows/build-and-test.yml:1`) runs on `pull_request` and `workflow_dispatch`. It executes on `ubuntu-latest` with five steps:
 
-1. **Restore** — `dotnet restore cirrus.slnx` (`.github/workflows/build-and-test.yml:22`)
+1. **Restore** — `dotnet restore azclips.slnx` (`.github/workflows/build-and-test.yml:22`)
 2. **Build** — Debug configuration with `--no-restore` (`.github/workflows/build-and-test.yml:25`)
 3. **Test** — `dotnet test` with normal verbosity (`.github/workflows/build-and-test.yml:29`)
 4. **E2E CLI** — Runs `./artifacts/Debug/Core.Cli/az --help` to validate the binary (`.github/workflows/build-and-test.yml:33`)
@@ -381,7 +381,7 @@ The GitHub Release is created via `softprops/action-gh-release@v2` (`.github/wor
 The PowerShell build script (`build/build.ps1:1`) is a single-line wrapper:
 
 ```powershell
-dotnet build "$PSScriptRoot/../cirrus.slnx"
+dotnet build "$PSScriptRoot/../azclips.slnx"
 ```
 
 ## Dev Container Configuration
@@ -449,7 +449,7 @@ bin/
 
 | Source File | Key Elements |
 |---|---|
-| `cirrus.slnx` | Solution structure, 12 projects in 4 folders |
+| `azclips.slnx` | Solution structure, 12 projects in 4 folders |
 | `Shared.props` | Repository paths, output directory, PowerShell manifest copying |
 | `src/Directory.Build.props` | net9 target, analyzers, warnings-as-errors |
 | `tests/Directory.Build.props` | xUnit/Coverlet packages, CA1707 suppression |
