@@ -13,7 +13,7 @@
 #   export az_COMPLETION_DEBUG=1
 #   export az_COMPLETION_DEBUG_LOG=/tmp/az_completion_debug.log
 _az_debug() {
-    [[ -n "${az_COMPLETION_DEBUG:-}" ]] || return 0
+    [[ -n "${AZ_COMPLETION_DEBUG:-}" ]] || return 0
     local log_file="${az_COMPLETION_DEBUG_LOG:-/tmp/az_completion_debug.log}"
     print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$log_file"
 }
