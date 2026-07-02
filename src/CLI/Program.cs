@@ -240,7 +240,7 @@ public class Program
         return result.ToArray();
     }
 
-    // Strips `--no-cache` and propagates the bypass via AZCLIPS env var,
+    // Strips `--no-cache` and propagates the bypass via AZCLIPS_NO_EXTENSION_CACHE env var,
     // which AssemblyLoadingOptions.BypassExtensionCache reads through ConfigurationService.
     // Test hook for benchmarking.
     private static string[] ParseNoCacheFlag(string[] args)
