@@ -1,6 +1,6 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Cirrus.Cmdlets.Config.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Config.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Config

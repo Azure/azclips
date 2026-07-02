@@ -84,7 +84,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_rest_PS = new(
             Name: "RestProcessor_Orchestrator",
-            InvocationName: "Invoke-CirrusRestMethod",
+            InvocationName: "Invoke-AzclipsRestMethod",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RestProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -255,7 +255,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Get-ResourceGroup_List"] = s_listResourceGroup_PS,
             ["New-ResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
             ["New-ResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
-            ["Invoke-CirrusRestMethod"] = s_rest_PS,
+            ["Invoke-AzclipsRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the

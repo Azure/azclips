@@ -108,7 +108,7 @@ public class ExtensionRemoveTests
         {
             Directory.CreateDirectory(packageDir);
 
-            var ex = Assert.Throws<CirrusErrorException>(() =>
+            var ex = Assert.Throws<AzclipsErrorException>(() =>
                 RemoveExtensionProcessor.EnsurePackageDirectoryDeleted(
                     packageDir,
                     packageId,
@@ -163,7 +163,7 @@ public class ExtensionRemoveTests
         {
             Directory.CreateDirectory(packageDir);
 
-            var ex = Assert.Throws<CirrusErrorException>(() =>
+            var ex = Assert.Throws<AzclipsErrorException>(() =>
                 RemoveExtensionProcessor.EnsurePackageDirectoryDeleted(
                     packageDir,
                     packageId,

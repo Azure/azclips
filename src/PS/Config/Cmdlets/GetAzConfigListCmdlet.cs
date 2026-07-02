@@ -3,7 +3,7 @@
 
 using System.Management.Automation;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
+namespace Microsoft.Azure.Azclips.Cmdlets.Config;
 
 [Cmdlet(VerbsCommon.Get, "AzConfigList")]
 public class GetAzConfigListCmdlet : ConfigCmdletBase

@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 
-namespace Cirrus.Help.Tool.Validation
+namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Validates every routed CLI command has a help markdown under <c>src/CLI/Help/Docs/&lt;verb&gt;/</c>,

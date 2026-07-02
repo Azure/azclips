@@ -34,7 +34,7 @@ public class ShowExtensionProcessor : IProcessor
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
-            throw CirrusErrorException.UsageError("Name is required to show an extension.");
+            throw AzclipsErrorException.UsageError("Name is required to show an extension.");
         }
 
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
@@ -54,7 +54,7 @@ public class ShowExtensionProcessor : IProcessor
                 message += $" '{Name}' is a verb contributed by package '{suggested}'; " +
                            $"to act on that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
             }
-            throw CirrusErrorException.ExtensionNotFound(
+            throw AzclipsErrorException.ExtensionNotFound(
                 message,
                 new Dictionary<string, object?> { ["name"] = Name });
         }

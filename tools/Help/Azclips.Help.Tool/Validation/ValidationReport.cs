@@ -1,7 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-namespace Cirrus.Help.Tool.Validation
+namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Aggregated result of one or more validator runs. Validators do not throw;

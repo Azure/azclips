@@ -4,7 +4,7 @@
 namespace Core.Extensions;
 
 /// <summary>
-/// Base exception for structured Cirrus CLI errors. Carries a symbolic <see cref="Code"/> for
+/// Base exception for structured AzClips CLI errors. Carries a symbolic <see cref="Code"/> for
 /// programmatic callers and a numeric <see cref="ExitCode"/> for shell scripts.
 /// </summary>
 /// <remarks>
@@ -23,13 +23,13 @@ namespace Core.Extensions;
 ///   <item>JSON shape: <c>{ "error": { "code": "...", "message": "...", "details": { ... } } }</c>.</item>
 /// </list>
 /// </remarks>
-public class CirrusErrorException : Exception
+public class AzclipsErrorException : Exception
 {
     public string Code { get; }
     public int ExitCode { get; }
     public IReadOnlyDictionary<string, object?> Details { get; }
 
-    public CirrusErrorException(string code, int exitCode, string message, IReadOnlyDictionary<string, object?>? details = null)
+    public AzclipsErrorException(string code, int exitCode, string message, IReadOnlyDictionary<string, object?>? details = null)
         : base(message)
     {
         Code = code;
@@ -37,7 +37,7 @@ public class CirrusErrorException : Exception
         Details = details ?? new Dictionary<string, object?>();
     }
 
-    public static CirrusErrorException VerbConflict(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException VerbConflict(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("VerbConflict", 3, message, details);
 
     /// <summary>
@@ -45,19 +45,19 @@ public class CirrusErrorException : Exception
     /// extension claims a leaf already provided by a built-in. Shares the same exit-code lane
     /// as <see cref="VerbConflict"/> since both express "namespace collision".
     /// </summary>
-    public static CirrusErrorException LeafConflict(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException LeafConflict(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("LeafConflict", 3, message, details);
 
-    public static CirrusErrorException ExtensionNotFound(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException ExtensionNotFound(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("ExtensionNotFound", 4, message, details);
 
-    public static CirrusErrorException PinViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException PinViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("PinViolation", 6, message, details);
 
-    public static CirrusErrorException FeedUnavailable(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException FeedUnavailable(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("FeedUnavailable", 5, message, details);
 
-    public static CirrusErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException UsageError(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("UsageError", 2, message, details);
 
     /// <summary>
@@ -66,7 +66,7 @@ public class CirrusErrorException : Exception
     /// specific extension via <c>HostExtensionRequirements</c>. Surfaced at install time as a
     /// hard error with no disk write; surfaced at load time as a warn-and-skip log line.
     /// </summary>
-    public static CirrusErrorException CompatibilityViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException CompatibilityViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("CompatibilityViolation", 7, message, details);
 
     /// <summary>
@@ -74,7 +74,7 @@ public class CirrusErrorException : Exception
     /// process's <c>Load</c> and <c>Save</c>. Surfaced so the caller can retry or
     /// inform the user instead of silently overwriting another process's changes.
     /// </summary>
-    public static CirrusErrorException RegistryConcurrency(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException RegistryConcurrency(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("RegistryConcurrency", 8, message, details);
 
     /// <summary>
@@ -83,6 +83,6 @@ public class CirrusErrorException : Exception
     /// <see cref="LeafConflict"/> which fire at install time; this one fires on an already-bad
     /// on-disk file (registry reconciler).
     /// </summary>
-    public static CirrusErrorException RegistryInvalid(string message, IReadOnlyDictionary<string, object?>? details = null)
+    public static AzclipsErrorException RegistryInvalid(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("RegistryInvalid", 9, message, details);
 }

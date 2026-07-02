@@ -16,5 +16,5 @@ az extension show --name Compute
 ### Show by package id
 
 ```bash
-az extension show --name Microsoft.Azure.Cirrus.Extensions.Compute
+az extension show --name Microsoft.Azure.Azclips.Extensions.Compute
 ```

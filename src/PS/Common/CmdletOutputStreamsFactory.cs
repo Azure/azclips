@@ -6,7 +6,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Common;
+namespace Microsoft.Azure.Azclips.Cmdlets.Common;
 
 internal enum LogLevel
 {

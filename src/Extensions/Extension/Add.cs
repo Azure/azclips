@@ -64,7 +64,7 @@ public class AddExtensionProcessor : IProcessor
     {
         if (string.IsNullOrWhiteSpace(Name) && string.IsNullOrWhiteSpace(Path))
         {
-            throw CirrusErrorException.UsageError("Either Name or Path must be provided to add an extension.");
+            throw AzclipsErrorException.UsageError("Either Name or Path must be provided to add an extension.");
         }
 
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
@@ -106,11 +106,11 @@ public class AddExtensionProcessor : IProcessor
                 if (localHint is not null)
                 {
                     details["localArtifact"] = localHint;
-                    throw CirrusErrorException.ExtensionNotFound(
+                    throw AzclipsErrorException.ExtensionNotFound(
                         $"{ex.Message}\n\nA local build artifact was found. Try:\n  az extension add --path \"{localHint}\"",
                         details);
                 }
-                throw CirrusErrorException.ExtensionNotFound(ex.Message, details);
+                throw AzclipsErrorException.ExtensionNotFound(ex.Message, details);
             }
         }
         else
@@ -132,7 +132,7 @@ public class AddExtensionProcessor : IProcessor
             var compatResult = CompatibilityGuard.CheckAssembly(installPath, currentCoreVersion: "1.0.0");
             if (!compatResult.IsCompatible)
             {
-                throw CirrusErrorException.CompatibilityViolation(
+                throw AzclipsErrorException.CompatibilityViolation(
                     $"Extension '{packageId}' is not compatible with this host: {compatResult.Reason}.",
                     new Dictionary<string, object?>
                     {
@@ -147,9 +147,9 @@ public class AddExtensionProcessor : IProcessor
             var verbs = ExtensionVerbReader.ReadVerbs(installPath);
             if (verbs.Count == 0)
             {
-                throw CirrusErrorException.VerbConflict(
+                throw AzclipsErrorException.VerbConflict(
                     $"Extension '{packageId}' does not declare an [ExtensionVerb] attribute. " +
-                    $"Cirrus extensions must declare at least one top-level verb.",
+                    $"AzClips extensions must declare at least one top-level verb.",
                     new Dictionary<string, object?> { ["packageId"] = packageId });
             }
             activity?.SetTag("extension.namespace_count", verbs.Count);
@@ -162,7 +162,7 @@ public class AddExtensionProcessor : IProcessor
             {
                 if (BuiltInExtensions.IsBuiltInVerb(v))
                 {
-                    throw CirrusErrorException.VerbConflict(
+                    throw AzclipsErrorException.VerbConflict(
                         $"Extension '{packageId}' wants to register verb '{v}', but '{v}' is reserved for a built-in extension and cannot be claimed by an installed extension.",
                         new Dictionary<string, object?> { ["packageId"] = packageId, ["verb"] = v });
                 }
@@ -232,7 +232,7 @@ public class AddExtensionProcessor : IProcessor
 
     /// <summary>
     /// Validate that an `extension add` for <paramref name="packageId"/> is allowed to overwrite
-    /// the existing registry entry. Throws <see cref="CirrusErrorException"/> with
+    /// the existing registry entry. Throws <see cref="AzclipsErrorException"/> with
     /// <c>PinViolation</c> (exit 6) when the existing entry is pinned and neither
     /// <paramref name="force"/> nor <paramref name="pin"/> was supplied. Returns <c>true</c> when
     /// the caller should carry the pinned flag forward onto the new entry, <c>false</c> otherwise.
@@ -243,7 +243,7 @@ public class AddExtensionProcessor : IProcessor
         {
             if (!force && !pin)
             {
-                throw CirrusErrorException.PinViolation(
+                throw AzclipsErrorException.PinViolation(
                     $"Extension '{packageId}' is pinned at version '{existingEntry.Version}'. " +
                     $"Pass --force to overwrite, or 'extension unpin {packageId}' first.",
                     new Dictionary<string, object?>
@@ -276,11 +276,11 @@ public class AddExtensionProcessor : IProcessor
     /// <c>vm</c> and <c>disk</c>), so accepting a verb would silently install the whole package.
     /// Symmetric with the remove/show/update/pin/unpin commands.
     /// <list type="number">
-    ///   <item>Dotted token → passthrough (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</item>
+    ///   <item>Dotted token → passthrough (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Azclips.Extensions.Compute</c>).</item>
     ///   <item>Bare token matching a verb in <see cref="ExtensionHintTable"/> → throw
-    ///         <see cref="CirrusErrorException.UsageError(string, IReadOnlyDictionary{string, object?}?)"/>
+    ///         <see cref="AzclipsErrorException.UsageError(string, IReadOnlyDictionary{string, object?}?)"/>
     ///         pointing at the owning package id.</item>
-    ///   <item>Otherwise → legacy <c>Microsoft.Azure.Cirrus.Extensions.{name}</c> prefix-strip
+    ///   <item>Otherwise → legacy <c>Microsoft.Azure.Azclips.Extensions.{name}</c> prefix-strip
     ///         (first-party short names like <c>Resources</c>, <c>Compute</c>).</item>
     /// </list>
     /// </summary>
@@ -303,7 +303,7 @@ public class AddExtensionProcessor : IProcessor
         if (hints.TryGetPackageId(name, out var owningPackage))
         {
             var suggestion = RegistryLookup.ToShortName(owningPackage);
-            throw CirrusErrorException.UsageError(
+            throw AzclipsErrorException.UsageError(
                 $"'{name}' is a verb contributed by package '{owningPackage}', not a package identifier. " +
                 $"To install that package use:\n  az extension add --name {suggestion}",
                 new Dictionary<string, object?>
@@ -314,7 +314,7 @@ public class AddExtensionProcessor : IProcessor
         }
 
         // (3) First-party prefix-strip fallback.
-        return $"Microsoft.Azure.Cirrus.Extensions.{name}";
+        return $"Microsoft.Azure.Azclips.Extensions.{name}";
     }
 
     private static void PurgeSiblingVersions(string installRoot, string packageId, string keepVersion)

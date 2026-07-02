@@ -10,7 +10,7 @@ namespace Core.Cli.Exceptions;
 /// a known extension but that extension is not installed. Bypasses the AI agent fallback because
 /// the intent is unambiguous: the user wants the named extension.
 /// </summary>
-public sealed class ExtensionNotInstalledException : CirrusErrorException
+public sealed class ExtensionNotInstalledException : AzclipsErrorException
 {
     public string Verb { get; }
     public string PackageId { get; }

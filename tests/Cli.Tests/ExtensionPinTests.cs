@@ -86,7 +86,7 @@ public class ExtensionPinTests
     {
         var registry = RegistryWithMultiLeafExtension(pinned: false);
 
-        var ex = Assert.Throws<CirrusErrorException>(
+        var ex = Assert.Throws<AzclipsErrorException>(
             () => PinHelper.ApplyPinChange(registry, name: "no-such-extension", pinned: true));
 
         Assert.Equal("ExtensionNotFound", ex.Code);
@@ -100,7 +100,7 @@ public class ExtensionPinTests
         // Instead, the lookup misses and the error message suggests the package short name.
         var registry = RegistryWithMultiLeafExtension(pinned: false);
 
-        var ex = Assert.Throws<CirrusErrorException>(
+        var ex = Assert.Throws<AzclipsErrorException>(
             () => PinHelper.ApplyPinChange(registry, name: "deployment", pinned: true));
 
         Assert.Equal("ExtensionNotFound", ex.Code);

@@ -108,7 +108,7 @@ public class Program
                     activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
                     return exitCode;
                 }
-                catch (CirrusErrorException structured)
+                catch (AzclipsErrorException structured)
                 {
                     // RenderExtensionHelp surfaces ExtensionNotInstalledException when the user asks
                     // for help on a verb owned by an uninstalled package (smart-suggestion path).
@@ -125,9 +125,9 @@ public class Program
 
                 return await TryAgentFallbackAsync(args, ex.Message);
             }
-            catch (CirrusErrorException ex)
+            catch (AzclipsErrorException ex)
             {
-                // Structured Cirrus error: render per --output mode and return the symbolic exit code.
+                // Structured AzClips error: render per --output mode and return the symbolic exit code.
                 // No AI fallback — the failure is well-known and the user's intent is unambiguous.
                 EmitStructuredError(ex, outputJson);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -253,7 +253,7 @@ public class Program
         return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 
-    private static void EmitStructuredError(CirrusErrorException ex, bool outputJson)
+    private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
     {
         if (outputJson)
         {

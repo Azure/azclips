@@ -1,9 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Cirrus.Help.Tool.Validation;
+using Azclips.Help.Tool.Validation;
 
-namespace Cirrus.Help.Tool.Tests
+namespace Azclips.Help.Tool.Tests
 {
     public class PsCompletenessValidatorTests
     {

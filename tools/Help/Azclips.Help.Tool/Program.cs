@@ -1,8 +1,8 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
-using Cirrus.Help.Tool;
-using Cirrus.Help.Tool.Validation;
+using Azclips.Help.Tool;
+using Azclips.Help.Tool.Validation;
 using Core.Abstractions;
 using Core.Cli.Help;
 using Core.Runtime;
@@ -24,12 +24,10 @@ var aggregateReport = new ValidationReport();
 string[] knownExtensionPrefixes =
 [
     "Microsoft.Azure.Azclips.Extensions.",
-    "Microsoft.Azure.Cirrus.Extensions.",
 ];
 string[] knownCmdletAssemblyPatterns =
 [
     "Microsoft.Azure.Azclips.Cmdlets.*.dll",
-    "Microsoft.Azure.Cirrus.Cmdlets.*.dll",
 ];
 
 var structureReport = new MarkdownStructureValidator().Validate(repoRoot);
@@ -39,19 +37,27 @@ Directory.CreateDirectory(outputRoot);
 
 AssemblyLoadContext.Default.Resolving += (_, assemblyName) =>
 {
+    var alreadyLoaded = AssemblyLoadContext.Default.Assemblies
+        .FirstOrDefault(a => string.Equals(a.GetName().Name, assemblyName.Name, StringComparison.OrdinalIgnoreCase));
+    if (alreadyLoaded is not null)
+    {
+        return alreadyLoaded;
+    }
+
     var candidate = Directory
         .EnumerateFiles(artifactsRoot, assemblyName.Name + ".dll", SearchOption.AllDirectories)
+        .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(static path => path.Contains($"{Path.DirectorySeparatorChar}Benchmark{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+        .ThenBy(static path => path.Length)
+        .ThenBy(static path => path, StringComparer.OrdinalIgnoreCase)
         .FirstOrDefault();
 
     return candidate == null ? null : AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(candidate));
 };
 
-var extensionDlls = knownExtensionPrefixes
+var extensionDlls = SelectPreferredAssemblyPaths(knownExtensionPrefixes
     .SelectMany(prefix => Directory.EnumerateFiles(artifactsRoot, $"{prefix}*.dll", SearchOption.AllDirectories))
-    .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
-    .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
-    .ToList();
+    .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)));
 
 if (extensionDlls.Count == 0)
 {
@@ -191,11 +197,9 @@ aggregateReport.Merge(exampleSyntaxReport);
 // Build the cmdlet index from Microsoft Azure cmdlet assemblies (sibling assemblies in
 // artifacts/Debug/) and validate every powershell/pwsh fence in help markdown against it.
 var cmdletIndex = new CmdletIndex();
-var cmdletDlls = knownCmdletAssemblyPatterns
+var cmdletDlls = SelectPreferredAssemblyPaths(knownCmdletAssemblyPatterns
     .SelectMany(pattern => Directory.EnumerateFiles(artifactsRoot, pattern, SearchOption.AllDirectories))
-    .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
-    .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase);
+    .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)));
 
 foreach (var dllPath in cmdletDlls)
 {
@@ -266,6 +270,58 @@ static bool TryGetExtensionName(string assemblyName, IEnumerable<string> knownPr
 
     extensionName = string.Empty;
     return false;
+}
+
+static List<string> SelectPreferredAssemblyPaths(IEnumerable<string> candidates)
+{
+    var byIdentity = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+        string identity;
+        try
+        {
+            identity = AssemblyName.GetAssemblyName(path).Name ?? Path.GetFileNameWithoutExtension(path);
+        }
+        catch
+        {
+            identity = Path.GetFileNameWithoutExtension(path);
+        }
+
+        if (!byIdentity.TryGetValue(identity, out var current))
+        {
+            byIdentity[identity] = path;
+            continue;
+        }
+
+        if (IsPreferredPath(path, current))
+        {
+            byIdentity[identity] = path;
+        }
+    }
+
+    return byIdentity.Values
+        .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+}
+
+static bool IsPreferredPath(string candidate, string current)
+{
+    var sep = Path.DirectorySeparatorChar;
+    var candidateIsBenchmark = candidate.Contains($"{sep}Benchmark{sep}", StringComparison.OrdinalIgnoreCase);
+    var currentIsBenchmark = current.Contains($"{sep}Benchmark{sep}", StringComparison.OrdinalIgnoreCase);
+    if (candidateIsBenchmark != currentIsBenchmark)
+    {
+        return !candidateIsBenchmark;
+    }
+
+    // Prefer shorter canonical paths when both are same class (usually the primary artifact path).
+    if (candidate.Length != current.Length)
+    {
+        return candidate.Length < current.Length;
+    }
+
+    return string.Compare(candidate, current, StringComparison.OrdinalIgnoreCase) < 0;
 }
 
 // Renders the final summary: warnings first, then errors grouped by ProblemId, then

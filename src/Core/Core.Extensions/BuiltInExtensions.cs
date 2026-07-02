@@ -55,7 +55,7 @@ namespace Core.Extensions
                 {
                     Leaves = new[] { "list", "show", "set", "remove" },
                 },
-                ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config")
+                ["config"] = new("config", "Microsoft.Azure.Azclips.Extensions.Config")
                 {
                     Leaves = new[] { "get", "set", "delete", "list", "info" },
                 },

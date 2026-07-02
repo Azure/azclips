@@ -8,7 +8,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// <summary>
     /// Creates or updates a deployment at the resource group scope
     /// (PUT .../resourcegroups/{rg}/providers/Microsoft.Resources/deployments/{name}).
-    /// This is the Cirrus equivalent of <c>az deployment group create</c> /
+    /// This is the AzClips equivalent of <c>az deployment group create</c> /
     /// <c>New-AzResourceGroupDeployment</c>.
     /// <para>
     /// Orchestrator (handwritten/customized) half of the deployment-create command: it owns the

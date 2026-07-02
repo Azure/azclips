@@ -2,10 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text;
-using Cirrus.Help.Tool.Validation;
+using Azclips.Help.Tool.Validation;
 using Core.Abstractions;
 
-namespace Cirrus.Help.Tool
+namespace Azclips.Help.Tool
 {
     /// <summary>
     /// Emits <c>src/CLI/Help/Docs/&lt;verb&gt;/&lt;sub&gt;.md</c> stubs (and an <c>index.md</c>)

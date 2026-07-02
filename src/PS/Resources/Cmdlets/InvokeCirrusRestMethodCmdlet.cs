@@ -4,14 +4,14 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Microsoft.Azure.Cirrus.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsLifecycle.Invoke, "CirrusRestMethod")]
-public class InvokeCirrusRestMethodCmdlet : PSCmdlet
+[Cmdlet(VerbsLifecycle.Invoke, "AzclipsRestMethod")]
+public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -124,7 +124,7 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Resources", "Invoke-CirrusRestMethod", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "Invoke-AzclipsRestMethod", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

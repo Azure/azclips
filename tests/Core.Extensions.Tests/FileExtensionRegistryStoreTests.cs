@@ -365,7 +365,7 @@ namespace Core.Extensions.Tests
             File.WriteAllText(_registryPath, """{"schemaVersion":2,"extensions":{}}""");
             File.SetLastWriteTimeUtc(_registryPath, newWriteTime);
 
-            var ex = Assert.Throws<CirrusErrorException>(() => store.Save(registry));
+            var ex = Assert.Throws<AzclipsErrorException>(() => store.Save(registry));
             Assert.Equal("RegistryConcurrency", ex.Code);
         }
 
@@ -421,7 +421,7 @@ namespace Core.Extensions.Tests
                 """);
 
             var store = new FileExtensionRegistryStore(_registryPath);
-            var ex = Assert.Throws<CirrusErrorException>(() => store.Load());
+            var ex = Assert.Throws<AzclipsErrorException>(() => store.Load());
             Assert.Equal("RegistryInvalid", ex.Code);
         }
 
@@ -471,7 +471,7 @@ namespace Core.Extensions.Tests
             };
 
             var store = new FileExtensionRegistryStore(_registryPath);
-            var ex = Assert.Throws<CirrusErrorException>(() => store.Save(registry));
+            var ex = Assert.Throws<AzclipsErrorException>(() => store.Save(registry));
 
             Assert.Equal("RegistryInvalid", ex.Code);
             Assert.Contains("Pkg.Dup", ex.Message);

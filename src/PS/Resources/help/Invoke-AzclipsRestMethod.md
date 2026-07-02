@@ -1,15 +1,15 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Cirrus.Cmdlets.Resources.dll-Help.xml
-HelpUri: ''
+external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
+HelpUri: ""
 Locale: en-US
 Module Name: Resources
 ms.date: 06/18/2026
 PlatyPS schema version: 2024-05-01
-title: Invoke-CirrusRestMethod
+title: Invoke-AzclipsRestMethod
 ---
 
-# Invoke-CirrusRestMethod
+# Invoke-AzclipsRestMethod
 
 ## SYNOPSIS
 
@@ -17,10 +17,10 @@ Send an authenticated REST request to Azure Resource Manager and return the raw 
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
-Invoke-CirrusRestMethod [-Method <string>] [-Uri <string>] [-Payload <string>] [-Headers <Object>]
+Invoke-AzclipsRestMethod [-Method <string>] [-Uri <string>] [-Payload <string>] [-Headers <Object>]
  [-SubscriptionId <string>] [-ResourceGroupName <string>] [-ResourceProviderName <string>]
  [-ResourceType <string[]>] [-Name <string[]>] [-ApiVersion <string>] [-UriParameters <Object>]
  [<CommonParameters>]
@@ -29,11 +29,11 @@ Invoke-CirrusRestMethod [-Method <string>] [-Uri <string>] [-Payload <string>] [
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
-`Invoke-CirrusRestMethod` is a universal authenticated ARM REST passthrough, mirroring `az rest` and `Invoke-AzRestMethod`. It sends an arbitrary HTTP request through the already-authenticated Cirrus pipeline to Azure Resource Manager and returns the raw response: the HTTP status code, the response headers, and the response body. When the response body is JSON, a parsed `Json` representation is also returned alongside the raw content.
+`Invoke-AzclipsRestMethod` is a universal authenticated ARM REST passthrough, mirroring `az rest` and `Invoke-AzRestMethod`. It sends an arbitrary HTTP request through the already-authenticated AzClips pipeline to Azure Resource Manager and returns the raw response: the HTTP status code, the response headers, and the response body. When the response body is JSON, a parsed `Json` representation is also returned alongside the raw content.
 
 The target URL can be supplied two ways. In **Uri mode**, pass `-Uri` with an absolute ARM URL or a relative ARM path (relative paths are prefixed with `https://management.azure.com`, and the token `{subscriptionId}` is replaced with the current subscription). In **ByParameters mode**, build the URL piece-wise from `-SubscriptionId`, `-ResourceGroupName`, `-ResourceProviderName`, `-ResourceType`, `-Name`, and `-ApiVersion`. The two modes are mutually exclusive.
 
@@ -46,7 +46,7 @@ This cmdlet performs no long-running-operation polling and no automatic paginati
 Send a `GET` to an absolute ARM path and read the parsed JSON from the response.
 
 ```powershell
-Invoke-CirrusRestMethod -Method GET -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+Invoke-AzclipsRestMethod -Method GET -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
 ```
 
 ### Example 2: Get a resource group built from parameters (ByParameters mode)
@@ -54,7 +54,7 @@ Invoke-CirrusRestMethod -Method GET -Uri "/subscriptions/{subscriptionId}/resour
 Build the ARM URL piece-wise instead of passing a full URI. The default method is `GET`.
 
 ```powershell
-Invoke-CirrusRestMethod -ResourceGroupName myRg -ApiVersion 2021-04-01
+Invoke-AzclipsRestMethod -ResourceGroupName myRg -ApiVersion 2021-04-01
 ```
 
 ### Example 3: Create or update a resource group with a JSON payload
@@ -62,7 +62,7 @@ Invoke-CirrusRestMethod -ResourceGroupName myRg -ApiVersion 2021-04-01
 Send a `PUT` with a request body and a custom header.
 
 ```powershell
-Invoke-CirrusRestMethod -Method PUT -Uri "/subscriptions/{subscriptionId}/resourcegroups/myRg?api-version=2021-04-01" -Payload '{"location":"eastus"}' -Headers @{ 'Content-Type' = 'application/json' }
+Invoke-AzclipsRestMethod -Method PUT -Uri "/subscriptions/{subscriptionId}/resourcegroups/myRg?api-version=2021-04-01" -Payload '{"location":"eastus"}' -Headers @{ 'Content-Type' = 'application/json' }
 ```
 
 ## PARAMETERS
@@ -73,19 +73,19 @@ The `api-version` used when building an ARM URL from piece-wise parameters. Requ
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Headers
@@ -94,19 +94,19 @@ Optional request headers, supplied either as a hashtable (`@{ 'Accept' = 'applic
 
 ```yaml
 Type: System.Object
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Method
@@ -115,19 +115,19 @@ The HTTP method to use (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, or `OPT
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Name
@@ -136,19 +136,19 @@ Resource name segments, interleaved with `-ResourceType` (may have one fewer ent
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Payload
@@ -157,19 +157,19 @@ Optional request body (typically JSON). Sent whenever provided, for any HTTP met
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -ResourceGroupName
@@ -178,19 +178,19 @@ Resource group name segment used to build an ARM URL from piece-wise parameters.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -ResourceProviderName
@@ -199,19 +199,19 @@ Resource provider namespace (for example, `Microsoft.Resources`) used to build a
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -ResourceType
@@ -220,19 +220,19 @@ Resource type segments, interleaved with `-Name`, used to build an ARM URL from 
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubscriptionId
@@ -241,19 +241,19 @@ Subscription id used to build an ARM URL from piece-wise parameters. Defaults to
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Uri
@@ -262,19 +262,19 @@ Absolute URL or relative ARM path for the request. Relative paths are prefixed w
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -UriParameters
@@ -283,19 +283,19 @@ Optional query-string parameters, supplied either as a hashtable (`@{ '$top' = '
 
 ```yaml
 Type: System.Object
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -321,4 +321,3 @@ This cmdlet targets the Azure Resource Manager audience only. It does not poll l
 
 - [Get-ResourceGroup]()
 - [New-ResourceGroupDeployment]()
-
