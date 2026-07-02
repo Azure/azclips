@@ -1,6 +1,6 @@
 ## Context
 
-Cirrus currently uses a single `AuthContext(TenantId, SubscriptionId)` record persisted in `~/.cirrus/context.json` alongside a shared MSAL token cache at `~/.cirrus/MSAL.cache`. The `Engine.CreateProcessorContext()` method loads this single context for every processor execution. There is no mechanism for storing multiple connection configurations or switching between them.
+Azclips currently uses a single `AuthContext(TenantId, SubscriptionId)` record persisted in `~/.azclips/context.json` alongside a shared MSAL token cache at `~/.azclips/MSAL.cache`. The `Engine.CreateProcessorContext()` method loads this single context for every processor execution. There is no mechanism for storing multiple connection configurations or switching between them.
 
 The codebase already has TODOs acknowledging the need for multi-account support (`AuthContextService.cs`, `MsalAuthService.cs`). The extension module pattern (Business/Processors/ExtensionIndex) is well-established via the Resources and Login modules.
 
@@ -35,17 +35,17 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 **Alternative considered**: `Core.Authentication` alongside `AuthContextService`. Rejected because profiles are broader than auth — placing them in Authentication would create a misleading coupling and require moving them later as the scope expands.
 
-### 2. Profile persistence in `~/.cirrus/profiles.json`
+### 2. Profile persistence in `{LocalApplicationData}/.azclips/profiles.json`
 
-**Decision**: All profiles stored in a single JSON file at `{LocalApplicationData}/.cirrus/profiles.json` (consistent with existing `AuthContextService` and `MsalAuthService` storage paths). Active profile name stored in a separate `{LocalApplicationData}/.cirrus/active-profile` text file. All writes use atomic temp-file-plus-rename to prevent corruption from concurrent access.
+**Decision**: All profiles stored in a single JSON file at `{LocalApplicationData}/.azclips/profiles.json` (consistent with existing `AuthContextService` and `MsalAuthService` storage paths). Active profile name stored in a separate `{LocalApplicationData}/.azclips/active-profile` text file. All writes use atomic temp-file-plus-rename to prevent corruption from concurrent access.
 
 **Rationale**: Simple, human-readable, consistent with existing `context.json` pattern. Using `Environment.SpecialFolder.LocalApplicationData` aligns with the established codebase convention. Separating the active pointer from profile definitions avoids rewriting the full profiles file on every switch. Atomic writes address the concurrency corruption risks cited in the proposal's motivation.
 
-**Alternative considered**: One file per profile (`{LocalApplicationData}/.cirrus/profiles/<name>.json`). More filesystem overhead, harder to list atomically. SQLite also considered but overly complex for a small config store.
+**Alternative considered**: One file per profile (`{LocalApplicationData}/.azclips/profiles/<name>.json`). More filesystem overhead, harder to list atomically. SQLite also considered but overly complex for a small config store.
 
 ### 3. Bare login creates a "temp" profile
 
-**Decision**: `azv2 login` without `--out-profile` saves the resulting connection as a profile named `"temp"`, overwriting any previous temp profile. `azv2 login --out-profile <name>` creates/overwrites a named profile. `"temp"` is a reserved profile name — users cannot create it via `profile create` (deferred) but bare login always uses it.
+**Decision**: `az login` without `--out-profile` saves the resulting connection as a profile named `"temp"`, overwriting any previous temp profile. `az login --out-profile <name>` creates/overwrites a named profile. `"temp"` is a reserved profile name — users cannot create it via `profile create` (deferred) but bare login always uses it.
 
 **Rationale**: Eliminates backward-compat complexity of maintaining both profile and non-profile code paths. "temp" is intentionally disposable, nudging users toward named profiles. The name "temp" avoids collision with "default" which could be confused with a pointer concept. Reserving "temp" prevents user confusion about its lifecycle.
 
@@ -71,7 +71,7 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 ### 6. Logout signs out the active profile
 
-**Decision**: `azv2 logout` signs out the active profile. When an active profile exists, it (1) removes that profile's associated account from the shared MSAL token cache and (2) clears the active-profile pointer. The account is identified by the profile's `UserPrincipalName` (which maps to MSAL's `IAccount.Username`). The profile definition itself is retained — only the active pointer is cleared. When no profile is active, logout is a no-op. `IAuthService.LogoutAsync` is narrowed from "remove all cached accounts" to "remove the single account matching a supplied `UserPrincipalName`"; when the active profile has no `UserPrincipalName`, no account is removed but the active pointer is still cleared.
+**Decision**: `az logout` signs out the active profile. When an active profile exists, it (1) removes that profile's associated account from the shared MSAL token cache and (2) clears the active-profile pointer. The account is identified by the profile's `UserPrincipalName` (which maps to MSAL's `IAccount.Username`). The profile definition itself is retained — only the active pointer is cleared. When no profile is active, logout is a no-op. `IAuthService.LogoutAsync` is narrowed from "remove all cached accounts" to "remove the single account matching a supplied `UserPrincipalName`"; when the active profile has no `UserPrincipalName`, no account is removed but the active pointer is still cleared.
 
 **Rationale**: The MSAL cache is shared across profiles and stores tokens keyed by tenant+user, so a blanket cache clear would sign out accounts belonging to other profiles. Targeting removal by the active profile's `UserPrincipalName` scopes logout to the account the user is actually signing out of. Clearing the active pointer (rather than deleting the profile) matches user expectations: logging out ends the session but preserves the named connection so it can be re-activated with `profile set` or refreshed with `login --profile`. Gating both steps on the presence of an active profile keeps `logout` safe to run at any time.
 
@@ -83,7 +83,7 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 `login` accepts `--profile <name>` to **re-authenticate an existing profile** (e.g., MFA/token refresh): tenant/subscription/cloud come from that profile, the auth flow runs, the profile is overwritten with the refreshed result and set active. `--profile` and `--out-profile` are **mutually exclusive** — supplying both fails fast before authentication. To distinguish an explicit `--profile` from the active-profile fallback, `LoginProcessor` reads its own bound `--profile`/`--out-profile` parameter values (not the resolved `ProcessorContext.Profile`, which includes the active fallback). When neither is supplied, login targets `"temp"`.
 
-**Rationale**: Returning the `Profile` gives `login`, `profile show`, and `profile list` a single consistent output shape and lets us delete the `GetContextProcessor`/`Get-CirrusAccount` "show" path. Re-auth via `--profile` matches the real-world need to refresh a specific profile's tokens without re-typing tenant/subscription. Failing fast on `--profile`+`--out-profile` avoids the ambiguous "re-auth one profile but write another" case and follows the proposal's "no surprising precedence" principle.
+**Rationale**: Returning the `Profile` gives `login`, `profile show`, and `profile list` a single consistent output shape and lets us delete the `GetContextProcessor`/`Get-AzContext` "show" path. Re-auth via `--profile` matches the real-world need to refresh a specific profile's tokens without re-typing tenant/subscription. Failing fast on `--profile`+`--out-profile` avoids the ambiguous "re-auth one profile but write another" case and follows the proposal's "no surprising precedence" principle.
 
 **Alternative considered**: Relying on `ProcessorContext.Profile` for the re-auth target — rejected because resolution falls back to the active profile, so bare `login` with an active profile set would be indistinguishable from explicit `--profile` and would wrongly re-auth the active profile instead of creating `"temp"`.
 
@@ -99,7 +99,7 @@ Since PR #209, the Engine uses an event-driven session model: `Engine.OpenExecut
 
 - **[Risk] MSAL cache is shared across profiles** → Tokens for different tenants coexist in one cache file. MSAL handles this natively (accounts are keyed by tenant+user), but logout must carefully target only the active profile's account. Mitigation: use MSAL's `GetAccountsAsync()` filtered by tenant/UPN to find the right account.
 
-- **[Risk] "temp" profile overwrite loses context** → A bare `azv2 login` silently overwrites the previous temp profile. Mitigation: This is by design — temp is disposable. Users who need persistence use `--out-profile`.
+- **[Risk] "temp" profile overwrite loses context** → A bare `az login` silently overwrites the previous temp profile. Mitigation: This is by design — temp is disposable. Users who need persistence use `--out-profile`.
 
 - **[Risk] `--profile` per-processor is maintenance burden** → Resource, Compute, and Login processors must add the parameter. Other modules to be updated via code generation. Mitigation: Acceptable short-term; global parameter framework is the long-term fix. Document the pattern clearly.
 

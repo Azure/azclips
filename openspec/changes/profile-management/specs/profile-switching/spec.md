@@ -4,13 +4,13 @@
 The system SHALL provide a `profile set <name>` command that changes the active profile persistently without re-authentication.
 
 #### Scenario: Set to an existing profile
-- **WHEN** user runs `azv2 profile set staging`
+- **WHEN** user runs `az profile set staging`
 - **THEN** the active profile SHALL be set to "staging"
 - **AND** subsequent commands SHALL use the "staging" profile's tenant, subscription, and cloud
 - **AND** no MSAL login flow SHALL be triggered
 
 #### Scenario: Set to a non-existent profile
-- **WHEN** user runs `azv2 profile set nonexistent`
+- **WHEN** user runs `az profile set nonexistent`
 - **THEN** the system SHALL display an error indicating the profile does not exist
 - **AND** the active profile SHALL remain unchanged
 
@@ -18,13 +18,13 @@ The system SHALL provide a `profile set <name>` command that changes the active 
 Resource and Compute processors SHALL accept a `--profile <name>` parameter (CLI) or `-Profile <name>` parameter (PowerShell) that overrides the active profile for that single execution without changing the active profile pointer. (The `login` command also accepts `--profile`, but with re-authentication semantics defined in the login-profile-integration capability.) Other extension modules will be updated via code generation in a follow-up change.
 
 #### Scenario: Override with --profile flag
-- **WHEN** user runs `azv2 group list --profile staging` (CLI) or `Get-ResourceGroup -Profile staging` (PowerShell)
+- **WHEN** user runs `az group list --profile staging` (CLI) or `Get-ResourceGroup -Profile staging` (PowerShell)
 - **THEN** the command SHALL execute using the "staging" profile's connection state
 - **AND** the active profile pointer SHALL NOT change
 - **AND** subsequent commands without `--profile` / `-Profile` SHALL use the original active profile
 
 #### Scenario: Override with non-existent profile
-- **WHEN** user runs `azv2 group list --profile nonexistent`
+- **WHEN** user runs `az group list --profile nonexistent`
 - **THEN** the system SHALL display an error indicating the profile does not exist
 
 ### Requirement: Profile resolution order
@@ -62,9 +62,9 @@ The Engine SHALL include the resolved `Profile?` (nullable) on `ProcessorContext
 - **AND** the HTTP auth pipeline SHALL use the `Profile`'s tenant for token acquisition
 
 ### Requirement: GetContext processor removed
-The legacy `show` (CLI) / `Get-CirrusAccount` (PowerShell) processor SHALL be removed. Users SHALL use `profile list` / `Get-CirrusProfile` to view all profiles and `profile show <name>` / `Get-CirrusProfile -Name <name>` to view a specific profile.
+The legacy `show` (CLI) / `Get-AzContext` (PowerShell) processor SHALL be removed. Users SHALL use `profile list` / `Get-AzProfile` to view all profiles and `profile show <name>` / `Get-AzProfile -Name <name>` to view a specific profile.
 
 #### Scenario: show command is not available
-- **WHEN** user runs `azv2 login show`
+- **WHEN** user runs `az login show`
 - **THEN** the system SHALL return a "command not found" error
-- **AND** the user SHALL use `azv2 profile list` or `azv2 profile show <name>` instead
+- **AND** the user SHALL use `az profile list` or `az profile show <name>` instead

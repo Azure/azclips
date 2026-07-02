@@ -6,25 +6,25 @@ namespace Core.Runtime;
 
 /// <summary>
 /// File-backed implementation of <see cref="IProfileService"/>. Profiles are stored as a JSON
-/// object keyed by profile name in <c>{LocalApplicationData}/.cirrus/profiles.json</c>; the active
-/// profile name is stored separately in <c>{LocalApplicationData}/.cirrus/active-profile</c>.
+/// object keyed by profile name in <c>{LocalApplicationData}/.azclips/profiles.json</c>; the active
+/// profile name is stored separately in <c>{LocalApplicationData}/.azclips/active-profile</c>.
 /// All writes are atomic (temp file plus rename) to prevent corruption from concurrent access.
 /// </summary>
 public class ProfileService : IProfileService // todo: testability, consider injecting file system abstractions
 {
-    private static readonly string DefaultCirrusDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
+    private static readonly string DefaultAzclipsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
 
     private readonly ILoggingService _logger;
-    private readonly string _cirrusDirectory;
+    private readonly string _azclipsDirectory;
     private readonly string _profilesFilePath;
     private readonly string _activeProfileFilePath;
 
     public ProfileService(ILoggingService Logger, string? baseDirectory = null)
     {
         _logger = Logger;
-        _cirrusDirectory = string.IsNullOrWhiteSpace(baseDirectory) ? DefaultCirrusDirectory : baseDirectory;
-        _profilesFilePath = Path.Combine(_cirrusDirectory, "profiles.json");
-        _activeProfileFilePath = Path.Combine(_cirrusDirectory, "active-profile");
+        _azclipsDirectory = string.IsNullOrWhiteSpace(baseDirectory) ? DefaultAzclipsDirectory : baseDirectory;
+        _profilesFilePath = Path.Combine(_azclipsDirectory, "profiles.json");
+        _activeProfileFilePath = Path.Combine(_azclipsDirectory, "active-profile");
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -239,7 +239,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     /// <summary>Writes content to a temporary file then atomically renames it over the destination.</summary>
     private async Task WriteFileAtomicAsync(string path, string content, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(_cirrusDirectory);
+        Directory.CreateDirectory(_azclipsDirectory);
         var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {

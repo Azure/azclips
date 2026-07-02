@@ -9,7 +9,7 @@
 
 ## 2. Profile Service Implementation
 
-- [x] 2.1 Implement `ProfileService` in `Core.Runtime` with JSON file persistence (`{LocalApplicationData}/.cirrus/profiles.json` for profiles, `{LocalApplicationData}/.cirrus/active-profile` for active pointer). All file writes use atomic temp-file-plus-rename.
+- [x] 2.1 Implement `ProfileService` in `Core.Runtime` with JSON file persistence (`{LocalApplicationData}/.azclips/profiles.json` for profiles, `{LocalApplicationData}/.azclips/active-profile` for active pointer). All file writes use atomic temp-file-plus-rename.
 - [x] 2.2 Register `ProfileService` as singleton in `Core.Runtime` DI registration (`DIRegisterExtensions.RegisterRuntimeServices`)
 - [x] 2.3 Remove `AuthContextService` (`Core.Authentication/AuthContextService.cs`) and its DI registration in `Core.Authentication/DIRegisterExtensions.cs`
 
@@ -36,7 +36,7 @@
 - [x] 5.3 Implement `ProfileShowProcessor` — show full details of a single profile by name
 - [x] 5.4 Implement `ProfileSetProcessor` — set active profile (validate exists, no re-auth)
 - [x] 5.5 Implement `ProfileRemoveProcessor` — delete profile, handle active removal (clear active pointer — no fallback to temp)
-- [x] 5.6 Register all profile processors in Login `ExtensionIndex.cs` (CLI table under "profile" group, PS table with Cirrus noun)
+- [x] 5.6 Register all profile processors in Login `ExtensionIndex.cs` (CLI table under "profile" group, PS table with AzProfile noun)
 
 ## 6. Per-Processor --profile Override & Profile in Extension Bases
 
@@ -45,14 +45,14 @@
 - [x] 6.3 Add `--profile` / `Profile` parameter to `LoginProcessorBase` and login processor metadata in `ExtensionIndex` (re-auth semantics per section 4).
 - [x] 6.4 Document the `--profile` parameter pattern for future processor authors and code generation.
 
-## 7. Remove Legacy `show` / `Get-CirrusAccount`
+## 7. Remove Legacy `show` / `Get-AzContext`
 
-- [x] 7.1 Delete `GetContextProcessor.cs` and remove its CLI (`login show`) and PS (`Get-CirrusAccount`) entries from Login `ExtensionIndex.cs`.
-- [x] 7.2 Delete PS `GetCirrusAccountCmdlet.cs`, remove `Get-CirrusAccount` from `Login.psd1` `CmdletsToExport`, and delete `help/Get-CirrusAccount.md` and `exports/Get-CirrusAccount.ps1`.
+- [x] 7.1 Delete `GetContextProcessor.cs` and remove its CLI (`login show`) and PS (`Get-AzContext`) entries from Login `ExtensionIndex.cs`.
+- [x] 7.2 Delete PS `GetAzContextCmdlet.cs`, remove `Get-AzContext` from `Login.psd1` `CmdletsToExport`, and delete `help/Get-AzContext.md` and `exports/Get-AzContext.ps1`.
 
 ## 8. PowerShell Integration
 
-- [x] 8.1 Add PowerShell cmdlets for profile processors using the `OutputStreams` / `engine.OpenExecutionSession()` pattern (Get-CirrusProfile, Set-CirrusProfile, Remove-CirrusProfile)
+- [x] 8.1 Add PowerShell cmdlets for profile processors using the `OutputStreams` / `engine.OpenExecutionSession()` pattern (Get-AzclipsProfile, Set-AzclipsProfile, Remove-AzclipsProfile)
 - [x] 8.2 Update Login module manifest (`Login.psd1`) with new exported cmdlets and add `ModuleInitializer` registration if needed
 - [x] 8.3 Add `-Profile` parameter to Resource, Compute, and Login PowerShell cmdlets (same resolution logic as CLI `--profile`)
 
@@ -70,5 +70,5 @@
 - [x] 10.1 Rename `AuthMethod.Interactive` to `Browser` and add a new `Broker` value; update all usages (`LoginProcessor` default, stubs, tests) and the `profile-crud` spec enum list
 - [x] 10.2 Promote `GetActiveProfileAsync` from an extension method to a native `IProfileService` member implemented in `ProfileService` under a single lock; delete `ProfileServiceExtensions.cs`
 - [x] 10.3 Add native `SaveAndActivateProfileAsync(profile)` to `IProfileService`/`ProfileService` (persist + activate under one lock) and use it from `LoginProcessor`; update stubs
-- [x] 10.4 Add `--active` / `-Active` switch to `ProfileShowProcessor` (show the active profile); make `Name` optional, enforce mutual exclusivity and "exactly one of Name/--active" with clear errors; update CLI + PS metadata in `ExtensionIndex` and the `Get-CirrusProfile` cmdlet (new `ShowActive` parameter set)
+- [x] 10.4 Add `--active` / `-Active` switch to `ProfileShowProcessor` (show the active profile); make `Name` optional, enforce mutual exclusivity and "exactly one of Name/--active" with clear errors; update CLI + PS metadata in `ExtensionIndex` and the `Get-AzProfile` cmdlet (new `ShowActive` parameter set)
 - [x] 10.5 Add tests: `GetActiveProfileAsync` (active/none/dangling), `SaveAndActivateProfileAsync`, and `profile show --active` (success, no-active, name+active conflict, neither provided)

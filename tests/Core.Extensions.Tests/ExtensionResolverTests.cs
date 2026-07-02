@@ -109,13 +109,14 @@ namespace Core.Extensions.Tests
         }
 
         [Fact]
-        public void DefaultBuiltIns_ShouldContainExactlyCoreThree()
+        public void DefaultBuiltIns_ShouldContainExactlyCoreN()
         {
             // The seed is extension/login/logout/profile/config. login and profile are both served by
             // the Login built-in package. group (Resources) and vm (Compute) are installable
             // extensions, not built-ins.
             Assert.Contains("extension", BuiltInExtensions.Map.Keys);
             Assert.Contains("login", BuiltInExtensions.Map.Keys);
+            Assert.Contains("logout", BuiltInExtensions.Map.Keys);
             Assert.Contains("profile", BuiltInExtensions.Map.Keys);
             Assert.Contains("config", BuiltInExtensions.Map.Keys);
             Assert.DoesNotContain("group", BuiltInExtensions.Map.Keys);

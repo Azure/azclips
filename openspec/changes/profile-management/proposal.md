@@ -1,6 +1,6 @@
 ## Why
 
-As the next generation of Azure CLI and Azure PowerShell, Cirrus must learn from the profile management pain points that have plagued existing tools — and competitors — for over a decade.
+As the next generation of Azure CLI and Azure PowerShell, Azclips must learn from the profile management pain points that have plagued existing tools — and competitors — for over a decade.
 
 **Azure CLI & Azure PowerShell pain points**
 - **Token cache corruption & concurrency** is the #1 pain point. The shared `~/.azure` directory is a concurrency bottleneck — parallel Terraform runs, Airflow DAGs, and multi-subscription scripts trigger lockfile errors and JSON corruption.
@@ -12,7 +12,7 @@ As the next generation of Azure CLI and Azure PowerShell, Cirrus must learn from
 - **Credential precedence is confusing**. ~20 issues stem from `--profile` vs `AWS_PROFILE` vs `AWS_ACCESS_KEY_ID` having surprising, poorly-documented precedence. Env-var credentials silently override an explicit `--profile` flag.
 - **Two ways to do the same thing**. `AWS_PROFILE` vs `AWS_DEFAULT_PROFILE`, `[profile X]` vs `[X]`, `--profile` vs `AWS_PROFILE` env var — every redundant mechanism generates confusion.
 
-**Cirrus opportunity**: Design profiles as a complete "connection context" from day one — not a rigid struct bolted on later. Define clear, unambiguous resolution precedence (`--profile` flag → active profile → error). Provide first-class multi-tenant/multi-subscription switching without re-authentication. Include profile context in error messages. Ship introspection tools (`list`, `show`, `validate`) early.
+**Azclips opportunity**: Design profiles as a complete "connection context" from day one — not a rigid struct bolted on later. Define clear, unambiguous resolution precedence (`--profile` flag → active profile → error). Provide first-class multi-tenant/multi-subscription switching without re-authentication. Include profile context in error messages. Ship introspection tools (`list`, `show`, `validate`) early.
 
 ## What Changes
 
@@ -24,13 +24,13 @@ As the next generation of Azure CLI and Azure PowerShell, Cirrus must learn from
 - Add a `--profile <name>` per-command override parameter (scoped to Resource, Compute, and Login processors for this change) that uses a named profile for a single execution without changing the active pointer.
 - Modify `Engine.CreateProcessorContext()` to resolve the active profile (or `--profile` override) from a **global-parameter value pre-bound by `ExecutionSession.GetProcessor()` before context creation** and add the nullable `Profile?` to `ProcessorContext`. Processors that require a profile access it from `ProcessorContext.Profile` and fail at point of use if null — commands like `login` and profile management commands operate without a profile.
 - Remove the `AuthContext` path entirely: delete the `AuthContext` record, `IAuthContextService`/`AuthContextService`, and `context.json`. `AuthHandler` reads `TenantId`/`SubscriptionId` directly from the resolved `Profile`, which becomes the single source of connection state for the HTTP auth pipeline and all processors.
-- Remove the legacy `show` (CLI) / `Get-CirrusAccount` (PowerShell) command (`GetContextProcessor`) and its `ExtensionIndex`/manifest/help/export registrations; superseded by `profile list` / `profile show`.
+- Remove the legacy `show` (CLI) / `Get-AzContext` (PowerShell) command (`GetContextProcessor`) and its `ExtensionIndex`/manifest/help/export registrations; superseded by `profile list` / `profile show`.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `profile-crud`: Read and delete named profiles. Includes the `Profile` model, `IProfileService`, atomic persistence to `{LocalApplicationData}/.cirrus/profiles.json`, and active-profile pointer management. Profile names must be 1–100 characters, alphanumeric plus `-`, `_`, `.`; `"temp"` is reserved for bare login.
+- `profile-crud`: Read and delete named profiles. Includes the `Profile` model, `IProfileService`, atomic persistence to `{LocalApplicationData}/.azclips/profiles.json`, and active-profile pointer management. Profile names must be 1–100 characters, alphanumeric plus `-`, `_`, `.`; `"temp"` is reserved for bare login.
 - `profile-switching`: Set the active profile persistently (`profile set`) or per-command (`--profile` override on Resource, Compute, and Login processors). Includes profile resolution order: `--profile` flag → active profile → null (error at point of use).
 - `login-profile-integration`: Modify login command to create profiles on login (`--out-profile` or auto-`temp`) or re-authenticate an existing profile (`--profile`), returning the resulting `Profile`. Logout signs out the active profile (removes its account from the MSAL token cache and clears the active pointer).
 
@@ -47,5 +47,5 @@ _(none — no existing specs to modify)_
 - **Login extension**: Modified `LoginProcessor` (saves a `Profile`), `LogoutProcessor` (signs out the active profile: removes its account from the MSAL token cache and clears the active pointer). `GetContextProcessor` (`login show`) is **removed**. New profile processors (list, show, switch, remove) added to `ExtensionIndex`.
 - **Resources & Compute extensions**: `ResourcesProcessorBase` and `ComputeProcessorBase` expose nullable `Profile?` (propagated through `CreateExtendedProcessor<T>`) in place of `AuthContext`, and gain the `--profile` parameter.
 - **CLI processors**: Resource, Compute, and Login processors gain a `--profile` parameter (workaround until a global parameter framework exists). Other modules to be updated via code generation.
-- **PowerShell cmdlets**: `-Profile` parameter on Resource, Compute, and Login cmdlets (using the `OutputStreams`/`engine.OpenExecutionSession()` pattern). `Get-CirrusAccount` cmdlet, manifest export, help, and export script are **removed**.
-- **Storage**: New `{LocalApplicationData}/.cirrus/profiles.json` file (atomic writes). Existing `context.json` is **removed** (no migration).
+- **PowerShell cmdlets**: `-Profile` parameter on Resource, Compute, and Login cmdlets (using the `OutputStreams`/`engine.OpenExecutionSession()` pattern). `Get-AzContext` cmdlet, manifest export, help, and export script are **removed**.
+- **Storage**: New `{LocalApplicationData}/.azclips/profiles.json` file (atomic writes). Existing `context.json` is **removed** (no migration).

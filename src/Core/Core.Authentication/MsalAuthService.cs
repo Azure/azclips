@@ -92,7 +92,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
     {
-        var cacheDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
+        var cacheDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
         var filename = "MSAL.cache";
         if (plaintextUnsafe)
         {
@@ -104,13 +104,13 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         builder = plaintextUnsafe ?
             builder.WithUnprotectedFile() :
             builder.WithLinuxKeyring(
-                "Microsoft.Project.Cirrus",
+                "Microsoft.Azclips",
                 "default", // todo: post MVP: configurable?
-                "Tokens and credentials for Microsoft Project Cirrus",
-                new System.Collections.Generic.KeyValuePair<string, string>("application", "Microsoft.Project.Cirrus"),
+                "Tokens and credentials for Azclips",
+                new System.Collections.Generic.KeyValuePair<string, string>("application", "Microsoft.Azclips"),
                 new System.Collections.Generic.KeyValuePair<string, string>("service", "default"))
             .WithMacKeyChain(
-                "Microsoft Project Cirrus",
+                "Microsoft Azclips",
                 "default"); // todo: post MVP: does it make sense to split the cache by account?
 
         var storageProperties = builder.Build();

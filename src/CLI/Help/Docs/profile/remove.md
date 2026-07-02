@@ -10,5 +10,5 @@ Description: Delete a saved profile by name. If the removed profile was active, 
 ### Remove a profile
 
 ```bash
-azv2 profile remove myprofile
+az profile remove staging
 ```

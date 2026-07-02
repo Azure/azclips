@@ -10,17 +10,17 @@ Description: Manage named authentication profiles captured at login. A profile s
 ### List all saved profiles
 
 ```bash
-azv2 profile list
+az profile list
 ```
 
 ### Show the active profile
 
 ```bash
-azv2 profile show --active
+az profile show --active
 ```
 
 ### Set the active profile
 
 ```bash
-azv2 profile set myprofile
+az profile set myprofile
 ```

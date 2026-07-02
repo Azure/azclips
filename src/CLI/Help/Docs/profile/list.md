@@ -10,5 +10,5 @@ Description: List every saved authentication profile, marking the currently acti
 ### List all saved profiles
 
 ```bash
-azv2 profile list
+az profile list
 ```

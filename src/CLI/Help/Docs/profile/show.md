@@ -10,11 +10,11 @@ Description: Show the full details of a saved profile by name, or use --active t
 ### Show a profile by name
 
 ```bash
-azv2 profile show myprofile
+az profile show production
 ```
 
 ### Show the active profile
 
 ```bash
-azv2 profile show --active
+az profile show --active
 ```

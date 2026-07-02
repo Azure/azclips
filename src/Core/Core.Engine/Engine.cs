@@ -144,7 +144,7 @@ namespace Core.Engine
         {
             bool explicitOverride = !string.IsNullOrWhiteSpace(profileNameOverride);
             string? name = explicitOverride
-                ? profileNameOverride
+                ? profileNameOverride?.Trim()
                 : await profileService.GetActiveProfileNameAsync();
 
             if (string.IsNullOrWhiteSpace(name))
@@ -155,7 +155,7 @@ namespace Core.Engine
             Profile? profile = await profileService.GetProfileAsync(name);
             if (profile is null && explicitOverride)
             {
-                throw new ArgumentException($"Profile '{profileNameOverride}' does not exist.");
+                throw new ArgumentException($"Profile '{profileNameOverride?.Trim()}' does not exist.");
             }
             return profile;
         }

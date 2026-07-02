@@ -444,7 +444,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             {
                 if (Profile is null || string.IsNullOrWhiteSpace(Profile.SubscriptionId))
                 {
-                    throw new InvalidOperationException($"The URL contains '{SubscriptionToken}' but no subscription is available in the current auth context. Sign in first or use an explicit subscription id.");
+                    throw new InvalidOperationException($"The URL contains '{SubscriptionToken}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.");
                 }
 
                 url = url.Replace(SubscriptionToken, Profile.SubscriptionId, StringComparison.Ordinal);

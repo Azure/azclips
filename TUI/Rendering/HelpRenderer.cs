@@ -24,7 +24,7 @@ static class HelpRenderer
         | `group list` | List resource groups |
         | `group create` | Create a resource group |
         | `login` | Login to Azure |
-        | `login show` | Show current auth context |
+        | `login show` | Show the active profile |
         | `extension add` | Add an extension |
 
         ## Keyboard Shortcuts
