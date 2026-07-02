@@ -38,6 +38,9 @@ public static class HomePaths
     public static string GetDefaultTraceDirectory(string? userProfilePath = null)
         => Path.Combine(GetDefaultHomeRoot(userProfilePath), TraceDirectoryName);
 
+    public static string GetDefaultTraceConfigValue()
+        => $"~/{DefaultHomeDirectoryName}/{TraceDirectoryName}";
+
     public static string GetDefaultArmCacheDirectory(string? userProfilePath = null)
         => Path.Combine(GetDefaultHomeRoot(userProfilePath), ArmCacheDirectoryName);
 
