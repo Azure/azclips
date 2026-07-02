@@ -1,6 +1,6 @@
 # Telemetry
 
-Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations performed by  and exports them to local files, Azure Application Insights.
+Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations and exports them to local files, Azure Application Insights.
 
 ## Glossary
 
