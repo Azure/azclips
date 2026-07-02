@@ -3,7 +3,7 @@
   <Import Project="..\..\..\tests\Directory.Build.props" />
 
   <ItemGroup>
-    <ProjectReference Include="..\Cirrus.Help.Tool\Cirrus.Help.Tool.csproj" />
+    <ProjectReference Include="..\Azclips.Help.Tool\Azclips.Help.Tool.csproj" />
     <ProjectReference Include="..\..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
   </ItemGroup>
 

@@ -51,12 +51,12 @@
 ### Help tooling
 
 - [x] Rename namespaces/usings from `Cirrus.Help.Tool` to AzClips naming in:
-    - [x] `tools/Help/Cirrus.Help.Tool/Program.cs`
-    - [x] `tools/Help/Cirrus.Help.Tool/Scaffolder.cs`
-    - [x] `tools/Help/Cirrus.Help.Tool/Validation/*.cs`
-    - [x] `tools/Help/Cirrus.Help.Tool.Tests/*.cs`
-- [x] Update test project reference path/name in `tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj` if project/folder names are renamed. (Not required in this pass: project/folder names were not renamed.)
-- [x] Update Cirrus command-prefix constants in `tools/Help/Cirrus.Help.Tool/Program.cs`.
+    - [x] `tools/Help/Azclips.Help.Tool/Program.cs`
+    - [x] `tools/Help/Azclips.Help.Tool/Scaffolder.cs`
+    - [x] `tools/Help/Azclips.Help.Tool/Validation/*.cs`
+    - [x] `tools/Help/Azclips.Help.Tool.Tests/*.cs`
+- [x] Update test project reference path/name in `tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj` after project/folder rename.
+- [x] Update Cirrus command-prefix constants in `tools/Help/Azclips.Help.Tool/Program.cs`.
 - [x] Update validator/test message text mentioning Cirrus where branding should change.
 
 ### Extension management code paths
