@@ -193,7 +193,7 @@ foreach ($name in $modules)
         New-Item -ItemType Directory -Path $helpDir -Force | Out-Null
     }
 
-    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("CirrusHelpScaffold-" + [Guid]::NewGuid().ToString('N'))
+    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("AzclipsHelpScaffold-" + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
     Write-Host "Scaffolding markdown for module '$name' -> $helpDir"
