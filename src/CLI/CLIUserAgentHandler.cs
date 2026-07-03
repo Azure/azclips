@@ -38,6 +38,8 @@ public class CLIUserAgentHandler : IUserAgentHandler
             parts.Add($"({installer})");
         }
 
+        parts.Add("azclips/private-preview");
+
         return string.Join(' ', parts);
     }
 
