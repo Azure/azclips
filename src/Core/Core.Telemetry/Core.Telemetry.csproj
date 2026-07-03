@@ -16,8 +16,11 @@
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <InternalsVisibleTo Include="Core.Telemetry.Tests" Key="$(MSSharedLibPublicKey)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <InternalsVisibleTo Include="Core.Telemetry.Tests" />
   </ItemGroup>
 
   <PropertyGroup>

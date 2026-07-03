@@ -288,7 +288,25 @@ if ($moduleReleases.Count -eq 0) {
 }
 
 $existingRootChangeLog = @(Get-Content -Path $rootChangeLogPath)
-Write-Utf8NoBomFile -Path $rootChangeLogPath -Lines ([string[]]($rootSection + $existingRootChangeLog))
+$upcomingRootHeaderIndex = [Array]::IndexOf($existingRootChangeLog, '## Upcoming Release')
+if ($upcomingRootHeaderIndex -ge 0) {
+    $insertIndex = $upcomingRootHeaderIndex + 1
+    while ($insertIndex -lt $existingRootChangeLog.Count -and [string]::IsNullOrWhiteSpace($existingRootChangeLog[$insertIndex])) {
+        $insertIndex++
+    }
+
+    $updatedRootChangeLog = New-Object System.Collections.Generic.List[string]
+    $updatedRootChangeLog.AddRange([string[]]$existingRootChangeLog[0..$upcomingRootHeaderIndex])
+    $updatedRootChangeLog.Add('')
+    $updatedRootChangeLog.AddRange([string[]]$rootSection)
+    if ($insertIndex -lt $existingRootChangeLog.Count) {
+        $updatedRootChangeLog.AddRange([string[]]$existingRootChangeLog[$insertIndex..($existingRootChangeLog.Count - 1)])
+    }
+    Write-Utf8NoBomFile -Path $rootChangeLogPath -Lines ([string[]]$updatedRootChangeLog)
+}
+else {
+    Write-Utf8NoBomFile -Path $rootChangeLogPath -Lines ([string[]]($rootSection + $existingRootChangeLog))
+}
 
 if ($moduleReleases.Count -gt 0 -and (Test-Path -Path $rollupManifestPath -PathType Leaf)) {
     $rollupReleaseNotes = New-Object System.Collections.Generic.List[string]
