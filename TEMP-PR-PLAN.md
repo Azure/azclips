@@ -10,7 +10,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [x] `tools/Help` (owner: Daniel, references: 0, files: 0)
 - [ ] `tests/Cli.Tests` (owner: Daniel, references: 60, files: 17)
 - [x] `src/Extensions` (owner: Daniel, references: 0, files: 0)
-- [ ] `src/Core` (owner: Daniel, references: 15, files: 11)
+- [x] `src/Core` (owner: Daniel, references: 0, files: 0)
 - [ ] `tests/Core.Extensions.Tests` (owner: Daniel, references: 36, files: 5)
 - [ ] `tests/Fixtures` (owner: Daniel, references: 10, files: 4)
 - [x] `tests/Cmdlets.Tests` (owner: Daniel, references: 0, files: 0)
@@ -36,8 +36,9 @@ Track and remove remaining `Cirrus` references across selected directories.
 - src/Extensions scan result (2026-07-03): 0 remaining `Cirrus` references.
 - src/Core scan result (2026-07-03): 15 references across 11 files.
 - src/Core classification: mixed compatibility + stale naming/docs.
-    - Compatibility-preserving logic: dual package prefixes in assembly loading and registry lookup (`Microsoft.Azure.Cirrus.Extensions.*` retained intentionally for legacy installs).
     - Candidate rename/update: `RegisterCirrusServices` method name/usages, README prose, and Cirrus wording in XML doc comments/examples.
+- src/Core code-change pass result (2026-07-03): reduced from 15 hits/11 files to 0 hits/0 files.
+- src/Core decision: removed legacy `Microsoft.Azure.Cirrus.Extensions.*` prefix handling in core assembly loading and short-name lookup; renamed DI registration helper to `RegisterAzclipsServices`.
 - src/CLI scan result (2026-07-03): 12 references across 4 files.
 - src/CLI classification: mixed compatibility + branding/env naming.
     - Compatibility-preserving logic: dual prefix handling and short-name extraction for legacy extension package ids (`Microsoft.Azure.Cirrus.Extensions.*`).
