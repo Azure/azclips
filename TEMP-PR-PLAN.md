@@ -12,7 +12,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [x] `src/Extensions` (owner: Daniel, references: 0, files: 0)
 - [ ] `src/Core` (owner: Daniel, references: 15, files: 11)
 - [ ] `src/CLI` (owner: Daniel, references: 12, files: 4)
-- [ ] `tests/Scripts` (owner: Daniel, references: 7, files: 109)
+- [ ] `tests/Scripts` (owner: Daniel, references: 109, files: 7)
 
 ## Pass Tracking
 
@@ -39,3 +39,6 @@ Track and remove remaining `Cirrus` references across selected directories.
 - src/CLI classification: mixed compatibility + branding/env naming.
 	- Compatibility-preserving logic: dual prefix handling and short-name extraction for legacy extension package ids (`Microsoft.Azure.Cirrus.Extensions.*`).
 	- Candidate rename/update: appx manifest identity/display text and `CIRRUS_IN_AGENT_MODE` env var/comment wording in CLI startup fallback.
+- tests/Scripts scan result (2026-07-03): 109 references across 7 files.
+- tests/Scripts hotspots: `CLI/DeploymentCreate.sh` (27), `PS/DeploymentCreate.ps1` (26), `CLI/DeploymentWhatIf.sh` (19), `PS/DeploymentWhatIf.ps1` (18), `PS/rest.ps1` (15).
+- tests/Scripts classification: mostly sample resource/deployment names prefixed with `cirrus-*`; includes command compatibility mentions like `Invoke-CirrusRestMethod` and a historical env-var comment (`CIRRUS_AGENT_DISABLED`).
