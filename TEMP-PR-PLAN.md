@@ -15,7 +15,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [x] `tests/Fixtures` (owner: Daniel, references: 0, files: 0)
 - [x] `tests/Cmdlets.Tests` (owner: Daniel, references: 0, files: 0)
 - [x] `src/CLI` (owner: Daniel, references: 0, files: 0)
-- [ ] `tests/Scripts` (owner: Daniel, references: 109, files: 7)
+- [x] `tests/Scripts` (owner: Daniel, references: 0, files: 0)
 
 ## Pass Tracking
 
@@ -51,6 +51,8 @@ Track and remove remaining `Cirrus` references across selected directories.
 - tests/Scripts scan result (2026-07-03): 109 references across 7 files.
 - tests/Scripts hotspots: `CLI/DeploymentCreate.sh` (27), `PS/DeploymentCreate.ps1` (26), `CLI/DeploymentWhatIf.sh` (19), `PS/DeploymentWhatIf.ps1` (18), `PS/rest.ps1` (15).
 - tests/Scripts classification: mostly sample resource/deployment names prefixed with `cirrus-*`; includes command compatibility mentions like `Invoke-CirrusRestMethod` and a historical env-var comment (`CIRRUS_AGENT_DISABLED`).
+- tests/Scripts code-change pass result (2026-07-03): reduced from 109 hits/7 files to 0 hits/0 files.
+- tests/Scripts decision: migrated sample resource/deployment naming and REST command references to Azclips equivalents (`Invoke-AzclipsRestMethod`, `azclips-*`).
 - tests/Core.Extensions.Tests scan result (2026-07-03): 36 references across 5 files.
 - tests/Core.Extensions.Tests hotspots: `FileExtensionRegistryStoreTests.cs` (11), `MultiNamespaceTests.cs` (11), `ExtensionHintTableTests.cs` (8).
 - tests/Core.Extensions.Tests classification: mostly compatibility assertions for legacy package ids (`Microsoft.Azure.Cirrus.Extensions.*`) and temp path labels (`cirrus-*`).

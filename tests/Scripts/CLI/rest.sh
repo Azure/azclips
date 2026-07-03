@@ -13,7 +13,7 @@ rest `
 # Happy path: absolute URL passes through unchanged (still ARM-authenticated).
 rest `
     --method GET `
-    --uri "https://management.azure.com/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourcegroups/cirrus-test-group-1?api-version=2021-04-01"
+    --uri "https://management.azure.com/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourcegroups/azclips-test-group-1?api-version=2021-04-01"
 
 # Happy path with explicit headers (space-separated KEY=VALUE).
 rest `
@@ -32,9 +32,9 @@ rest `
 
 # Happy path: ByParameters mode single-resource GET. Supplying --resource-group builds the
 # /subscriptions/{sub}/resourceGroups/{name} segment, which is the correct ARM path for a single
-# resource group; this fetches the cirrus-test-group-1 resource group (Expect 200).
+# resource group; this fetches the azclips-test-group-1 resource group (Expect 200).
 rest `
-    --resource-group cirrus-test-group-1 `
+    --resource-group azclips-test-group-1 `
     --api-version 2021-04-01
 
 # Happy path: extra query-string parameters via --uri-parameters (space-separated KEY=VALUE). Here
@@ -78,3 +78,4 @@ rest `
 rest `
     --method GET `
     --uri "http://management.azure.com/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+
