@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783051494546,
+  "lastUpdate": 1783055764445,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2352,6 +2352,48 @@ window.BENCHMARK_DATA = {
             "value": 957171.9013408045,
             "unit": "ns",
             "range": "± 299496.0651528612"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e4dfe45d3635b76834b16286dfa1ed7174b7b4c1",
+          "message": "feat(http): stamp User-Agent header on every outgoing ARM request (#337)\n\n- Add UserAgentStep to IHttpPipelineService interface with no-op default\n- CLI: AZURECLI/{version} dotnet/{runtime}, version from assembly\nmetadata\n- PS: AzurePowershell/v{version} PSVersion/v{psVersion}, version from\nown assembly\n- Wire UserAgentStep into Engine.CreateProcessorContext HTTP pipeline\n- Register CLIHttpPipelineService and PSHttpPipelineService via DI\noverrides",
+          "timestamp": "2026-07-03T15:14:06+10:00",
+          "tree_id": "b4417df7c28f9b6dc65ffee2f4f9b58cf32edf90",
+          "url": "https://github.com/Azure/azclips/commit/e4dfe45d3635b76834b16286dfa1ed7174b7b4c1"
+        },
+        "date": 1783055763788,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 980229.1384830899,
+            "unit": "ns",
+            "range": "± 308007.42560315604"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 962949.5599359616,
+            "unit": "ns",
+            "range": "± 308064.1218003432"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 946984.7702391674,
+            "unit": "ns",
+            "range": "± 304891.80315719516"
           }
         ]
       }
