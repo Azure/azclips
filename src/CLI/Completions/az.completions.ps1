@@ -8,6 +8,31 @@
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 
+# Per-binary cache: path -> $true/$false
+$global:_azIsCirrusCache = @{}
+
+function global:_azIsCirrus {
+    param([string]$exePath)
+    # Resolve which binary to check
+    if (-not $exePath) {
+        $cmd = Get-Command az -ErrorAction SilentlyContinue
+        if (-not $cmd) { return $false }
+        $exePath = $cmd.Source
+    }
+    $key = $exePath.ToLower()
+    if ($global:_azIsCirrusCache.ContainsKey($key)) { return $global:_azIsCirrusCache[$key] }
+    $result = $false
+    try {
+        $ver = & $exePath --version 2>&1 | Out-String
+        # System Azure CLI outputs 'azure-cli X.Y.Z'; cirrus does not
+        $result = ($ver -notmatch 'azure-cli')
+    } catch {
+        $result = $true
+    }
+    $global:_azIsCirrusCache[$key] = $result
+    return $result
+}
+
 function global:_azResolveExe {
     # 1. Same directory as this script (e.g. artifacts/Release/Core.Cli/)
     $local = Join-Path $PSScriptRoot 'az.exe'
@@ -191,17 +216,24 @@ function global:TabExpansion2 {
         $line = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $inputScript } else { $ast.Extent.Text }
         $cursor = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $cursorColumn } else { $positionOfCursor.Offset }
 
-        if ($line -match '^\s*(\S*[\\/])?az(\.exe)?\s') {
-            $results = @(_azGetCompletions $line $cursor)
-            if ($results.Count -gt 0) {
-                $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
-                $lastSpace = $textUpToCursor.LastIndexOf(' ')
-                $replIndex = $lastSpace + 1
-                $replLength = $cursor - $replIndex
+        if ($line -match '^\s*((\S*[\\/])?(az(\.exe)?))\s') {
+            $azCmd = $Matches[1]   # full command: e.g. "artifacts\...\az.exe" or "az"
+            $azPath = $Matches[2]  # path prefix: e.g. "artifacts\...\" or $null
 
-                $matches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
-                foreach ($r in $results) { $matches.Add($r) }
-                return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
+            # Check the actual binary is cirrus, not system azure-cli
+            $isCirrus = if ($azPath) { _azIsCirrus $azCmd } else { _azIsCirrus }
+            if ($isCirrus) {
+                $results = @(_azGetCompletions $line $cursor)
+                if ($results.Count -gt 0) {
+                    $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
+                    $lastSpace = $textUpToCursor.LastIndexOf(' ')
+                    $replIndex = $lastSpace + 1
+                    $replLength = $cursor - $replIndex
+
+                    $matches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
+                    foreach ($r in $results) { $matches.Add($r) }
+                    return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
+                }
             }
         }
 

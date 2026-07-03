@@ -54,6 +54,32 @@ _az_resolve_exe() {
     fi
 }
 
+# Cached result: empty = not checked, 1 = cirrus, 0 = not cirrus
+_az_is_cirrus_cached=""
+
+_az_is_cirrus() {
+    if [[ -n "$_az_is_cirrus_cached" ]]; then
+        return $(( 1 - _az_is_cirrus_cached ))
+    fi
+    # Check the az on PATH (what the user actually runs)
+    local exe
+    if (( $+commands[az] )); then
+        exe="${commands[az]}"
+    else
+        _az_is_cirrus_cached=0
+        return 1
+    fi
+    local ver
+    ver="$("$exe" --version 2>&1)"
+    if echo "$ver" | grep -q 'azure-cli'; then
+        _az_is_cirrus_cached=0
+        return 1
+    else
+        _az_is_cirrus_cached=1
+        return 0
+    fi
+}
+
 _az_query() {
     local exe
     exe="$(_az_resolve_exe)"
@@ -62,6 +88,15 @@ _az_query() {
 }
 
 _az() {
+    # Path-qualified invocation → always complete.
+    # Bare "az" → check PATH to ensure it's cirrus, not system azure-cli.
+    if [[ "${words[1]}" != */* && "${words[1]}" != *\\* ]]; then
+        if ! _az_is_cirrus; then
+            _default
+            return
+        fi
+    fi
+
     _az_debug "enter _az CURRENT=$CURRENT words=(${words[*]})"
 
     local -a candidates prefix_words subcommands params used_params available

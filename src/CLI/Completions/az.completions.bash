@@ -43,6 +43,31 @@ _az_resolve_exe() {
     fi
 }
 
+# Cached result: empty = not checked, 1 = cirrus, 0 = not cirrus
+_az_is_cirrus_cached=""
+
+_az_is_cirrus() {
+    if [[ -n "$_az_is_cirrus_cached" ]]; then
+        return $(( 1 - _az_is_cirrus_cached ))
+    fi
+    # Check the az on PATH (what the user actually runs)
+    local exe
+    exe="$(command -v az 2>/dev/null)"
+    if [[ -z "$exe" ]]; then
+        _az_is_cirrus_cached=0
+        return 1
+    fi
+    local ver
+    ver="$("$exe" --version 2>&1)"
+    if echo "$ver" | grep -q 'azure-cli'; then
+        _az_is_cirrus_cached=0
+        return 1
+    else
+        _az_is_cirrus_cached=1
+        return 0
+    fi
+}
+
 _az_query() {
     local exe
     exe="$(_az_resolve_exe)"
@@ -60,6 +85,12 @@ _az_get_top_level() {
 }
 
 _az_completions() {
+    # Path-qualified invocation → always complete.
+    # Bare "az" → check PATH to ensure it's cirrus, not system azure-cli.
+    if [[ "${COMP_WORDS[0]}" != */* && "${COMP_WORDS[0]}" != *\\* ]]; then
+        _az_is_cirrus || return
+    fi
+
     local cur prev words cword
     _init_completion 2>/dev/null || {
         COMPREPLY=()
