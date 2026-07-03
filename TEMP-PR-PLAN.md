@@ -13,6 +13,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [ ] `src/Core` (owner: Daniel, references: 15, files: 11)
 - [ ] `tests/Core.Extensions.Tests` (owner: Daniel, references: 36, files: 5)
 - [ ] `tests/Fixtures` (owner: Daniel, references: 10, files: 4)
+- [x] `tests/Cmdlets.Tests` (owner: Daniel, references: 0, files: 0)
 - [ ] `src/CLI` (owner: Daniel, references: 12, files: 4)
 - [ ] `tests/Scripts` (owner: Daniel, references: 109, files: 7)
 
@@ -50,3 +51,4 @@ Track and remove remaining `Cirrus` references across selected directories.
 - tests/Fixtures scan result (2026-07-03): 10 references across 4 files.
 - tests/Fixtures hotspots: `SharedAlpha/ExtensionIndex.cs` (3), `SharedBeta/ExtensionIndex.cs` (3), `SharedAlpha/Cirrus.Tests.Fixtures.SharedAlpha.csproj` (2), `SharedBeta/Cirrus.Tests.Fixtures.SharedBeta.csproj` (2).
 - tests/Fixtures classification: fixture assembly identity and namespace names still use `Cirrus.Tests.Fixtures.*` for test linkage compatibility.
+- tests/Cmdlets.Tests scan result (2026-07-03): 0 remaining `Cirrus` references.
