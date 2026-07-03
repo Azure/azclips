@@ -2,7 +2,7 @@ window.BENCHMARK_DATA = {
   "lastUpdate": 1783051494546,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
-    "Cirrus CLI Benchmarks": [
+    "Azclips CLI Benchmarks": [
       {
         "commit": {
           "author": {
@@ -2102,9 +2102,7 @@ window.BENCHMARK_DATA = {
             "range": "± 303657.08445360896"
           }
         ]
-      }
-    ],
-    "Azclips CLI Benchmarks": [
+      },
       {
         "commit": {
           "author": {

@@ -2,7 +2,7 @@ window.BENCHMARK_DATA = {
   "lastUpdate": 1783051850660,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
-    "Cirrus PS Benchmarks": [
+    "Azclips PS Benchmarks": [
       {
         "commit": {
           "author": {
@@ -2018,9 +2018,7 @@ window.BENCHMARK_DATA = {
             "range": "± 98714.70644198732"
           }
         ]
-      }
-    ],
-    "Azclips PS Benchmarks": [
+      },
       {
         "commit": {
           "author": {
