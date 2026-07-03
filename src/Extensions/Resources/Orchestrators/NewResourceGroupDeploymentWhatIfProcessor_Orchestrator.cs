@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// <summary>
     /// Runs an ARM what-if operation at the resource group scope
     /// (POST .../resourcegroups/{rg}/providers/Microsoft.Resources/deployments/{name}/whatIf) and
-    /// renders the predicted change list. This is the Cirrus equivalent of
+    /// renders the predicted change list. This is the AzClips equivalent of
     /// <c>az deployment group what-if</c> / <c>New-AzResourceGroupDeploymentWhatIf</c>.
     /// What-if is read-only: it never creates or modifies resources.
     /// <para>

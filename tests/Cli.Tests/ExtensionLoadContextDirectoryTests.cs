@@ -19,7 +19,7 @@ public class ExtensionLoadContextDirectoryTests
     [Fact]
     public void ExtensionDirectory_ShouldExposeConstructorArgumentVerbatim()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"cirrus-alc-{Guid.NewGuid():N}");
+        var tempDir = Path.Combine(Path.GetTempPath(), $"azclips-alc-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         try
         {
@@ -40,7 +40,7 @@ public class ExtensionLoadContextDirectoryTests
         // a path under the directory. If the constructor's parameter were ever reverted to a
         // DLL path, this composition would land at "foo.dll/Sibling.dll" and the Exists check
         // below would fail because the parent isn't a directory.
-        var tempDir = Path.Combine(Path.GetTempPath(), $"cirrus-alc-{Guid.NewGuid():N}");
+        var tempDir = Path.Combine(Path.GetTempPath(), $"azclips-alc-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         var siblingPath = Path.Combine(tempDir, "Sibling.dll");
         File.WriteAllBytes(siblingPath, new byte[] { 0x4D, 0x5A }); // MZ stub; existence check only
@@ -59,3 +59,4 @@ public class ExtensionLoadContextDirectoryTests
         }
     }
 }
+

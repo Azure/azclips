@@ -15,7 +15,7 @@ namespace Cli.Tests;
 /// </summary>
 public class RegistryLookupTests
 {
-    private const string PackageId = "Microsoft.Azure.Cirrus.Extensions.Resources";
+    private const string PackageId = "Microsoft.Azure.Azclips.Extensions.Resources";
 
     private static ExtensionRegistry RegistryWith(ExtensionRegistryEntry entry, string id = PackageId)
     {
@@ -42,7 +42,7 @@ public class RegistryLookupTests
     {
         var registry = RegistryWith(MultiNamespaceEntry());
 
-        Assert.True(RegistryLookup.TryFind(registry, "MICROSOFT.AZURE.CIRRUS.EXTENSIONS.RESOURCES", out var match));
+        Assert.True(RegistryLookup.TryFind(registry, "MICROSOFT.AZURE.AZCLIPS.EXTENSIONS.RESOURCES", out var match));
         Assert.Equal(PackageId, match.Key);
     }
 
@@ -144,12 +144,12 @@ public class RegistryLookupTests
         // refuse to suggest, since pointing the user at one arbitrarily would re-introduce
         // the same destructive trap we just removed.
         var registry = new ExtensionRegistry();
-        registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Alpha"] = new()
+        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Alpha"] = new()
         {
             Version = "1.0.0",
             Namespaces = { "shared" },
         };
-        registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Beta"] = new()
+        registry.Extensions["Microsoft.Azure.Azclips.Extensions.Beta"] = new()
         {
             Version = "1.0.0",
             Namespaces = { "shared" },
@@ -163,8 +163,8 @@ public class RegistryLookupTests
     [Theory]
     [InlineData("Microsoft.Azure.Azclips.Extensions.Login", "Login")]
     [InlineData("microsoft.azure.azclips.extensions.login", "login")]
-    [InlineData("Microsoft.Azure.Cirrus.Extensions.Compute", "Compute")]
-    [InlineData("microsoft.azure.cirrus.extensions.compute", "compute")]
+    [InlineData("Microsoft.Azure.Azclips.Extensions.Compute", "Compute")]
+    [InlineData("microsoft.azure.azclips.extensions.compute", "compute")]
     [InlineData("Contoso.MyExtension", "Contoso.MyExtension")]
     [InlineData("Compute", "Compute")]
     public void ToShortName_ShouldStripKnownPrefix_CaseInsensitively(string input, string expected)

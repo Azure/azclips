@@ -1,6 +1,6 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Compute

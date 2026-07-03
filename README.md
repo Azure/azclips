@@ -1,15 +1,15 @@
-# Project Cirrus
+# Project Azclips
 
 A .NET 10.0 extension-based CLI framework with AI-powered natural language capabilities for Azure resource management.
 
-📚 **Documentation:** [https://azure.github.io/cirrus/](https://azure.github.io/cirrus/)
+📚 **Documentation:** [https://azure.github.io/azclips/](https://azure.github.io/azclips/)
 
 Alternatively, clone the repository and run the `wiki:preview` task in VS Code to view a rendered version of the wiki locally.
 
 ## Repository Structure
 
 ```
-cirrus/
+azclips/
 ├── 📁 .github/                   # GH actions, code owners
 ├── 📁 build/                     # Build scripts
 ├── 📁 docs/                      # Documentation
@@ -49,8 +49,8 @@ cirrus/
 │       ├── Core/                 # Core libraries
 │       ├── Core.Cli/             # CLI binary 'az' + dependencies + Resources module
 │       ├── Microsoft.Azure.Azclips.Extensions.Login/     # Login extension + PowerShell module
-│       └── Microsoft.Azure.Cirrus.Extensions.Resources/  # Resources extension
-├── 📄 global.json               # .NET SDK version (9.0)
+│       └── Microsoft.Azure.Azclips.Extensions.Resources/  # Resources extension
+├── 📄 global.json               # .NET SDK version (10.0.203)
 ├── 📄 azclips.slnx              # Main solution file
 ├── 📄 Shared.props             # Shared build configuration
 ├── 📄 AGENTS.md                # Repository guidelines for AI agents
@@ -113,7 +113,7 @@ The CLI automatically tries extension-based parsing first. On parse or execution
 
 ### PowerShell Usage
 
-Cirrus provides PowerShell modules in [`src/PS`](src/PS) that can be used directly without building.
+Azclips provides PowerShell modules in [`src/PS`](src/PS) that can be used directly without building.
 
 ```powershell
 # Import the Login module (binary module with cmdlets)
@@ -152,7 +152,7 @@ dotnet test --collect:"XPlat Code Coverage"
 
 ## Telemetry
 
-Cirrus collects anonymous usage telemetry (command names, parameter *names* only, success/failure, and basic environment data) to help diagnose problems and improve the experience. Parameter values, URLs, and other personal content are never collected.
+Azclips collects anonymous usage telemetry (command names, parameter *names* only, success/failure, and basic environment data) to help diagnose problems and improve the experience. Parameter values, URLs, and other personal content are never collected.
 
 Telemetry is **on by default**. To opt out, set `telemetry.enabled` to `false`:
 

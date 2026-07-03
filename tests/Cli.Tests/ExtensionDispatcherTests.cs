@@ -6,7 +6,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Config;
+using Microsoft.Azure.Azclips.Extensions.Config;
 using Tests.Common.Utilities;
 using Xunit;
 
@@ -258,7 +258,7 @@ public class ExtensionDispatcherTests
     {
         // Pins current behavior, not desired contract: today the dispatcher leaks the
         // resolver's underlying KeyNotFoundException for an unknown verb. A future change
-        // could convert this to a typed CirrusErrorException.CommandNotFound; if so, update
+        // could convert this to a typed AzclipsErrorException.CommandNotFound; if so, update
         // this assertion at that time.
         var dispatcher = CreateLeafDispatcher(
             ("vm", "create", "Pkg.A", false));

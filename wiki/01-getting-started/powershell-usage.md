@@ -1,389 +1,131 @@
 ---
-title: "PowerShell Module Guide"
-description: "Guide to the Cirrus PowerShell modules — Login and Resources — covering authentication, resource management, module internals, and the C# bridge pattern."
+title: PowerShell Module Usage
+description: Guide to the Azclips PowerShell surface — importing modules, the cmdlet catalogue, and how cmdlets share the same Core engine as the CLI via a per-invocation output channel routed to WriteObject.
+outline: deep
 ---
 
-# PowerShell Module Guide
+# PowerShell Module Usage
 
-## Available Modules
+## Why a PowerShell Surface Exists
 
-Cirrus ships two PowerShell modules that expose the same underlying C# extensions as the CLI:
+PowerShell users expect object output, pipelines, and cmdlet ergonomics — not text scraping. Project Azclips satisfies that by shipping cmdlets that are **thin wrappers over the exact same Core engine** the `az` CLI uses. A cmdlet doesn't re-implement resource-group creation; it builds a `CommandInvocation`, resolves `IEngine` from the shared `AzclipsServiceProvider`, and opens an execution session whose output is pumped back into the PowerShell stream via `$PSCmdlet.WriteObject`. This means CLI and PowerShell stay behaviorally identical while giving PowerShell users native objects.
 
-| Module | Directory | Version | PS Edition | GUID |
-|--------|-----------|---------|-----------|------|
-| **Login** | `src/PS/Login/` | 0.0.1 | Core only | `4a689b34-4900-472a-ae8a-f5473e0e7df2` |
-| **Resources** | `src/PS/Resources/` | 0.1.0 | Core, Desktop | `d4bb27e5-ae5f-4f79-a25c-ad1cecdc443a` |
+## Modules and Cmdlets
 
-A shared helper module `src/PS/TelemetryHelper.ps1` provides telemetry functions used by both.
+The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `Cmdlets.Resources`, `Cmdlets.Compute`, `Cmdlets.Login`, and `Cmdlets.Config`. Each ships a `.psd1` manifest and per-module help Markdown under `src/PS/<Module>/help/`.
 
-## Importing Modules
+| Module | Representative cmdlets | Source |
+| --- | --- | --- |
+| **Login** | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzProfile`, `Set-AzProfile`, `Remove-AzProfile` | `src/PS/Login/Cmdlets/ConnectAccountCmdlet.cs:11` |
+| **Resources** | `New-ResourceGroup`, `Get-ResourceGroup`, `New-ResourceGroupDeployment`, `Invoke-AzclipsRestMethod` | `src/PS/Resources/Cmdlets/NewResourceGroupCmdlet.cs` |
+| **Compute** | `New-VM`, `Get-VM`, `Remove-VM`, `New-VirtualNetwork`, `New-NetworkInterface`, `New-NetworkSecurityGroup` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
+| **Config** | `Get-AzConfig`, `Set-AzConfig`, `Get-AzConfigList`, `Get-AzConfigInfo`, `Remove-AzConfig` | `src/PS/Config/Cmdlets/SetAzConfigCmdlet.cs` |
 
-Build the solution first so the required assemblies exist under `artifacts/`:
+> **Naming note:** Login and Config cmdlets carry the `Az` noun prefix (`Constants.CommandPrefix = "Az"`, `src/PS/Login/Constants.cs:11`), so you get `Connect-AzAccount` and `Set-AzConfig`. Compute and Resources cmdlets currently use unprefixed nouns like `New-VM` and `New-ResourceGroup`.
+
+### Importing and Using
 
 ```powershell
-dotnet build azclips.slnx
-
-# Import individual modules
+# Import a built module (manifests reference artifact DLLs by relative path)
 Import-Module ./src/PS/Login/Login.psd1
-Import-Module ./src/PS/Resources/Resources.psd1
+Import-Module ./src/PS/Compute/Compute.psd1
+
+# Authenticate, then create a resource group and a VM
+Connect-AzAccount -SubscriptionId <sub-id>
+New-ResourceGroup -Name myrg -Location eastus -SubscriptionId <sub-id>
+New-VM -Name myvm -ResourceGroupName myrg -Location eastus -SubscriptionId <sub-id> `
+       -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword <pwd> `
+       -NetworkInterfaceName nic1 -VirtualNetworkName vnet1 -NetworkSecurityGroupName nsg1
+Get-VM -ResourceGroupName myrg -SubscriptionId <sub-id>
+
+# Opt out of telemetry via config
+Set-AzConfig -Key telemetry.enabled -Value false
 ```
 
-Each module manifest (`Login.psd1`, `Resources.psd1`) declares `RequiredAssemblies` pointing to the build output (`src/PS/Login/Login.psd1:59-65`):
+The `Set-AzConfig -Key telemetry.enabled -Value false` opt-out is the documented PowerShell equivalent of the CLI's `az config set` (`README.md:166`). Note the Compute module declares the Login module as a `RequiredModule` (`src/PS/Compute/Compute.psd1:55`), so importing Compute pulls in Login automatically.
 
-```
-artifacts/Debug/Core/Core.Abstractions.dll
-artifacts/Debug/Core/Core.Telemetry.dll
-artifacts/Debug/Core/Core.Runtime.dll
-artifacts/Debug/Core/Core.Engine.dll
-artifacts/Debug/Core/Core.DependencyInjection.dll
-artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Login/
-    Microsoft.Azure.Azclips.Extensions.Login.dll
-```
+## Shared Engine, Per-Invocation Output Channel
 
-## Module Initialisation
+Every cmdlet follows the same three-step pattern, visible in `NewVMCmdlet`:
 
-Both `.psm1` files follow an identical bootstrap pattern. For example, `Login.psm1` (`src/PS/Login/Login.psm1:1-15`):
+1. In `BeginProcessing`, build an `OutputStreams` bound to this cmdlet and resolve `IEngine` from the shared provider (`src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87`).
+2. In `ProcessRecord`, assemble a `CommandInvocation` from bound parameters (`src/PS/Compute/Cmdlets/NewVMCmdlet.cs:130`).
+3. Open an execution session and run it synchronously (`src/PS/Compute/Cmdlets/NewVMCmdlet.cs:133`).
 
-1. **Dot-source telemetry** (`Login.psm1:2`) — `. (Join-Path $PSScriptRoot '..\TelemetryHelper.ps1')`
-2. **Initialise DI container** (`Login.psm1:5`) — `[Core.DependencyInjection.AzclipsServiceProvider]::Initialize([Core.Abstractions.ClientType]::PowerShell)`
-3. **Register cleanup** (`Login.psm1:6-8`) — disposes the DI container on module removal via `$MyInvocation.MyCommand.ScriptBlock.Module.OnRemove`.
-4. **Auto-load exports** (`Login.psm1:10-14`) — dot-sources every `.ps1` file in `./exports/`.
-5. **Export functions** (`Login.psm1:15`) — `Export-ModuleMember -Function *`.
+The engine is explicitly designed for this. Its documented **Thread Safety** and **Output Routing** guarantees state that each invocation gets its own `Channel`: the worker thread writes to the channel, and the caller's thread reads and dispatches to the provided output delegate — *e.g.* `$PSCmdlet.WriteObject` (`src/Core/Core.Engine/Engine.cs:13`–`:21`). This per-invocation isolation is what allows concurrent cmdlet execution without output cross-talk.
 
-`Resources.psm1` (`src/PS/Resources/Resources.psm1:1-12`) follows the same steps.
+The bridge between engine output and PowerShell streams is `CmdletOutputStreamsFactory.Create`, which constructs an `OutputStreams` whose delegates map each engine channel to the correct PowerShell stream (`src/PS/Common/CmdletOutputStreamsFactory.cs:30`):
 
-```mermaid
-graph TB
-    subgraph Init["Module Import Sequence"]
-        style Init fill:#161b22,stroke:#30363d,color:#e6edf3
-        Import["Import-Module Login.psd1"]
-        Manifest["Load RequiredAssemblies<br>(Core DLLs + Extension DLL)"]
-        PSM["Execute Login.psm1"]
-        Telem["Dot-source TelemetryHelper.ps1"]
-        DI["AzclipsServiceProvider.Initialize<br>(ClientType.PowerShell)"]
-        Exports["Dot-source exports/*.ps1"]
-        Ready["Module Ready<br>Functions exported"]
-    end
+| Engine stream | PowerShell target | Source |
+| --- | --- | --- |
+| `WriteOutput` | `cmdlet.WriteObject(value[, enumerate])` | `src/PS/Common/CmdletOutputStreamsFactory.cs:39` |
+| `WriteError` | `cmdlet.WriteError(new ErrorRecord(...))` | `src/PS/Common/CmdletOutputStreamsFactory.cs:91` |
+| `WriteWarning` | `cmdlet.WriteWarning(...)` | `src/PS/Common/CmdletOutputStreamsFactory.cs:82` |
+| `WriteVerbose` | `WriteVerbose` / host verbose line | `src/PS/Common/CmdletOutputStreamsFactory.cs:52` |
+| `WriteDebug` | `WriteDebug` / host debug line | `src/PS/Common/CmdletOutputStreamsFactory.cs:67` |
+| `WriteInformation` | `cmdlet.WriteInformation(...)` | `src/PS/Common/CmdletOutputStreamsFactory.cs:100` |
 
-    Import --> Manifest
-    Manifest --> PSM
-    PSM --> Telem
-    PSM --> DI
-    PSM --> Exports
-    Exports --> Ready
+Verbose/Debug/Info/Warn honor the configured log level via `ShouldEmit`, but `-Verbose`/`-Debug` bound parameters force emission (`src/PS/Common/CmdletOutputStreamsFactory.cs:135`).
 
-    style Import fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Manifest fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PSM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Telem fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Exports fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Ready fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
-
-## Authentication Cmdlets
-
-### `Connect-AzAccount`
-
-Authenticates to Azure with a subscription and tenant (`src/PS/Login/exports/Connect-AzAccount.ps1:1-61`).
-
-```powershell
-Connect-AzAccount -SubscriptionId <guid> -TenantId <guid>
-```
-
-**Parameters** (`Connect-AzAccount.ps1:3-9`):
-
-| Parameter | Type | Mandatory |
-|-----------|------|-----------|
-| `SubscriptionId` | `string` | Yes |
-| `TenantId` | `string` | No |
-| `UseDeviceCode` | `SwitchParameter` | No |
-
-Supports `ShouldProcess` (`-WhatIf`, `-Confirm`) with `ConfirmImpact = 'Medium'` (`Connect-AzAccount.ps1:2`).
-
-### `Disconnect-AzAccount`
-
-Signs out of the current Cirrus session (`src/PS/Login/exports/Disconnect-AzAccount.ps1:1-52`).
-
-```powershell
-Disconnect-AzAccount
-```
-
-No parameters. Supports `ShouldProcess` with `ConfirmImpact = 'Medium'` (`Disconnect-AzAccount.ps1:2`).
-
-### `Get-AzAccount`
-
-Returns information about the current authenticated session (`src/PS/Login/exports/Get-AzAccount.ps1:1-48`).
-
-```powershell
-Get-AzAccount
-```
-
-No parameters. Uses basic `[CmdletBinding()]` without `ShouldProcess` since it is a read-only operation (`Get-AzAccount.ps1:2`).
-
-## Resource Management Cmdlets
-
-### `New-ResourceGroup`
-
-Creates a new Azure resource group (`src/PS/Resources/exports/New-ResourceGroup.ps1:1-67`).
-
-```powershell
-New-ResourceGroup -Name "my-rg" -Location "eastus"
-New-ResourceGroup -Name "my-rg" -Location "eastus" -SubscriptionId <guid>
-```
-
-**Parameters** (`New-ResourceGroup.ps1:3-12`):
-
-| Parameter | Type | Mandatory |
-|-----------|------|-----------|
-| `Name` | `string` | Yes |
-| `Location` | `string` | Yes |
-| `SubscriptionId` | `string` | No |
-
-`SubscriptionId` is conditionally added to the parameter dictionary only when provided (`New-ResourceGroup.ps1:32-40`).
-
-### `Get-ResourceGroup`
-
-Retrieves one or all resource groups in a subscription (`src/PS/Resources/exports/Get-ResourceGroup.ps1:1-66`).
-
-```powershell
-# Get a specific resource group
-Get-ResourceGroup -SubscriptionId <guid> -Name "my-rg"
-
-# List all resource groups
-Get-ResourceGroup -SubscriptionId <guid>
-```
-
-**Parameter Sets** (`Get-ResourceGroup.ps1:4-5`):
-
-| Set | Required Parameters | Command Routed To |
-|-----|-------------------|-------------------|
-| `Get` | `SubscriptionId`, `Name` | `Get-ResourceGroup_Get` |
-| `List` | `SubscriptionId` | `Get-ResourceGroup_List` |
-
-The active parameter set name is appended to the command name (`Get-ResourceGroup.ps1:30-31`):
-
-```powershell
-$commandName = "Get-ResourceGroup_$($PSCmdlet.ParameterSetName)"
-```
-
-This `Get-ResourceGroup` cmdlet also features an enhanced output delegate that handles array responses with a `$true` flag (`Get-ResourceGroup.ps1:19-24`).
-
-## C# Bridge Pattern
-
-Every PowerShell cmdlet follows the same five-step pattern to delegate execution to the C# engine. This is the core integration point between the PowerShell and .NET layers.
+## End-to-End Flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant PS as PowerShell Cmdlet
+    participant User as PowerShell User
+    participant Cmd as NewVMCmdlet<br>(NewVMCmdlet.cs)
+    participant Factory as CmdletOutputStreamsFactory<br>(:30)
     participant DI as AzclipsServiceProvider
-    participant Engine as IEngine (CLIEngine)
-    participant Ext as Extension Assembly
-    participant Azure as Azure API
-    participant Tel as TelemetryService
+    participant Eng as IEngine / ExecutionSession
+    participant Chan as Per-invocation Channel
+    participant PSOut as $PSCmdlet.WriteObject
 
-    PS->>Tel: Start-CmdletActivity("Connect-AzAccount")
-    PS->>DI: GetRequiredService([IEngine])
-    DI-->>PS: IEngine instance
-    PS->>PS: Build Dictionary[string,object] from $PSBoundParameters
-    PS->>PS: [Core.Runtime.PSCommandInvocation]::New(ext, cmd, params)
-    PS->>Engine: Process(invocation, outputDelegate, CancellationToken)
-    Engine->>Ext: Load + execute command
-    Ext->>Azure: API call
-    Azure-->>Ext: Response
-    Ext-->>Engine: Result
-    Engine-->>PS: Output via delegate
-    PS->>PS: Write-Output to pipeline
-    PS->>Tel: Complete-CmdletActivity (Success/Error)
+    User->>Cmd: New-VM -Name myvm ...
+    Cmd->>Factory: Create(this, "VMError", ...)  [BeginProcessing]
+    Factory-->>Cmd: OutputStreams (delegates -> PS streams)
+    Cmd->>DI: GetRequiredService(IEngine)
+    Cmd->>Eng: OpenExecutionSession(invocation, streams)  [ProcessRecord]
+    Eng->>Chan: worker writes results
+    Chan->>Cmd: caller thread pumps channel
+    Cmd->>PSOut: WriteObject(value)
+    PSOut-->>User: native PowerShell objects
 ```
-
-### Step-by-Step Breakdown
-
-Taking `Connect-AzAccount.ps1` as the canonical example:
-
-**1. Start telemetry** (`Connect-AzAccount.ps1:13`)
-
-```powershell
-$activity = Start-CmdletActivity -CmdletName "Connect-AzAccount" -Parameters $PSBoundParameters
-```
-
-**2. Get the engine from DI** (`Connect-AzAccount.ps1:15`)
-
-```powershell
-$engine = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService(
-    [Core.Abstractions.IEngine])
-```
-
-**3. Create an output delegate** (`Connect-AzAccount.ps1:16-20`)
-
-An asynchronous `CommandOutputDelegate` is created that writes objects to the PowerShell pipeline.
-
-**4. Build the invocation** (`Connect-AzAccount.ps1:25-35`)
-
-```powershell
-$extensionName = "Login"
-$commandName   = "Connect-AzAccount"
-$parameters    = [System.Collections.Generic.Dictionary[string,object]]::new()
-$parameters.Add("SubscriptionId", $SubscriptionId)
-$parameters.Add("TenantId", $TenantId)
-
-$invocation = [Core.Runtime.PSCommandInvocation]::New(
-    $extensionName, $commandName, $parameters)
-```
-
-**5. Execute and handle results** (`Connect-AzAccount.ps1:36-47`)
-
-```powershell
-$engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None)
-```
-
-Success and failure are recorded via `Complete-CmdletActivity` in the `end` block.
-
-## Telemetry Helper
-
-`src/PS/TelemetryHelper.ps1` is dot-sourced by every module and provides three exported functions plus one internal:
-
-### `Get-TelemetryService` (internal)
-
-Lazy-loads the `ITelemetryService` from the DI container (`TelemetryHelper.ps1:7-20`):
-
-```powershell
-[Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService(
-    [Core.Abstractions.ITelemetryService])
-```
-
-The service is cached in `$script:TelemetryService` (`TelemetryHelper.ps1:4-5`). If retrieval fails, the error is logged verbosely and telemetry is silently disabled (`TelemetryHelper.ps1:15-17`).
-
-### `Start-CmdletActivity`
-
-Creates a new telemetry activity for a cmdlet invocation (`TelemetryHelper.ps1:22-47`).
-
-| Parameter | Type | Required |
-|-----------|------|----------|
-| `CmdletName` | `string` | Yes |
-| `Parameters` | `IDictionary` | No |
-
-Calls `[Core.Telemetry.TelemetryExtensions]::StartPowerShellActivity($service, $CmdletName, $Parameters)` (`TelemetryHelper.ps1:36-45`) and returns an `Activity` object.
-
-### `Complete-CmdletActivity`
-
-Finalises a telemetry activity (`TelemetryHelper.ps1:49-86`).
-
-| Parameter | Type | Default |
-|-----------|------|---------|
-| `Activity` | `Activity` | — |
-| `Success` | `bool` | `$true` |
-| `ErrorMessage` | `string` | — |
-
-On success: sets `ActivityStatusCode::Ok` (`TelemetryHelper.ps1:68-69`).
-On failure: sets `ActivityStatusCode::Error` and attaches an error event with the message (`TelemetryHelper.ps1:70-78`).
-Always disposes the activity (`TelemetryHelper.ps1:80`).
-
-### `Stop-Telemetry`
-
-Disposes the cached telemetry service on module removal (`TelemetryHelper.ps1:88-97`).
-
-## Module Manifest Structure
-
-Both `.psd1` files follow the standard PowerShell module manifest format. Key sections in `Login.psd1` (`src/PS/Login/Login.psd1`):
-
-| Section | Purpose | Example |
-|---------|---------|---------|
-| `RootModule` | Entry script | `Login.psm1` (line 12) |
-| `ModuleVersion` | Semantic version | `0.0.1` (line 15) |
-| `CompatiblePSEditions` | Runtime constraint | `@('Core')` (line 18) |
-| `PowerShellVersion` | Minimum PS version | `7.5` (line 36) |
-| `RequiredAssemblies` | C# DLLs to load | 7 assemblies (lines 59-65) |
-| `FunctionsToExport` | Public surface | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzAccount` (line 80) |
-
-The `Resources.psd1` manifest (`src/PS/Resources/Resources.psd1`) is similar but targets a broader audience:
-
-- `CompatiblePSEditions` = `@('Core', 'Desktop')` (line 18)
-- `PowerShellVersion` = `5.1` (line 36)
-- `DotNetFrameworkVersion` = `4.7.2` (line 45)
-- `FunctionsToExport` = `New-ResourceGroup`, `Get-ResourceGroup` (line 88)
-
-## Complete Cmdlet Reference
-
-| Cmdlet | Module | Parameters | ShouldProcess | Parameter Sets |
-|--------|--------|-----------|---------------|----------------|
-| `Connect-AzAccount` | Login | `SubscriptionId`*, `TenantId`, `UseDeviceCode` | Yes (Medium) | Default |
-| `Disconnect-AzAccount` | Login | — | Yes (Medium) | Default |
-| `Get-AzAccount` | Login | — | No | Default |
-| `New-ResourceGroup` | Resources | `Name`*, `Location`*, `SubscriptionId` | Yes (Medium) | Default |
-| `Get-ResourceGroup` | Resources | `SubscriptionId`*, `Name`* | No | Get, List |
-
-\* = Mandatory in at least one parameter set.
-
-## Module Dependency Graph
 
 ```mermaid
-graph TB
-    subgraph PSModules["PowerShell Modules"]
-        style PSModules fill:#161b22,stroke:#30363d,color:#e6edf3
-        LoginMod["Login Module<br>(Login.psm1)"]
-        ResMod["Resources Module<br>(Resources.psm1)"]
+graph LR
+    subgraph psh["PowerShell Host"]
+        CMD["Cmdlet<br>New-VM / Set-AzConfig"]
+        WO["$PSCmdlet.WriteObject /<br>WriteError / WriteVerbose"]
     end
-
-    subgraph Shared["Shared Components"]
-        style Shared fill:#161b22,stroke:#30363d,color:#e6edf3
-        TelHelper["TelemetryHelper.ps1"]
+    subgraph shared["Shared Core (same as CLI)"]
+        DI["AzclipsServiceProvider<br>Initialize(ClientType.PowerShell)"]
+        ENG["IEngine<br>OpenExecutionSession"]
+        CH["Per-invocation Channel"]
     end
+    OS["OutputStreams<br>CmdletOutputStreamsFactory"]
 
-    subgraph CoreDLLs["Core Assemblies (C#)"]
-        style CoreDLLs fill:#161b22,stroke:#30363d,color:#e6edf3
-        Abstractions["Core.Abstractions.dll"]
-        EngDLL["Core.Engine.dll"]
-        RuntimeDLL["Core.Runtime.dll"]
-        DIDLL["Core.DependencyInjection.dll"]
-        TelDLL["Core.Telemetry.dll"]
-    end
+    CMD --> DI --> ENG --> CH --> OS --> WO
+    CMD -. builds .-> OS
 
-    subgraph ExtDLLs["Extension Assemblies (C#)"]
-        style ExtDLLs fill:#161b22,stroke:#30363d,color:#e6edf3
-        LoginDLL["Extensions.Login.dll"]
-        ResDLL["Extensions.Resources.dll"]
-    end
-
-    LoginMod -->|dot-source| TelHelper
-    ResMod -->|dot-source| TelHelper
-    LoginMod -->|RequiredAssemblies| Abstractions
-    LoginMod -->|RequiredAssemblies| EngDLL
-    LoginMod -->|RequiredAssemblies| RuntimeDLL
-    LoginMod -->|RequiredAssemblies| DIDLL
-    LoginMod -->|RequiredAssemblies| TelDLL
-    LoginMod -->|RequiredAssemblies| LoginDLL
-    ResMod -->|RequiredAssemblies| Abstractions
-    ResMod -->|RequiredAssemblies| EngDLL
-    ResMod -->|RequiredAssemblies| RuntimeDLL
-    ResMod -->|RequiredAssemblies| DIDLL
-    ResMod -->|RequiredAssemblies| ResDLL
-
-    style LoginMod fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ResMod fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style TelHelper fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Abstractions fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style EngDLL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style RuntimeDLL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DIDLL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style TelDLL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style LoginDLL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ResDLL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CMD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style WO fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style DI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style ENG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style OS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style psh fill:#161b22,stroke:#30363d,color:#e6edf3
+    style shared fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
+
+## Manifests and Help
+
+Each module ships a `.psd1` manifest (e.g. `src/PS/Compute/Compute.psd1`) declaring `ModuleVersion`, required modules, and the artifact DLLs it loads, plus `help/*.md` files (e.g. `src/PS/Compute/help/New-VM.md`) generated for `Get-Help`. Because manifests reference DLLs under `artifacts/<Config>/...` (`src/PS/Compute/Compute.psd1:59`), you must build the solution before importing a module.
 
 ## References
 
-| Source | Path |
-|--------|------|
-| Login module script | `src/PS/Login/Login.psm1` |
-| Login module manifest | `src/PS/Login/Login.psd1` |
-| Resources module script | `src/PS/Resources/Resources.psm1` |
-| Resources module manifest | `src/PS/Resources/Resources.psd1` |
-| Connect-AzAccount | `src/PS/Login/exports/Connect-AzAccount.ps1` |
-| Disconnect-AzAccount | `src/PS/Login/exports/Disconnect-AzAccount.ps1` |
-| Get-AzAccount | `src/PS/Login/exports/Get-AzAccount.ps1` |
-| New-ResourceGroup | `src/PS/Resources/exports/New-ResourceGroup.ps1` |
-| Get-ResourceGroup | `src/PS/Resources/exports/Get-ResourceGroup.ps1` |
-| Telemetry helper | `src/PS/TelemetryHelper.ps1` |
-| DI container | `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` |
+- `src/PS/Common/CmdletOutputStreamsFactory.cs:30` — maps engine streams to `$PSCmdlet` output methods.
+- `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87` — cmdlet resolves `IEngine` and opens a session.
+- `src/Core/Core.Engine/Engine.cs:13` — per-invocation channel thread-safety / output-routing contract.
+- `azclips.slnx:40` — PowerShell cmdlet projects (`Resources`, `Compute`, `Login`, `Config`).
+- `src/PS/Login/Constants.cs:11` — `Az` command-noun prefix.
+- `README.md:166` — `Set-AzConfig -Key telemetry.enabled` opt-out.

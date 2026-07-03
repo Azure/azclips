@@ -6,7 +6,7 @@
 
 using Core.Abstractions;
 
-namespace Cirrus.Tests.Fixtures.SharedBeta;
+namespace Azclips.Tests.Fixtures.SharedBeta;
 
 /// <summary>
 /// Test fixture: declares the verb <c>sharedverb</c> (same as SharedAlpha) and a single leaf
@@ -21,8 +21,8 @@ public sealed class ExtensionIndex : IExtensionIndex
             Name: "BetaProcessor",
             InvocationName: "sharedverb beta",
             Aliases: [],
-            FullName: "Cirrus.Tests.Fixtures.SharedBeta.BetaProcessor",
-            AssemblyName: "Cirrus.Tests.Fixtures.SharedBeta",
+            FullName: "Azclips.Tests.Fixtures.SharedBeta.BetaProcessor",
+            AssemblyName: "Azclips.Tests.Fixtures.SharedBeta",
             ProcessorType: typeof(ExtensionIndex),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()),

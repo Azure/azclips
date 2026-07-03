@@ -477,7 +477,7 @@ public sealed class ChatAgent : IAsyncDisposable
             // by CommandMetadata.IsRequired) would deny + force a re-plan when a step
             // omits a required flag. Deferred: it needs a command resolver
             // (IExtensionIndex) threaded into this static hook plus an Agent ->
-            // Cirrus.Help.Tool reference that does not exist today; wiring both here
+            // Azclips.Help.Tool reference that does not exist today; wiring both here
             // is out of scope for this batch. Draft lives in the v3 review doc.
 
             // Unified mind: propose_plan does NOT render. submit_response is the

@@ -21,6 +21,7 @@ namespace Core.Cli;
 
 public class Program
 {
+    private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ILoggingService? _logger;
@@ -108,7 +109,7 @@ public class Program
                     activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
                     return exitCode;
                 }
-                catch (CirrusErrorException structured)
+                catch (AzclipsErrorException structured)
                 {
                     // RenderExtensionHelp surfaces ExtensionNotInstalledException when the user asks
                     // for help on a verb owned by an uninstalled package (smart-suggestion path).
@@ -125,9 +126,9 @@ public class Program
 
                 return await TryAgentFallbackAsync(args, ex.Message);
             }
-            catch (CirrusErrorException ex)
+            catch (AzclipsErrorException ex)
             {
-                // Structured Cirrus error: render per --output mode and return the symbolic exit code.
+                // Structured AzClips error: render per --output mode and return the symbolic exit code.
                 // No AI fallback — the failure is well-known and the user's intent is unambiguous.
                 EmitStructuredError(ex, outputJson);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -253,7 +254,7 @@ public class Program
         return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 
-    private static void EmitStructuredError(CirrusErrorException ex, bool outputJson)
+    private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
     {
         if (outputJson)
         {
@@ -302,7 +303,7 @@ public class Program
         // the terminal. When this isn't an interactive TTY (CI, a pipe, an
         // unattended script) it can't interact and would hang or spew, so surface
         // the original error instead of spawning it. Replaces the removed
-        // CIRRUS_AGENT_DISABLED env guard for unattended runs. Inlined (not the
+        // legacy agent-disabled env guard for unattended runs. Inlined (not the
         // agent's ConsoleEnvironment helper) so Core.Cli stays decoupled from
         // Core.Agent — same semantics: a TTY on both stdin and stdout.
         if (Console.IsInputRedirected || Console.IsOutputRedirected)
@@ -312,7 +313,7 @@ public class Program
 
         // Recursion guard: a failed az invoked by powershell from inside an
         // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
-        if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
+        if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
         {
             return 1;
         }
@@ -336,7 +337,7 @@ public class Program
                 RedirectStandardError = false,
                 RedirectStandardInput = false,
             };
-            psi.Environment["CIRRUS_IN_AGENT_MODE"] = "1";
+            psi.Environment[AgentModeEnvVar] = "1";
             psi.ArgumentList.Add("--agent-mode");
             psi.ArgumentList.Add("--failed-command");
             psi.ArgumentList.Add(JoinShellQuoted(args));

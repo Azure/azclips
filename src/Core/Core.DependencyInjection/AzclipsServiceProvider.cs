@@ -50,7 +50,7 @@ public static class AzclipsServiceProvider
         _overrideRegistrations.Enqueue(registration);
     }
 
-    public static void RegisterCirrusServices(this IServiceCollection services) =>
+    public static void RegisterAzclipsServices(this IServiceCollection services) =>
         services
             .RegisterConfigurationServices()
             .RegisterTelemetryServices()
@@ -81,7 +81,7 @@ public static class AzclipsServiceProvider
             {
                 prependRegistration?.Invoke(services);
             }
-            services.RegisterCirrusServices();
+            services.RegisterAzclipsServices();
             while (_overrideRegistrations.TryDequeue(out var overrideRegistration))
             {
                 overrideRegistration?.Invoke(services);

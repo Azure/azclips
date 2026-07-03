@@ -90,8 +90,8 @@ public sealed class RuntimeHelpDispatcher
             }
 
             // Truly unknown verb (no install hint either). Surface as a structured error so the
-            // top-level CirrusErrorException catch renders it cleanly.
-            throw new CirrusErrorException(
+            // top-level AzclipsErrorException catch renders it cleanly.
+            throw new AzclipsErrorException(
                 code: "VerbNotFound",
                 exitCode: 4,
                 message: $"No installed extension owns verb '{helpException.Verb}'. Run 'az extension list' to see installed extensions.",

@@ -17,10 +17,10 @@
     <!-- Shared-verb contract test fixtures. ReferenceOutputAssembly=false so fixture
          types don't leak into the test compilation; we only need the DLLs built so the test can
          stage them into temp dirs and read them via LeafReader. -->
-    <ProjectReference Include="../Fixtures/SharedAlpha/Cirrus.Tests.Fixtures.SharedAlpha.csproj"
+    <ProjectReference Include="../Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj"
                       ReferenceOutputAssembly="false"
                       Private="false" />
-    <ProjectReference Include="../Fixtures/SharedBeta/Cirrus.Tests.Fixtures.SharedBeta.csproj"
+    <ProjectReference Include="../Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj"
                       ReferenceOutputAssembly="false"
                       Private="false" />
   </ItemGroup>
