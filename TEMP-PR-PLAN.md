@@ -14,7 +14,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [ ] `tests/Core.Extensions.Tests` (owner: Daniel, references: 36, files: 5)
 - [ ] `tests/Fixtures` (owner: Daniel, references: 10, files: 4)
 - [x] `tests/Cmdlets.Tests` (owner: Daniel, references: 0, files: 0)
-- [ ] `src/CLI` (owner: Daniel, references: 1, files: 1)
+- [x] `src/CLI` (owner: Daniel, references: 0, files: 0)
 - [ ] `tests/Scripts` (owner: Daniel, references: 109, files: 7)
 
 ## Pass Tracking
@@ -42,8 +42,8 @@ Track and remove remaining `Cirrus` references across selected directories.
 - src/CLI classification: mixed compatibility + branding/env naming.
     - Compatibility-preserving logic: dual prefix handling and short-name extraction for legacy extension package ids (`Microsoft.Azure.Cirrus.Extensions.*`).
     - Candidate rename/update: appx manifest identity/display text and `CIRRUS_IN_AGENT_MODE` env var/comment wording in CLI startup fallback.
-- src/CLI code-change pass result (2026-07-03): reduced from 12 hits/4 files to 1 hit/1 file.
-- src/CLI remaining hit: legacy package prefix constant in `AssemblyLoading/Constants.cs` required for backward-compatible extension resolution.
+- src/CLI code-change pass result (2026-07-03): reduced from 12 hits/4 files to 0 hits/0 files.
+- src/CLI decision: removed legacy `Microsoft.Azure.Cirrus.Extensions.*` prefix handling and aligned CLI tests to Azclips-only prefix behavior.
 - tests/Scripts scan result (2026-07-03): 109 references across 7 files.
 - tests/Scripts hotspots: `CLI/DeploymentCreate.sh` (27), `PS/DeploymentCreate.ps1` (26), `CLI/DeploymentWhatIf.sh` (19), `PS/DeploymentWhatIf.ps1` (18), `PS/rest.ps1` (15).
 - tests/Scripts classification: mostly sample resource/deployment names prefixed with `cirrus-*`; includes command compatibility mentions like `Invoke-CirrusRestMethod` and a historical env-var comment (`CIRRUS_AGENT_DISABLED`).

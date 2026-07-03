@@ -6,8 +6,7 @@ namespace Core.Cli
     internal static class Constants
     {
         internal const string azclipsExtensionPackagePrefix = "Microsoft.Azure.Azclips.Extensions.";
-        internal const string legacyExtensionPackagePrefix = "Microsoft.Azure.Cirrus.Extensions.";
-        internal static readonly string[] extensionPackagePrefixes = [azclipsExtensionPackagePrefix, legacyExtensionPackagePrefix];
+        internal static readonly string[] extensionPackagePrefixes = [azclipsExtensionPackagePrefix];
 
         /// <summary>
         /// Strips a known extension package prefix from the front of <paramref name="packageId"/> if
