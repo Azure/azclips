@@ -120,7 +120,7 @@ public class HelpToolsTests
         var index = await InvokeAsync(tools.ListCommands);
         var indexCount = index.GetProperty("commands").GetArrayLength();
 
-        var manifestPath = Path.Combine(AppContext.BaseDirectory, "Tools", "Help", "HelpManifest.json");
+        var manifestPath = Path.Combine(AppContext.BaseDirectory, "Help", "HelpManifest.json");
         using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
         var manifestCount = manifest.RootElement.GetProperty("commands").GetArrayLength();
 
