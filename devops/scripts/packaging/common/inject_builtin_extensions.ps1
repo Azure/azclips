@@ -65,7 +65,7 @@ if ($configIncludeEntries -contains '*') {
 }
 else {
     foreach ($entry in $configIncludeEntries) {
-        $extAssemblyName = "Microsoft.Azure.Cirrus.Extensions.$entry"
+        $extAssemblyName = "Microsoft.Azure.Azclips.Extensions.$entry"
         $builtinDirPath = Join-Path $BuiltinRoot $extAssemblyName
         if (-not (Test-Path -Path $builtinDirPath -PathType Container)) {
             throw "Built-in publish directory not found for '$entry' at $builtinDirPath"

@@ -7,16 +7,25 @@ parameters:
   default: 'public'
 - name: source_pipeline_name
   type: string
-  default: 'cirrus-adhoc-build'
+  default: 'azclips-adhoc-build'
 - name: source_build_id
   type: string
   default: ''
 - name: source_artifact_name
   type: string
-  default: 'Distribution_Final'
+  default: 'Final_Build_Distribution'
 - name: source_artifact_source
   type: string
   default: 'specific'
+- name: esrp_service_connection
+  type: string
+  default: ''
+- name: esrp_apple_keycode
+  type: string
+  default: 'CP-401337-Apple'
+- name: macos_bundle_id
+  type: string
+  default: 'com.microsoft.azclips.cli'
 - name: macos_arm64_pool
   type: string
   default: 'macOS-15-arm64'
@@ -25,80 +34,544 @@ parameters:
   default: 'macOS-15'
 
 jobs:
-- job: SignMacOS
-  displayName: macOS Placeholder Pass-Through
-  strategy:
-    matrix:
-      arm64:
-        MacOSArchitecture: arm64
-        MacOSRid: osx-arm64
-        MacOSVmImage: ${{ parameters.macos_arm64_pool }}
-      x64:
-        MacOSArchitecture: x64
-        MacOSRid: osx-x64
-        MacOSVmImage: ${{ parameters.macos_intel_pool }}
-  pool:
-    vmImage: $(MacOSVmImage)
-  timeoutInMinutes: 60
-  steps:
-  - checkout: none
-  - ${{ if eq(parameters.source_artifact_source, 'current') }}:
-    - task: DownloadPipelineArtifact@2
-      displayName: Download Unsigned Distribution Artifacts
-      inputs:
-        artifact: ${{ parameters.source_artifact_name }}
-        path: $(Pipeline.Workspace)/unsigned-all
-  - ${{ if ne(parameters.source_artifact_source, 'current') }}:
-    - task: DownloadPipelineArtifact@2
-      displayName: Download Unsigned Distribution Artifacts
-      inputs:
-        source: specific
-        project: ${{ parameters.SourceProject }}
-        pipeline: ${{ parameters.source_pipeline_name }}
-        runVersion: specific
-        runId: ${{ parameters.source_build_id }}
-        artifact: ${{ parameters.source_artifact_name }}
-        path: $(Pipeline.Workspace)/unsigned-all
-  - bash: |
-      set -euo pipefail
-      source_root="$(Pipeline.Workspace)/unsigned-all"
-      out_dir="$(Build.ArtifactStagingDirectory)/signed-macos"
-      current_arch="$(MacOSArchitecture)"
-      current_rid="$(MacOSRid)"
-      mkdir -p "$out_dir"
-
-      raw_mac_assets=()
-      while IFS= read -r asset; do
-        raw_mac_assets+=("$asset")
-      done < <(find "$source_root" -type f \( -name '*mac*.tar.gz' -o -name '*macos*.tar.gz' -o -name '*osx*.tar.gz' -o -name '*darwin*.tar.gz' \) | sort)
-
-      mac_assets=()
-      for asset in "${raw_mac_assets[@]}"; do
-        name=$(basename "$asset" | tr '[:upper:]' '[:lower:]')
-        if [[ "$name" == *"$current_rid"* || "$name" == *"macos-$current_arch"* || "$name" == *"darwin-$current_arch"* ]]; then
-          mac_assets+=("$asset")
+  - job: AnalyzeMacOS
+    displayName: Analyze macOS Artifacts
+    strategy:
+      matrix:
+        arm64:
+          MacOSArchitecture: arm64
+          MacOSRid: osx-arm64
+          MacOSVmImage: ${{ parameters.macos_arm64_pool }}
+        x64:
+          MacOSArchitecture: x64
+          MacOSRid: osx-x64
+          MacOSVmImage: ${{ parameters.macos_intel_pool }}
+    pool:
+      vmImage: $(MacOSVmImage)
+    timeoutInMinutes: 60
+    steps:
+    - checkout: self
+      clean: true
+    - ${{ if eq(parameters.source_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Unsigned Distribution Artifacts
+        inputs:
+          artifact: ${{ parameters.source_artifact_name }}
+          path: $(Pipeline.Workspace)/unsigned-all
+    - ${{ if ne(parameters.source_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Unsigned Distribution Artifacts
+        inputs:
+          buildType: specific
+          project: ${{ parameters.SourceProject }}
+          definition: ${{ parameters.source_pipeline_name }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.source_build_id }}
+          artifactName: ${{ parameters.source_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/unsigned-all
+    - bash: |
+        set -euo pipefail
+        source_root="$(Pipeline.Workspace)/unsigned-all"
+        work_root="$(Build.ArtifactStagingDirectory)/macos-signing-inputs"
+        tarball_dir="$work_root/tarballs"
+        contents_dir="$work_root/contents"
+        mapping_tsv="$work_root/file-mapping.tsv"
+        current_arch="$(MacOSArchitecture)"
+        current_rid="$(MacOSRid)"
+        asset_arch_label="macos-$current_arch"
+        if [[ "$current_arch" == "x64" ]]; then
+          asset_arch_label="macos-x86_64"
         fi
-      done
+        mkdir -p "$tarball_dir" "$contents_dir"
+        : > "$mapping_tsv"
 
-      if [[ ${#mac_assets[@]} -eq 0 ]]; then
-        echo "ERROR: No macOS release artifacts matched architecture $current_arch ($current_rid) under $source_root"
-        exit 1
-      fi
+        raw_mac_assets=()
+        while IFS= read -r asset; do
+          raw_mac_assets+=("$asset")
+        done < <(find "$source_root" -type f \( -name '*mac*.tar.gz' -o -name '*macos*.tar.gz' -o -name '*osx*.tar.gz' -o -name '*darwin*.tar.gz' \) | sort)
 
-      echo "macOS architecture selected: $current_arch ($current_rid)"
-      printf 'macOS release artifacts (%s):\n' "${#mac_assets[@]}"
-      printf '  %s\n' "${mac_assets[@]}"
-      for asset in "${mac_assets[@]}"; do
-        cp "$asset" "$out_dir/"
-      done
-    displayName: Collect macOS Placeholder Artifacts
-  - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-    displayName: Generate SBOM For macOS Placeholder Artifacts
-    inputs:
-      BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-macos
-  - task: PublishPipelineArtifact@1
-    displayName: Publish macOS Placeholder Artifacts
-    inputs:
-      targetPath: $(Build.ArtifactStagingDirectory)/signed-macos
-      artifact: signed-macos-$(MacOSArchitecture)
-      publishLocation: pipeline
+        mac_assets=()
+        for asset in "${raw_mac_assets[@]}"; do
+          name=$(basename "$asset" | tr '[:upper:]' '[:lower:]')
+          if [[ "$name" == *"$current_rid"* || "$name" == *"$asset_arch_label"* || "$name" == *"darwin-$current_arch"* ]]; then
+            mac_assets+=("$asset")
+          fi
+        done
+
+        if [[ ${#mac_assets[@]} -eq 0 ]]; then
+          echo "ERROR: No macOS release artifacts matched architecture $current_arch ($current_rid) under $source_root"
+          exit 1
+        fi
+
+        echo "macOS architecture selected: $current_arch ($current_rid)"
+        printf 'macOS release artifacts (%s):\n' "${#mac_assets[@]}"
+        printf '  %s\n' "${mac_assets[@]}"
+
+        total_binaries=0
+        for asset in "${mac_assets[@]}"; do
+          file_name=$(basename "$asset")
+          base_name="${file_name%.tar.gz}"
+          content_root="$contents_dir/$base_name"
+
+          cp "$asset" "$tarball_dir/$file_name"
+          mkdir -p "$content_root"
+          tar -xzf "$asset" -C "$content_root"
+
+          while IFS= read -r -d '' binary; do
+            if ! file "$binary" | grep -q 'Mach-O'; then
+              continue
+            fi
+
+            relative_path="${binary#$content_root/}"
+            safe_relative=$(printf '%s' "$relative_path" | sed 's#[/\\]#__#g; s#[^A-Za-z0-9._-]#_#g')
+            zip_name="${base_name}__${safe_relative}.zip"
+
+            printf '%s\t%s\t%s\n' "$zip_name" "$base_name" "$relative_path" >> "$mapping_tsv"
+            total_binaries=$((total_binaries + 1))
+          done < <(find "$content_root" -type f -print0)
+        done
+
+        if [[ "$total_binaries" -eq 0 ]]; then
+          echo 'ERROR: No Mach-O binaries were found in the selected macOS artifacts.'
+          exit 1
+        fi
+
+        echo "Prepared $total_binaries Mach-O binaries for Developer ID signing."
+      displayName: Prepare macOS Signing Inputs
+    - task: PublishPipelineArtifact@1
+      displayName: Publish macOS Signing Inputs
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/macos-signing-inputs
+        artifact: macos-signing-inputs-$(MacOSArchitecture)
+        publishLocation: pipeline
+
+  - job: SignMacOSBinaries
+    displayName: ESRP Sign macOS Binaries
+    dependsOn: AnalyzeMacOS
+    condition: succeeded()
+    strategy:
+      matrix:
+        arm64:
+          MacOSArchitecture: arm64
+        x64:
+          MacOSArchitecture: x64
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    timeoutInMinutes: 60
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download macOS Signing Inputs
+      inputs:
+        buildType: current
+        artifactName: macos-signing-inputs-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $inputRoot = "$(Pipeline.Workspace)/macos-signing-inputs"
+        $mappingPath = Join-Path $inputRoot 'file-mapping.tsv'
+        $toBeSignedDir = Join-Path $inputRoot 'toBeSigned'
+        $hashesPath = Join-Path $inputRoot 'zip-hashes-before.tsv'
+
+        New-Item -ItemType Directory -Path $toBeSignedDir -Force | Out-Null
+        if (Test-Path $hashesPath) {
+          Remove-Item -Force $hashesPath
+        }
+
+        $count = 0
+        Get-Content $mappingPath | ForEach-Object {
+          if ([string]::IsNullOrWhiteSpace($_)) {
+            return
+          }
+
+          $parts = $_ -split "`t", 3
+          if ($parts.Count -ne 3) {
+            throw "Invalid file mapping row: $_"
+          }
+
+          $zipName = $parts[0]
+          $baseName = $parts[1]
+          $relativePath = $parts[2]
+          $binaryPath = "$inputRoot/contents/$baseName/$relativePath"
+          $zipPath = Join-Path $toBeSignedDir $zipName
+
+          if (-not (Test-Path $binaryPath)) {
+            throw "Binary to sign not found: $binaryPath"
+          }
+
+          Compress-Archive -Path $binaryPath -DestinationPath $zipPath -Force
+          $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
+          "$zipName`t$hash" | Add-Content -Path $hashesPath
+          $count++
+        }
+
+        Write-Host "Created $count ZIP files for ESRP signing."
+      displayName: Create macOS Binary ZIPs For ESRP
+    - task: EsrpCodeSigning@6
+      displayName: Sign macOS Binaries [MacAppDeveloperSign]
+      inputs:
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        FolderPath: '$(Pipeline.Workspace)/macos-signing-inputs/toBeSigned'
+        Pattern: '*.zip'
+        signConfigType: inlineSignParams
+        SessionTimeout: '60'
+        MaxConcurrency: '25'
+        MaxRetryAttempts: '5'
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_apple_keycode }}",
+              "OperationCode": "MacAppDeveloperSign",
+              "Parameters": {
+                "Hardening": "--options=runtime",
+                "OpusInfo": "http://Microsoft.com"
+              },
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $signedZipsDir = "$(Pipeline.Workspace)/macos-signing-inputs/toBeSigned"
+        $mappingPath = "$(Pipeline.Workspace)/macos-signing-inputs/file-mapping.tsv"
+        $hashesPath = "$(Pipeline.Workspace)/macos-signing-inputs/zip-hashes-before.tsv"
+        $outputDir = "$(Build.ArtifactStagingDirectory)/macos-signed-binaries"
+        $tempRoot = "$(Pipeline.Workspace)/macos-signed-extract"
+
+        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+
+        $originalHashes = @{}
+        Get-Content $hashesPath | ForEach-Object {
+          if ([string]::IsNullOrWhiteSpace($_)) {
+            return
+          }
+          $parts = $_ -split "`t", 2
+          if ($parts.Count -eq 2) {
+            $originalHashes[$parts[0]] = $parts[1]
+          }
+        }
+
+        $count = 0
+        $unchangedZips = @()
+        Get-Content $mappingPath | ForEach-Object {
+          if ([string]::IsNullOrWhiteSpace($_)) {
+            return
+          }
+
+          $parts = $_ -split "`t", 3
+          if ($parts.Count -ne 3) {
+            throw "Invalid file mapping row: $_"
+          }
+
+          $zipName = $parts[0]
+          $baseName = $parts[1]
+          $relativePath = $parts[2]
+          $zipPath = Join-Path $signedZipsDir $zipName
+
+          if (-not (Test-Path $zipPath)) {
+            throw "Signed zip not found: $zipPath"
+          }
+
+          $signedHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
+          if ($originalHashes.ContainsKey($zipName) -and $originalHashes[$zipName] -eq $signedHash) {
+            $unchangedZips += $zipName
+          }
+
+          $extractPath = Join-Path $tempRoot ([IO.Path]::GetFileNameWithoutExtension($zipName))
+          if (Test-Path $extractPath) {
+            Remove-Item -Recurse -Force $extractPath
+          }
+          New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+          $extractedFile = Get-ChildItem -Path $extractPath -File | Select-Object -First 1
+          if (-not $extractedFile) {
+            throw "Signed zip did not contain a file: $zipPath"
+          }
+
+          $targetPath = "$outputDir/$baseName/$relativePath"
+          $targetDir = Split-Path $targetPath -Parent
+          New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+          Copy-Item -Path $extractedFile.FullName -Destination $targetPath -Force
+          $count++
+        }
+
+        Write-Host "Extracted $count signed macOS binaries."
+        if ($unchangedZips.Count -gt 0) {
+          Write-Host "##vso[task.logissue type=error]ESRP did not modify $($unchangedZips.Count) macOS signing ZIP(s). MacAppDeveloperSign did not produce signed output."
+          $unchangedZips | Select-Object -First 20 | ForEach-Object { Write-Host "  unchanged: $_" }
+          throw 'ESRP macOS signing output matched the unsigned input.'
+        }
+      displayName: Extract Signed macOS Binaries
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Signed macOS Binaries
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/macos-signed-binaries
+        artifact: macos-signed-binaries-$(MacOSArchitecture)
+        publishLocation: pipeline
+
+  - job: CreateMacOSNotarizationBundles
+    displayName: Create macOS Notarization Bundles
+    dependsOn:
+    - AnalyzeMacOS
+    - SignMacOSBinaries
+    condition: succeeded()
+    strategy:
+      matrix:
+        arm64:
+          MacOSArchitecture: arm64
+          MacOSVmImage: ${{ parameters.macos_arm64_pool }}
+        x64:
+          MacOSArchitecture: x64
+          MacOSVmImage: ${{ parameters.macos_intel_pool }}
+    pool:
+      vmImage: $(MacOSVmImage)
+    timeoutInMinutes: 60
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download macOS Signing Inputs
+      inputs:
+        buildType: current
+        artifactName: macos-signing-inputs-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed macOS Binaries
+      inputs:
+        buildType: current
+        artifactName: macos-signed-binaries-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signed-binaries
+    - bash: |
+        set -euo pipefail
+        input_root="$(Pipeline.Workspace)/macos-signing-inputs"
+        signed_binary_root="$(Pipeline.Workspace)/macos-signed-binaries"
+        signed_contents_root="$(Build.ArtifactStagingDirectory)/signed-contents"
+        notarization_root="$(Build.ArtifactStagingDirectory)/macos-notarization-bundles"
+        mkdir -p "$signed_contents_root" "$notarization_root"
+
+        cp -R "$input_root/contents/." "$signed_contents_root/"
+
+        while IFS=$'\t' read -r _zip_name base_name relative_path; do
+          [[ -z "$base_name" ]] && continue
+          signed_file="$signed_binary_root/$base_name/$relative_path"
+          target="$signed_contents_root/$base_name/$relative_path"
+          if [[ -z "$signed_file" ]]; then
+            echo "ERROR: Empty signed file path for $base_name/$relative_path"
+            exit 1
+          fi
+          if [[ ! -f "$signed_file" ]]; then
+            echo "ERROR: Signed binary not found: $signed_file"
+            exit 1
+          fi
+
+          cp "$signed_file" "$target"
+          chmod +x "$target" || true
+        done < "$input_root/file-mapping.tsv"
+
+        for content_dir in "$signed_contents_root"/*; do
+          [[ -d "$content_dir" ]] || continue
+          base_name=$(basename "$content_dir")
+          (
+            cd "$content_dir"
+            zip -r -y -q "$notarization_root/$base_name-signed.zip" .
+          )
+          echo "Created notarization bundle: $base_name-signed.zip"
+        done
+      displayName: Create Notarization ZIPs
+    - task: PublishPipelineArtifact@1
+      displayName: Publish macOS Notarization Bundles
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/macos-notarization-bundles
+        artifact: macos-notarization-bundles-$(MacOSArchitecture)
+        publishLocation: pipeline
+
+  - job: NotarizeMacOSBundles
+    displayName: ESRP Notarize macOS Bundles
+    dependsOn: CreateMacOSNotarizationBundles
+    condition: succeeded()
+    strategy:
+      matrix:
+        arm64:
+          MacOSArchitecture: arm64
+        x64:
+          MacOSArchitecture: x64
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    timeoutInMinutes: 120
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download macOS Notarization Bundles
+      inputs:
+        buildType: current
+        artifactName: macos-notarization-bundles-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/toNotarize
+    - task: EsrpCodeSigning@6
+      displayName: Notarize macOS Bundles [MacAppNotarize]
+      inputs:
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
+        FolderPath: '$(Pipeline.Workspace)/toNotarize'
+        UseMinimatch: true
+        Pattern: '*.zip'
+        signConfigType: inlineSignParams
+        SessionTimeout: '120'
+        MaxConcurrency: '1'
+        MaxRetryAttempts: '3'
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_apple_keycode }}",
+              "OperationCode": "MacAppNotarize",
+              "Parameters": {
+                "BundleId": "${{ parameters.macos_bundle_id }}",
+                "OpusInfo": "http://Microsoft.com"
+              },
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+    # Loose Mach-O binaries cannot be stapled; this artifact records the exact
+    # bundle payloads that successfully passed Apple's notarization service.
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Notarized macOS Bundles
+      inputs:
+        targetPath: $(Pipeline.Workspace)/toNotarize
+        artifact: macos-notarized-bundles-$(MacOSArchitecture)
+        publishLocation: pipeline
+  - job: CreateSignedMacOSTarballs
+    displayName: Create Signed macOS Tarballs
+    dependsOn:
+    - AnalyzeMacOS
+    - SignMacOSBinaries
+    - NotarizeMacOSBundles
+    condition: succeeded()
+    strategy:
+      matrix:
+        arm64:
+          MacOSArchitecture: arm64
+          MacOSVmImage: ${{ parameters.macos_arm64_pool }}
+        x64:
+          MacOSArchitecture: x64
+          MacOSVmImage: ${{ parameters.macos_intel_pool }}
+    pool:
+      vmImage: $(MacOSVmImage)
+    timeoutInMinutes: 90
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download macOS Signing Inputs
+      inputs:
+        buildType: current
+        artifactName: macos-signing-inputs-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Notarized macOS Bundles
+      inputs:
+        buildType: current
+        artifactName: macos-notarized-bundles-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-notarized-bundles
+    - bash: |
+        set -euo pipefail
+        input_root="$(Pipeline.Workspace)/macos-signing-inputs"
+        notarized_bundle_root="$(Pipeline.Workspace)/macos-notarized-bundles"
+        final_contents_root="$(Build.ArtifactStagingDirectory)/final-contents"
+        output_root="$(Build.ArtifactStagingDirectory)/signed-macos"
+        mkdir -p "$final_contents_root" "$output_root"
+
+        verification_errors=0
+        for tarball in "$input_root"/tarballs/*.tar.gz; do
+          [[ -f "$tarball" ]] || continue
+          tarball_name=$(basename "$tarball")
+          base_name="${tarball_name%.tar.gz}"
+          content_dir="$final_contents_root/$base_name"
+          mach_o_count=0
+          notarized_zip="$notarized_bundle_root/$base_name-signed.zip"
+
+          rm -rf "$content_dir"
+          mkdir -p "$content_dir"
+
+          if [[ ! -f "$notarized_zip" ]]; then
+            echo "ERROR: Notarized macOS bundle not found: $notarized_zip"
+            verification_errors=1
+            continue
+          fi
+
+          unzip -q "$notarized_zip" -d "$content_dir"
+          echo "Extracted notarized macOS bundle: $(basename "$notarized_zip")"
+
+          if [[ -e "$content_dir/libexec/bin/az" ]]; then
+            mkdir -p "$content_dir/bin"
+            if [[ -L "$content_dir/bin/az" ]]; then
+              echo "bin/az symlink preserved"
+            else
+              rm -f "$content_dir/bin/az"
+              ln -s ../libexec/bin/az "$content_dir/bin/az"
+              echo "Recreated symlink: bin/az -> ../libexec/bin/az"
+            fi
+          fi
+
+          find "$content_dir" -name "*.so" -exec chmod +x {} \;
+          find "$content_dir" -name "*.dylib" -exec chmod +x {} \;
+          chmod +x "$content_dir/az" 2>/dev/null || true
+          chmod +x "$content_dir/bin/az" 2>/dev/null || true
+          chmod +x "$content_dir/libexec/bin/az" 2>/dev/null || true
+
+          while IFS= read -r -d '' candidate; do
+            if ! file "$candidate" | grep -q 'Mach-O'; then
+              continue
+            fi
+
+            mach_o_count=$((mach_o_count + 1))
+            if ! codesign -v "$candidate" 2>/dev/null; then
+              echo "ERROR: Basic codesign verification failed: $candidate"
+              verification_errors=1
+            fi
+            if ! codesign --verify --deep --strict "$candidate" 2>/dev/null; then
+              echo "ERROR: Strict codesign verification failed: $candidate"
+              verification_errors=1
+            fi
+            signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+            if ! printf '%s\n' "$signature_details" | grep -Eq 'Authority=.*Developer ID|TeamIdentifier=UBF8T346G9'; then
+              echo "ERROR: Developer ID certificate missing: $candidate"
+              printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
+              verification_errors=1
+            fi
+          done < <(find "$content_dir" -type f -print0)
+
+          if [[ "$mach_o_count" -eq 0 ]]; then
+            echo "ERROR: No Mach-O binaries found in signed payload: $base_name"
+            verification_errors=1
+          fi
+
+          tar -czf "$output_root/$base_name.tar.gz" --preserve-permissions -C "$content_dir" .
+          shasum -a 256 "$output_root/$base_name.tar.gz" > "$output_root/$base_name.tar.gz.sha256"
+          echo "Created signed macOS tarball: $base_name.tar.gz"
+        done
+
+        if [[ "$verification_errors" -ne 0 ]]; then
+          exit 1
+        fi
+      displayName: Verify And Package Signed macOS Tarballs
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Signed macOS Artifacts
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-macos
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Signed macOS Artifacts
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-macos
+        artifact: signed-macos-$(MacOSArchitecture)
+        publishLocation: pipeline

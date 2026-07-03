@@ -9,6 +9,38 @@ PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
+read_artifact_config() {
+  local key="$1"
+  local default_value="$2"
+  local config_path="${ARTIFACT_NAMING_CONFIG:-$PACKAGING_ROOT/config/artifact_naming.config}"
+  local configured_value=""
+
+  if [[ -f "$config_path" ]] && configured_value="$(awk -F= -v key="$key" '
+      BEGIN { found = 0 }
+      /^[[:space:]]*(#|$)/ { next }
+      {
+        k=$1
+        sub(/^[[:space:]]+/, "", k)
+        sub(/[[:space:]]+$/, "", k)
+        if (k == key) {
+          $1=""
+          sub(/^=/, "")
+          v=$0
+          sub(/^[[:space:]]+/, "", v)
+          sub(/[[:space:]]+$/, "", v)
+          print v
+          found = 1
+          exit
+        }
+      }
+      END { if (!found) exit 1 }
+    ' "$config_path")"; then
+    printf '%s\n' "$configured_value"
+  else
+    printf '%s\n' "$default_value"
+  fi
+}
+
 absolute_path() {
   case "$1" in
     /*) printf '%s\n' "$1" ;;
@@ -24,20 +56,33 @@ RID="${RID:-linux-x64}"
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
 PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-}"
+ARTIFACT_VERSION_SUFFIX="${ARTIFACT_VERSION_SUFFIX-$(read_artifact_config artifact_version_suffix preview)}"
+CLI_ARCHIVE_STEM="${CLI_ARCHIVE_STEM:-$(read_artifact_config cli_archive_stem azcli)}"
+CLI_LEAN_ARCHIVE_STEM="${CLI_LEAN_ARCHIVE_STEM:-$(read_artifact_config cli_lean_archive_stem azcli-lean)}"
+ASSET_RID="$RID"
+if [[ "$RID" == "linux-x64" ]]; then
+  ASSET_RID="$(read_artifact_config linux_x64_label linux-x64)"
+elif [[ "$RID" == "linux-arm64" ]]; then
+  ASSET_RID="$(read_artifact_config linux_arm64_label linux-arm64)"
+fi
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
-  ARTIFACT_PREFIX="az"
+  ARTIFACT_STEM="$CLI_ARCHIVE_STEM"
 elif [[ "$PACKAGE_PROFILE" == "lean" ]]; then
-  ARTIFACT_PREFIX="az-lean"
+  ARTIFACT_STEM="$CLI_LEAN_ARCHIVE_STEM"
 else
   echo "ERROR: Unsupported PACKAGE_PROFILE '$PACKAGE_PROFILE'. Expected 'lean' or 'full'."
   exit 1
 fi
 
 if [[ -n "$ARTIFACT_VERSION" ]]; then
-  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID-$ARTIFACT_VERSION.tar.gz}"
+  ARTIFACT_VERSION_SEGMENT="$ARTIFACT_VERSION"
+  if [[ -n "$ARTIFACT_VERSION_SUFFIX" && "$ARTIFACT_VERSION_SEGMENT" != *"-$ARTIFACT_VERSION_SUFFIX" ]]; then
+    ARTIFACT_VERSION_SEGMENT="$ARTIFACT_VERSION_SEGMENT-$ARTIFACT_VERSION_SUFFIX"
+  fi
+  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_STEM-$ARTIFACT_VERSION_SEGMENT-$ASSET_RID.tar.gz}"
 else
-  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID.tar.gz}"
+  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_STEM-$ASSET_RID.tar.gz}"
 fi
 EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
 
@@ -63,10 +108,20 @@ mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install"
 
 tar -xzf "$CLI_TAR_PATH" -C "$SIM_ROOT/install"
 chmod +x "$SIM_ROOT/install/az"
-az="$SIM_ROOT/install/az"
+AZ="$SIM_ROOT/install/az"
 
-if [[ ! -f "$az" ]]; then
+if [[ ! -f "$AZ" ]]; then
   echo "FAIL: az binary not found in extracted tarball"
+  exit 1
+fi
+
+if [[ ! -f "$SIM_ROOT/install/NOTICE" ]]; then
+  echo "FAIL: NOTICE file missing from extracted tarball"
+  exit 1
+fi
+
+if [[ ! -f "$SIM_ROOT/install/LICENSE" ]]; then
+  echo "FAIL: LICENSE file missing from extracted tarball"
   exit 1
 fi
 
@@ -78,12 +133,13 @@ if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Logi
   echo "FAIL: Built-in Login bundle missing"
   exit 1
 fi
-if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Cirrus.Extensions.Config" ]]; then
+if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Config" ]]; then
   echo "FAIL: Built-in Config bundle missing"
   exit 1
 fi
 
 echo "PASS: Bundled extension folders are present"
+echo "PASS: NOTICE and LICENSE files are present"
 
 if [[ "$SKIP_RUNTIME" == "true" ]]; then
   echo "NOTE: SKIP_RUNTIME=true, skipping Linux runtime execution checks."
@@ -93,11 +149,11 @@ fi
 
 echo ""
 echo "[1/5] CLI help (bundled install)"
-HOME="$SIM_ROOT/home" "$az" --help 2>&1 | head -n 20 || true
+HOME="$SIM_ROOT/home" "$AZ" --help 2>&1 | head -n 20 || true
 
 echo ""
 echo "[2/5] Verify built-in extension manager is available"
-output=$(HOME="$SIM_ROOT/home" "$az" extension add 2>&1 || true)
+output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -qi "Extension.*could not be found"; then
   echo "  FAIL: Extension manager not loaded"
@@ -111,8 +167,8 @@ fi
 
 echo ""
 echo "[3/5] Verify bundled Config commands work"
-set_output=$(HOME="$SIM_ROOT/home" "$az" config set --key core.logging.level --value debug --force 2>&1 || true)
-get_output=$(HOME="$SIM_ROOT/home" "$az" config get --key core.logging.level 2>&1 || true)
+set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
+get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
 echo "  $set_output"
 echo "  $get_output"
 if echo "$get_output" | grep -q "core.logging.level = debug"; then
@@ -124,13 +180,13 @@ fi
 
 echo ""
 echo "[4/5] Install Resources extension via 'extension add'"
-RES_NUPKG=$(find "$EXT_PACK_DIR" -name "Microsoft.Azure.Azclips.Extensions.Resources*.nupkg" | head -1)
+RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
   exit 1
 fi
 echo "Installing from: $RES_NUPKG"
-output=$(HOME="$SIM_ROOT/home" "$az" extension add --path "$RES_NUPKG" 2>&1 || true)
+output=$(HOME="$SIM_ROOT/home" "$AZ" extension add --path "$RES_NUPKG" 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -q "installedExtensionPath"; then
   echo "  PASS: Resources extension installed"
@@ -141,7 +197,7 @@ fi
 
 echo ""
 echo "[5/5] Verify Resources command resolves"
-output=$(HOME="$SIM_ROOT/home" "$az" group list 2>&1 || true)
+output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -q "could not be found"; then
   echo "  FAIL: Resources extension command not found"

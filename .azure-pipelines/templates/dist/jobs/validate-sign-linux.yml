@@ -1,0 +1,27 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+
+jobs:
+- job: ValidateLinux
+  displayName: Validate Linux Artifact Set
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: none
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Signed Linux Artifacts
+    inputs:
+      buildType: current
+      artifactName: signed-linux
+      targetPath: $(Pipeline.Workspace)/signed-linux
+  - bash: |
+      set -euo pipefail
+      count=$(find "$(Pipeline.Workspace)/signed-linux" -type f \( -name '*linux*.tar.gz' -o -name '*linux*.zip' \) | wc -l | tr -d ' ')
+      if [[ "$count" == "0" ]]; then
+        echo 'ERROR: No Linux artifacts found after Linux collection stage.'
+        exit 1
+      fi
+      echo "Linux artifact count: $count"
+    displayName: Validate Linux Artifact Presence

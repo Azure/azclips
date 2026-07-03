@@ -1,0 +1,72 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: esrp_require_windows_strong_name
+  type: boolean
+  default: false
+
+jobs:
+- job: ValidateWindows
+  displayName: Validate Signed Windows Payloads
+  pool:
+    vmImage: ${{ parameters.windows_pool }}
+  steps:
+  - checkout: none
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Signed Windows Artifacts
+    inputs:
+      buildType: current
+      artifactName: signed-windows
+      targetPath: $(Pipeline.Workspace)/signed-windows
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $zips = Get-ChildItem -Path "$(Pipeline.Workspace)/signed-windows" -Recurse -File | Where-Object { $_.Name -match '-(x64|arm64)\.zip$' }
+      if (-not $zips) {
+        throw 'No signed Windows zip files found in signed-windows artifact.'
+      }
+      foreach ($zip in $zips) {
+        $extract = Join-Path "$(Pipeline.Workspace)/verify-win" $zip.BaseName
+        New-Item -ItemType Directory -Path $extract -Force | Out-Null
+        Expand-Archive -Path $zip.FullName -DestinationPath $extract -Force
+      }
+      $toVerify = Get-ChildItem -Path "$(Pipeline.Workspace)/verify-win" -Recurse -File | Where-Object {
+        $_.Name -ieq 'az.exe' -or
+        $_.Name -ieq 'az.dll' -or
+        $_.Name -ieq 'azclips-agent.dll' -or
+        $_.Name -like 'Core.*.dll' -or
+        $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
+        $_.Name -like 'Microsoft.Azure.Azclips*.exe'
+      }
+      foreach ($file in $toVerify) {
+        $signature = Get-AuthenticodeSignature -FilePath $file.FullName
+        if ($signature.Status -ne 'Valid') {
+          throw "Authenticode verification failed for $($file.FullName). Status: $($signature.Status)"
+        }
+      }
+      if ('${{ parameters.esrp_require_windows_strong_name }}' -eq 'true') {
+        $dlls = $toVerify | Where-Object {
+          $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
+          $_.Name -like 'Core.*.dll' -or
+          $_.Name -ieq 'az.dll' -or
+          $_.Name -ieq 'azclips-agent.dll'
+        }
+        if (-not $dlls) {
+          throw 'Strong-name policy requires at least one first-party managed DLL in signed Windows payload.'
+        }
+
+        foreach ($dll in $dlls) {
+          try {
+            $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($dll.FullName)
+          }
+          catch {
+            throw "Strong-name verification failed for $($dll.FullName). Unable to read managed assembly metadata."
+          }
+
+          $token = $assemblyName.GetPublicKeyToken()
+          if (-not $token -or $token.Length -eq 0) {
+            throw "Strong-name verification failed for $($dll.FullName). Public key token is missing."
+          }
+        }
+      }
+    displayName: Verify Windows Signatures
