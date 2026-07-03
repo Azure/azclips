@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Moq" Version="4.20.72" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/CLI/Core.Cli.csproj" />
     <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
