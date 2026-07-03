@@ -12,7 +12,7 @@ public class ExtensionRemoveTests
     [Fact]
     public void BuildInstalledRegistryFromFilesystem_ShouldDiscoverPackageIdsAndOverlayPreferences()
     {
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"azclips-remove-test-{Guid.NewGuid():N}");
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
         var packageDir = Path.Combine(tempRoot, packageId);
 
@@ -51,8 +51,8 @@ public class ExtensionRemoveTests
     [Fact]
     public void BuildInstalledRegistryFromFilesystem_ShouldSkipPackageDirectoryWithoutValidVersionFolder()
     {
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
-        var packageId = "Microsoft.Azure.Cirrus.Extensions.Invalid";
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"azclips-remove-test-{Guid.NewGuid():N}");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Invalid";
         var packageDir = Path.Combine(tempRoot, packageId);
 
         try
@@ -76,7 +76,7 @@ public class ExtensionRemoveTests
     public void EnsurePackageDirectoryDeleted_ShouldDeleteExistingDirectory()
     {
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"azclips-remove-test-{Guid.NewGuid():N}");
         var packageDir = Path.Combine(tempRoot, packageId);
 
         try
@@ -101,7 +101,7 @@ public class ExtensionRemoveTests
     public void EnsurePackageDirectoryDeleted_ShouldThrow_WhenDeleteCallbackThrows()
     {
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"azclips-remove-test-{Guid.NewGuid():N}");
         var packageDir = Path.Combine(tempRoot, packageId);
 
         try
@@ -131,7 +131,7 @@ public class ExtensionRemoveTests
     public void EnsurePackageDirectoryDeleted_ShouldSucceed_WhenDirectoryVanishesDuringDelete()
     {
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"azclips-remove-test-{Guid.NewGuid():N}");
         var packageDir = Path.Combine(tempRoot, packageId);
 
         try
@@ -156,7 +156,7 @@ public class ExtensionRemoveTests
     public void EnsurePackageDirectoryDeleted_ShouldThrow_WhenDirectoryStillExistsAfterDeleteAttempt()
     {
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"azclips-remove-test-{Guid.NewGuid():N}");
         var packageDir = Path.Combine(tempRoot, packageId);
 
         try
@@ -182,3 +182,4 @@ public class ExtensionRemoveTests
         }
     }
 }
+

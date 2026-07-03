@@ -59,7 +59,7 @@ namespace Core.Extensions
         public DateTimeOffset? GeneratedAt { get; set; }
 
         /// <summary>
-        /// Cirrus host version that produced the table. Provenance for the vNext feed half (so a
+        /// Azclips host version that produced the table. Provenance for the vNext feed half (so a
         /// host can compare a fetched table's source version against its own and decide whether
         /// to fall back to the embedded copy); unused at runtime in v1.
         /// </summary>

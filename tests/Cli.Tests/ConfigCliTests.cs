@@ -16,7 +16,7 @@ using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class ConfigCliTests
 {
     [Fact]
@@ -335,7 +335,7 @@ public class ConfigCliTests
 
         public ConfigCommandFixture()
         {
-            var directory = Path.Combine(Path.GetTempPath(), "cirrus-config-cli-tests", Guid.NewGuid().ToString("N"));
+            var directory = Path.Combine(Path.GetTempPath(), "azclips-config-cli-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             _configPath = Path.Combine(directory, "config.json");
 
@@ -522,3 +522,4 @@ public class ConfigCliTests
         }
     }
 }
+

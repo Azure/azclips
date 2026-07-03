@@ -19,7 +19,7 @@ public class LocalArtifactProbeTests : IDisposable
 
     public LocalArtifactProbeTests()
     {
-        _tempRoot = Path.Combine(Path.GetTempPath(), "cirrus-probe-tests-" + Guid.NewGuid().ToString("N"));
+        _tempRoot = Path.Combine(Path.GetTempPath(), "azclips-probe-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempRoot);
     }
 
@@ -52,7 +52,7 @@ public class LocalArtifactProbeTests : IDisposable
     [Fact]
     public void Find_ShouldReturnNull_WhenNoSlnxOnPathUp()
     {
-        // Walk-up anchor missing => not running from a Cirrus repo => silent no-op.
+        // Walk-up anchor missing => not running from a Azclips repo => silent no-op.
         var notARepo = Path.Combine(_tempRoot, "not-a-repo");
         Directory.CreateDirectory(notARepo);
 
@@ -143,3 +143,4 @@ public class LocalArtifactProbeTests : IDisposable
         Assert.Null(result);
     }
 }
+

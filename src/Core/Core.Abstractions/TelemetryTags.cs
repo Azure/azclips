@@ -7,7 +7,7 @@
 namespace Core.Abstractions;
 
 /// <summary>
-/// Tag keys emitted on Cirrus telemetry activities.
+/// Tag keys emitted on Azclips telemetry activities.
 /// </summary>
 public static class TelemetryTags
 {

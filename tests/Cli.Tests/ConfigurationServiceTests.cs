@@ -10,7 +10,7 @@ using Core.Configuration.Schema;
 
 namespace Cli.Tests;
 
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class ConfigurationServiceTests
 {
     [Fact]
@@ -196,7 +196,7 @@ public class ConfigurationServiceTests
 
     private sealed class TempConfigurationFixture : IDisposable
     {
-        private readonly string _directory = Path.Combine(Path.GetTempPath(), "cirrus-config-tests", Guid.NewGuid().ToString("N"));
+        private readonly string _directory = Path.Combine(Path.GetTempPath(), "azclips-config-tests", Guid.NewGuid().ToString("N"));
 
         public TempConfigurationFixture()
         {
@@ -254,3 +254,4 @@ public class ConfigurationServiceTests
         }
     }
 }
+

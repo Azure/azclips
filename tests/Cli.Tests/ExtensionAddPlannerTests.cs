@@ -55,13 +55,13 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         var registry = new ExtensionRegistry();
 
         var alphaContribs = ExtensionAddPlanner.PlanContributions(
-            "Cirrus.Tests.Fixtures.SharedAlpha", new[] { "sharedverb" }, alphaLeaves, registry);
+            "Azclips.Tests.Fixtures.SharedAlpha", new[] { "sharedverb" }, alphaLeaves, registry);
         Assert.Single(alphaContribs);
         Assert.Equal("sharedverb", alphaContribs[0].Verb);
         Assert.Equal("alpha", alphaContribs[0].Path);
 
         // Commit Alpha into the registry the same shape `Add.cs` does.
-        registry.Extensions["Cirrus.Tests.Fixtures.SharedAlpha"] = new ExtensionRegistryEntry
+        registry.Extensions["Azclips.Tests.Fixtures.SharedAlpha"] = new ExtensionRegistryEntry
         {
             Verb = "sharedverb",
             Version = "1.0.0",
@@ -70,7 +70,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
 
         // Beta plans cleanly against a registry that already owns "sharedverb alpha".
         var betaContribs = ExtensionAddPlanner.PlanContributions(
-            "Cirrus.Tests.Fixtures.SharedBeta", new[] { "sharedverb" }, betaLeaves, registry);
+            "Azclips.Tests.Fixtures.SharedBeta", new[] { "sharedverb" }, betaLeaves, registry);
         Assert.Single(betaContribs);
         Assert.Equal("sharedverb", betaContribs[0].Verb);
         Assert.Equal("beta", betaContribs[0].Path);
@@ -91,8 +91,8 @@ public sealed class ExtensionAddPlannerTests : IDisposable
 
         var registry = new ExtensionRegistry();
         var firstContribs = ExtensionAddPlanner.PlanContributions(
-            "Cirrus.Tests.Fixtures.SharedAlpha", new[] { "sharedverb" }, firstLeaves, registry);
-        registry.Extensions["Cirrus.Tests.Fixtures.SharedAlpha"] = new ExtensionRegistryEntry
+            "Azclips.Tests.Fixtures.SharedAlpha", new[] { "sharedverb" }, firstLeaves, registry);
+        registry.Extensions["Azclips.Tests.Fixtures.SharedAlpha"] = new ExtensionRegistryEntry
         {
             Verb = "sharedverb",
             Version = "1.0.0",
@@ -101,7 +101,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
 
         var ex = Assert.Throws<AzclipsErrorException>(() =>
             ExtensionAddPlanner.PlanContributions(
-                "Cirrus.Tests.Fixtures.SharedAlpha.Impostor",
+                "Azclips.Tests.Fixtures.SharedAlpha.Impostor",
                 new[] { "sharedverb" },
                 secondLeaves,
                 registry));
@@ -109,7 +109,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         Assert.Equal("LeafConflict", ex.Code);
         Assert.Equal(3, ex.ExitCode);
         Assert.Contains("sharedverb alpha", ex.Message);
-        Assert.Contains("Cirrus.Tests.Fixtures.SharedAlpha", ex.Message);
+        Assert.Contains("Azclips.Tests.Fixtures.SharedAlpha", ex.Message);
 
         // Details payload carries the structured conflict array, not just a single-row
         // dictionary. Even with one conflict the shape is the same.
@@ -120,11 +120,11 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         Assert.Equal("sharedverb alpha", only["leafKey"]);
         Assert.Equal("sharedverb", only["verb"]);
         Assert.Equal("alpha", only["path"]);
-        Assert.Equal("Cirrus.Tests.Fixtures.SharedAlpha", only["existingPackageId"]);
+        Assert.Equal("Azclips.Tests.Fixtures.SharedAlpha", only["existingPackageId"]);
 
         // Registry was not mutated by the planner (planner is pure; production caller commits).
         Assert.Single(registry.Extensions);
-        Assert.True(registry.Extensions.ContainsKey("Cirrus.Tests.Fixtures.SharedAlpha"));
+        Assert.True(registry.Extensions.ContainsKey("Azclips.Tests.Fixtures.SharedAlpha"));
     }
 
     [Fact]
@@ -209,7 +209,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         var leaves = LeafReader.ReadCliLeafKeys(dir);
 
         var registry = new ExtensionRegistry();
-        registry.Extensions["Cirrus.Tests.Fixtures.SharedAlpha"] = new ExtensionRegistryEntry
+        registry.Extensions["Azclips.Tests.Fixtures.SharedAlpha"] = new ExtensionRegistryEntry
         {
             Verb = "sharedverb",
             Version = "1.0.0",
@@ -220,7 +220,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         };
 
         var contribs = ExtensionAddPlanner.PlanContributions(
-            "Cirrus.Tests.Fixtures.SharedAlpha", new[] { "sharedverb" }, leaves, registry);
+            "Azclips.Tests.Fixtures.SharedAlpha", new[] { "sharedverb" }, leaves, registry);
         Assert.Single(contribs);
         Assert.Equal("alpha", contribs[0].Path);
     }
@@ -233,7 +233,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         // time so a hand-rolled DLL can't slip through.
         var ex = Assert.Throws<AzclipsErrorException>(() =>
             ExtensionAddPlanner.PlanContributions(
-                "Cirrus.Tests.Fixtures.SharedAlpha",
+                "Azclips.Tests.Fixtures.SharedAlpha",
                 new[] { "sharedverb" },
                 new[] { "otherverb undeclared" },
                 new ExtensionRegistry()));
@@ -253,9 +253,9 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         var fixtureBin = LocateFixtureBin(fixtureName)
             ?? throw new InvalidOperationException(
                 $"Could not locate built fixture '{fixtureName}'. Run `dotnet build " +
-                $"tests/Fixtures/{fixtureName}/Cirrus.Tests.Fixtures.{fixtureName}.csproj`.");
+                $"tests/Fixtures/{fixtureName}/Azclips.Tests.Fixtures.{fixtureName}.csproj`.");
 
-        var tempDir = Path.Combine(Path.GetTempPath(), $"cirrus-extadd-{Guid.NewGuid():N}");
+        var tempDir = Path.Combine(Path.GetTempPath(), $"azclips-extadd-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         _tempRoots.Add(tempDir);
 
@@ -281,7 +281,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
             var candidate = Path.Combine(
                 probe, "tests", "Fixtures", fixtureName, "bin", configuration, "net10.0");
             if (Directory.Exists(candidate) &&
-                File.Exists(Path.Combine(candidate, $"Cirrus.Tests.Fixtures.{fixtureName}.dll")))
+                File.Exists(Path.Combine(candidate, $"Azclips.Tests.Fixtures.{fixtureName}.dll")))
             {
                 return candidate;
             }
@@ -303,3 +303,5 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         return Path.GetFileName(configDir);
     }
 }
+
+
