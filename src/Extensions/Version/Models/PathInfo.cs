@@ -8,6 +8,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Version.Models;
 /// </summary>
 public class PathInfo
 {
-    public string Install { get; set; } = string.Empty;
-    public string Config { get; set; } = string.Empty;
+    public string InstallLocation { get; set; } = string.Empty;
+    public string ConfigLocation { get; set; } = string.Empty;
 }

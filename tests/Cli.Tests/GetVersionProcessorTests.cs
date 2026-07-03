@@ -161,7 +161,7 @@ public class GetVersionProcessorTests : IDisposable
 
         var info = Assert.IsType<VersionInformation>(output.WrittenValues.Single());
         Assert.NotNull(info.Paths);
-        Assert.Equal(Path.GetDirectoryName(ConfigFilePath), info.Paths.Config);
+        Assert.Equal(Path.GetDirectoryName(ConfigFilePath), info.Paths.ConfigLocation);
     }
 
     /// <summary>

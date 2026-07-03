@@ -50,7 +50,7 @@ public class GetVersionProcessor : IProcessor
         {
             AzCli = GetAzCliVersion(entryAssembly),
             Runtime = GetRuntimeInformation(),
-            Paths = GetConfigurationPaths(entryAssembly)
+            Paths = GetConfigurationPaths()
         };
     }
 
@@ -90,13 +90,13 @@ public class GetVersionProcessor : IProcessor
         };
     }
 
-    private static PathInfo GetConfigurationPaths(Assembly? entryAssembly)
+    private static PathInfo GetConfigurationPaths()
     {
         // Install location never depends on config, so resolve it first and independently.
         var info = new PathInfo
         {
-            Install = GetInstallLocation(entryAssembly),
-            Config = "unknown"
+            InstallLocation = GetInstallLocation(),
+            ConfigLocation = "unknown"
         };
 
         // Resolve from the configuration system so the reported paths match what the CLI actually
@@ -104,15 +104,20 @@ public class GetVersionProcessor : IProcessor
         var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
         var configFilePath = configurationService.GetConfigFilePath();
-        info.Config = Path.GetDirectoryName(configFilePath) ?? configFilePath;
+        info.ConfigLocation = Path.GetDirectoryName(configFilePath) ?? configFilePath;
 
         return info;
     }
 
-    // Entry-assembly location is empty (not null) under single-file publish; normalize to "unknown".
-    private static string GetInstallLocation(Assembly? entryAssembly)
+    // Report the app base directory — a stable, directory-like path that also works under single-file
+    // publish (unlike Assembly.Location, which is empty there). Mirrors how the CLI derives its
+    // install/base directory in AssemblyLoadingOptions. The trailing directory separator is trimmed so
+    // the value reads like the Config path (e.g. "...\Core.Cli" instead of "...\Core.Cli\").
+    private static string GetInstallLocation()
     {
-        var location = entryAssembly?.Location;
-        return string.IsNullOrEmpty(location) ? "unknown" : location;
+        var baseDirectory = AppContext.BaseDirectory;
+        return string.IsNullOrEmpty(baseDirectory)
+            ? "unknown"
+            : Path.TrimEndingDirectorySeparator(baseDirectory);
     }
 }
