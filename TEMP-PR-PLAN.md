@@ -11,6 +11,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [ ] `tests/Cli.Tests` (owner: Daniel, references: 60, files: 17)
 - [x] `src/Extensions` (owner: Daniel, references: 0, files: 0)
 - [ ] `src/Core` (owner: Daniel, references: 15, files: 11)
+- [ ] `tests/Core.Extensions.Tests` (owner: Daniel, references: 36, files: 5)
 - [ ] `src/CLI` (owner: Daniel, references: 12, files: 4)
 - [ ] `tests/Scripts` (owner: Daniel, references: 109, files: 7)
 
@@ -42,3 +43,6 @@ Track and remove remaining `Cirrus` references across selected directories.
 - tests/Scripts scan result (2026-07-03): 109 references across 7 files.
 - tests/Scripts hotspots: `CLI/DeploymentCreate.sh` (27), `PS/DeploymentCreate.ps1` (26), `CLI/DeploymentWhatIf.sh` (19), `PS/DeploymentWhatIf.ps1` (18), `PS/rest.ps1` (15).
 - tests/Scripts classification: mostly sample resource/deployment names prefixed with `cirrus-*`; includes command compatibility mentions like `Invoke-CirrusRestMethod` and a historical env-var comment (`CIRRUS_AGENT_DISABLED`).
+- tests/Core.Extensions.Tests scan result (2026-07-03): 36 references across 5 files.
+- tests/Core.Extensions.Tests hotspots: `FileExtensionRegistryStoreTests.cs` (11), `MultiNamespaceTests.cs` (11), `ExtensionHintTableTests.cs` (8).
+- tests/Core.Extensions.Tests classification: mostly compatibility assertions for legacy package ids (`Microsoft.Azure.Cirrus.Extensions.*`) and temp path labels (`cirrus-*`).
