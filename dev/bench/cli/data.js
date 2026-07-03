@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783035670868,
+  "lastUpdate": 1783040300293,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -2270,6 +2270,48 @@ window.BENCHMARK_DATA = {
             "value": 974053.5937562537,
             "unit": "ns",
             "range": "± 297907.90939761535"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "771945186cd60bba8c6b0c4f7e5390d7b4229a90",
+          "message": "{Refactor} Cirrus reference sweep.  (#361)\n\n## Summary\nThis PR completes a repository-wide Cirrus-to-Azclips reference sweep\nacross targeted source, tests, scripts, and help tooling.\n\n## What Changed\n- Migrated remaining Cirrus identifiers, comments, docs, and test\nliterals to Azclips equivalents.\n- Removed legacy Cirrus extension package prefix handling in CLI/Core\npaths and aligned tests accordingly.\n- Renamed fixture/help/cmdlet file and project names that still carried\nCirrus naming.\n- Updated deployment and REST test scripts to Azclips command/name\nusage.\n- Completed final filename sweep for covered directories.\n\n## Validation\n- Targeted Release builds and test runs were executed during each\nmigration step.\n- Final content and filename sweeps for covered directories report zero\nremaining Cirrus references.",
+          "timestamp": "2026-07-03T10:56:26+10:00",
+          "tree_id": "52cffd022a65a3683e380f6cc37fc07228d45433",
+          "url": "https://github.com/Azure/azclips/commit/771945186cd60bba8c6b0c4f7e5390d7b4229a90"
+        },
+        "date": 1783040299854,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 967157.7692846423,
+            "unit": "ns",
+            "range": "± 288802.0554822457"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 960184.6502601041,
+            "unit": "ns",
+            "range": "± 308450.04343325394"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 947124.6064851881,
+            "unit": "ns",
+            "range": "± 292468.08033741993"
           }
         ]
       }
