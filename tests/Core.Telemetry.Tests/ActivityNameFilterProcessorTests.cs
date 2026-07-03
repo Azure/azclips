@@ -17,7 +17,7 @@ public class ActivityNameFilterProcessorTests : IDisposable
     public ActivityNameFilterProcessorTests()
     {
         // Unique source name per fixture so parallel tests stay isolated.
-        _source = new ActivitySource("cirrus-activity-name-test-" + Guid.NewGuid().ToString("N"));
+        _source = new ActivitySource("azclips-activity-name-test-" + Guid.NewGuid().ToString("N"));
         _listener = new ActivityListener
         {
             ShouldListenTo = src => src == _source,
