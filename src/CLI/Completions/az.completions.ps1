@@ -9,9 +9,9 @@
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 
 # Per-binary cache: path -> $true/$false
-$global:_azIsCirrusCache = @{}
+$global:_azIsAzclipsCache = @{}
 
-function global:_azIsCirrus {
+function global:_azIsAzclips {
     param([string]$exePath)
     # Resolve which binary to check
     if (-not $exePath) {
@@ -20,16 +20,16 @@ function global:_azIsCirrus {
         $exePath = $cmd.Source
     }
     $key = $exePath.ToLower()
-    if ($global:_azIsCirrusCache.ContainsKey($key)) { return $global:_azIsCirrusCache[$key] }
+    if ($global:_azIsAzclipsCache.ContainsKey($key)) { return $global:_azIsAzclipsCache[$key] }
     $result = $false
     try {
         $ver = & $exePath --version 2>&1 | Out-String
-        # System Azure CLI outputs 'azure-cli X.Y.Z'; cirrus does not
+        # System Azure CLI outputs 'azure-cli X.Y.Z'; azclips does not
         $result = ($ver -notmatch 'azure-cli')
     } catch {
         $result = $true
     }
-    $global:_azIsCirrusCache[$key] = $result
+    $global:_azIsAzclipsCache[$key] = $result
     return $result
 }
 
@@ -220,9 +220,9 @@ function global:TabExpansion2 {
             $azCmd = $Matches[1]   # full command: e.g. "artifacts\...\az.exe" or "az"
             $azPath = $Matches[2]  # path prefix: e.g. "artifacts\...\" or $null
 
-            # Check the actual binary is cirrus, not system azure-cli
-            $isCirrus = if ($azPath) { _azIsCirrus $azCmd } else { _azIsCirrus }
-            if ($isCirrus) {
+            # Check the actual binary is azclips, not system azure-cli
+            $isAzclips = if ($azPath) { _azIsAzclips $azCmd } else { _azIsAzclips }
+            if ($isAzclips) {
                 $results = @(_azGetCompletions $line $cursor)
                 if ($results.Count -gt 0) {
                     $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
