@@ -49,7 +49,7 @@ stages:
       inputs:
         targetType: inline
         pwsh: true
-        script: dotnet restore '$(Build.SourcesDirectory)/cirrus.slnx'
+        script: dotnet restore '$(Build.SourcesDirectory)/azclips.slnx'
 
     - task: PowerShell@2
       displayName: Generate Third-Party NOTICE Draft
