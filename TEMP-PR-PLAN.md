@@ -7,7 +7,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 ## Directory Checklist
 
 - [x] `src/PS` (owner: Daniel, references: 0, files: 0)
-- [ ] `tools/Help` (owner: Daniel, references: 22, files: 39)
+- [x] `tools/Help` (owner: Daniel, references: 0, files: 0)
 - [ ] `tests/Cli.Tests` (owner: Daniel, references: 21, files: 86)
 - [ ] `src/Extensions` (owner: Daniel, references: 17, files: 71)
 - [ ] `src/Core` (owner: Daniel, references: 15, files: 36)
@@ -27,3 +27,4 @@ Track and remove remaining `Cirrus` references across selected directories.
 - Keep compatibility-sensitive renames explicit in PR notes.
 - Exclude generated outputs: `obj`, `bin`, `artifacts`, `devops/out`, `.git`.
 - src/PS rescan result (2026-07-03): 0 remaining `Cirrus` references after removing stale `*.Cirrus.*.dll-Help.xml` files.
+- tools/Help scan result (2026-07-03): 0 remaining `Cirrus` references.
