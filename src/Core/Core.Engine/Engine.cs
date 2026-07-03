@@ -128,6 +128,8 @@ namespace Core.Engine
                 OutputHandler: outputHandler,
                 Profile: profile
             );
+            // stamp User-Agent header on every outgoing request
+            httpPipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
             // passthrough by default, terminate during client mocking
             httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep);
             // trace every http request message, record/playback request during test
