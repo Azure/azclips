@@ -24,7 +24,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [ ] Pass 3: apply code-level renames and fix call sites
 - [ ] Pass 4: run validation (build/tests/help checks)
 - [ ] Pass 5: final grep and PR notes
-- [ ] Pass 6: filename sweep across all covered directories (files, folders, and project names)
+- [x] Pass 6: filename sweep across all covered directories (files, folders, and project names)
 
 ## Notes
 
@@ -64,3 +64,4 @@ Track and remove remaining `Cirrus` references across selected directories.
 - tests/Fixtures code-change pass result (2026-07-03): reduced from 10 hits/4 files to 0 hits/0 files.
 - tests/Fixtures decision: renamed fixture projects, assembly identities, and fixture metadata from `Cirrus.Tests.Fixtures.*` to `Azclips.Tests.Fixtures.*`, and updated solution/test references accordingly.
 - tests/Cmdlets.Tests scan result (2026-07-03): 0 remaining `Cirrus` references.
+- filename sweep result (2026-07-03): 0 remaining `Cirrus` file/folder/project names across covered directories.
