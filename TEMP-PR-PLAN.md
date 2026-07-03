@@ -11,7 +11,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [ ] `tests/Cli.Tests` (owner: Daniel, references: 60, files: 17)
 - [x] `src/Extensions` (owner: Daniel, references: 0, files: 0)
 - [x] `src/Core` (owner: Daniel, references: 0, files: 0)
-- [ ] `tests/Core.Extensions.Tests` (owner: Daniel, references: 36, files: 5)
+- [x] `tests/Core.Extensions.Tests` (owner: Daniel, references: 0, files: 0)
 - [x] `tests/Fixtures` (owner: Daniel, references: 0, files: 0)
 - [x] `tests/Cmdlets.Tests` (owner: Daniel, references: 0, files: 0)
 - [x] `src/CLI` (owner: Daniel, references: 0, files: 0)
@@ -51,6 +51,8 @@ Track and remove remaining `Cirrus` references across selected directories.
 - tests/Core.Extensions.Tests scan result (2026-07-03): 36 references across 5 files.
 - tests/Core.Extensions.Tests hotspots: `FileExtensionRegistryStoreTests.cs` (11), `MultiNamespaceTests.cs` (11), `ExtensionHintTableTests.cs` (8).
 - tests/Core.Extensions.Tests classification: mostly compatibility assertions for legacy package ids (`Microsoft.Azure.Cirrus.Extensions.*`) and temp path labels (`cirrus-*`).
+- tests/Core.Extensions.Tests code-change pass result (2026-07-03): reduced from 36 hits/5 files to 0 hits/0 files.
+- tests/Core.Extensions.Tests decision: switched package-id expectations and temp-path labels to Azclips equivalents.
 - tests/Fixtures scan result (2026-07-03): 10 references across 4 files.
 - tests/Fixtures hotspots: `SharedAlpha/ExtensionIndex.cs` (3), `SharedBeta/ExtensionIndex.cs` (3), `SharedAlpha/Cirrus.Tests.Fixtures.SharedAlpha.csproj` (2), `SharedBeta/Cirrus.Tests.Fixtures.SharedBeta.csproj` (2).
 - tests/Fixtures classification: fixture assembly identity and namespace names still use `Cirrus.Tests.Fixtures.*` for test linkage compatibility.

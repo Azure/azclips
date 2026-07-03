@@ -16,7 +16,7 @@ namespace Core.Extensions.Tests
             var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
                 ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
-                ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config"),
+                ["config"] = new("config", "Microsoft.Azure.Azclips.Extensions.Config"),
             };
 
             var index = LeafIndex.Build(builtIns, new ExtensionRegistry());
@@ -41,7 +41,7 @@ namespace Core.Extensions.Tests
             {
                 Extensions =
                 {
-                    ["Microsoft.Azure.Cirrus.Extensions.Compute"] = new ExtensionRegistryEntry
+                    ["Microsoft.Azure.Azclips.Extensions.Compute"] = new ExtensionRegistryEntry
                     {
                         Version = "1.0.0",
                         InstalledAt = DateTimeOffset.UtcNow,
@@ -59,7 +59,7 @@ namespace Core.Extensions.Tests
             Assert.Equal(3, index.Entries.Count);
             Assert.True(index.TryGet("vm", "create", out var vmCreate));
             Assert.NotNull(vmCreate);
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", vmCreate!.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", vmCreate!.PackageId);
             Assert.True(index.TryGet("disk", "attach", out _));
         }
 
@@ -161,3 +161,4 @@ namespace Core.Extensions.Tests
         }
     }
 }
+
