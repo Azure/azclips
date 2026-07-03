@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783059851264,
+  "lastUpdate": 1783060373551,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2436,6 +2436,48 @@ window.BENCHMARK_DATA = {
             "value": 948451.1577946768,
             "unit": "ns",
             "range": "± 289620.07570295926"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3ffe63a8ea2ac1c478e02ab9463760eb2d7fc4ea",
+          "message": "[Autocomplete] Add configuration to enable/disable autocompletion for shells. (#368)\n\nAdd config for user to enable/disable autocompletion for azclips\nsupported shells.\n1. Add `completion.enabled` config value to be set by `az config set ...\n` commands\n2. Wire in config value read in CompletionGenerator to return early is\nautocomplete is disabled.\n3. autocompletion defaults to `enabled`\n\nValidated with the following:\n\n1. New shell session\n2. source the scripts into the profile session i.e source\n./bin/az.completions.bash or . ./bin/az.completions.ps1\n3. az config set --key completion.enabled --value true / false in the\nsession\n4. then test by pressing tab on the az executable\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-03T16:30:59+10:00",
+          "tree_id": "6da72ec092adab6fe51e46edac6b8a43800207ed",
+          "url": "https://github.com/Azure/azclips/commit/3ffe63a8ea2ac1c478e02ab9463760eb2d7fc4ea"
+        },
+        "date": 1783060373039,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 984802.9106053027,
+            "unit": "ns",
+            "range": "± 312406.4706442713"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 945100.7760208166,
+            "unit": "ns",
+            "range": "± 298298.1249937122"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 940588.7739095638,
+            "unit": "ns",
+            "range": "± 297155.7495642027"
           }
         ]
       }
