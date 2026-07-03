@@ -1,0 +1,162 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: final_artifact_name
+  type: string
+  default: 'Final_Build_PSModules'
+- name: generate_help_artifacts
+  type: boolean
+  default: true
+
+jobs:
+- job: BuildAndValidatePSModules
+  displayName: Build and Validate PS Common
+  timeoutInMinutes: 90
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+    retryCountOnTaskFailure: 3
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - bash: |
+      set -euo pipefail
+
+      pwsh_tool_dir="$(Agent.TempDirectory)/pwsh-7.6"
+      dotnet tool install --tool-path "$pwsh_tool_dir" PowerShell --version '7.6.*'
+
+      "$pwsh_tool_dir/pwsh" -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+      echo "##vso[task.setvariable variable=PSModulePwshPath]$pwsh_tool_dir/pwsh"
+    displayName: Install PowerShell 7.6
+
+  - bash: |
+      set -euo pipefail
+
+      ps_bin="$(PSModulePwshPath)"
+      export PATH="$(dirname "$ps_bin"):$PATH"
+
+      build_args=(
+        -NoProfile
+        -File "$(Build.SourcesDirectory)/build/build.ps1"
+        -Configuration Release
+      )
+
+      if [[ "${{ parameters.generate_help_artifacts }}" == "True" || "${{ parameters.generate_help_artifacts }}" == "true" ]]; then
+        build_args+=(-GenerateHelpArtifacts)
+      fi
+
+      "$ps_bin" "${build_args[@]}"
+    displayName: Build PS Modules
+
+  - bash: |
+      set -euo pipefail
+
+      ps_bin="$(PSModulePwshPath)"
+      export PATH="$(dirname "$ps_bin"):$PATH"
+
+      "$ps_bin" -NoProfile -File "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/validate_ps_modules.ps1" \
+        -ArtifactsRoot "$(Build.SourcesDirectory)/artifacts/Release" \
+        -SourcePsRoot "$(Build.SourcesDirectory)/src/PS" \
+        -PwshPath "$ps_bin"
+    displayName: Validate PS Modules
+
+  - bash: |
+      set -euo pipefail
+
+      mapfile -t extension_projects < <(find "$(Build.SourcesDirectory)/src/Extensions" -mindepth 2 -maxdepth 2 -name 'Extensions.*.csproj' | sort)
+      if [[ ${#extension_projects[@]} -eq 0 ]]; then
+        echo "ERROR: No extension projects found under src/Extensions"
+        exit 1
+      fi
+
+      for ext in "${extension_projects[@]}"; do
+        dotnet pack "$ext" -c Release -o "$(Build.SourcesDirectory)/artifacts/Release" --no-build --no-restore
+      done
+
+      bash "$(Build.SourcesDirectory)/devops/scripts/packaging/common/rename_extension_packages.sh" "$(Build.SourcesDirectory)/artifacts/Release"
+    displayName: Pack CLI Extension Packages
+
+  - bash: |
+      set -euo pipefail
+
+      ps_bin="$(PSModulePwshPath)"
+      export PATH="$(dirname "$ps_bin"):$PATH"
+
+      "$ps_bin" -NoProfile -File "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/package_az_modules.ps1" \
+        -ArtifactsRoot "$(Build.SourcesDirectory)/artifacts/Release" \
+        -SourcePsRoot "$(Build.SourcesDirectory)/src/PS" \
+        -OutputRoot "$(Build.SourcesDirectory)/artifacts/Release/PSGallery" \
+        -PwshPath "$ps_bin" \
+        -SkipInstallValidation
+    displayName: Pack Az Modules
+
+  - bash: |
+      set -euo pipefail
+
+      ps_bin="$(PSModulePwshPath)"
+      export PATH="$(dirname "$ps_bin"):$PATH"
+
+      "$ps_bin" -NoProfile -File "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/test_az_modules_from_local_gallery.ps1" \
+        -RepositoryRoot "$(Build.SourcesDirectory)/artifacts/Release/PSGallery/local-repo" \
+        -SourcePsRoot "$(Build.SourcesDirectory)/src/PS" \
+        -InstallRoot "$(Agent.TempDirectory)/az-module-gallery-test" \
+        -PwshPath "$ps_bin"
+    displayName: Test Az Modules from Local Gallery
+
+  - bash: |
+      set -euo pipefail
+
+      final_root="$(Pipeline.Workspace)/${{ parameters.final_artifact_name }}"
+      rm -rf "$final_root"
+      mkdir -p "$final_root"
+
+      if [[ ! -d "$(Build.SourcesDirectory)/artifacts/Release" ]]; then
+        echo "ERROR: Release artifact root was not created."
+        exit 1
+      fi
+
+      cp -a "$(Build.SourcesDirectory)/artifacts/Release" "$final_root/artifacts"
+
+      if [[ -d "$(Build.SourcesDirectory)/artifacts/help" ]]; then
+        cp -a "$(Build.SourcesDirectory)/artifacts/help" "$final_root/help"
+      fi
+
+      manifest="$final_root/manifest.txt"
+      {
+        echo "artifact_name=${{ parameters.final_artifact_name }}"
+        echo "build_id=$(Build.BuildId)"
+        echo "build_number=$(Build.BuildNumber)"
+        echo "source_branch=$(Build.SourceBranch)"
+        echo "source_version=$(Build.SourceVersion)"
+        echo ""
+        echo "ps_manifests:"
+        find "$final_root/artifacts/PS" -type f -name '*.psd1' -printf '  %P\n' | sort
+        echo ""
+        echo "ps_module_packages:"
+        find "$final_root/artifacts/PSGallery/local-repo" -type f -name '*.nupkg' -printf '  %P\n' | sort
+        echo ""
+        echo "cmdlet_assemblies:"
+        find "$final_root/artifacts" -type f -name 'Microsoft.Azure.Azclips.Cmdlets.*.dll' -printf '  %P\n' | sort
+        echo ""
+        echo "extension_assemblies:"
+        find "$final_root/artifacts" -type f -name 'Microsoft.Azure.Azclips.Extensions.*.dll' -printf '  %P\n' | sort
+      } > "$manifest"
+
+      echo "Final PS module build outputs:"
+      find "$final_root" -maxdepth 4 -type f | sort
+    displayName: Collect Final PS Module Outputs
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Final PS Module Outputs
+    inputs:
+      targetPath: $(Pipeline.Workspace)/${{ parameters.final_artifact_name }}
+      artifact: ${{ parameters.final_artifact_name }}
+      publishLocation: pipeline

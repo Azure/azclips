@@ -54,7 +54,10 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <InternalsVisibleTo Include="Core.Agent.Tests" Key="$(MSSharedLibPublicKey)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
     <InternalsVisibleTo Include="Core.Agent.Tests" />
   </ItemGroup>
 

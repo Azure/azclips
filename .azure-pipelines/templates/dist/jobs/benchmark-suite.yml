@@ -10,6 +10,8 @@ jobs:
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
   steps:
+  - checkout: none
+
   - script: |
       echo "##vso[task.logissue type=warning]Benchmark stage is temporarily disabled. Running dummy benchmark job."
       echo "Pipeline will continue successfully."
