@@ -281,25 +281,3 @@ Get-AzConfigList | Where-Object { $_ -notmatch '\[default\]' } | ForEach-Object 
   Remove-AzConfig -Key $key -Force
 }
 ```
-
-### Workflow: Disable or re-enable shell tab-completion
-
-Shell tab-completion is on by default once you source a completion script. The
-`completion.enabled` key gates it at the source of truth (`az --completions`), so
-setting it `false` stops suggestions in every shell even while the script is still
-sourced.
-
-**CLI:**
-
-```bash
-# Disable tab-completion (takes effect on the next Tab; no re-source needed)
-az config set --key completion.enabled --value false
-
-# Re-enable it
-az config set --key completion.enabled --value true
-```
-
-> **PowerShell note:** `az.completions.ps1` caches results per session. After
-> re-enabling, start a new session or re-source the script so PowerShell drops the
-> cached empty result. bash and zsh pick the change up on the next Tab.
-
