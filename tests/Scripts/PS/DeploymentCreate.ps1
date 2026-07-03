@@ -6,7 +6,7 @@
 #
 # Shared test context:
 #   SubscriptionId: 282bb33f-067d-4179-a7a4-b833c13af735
-#   ResourceGroupName: cirrus-test-group-1 (region: australiaeast)
+#   ResourceGroupName: azclips-test-group-1 (region: australiaeast)
 # The resource-group-scoped deployment inherits the resource group's region,
 # so no location parameter is required here.
 
@@ -21,16 +21,16 @@ $DebugPreference = 'Continue'
 # Happy path: deploy a public quickstart template in Incremental mode.
 New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name cirrus-test-deployment-1 `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name azclips-test-deployment-1 `
     -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
     -Mode Incremental
 
 # Inline local template file variant:
 # New-ResourceGroupDeployment `
 #     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-#     -ResourceGroupName cirrus-test-group-1 `
-#     -Name cirrus-test-deployment-2 `
+#     -ResourceGroupName azclips-test-group-1 `
+#     -Name azclips-test-deployment-2 `
 #     -TemplateFile ./azuredeploy.json `
 #     -ParametersFile ./azuredeploy.parameters.json `
 #     -Mode Incremental
@@ -41,8 +41,8 @@ New-ResourceGroupDeployment `
 $stamp = (Get-Date -Format 'yyMMddHHmmss')
 New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name "cirrus-test-bicep-$stamp" `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name "azclips-test-bicep-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
     -Mode Incremental
@@ -53,8 +53,8 @@ New-ResourceGroupDeployment `
 try {
     New-ResourceGroupDeployment `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-        -ResourceGroupName cirrus-test-group-1 `
-        -Name cirrus-test-bicep-negative `
+        -ResourceGroupName azclips-test-group-1 `
+        -Name azclips-test-bicep-negative `
         -TemplateFile (Join-Path $BicepDir 'malformed.bicep') `
         -Mode Incremental `
         -ErrorAction Stop
@@ -75,8 +75,8 @@ try {
 try {
     New-ResourceGroupDeployment `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-        -ResourceGroupName cirrus-test-group-1 `
-        -Name cirrus-test-deployment-negative `
+        -ResourceGroupName azclips-test-group-1 `
+        -Name azclips-test-deployment-negative `
         -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
         -Mode Foo `
         -ErrorAction Stop
@@ -92,37 +92,37 @@ try {
 }
 
 # Inline-parameter precedence + validation-level happy path.
-# The .bicepparam supplies storageAccountName=cirrusbicep0001 (the base); the repeatable
+# The .bicepparam supplies storageAccountName=azclipsbicep0001 (the base); the repeatable
 # -Parameter (KEY=VALUE) overrides it with a unique, timestamped value, proving inline
 # overlays the file. -ValidationLevel Provider runs full provider validation during deploy.
 $stamp = (Get-Date -Format 'yyMMddHHmmss')
 New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name "cirrus-test-inline-$stamp" `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name "azclips-test-inline-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
-    -Parameter "storageAccountName=cirrusinline$stamp" `
+    -Parameter "storageAccountName=azclipsinline$stamp" `
     -ValidationLevel Provider `
     -Mode Incremental
 
 # Standalone -ValidationLevel Provider case (no parameters file).
 New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name "cirrus-test-vlevel-$stamp" `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name "azclips-test-vlevel-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
-    -Parameter "storageAccountName=cirrusvlevel$stamp" `
+    -Parameter "storageAccountName=azclipsvlevel$stamp" `
     -ValidationLevel Provider `
     -Mode Incremental
 
 # -RollbackOnError case: roll back to the last successful deployment if this one fails.
 New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name "cirrus-test-rollback-$stamp" `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name "azclips-test-rollback-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
-    -Parameter "storageAccountName=cirrusroll$stamp" `
+    -Parameter "storageAccountName=azclipsroll$stamp" `
     -RollbackOnError `
     -Mode Incremental
 
@@ -132,8 +132,8 @@ New-ResourceGroupDeployment `
 try {
     New-ResourceGroupDeployment `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-        -ResourceGroupName cirrus-test-group-1 `
-        -Name cirrus-test-inline-conflict-negative `
+        -ResourceGroupName azclips-test-group-1 `
+        -Name azclips-test-inline-conflict-negative `
         -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
         -ParametersUri https://example.com/params.json `
         -Parameter storageAccountType=Standard_GRS `
@@ -157,8 +157,9 @@ try {
 $stamp = (Get-Date -Format 'yyMMddHHmmss')
 New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name "cirrus-test-wait-$stamp" `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name "azclips-test-wait-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
-    -Parameter "storageAccountName=cirruswait$stamp" `
+    -Parameter "storageAccountName=azclipswait$stamp" `
     -Mode Incremental
+

@@ -26,7 +26,7 @@ namespace Core.Extensions
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
         /// <summary>
-        /// Map from NuGet package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>) to entry.
+        /// Map from NuGet package id (e.g. <c>Microsoft.Azure.Azclips.Extensions.Compute</c>) to entry.
         /// </summary>
         [JsonPropertyName("extensions")]
         public Dictionary<string, ExtensionRegistryEntry> Extensions { get; set; } = new(StringComparer.OrdinalIgnoreCase);

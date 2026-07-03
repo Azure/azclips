@@ -118,7 +118,7 @@ public class CompatibilityGuardTests
     [Fact]
     public void CheckAssembly_MissingDirectory_Throws()
     {
-        var missing = Path.Combine(Path.GetTempPath(), $"cirrus-missing-{Guid.NewGuid():N}");
+        var missing = Path.Combine(Path.GetTempPath(), $"azclips-missing-{Guid.NewGuid():N}");
         Assert.Throws<DirectoryNotFoundException>(() =>
             CompatibilityGuard.CheckAssembly(missing, "1.0.0"));
     }
@@ -178,7 +178,7 @@ public class CompatibilityGuardTests
         public string Path { get; }
         public TempDir()
         {
-            Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"cirrus-compat-{Guid.NewGuid():N}");
+            Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"azclips-compat-{Guid.NewGuid():N}");
             Directory.CreateDirectory(Path);
         }
         public void Dispose()
@@ -187,3 +187,4 @@ public class CompatibilityGuardTests
         }
     }
 }
+

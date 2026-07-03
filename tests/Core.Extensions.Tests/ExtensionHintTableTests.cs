@@ -17,12 +17,12 @@ namespace Core.Extensions.Tests
             {
                 Leaves = new Dictionary<string, ExtensionHint>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["vm"] = new() { PackageId = "Microsoft.Azure.Cirrus.Extensions.Compute" },
+                    ["vm"] = new() { PackageId = "Microsoft.Azure.Azclips.Extensions.Compute" },
                 },
             };
 
             Assert.True(table.TryGetPackageId("vm", out var pkg));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", pkg);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", pkg);
 
             Assert.True(table.TryGetPackageId("VM", out _)); // case-insensitive
         }
@@ -34,16 +34,16 @@ namespace Core.Extensions.Tests
             {
                 Leaves = new Dictionary<string, ExtensionHint>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["vm create"] = new() { PackageId = "Microsoft.Azure.Cirrus.Extensions.Compute" },
-                    ["vm scale"]  = new() { PackageId = "Microsoft.Azure.Cirrus.Extensions.ComputeFuture" },
+                    ["vm create"] = new() { PackageId = "Microsoft.Azure.Azclips.Extensions.Compute" },
+                    ["vm scale"]  = new() { PackageId = "Microsoft.Azure.Azclips.Extensions.ComputeFuture" },
                 },
             };
 
             Assert.True(table.TryGetPackageId("vm", "create", out var pkg));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", pkg);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", pkg);
 
             Assert.True(table.TryGetPackageId("VM", "SCALE", out var pkg2));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.ComputeFuture", pkg2);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.ComputeFuture", pkg2);
         }
 
         [Fact]
@@ -118,14 +118,15 @@ namespace Core.Extensions.Tests
                   "schemaVersion": 1,
                   "futureFlag": true,
                   "leaves": {
-                    "vm": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute", "futurePerLeaf": 42 }
+                    "vm": { "packageId": "Microsoft.Azure.Azclips.Extensions.Compute", "futurePerLeaf": 42 }
                   }
                 }
                 """;
             var table = System.Text.Json.JsonSerializer.Deserialize<ExtensionHintTable>(json);
             Assert.NotNull(table);
             Assert.True(table!.TryGetPackageId("vm", out var pkg));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", pkg);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", pkg);
         }
     }
 }
+

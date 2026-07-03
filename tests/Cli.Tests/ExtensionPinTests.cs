@@ -126,7 +126,7 @@ public class ExtensionPinTests
         // Registry writes are preferences-only in §5.2+, so contributions/namespaces are
         // intentionally dropped during Save(). This check verifies pin state survives while
         // installed-state metadata is not persisted.
-        var tempPath = Path.Combine(Path.GetTempPath(), $"cirrus-pin-test-{Guid.NewGuid():N}.json");
+        var tempPath = Path.Combine(Path.GetTempPath(), $"azclips-pin-test-{Guid.NewGuid():N}.json");
         try
         {
             var registry = RegistryWithMultiLeafExtension(pinned: false);
@@ -146,3 +146,4 @@ public class ExtensionPinTests
         }
     }
 }
+

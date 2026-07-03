@@ -48,7 +48,7 @@ public class HelpArtifactWriterTests
     {
         public TempOutputFixture()
         {
-            DirectoryPath = Path.Combine(Path.GetTempPath(), "cirrus-help-artifacts-tests", Guid.NewGuid().ToString("N"));
+            DirectoryPath = Path.Combine(Path.GetTempPath(), "azclips-help-artifacts-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(DirectoryPath);
         }
 
@@ -63,3 +63,4 @@ public class HelpArtifactWriterTests
         }
     }
 }
+

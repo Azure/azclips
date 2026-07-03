@@ -3,14 +3,14 @@
 #
 # Shared test context:
 #   subscription: 282bb33f-067d-4179-a7a4-b833c13af735
-#   resource group: cirrus-test-group-1 (region: australiaeast)
+#   resource group: azclips-test-group-1 (region: australiaeast)
 # The resource-group-scoped deployment inherits the resource group's region,
 # so no location flag is required here.
 
 # Run unattended: on a command ERROR az normally hands off to the interactive
 # agent-mode TUI (which would block on input). Disable the agent via config so the
 # classic error and a non-zero exit surface instead, and the negative cases below
-# don't hang. (The old CIRRUS_AGENT_DISABLED env var was removed; the agent now
+# don't hang. (The old AZCLIPS_AGENT_DISABLED env var was removed; the agent now
 # reads config.agent.enabled.)
 az config set --key agent.enabled --value false
 
@@ -24,8 +24,8 @@ BICEP_DIR="$SCRIPT_DIR/../Bicep"
 # Happy path: deploy a public quickstart template in Incremental mode.
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-deployment-1 \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-deployment-1 \
     --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json \
     --mode Incremental \
     --debug
@@ -33,8 +33,8 @@ az deployment group create \
 # Inline local template file variant:
 # az deployment group create \
 #     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-#     --resource-group cirrus-test-group-1 \
-#     --name cirrus-test-deployment-2 \
+#     --resource-group azclips-test-group-1 \
+#     --name azclips-test-deployment-2 \
 #     --template-file ./azuredeploy.json \
 #     --parameters-file ./azuredeploy.parameters.json \
 #     --mode Incremental
@@ -45,8 +45,8 @@ az deployment group create \
 STAMP=$(date +%y%m%d%H%M%S)
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name "cirrus-test-bicep-$STAMP" \
+    --resource-group azclips-test-group-1 \
+    --name "azclips-test-bicep-$STAMP" \
     --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
     --mode Incremental \
@@ -56,8 +56,8 @@ az deployment group create \
 # diagnostics (non-zero exit -> InvalidOperationException). No deployment is created.
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-bicep-negative \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-bicep-negative \
     --template-file "$BICEP_DIR/malformed.bicep" \
     --mode Incremental \
     --debug
@@ -67,24 +67,24 @@ az deployment group create \
 # listing the allowed values (Incremental, Complete) and does NOT create a deployment.
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-deployment-negative \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-deployment-negative \
     --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json \
     --mode Foo \
     --debug
 
 # Inline-parameter precedence + validation-level happy path.
-# The .bicepparam supplies storageAccountName=cirrusbicep0001 (the base); the repeatable
+# The .bicepparam supplies storageAccountName=azclipsbicep0001 (the base); the repeatable
 # --parameter overrides it with a unique, timestamped value, proving inline overlays the file.
 # --validation-level Provider runs full provider validation as part of the deploy.
 STAMP=$(date +%y%m%d%H%M%S)
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name "cirrus-test-inline-$STAMP" \
+    --resource-group azclips-test-group-1 \
+    --name "azclips-test-inline-$STAMP" \
     --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
-    --parameter "storageAccountName=cirrusinline$STAMP" \
+    --parameter "storageAccountName=azclipsinline$STAMP" \
     --validation-level Provider \
     --mode Incremental \
     --debug
@@ -92,10 +92,10 @@ az deployment group create \
 # Standalone --validation-level Provider case (no parameters file; inline --parameter only).
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name "cirrus-test-vlevel-$STAMP" \
+    --resource-group azclips-test-group-1 \
+    --name "azclips-test-vlevel-$STAMP" \
     --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameter "storageAccountName=cirrusvlevel$STAMP" \
+    --parameter "storageAccountName=azclipsvlevel$STAMP" \
     --validation-level Provider \
     --mode Incremental \
     --debug
@@ -103,10 +103,10 @@ az deployment group create \
 # --rollback-on-error case: roll back to the last successful deployment if this one fails.
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name "cirrus-test-rollback-$STAMP" \
+    --resource-group azclips-test-group-1 \
+    --name "azclips-test-rollback-$STAMP" \
     --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameter "storageAccountName=cirrusroll$STAMP" \
+    --parameter "storageAccountName=azclipsroll$STAMP" \
     --rollback-on-error \
     --mode Incremental \
     --debug
@@ -116,8 +116,8 @@ az deployment group create \
 # parameters link; no deployment is created.
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-inline-conflict-negative \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-inline-conflict-negative \
     --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json \
     --parameters-uri https://example.com/params.json \
     --parameter storageAccountType=Standard_GRS \
@@ -130,9 +130,10 @@ az deployment group create \
 STAMP=$(date +%y%m%d%H%M%S)
 az deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name "cirrus-test-wait-$STAMP" \
+    --resource-group azclips-test-group-1 \
+    --name "azclips-test-wait-$STAMP" \
     --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameter "storageAccountName=cirruswait$STAMP" \
+    --parameter "storageAccountName=azclipswait$STAMP" \
     --mode Incremental \
     --debug
+
