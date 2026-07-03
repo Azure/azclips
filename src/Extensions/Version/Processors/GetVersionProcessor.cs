@@ -109,7 +109,7 @@ public class GetVersionProcessor : IProcessor
         return info;
     }
 
-    // Report the app base directory — a stable, directory-like path that also works under single-file
+    // Report the app base directory â€” a stable, directory-like path that also works under single-file
     // publish (unlike Assembly.Location, which is empty there). Mirrors how the CLI derives its
     // install/base directory in AssemblyLoadingOptions. The trailing directory separator is trimmed so
     // the value reads like the Config path (e.g. "...\Core.Cli" instead of "...\Core.Cli\").
