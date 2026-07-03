@@ -7,7 +7,7 @@ param(
     [switch]$GenerateHelpArtifacts
 )
 
-function Invoke-CirrusBuild
+function Invoke-AzclipsBuild
 {
     [CmdletBinding()]
     param(
@@ -125,7 +125,7 @@ function Repair-MamlExampleCodeBlocks
 # Generates MAML XML for one PowerShell module via PlatyPS 1.x.
 # Runs in an isolated child pwsh: parent process loads its own YamlDotNet via dotnet build,
 # and PlatyPS bundles its own copy — same-name assembly conflict if loaded together.
-function ConvertTo-CirrusModuleMaml
+function ConvertTo-AzclipsModuleMaml
 {
     [CmdletBinding()]
     param(
@@ -159,7 +159,7 @@ function ConvertTo-CirrusModuleMaml
 
 # Emits repaired MAML for every src/PS/<Module>/help/ corpus to both
 # src/PS/<Module>/en-US (gitignored) and <ArtifactsRoot>/PS/<Module>/en-US.
-function Publish-CirrusHelpArtifacts
+function Publish-AzclipsHelpArtifacts
 {
     [CmdletBinding()]
     param(
@@ -179,11 +179,11 @@ function Publish-CirrusHelpArtifacts
         $enUs = Join-Path $moduleDir.FullName "en-US"
         New-Item -ItemType Directory -Force -Path $enUs | Out-Null
 
-        $tempOut = Join-Path ([System.IO.Path]::GetTempPath()) ("CirrusMaml-" + [Guid]::NewGuid().ToString('N'))
+        $tempOut = Join-Path ([System.IO.Path]::GetTempPath()) ("AzclipsMaml-" + [Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force -Path $tempOut | Out-Null
         try
         {
-            $produced = ConvertTo-CirrusModuleMaml -HelpDir $helpDir -OutputFolder $tempOut -ModuleName $moduleDir.Name
+            $produced = ConvertTo-AzclipsModuleMaml -HelpDir $helpDir -OutputFolder $tempOut -ModuleName $moduleDir.Name
 
             foreach ($xml in $produced)
             {
@@ -211,7 +211,7 @@ function Publish-CirrusHelpArtifacts
     Write-Host "Generated MAML help for $moduleCount PowerShell module(s)."
 }
 
-Invoke-CirrusBuild -Configuration $Configuration
+Invoke-AzclipsBuild -Configuration $Configuration
 
 # Ensure bin/ output directory exists before writing any artifacts
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot/../bin" | Out-Null
@@ -250,7 +250,7 @@ if ($GenerateHelpArtifacts)
 
     $helpToolExitCode = Invoke-HelpValidationTool -RepoRoot $repoRoot -ArtifactsRoot $artifactsRoot -OutputRoot $outputRoot
 
-    Publish-CirrusHelpArtifacts -RepoRoot $repoRoot -ArtifactsRoot $artifactsRoot
+    Publish-AzclipsHelpArtifacts -RepoRoot $repoRoot -ArtifactsRoot $artifactsRoot
 
     # Propagate the help tool's exit code so CI fails when help validation fails.
     if ($helpToolExitCode -ne 0)
