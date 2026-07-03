@@ -11,7 +11,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [ ] `tests/Cli.Tests` (owner: Daniel, references: 60, files: 17)
 - [x] `src/Extensions` (owner: Daniel, references: 0, files: 0)
 - [ ] `src/Core` (owner: Daniel, references: 15, files: 11)
-- [ ] `src/CLI` (owner: Daniel, references: 9, files: 25)
+- [ ] `src/CLI` (owner: Daniel, references: 12, files: 4)
 - [ ] `tests/Scripts` (owner: Daniel, references: 7, files: 109)
 
 ## Pass Tracking
@@ -35,3 +35,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - src/Core classification: mixed compatibility + stale naming/docs.
 	- Compatibility-preserving logic: dual package prefixes in assembly loading and registry lookup (`Microsoft.Azure.Cirrus.Extensions.*` retained intentionally for legacy installs).
 	- Candidate rename/update: `RegisterCirrusServices` method name/usages, README prose, and Cirrus wording in XML doc comments/examples.
+- src/CLI scan result (2026-07-03): 12 references across 4 files.
+- src/CLI classification: mixed compatibility + branding/env naming.
+	- Compatibility-preserving logic: dual prefix handling and short-name extraction for legacy extension package ids (`Microsoft.Azure.Cirrus.Extensions.*`).
+	- Candidate rename/update: appx manifest identity/display text and `CIRRUS_IN_AGENT_MODE` env var/comment wording in CLI startup fallback.
