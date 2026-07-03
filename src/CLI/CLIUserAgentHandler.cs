@@ -26,21 +26,7 @@ public class CLIUserAgentHandler : IUserAgentHandler
 
     private static string BuildUserAgent()
     {
-        var parts = new List<string>
-        {
-            $"AZURECLI/{GetProductVersion()}",
-        };
-
-        // Honour AZ_INSTALLER env var (e.g. "PIP", "MSI", "DOCKER") like azure-cli does.
-        var installer = Environment.GetEnvironmentVariable("AZ_INSTALLER");
-        if (!string.IsNullOrEmpty(installer))
-        {
-            parts.Add($"({installer})");
-        }
-
-        parts.Add("azclips/private-preview");
-
-        return string.Join(' ', parts);
+        return $"AZURECLI/{GetProductVersion()} azclips/private-preview";
     }
 
     private static string GetProductVersion()
