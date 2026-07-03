@@ -8,7 +8,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 
 - [x] `src/PS` (owner: Daniel, references: 0, files: 0)
 - [x] `tools/Help` (owner: Daniel, references: 0, files: 0)
-- [ ] `tests/Cli.Tests` (owner: Daniel, references: 21, files: 86)
+- [ ] `tests/Cli.Tests` (owner: Daniel, references: 60, files: 17)
 - [ ] `src/Extensions` (owner: Daniel, references: 17, files: 71)
 - [ ] `src/Core` (owner: Daniel, references: 15, files: 36)
 - [ ] `src/CLI` (owner: Daniel, references: 9, files: 25)
@@ -28,3 +28,5 @@ Track and remove remaining `Cirrus` references across selected directories.
 - Exclude generated outputs: `obj`, `bin`, `artifacts`, `devops/out`, `.git`.
 - src/PS rescan result (2026-07-03): 0 remaining `Cirrus` references after removing stale `*.Cirrus.*.dll-Help.xml` files.
 - tools/Help scan result (2026-07-03): 0 remaining `Cirrus` references.
+- tests/Cli.Tests scan result (2026-07-03): 60 references across 17 files.
+- tests/Cli.Tests hotspots: `ExtensionAddPlannerTests.cs` (15), `ExtensionRemoveTests.cs` (7), `StripKnownExtensionPrefixTests.cs` (6), `RegistryLookupTests.cs` (6).
