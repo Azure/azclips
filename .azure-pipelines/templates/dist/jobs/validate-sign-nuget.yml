@@ -26,8 +26,8 @@ jobs:
     displayName: Download ${{ parameters.display_name }}
     inputs:
       buildType: current
-      artifactName: ${{ parameters.artifact_name }}
-      targetPath: $(Pipeline.Workspace)/${{ parameters.artifact_name }}
+      artifact: ${{ parameters.artifact_name }}
+      path: $(Pipeline.Workspace)/${{ parameters.artifact_name }}
   - pwsh: |
       $ErrorActionPreference = 'Stop'
       $nupkgs = Get-ChildItem -Path "$(Pipeline.Workspace)/${{ parameters.artifact_name }}" -Recurse -File -Filter '*.nupkg'

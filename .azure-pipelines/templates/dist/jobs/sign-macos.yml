@@ -67,8 +67,8 @@ jobs:
           definition: ${{ parameters.source_pipeline_name }}
           buildVersionToDownload: specific
           pipelineId: ${{ parameters.source_build_id }}
-          artifactName: ${{ parameters.source_artifact_name }}
-          targetPath: $(Pipeline.Workspace)/unsigned-all
+          artifact: ${{ parameters.source_artifact_name }}
+          path: $(Pipeline.Workspace)/unsigned-all
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"
@@ -164,8 +164,8 @@ jobs:
       displayName: Download macOS Signing Inputs
       inputs:
         buildType: current
-        artifactName: macos-signing-inputs-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
+        artifact: macos-signing-inputs-$(MacOSArchitecture)
+        path: $(Pipeline.Workspace)/macos-signing-inputs
     - pwsh: |
         $ErrorActionPreference = 'Stop'
         $inputRoot = "$(Pipeline.Workspace)/macos-signing-inputs"
@@ -339,14 +339,14 @@ jobs:
       displayName: Download macOS Signing Inputs
       inputs:
         buildType: current
-        artifactName: macos-signing-inputs-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
+        artifact: macos-signing-inputs-$(MacOSArchitecture)
+        path: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed macOS Binaries
       inputs:
         buildType: current
-        artifactName: macos-signed-binaries-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-signed-binaries
+        artifact: macos-signed-binaries-$(MacOSArchitecture)
+        path: $(Pipeline.Workspace)/macos-signed-binaries
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
@@ -410,8 +410,8 @@ jobs:
       displayName: Download macOS Notarization Bundles
       inputs:
         buildType: current
-        artifactName: macos-notarization-bundles-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/toNotarize
+        artifact: macos-notarization-bundles-$(MacOSArchitecture)
+        path: $(Pipeline.Workspace)/toNotarize
     - task: EsrpCodeSigning@6
       displayName: Notarize macOS Bundles [MacAppNotarize]
       inputs:
@@ -475,14 +475,14 @@ jobs:
       displayName: Download macOS Signing Inputs
       inputs:
         buildType: current
-        artifactName: macos-signing-inputs-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
+        artifact: macos-signing-inputs-$(MacOSArchitecture)
+        path: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
       displayName: Download Notarized macOS Bundles
       inputs:
         buildType: current
-        artifactName: macos-notarized-bundles-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-notarized-bundles
+        artifact: macos-notarized-bundles-$(MacOSArchitecture)
+        path: $(Pipeline.Workspace)/macos-notarized-bundles
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"

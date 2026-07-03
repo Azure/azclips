@@ -17,8 +17,8 @@ jobs:
     displayName: Download Signed Windows Artifacts
     inputs:
       buildType: current
-      artifactName: signed-windows
-      targetPath: $(Pipeline.Workspace)/signed-windows
+      artifact: signed-windows
+      path: $(Pipeline.Workspace)/signed-windows
   - pwsh: |
       $ErrorActionPreference = 'Stop'
       $zips = Get-ChildItem -Path "$(Pipeline.Workspace)/signed-windows" -Recurse -File | Where-Object { $_.Name -match '-(x64|arm64)\.zip$' }

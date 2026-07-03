@@ -14,8 +14,8 @@ jobs:
     displayName: Download Signed Linux Artifacts
     inputs:
       buildType: current
-      artifactName: signed-linux
-      targetPath: $(Pipeline.Workspace)/signed-linux
+      artifact: signed-linux
+      path: $(Pipeline.Workspace)/signed-linux
   - bash: |
       set -euo pipefail
       count=$(find "$(Pipeline.Workspace)/signed-linux" -type f \( -name '*linux*.tar.gz' -o -name '*linux*.zip' \) | wc -l | tr -d ' ')

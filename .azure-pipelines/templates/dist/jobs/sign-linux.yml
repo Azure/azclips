@@ -45,8 +45,8 @@ jobs:
           definition: ${{ parameters.source_pipeline_name }}
           buildVersionToDownload: specific
           pipelineId: ${{ parameters.source_build_id }}
-          artifactName: ${{ parameters.source_artifact_name }}
-          targetPath: $(Pipeline.Workspace)/unsigned-all
+          artifact: ${{ parameters.source_artifact_name }}
+          path: $(Pipeline.Workspace)/unsigned-all
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"

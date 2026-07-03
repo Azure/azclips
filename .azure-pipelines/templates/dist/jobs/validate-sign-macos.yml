@@ -25,8 +25,8 @@ jobs:
     displayName: Download Signed macOS Artifacts
     inputs:
       buildType: current
-      artifactName: signed-macos-$(MacOSArchitecture)
-      targetPath: $(Pipeline.Workspace)/signed-macos
+      artifact: signed-macos-$(MacOSArchitecture)
+      path: $(Pipeline.Workspace)/signed-macos
   - bash: |
       set -euo pipefail
       root="$(Pipeline.Workspace)/signed-macos"

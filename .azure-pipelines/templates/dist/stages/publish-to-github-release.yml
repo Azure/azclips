@@ -88,8 +88,8 @@ stages:
       - task: DownloadPipelineArtifact@2
         displayName: Download Final Signed Distribution Artifact
         inputs:
-          artifactName: ${{ parameters.signed_artifact_name }}
-          targetPath: $(Pipeline.Workspace)/signed-dist
+          artifact: ${{ parameters.signed_artifact_name }}
+          path: $(Pipeline.Workspace)/signed-dist
     - ${{ if ne(parameters.signed_artifact_source, 'current') }}:
       - task: DownloadPipelineArtifact@2
         displayName: Download Final Signed Distribution Artifact
@@ -99,8 +99,8 @@ stages:
           definition: ${{ parameters.signed_pipeline_name }}
           buildVersionToDownload: specific
           pipelineId: ${{ parameters.signed_build_id }}
-          artifactName: ${{ parameters.signed_artifact_name }}
-          targetPath: $(Pipeline.Workspace)/signed-dist
+          artifact: ${{ parameters.signed_artifact_name }}
+          path: $(Pipeline.Workspace)/signed-dist
 
     - script: |
         set -euo pipefail

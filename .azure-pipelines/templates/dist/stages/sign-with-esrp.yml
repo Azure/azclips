@@ -251,43 +251,43 @@ stages:
       displayName: Download Signed Windows Artifacts
       inputs:
         buildType: current
-        artifactName: signed-windows
-        targetPath: $(Pipeline.Workspace)/signed-windows
+        artifact: signed-windows
+        path: $(Pipeline.Workspace)/signed-windows
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed NuGet Artifacts
       inputs:
         buildType: current
-        artifactName: signed-nuget
-        targetPath: $(Pipeline.Workspace)/signed-nuget
+        artifact: signed-nuget
+        path: $(Pipeline.Workspace)/signed-nuget
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed PowerShell Module Artifacts
       inputs:
         buildType: current
-        artifactName: signed-ps-module
-        targetPath: $(Pipeline.Workspace)/signed-ps-module
+        artifact: signed-ps-module
+        path: $(Pipeline.Workspace)/signed-ps-module
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed Linux Artifacts
       inputs:
         buildType: current
-        artifactName: signed-linux
-        targetPath: $(Pipeline.Workspace)/signed-linux
+        artifact: signed-linux
+        path: $(Pipeline.Workspace)/signed-linux
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed macOS Artifacts [arm64]
       inputs:
         buildType: current
-        artifactName: signed-macos-arm64
-        targetPath: $(Pipeline.Workspace)/signed-macos/arm64
+        artifact: signed-macos-arm64
+        path: $(Pipeline.Workspace)/signed-macos/arm64
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed macOS Artifacts [x64]
       inputs:
         buildType: current
-        artifactName: signed-macos-x64
-        targetPath: $(Pipeline.Workspace)/signed-macos/x64
+        artifact: signed-macos-x64
+        path: $(Pipeline.Workspace)/signed-macos/x64
 
     - bash: |
         set -euo pipefail
