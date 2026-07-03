@@ -322,9 +322,7 @@ public class ExtensionDispatcherTests
         // points at an intermediate group, GetCommandHelp returns null and GetGroupHelp returns
         // the group with the leaf as a sub-command. RuntimeHelpDispatcher relies on this to
         // recover from the parser's optimistic IsCommandHelp=true flag.
-        var index = new StubExtensionIndex(
-            verb: "deployment",
-            cliLeaf: "deployment group create");
+        var index = new StubExtensionIndex(cliLeaf: "deployment group create");
         var adapter = new ExtensionIndexHelpAdapter(index.GetCommandTable(ClientType.CLI), "deployment");
 
         var commandAtIntermediatePath = adapter.GetCommandHelp(["deployment", "group"]);
@@ -342,7 +340,7 @@ public class ExtensionDispatcherTests
     /// CLI leaf so we can model intermediate-group shapes (e.g. <c>deployment group create</c>)
     /// without pulling in a real extension assembly.
     /// </summary>
-    private sealed class StubExtensionIndex(string verb, string cliLeaf) : IExtensionIndex
+    private sealed class StubExtensionIndex(string cliLeaf) : IExtensionIndex
     {
         private static readonly CommandMetadata s_metadata = new(
             Name: "Stub",
@@ -359,8 +357,6 @@ public class ExtensionDispatcherTests
             [cliLeaf] = s_metadata,
         };
 
-        private readonly IReadOnlyList<string> _verbs = new[] { verb };
-
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
             => _table.TryGetValue(name, out var m) ? m : throw new KeyNotFoundException(name);
 
@@ -369,7 +365,5 @@ public class ExtensionDispatcherTests
         public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) => _table.Values;
 
         public IEnumerable<string> GetCommandKeys(ClientType clientType) => _table.Keys;
-
-        public IReadOnlyList<string> GetVerbs() => _verbs;
     }
 }

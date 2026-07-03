@@ -32,7 +32,7 @@ namespace Core.Cli.Help
     {
         /// <summary>
         /// Builds one <see cref="HelpManifest"/> per verb declared by the extension. Verbs
-        /// come from <see cref="IExtensionIndex.GetVerbs"/>; commands are partitioned across
+        /// come from <see cref="ExtensionVerbAttribute"/> declarations; commands are partitioned across
         /// manifests by their <c>s_cliTable</c> key prefix.
         /// </summary>
         public static IReadOnlyList<HelpManifest> BuildManifests(
@@ -41,11 +41,11 @@ namespace Core.Cli.Help
         {
             ArgumentNullException.ThrowIfNull(extensionIndex);
 
-            var verbs = extensionIndex.GetVerbs();
+            var verbs = ExtensionVerbDeclarations.GetDeclaredVerbs(extensionIndex);
             if (verbs.Count == 0)
             {
                 throw new InvalidOperationException(
-                    $"Extension '{extensionIndex.GetType().FullName}' declares no verbs. Override IExtensionIndex.GetVerbs() to mirror the [ExtensionVerb] attributes.");
+                    $"Extension '{extensionIndex.GetType().FullName}' declares no [ExtensionVerb] attributes.");
             }
 
             return verbs

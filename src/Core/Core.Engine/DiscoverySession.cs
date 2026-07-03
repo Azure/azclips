@@ -72,7 +72,7 @@ internal class DiscoverySession : ISession
                     extensionInfos.Add(new DiscoveredExtensionInfo(
                         PackageId: packageId,
                         ResolvedVersion: info.Version,
-                        Verbs: index.GetVerbs(),
+                        Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
                         Commands: commands));
                 }
                 catch (Exception ex)
@@ -100,7 +100,7 @@ internal class DiscoverySession : ISession
                     extensionInfos.Add(new DiscoveredExtensionInfo(
                         PackageId: packageId,
                         ResolvedVersion: version,
-                        Verbs: index.GetVerbs(),
+                        Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
                         Commands: commands));
                 }
                 catch (Exception ex)
@@ -124,7 +124,7 @@ internal class DiscoverySession : ISession
                 extensionInfos.Add(new DiscoveredExtensionInfo(
                     PackageId: metadata.AssemblyName,
                     ResolvedVersion: version,
-                    Verbs: index.GetVerbs(),
+                    Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
                     Commands: new Dictionary<string, CommandMetadata> { [metadata.InvocationName] = metadata }));
             }
             catch (Exception ex)
