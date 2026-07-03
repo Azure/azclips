@@ -32,9 +32,10 @@ public class StripKnownExtensionPrefixTests
     [Theory]
     [InlineData("ContosoCorp.MyExtension", "ContosoCorp.MyExtension")]
     [InlineData("Compute", "Compute")] // already short
-    [InlineData("Microsoft.Azure.Cirrus.SomethingElse", "Microsoft.Azure.Cirrus.SomethingElse")]
+    [InlineData("Microsoft.Azure.Azclips.SomethingElse", "Microsoft.Azure.Azclips.SomethingElse")]
     public void StripKnownExtensionPrefix_ShouldPassThrough_WhenPrefixAbsent(string input, string expected)
     {
         Assert.Equal(expected, Constants.StripKnownExtensionPrefix(input));
     }
 }
+

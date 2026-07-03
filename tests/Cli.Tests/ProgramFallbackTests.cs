@@ -10,7 +10,7 @@ namespace Cli.Tests;
 /// These tests verify the fallback mechanism completes without exceptions.
 /// Tests timeout after 10 seconds - we only verify fallback is invoked, not the AI response.
 /// </summary>
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class ProgramFallbackTests
 {
     [Fact]
@@ -98,3 +98,4 @@ public class ProgramFallbackTests
         }
     }
 }
+

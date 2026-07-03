@@ -8,7 +8,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 
 - [x] `src/PS` (owner: Daniel, references: 0, files: 0)
 - [x] `tools/Help` (owner: Daniel, references: 0, files: 0)
-- [ ] `tests/Cli.Tests` (owner: Daniel, references: 60, files: 17)
+- [x] `tests/Cli.Tests` (owner: Daniel, references: 0, files: 0)
 - [x] `src/Extensions` (owner: Daniel, references: 0, files: 0)
 - [x] `src/Core` (owner: Daniel, references: 0, files: 0)
 - [x] `tests/Core.Extensions.Tests` (owner: Daniel, references: 0, files: 0)
@@ -33,6 +33,8 @@ Track and remove remaining `Cirrus` references across selected directories.
 - tools/Help scan result (2026-07-03): 0 remaining `Cirrus` references.
 - tests/Cli.Tests scan result (2026-07-03): 60 references across 17 files.
 - tests/Cli.Tests hotspots: `ExtensionAddPlannerTests.cs` (15), `ExtensionRemoveTests.cs` (7), `StripKnownExtensionPrefixTests.cs` (6), `RegistryLookupTests.cs` (6).
+- tests/Cli.Tests code-change pass result (2026-07-03): reduced from 60 hits/17 files to 0 hits/0 files.
+- tests/Cli.Tests decision: migrated remaining collection labels, temp-path prefixes, package-id literals, and sample resource names to Azclips equivalents.
 - src/Extensions scan result (2026-07-03): 0 remaining `Cirrus` references.
 - src/Core scan result (2026-07-03): 15 references across 11 files.
 - src/Core classification: mixed compatibility + stale naming/docs.

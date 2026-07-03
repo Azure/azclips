@@ -131,7 +131,7 @@ public class RestProcessorTests
         var pipeline = CapturingPipeline(uri => sentUri = uri);
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
-        processor.ResourceGroupName = "cirrus-test-group-1";
+        processor.ResourceGroupName = "azclips-test-group-1";
         processor.ResourceProviderName = "Microsoft.Storage";
         processor.ResourceType = ["storageAccounts"];
         processor.Name = ["myaccount"];
@@ -142,7 +142,7 @@ public class RestProcessorTests
         Assert.Equal(1, pipeline.SendCount);
         Assert.NotNull(sentUri);
         Assert.Equal(
-            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/cirrus-test-group-1/providers/Microsoft.Storage/storageAccounts/myaccount?api-version=2023-01-01",
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/azclips-test-group-1/providers/Microsoft.Storage/storageAccounts/myaccount?api-version=2023-01-01",
             sentUri!.ToString());
     }
 
@@ -154,7 +154,7 @@ public class RestProcessorTests
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
         processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroupName = "cirrus-test-group-1";
+        processor.ResourceGroupName = "azclips-test-group-1";
         processor.ResourceProviderName = "Microsoft.Storage";
         processor.ResourceType = ["storageAccounts"];
         // No Name → collection GET on the last type.
@@ -164,7 +164,7 @@ public class RestProcessorTests
 
         Assert.Equal(1, pipeline.SendCount);
         Assert.Equal(
-            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/cirrus-test-group-1/providers/Microsoft.Storage/storageAccounts?api-version=2023-01-01",
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/azclips-test-group-1/providers/Microsoft.Storage/storageAccounts?api-version=2023-01-01",
             sentUri!.ToString());
     }
 
@@ -597,3 +597,4 @@ public class RestProcessorTests
         public Task Publish(string id, Uri uri) { PublishedIds.Add(id); return Task.CompletedTask; }
     }
 }
+

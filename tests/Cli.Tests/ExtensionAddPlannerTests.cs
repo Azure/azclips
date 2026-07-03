@@ -255,7 +255,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
                 $"Could not locate built fixture '{fixtureName}'. Run `dotnet build " +
                 $"tests/Fixtures/{fixtureName}/Azclips.Tests.Fixtures.{fixtureName}.csproj`.");
 
-        var tempDir = Path.Combine(Path.GetTempPath(), $"cirrus-extadd-{Guid.NewGuid():N}");
+        var tempDir = Path.Combine(Path.GetTempPath(), $"azclips-extadd-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         _tempRoots.Add(tempDir);
 
@@ -303,4 +303,5 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         return Path.GetFileName(configDir);
     }
 }
+
 
