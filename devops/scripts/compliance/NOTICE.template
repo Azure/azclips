@@ -27,7 +27,7 @@ Scope notes:
   documentation site and are not distributed, so they are excluded.
 - In the distributable PowerShell cmdlet projects under src/PS/, System.Management.Automation is referenced with PrivateAssets="all" and is
   provided by the PowerShell host at runtime rather than redistributed.
-- AI capabilities are provided by calling the Azure OpenAI service through
-  Microsoft SDKs; no third-party AI model is bundled or distributed with Azclips.
+- Agent AI capabilities are provided through the GitHub Copilot SDK; no
+  third-party AI model is bundled or distributed with Azclips.
 
 {{GENERATED_NOTICE_CONTENT}}
