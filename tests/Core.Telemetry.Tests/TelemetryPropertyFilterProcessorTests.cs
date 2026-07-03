@@ -19,7 +19,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
     public TelemetryPropertyFilterProcessorTests()
     {
         // Unique source name per fixture so parallel tests stay isolated.
-        _source = new ActivitySource("cirrus-filter-test-" + Guid.NewGuid().ToString("N"));
+        _source = new ActivitySource("azclips-filter-test-" + Guid.NewGuid().ToString("N"));
         _listener = new ActivityListener
         {
             ShouldListenTo = src => src == _source,
@@ -44,7 +44,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         activity.SetTag(TelemetryTags.Command, "Get-AzAccount");           // allowed
         activity.SetTag("http.url", "https://example.com/subs/abcd");           // dropped
         activity.SetTag("subscriptionId", "guid-1234");                         // dropped
-        activity.SetTag(TelemetryTags.ModuleName, "Cirrus.Login");              // allowed
+        activity.SetTag(TelemetryTags.ModuleName, "Azclips.Login");              // allowed
         activity.Stop();
 
         processor.OnEnd(activity);
