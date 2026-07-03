@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <AssemblyName>Cirrus.Tests.Fixtures.SharedAlpha</AssemblyName>
-    <RootNamespace>Cirrus.Tests.Fixtures.SharedAlpha</RootNamespace>
+    <AssemblyName>Azclips.Tests.Fixtures.SharedBeta</AssemblyName>
+    <RootNamespace>Azclips.Tests.Fixtures.SharedBeta</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
