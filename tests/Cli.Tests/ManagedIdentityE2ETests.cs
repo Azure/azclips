@@ -287,7 +287,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
         var response = await httpClient.SendAsync(request);
         var content = await response.Content.ReadAsStringAsync();
-        var tokenResponse = JsonSerializer.Deserialize<JsonDocument>(content);
+        using var tokenResponse = JsonSerializer.Deserialize<JsonDocument>(content);
 
         var clientId = tokenResponse?.RootElement.GetProperty("client_id").GetString();
         Assert.Equal(customClientId, clientId);
