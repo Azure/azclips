@@ -212,8 +212,8 @@ fi
 
 echo ""
 echo "Installed extensions:"
-if [[ -d "$SIM_ROOT/home/.cirrus/extensions" ]]; then
-  find "$SIM_ROOT/home/.cirrus/extensions" -maxdepth 3 -type d | sort
+if [[ -d "$SIM_ROOT/home/.azclips/extensions" ]]; then
+  find "$SIM_ROOT/home/.azclips/extensions" -maxdepth 3 -type d | sort
 else
   echo "  No installed extensions directory found."
 fi

@@ -293,8 +293,8 @@ stages:
         core_project='src/CLI/Core.Cli.csproj'
         changelog_file='CHANGELOG.md'
 
-        git config user.name "Cirrus Release Automation"
-        git config user.email "cirrus-release-automation@microsoft.com"
+        git config user.name "Azclips Release Automation"
+        git config user.email "azclips-release-automation@microsoft.com"
         git_add_paths=(
           "$core_project"
           "$changelog_file"
@@ -498,8 +498,8 @@ stages:
         echo "Stable tag to create: $tag_name"
         echo "Tagged commit: $source_commit"
 
-        git config user.name "Cirrus Release Automation"
-        git config user.email "cirrus-release-automation@microsoft.com"
+        git config user.name "Azclips Release Automation"
+        git config user.email "azclips-release-automation@microsoft.com"
         git tag -a "$tag_name" "$source_commit" -m "Release $tag_name"
         basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
         git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "$tag_ref"
