@@ -16,7 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Cli.Tests" />
+    <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
   </ItemGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />

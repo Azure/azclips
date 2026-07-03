@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
+    <AssemblyOriginatorKeyFile>../../src/MSSharedLibKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj" />
   </ItemGroup>
