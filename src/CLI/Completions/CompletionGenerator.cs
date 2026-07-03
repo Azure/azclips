@@ -32,18 +32,15 @@ internal static class CompletionGenerator
             return null;
         }
 
-        Console.WriteLine("{}");
-        return 0;
+        if (!IsCompletionEnabled())
+        {
+            Console.WriteLine("{}");
+            return 0;
+        }
 
-        // if (!IsCompletionEnabled())
-        // {
-        //     Console.WriteLine("{}");
-        //     return 0;
-        // }
-
-        // // Extract any command context passed after --completions
-        // var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
-        // return await GenerateAsync(clientType, commandContext);
+        // Extract any command context passed after --completions
+        var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
+        return await GenerateAsync(clientType, commandContext);
     }
 
     /// <summary>
