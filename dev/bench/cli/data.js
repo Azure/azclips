@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783055764445,
+  "lastUpdate": 1783059851264,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2394,6 +2394,48 @@ window.BENCHMARK_DATA = {
             "value": 946984.7702391674,
             "unit": "ns",
             "range": "± 304891.80315719516"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b9825821b0cb37f399afb0ca358b446fdcfe9420",
+          "message": "{DevOps} Enable azclips release pipelines (#367)\n\n## Summary\n- Port azclips Azure Pipelines and devops release scripts for build,\npackage, signing, release, NOTICE, and PowerShell module flows.\n- Add release metadata needed by stable release automation, including Az\nrollup manifest and module changelogs.\n- Enable Release delay-signing/public-key friend assemblies so ESRP\nstrong-name signing can process first-party payloads.\n- Fix common packaging restore to use the azclips solution name.\n\n## Local validation\n- Bash syntax check for devops shell scripts.\n- PowerShell parser check for build/devops scripts.\n- `git diff --check`.\n- `build/build.ps1 -Configuration Release -GenerateHelpArtifacts`.\n- Packed Az PowerShell modules and validated import/help from the local\ngallery.\n- Built Linux/macOS/Windows x64/arm64 lean/full package artifacts\nlocally.\n- Ran Linux tarball runtime smoke test with bundled and optional\nextensions.\n- Created component archives including `azcli-extensions-0.1.0.tar.gz`\nand `azps-cmdlets-0.1.0.tar.gz`.\n- Verified 19 first-party DLLs inside PowerShell module nupkgs carry\nstrong-name token `31bf3856ad364e35`.\n\n## Notes\n- ESRP/AuthentiCode signing itself was not run locally; signing jobs use\n`windows-latest`, while local Linux PowerShell does not provide\n`Get-AuthenticodeSignature`.",
+          "timestamp": "2026-07-03T16:22:15+10:00",
+          "tree_id": "0074534c7b557459217687294cd967b1114c443d",
+          "url": "https://github.com/Azure/azclips/commit/b9825821b0cb37f399afb0ca358b446fdcfe9420"
+        },
+        "date": 1783059850557,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 986564.1731038623,
+            "unit": "ns",
+            "range": "± 301496.5279686316"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 956896.281312525,
+            "unit": "ns",
+            "range": "± 299273.9247947115"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 948451.1577946768,
+            "unit": "ns",
+            "range": "± 289620.07570295926"
           }
         ]
       }
