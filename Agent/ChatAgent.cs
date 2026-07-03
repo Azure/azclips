@@ -4,6 +4,7 @@ using Core.Agent.Common;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.Providers;
 using Core.Agent.Tools.Env;
 using Core.Agent.Tools;
 using Core.Agent.Tools.Resource.Cache;
@@ -204,7 +205,7 @@ public sealed class ChatAgent : IAsyncDisposable
             case "builtin":
                 resolvedModel = options.Builtin.ModelId;
                 sessionConfig.Model = resolvedModel;
-                sessionConfig.Provider = await BuildBuiltinProviderConfigAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                sessionConfig.Provider = await BuiltinProviderConfig.BuildAsync(options.Builtin, auth, ct).ConfigureAwait(false);
                 break;
 
             case "github":
@@ -213,7 +214,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
             default:
                 throw new ArgumentException(
-                    $"Unknown agent.provider value: {FormatProviderForError(options.Provider)}. Expected: builtin | github.",
+                    $"Unknown agent.provider value: {BuiltinProviderConfig.FormatProviderForError(options.Provider)}. Expected: builtin | github.",
                     nameof(options));
         }
 
@@ -284,73 +285,6 @@ public sealed class ChatAgent : IAsyncDisposable
             OnEvent = eventRenderer.Forward,
         };
     }
-
-    private static async Task<ProviderConfig> BuildBuiltinProviderConfigAsync(
-        BuiltinProviderOptions opts,
-        IAuthService auth,
-        CancellationToken ct)
-    {
-        Core.Abstractions.AuthResult? authResult;
-        try
-        {
-            authResult = await auth.AcquireTokenSilentlyAsync(
-                scopes: [opts.Scope],
-                tenantId: null,
-                promptOnError: false,
-                cancellationToken: ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Ctrl+C during startup: let cancellation bubble up so the top-level
-            // handler exits quietly (130), instead of masquerading as an auth failure.
-            throw;
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException(
-                BuildBuiltinAuthErrorMessage() +
-                $"{Environment.NewLine}{Environment.NewLine}Underlying cause: {ex.GetType().Name}: {ex.Message}",
-                ex);
-        }
-
-        if (authResult is null || string.IsNullOrEmpty(authResult.AccessToken))
-        {
-            throw new InvalidOperationException(BuildBuiltinAuthErrorMessage());
-        }
-
-        return new ProviderConfig
-        {
-            Type = "azure",
-            WireApi = "responses",
-            BaseUrl = opts.Endpoint,
-            BearerToken = authResult.AccessToken,
-            ModelId = opts.ModelId,
-            WireModel = opts.ModelId,
-            Azure = new AzureOptions { ApiVersion = opts.ApiVersion },
-        };
-    }
-
-    private static string BuildBuiltinAuthErrorMessage() =>
-        """
-        Agent's 'builtin' provider requires an Azure login to call the managed GPT model.
-        No active Azure account was found.
-
-        To fix this, run:
-            az login --subscription-id <your-subscription-id>
-
-        Alternative: switch to the 'github' provider (uses your own GitHub Copilot subscription,
-        billed to your GitHub account):
-            az config set --key agent.provider --value github
-        """;
-
-    private static string FormatProviderForError(string? provider)
-    {
-        if (provider is null) return "(null)";
-        if (provider.Length == 0) return "(empty)";
-        if (string.IsNullOrWhiteSpace(provider)) return $"(whitespace, length={provider.Length})";
-        return $"'{provider}'";
-    }
-
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
         LastError = null;
