@@ -8,10 +8,6 @@
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 
-# Cache: group -> hashtable (populated on first access per session)
-$global:_azCompletionCache = @{}
-$global:_azTopLevelGroups = $null
-
 function global:_azResolveExe {
     # 1. Same directory as this script (e.g. artifacts/Release/Core.Cli/)
     $local = Join-Path $PSScriptRoot 'az.exe'
@@ -58,29 +54,19 @@ function global:_azQueryCompletions {
 }
 
 function global:_azGetTopLevelGroups {
-    if ($null -ne $global:_azTopLevelGroups) { return $global:_azTopLevelGroups }
+    # Always query `az --completions` at tab time (no caching).
     $tree = _azQueryCompletions
     if ($tree -and $tree.Count -gt 0) {
-        $global:_azTopLevelGroups = @($tree.Keys | Sort-Object)
-        # Cache full tree as well
-        foreach ($k in $tree.Keys) {
-            $global:_azCompletionCache[$k] = $tree[$k]
-        }
-    } else {
-        $global:_azTopLevelGroups = @()
+        return @($tree.Keys | Sort-Object)
     }
-    return $global:_azTopLevelGroups
+    return @()
 }
 
 function global:_azGetGroupDef {
     param([string]$group)
-    if ($global:_azCompletionCache.ContainsKey($group)) {
-        return $global:_azCompletionCache[$group]
-    }
-    # Dynamic fetch for this group
+    # Always query `az --completions <group>` at tab time (no caching).
     $tree = _azQueryCompletions @($group)
     if ($tree -and $tree.Count -gt 0) {
-        $global:_azCompletionCache[$group] = $tree
         return $tree
     }
     return $null
