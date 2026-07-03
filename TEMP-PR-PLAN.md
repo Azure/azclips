@@ -12,6 +12,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [x] `src/Extensions` (owner: Daniel, references: 0, files: 0)
 - [ ] `src/Core` (owner: Daniel, references: 15, files: 11)
 - [ ] `tests/Core.Extensions.Tests` (owner: Daniel, references: 36, files: 5)
+- [ ] `tests/Fixtures` (owner: Daniel, references: 10, files: 4)
 - [ ] `src/CLI` (owner: Daniel, references: 12, files: 4)
 - [ ] `tests/Scripts` (owner: Daniel, references: 109, files: 7)
 
@@ -34,15 +35,18 @@ Track and remove remaining `Cirrus` references across selected directories.
 - src/Extensions scan result (2026-07-03): 0 remaining `Cirrus` references.
 - src/Core scan result (2026-07-03): 15 references across 11 files.
 - src/Core classification: mixed compatibility + stale naming/docs.
-	- Compatibility-preserving logic: dual package prefixes in assembly loading and registry lookup (`Microsoft.Azure.Cirrus.Extensions.*` retained intentionally for legacy installs).
-	- Candidate rename/update: `RegisterCirrusServices` method name/usages, README prose, and Cirrus wording in XML doc comments/examples.
+    - Compatibility-preserving logic: dual package prefixes in assembly loading and registry lookup (`Microsoft.Azure.Cirrus.Extensions.*` retained intentionally for legacy installs).
+    - Candidate rename/update: `RegisterCirrusServices` method name/usages, README prose, and Cirrus wording in XML doc comments/examples.
 - src/CLI scan result (2026-07-03): 12 references across 4 files.
 - src/CLI classification: mixed compatibility + branding/env naming.
-	- Compatibility-preserving logic: dual prefix handling and short-name extraction for legacy extension package ids (`Microsoft.Azure.Cirrus.Extensions.*`).
-	- Candidate rename/update: appx manifest identity/display text and `CIRRUS_IN_AGENT_MODE` env var/comment wording in CLI startup fallback.
+    - Compatibility-preserving logic: dual prefix handling and short-name extraction for legacy extension package ids (`Microsoft.Azure.Cirrus.Extensions.*`).
+    - Candidate rename/update: appx manifest identity/display text and `CIRRUS_IN_AGENT_MODE` env var/comment wording in CLI startup fallback.
 - tests/Scripts scan result (2026-07-03): 109 references across 7 files.
 - tests/Scripts hotspots: `CLI/DeploymentCreate.sh` (27), `PS/DeploymentCreate.ps1` (26), `CLI/DeploymentWhatIf.sh` (19), `PS/DeploymentWhatIf.ps1` (18), `PS/rest.ps1` (15).
 - tests/Scripts classification: mostly sample resource/deployment names prefixed with `cirrus-*`; includes command compatibility mentions like `Invoke-CirrusRestMethod` and a historical env-var comment (`CIRRUS_AGENT_DISABLED`).
 - tests/Core.Extensions.Tests scan result (2026-07-03): 36 references across 5 files.
 - tests/Core.Extensions.Tests hotspots: `FileExtensionRegistryStoreTests.cs` (11), `MultiNamespaceTests.cs` (11), `ExtensionHintTableTests.cs` (8).
 - tests/Core.Extensions.Tests classification: mostly compatibility assertions for legacy package ids (`Microsoft.Azure.Cirrus.Extensions.*`) and temp path labels (`cirrus-*`).
+- tests/Fixtures scan result (2026-07-03): 10 references across 4 files.
+- tests/Fixtures hotspots: `SharedAlpha/ExtensionIndex.cs` (3), `SharedBeta/ExtensionIndex.cs` (3), `SharedAlpha/Cirrus.Tests.Fixtures.SharedAlpha.csproj` (2), `SharedBeta/Cirrus.Tests.Fixtures.SharedBeta.csproj` (2).
+- tests/Fixtures classification: fixture assembly identity and namespace names still use `Cirrus.Tests.Fixtures.*` for test linkage compatibility.
