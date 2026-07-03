@@ -32,9 +32,48 @@ internal static class CompletionGenerator
             return null;
         }
 
-        // Extract any command context passed after --completions
-        var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
-        return await GenerateAsync(clientType, commandContext);
+        Console.WriteLine("{}");
+        return 0;
+
+        // if (!IsCompletionEnabled())
+        // {
+        //     Console.WriteLine("{}");
+        //     return 0;
+        // }
+
+        // // Extract any command context passed after --completions
+        // var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
+        // return await GenerateAsync(clientType, commandContext);
+    }
+
+    /// <summary>
+    /// Resolves the configuration service and reports whether shell tab-completion
+    /// is enabled. Isolated so the DI lookup can fail independently of the config read.
+    /// </summary>
+    private static bool IsCompletionEnabled()
+    {
+        try
+        {
+            var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+            return ResolveEnabled(config);
+        }
+        catch
+        {
+            // Configuration service unavailable
+            return true;
+        }
+    }
+
+    internal static bool ResolveEnabled(IConfigurationService config)
+    {
+        try
+        {
+            return config.GetConfiguration<CompletionOptions>().Enabled;
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     private static async Task<int> GenerateAsync(ClientType clientType, List<string>? commandContext = null)

@@ -23,6 +23,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | `agent.sessionStyle`                          | string | `oneShot`          | Agent interaction mode: `oneShot` (single plan, then stop) or `interactive` (multi-turn)                                                                               |
 | `agent.trace.enabled`                         | bool   | `false`            | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation                                                                            |
 | `agent.trace.path`                            | string | `~/.azclips/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write)                                                                      |
+| `completion.enabled`                          | bool   | `true`             | Enable `az` shell tab-completion; set `false` to stop suggestions even while the completion script stays sourced (PowerShell may need re-sourcing to re-enable)         |
 | `extensions.resources.arm.apiVersionOverride` | string | (empty)            | Override ARM API version                                                                                                                                               |
 | `clients.cli.output.format`                   | string | `table`            | CLI output format: `json`, `table`, `tsv`, `yaml`                                                                                                                      |
 | `clients.powershell.output.format`            | string | `object`           | PowerShell output format: `object`, `json`, `table`                                                                                                                    |
@@ -280,3 +281,25 @@ Get-AzConfigList | Where-Object { $_ -notmatch '\[default\]' } | ForEach-Object 
   Remove-AzConfig -Key $key -Force
 }
 ```
+
+### Workflow: Disable or re-enable shell tab-completion
+
+Shell tab-completion is on by default once you source a completion script. The
+`completion.enabled` key gates it at the source of truth (`az --completions`), so
+setting it `false` stops suggestions in every shell even while the script is still
+sourced.
+
+**CLI:**
+
+```bash
+# Disable tab-completion (takes effect on the next Tab; no re-source needed)
+az config set --key completion.enabled --value false
+
+# Re-enable it
+az config set --key completion.enabled --value true
+```
+
+> **PowerShell note:** `az.completions.ps1` caches results per session. After
+> re-enabling, start a new session or re-source the script so PowerShell drops the
+> cached empty result. bash and zsh pick the change up on the next Tab.
+

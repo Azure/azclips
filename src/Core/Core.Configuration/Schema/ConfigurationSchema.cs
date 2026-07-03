@@ -29,6 +29,7 @@ public sealed class ConfigurationSchema : IConfigurationSchema
         new() { Key = "agent.builtin.scope", Description = "AAD scope requested when acquiring a token for the builtin provider.", DefaultValue = "https://management.core.windows.net//.default", ValueType = typeof(string) },
         new() { Key = "agent.builtin.modelId", Description = "Model deployment name used by the builtin provider.", DefaultValue = "gpt-5.4", ValueType = typeof(string) },
         new() { Key = "agent.builtin.apiVersion", Description = "Azure OpenAI API version used by the builtin provider.", DefaultValue = "2025-04-01-preview", ValueType = typeof(string) },
+        new() { Key = "completion.enabled", Description = "Enable or disable az shell tab-completion. On by default; set false to disable suggestions even when the completion script is already sourced.", DefaultValue = "true", ValueType = typeof(bool) },
         new() { Key = "extensions.resources.arm.apiVersionOverride", Description = "Override ARM API version.", ValueType = typeof(string) },
         new() { Key = "clients.cli.output.format", Description = "Default CLI output format.", DefaultValue = "table", ValueType = typeof(string), AllowedValues = ["json", "table", "tsv", "yaml"] },
         new() { Key = "clients.powershell.output.format", Description = "Default PowerShell output format.", DefaultValue = "object", ValueType = typeof(string), AllowedValues = ["object", "json", "table"] },

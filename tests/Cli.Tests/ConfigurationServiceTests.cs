@@ -144,6 +144,43 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public void GetConfiguration_ShouldDefaultCompletionEnabled_OnEmptyConfig()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var options = service.GetConfiguration<CompletionOptions>();
+
+        // Completion is opt-out: sourcing a completion script works out of the box.
+        Assert.True(options.Enabled);
+    }
+
+    [Fact]
+    public async Task SetConfigurationAsync_ShouldRoundTripCompletionEnabled()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("completion.enabled", false);
+
+        var options = service.GetConfiguration<CompletionOptions>();
+
+        Assert.False(options.Enabled);
+    }
+
+    [Fact]
+    public async Task ListConfigurationAsync_ShouldReportCompletionEnabledDefaultTrue()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+
+        // Schema/list default must match the POCO default (CompletionOptions.Enabled=true).
+        Assert.Equal(true, values["completion.enabled"]);
+    }
+
+    [Fact]
     public async Task ListConfigurationAsync_ShouldReportAgentEnabledDefaultFalse()
     {
         using var fixture = new TempConfigurationFixture();

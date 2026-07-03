@@ -33,6 +33,7 @@ public sealed class ConfigurationService(
         [typeof(AssemblyLoadingOptions)] = "assemblyLoading",
         [typeof(TelemetryOptions)] = "telemetry",
         [typeof(AgentOptions)] = "agent",
+        [typeof(CompletionOptions)] = "completion",
         [typeof(ExtensionsOptions)] = "extensions",
         [typeof(ClientsOptions)] = "clients",
         [typeof(DefaultsOptions)] = "defaults"
@@ -327,6 +328,7 @@ public sealed class ConfigurationService(
         AddDefaults(defaults, new AssemblyLoadingOptions(), "assemblyLoading");
         AddDefaults(defaults, new TelemetryOptions(), "telemetry");
         AddDefaults(defaults, new AgentOptions(), "agent");
+        AddDefaults(defaults, new CompletionOptions(), "completion");
         AddDefaults(defaults, new ExtensionsOptions(), "extensions");
         AddDefaults(defaults, new ClientsOptions(), "clients");
         AddDefaults(defaults, new DefaultsOptions(), "defaults");
