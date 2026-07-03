@@ -24,6 +24,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [ ] Pass 3: apply code-level renames and fix call sites
 - [ ] Pass 4: run validation (build/tests/help checks)
 - [ ] Pass 5: final grep and PR notes
+- [ ] Pass 6: filename sweep across all covered directories (files, folders, and project names)
 
 ## Notes
 
