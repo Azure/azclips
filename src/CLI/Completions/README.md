@@ -52,6 +52,34 @@ Now press Tab after `az ` to see suggestions:
 az group <Tab>
 ```
 
+### bash
+
+```bash
+# Build solution
+pwsh ./build/build.ps1
+
+# Load completions into current session
+source ./bin/az.completions.bash
+```
+
+Now press Tab after `az ` to see suggestions:
+```bash
+az group <Tab>
+```
+
+## Toggling Completion
+
+Completion is enabled by default. A config key gates it at the source of truth
+(`az --completions`), so you can turn it off without un-sourcing the script:
+
+```bash
+# Disable — az --completions returns an empty tree, so no shell offers suggestions
+az config set --key completion.enabled --value false
+
+# Re-enable
+az config set --key completion.enabled --value true
+```
+
 ## Testing Completions Manually
 
 ```powershell

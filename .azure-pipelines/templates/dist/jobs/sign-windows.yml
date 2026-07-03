@@ -7,91 +7,666 @@ parameters:
   default: 'public'
 - name: source_pipeline_name
   type: string
-  default: 'cirrus-adhoc-build'
+  default: 'azclips-adhoc-build'
 - name: source_build_id
   type: string
   default: ''
 - name: source_artifact_name
   type: string
-  default: 'Distribution_Final'
+  default: 'Final_Build_Distribution'
 - name: source_artifact_source
   type: string
   default: 'specific'
+- name: esrp_service_connection
+  type: string
+  default: ''
+- name: esrp_authenticode_keycode
+  type: string
+  default: 'CP-230012'
+- name: esrp_third_party_keycode
+  type: string
+  default: 'CP-231522'
+- name: esrp_strong_name_keycode
+  type: string
+  default: 'CP-233863-SN'
+- name: esrp_enable_windows_verify
+  type: boolean
+  default: true
+- name: esrp_enable_windows_timestamp
+  type: boolean
+  default: true
+- name: esrp_require_windows_strong_name
+  type: boolean
+  default: false
+- name: esrp_strong_name_public_key_token
+  type: string
+  default: '31bf3856ad364e35'
+- name: esrp_strong_name_file_patterns
+  type: object
+  default: []
+- name: esrp_enable_non_azclips_dll_signing
+  type: boolean
+  default: true
 - name: windows_sign_architectures
   type: object
   default:
   - x64
+  - arm64
 
 jobs:
-- job: SignWindows
-  displayName: Windows Placeholder Pass-Through
-  pool:
-    vmImage: ${{ parameters.windows_pool }}
-  steps:
-  - checkout: none
-  - ${{ if eq(parameters.source_artifact_source, 'current') }}:
-    - task: DownloadPipelineArtifact@2
-      displayName: Download Unsigned Distribution Artifacts
+  - job: SignWindows
+    displayName: Sign Windows Artifacts
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    timeoutInMinutes: 120
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+    - task: UseDotNet@2
+      displayName: Setup .NET SDK
       inputs:
-        artifact: ${{ parameters.source_artifact_name }}
-        path: $(Pipeline.Workspace)/unsigned-all
-  - ${{ if ne(parameters.source_artifact_source, 'current') }}:
-    - task: DownloadPipelineArtifact@2
-      displayName: Download Unsigned Distribution Artifacts
+        packageType: sdk
+        version: '10.0.203'
+    - ${{ if eq(parameters.source_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Unsigned Distribution Artifacts
+        inputs:
+          artifact: ${{ parameters.source_artifact_name }}
+          path: $(Pipeline.Workspace)/unsigned-all
+    - ${{ if ne(parameters.source_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Unsigned Distribution Artifacts
+        inputs:
+          buildType: specific
+          project: ${{ parameters.SourceProject }}
+          definition: ${{ parameters.source_pipeline_name }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.source_build_id }}
+          artifact: ${{ parameters.source_artifact_name }}
+          path: $(Pipeline.Workspace)/unsigned-all
+    - task: PowerShell@2
+      displayName: Filter Windows Release Artifacts
       inputs:
-        source: specific
-        project: ${{ parameters.SourceProject }}
-        pipeline: ${{ parameters.source_pipeline_name }}
-        runVersion: specific
-        runId: ${{ parameters.source_build_id }}
-        artifact: ${{ parameters.source_artifact_name }}
-        path: $(Pipeline.Workspace)/unsigned-all
-  - pwsh: |
-      $ErrorActionPreference = 'Stop'
-      $sourceRoot = "$(Pipeline.Workspace)/unsigned-all"
-      $targetRoot = "$(Build.ArtifactStagingDirectory)/signed-windows"
-      $architectureCsv = '${{ join(',', parameters.windows_sign_architectures) }}'
-      $architectures = $architectureCsv.Split(',') |
-        ForEach-Object { "$($_)".Trim().ToLowerInvariant() } |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-
-      if (-not $architectures) {
-        throw 'windows_sign_architectures resolved to an empty list.'
-      }
-
-      Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
-      New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
-
-      $allWindowsAssets = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
-        $_.Name -like '*win-*.zip'
-      }
-
-      $selected = foreach ($asset in $allWindowsAssets) {
-        $name = $asset.Name.ToLowerInvariant()
-        foreach ($arch in $architectures) {
-          if ($name.Contains($arch)) {
-            $asset
-            break
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $sourceRoot = "$(Pipeline.Workspace)/unsigned-all"
+          $targetRoot = "$(Pipeline.Workspace)/unsigned"
+          $architectureCsv = '${{ join(',', parameters.windows_sign_architectures) }}'
+          $architectures = $architectureCsv.Split(',') |
+            ForEach-Object { "$($_)".Trim().ToLowerInvariant() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+          if (-not $architectures) {
+            throw "windows_sign_architectures resolved to an empty list."
           }
-        }
-      }
 
-      if (-not $selected) {
-        throw "No Windows release artifacts matched architectures [$($architectures -join ', ')] under $sourceRoot"
-      }
+          Write-Host "Windows signing architectures: $($architectures -join ', ')"
 
-      foreach ($asset in $selected) {
-        Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
-      }
-      Write-Host "Collected $($selected.Count) Windows artifact(s) for placeholder pass-through."
-    displayName: Collect Windows Placeholder Artifacts
-  - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-    displayName: Generate SBOM For Windows Placeholder Artifacts
-    inputs:
-      BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-windows
-  - task: PublishPipelineArtifact@1
-    displayName: Publish Windows Placeholder Artifacts
-    inputs:
-      targetPath: $(Build.ArtifactStagingDirectory)/signed-windows
-      artifact: signed-windows
-      publishLocation: pipeline
+          Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+
+          $allWindowsAssets = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
+            $_.Name -match '-(x64|arm64)\.zip$'
+          }
+
+          $selected = foreach ($asset in $allWindowsAssets) {
+            $name = $asset.Name.ToLowerInvariant()
+            foreach ($arch in $architectures) {
+              if ($name.Contains($arch)) {
+                $asset
+                break
+              }
+            }
+          }
+
+          if (-not $selected) {
+            throw "No Windows release artifacts matched architectures [$($architectures -join ', ')] under $sourceRoot"
+          }
+
+          foreach ($asset in $selected) {
+            Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
+          }
+          Write-Host "Selected $($selected.Count) Windows release artifacts."
+    - task: PowerShell@2
+      displayName: Prepare Signing Inputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/prepare_signing_inputs.ps1
+        arguments: >-
+          -UnsignedRoot "$(Pipeline.Workspace)/unsigned"
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+          -EnableStrongNameSigning '${{ parameters.esrp_require_windows_strong_name }}'
+          -StrongNamePatternCsv '${{ join('|', parameters.esrp_strong_name_file_patterns) }}'
+          -ExpectedStrongNameToken '${{ parameters.esrp_strong_name_public_key_token }}'
+          -EnableNonAzclipsDllSigning '${{ parameters.esrp_enable_non_azclips_dll_signing }}'
+        pwsh: true
+    - task: PowerShell@2
+      displayName: List Windows Artifacts To Be Signed
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $windowsRoot = "$(Pipeline.Workspace)/signing-work/windows-extracted"
+          if (-not (Test-Path $windowsRoot)) {
+            throw "Windows signing input folder not found: $windowsRoot"
+          }
+
+          $files = Get-ChildItem -Path $windowsRoot -Recurse -File | Where-Object {
+            $_.Name -ieq 'az.exe' -or
+            $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
+            $_.Name -like 'Core.*.dll' -or
+            $_.Name -ieq 'az.dll' -or
+            $_.Name -ieq 'azclips-agent.dll' -or
+            $_.Name -like 'Microsoft.Azure.Azclips*.exe'
+          } | Sort-Object FullName
+
+          if (-not $files) {
+            throw "No Windows binaries found for signing in $windowsRoot"
+          }
+
+          Write-Host "Windows signing candidates ($($files.Count))"
+          foreach ($file in $files) {
+            $relative = $file.FullName.Substring($windowsRoot.Length).TrimStart('\\')
+            Write-Host ("  {0}  ({1} bytes)" -f $relative, $file.Length)
+          }
+
+          $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
+          Write-Host "Windows total bytes to sign: $totalBytes"
+    - ${{ if eq(parameters.esrp_require_windows_strong_name, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: Strong-name Sign Windows Payload [Azclips DLLs]
+        condition: eq(variables['HasStrongNamePayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/strongname'
+          UseMinimatch: true
+          Pattern: '*.dll'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+                "OperationCode": "StrongNameSign",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+                "OperationCode": "StrongNameVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: PowerShell@2
+        displayName: Restore Strong-name Signed Windows DLLs
+        condition: eq(variables['HasStrongNamePayload'], 'true')
+        inputs:
+          targetType: inline
+          pwsh: true
+          script: |
+            $ErrorActionPreference = 'Stop'
+            $workingRoot = "$(Pipeline.Workspace)/signing-work"
+            $strongNameRoot = Join-Path $workingRoot 'strongname'
+            $mapPath = Join-Path $workingRoot 'strongname-map.json'
+
+            if (-not (Test-Path $mapPath)) {
+              throw "Strong-name restore map was not found: $mapPath"
+            }
+
+            $strongNameMap = @(Get-Content $mapPath -Raw | ConvertFrom-Json)
+            foreach ($entry in $strongNameMap) {
+              $signedFile = Join-Path $strongNameRoot ([string]$entry.FlatName)
+              $originalPath = [string]$entry.OriginalPath
+              if (-not (Test-Path $signedFile)) {
+                throw "Expected strong-name signed DLL was not found: $signedFile"
+              }
+              Copy-Item $signedFile -Destination $originalPath -Force
+            }
+
+            Write-Host "Restored strong-name signed DLLs into extracted Windows artifacts: $($strongNameMap.Count)"
+    - ${{ if eq(parameters.esrp_enable_windows_timestamp, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: Sign Windows Payload [az.exe]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/az.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@6
+        displayName: Sign Windows Payload [First-Party DLLs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/az.dll
+            **/azclips-agent.dll
+            **/Core.*.dll
+            **/Microsoft.Azure.Azclips*.dll
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@6
+        displayName: Sign Windows Payload [First-Party EXEs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/Microsoft.Azure.Azclips*.exe
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+    - ${{ if ne(parameters.esrp_enable_windows_timestamp, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: Sign Windows Payload [az.exe]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/az.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@6
+        displayName: Sign Windows Payload [First-Party DLLs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/az.dll
+            **/azclips-agent.dll
+            **/Core.*.dll
+            **/Microsoft.Azure.Azclips*.dll
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@6
+        displayName: Sign Windows Payload [First-Party EXEs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/Microsoft.Azure.Azclips*.exe
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+    - ${{ if eq(parameters.esrp_enable_non_azclips_dll_signing, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: Optional Co-sign Windows Payload [Third-Party DLLs]
+        condition: eq(variables['HasThirdPartyDllPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/thirdparty'
+          UseMinimatch: true
+          Pattern: '*.dll'
+          signConfigType: inlineSignParams
+          SessionTimeout: '60'
+          MaxConcurrency: '25'
+          MaxRetryAttempts: '5'
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_third_party_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH",
+                  "Append": "/as",
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_third_party_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: PowerShell@2
+        displayName: Restore Co-signed Windows Payload [Third-Party DLLs]
+        condition: eq(variables['HasThirdPartyDllPayload'], 'true')
+        inputs:
+          targetType: inline
+          pwsh: true
+          script: |
+            $ErrorActionPreference = 'Stop'
+            $workingRoot = "$(Pipeline.Workspace)/signing-work"
+            $thirdPartyRoot = Join-Path $workingRoot 'thirdparty'
+            $mapPath = Join-Path $workingRoot 'thirdparty-map.json'
+
+            if (-not (Test-Path $mapPath)) {
+              throw "Third-party restore map was not found: $mapPath"
+            }
+
+            $thirdPartyMap = @(Get-Content $mapPath -Raw | ConvertFrom-Json)
+            foreach ($entry in $thirdPartyMap) {
+              $signedFile = Join-Path $thirdPartyRoot ([string]$entry.FlatName)
+              $originalPath = [string]$entry.OriginalPath
+              if (-not (Test-Path $signedFile)) {
+                throw "Expected co-signed third-party DLL was not found: $signedFile"
+              }
+              Copy-Item $signedFile -Destination $originalPath -Force
+            }
+
+            Write-Host "Restored co-signed third-party DLLs into extracted Windows artifacts: $($thirdPartyMap.Count)"
+
+    - ${{ if eq(parameters.esrp_enable_windows_verify, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: Verify Windows Payload In ESRP [az.exe]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/az.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@6
+        displayName: Verify Windows Payload In ESRP [First-Party DLLs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/az.dll
+            **/azclips-agent.dll
+            **/Core.*.dll
+            **/Microsoft.Azure.Azclips*.dll
+            **/Microsoft.Azure.Azclips*.dll
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@6
+        displayName: Verify Windows Payload In ESRP [First-Party EXEs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/Microsoft.Azure.Azclips*.exe
+            **/Microsoft.Azure.Azclips*.exe
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+    - task: PowerShell@2
+      displayName: Verify Signed Outputs
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $requireStrongName = [System.Convert]::ToBoolean('${{ parameters.esrp_require_windows_strong_name }}')
+          & "$(Build.SourcesDirectory)/devops/scripts/packaging/signing/verify_signed_outputs.ps1" `
+            -WorkingRoot "$(Pipeline.Workspace)/signing-work" `
+            -RequireWindowsAuthenticode $true `
+            -RequireStrongName $requireStrongName `
+            -ExpectedStrongNameToken '${{ parameters.esrp_strong_name_public_key_token }}'
+    - task: PowerShell@2
+      displayName: Repack Signed Outputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/repack_signed_outputs.ps1
+        arguments: >-
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+        pwsh: true
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Signed Windows Artifacts
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-release
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Signed Windows Artifacts
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-release
+        artifact: signed-windows
+        publishLocation: pipeline

@@ -9,7 +9,7 @@ parameters:
 
 jobs:
 - job: BuildCommonOutputs
-  displayName: Common Output
+  displayName: CLI Common Output
   timeoutInMinutes: 90
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
@@ -29,10 +29,10 @@ jobs:
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/common/build_common.sh"
       OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" "${{ parameters.PackagingScriptsRoot }}/common/build_common.sh"
-    displayName: Build Common
+    displayName: Build CLI Common
 
   - task: PublishPipelineArtifact@1
-    displayName: Publish Common
+    displayName: Publish CLI Common
     inputs:
       targetPath: ${{ parameters.PackagingCommonOutRoot }}
       artifact: Distribution_Common

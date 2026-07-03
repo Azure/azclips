@@ -1,0 +1,83 @@
+parameters:
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
+
+jobs:
+- job: ValidateMacOS
+  displayName: Validate Signed macOS Artifacts
+  strategy:
+    matrix:
+      arm64:
+        MacOSArchitecture: arm64
+        MacOSVmImage: ${{ parameters.macos_arm64_pool }}
+      x64:
+        MacOSArchitecture: x64
+        MacOSVmImage: ${{ parameters.macos_intel_pool }}
+  pool:
+    vmImage: $(MacOSVmImage)
+  steps:
+  - checkout: none
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Signed macOS Artifacts
+    inputs:
+      buildType: current
+      artifact: signed-macos-$(MacOSArchitecture)
+      path: $(Pipeline.Workspace)/signed-macos
+  - bash: |
+      set -euo pipefail
+      root="$(Pipeline.Workspace)/signed-macos"
+      tarballs=()
+      while IFS= read -r tarball; do
+        tarballs+=("$tarball")
+      done < <(find "$root" -type f \( -name '*mac*.tar.gz' -o -name '*macos*.tar.gz' -o -name '*osx*.tar.gz' -o -name '*darwin*.tar.gz' \) | sort)
+      if [[ ${#tarballs[@]} -eq 0 ]]; then
+        echo 'ERROR: No signed macOS tarballs found.'
+        exit 1
+      fi
+
+      errors=0
+      total_macho=0
+      for tarball in "${tarballs[@]}"; do
+        verify_dir="$(Pipeline.Workspace)/verify-macos/$(basename "${tarball%.tar.gz}")"
+        mkdir -p "$verify_dir"
+        tar -xzf "$tarball" -C "$verify_dir"
+
+        tarball_macho=0
+        while IFS= read -r -d '' candidate; do
+          if ! file "$candidate" | grep -q 'Mach-O'; then
+            continue
+          fi
+
+          tarball_macho=$((tarball_macho + 1))
+          total_macho=$((total_macho + 1))
+          if ! codesign -v "$candidate" 2>/dev/null; then
+            echo "ERROR: Basic codesign verification failed: $candidate"
+            errors=1
+          fi
+          if ! codesign --verify --deep --strict "$candidate" 2>/dev/null; then
+            echo "ERROR: Strict codesign verification failed: $candidate"
+            errors=1
+          fi
+          signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+          if ! printf '%s\n' "$signature_details" | grep -Eq 'Authority=.*Developer ID|TeamIdentifier=UBF8T346G9'; then
+            echo "ERROR: Developer ID certificate missing: $candidate"
+            printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
+            errors=1
+          fi
+        done < <(find "$verify_dir" -type f -print0)
+
+        if [[ "$tarball_macho" -eq 0 ]]; then
+          echo "ERROR: No Mach-O binaries found in $tarball"
+          errors=1
+        fi
+      done
+
+      echo "Validated $total_macho signed macOS Mach-O binaries."
+      if [[ "$errors" -ne 0 ]]; then
+        exit 1
+      fi
+    displayName: Verify macOS Developer ID Signatures

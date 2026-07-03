@@ -12,6 +12,39 @@ Set-StrictMode -Version Latest
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $packagingRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '../..'))
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $packagingRoot '../../..'))
+$noticeFile = if ([string]::IsNullOrWhiteSpace($env:NOTICE_FILE)) { Join-Path $repoRoot 'NOTICE' } else { $env:NOTICE_FILE }
+$licenseFile = if ([string]::IsNullOrWhiteSpace($env:LICENSE_FILE)) { Join-Path $repoRoot 'LICENSE' } else { $env:LICENSE_FILE }
+
+function Get-ArtifactConfigValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DefaultValue
+    )
+
+    $configPath = $env:ARTIFACT_NAMING_CONFIG
+    if ([string]::IsNullOrWhiteSpace($configPath)) {
+        $configPath = Join-Path $packagingRoot 'config/artifact_naming.config'
+    }
+
+    if (Test-Path -Path $configPath -PathType Leaf) {
+        foreach ($line in Get-Content -Path $configPath) {
+            $trimmed = $line.Trim()
+            if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) {
+                continue
+            }
+
+            $parts = $trimmed.Split('=', 2)
+            if ($parts.Count -eq 2 -and $parts[0].Trim() -eq $Name) {
+                return $parts[1].Trim()
+            }
+        }
+    }
+
+    return $DefaultValue
+}
 
 if ([string]::IsNullOrWhiteSpace($OutRoot)) {
     $OutRoot = Join-Path $repoRoot 'devops/out/windows'
@@ -27,23 +60,45 @@ if ([string]::IsNullOrWhiteSpace($packageProfile)) {
 $packageProfile = $packageProfile.ToLowerInvariant()
 
 if ($packageProfile -eq 'full') {
-    $artifactPrefix = 'az'
+    $artifactStem = $env:CLI_ARCHIVE_STEM
+    if ([string]::IsNullOrWhiteSpace($artifactStem)) {
+        $artifactStem = Get-ArtifactConfigValue -Name 'cli_archive_stem' -DefaultValue 'azcli'
+    }
 }
 elseif ($packageProfile -eq 'lean') {
-    $artifactPrefix = 'az-lean'
+    $artifactStem = $env:CLI_LEAN_ARCHIVE_STEM
+    if ([string]::IsNullOrWhiteSpace($artifactStem)) {
+        $artifactStem = Get-ArtifactConfigValue -Name 'cli_lean_archive_stem' -DefaultValue 'azcli-lean'
+    }
 }
 else {
     throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
 }
 
 $artifactVersion = $env:ARTIFACT_VERSION
+$artifactVersionSuffix = [System.Environment]::GetEnvironmentVariable('ARTIFACT_VERSION_SUFFIX')
+if ($null -eq $artifactVersionSuffix) {
+    $artifactVersionSuffix = Get-ArtifactConfigValue -Name 'artifact_version_suffix' -DefaultValue 'preview'
+}
+$assetArchitecture = $Rid
+if ($Rid -eq 'win-x64') {
+    $assetArchitecture = Get-ArtifactConfigValue -Name 'windows_x64_label' -DefaultValue 'win-x64'
+}
+elseif ($Rid -eq 'win-arm64') {
+    $assetArchitecture = Get-ArtifactConfigValue -Name 'windows_arm64_label' -DefaultValue 'win-arm64'
+}
 
 if ([string]::IsNullOrWhiteSpace($CliWinZipPath)) {
     if (-not [string]::IsNullOrWhiteSpace($artifactVersion)) {
-        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid-$artifactVersion.zip"
+        $artifactVersionSegment = $artifactVersion
+        if (-not [string]::IsNullOrWhiteSpace($artifactVersionSuffix) -and -not $artifactVersionSegment.EndsWith("-$artifactVersionSuffix", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $artifactVersionSegment = "$artifactVersionSegment-$artifactVersionSuffix"
+        }
+
+        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactStem-$artifactVersionSegment-$assetArchitecture.zip"
     }
     else {
-        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid.zip"
+        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactStem-$assetArchitecture.zip"
     }
 }
 
@@ -64,7 +119,17 @@ try {
         throw "Injector script not found at $injectScriptPath"
     }
 
+    if (-not (Test-Path -Path $noticeFile -PathType Leaf)) {
+        throw "NOTICE file was not found: $noticeFile"
+    }
+
+    if (-not (Test-Path -Path $licenseFile -PathType Leaf)) {
+        throw "LICENSE file was not found: $licenseFile"
+    }
+
     & $injectScriptPath -PublishDir $cliWinScDir -BuiltinRoot $builtinPublishRoot
+    Copy-Item -Path $noticeFile -Destination (Join-Path $cliWinScDir 'NOTICE') -Force
+    Copy-Item -Path $licenseFile -Destination (Join-Path $cliWinScDir 'LICENSE') -Force
 
     $zipDir = Split-Path -Parent $CliWinZipPath
     New-Item -Path $zipDir -ItemType Directory -Force | Out-Null

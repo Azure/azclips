@@ -15,6 +15,7 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
 OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/common}"
+SOLUTION_FILE="${SOLUTION_FILE:-azclips.slnx}"
 CLI_PROJECT="src/CLI/Core.Cli.csproj"
 
 EXT_PACK_DIR="$OUT_ROOT/extensions-pack"
@@ -34,7 +35,7 @@ rm -rf "$EXT_PACK_DIR" "$BUILTIN_PUBLISH_ROOT" "$CLI_FD_DIR"
 mkdir -p "$EXT_PACK_DIR" "$BUILTIN_PUBLISH_ROOT"
 
 echo "[common 2/5] Restore solution"
-dotnet restore azclips.slnx
+dotnet restore "$SOLUTION_FILE"
 
 echo "[common 3/5] Publish CLI (framework-dependent)"
 dotnet publish "$CLI_PROJECT" -c Release --no-restore -o "$CLI_FD_DIR"
@@ -47,6 +48,7 @@ for ext in "${DISCOVERED_EXTENSIONS[@]}"; do
   echo "  PACK  $ext_name"
   dotnet pack "$ext" -c Release -o "$EXT_PACK_DIR" --no-build --no-restore
 done
+bash "$SCRIPT_DIR/rename_extension_packages.sh" "$EXT_PACK_DIR"
 
 echo "[common 5/5] Publish extension assemblies for platform inject step"
 for ext in "${DISCOVERED_EXTENSIONS[@]}"; do

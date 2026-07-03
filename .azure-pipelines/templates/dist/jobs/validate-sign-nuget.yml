@@ -1,0 +1,43 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: artifact_name
+  type: string
+  default: 'signed-nuget'
+- name: display_name
+  type: string
+  default: 'Signed NuGet Packages'
+
+jobs:
+- job: ValidateNuget
+  displayName: Validate ${{ parameters.display_name }}
+  pool:
+    vmImage: ${{ parameters.windows_pool }}
+  steps:
+  - checkout: self
+    clean: true
+  - task: UseDotNet@2
+    displayName: Setup .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+  - task: DownloadPipelineArtifact@2
+    displayName: Download ${{ parameters.display_name }}
+    inputs:
+      buildType: current
+      artifact: ${{ parameters.artifact_name }}
+      path: $(Pipeline.Workspace)/${{ parameters.artifact_name }}
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $nupkgs = Get-ChildItem -Path "$(Pipeline.Workspace)/${{ parameters.artifact_name }}" -Recurse -File -Filter '*.nupkg'
+      if (-not $nupkgs) {
+        throw 'No signed .nupkg files found in ${{ parameters.artifact_name }} artifact.'
+      }
+      foreach ($pkg in $nupkgs) {
+        dotnet nuget verify --all $pkg.FullName | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+          throw "NuGet verification failed for $($pkg.Name)"
+        }
+      }
+    displayName: Verify NuGet Signatures

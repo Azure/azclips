@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
+using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
@@ -50,6 +51,7 @@ public class Program
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
             services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
+            services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
         });
         AzclipsServiceProvider.Initialize(_clientType);
 
