@@ -1,3 +1,5 @@
+> TODO BEFORE MERGE: Delete this temporary planning file.
+
 # TEMP PR Plan: Extension Resolution and Redundancy
 
 ## Scope
@@ -47,3 +49,7 @@
 - If command contributors conflict, preserve hard error behavior or switch to deterministic selection?
 - Should built-ins continue explicit command-map maintenance or shift to discovery/generation?
 - Are user-facing docs/help updates required for any policy changes?
+
+## PR Link
+
+- Active PR for this branch: https://github.com/Azure/azclips/pull/370
