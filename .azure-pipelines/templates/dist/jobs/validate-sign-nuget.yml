@@ -15,12 +15,13 @@ jobs:
   pool:
     vmImage: ${{ parameters.windows_pool }}
   steps:
-  - checkout: none
+  - checkout: self
+    clean: true
   - task: UseDotNet@2
     displayName: Setup .NET SDK
     inputs:
       packageType: sdk
-      version: '8.0.x'
+      useGlobalJson: true
   - task: DownloadPipelineArtifact@2
     displayName: Download ${{ parameters.display_name }}
     inputs:

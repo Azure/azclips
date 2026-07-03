@@ -118,7 +118,7 @@ function Get-ManifestReleaseNotesBlock {
     return @(
         "${Indent}ReleaseNotes = @'"
         $manifestNotes
-        "${Indent}'@"
+        "'@"
     )
 }
 
@@ -148,7 +148,7 @@ function Set-ManifestReleaseNotes {
         if ($lines[$releaseNotesLineIndex] -match "=\s*@'") {
             for ($index = $releaseNotesLineIndex + 1; $index -lt $lines.Count; $index++) {
                 $removeCount++
-                if ($lines[$index] -eq "$releaseNotesIndent'@") {
+                if ($lines[$index].Trim() -eq "'@") {
                     break
                 }
             }
