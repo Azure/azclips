@@ -22,7 +22,7 @@ class ProcessService
     public int ElapsedSeconds => _stopwatch.IsRunning ? (int)_stopwatch.Elapsed.TotalSeconds : 0;
 
     /// <summary>
-    /// Run a command via the azv2 CLI, streaming output to the callback.
+    /// Run a command via the az CLI, streaming output to the callback.
     /// </summary>
     public async Task RunCliAsync(string args, Action<HistoryItemType, string> onLine, Action<ProcessResult> onDone)
     {
@@ -91,7 +91,7 @@ class ProcessService
                 CreateNoWindow = true,
             };
 
-            // Add azv2 directory to PATH so "azv2" is resolvable as a command
+            // Add az directory to PATH so "az" is resolvable as a command
             var cliDir = Path.GetDirectoryName(CliPath);
             if (!string.IsNullOrEmpty(cliDir))
             {
@@ -190,20 +190,21 @@ class ProcessService
 
     private static string FindCliPath()
     {
+        var exeName = OperatingSystem.IsWindows() ? "az.exe" : "az";
         var baseDir = AppContext.BaseDirectory;
         var dir = new DirectoryInfo(baseDir);
 
         while (dir != null)
         {
-            var candidate = Path.Combine(dir.FullName, "artifacts", "Debug", "Core.Cli", "azv2.exe");
+            var candidate = Path.Combine(dir.FullName, "artifacts", "Debug", "Core.Cli", exeName);
             if (File.Exists(candidate)) return candidate;
 
-            candidate = Path.Combine(dir.FullName, "bin", "azv2.exe");
+            candidate = Path.Combine(dir.FullName, "bin", exeName);
             if (File.Exists(candidate)) return candidate;
 
             dir = dir.Parent;
         }
 
-        return "azv2"; // fallback — hope it's on PATH
+        return "az"; // fallback — hope it's on PATH
     }
 }

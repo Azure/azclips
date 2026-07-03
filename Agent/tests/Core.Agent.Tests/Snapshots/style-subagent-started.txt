@@ -1,0 +1,3 @@
+[Muted]"  ⊳ sub-agent "
+[Default|bold]"diagnose"
+[Default]"(vm not reachable)"

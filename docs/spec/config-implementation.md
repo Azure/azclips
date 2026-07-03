@@ -10,7 +10,7 @@ Implement user-scope configuration with strict validation, safe writes, and CLI/
 
 ## Scope (MVP)
 
-- Single file: ~/.cirrus/config.json (global config)
+- Single file: ~/.azclips/config.json (global config)
 - Precedence: command args > env vars > global config > defaults
 - Strict schema by default, allow unknown keys only with force
 - Default parameters stored under defaults.\* keys (Azure CLI pattern)
@@ -127,8 +127,8 @@ Create defaults contract:
 
 Function ResolveConfigPath():
 
-- if Windows => %USERPROFILE%/.cirrus/config.json
-- else => $HOME/.cirrus/config.json
+- if Windows => %USERPROFILE%/.azclips/config.json
+- else => $HOME/.azclips/config.json
 
 Function SetConfigurationAsync(key, value, force):
 
@@ -155,7 +155,7 @@ Function DeleteConfigurationAsync(key, force):
 Function GetConfiguration<T>():
 
 - result = defaults from schema/options
-- merge global config file values (~/.cirrus/config.json)
+- merge global config file values (~/.azclips/config.json)
 - merge environment variable overrides
 - merge invocation overrides (from CLI/PS layer)
 - bind to T and return
@@ -182,7 +182,7 @@ Function ListConfigurationAsync(includeDefaults):
 **Key Implementation Details:**
 
 - Lock + atomic writes: Acquire lock → read file → modify in-memory JSON → write temp file → replace original → release lock. Prevents corruption on concurrent writes.
-- Environment Mapping: CIRRUS_LOG_LEVEL → core.logging.level via explicit GetEnvironmentOverrides() mapping
+- Environment Mapping: AZCLIPS_LOG_LEVEL → core.logging.level via explicit GetEnvironmentOverrides() mapping
 - Default precedence: Defaults come from reflection on option classes, not flattened service dict
 - Source attribution tracked: [default], [env], [config file] in output
 
@@ -215,7 +215,7 @@ Migrate existing readers:
 
 ### 4) CLI Surface
 
-Add azv2 config group:
+Add az config group:
 
 - get <key>
 - set <key> <value> [--force]
@@ -257,11 +257,11 @@ Command behavior:
 
 Add config cmdlets:
 
-- Get-CirrusConfig
-- Set-CirrusConfig
-- Remove-CirrusConfig
-- Get-CirrusConfigList
-- Get-CirrusConfigInfo (hidden)
+- Get-AzConfig
+- Set-AzConfig
+- Remove-AzConfig
+- Get-AzConfigList
+- Get-AzConfigInfo
 
 Cmdlet behavior:
 
@@ -278,12 +278,12 @@ Cmdlet behavior:
 
 **Key Implementation Details:**
 
-1. **Separate Dispatch Tables:** PS commands registered by cmdlet name (Get-CirrusConfig), CLI by lowercase (get). ExtensionIndex has both s_psTable and s_cliTable; GetCommandMetadata(name, ClientType) dispatches correctly.
+1. **Separate Dispatch Tables:** PS commands registered by cmdlet name (Get-AzConfig), CLI by lowercase (get). ExtensionIndex has both s_psTable and s_cliTable; GetCommandMetadata(name, ClientType) dispatches correctly.
 2. **Module Manifests:**
     - GUID must be valid hex only (0-9, a-f); invalid chars cause import failure
     - RequiredAssemblies path: `../../../artifacts/Debug/Core/` for Core DLLs and Microsoft.Extensions.\* dlls
 3. **Parameter Mapping:** PS uses PascalCase (-AsJson, -IncludeDefaults), cmdlet function maps to CLI command names before calling engine
-4. **ShouldProcess:** Set-CirrusConfig and Remove-CirrusConfig use standard PowerShell ShouldProcess/Confirm semantics
+4. **ShouldProcess:** Set-AzConfig and Remove-AzConfig use standard PowerShell ShouldProcess/Confirm semantics
 5. **Module Initialization:** Config.psm1 initializes DI container and loads all exported functions from exports/ folder
 
 **Tests Passing:**
@@ -328,7 +328,7 @@ Integration:
 **Test Patterns:**
 
 - Fixture per test with temp directory and environment variable isolation (cache originals, clear on setup, restore on teardown)
-- Path detection: Walk up from test assembly to find cirrus.slnx (survives different build configurations)
+- Path detection: Walk up from test assembly to find azclips.slnx (survives different build configurations)
 - Shared fixture for both CLI and PS (same underlying engine, different surfaces)
 - Config test suite passing for CLI, PS, schema, and service coverage
 
@@ -365,6 +365,7 @@ Integration:
 7. **Default Reflection:** Defaults sourced from option classes via reflection, not flattened dicts, to preserve dotted schema keys
 8. **Lock + Atomic Writes:** Cross-process lock + temp file swap prevents corruption on concurrent writes
 9. **Environment Isolation in Tests:** Cache original env vars, clear on setup, restore on teardown to avoid ambient values shadowing test assertions
+10. **CLI Runtime Logging Policy:** `core.logging.level` now controls CLI host log stream emission; `--debug` is treated as a one-shot invocation override that takes precedence over env/global/default values.
 
 ## Future Design Work (Phase 3+)
 
@@ -382,7 +383,7 @@ Integration:
 3. **Path Resolution:** Walk up from test assembly location rather than using relative paths
 4. **PS vs CLI Parameter Names:** Map between -AsJson (PS) and json (CLI) in cmdlet function
 5. **ShouldProcess Confirmation:** Set/Remove cmdlets rely on standard PowerShell WhatIf/Confirm behavior
-6. **Env Override Mapping:** CIRRUS_LOG_LEVEL must explicitly map to core.logging.level; not automatic
+6. **Env Override Mapping:** AZCLIPS_LOG_LEVEL must explicitly map to core.logging.level; not automatic
 
 ## Known Limitations / Future Work
 

@@ -1,0 +1,122 @@
+name: Performance Benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/Benchmark/**'
+      - 'global.json'
+      - 'azclips.slnx'
+      - '.github/workflows/benchmark.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/Benchmark/**'
+      - 'global.json'
+      - 'azclips.slnx'
+      - '.github/workflows/benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Run benchmarks and gate regressions
+    runs-on: [self-hosted, Linux, X64, benchmark]
+    permissions:
+      contents: write          # gh-pages auto-push (main only)
+      pull-requests: write     # PR comments on regression
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore + build
+        run: dotnet build azclips.slnx --configuration Release
+
+      # Stage PowerShell module manifests into artifacts/Release/PS/<Module>/.
+      # The PS benchmarks import these instead of the tracked src/PS/<Module>/<Module>.psd1
+      # files, so the working tree stays clean and benchmark-action's `git switch gh-pages`
+      # below doesn't fail with "local changes would be overwritten".
+      - name: Stage PS module manifests
+        run: pwsh -NoProfile -File build/Set-ModuleConfiguration.ps1 -Configuration Release
+
+      # ─────────────── CLI ───────────────
+      - name: Run CLI benchmarks (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 2
+          retry_wait_seconds: 30
+          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product CLI
+
+      - name: Publish CLI dashboard / gate regression
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'Azclips CLI Benchmarks'
+          tool: 'benchmarkdotnet'
+          output-file-path: artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' }}
+          alert-threshold: '115%'
+          fail-on-alert: false
+          comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
+          summary-always: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/cli
+          comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
+
+      # ─────────────── PS ────────────────
+      - name: Run PS benchmarks (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 2
+          retry_wait_seconds: 30
+          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product PS
+
+      - name: Publish PS dashboard / gate regression
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'Azclips PS Benchmarks'
+          tool: 'benchmarkdotnet'
+          output-file-path: artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' }}
+          alert-threshold: '115%'
+          fail-on-alert: false
+          comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
+          summary-always: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/ps
+          comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
+          skip-fetch-gh-pages: true
+
+      # Upload CLI + PS benchmark results for the fork-PR comment workflow
+      - name: Upload benchmark results for fork PR
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
+            artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
+          retention-days: 1
+
+      # ─────────────── Always ────────────
+      - name: Upload BDN logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-ci-${{ github.run_id }}
+          path: artifacts/Benchmark/ci/**
+          retention-days: 14

@@ -1,6 +1,9 @@
-using Extensions.Runtime.Json;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
+
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 public class NetworkInterface
 {
@@ -37,3 +40,7 @@ public class IPConfigurationProperties
     public bool Primary { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
+
+
+
+

@@ -1,11 +1,12 @@
-using System.Net.Http.Json;
-using System.Text.Json;
-using Core.Abstractions;
-using Core.Abstractions.Runtime;
-using Extensions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
+using System.Net.Http.Json;
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
 {
@@ -16,9 +17,9 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public List<string> AddressPrefixes { get; set; } = [];
 
-    public override async Task<HttpRequestMessage> CreateRequestMessage()
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
         VirtualNetwork body = new VirtualNetwork
         {
@@ -60,7 +61,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
         {
             Content = JsonContent.Create(body, options: JsonOptions)
         };
-        await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 
@@ -78,5 +79,8 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
     protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
-    public override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
+    internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }
+
+
+

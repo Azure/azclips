@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -21,8 +24,16 @@ public class StubAuthService : IAuthService
         return Task.FromResult(CreateFakeResult());
     }
 
-    public Task LogoutAsync(CancellationToken cancellationToken = default)
+    /// <summary>True when <see cref="LogoutAsync"/> has been invoked at least once.</summary>
+    public bool LogoutCalled { get; private set; }
+
+    /// <summary>The user principal name passed to the most recent <see cref="LogoutAsync"/> call.</summary>
+    public string? LastLoggedOutUserPrincipalName { get; private set; }
+
+    public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default)
     {
+        LogoutCalled = true;
+        LastLoggedOutUserPrincipalName = userPrincipalName;
         return Task.CompletedTask;
     }
 

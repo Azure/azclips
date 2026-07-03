@@ -1,9 +1,18 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
+using Core.Cli.Completions;
 using Core.Cli.Exceptions;
+using Core.Cli.Help;
 using Core.Cli.Parser;
+using Core.Cli.Telemetry;
+using Core.Configuration.Options;
 using Core.Engine;
+using Core.Extensions;
+using Core.Runtime;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,29 +21,13 @@ namespace Core.Cli;
 
 public class Program
 {
+    private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
-    private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-    
-    // CLI by default only enable output and error streams. Optional streams enabled by global parameters
-    private static OutputStreams streams = new OutputStreams(
-        WriteOutput: (value, ct) =>
-        {
-            Console.WriteLine(CliOutputFormatter.FormatValue(value));
-            return Task.CompletedTask;
-        },
-        WriteError: (value, ct) =>
-        {
-            Console.Error.WriteLine(value);
-            return Task.CompletedTask;
-        },
-        WriteVerbose: (value, ct) => Task.CompletedTask,
-        WriteDebug: (value, ct) => Task.CompletedTask,
-        WriteWarning: (value, ct) => Task.CompletedTask,
-        WriteInformation: (value, ct) => Task.CompletedTask
-    );
+
+    private static OutputStreams streams = BuildStreams(CliLogLevel.Info);
 
     public static async Task<int> Main(string[] args)
     {
@@ -45,45 +38,101 @@ public class Program
             return 0;
         }
 
-        CirrusServiceProvider.PrependRegistration(services =>
+        AzclipsServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
             services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
             services.AddSingleton<PropertyParser>();
+            services.AddCliExtensionDispatch();
         });
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
+            services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
         });
-        CirrusServiceProvider.Initialize(_clientType);
-        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        AzclipsServiceProvider.Initialize(_clientType);
+
+        // Shell tab-completion metadata (after DI so generator can resolve IEngine directly)
+        int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
+        if (completionExit.HasValue)
+            return completionExit.Value;
+
+        _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+        var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
 
         try
         {
-            using var activity = _telemetryService.StartCLIActivity(args);
-            var dispatcher = new ExtensionDispatcher();
-
+            using var activity = telemetryService.StartRootActivity();
+            var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
+            args = ParseDebugFlag(args, out var debugOverride);
+            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(configurationService, debugOverride);
+            streams = BuildStreams(effectiveLogLevel);
+            args = ParseOutputFlag(args, out var outputJson);
+            args = ParseNoCacheFlag(args);
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
+                telemetryService.TagInvocation(invocation);
 
-                using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", _clientType.ToString());
+                using var commandActivity =
+                    telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
 
-                var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
-                using IInvocationSession session = engine.InvokeSession(invocation, streams, _cancellationTokenSource.Token);
-                session.Process();
+                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
+                             throw new InvalidOperationException("Engine service not found.");
+                using ISession session =
+                    engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
+                await session.RunAsync();
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
             catch (DispatchHelpException)
             {
-                _logger?.Log("Command Line Interface Help");
+                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+                var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderRoot();
+
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
-                return 0;
+                return exitCode;
+            }
+            catch (RuntimeExtensionHelpException helpException)
+            {
+                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+                try
+                {
+                    var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderExtensionHelp(helpException);
+
+                    activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
+                    return exitCode;
+                }
+                catch (AzclipsErrorException structured)
+                {
+                    // RenderExtensionHelp surfaces ExtensionNotInstalledException when the user asks
+                    // for help on a verb owned by an uninstalled package (smart-suggestion path).
+                    // Funnel through the same renderer the execute path uses so the UX matches.
+                    EmitStructuredError(structured, outputJson);
+                    activity?.SetStatus(ActivityStatusCode.Error, structured.Message);
+                    return structured.ExitCode;
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                activity?.AddException(ex);
+
+                return await TryAgentFallbackAsync(args, ex.Message);
+            }
+            catch (AzclipsErrorException ex)
+            {
+                // Structured AzClips error: render per --output mode and return the symbolic exit code.
+                // No AI fallback — the failure is well-known and the user's intent is unambiguous.
+                EmitStructuredError(ex, outputJson);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                return ex.ExitCode;
             }
             catch (Exception ex)
             {
@@ -92,80 +141,267 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args);
+                return await TryAgentFallbackAsync(args, ex.Message);
             }
-        } // activity disposed here → traces exported to file
+        }
         finally
         {
-            _telemetryService?.Dispose();
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
     }
 
-    private static async Task<int> TryAgentFallbackAsync(string[] args)
+    // TODO(Yabo): Q&P squad to refactor global parameter handling
+    // this method is temporary and is for ease of debugging
+    private static string[] ParseDebugFlag(string[] args, out bool debugOverride)
     {
-        const int maxRetries = 5;
-        int attempt = 0;
-        string[] currentArgs = args;
-        var logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        debugOverride = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
+        if (!debugOverride)
+        {
+            return args;
+        }
 
+        return args.Where(a => !a.Equals("--debug", StringComparison.OrdinalIgnoreCase)).ToArray();
+    }
+
+    private static OutputStreams BuildStreams(CliLogLevel level)
+    {
+        return new OutputStreams(
+            WriteOutput: (value, ct) =>
+            {
+                Console.WriteLine(CliOutputFormatter.FormatValue(value));
+                return Task.CompletedTask;
+            },
+            WriteError: (value, ct) =>
+            {
+                var originalColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine($"[ERROR] {value}");
+                Console.ForegroundColor = originalColor;
+                return Task.CompletedTask;
+            },
+            WriteVerbose: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
+                {
+                    Console.WriteLine($"VERBOSE: {value}");
+                }
+                return Task.CompletedTask;
+            },
+            WriteDebug: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
+                {
+                    Console.WriteLine($"DEBUG: {value}");
+                }
+                return Task.CompletedTask;
+            },
+            WriteWarning: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
+                {
+                    Console.WriteLine($"WARNING: {value}");
+                }
+                return Task.CompletedTask;
+            },
+            WriteInformation: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
+                {
+                    Console.WriteLine($"INFO: {value}");
+                }
+                return Task.CompletedTask;
+            }
+        );
+    }
+
+    // Strips `--output json` / `--output plain` (and `--output=json`) from args and reports
+    // whether JSON shape was requested. When `--output json` is active, errors render as
+    // { "error": { code, message, details } }.
+    private static string[] ParseOutputFlag(string[] args, out bool outputJson)
+    {
+        outputJson = false;
+        var result = new List<string>(args.Length);
+        for (int i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a.Equals("--output", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            {
+                outputJson = args[i + 1].Equals("json", StringComparison.OrdinalIgnoreCase);
+                i++;
+                continue;
+            }
+            if (a.StartsWith("--output=", StringComparison.OrdinalIgnoreCase))
+            {
+                outputJson = a.Substring("--output=".Length).Equals("json", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+            result.Add(a);
+        }
+        return result.ToArray();
+    }
+
+    // Strips `--no-cache` and propagates the bypass via AZCLIPS_NO_EXTENSION_CACHE env var,
+    // which AssemblyLoadingOptions.BypassExtensionCache reads through ConfigurationService.
+    // Test hook for benchmarking.
+    private static string[] ParseNoCacheFlag(string[] args)
+    {
+        if (!args.Contains("--no-cache", StringComparer.OrdinalIgnoreCase))
+        {
+            return args;
+        }
+        Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
+        return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
+    }
+
+    private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
+    {
+        if (outputJson)
+        {
+            var payload = new
+            {
+                error = new
+                {
+                    code = ex.Code,
+                    message = ex.Message,
+                    details = ex.Details,
+                },
+            };
+            Console.Error.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            }));
+        }
+        else
+        {
+            Console.Error.WriteLine($"error: [{ex.Code}] {ex.Message}");
+        }
+    }
+
+    private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
+    {
+        // Global enable switch: config `agent.enabled` (off by default for PP).
+        // The user opts in with `az config set --key agent.enabled --value true`.
+        // Fail-safe: if config can't be read, treat as disabled and surface the
+        // original error rather than spawning the agent on an unknown state.
         try
         {
-            // Use the singleton AgentEngine from DI container
-            var agentEngine = CirrusServiceProvider.GetRequiredService<AgentEngine>();
-            var output = CirrusServiceProvider.GetRequiredService<IOutputAdapter>();
-
-            while (attempt < maxRetries)
+            var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+            if (!config.GetConfiguration<AgentOptions>().Enabled)
             {
-                attempt++;
-
-                await agentEngine.ExecuteCommandAsync(currentArgs, default);
-
-                var extractedCommand = agentEngine.ExtractedCommand;
-                if (string.IsNullOrWhiteSpace(extractedCommand))
-                {
-                    // AI provided info/help but no executable command
-                    return 0;
-                }
-
-                // AI generated a command - retry through extension loader
-                var retryArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                // Skip the first token if it matches the assembly name
-                if (retryArgs.Length > 0 && retryArgs[0].Equals(AssemblyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    retryArgs = retryArgs.Skip(1).ToArray();
-                }
-
-                await output.WriteLineAsync($"\nRetrying with command: {extractedCommand}\n");
-
-                try
-                {
-                    var dispatcher = new ExtensionDispatcher();
-                    CommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
-                    //Console.WriteLine(result);
-                    return 0;
-                }
-                catch (Exception ex)
-                {
-                    if (attempt >= maxRetries)
-                    {
-                        await output.WriteErrorAsync($"Failed to execute command after {maxRetries} attempts: {ex.Message}");
-                        return 1;
-                    }
-                    // Update args for next iteration
-                    currentArgs = retryArgs;
-                }
+                return 1;
             }
-
-            return 1;
         }
         catch (Exception ex)
         {
-            logger.Error($"AI agent error: {ex.Message}");
+            _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
             return 1;
         }
+
+        // Non-interactive guard: the agent reads y/n approvals and prompts from
+        // the terminal. When this isn't an interactive TTY (CI, a pipe, an
+        // unattended script) it can't interact and would hang or spew, so surface
+        // the original error instead of spawning it. Replaces the removed
+        // legacy agent-disabled env guard for unattended runs. Inlined (not the
+        // agent's ConsoleEnvironment helper) so Core.Cli stays decoupled from
+        // Core.Agent — same semantics: a TTY on both stdin and stdout.
+        if (Console.IsInputRedirected || Console.IsOutputRedirected)
+        {
+            return 1;
+        }
+
+        // Recursion guard: a failed az invoked by powershell from inside an
+        // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
+        if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
+        {
+            return 1;
+        }
+
+        var tuiExe = FindTuiExe();
+        if (tuiExe is null)
+        {
+            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside az");
+            return 1;
+        }
+
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = tuiExe,
+                // Inherit stdio so streaming tokens, y/n prompt, device-code links
+                // all show live in the user's terminal.
+                UseShellExecute = false,
+                RedirectStandardOutput = false,
+                RedirectStandardError = false,
+                RedirectStandardInput = false,
+            };
+            psi.Environment[AgentModeEnvVar] = "1";
+            psi.ArgumentList.Add("--agent-mode");
+            psi.ArgumentList.Add("--failed-command");
+            psi.ArgumentList.Add(JoinShellQuoted(args));
+            if (!string.IsNullOrWhiteSpace(errorText))
+            {
+                psi.ArgumentList.Add("--error");
+                psi.ArgumentList.Add(errorText);
+            }
+
+            // The child TUI takes over Ctrl+C (it cancels the session). The parent
+            // must also intercept it — otherwise Ctrl+C kills the parent first, the
+            // shell redraws its prompt, and the child's remaining output prints onto
+            // that prompt ("terminal hijack"). Intercept-only here; the child owns the
+            // actual cancellation and we just wait for it to exit cleanly.
+            ConsoleCancelEventHandler cancelHandler = (_, e) => e.Cancel = true;
+            Console.CancelKeyPress += cancelHandler;
+            try
+            {
+                using var proc = Process.Start(psi)
+                    ?? throw new InvalidOperationException("Process.Start returned null");
+                await proc.WaitForExitAsync();
+                return proc.ExitCode;
+            }
+            finally
+            {
+                Console.CancelKeyPress -= cancelHandler;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error($"agent mode subprocess failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static string JoinShellQuoted(string[] args)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (i > 0) sb.Append(' ');
+            var a = args[i];
+            if (a.Length == 0 || a.Contains(' ') || a.Contains('\t') || a.Contains('"'))
+                sb.Append('"').Append(a.Replace("\"", "\\\"")).Append('"');
+            else
+                sb.Append(a);
+        }
+        return sb.ToString();
+    }
+
+    private static string? FindTuiExe()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        foreach (var candidate in new[]
+        {
+            Path.Combine(baseDir, "Core.Tui.exe"),
+            Path.Combine(baseDir, "Core.Tui"),
+            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui.exe"),
+            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui"),
+        })
+        {
+            if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+        }
+        return null;
     }
 
     /// <summary>
@@ -180,8 +416,8 @@ public class Program
             if (exePath == null) return;
 
             // In-process benchmark mode: do not attempt to flush telemetry as in benchmark execution process
-            if (!exePath.EndsWith("azv2", StringComparison.OrdinalIgnoreCase) &&
-                !exePath.EndsWith("azv2.exe", StringComparison.OrdinalIgnoreCase))
+            if (!exePath.EndsWith("az", StringComparison.OrdinalIgnoreCase) &&
+                !exePath.EndsWith("az.exe", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -201,19 +437,6 @@ public class Program
         {
             // Best effort. If spawn fails, traces remain on disk
             // and will be uploaded on the next CLI invocation.
-        }
-    }
-
-    static uint? TerminalWidth()
-    {
-        try
-        {
-            var width = (uint)Console.WindowWidth;
-            return width > 0 ? width : null;
-        }
-        catch
-        {
-            return null;
         }
     }
 }

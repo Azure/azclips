@@ -1,353 +1,386 @@
 ---
-title: AI Agent Integration
-description: How Cirrus uses Azure OpenAI to convert natural language into executable Azure CLI and PowerShell commands — covering CloudAgent architecture, the prompt template, conversation management, streaming responses, and the JSON response schema.
+title: AI Agent
+description: Deep dive on the Agent/ project — a GitHub Copilot SDK client driving a bundled Copilot CLI daemon, its act-through-tools turn contract, tool surface, prompts, and console hosting.
+outline: deep
 ---
 
-# AI Agent Integration
+# AI Agent
 
-Cirrus's AI agent layer transforms natural language input into structured Azure commands. When a user types `"create a resource group called test in eastus"` and no structured command matches, the `OrchestratorEngine` falls back to the `AgentEngine`, which delegates to `CloudAgent` — an Azure OpenAI-powered conversational agent that gathers information, generates commands, and requests user confirmation before execution.
+## Overview — why an agent, and what it actually is
 
-## Why AI Fallback Exists
+When a normal `az`/`Az` command fails, Azclips can fall back to an **AI agent** that reads the
+failed command, figures out what went wrong, proposes a concrete fix, and — with the user's
+approval — runs it. The agent lives in the `Agent/` project (`Core.Agent.csproj`,
+assembly `azclips-agent`).
 
-The orchestration design (`src/Core/Core.Engine/OrchestratorEngine.cs:60-119`) treats the AI agent as a second-class citizen — structured commands always execute first. The agent only activates when:
+> ### ⚠️ Fact vs. stale documentation
+> `docs/spec/ARCHITECTURE.md` describes the agent as *"Azure OpenAI Integration — CloudAgent
+> with GPT-4o-mini"* driven by an `AgentEngine`/`OrchestratorEngine`
+> (`docs/spec/ARCHITECTURE.md:9`, `:20`). **That document is stale.** The shipping agent is
+> built on the **GitHub Copilot SDK** (`GitHub.Copilot.SDK` `1.0.0`,
+> `Agent/Core.Agent.csproj:31`) which drives a **bundled Copilot CLI daemon** resolved from
+> the SDK's NuGet payload (`Agent/BundledDaemonResolver.cs:11`). There is no `CloudAgent`,
+> `AgentEngine`, or hard-wired `gpt-4o-mini`. The model is configurable; the `builtin`
+> provider's default is `gpt-5.4` (`src/Core/Core.Abstractions/AgentOptions.cs:46`). Treat
+> the code as ground truth and `ARCHITECTURE.md` as out of date for the agent.
 
-1. **Unknown command** — `DefaultCommandEngine` throws because `CommandBinder` returns null (`src/Core/Core.Engine/DefaultCommandEngine.cs:42`)
-2. **Typo correction** — user types `"gruop create"` instead of `"group create"`
-3. **Natural language** — `"create a resource group for me"` has no structured match
-4. **PowerShell bypass** — when `AZURECLI_FLAVOR == "azure powershell"`, all input routes directly to the agent (`src/Core/Core.Engine/OrchestratorEngine.cs:65-70`)
+The rest of this page traces the real implementation: the daemon transport, the `ChatAgent`
+turn contract, the tool surface, prompt selection, and the console host that renders it.
 
-This design ensures zero latency penalty for known commands while providing a graceful degradation path for everything else.
+---
 
-## CloudAgent Architecture
+## The bundled daemon transport
 
-`CloudAgent` (`src/Core/Core.Agent/CloudAgent.cs:13`) wraps the Microsoft.Agents.AI `AIAgent` with conversation management.
-
-### Class Structure
+The Copilot SDK is a *client*; the actual model orchestration runs in a separate **daemon
+process** that ships inside the SDK NuGet package. `BundledDaemonResolver.Resolve()` locates
+that executable under the RID-specific native folder
+(`Agent/BundledDaemonResolver.cs:13`):
 
 ```csharp
-public class CloudAgent
+var binaryName = OperatingSystem.IsWindows() ? "copilot.exe" : "copilot";
+var rid  = GetPortableRid() ?? Path.GetFileName(RuntimeInformation.RuntimeIdentifier);
+var path = Path.Combine(AppContext.BaseDirectory, "runtimes", rid, "native", binaryName);
+return File.Exists(path) ? path : null;
+```
+
+`GetPortableRid()` maps the OS/arch to `win|linux|osx`-`x64|arm64`, so on Apple Silicon the
+path becomes `runtimes/osx-arm64/native/copilot`. `ChatAgent` then opens a stdio RPC
+connection to it (`Agent/ChatAgent.cs:113`):
+
+```csharp
+var client = new CopilotClient(new CopilotClientOptions
 {
-    private readonly AIAgent _innerAgent;                           // line 15
-    private readonly List<ChatMessage> _conversationHistory;        // line 16
-
-    private CloudAgent(AIAgent innerAgent) { ... }                  // line 18 (private ctor)
-    public static async Task<CloudAgent> CreateAsync(string flavor) // line 29 (factory)
-}
+    Logger = sdkLogger,
+    Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
+});
 ```
-
-The private constructor (line 18) and async factory pattern enforce that credential validation and prompt loading happen before the agent is usable.
-
-### Factory Method: CreateAsync
-
-`CreateAsync` (`src/Core/Core.Agent/CloudAgent.cs:29-78`) performs four steps:
-
-**Step 1 — Load .env file** (lines 35-50): Searches four locations in order:
-1. `{AppContext.BaseDirectory}/.env` — CLI binary directory
-2. `{Directory.GetCurrentDirectory()}/.env` — current working directory
-3. `{Assembly.Location}/.env` — module directory (for PowerShell)
-4. `{Directory.GetCurrentDirectory()}/bin/.env` — development convenience
-
-**Step 2 — Read credentials** (lines 53-58): Three required environment variables:
-- `AZURE_OPENAI_ENDPOINT` — Azure OpenAI resource URL
-- `AZURE_OPENAI_API_KEY` — API key for authentication
-- `AZURE_OPENAI_DEPLOYMENT` — Deployment/model name
-
-Each throws `InvalidOperationException` with a descriptive message if missing.
-
-**Step 3 — Load and parameterize prompt** (lines 61-67):
-```csharp
-string promptPath = Path.Combine(AppContext.BaseDirectory, "prompt.md");
-string instructions = File.Exists(promptPath)
-    ? await File.ReadAllTextAsync(promptPath)
-    : "You are a helpful assistant. Provide clear, concise answers.";
-instructions = instructions.Replace("{{flavor}}", flavor);
-```
-
-The `{{flavor}}` placeholder is replaced with either `"azure cli"` or `"azure powershell"`.
-
-**Step 4 — Create AIAgent** (lines 70-76):
-```csharp
-AIAgent innerAgent = new AzureOpenAIClient(
-    new Uri(endpoint),
-    new AzureKeyCredential(apiKey))
-        .GetChatClient(deployment)
-        .CreateAIAgent(
-            instructions: instructions,
-            name: "CLI Assistant");
-```
-
-### Streaming Responses
-
-`RunStreamingAsync` (`src/Core/Core.Agent/CloudAgent.cs:84`) returns an `IAsyncEnumerable<AgentRunResponseUpdate>`:
-
-1. Adds the user message to conversation history (lines 87-88)
-2. Streams response updates from the inner agent (line 92)
-3. Accumulates the full response with `StringBuilder` (line 94)
-4. Adds the assistant's complete message to history (lines 99-100)
-
-The conversation history is publicly readable via `ConversationHistory` (line 106) and clearable via `ClearHistory()` (line 111).
-
-## The Prompt Template
-
-The system prompt (`src/Core/Core.Agent/prompt.md`) defines the agent's behavior, response schema, and supported commands.
-
-### JSON Response Schema
-
-Every response must be valid JSON with exactly two fields (`src/Core/Core.Agent/prompt.md:13-17`):
-
-```json
-{
-  "response": "your response text here",
-  "type": "executable_command | sample_command | question | confirmation | exit"
-}
-```
-
-### Response Types
-
-| Type | When Used | Example | Line |
-|---|---|---|---|
-| `executable_command` | After user confirms, command has real values | `azv2 group create --name mygroup --location eastus` | 22 |
-| `sample_command` | Syntax help with placeholders | `azv2 group create --name <name> --location <location>` | 23 |
-| `question` | Gathering required information | `What name would you like for the resource group?` | 24 |
-| `confirmation` | Asking approval before execution | Command + `Proceed with this command? (yes/no)` | 25 |
-| `exit` | User says exit/quit/cancel/nevermind or declines | Goodbye message | 26 |
 
 ```mermaid
-stateDiagram-v2
-    direction LR
+flowchart LR
+    CLI["az group list (fails)<br>src/CLI/Program.cs"] -->|spawn Core.Tui --agent-mode| Entry["AgentModeEntry<br>TUI/AgentMode"]
+    Entry -->|CreateAsync| CA["ChatAgent<br>Agent/ChatAgent.cs"]
+    CA -->|CopilotClient| SDK["GitHub.Copilot SDK"]
+    SDK -->|stdio RPC| Daemon["Bundled Copilot CLI daemon<br>runtimes/&lt;rid&gt;/native/copilot"]
+    Daemon -->|provider config| Model["Model backend<br>builtin: Azure-APIM gpt-5.4<br>github: user's Copilot sub"]
 
-    [*] --> Question : needs info
-    [*] --> SampleCommand : "how to" query
-    [*] --> Exit : exit/quit/cancel
-
-    Question --> Question : needs more info
-    Question --> Confirmation : all info gathered
-    Confirmation --> ExecutableCommand : user confirms
-    Confirmation --> Exit : user declines
-    ExecutableCommand --> [*] : command extracted
-
-    SampleCommand --> [*] : syntax shown
-    Exit --> [*] : conversation ended
-
-    classDef stateStyle fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    class Question,SampleCommand,Confirmation,ExecutableCommand,Exit stateStyle
+    style CLI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Entry fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CA fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SDK fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Daemon fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Model fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-### Flavor-Specific Syntax Rules
+The daemon owns model calls and the built-in tools (bash, view, edit, grep, glob, web_fetch,
+web_search, todo). Azclips supplies the *system prompt*, a set of **custom tools**, and a set
+of **hooks** that gate and rewrite every tool call.
 
-The prompt instructs the AI to use different syntax based on flavor (`src/Core/Core.Agent/prompt.md:7-8`):
-- **azure cli**: lowercase `azv2` commands (e.g., `azv2 group create`)
-- **azure powershell**: PascalCase cmdlets without prefix (e.g., `New-ResourceGroup`)
+### Provider selection
 
-### Critical Rules
+`agent.provider` (config) chooses the backend (`Agent/ChatAgent.cs:200`):
 
-The prompt enforces strict behavioral constraints (`src/Core/Core.Agent/prompt.md:72-85`):
-- Always return valid JSON with no extra text (line 73)
-- Always use `confirmation` before `executable_command` (line 74)
-- Use `executable_command` only after user confirms with actual values (line 75)
-- No markdown code blocks or formatting outside JSON (line 80)
+| Provider  | Resolved model              | Auth                                                    |
+| --------- | --------------------------- | ------------------------------------------------------ |
+| `builtin` (default) | `agent.builtin.modelId` (default `gpt-5.4`) | Azure token acquired via MSAL, pointed at an APIM endpoint (`BuiltinProviderOptions.Endpoint`) with the `responses` wire API |
+| `github`  | daemon default              | The user's own GitHub Copilot subscription             |
 
-### Supported Commands
+For `builtin`, `BuildBuiltinProviderConfigAsync` acquires an Azure access token silently and
+builds a `ProviderConfig { Type = "azure", WireApi = "responses", BaseUrl = opts.Endpoint,
+BearerToken = ... }` (`Agent/ChatAgent.cs:286`). If no Azure login exists, the agent fails
+with a message telling the user to `az login` or switch to the `github` provider
+(`ChatAgent.cs:331`). Any other provider value is rejected.
 
-The prompt explicitly lists the only truly executable commands (`src/Core/Core.Agent/prompt.md:89-94`):
-- `azv2 login --TenantId <tenant-id> --SubscriptionId <subscription-id> --UseDeviceCode`
-- `azv2 group create --SubscriptionId <subscription-id> --Name <name> --Location <location>`
+---
 
-All other commands are treated as `sample_command` with a note that they are not yet supported in Cirrus.
+## Entering agent mode from the CLI fallback
 
-## AgentEngine: The Conversation Loop
-
-`AgentEngine` (`src/Core/Core.Engine/AgentEngine.cs:32`) wraps `CloudAgent` with interactive UI, JSON parsing, and response routing.
-
-### Inner Response Model
+The agent never runs in the failing `az` process. When a command fails and the agent is
+enabled, `src/CLI/Program.cs` spawns the TUI executable in a child process with the failed
+command and error text (`src/CLI/Program.cs:340`):
 
 ```csharp
-private class AgentResponse                                    // line 47
-{
-    public string Response { get; set; } = string.Empty;       // line 49
-    public string Type { get; set; } = string.Empty;           // line 50
-}
+psi.Environment["AZCLIPS_IN_AGENT_MODE"] = "1";   // recursion guard
+psi.ArgumentList.Add("--agent-mode");
+psi.ArgumentList.Add("--failed-command");
+psi.ArgumentList.Add(JoinShellQuoted(args));
 ```
 
-### ExecuteCommandAsync: Full Flow
+Guards: the fallback is skipped when stdin/stdout are redirected (non-TTY) and when
+`AZCLIPS_IN_AGENT_MODE=1` is already set (so an `az` invoked *by the agent* can't recursively
+spawn another agent — `src/CLI/Program.cs:308`, `:315`). See the Core Engine page for how the
+original failure is caught.
 
-The main method (`src/Core/Core.Engine/AgentEngine.cs:53-230`) implements:
+`TUI/AgentMode/AgentModeEntry.cs` then reads `AgentOptions`, picks the prompt flavor, builds
+the renderer/approval/spinner stack, and calls `ChatAgent.CreateAsync(...)`
+(`TUI/AgentMode/AgentModeEntry.cs:90`). The first user turn is synthesized from the failure:
+*"I tried `<cmd>` but it failed: `<error>`. Help me fix it."* (`AgentModeEntry.cs:110`).
 
-**1. Agent initialization** (line 59):
+---
+
+## `ChatAgent` — the turn contract
+
+`ChatAgent` (`Agent/ChatAgent.cs:24`) is the single-agent entry point. Hosts create one, then
+drive a loop they own with `SendAsync`, racing the send `Task` against the approval pump.
+
+### Act-through-tools with turn-closing tools
+
+The central rule: **every turn must end by calling a turn-closing tool**. Replying in bare
+prose — even after querying with `get_command` or `bash` — is a protocol violation. Two tools
+can close a turn, tracked via `_sendCalledClosingTool` (`Agent/ChatAgent.cs:40`) and exposed
+as `LastSendCalledClosingTool` (`ChatAgent.cs:49`):
+
+- **`submit_response`** — the *sole session terminator* (`IsSessionTerminator`,
+  `ChatAgent.cs:625`). Reports `completed | rejected | failed`.
+- **`propose_plan`** — a *mid-turn artifact* that renders a plan for approval. In
+  **interactive** mode it counts as closing (it stops for y/n); in **one-shot** mode it does
+  **not** close — the agent must go on to `submit_response` so the plan is actually rendered
+  (`IsClosingTool`, `ChatAgent.cs:618`).
+
+Diagnostic/help tools (`get_command`, `find_*`, `list_*`) never satisfy the contract. After a
+send, the host inspects `LastSendCalledClosingTool`; a bare-prose turn is forced to correct.
+
+### Turn timeout and one-shot vs interactive
+
+`SendAsync` links the host token to a per-turn CTS and calls `SendAndWaitAsync` with a
+**10-minute** turn timeout (`TurnTimeout`, `ChatAgent.cs:26`; `SendAsync`, `ChatAgent.cs:352`):
+
 ```csharp
-_agent ??= await Core.Agent.CloudAgent.CreateAsync(_flavor);
-```
-The `??=` operator ensures the agent is reused across retry attempts in the `OrchestratorEngine` loop, preserving multi-turn conversation history.
-
-**2. Input preparation** (line 64):
-```csharp
-string userInput = string.Join(" ", args);
-```
-
-**3. Spinner animation** (lines 72-92): For CLI mode only (skipped when `_flavor == "azure powershell"`, line 75):
-```
-Frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-Update interval: 100ms
-Display: "\r{frame} Thinking..."
+private static readonly TimeSpan TurnTimeout = TimeSpan.FromMinutes(10);
+...
+await _session.SendAndWaitAsync(
+    new MessageOptions { Prompt = prompt },
+    timeout: TurnTimeout,
+    cancellationToken: turnCts.Token);
 ```
 
-**4. Streaming** (lines 98-113): Iterates `_agent.RunStreamingAsync(userInput)` and accumulates response chunks. The spinner is cancelled on the first streaming update (lines 100-110).
+`SessionState.IsOneShot` is `!options.IsInteractive` (`ChatAgent.cs:186`). It changes when the
+session ends: `SessionClosed` is true only when one-shot **and** `submit_response` has rendered
+(`ChatAgent.cs:70`). One-shot exits on the first `submit_response`; interactive keeps the
+conversation open (the user can answer the plan's questions) until they type exit/quit.
 
-**5. JSON parsing** (lines 126-141):
-```csharp
-var agentResponse = JsonSerializer.Deserialize<AgentResponse>(
-    cleanedResponse,
-    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-```
+### The `OnPreToolUse` gate
 
-**6. Response routing** (lines 151-222):
+Every tool call passes through `HandlePreToolUseAsync` (`Agent/ChatAgent.cs:384`) — the heart
+of the safety model. In order, it:
+
+1. **Post-terminator gate.** If `submit_response` already ran this turn, deny any further tool
+   call (rather than cancelling, which would masquerade as Ctrl+C) (`ChatAgent.cs:395`).
+2. **`submit_response`.** Validates args; on failure denies with a self-correction hint; on
+   success renders the final outcome (plan + status) and marks the turn ended (`ChatAgent.cs:407`).
+3. **`propose_plan`.** Validates and captures issues/steps/placeholders/defaults into
+   `SessionState`. One-shot allows silently; interactive asks y/n and, on **reject**, rolls
+   back the approval gate and tells the model to re-plan (`ChatAgent.cs:454`).
+4. **Plan-before-execute gate.** `bash`/`powershell` are denied until a plan is approved
+   (`state.PlanApproved`) (`ChatAgent.cs:516`).
+5. **Placeholder guard.** A command still containing `<placeholder>`/<code v-pre>{{...}}</code>/`YOUR_*` is
+   denied so the agent asks the user for the real value (`PlaceholderDetector`,
+   `ChatAgent.cs:539`).
+6. **`az` rewrite.** A bare `az` in a shell command is rewritten to the absolute exe path that
+   launched the agent, then re-approved and passed through as `ModifiedArgs` (`ChatAgent.cs:548`).
+
+`OnPermissionRequest` complements this: read-only cache tools (`find_`/`get_`/`list_` prefix)
+are auto-approved; everything else routes to the user prompt (`ChatAgent.cs:271`, `:975`).
+
+### Turn lifecycle sequence
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant User
-    participant AgentEngine
-    participant CloudAgent
-    participant AzureOpenAI as Azure OpenAI
+    actor User
+    participant Host as AgentModeEntry (host loop)
+    participant CA as ChatAgent.SendAsync
+    participant Daemon as Copilot daemon
+    participant Gate as OnPreToolUse
+    participant Approve as ConsoleApprovalPrompt
 
-    User->>AgentEngine: "create a resource group for me"
-    AgentEngine->>AgentEngine: _agent ??= CloudAgent.CreateAsync(flavor)
-    AgentEngine->>AgentEngine: Start spinner (CLI only)
-
-    loop Conversation Loop
-        AgentEngine->>CloudAgent: RunStreamingAsync(userInput)
-        CloudAgent->>AzureOpenAI: Stream chat completion
-        AzureOpenAI-->>CloudAgent: Response chunks
-        CloudAgent-->>AgentEngine: IAsyncEnumerable updates
-
-        AgentEngine->>AgentEngine: Stop spinner, parse JSON
-
-        alt type == "question"
-            AgentEngine->>User: Display question in cyan
-            User->>AgentEngine: Provide answer
-            Note over AgentEngine: userInput = user's answer, loop continues
-        else type == "confirmation"
-            AgentEngine->>User: Show command + "Proceed? (yes/no)"
-            User->>AgentEngine: "yes"
-            Note over AgentEngine: userInput = "yes", loop continues
-        else type == "executable_command"
-            AgentEngine->>AgentEngine: _extractedCommand = response
-            AgentEngine->>User: Display command in cyan
-            alt CLI mode
-                Note over AgentEngine: Exit loop, return to OrchestratorEngine
-            else PowerShell mode
-                AgentEngine->>User: Output "__PSEXEC__" marker
-            end
-        else type == "sample_command"
-            AgentEngine->>User: Display syntax in cyan
-            AgentEngine->>AgentEngine: _extractedCommand = null
-            Note over AgentEngine: Exit loop
-        else type == "exit"
-            AgentEngine->>User: Display goodbye
-            Note over AgentEngine: Exit loop
-        end
-    end
-
-    style User fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AgentEngine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CloudAgent fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AzureOpenAI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    User->>Host: "fix `az group list`"
+    Host->>CA: SendAsync(prompt)
+    CA->>Daemon: SendAndWaitAsync (10-min timeout)
+    Daemon->>Gate: get_command / find_resources (read-only)
+    Gate-->>Daemon: allow (auto-approved)
+    Daemon->>Gate: propose_plan(issues, steps)
+    Gate->>Approve: RequestPlanAsync (interactive only)
+    Approve-->>User: show plan, ask y/n
+    User-->>Approve: y
+    Approve-->>Gate: approved → PlanApproved=true
+    Daemon->>Gate: bash("az group list ...")
+    Gate->>Gate: rewrite bare az → abs path
+    Gate->>Approve: RequestRewriteAsync
+    User-->>Approve: y
+    Gate-->>Daemon: allow(ModifiedArgs)
+    Daemon->>Gate: submit_response(status="completed")
+    Gate->>Approve: ShowFinalOutcome(plan + status)
+    Gate-->>Daemon: allow, mark turn ended
+    Daemon-->>CA: turn complete
+    CA-->>Host: LastSendCalledClosingTool = true
+    Host-->>User: (one-shot) exit / (interactive) await next
 ```
 
-### Response Type Handling Details
+---
 
-**`executable_command`** (`src/Core/Core.Engine/AgentEngine.cs:153-168`):
-- Stores the response in `_extractedCommand` (line 159)
-- For PowerShell: outputs the `__PSEXEC__` marker string (lines 162-165), which PowerShell cmdlets detect to extract and execute the command
-- Breaks out of the conversation loop (line 168)
+## Tools
 
-**`sample_command`** (lines 170-177):
-- Displays the syntax in cyan
-- Sets `_extractedCommand = null` — no command to feed back to `DefaultCommandEngine`
-- Exits the loop
+Azclips registers its custom tools alongside the daemon's built-ins via `SessionConfig.Tools`
+(`Agent/ChatAgent.cs:247`). `AvailableTools = null` means "all built-ins plus these".
 
-**`confirmation` / `question`** (lines 188-215):
-- Displays the message in cyan
-- **PowerShell mode** (lines 196-200): exits immediately because PowerShell cmdlets cannot do interactive `Console.ReadLine()` — the conversation is one-shot
-- **CLI mode** (lines 202-215): prompts for user input via `ReadLineAsync()`, then sets `userInput` to the response and continues the loop
+```mermaid
+flowchart TB
+    subgraph Turn["Turn-closing tools (Agent/Tools)"]
+        PP["propose_plan<br>ProposePlanTool.cs"]
+        SR["submit_response<br>SubmitResponseTool.cs"]
+    end
+    subgraph Help["Help tools (Tools/Help)"]
+        LC["list_commands"]
+        GC["get_command"]
+    end
+    subgraph Cache["ARM cache tools (Tools/Cache)"]
+        FR["find_resources"]
+        RT["get_resource_tree"]
+        RD["get_resource_details"]
+    end
+    subgraph Sku["SKU tools (Tools/Sku)"]
+        AL["available_locations"]
+    end
+    RC["ResourceCache (singleton)<br>~/.azclips/arm-cache/*.json"] --- FR
+    RC --- RT
+    ARM["ArmDetailsClient → live ARM"] --- RD
+    ARM --- AL
 
-**`exit`** (lines 179-186):
-- Displays goodbye message
-- Sets `_extractedCommand = null`
-- Exits the loop
+    style PP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SR fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style LC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style GC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style FR fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style RT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style RD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style AL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style RC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style ARM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Turn fill:#161b22,stroke:#30363d,color:#e6edf3
+    style Help fill:#161b22,stroke:#30363d,color:#e6edf3
+    style Cache fill:#161b22,stroke:#30363d,color:#e6edf3
+    style Sku fill:#161b22,stroke:#30363d,color:#e6edf3
+```
 
-### Error Handling
+| Tool                    | Source                                          | Role                                                                    |
+| ----------------------- | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| `propose_plan`          | `Agent/Tools/ProposePlanTool.cs:21`             | Structured fix (issues / steps / placeholders / defaults); host renders it |
+| `submit_response`       | `Agent/Tools/SubmitResponseTool.cs:20`          | Terminal outcome: `completed` / `rejected` (`OUT_OF_SCOPE_*`) / `failed` |
+| `list_commands` / `get_command` | `Agent/Tools/Help/HelpTools.cs:19`       | Read the embedded help corpus (`HelpIndex.json`, `HelpManifest.json`)   |
+| `find_resources` / `get_resource_tree` / `get_resource_details` | `Agent/Tools/Cache/CachedResourceTools.cs:15` | Query the local ARM cache; `get_resource_details` can fetch live ARM props |
+| `available_locations`   | `Agent/Tools/Sku/AvailableLocationsTool.cs:26`  | Given a VM SKU, list regions where it's available (SkuNotAvailable recovery) |
 
-All exceptions in `ExecuteCommandAsync` are caught silently (`src/Core/Core.Engine/AgentEngine.cs:225-229`), setting `_extractedCommand = null`. This is intentional — if the AI fails (network error, invalid JSON, API quota), the `OrchestratorEngine` sees no extracted command and exits gracefully rather than crashing.
+The `propose_plan` schema is deliberately **structured**, not free-form markdown, so the host
+renders each part as its own styled block; argument validation lives in the hook, so the tool
+body only logs (`ProposePlanTool.cs:44`). `submit_response`'s status enum and message rules are
+likewise validated in the hook so the model gets a correction prompt instead of a stack trace
+(`SubmitResponseTool.cs:40`).
 
-## Bootstrapper Registration
+### ARM resource cache tools
 
-The `AgentEngine` is registered in the Bootstrapper with a factory that reads the flavor environment variable (`src/Core/Core.Engine/Bootstrapper.cs:85-91`):
+`CachedResourceTools` reads a **process-wide singleton** `ResourceCache`
+(`Agent/Tools/Cache/ResourceCache.cs:22`) backed by JSON files under `~/.azclips/arm-cache/`.
+The cache is *built and refreshed by another component* — these tools only **read**, and
+degrade to empty results if a file is missing (`ResourceCache.cs:7`). Indexes are built lazily
+and rebuilt when a file's mtime changes.
+
+`get_resource_details` can escalate to **live** ARM via `ArmDetailsClient`
+(`Agent/Tools/Cache/ArmDetailsClient.cs:14`), which uses `Azure.ResourceManager` with a
+2-minute process-local cache. Authentication is bridged through
+`AuthServiceTokenCredential` (`Agent/Tools/Cache/AuthServiceTokenCredential.cs:13`), an adapter
+that exposes the internal `IAuthService`/MSAL pipeline as an Azure SDK `TokenCredential` — so
+ARM SDK calls reuse the single ClientId, shared cache, and shared telemetry rather than a
+separate credential chain.
+
+---
+
+## Prompts
+
+The system prompt is chosen by **interaction mode** and loaded from a `.md` file copied next to
+the binary (`LoadSystemPrompt`, `Agent/ChatAgent.cs:982`). <code v-pre>{{flavor}}</code> (e.g. `azure cli`) is
+substituted at load time:
+
+| Entrypoint | File                     | When                                        |
+| ---------- | ------------------------ | ------------------------------------------- |
+| `oneshot`  | `Agent/prompts/oneshot.md` | `SessionStyle` is not interactive (default) |
+| `inline`   | `Agent/prompts/inline.md`  | `SessionStyle = interactive`                |
+| `tui`      | `Agent/prompts/tui.md`     | Reserved for a future full-screen host (nothing spawns it yet) |
+
+`AgentModeEntry` maps `agentOpts.IsInteractive ? "inline" : "oneshot"`
+(`TUI/AgentMode/AgentModeEntry.cs:45`). An invalid entrypoint throws rather than guessing which
+prompt to load (`ChatAgent.cs:984`). The prompts encode the act-through-tools contract and the
+scope rules (harmful/unrelated → `rejected`), e.g. `Agent/prompts/oneshot.md`.
+
+---
+
+## Hosting & rendering
+
+The console host stack lives in `Agent/Hosting/`. Its overriding concern is that **stdin has
+exactly one reader** — the SDK's permission callback runs on a daemon background thread, so
+naive `Console.ReadLine()` there would race the host loop.
+
+| Component               | Source                                       | Responsibility                                                                 |
+| ----------------------- | -------------------------------------------- | ------------------------------------------------------------------------------ |
+| `ConsoleAgentRenderer`  | `Agent/Hosting/ConsoleAgentRenderer.cs:4`    | Renders events/text; **quiet** mode in one-shot; drops trailing prose after `submit_response` |
+| `ConsoleApprovalPrompt` | `Agent/Hosting/ConsoleApprovalPrompt.cs:27`  | Decouples SDK callback (producer) from host thread (consumer) via a `Channel` + `TaskCompletionSource`; only the pump thread touches stdin |
+| `AbortKeyWatcher`       | `Agent/Hosting/AbortKeyWatcher.cs:5`         | During a busy turn, polls `Console.KeyAvailable`: Esc aborts the turn, Ctrl+C quits; no-op on redirected stdin |
+| `SpinnerService`        | `Agent/Hosting/SpinnerService.cs:8`          | Braille spinner whose verb updates on tool-start events                        |
+| `TraceAgentRenderer`    | `Agent/Hosting/TraceAgentRenderer.cs:16`     | Decorator that writes a best-effort JSONL trace when `agent.trace.enabled`, under `agent.trace.path` |
+
+The producer/consumer split is the key pattern: the SDK's `OnPermissionRequest` posts a request
+onto an unbounded channel and awaits a `TaskCompletionSource`; the host pumps it with
+`PumpOneAsync` on its own thread (`ConsoleApprovalPrompt.cs:7`). The host loop races the send
+against the pump so approvals resolve while a turn is in flight
+(`SendAndPumpAsync`, `TUI/AgentMode/AgentModeEntry.cs:258`):
 
 ```csharp
-services.AddSingleton<AgentEngine>(sp =>
-{
-    var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
-    return new AgentEngine(
-        sp.GetRequiredService<IOutputAdapter>(),
-        flavor);
-});
+var completed = await Task.WhenAny(sendTask, pumpTask, watcherTask);
 ```
 
-The `DIRegisterExtensions.RegisterAgentServices()` method (`src/Core/Core.Agent/DIRegisterExtensions.cs:10-13`) currently contains only a TODO comment — actual agent service registrations happen in the Bootstrapper rather than through the standard DI extension pattern.
+`TraceAgentRenderer` always forwards to the inner renderer first, then writes the trace under
+try/catch so a slow disk can't break output; prose suppression after the terminator is
+always-on in `ConsoleAgentRenderer`, independent of tracing (`TraceAgentRenderer.cs:6`).
 
-## PowerShell Integration
+---
 
-When PowerShell cmdlets invoke the agent:
+## Environment probes & hooks
 
-1. They set `AZURECLI_FLAVOR=azure powershell` before calling the CLI binary
-2. `OrchestratorEngine` detects this and skips `DefaultCommandEngine` entirely (line 65-70)
-3. `AgentEngine` uses `"azure powershell"` flavor in the prompt template
-4. The AI generates PascalCase cmdlet syntax instead of `azv2` commands
-5. For `executable_command` responses, the `__PSEXEC__` marker is emitted (line 162-165)
-6. Interactive prompts are skipped — PowerShell cannot read from `Console` in a cmdlet context (line 196-200)
+Before the model's first turn (and on each user prompt), `EnvironmentProber` builds an
+`EnvironmentSnapshot` injected as additional context (`SessionHooks.OnSessionStart`/
+`OnUserPromptSubmitted`, `Agent/ChatAgent.cs:255`). The prober reports OS, shell, cwd, SSH
+session, browser availability, stdin interactivity, and **whether the user is signed in** — the
+latter by reading the **active profile** from `IProfileService`
+(`Agent/Probes/EnvironmentProber.cs:28`). This is the direct link to the
+[Configuration & Profile Management](./configuration-profiles.md) subsystem: the agent knows
+the signed-in subscription because it reads the same active profile the engine resolves.
 
-## .env Configuration
+`PlaceholderDetector` (`Agent/Hooks/PlaceholderDetector.cs:6`) is the single hook module — a
+set of regexes (`<name>`, <code v-pre>{{...}}</code>, `YOUR_*`, `*-PLACEHOLDER`) used by the pre-tool gate to
+block commands that still contain unfilled placeholders, forcing the agent to ask the user
+rather than run a broken command.
 
-The `.env` file is loaded by `DotNetEnv.Env.Load()` (`src/Core/Core.Agent/CloudAgent.cs:47`). Required variables:
+---
 
-| Variable | Purpose | Required |
-|---|---|---|
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint URL | Yes |
-| `AZURE_OPENAI_API_KEY` | API key for authentication | Yes |
-| `AZURE_OPENAI_DEPLOYMENT` | Model deployment name | Yes |
+## Note on `Program.cs`
 
-A `.env.example` file in `src/Core/Core.Agent/` provides a template. The search order (`src/Core/Core.Agent/CloudAgent.cs:35-41`) ensures the `.env` file is found whether running from the CLI binary directory, the current working directory, or a PowerShell module path.
+`Agent/Program.cs` is a placeholder — the standalone `azclips-agent` exe exists only so the
+project can be published independently. The real chat loop runs **in-process** inside the TUI
+via `TUI/AgentMode/AgentModeEntry.cs` (`Agent/Program.cs:1`).
 
-## Conversation History Management
-
-`CloudAgent` maintains a `List<ChatMessage>` (`src/Core/Core.Agent/CloudAgent.cs:16`) that accumulates user and assistant messages across turns:
-
-- **User messages** are added before streaming (line 87-88)
-- **Assistant messages** are added after the full response is accumulated (lines 99-100)
-- The history is passed to every `RunStreamingAsync` call, giving the AI full context of the conversation
-- `ClearHistory()` (line 111) resets the conversation
-
-Because `AgentEngine` reuses the `CloudAgent` instance across `OrchestratorEngine` retries (`_agent ??=` on line 59), the AI retains context from failed attempts. For example, if the AI generates a command that fails validation, the error context from the previous turn informs the next attempt.
-
-## Key Design Decisions
-
-1. **One question at a time** — The prompt instructs the AI to ask one question per turn (`src/Core/Core.Agent/prompt.md:40`), creating a natural conversation flow rather than overwhelming users with parameter lists.
-
-2. **Confirmation before execution** — The `confirmation` → `executable_command` flow is a hard rule in the prompt (`src/Core/Core.Agent/prompt.md:74`). The AI must show the command and get approval before producing an executable response.
-
-3. **Silent failure** — Agent errors never bubble up to the user (`src/Core/Core.Engine/AgentEngine.cs:225-229`). If Azure OpenAI is unreachable, the CLI simply doesn't extract a command, and the orchestrator exits cleanly.
-
-4. **Flavor as constructor parameter** — Rather than reading `AZURECLI_FLAVOR` on every call, the flavor is captured once at `AgentEngine` construction time (`src/Core/Core.Engine/Bootstrapper.cs:87`), preventing mid-session flavor changes.
+---
 
 ## References
 
-| Source File | Key Lines | Purpose |
-|---|---|---|
-| `src/Core/Core.Agent/CloudAgent.cs` | 13-111 | Azure OpenAI agent wrapper with conversation history |
-| `src/Core/Core.Agent/DIRegisterExtensions.cs` | 5-13 | Agent DI registration (stub) |
-| `src/Core/Core.Agent/prompt.md` | 1-96 | System prompt with JSON schema and rules |
-| `src/Core/Core.Engine/AgentEngine.cs` | 32-230 | Conversation loop, JSON parsing, response routing |
-| `src/Core/Core.Engine/OrchestratorEngine.cs` | 60-119 | AI fallback trigger and retry logic |
-| `src/Core/Core.Engine/Bootstrapper.cs` | 85-91 | AgentEngine factory with flavor detection |
-| `src/Core/Core.Engine/DefaultCommandEngine.cs` | 42 | Exception that triggers AI fallback |
+- `Agent/Core.Agent.csproj` — `GitHub.Copilot.SDK` 1.0.0, `net10.0`, prompt/help content copy
+- `Agent/BundledDaemonResolver.cs` — RID → `runtimes/<rid>/native/copilot`
+- `Agent/ChatAgent.cs` — daemon client, turn contract, `OnPreToolUse` gate, provider selection, prompt loading
+- `Agent/Tools/ProposePlanTool.cs`, `SubmitResponseTool.cs` — turn-closing tools
+- `Agent/Tools/Help/HelpTools.cs` (+ `HelpIndex.json`, `HelpManifest.json`) — help corpus tools
+- `Agent/Tools/Cache/ResourceCache.cs`, `CachedResourceTools.cs`, `ArmDetailsClient.cs`, `AuthServiceTokenCredential.cs` — ARM cache + live details
+- `Agent/Tools/Sku/AvailableLocationsTool.cs` — SKU/location recovery
+- `Agent/Hosting/ConsoleApprovalPrompt.cs`, `ConsoleAgentRenderer.cs`, `AbortKeyWatcher.cs`, `SpinnerService.cs`, `TraceAgentRenderer.cs`
+- `Agent/Probes/EnvironmentProber.cs`, `Agent/Hooks/PlaceholderDetector.cs`
+- `Agent/prompts/oneshot.md`, `inline.md`, `tui.md`
+- `TUI/AgentMode/AgentModeEntry.cs`, `src/CLI/Program.cs` — CLI fallback → agent-mode entry
+- `src/Core/Core.Abstractions/AgentOptions.cs` — `agent.enabled`, `agent.provider`, `builtin` model
+- `docs/spec/agent-experience.md` — agent UX spec; `docs/spec/ARCHITECTURE.md` — **stale** re: the agent

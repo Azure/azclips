@@ -1,12 +1,16 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Implementation;
+using Core.Configuration.Options;
 using Core.Configuration.Schema;
 
 namespace Cli.Tests;
 
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class ConfigurationServiceTests
 {
     [Fact]
@@ -45,7 +49,7 @@ public class ConfigurationServiceTests
         var service = fixture.CreateService();
         await service.SetConfigurationAsync("core.logging.level", "info");
 
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
 
         try
         {
@@ -55,7 +59,7 @@ public class ConfigurationServiceTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 
@@ -125,9 +129,37 @@ public class ConfigurationServiceTests
     }
 
 
+    [Fact]
+    public void GetConfiguration_ShouldDefaultAgentDisabled_OnEmptyConfig()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        // PP ships agent off; the user opts in via `agent.enabled=true`. If this
+        // flips, a fresh install would auto-spawn the agent on any failed command.
+        Assert.False(options.Enabled);
+        Assert.Equal("oneShot", options.SessionStyle);
+    }
+
+    [Fact]
+    public async Task ListConfigurationAsync_ShouldReportAgentEnabledDefaultFalse()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+
+        // Schema default must match the POCO default (AgentOptions.Enabled=false);
+        // a drift between the two is the "two source-of-truth defaults" anti-pattern.
+        Assert.Equal(false, values["agent.enabled"]);
+    }
+
+
     private sealed class TempConfigurationFixture : IDisposable
     {
-        private readonly string _directory = Path.Combine(Path.GetTempPath(), "cirrus-config-tests", Guid.NewGuid().ToString("N"));
+        private readonly string _directory = Path.Combine(Path.GetTempPath(), "azclips-config-tests", Guid.NewGuid().ToString("N"));
 
         public TempConfigurationFixture()
         {
@@ -185,3 +217,4 @@ public class ConfigurationServiceTests
         }
     }
 }
+

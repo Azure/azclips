@@ -1,0 +1,3 @@
+[Muted]"  ▶ "
+[Default|bold]"powershell"
+[Default]"({\"command\":\"az group list\"})"

@@ -51,7 +51,7 @@ class LsCommand : ISlashCommand
                 foreach (var e in entries)
                 {
                     var icon = e.Kind == VfsEntryKind.Directory ? "▸" : "·";
-                    ctx.AddHistory(new HistoryEntry(HistoryItemType.Output, $"  {icon} {e.Name,-40} {e.Detail}"));
+                    ctx.AddHistory(new HistoryEntry(HistoryItemType.Output, $"  {icon} {e.Name,-40} {Rendering.Ansi.DimGray}{e.Detail}{Rendering.Ansi.End}"));
                 }
                 ctx.AddHistory(new HistoryEntry(HistoryItemType.Info, $"{entries.Count} items"));
             }
@@ -62,7 +62,7 @@ class LsCommand : ISlashCommand
     private static async Task<List<Suggestion>> GetAzureCompletions(string partial, CommandContext ctx)
     {
         var completions = await ctx.Vfs.GetCompletionsAsync(partial);
-        return completions.Select(name => new Suggestion(name, "▸ azure")).ToList();
+        return completions.Select(e => new Suggestion(e.Name, e.Detail)).ToList();
     }
 
     // ── Local ──

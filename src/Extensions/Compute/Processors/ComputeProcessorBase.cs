@@ -1,12 +1,16 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Net.Http.Json;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using System.Net;
-using Extensions.Runtime;
-using Extensions.Runtime.Json;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
+using ProfileModel = Core.Abstractions.Profile;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
     /// <summary>
     /// Non-generic base used as a marker so that <see cref="CreateExtendedProcessor{T}"/> and
@@ -21,10 +25,20 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
     public abstract class ComputeProcessorBase : IProcessor
     {
         public IRuntimeHttpPipeline HttpPipeline = null!;
-        public IEventListener EventListener = null!;
+        public IEventPublisher Publisher = null!;
         public JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
-        protected AuthContext AuthContext = null!;
+
+        /// <summary>The resolved connection profile from the processor context; null when none is available.</summary>
+        protected ProfileModel? ResolvedProfile;
+
+        /// <summary>
+        /// Bound <c>--profile</c>/<c>-Profile</c> parameter. The Engine resolves the named profile into
+        /// <see cref="ResolvedProfile"/> before the processor runs, so this property exists only to accept
+        /// the value during argument binding (per-processor workaround until a global-parameter framework exists).
+        /// </summary>
+        public string? Profile { get; set; }
+
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
 
@@ -44,19 +58,19 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             };
 
             HttpPipeline = context.HttpPipeline;
-            EventListener = context.EventListener;
+            Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            AuthContext = context.AuthHandler.AuthContext;
+            ResolvedProfile = context.Profile;
 
             AfterInit();
             return this;
         }
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        public virtual Task<HttpRequestMessage> CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+        protected virtual Task<HttpRequestMessage> CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
-        /// runtime context (HttpPipeline, EventListener, JsonOptions, WriteOutput, AuthContext)
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile)
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
@@ -65,16 +79,16 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             T child = new T
             {
                 HttpPipeline = HttpPipeline,
-                EventListener = EventListener,
+                Publisher = Publisher,
                 JsonOptions = JsonOptions,
             };
             child.WriteOutput = WriteOutput;
-            child.AuthContext = AuthContext;
+            child.ResolvedProfile = ResolvedProfile;
             configure?.Invoke(child);
             return child;
         }
 
-        /* 
+        /*
             For LRO API has
                 "x-ms-long-running-operation-options": {
                 "final-state-via": "location/azure-async-operation"
@@ -87,29 +101,36 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         protected virtual Func<HttpResponseMessage, string?> GetOperationLocationUri => _ => null;
         protected virtual Func<HttpResponseMessage, string?> GetAsyncOperationUri => _ => null;
         protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
-        
 
-        public async virtual Task<HttpResponseMessage> SendAsync()
+        internal async virtual Task<HttpResponseMessage> SendAsync()
         {
             IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-            IEventListener _eventListener = EventListener ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(EventListener)}.");
+            IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
             using HttpRequestMessage _request = await CreateRequestMessage();
-            HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
-            await _eventListener.Signal(Events.TracingHttpResponseMessage, _response);
-            // TODO(Yabo): handle status codess
+            HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
+            await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+            try
+            {
+                await _response.EnsureSuccessAsync(_publisher);
+            }
+            catch
+            {
+                _response.Dispose();
+                throw;
+            }
             return _response;
         }
 
-        public async virtual Task<HttpResponseMessage> SendAsyncLRO()
+        internal async virtual Task<HttpResponseMessage> SendAsyncLRO()
         {
             HttpRequestMessage _request = await CreateRequestMessage();
             try
             {
                 IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-                IEventListener _eventListener = EventListener ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(EventListener)}.");
+                IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
                 string _originalUri = _request.RequestUri!.AbsoluteUri;
-                HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
-                await _eventListener.Signal(Events.TracingHttpResponseMessage, _response);
+                HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
+                await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
                 // declared final-state-via: location
                 var _finalUri = string.IsNullOrEmpty(GetFinalUri(_response)) ? _originalUri : GetFinalUri(_response);
                 var _asyncOperationUri = GetAsyncOperationUri(_response);
@@ -117,12 +138,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 var _operationLocationUri = GetOperationLocationUri(_response);
 
                 //polling
-                while (_request.Method == HttpMethod.Put && (_response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted))
+                while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
                     int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
-                    await _eventListener.Signal(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
-                    Task delayTask = Task.Delay(delay*1000, _eventListener.Token);
+                    await _publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
+                    Task delayTask = Task.Delay(delay*1000, _publisher.Token);
 
                     // while we wait, let's grab the headers and get ready to poll.
                     if (!string.IsNullOrEmpty(GetAsyncOperationUri(_response)))
@@ -145,11 +166,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                     await delayTask;
 
                     _request = _request.CloneAndDispose(new Uri(_uri), HttpMethod.Get);
-                    await _eventListener.Signal(Events.BeforePollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
+                    await _publisher.Publish(Events.BeforePollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
                     // make the polling call
-                    _response = await _httpPipeline.SendAsync(_request, _eventListener);
-                    await _eventListener.Signal(Events.TracingHttpResponseMessage, _response);
-                    await _eventListener.Signal(Events.AfterPollingCall);
+                    _response = await _httpPipeline.SendAsync(_request, _publisher);
+                    await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+                    await _publisher.Publish(Events.AfterPollingCall);
 
                     // if we got back an OK, take a peek inside and see if it's done
                     if (_response.StatusCode == global::System.Net.HttpStatusCode.OK)
@@ -191,7 +212,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                         }
                         if (error)
                         {
-                            //TODO(Yabo): redesign exceptions for extension runtime 
+                            //TODO(Yabo): redesign exceptions for extension runtime
                             throw new Exception($"Long running operation failed with response: {_response}");
                         }
                     }
@@ -208,26 +229,36 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                         // drop the old response
                         _response?.Dispose();
                         _request = _request.CloneAndDispose(new Uri(_finalUri), HttpMethod.Get);
-                        await _eventListener.Signal(Events.BeforeFinalPollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
+                        await _publisher.Publish(Events.BeforeFinalPollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
                         // make the final call
-                        _response = await _httpPipeline.SendAsync(_request, _eventListener);
-                        await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
-                        await _eventListener.Signal(Events.AfterFinalPollingCall);
+                        _response = await _httpPipeline.SendAsync(_request, _publisher);
+                        await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+                        await _publisher.Publish(Events.AfterFinalPollingCall);
                         break;
                     }
                 }
                 switch (_response.StatusCode)
                 {
                     case HttpStatusCode.OK:
-                        {
-                            await _eventListener.Signal(Events.PollingFinished);
-                            break;
-                        }
+                    case HttpStatusCode.NoContent:
+                    {
+                        await _publisher.Publish(Events.PollingFinished);
+                        break;
+                    }
                     default:
+                    {
+                        await _publisher.Publish(Events.PollingFailed);
+                        try
                         {
-                            await _eventListener.Signal(Events.PollingFailed);
-                            break;
+                            await _response.EnsureSuccessAsync(_publisher);
                         }
+                        catch
+                        {
+                            _response.Dispose();
+                            throw;
+                        }
+                        break;
+                    }
                 }
                 return _response;
             }
@@ -240,10 +271,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 
     /// <summary>
     /// Generic compute processor base. The default <see cref="ProcessAsync"/> pipeline:
-    /// 1) signals start, 2) calls <see cref="SendAsync"/>,
-    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) signals end.
+    /// 1) Publishs start, 2) calls <see cref="SendAsync"/>,
+    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishs end.
     /// <para>
-    /// <see cref="SendAsync"/> is the universal "give me the final response" primitive.
+    /// <see cref="SendAsync"/> is the internal "give me the final response" transport primitive.
     /// Atomic LRO processors override it as a one-liner that delegates to <see cref="ComputeProcessorBase.SendAsyncLRO"/>.
     /// Atomic non-LRO processors don't override at all (the inherited <see cref="SendAsync"/>
     /// resolves <see cref="SubscriptionId"/> then dispatches a single HTTP request).
@@ -251,10 +282,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
     /// </para>
     /// <para>
     /// <see cref="SubscriptionId"/> is resolved lazily inside <see cref="SendAsync"/> /
-    /// <see cref="SendAsyncLRO"/>, so callers that bypass <see cref="ProcessAsync"/> still get a
-    /// populated value via <see cref="AuthContext"/> fallback. Orchestrators don't need to copy
+    /// <see cref="SendAsyncLRO"/>, so internal composition paths that call these helpers directly still get a
+    /// populated value via <see cref="ResolvedProfile"/> fallback. Orchestrators don't need to copy
     /// <see cref="SubscriptionId"/> into children since each child resolves from the shared
-    /// <see cref="AuthContext"/>.
+    /// <see cref="ResolvedProfile"/>.
     /// </para>
     /// </summary>
     public class ComputeProcessorBase<TResponse> : ComputeProcessorBase where TResponse : class
@@ -262,26 +293,24 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         public string SubscriptionId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="AuthContext"/>.
+        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="ResolvedProfile"/>.
         /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport;
         /// custom <see cref="SendAsync"/>/<see cref="SendAsyncLRO"/> overrides that don't call <c>base</c>
         /// are responsible for invoking this themselves if they build URIs from <see cref="SubscriptionId"/>.
         /// </summary>
-        /// 
-        /// TODO(Yabo): update processor context to accept tenantId and subscriptionId instead of auth context
         protected void ResolveSubscriptionId() =>
             SubscriptionId = !string.IsNullOrEmpty(SubscriptionId)
                 ? SubscriptionId
-                : AuthContext.SubscriptionId
-                  ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or auth context.");
+                : ResolvedProfile?.SubscriptionId
+                  ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.");
 
-        public override Task<HttpResponseMessage> SendAsync()
+        internal override Task<HttpResponseMessage> SendAsync()
         {
             ResolveSubscriptionId();
             return base.SendAsync();
         }
 
-        public override Task<HttpResponseMessage> SendAsyncLRO()
+        internal override Task<HttpResponseMessage> SendAsyncLRO()
         {
             ResolveSubscriptionId();
             return base.SendAsyncLRO();
@@ -289,11 +318,41 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 
         public override async Task ProcessAsync()
         {
-            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
+            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             using HttpResponseMessage response = await SendAsync();
-            TResponse body = (await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions))!;
-            await WriteOutput(body);
-            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+
+            if (response.Content is null)
+            {
+                await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+                return;
+            }
+
+            string rawBody = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(rawBody))
+            {
+                await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+                return;
+            }
+
+            try
+            {
+                TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                if (body is not null)
+                {
+                    await WriteOutput(body);
+                }
+            }
+            catch (JsonException)
+            {
+                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+            }
+            finally
+            {
+                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            }
         }
     }
 }

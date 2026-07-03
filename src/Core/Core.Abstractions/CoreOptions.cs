@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Abstractions;
 
 public sealed class CoreOptions
@@ -11,7 +14,7 @@ public sealed class CoreOptions
 
 public sealed class LoggingOptions
 {
-    public string Level { get; set; } = "info";
+    public string Level { get; set; } = "error";
 }
 
 public sealed class EngineOptions

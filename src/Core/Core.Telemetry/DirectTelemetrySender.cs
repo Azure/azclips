@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Threading.Tasks;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenTelemetry.Trace;
@@ -14,7 +17,7 @@ public class DirectTelemetrySender : ITelemetrySender
     {
         builder.AddAzureMonitorTraceExporter(options =>
         {
-            options.ConnectionString = TelemetryService.AzureMonitorConnectionString;
+            options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
         });
     }
 

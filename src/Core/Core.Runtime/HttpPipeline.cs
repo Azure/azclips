@@ -1,18 +1,23 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Runtime
 {
     using System.Net.Http;
     using System.Collections.Generic;
+    using System.Threading;
     using System.Threading.Tasks;
     using System.Linq;
     using System;
     using Core.Abstractions.Runtime;
-    using Extensions.Runtime;
+    using Microsoft.Azure.Azclips.ExtensionRuntime;
     
     public class HttpPipeline : IRuntimeHttpPipeline
     {
         private const int DefaultMaxRetry = 3;
         private const int DefaultMaxRetryFor429 = 5;
         private ISendAsync pipeline = null!;
+        private readonly object _pipelineLock = new();
         private ISendAsyncTerminalFactory terminal = null!;
         private List<ISendAsyncFactory> steps = new List<ISendAsyncFactory>();
         private readonly int _maxRetry;
@@ -63,7 +68,7 @@ namespace Core.Runtime
         /// <summary>
         /// The step to handle 429 response with retry-after header.
         /// </summary>
-        public async Task<HttpResponseMessage> Retry429(HttpRequestMessage request, IEventListener callback, ISendAsync next)
+        public async Task<HttpResponseMessage> Retry429(HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
         {
             var cloneRequest = await request.CloneWithContent();
             var response = await next.SendAsync(request, callback);
@@ -74,7 +79,7 @@ namespace Core.Runtime
                 var retryAfter = response.Headers.RetryAfter;
                 TimeSpan Delta = retryAfter?.Delta ?? TimeSpan.FromSeconds(0);
                 await Task.Delay(Delta, callback.Token);
-                await callback.Signal("Debug", $"Start to retry {count} time(s) on status code 429 after waiting {Delta.TotalSeconds} seconds.");
+                await callback.Publish("Debug", $"Start to retry {count} time(s) on status code 429 after waiting {Delta.TotalSeconds} seconds.");
                 response = await next.SendAsync(request, callback);
             }
             return response;
@@ -106,14 +111,14 @@ namespace Core.Runtime
         /// than or equal to 500 and not NotImplemented (501) or HttpVersionNotSupported (505).
         /// Or it's 429 (TOO MANY REQUESTS) without Retry-After header.
         /// </summary>
-        public async Task<HttpResponseMessage> RetryError(HttpRequestMessage request, IEventListener callback, ISendAsync next)
+        public async Task<HttpResponseMessage> RetryError(HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
         {
             var cloneRequest = await request.CloneWithContent();
             var response = await next.SendAsync(request, callback);
             int count = 0;
             while (shouldRetryError(response) && count++ < _maxRetry)
             {
-                await callback.Signal("Debug", $"Start to retry {count} time(s) on status code {response.StatusCode}");
+                await callback.Publish("Debug", $"Start to retry {count} time(s) on status code {response.StatusCode}");
                 request = await cloneRequest.CloneWithContent();
                 response = await next.SendAsync(request, callback);
             }
@@ -137,25 +142,40 @@ namespace Core.Runtime
         {
             get
             {
-                // if the pipeline has been created and not invalidated, return it. 
-                if (this.pipeline != null)
+                // Fast path: pipeline already built and not invalidated.
+                // Volatile read via local copy keeps the value stable across the null check
+                // and avoids racing with concurrent writers in Prepend/Append.
+                var current = Volatile.Read(ref this.pipeline);
+                if (current != null)
                 {
-                    return this.pipeline;
+                    return current;
                 }
 
-                // create the pipeline from scratch.
-                var next = terminal.Create();
-                if (Convert.ToBoolean(@"true"))
+                // Slow path: build under lock with double-check so concurrent first-callers
+                // don't each build (and abandon) their own chain.
+                lock (_pipelineLock)
                 {
-                    next = new SendAsyncFactory(Retry429).Create(next) ?? next;
-                    next = new SendAsyncFactory(RetryError).Create(next) ?? next;
+                    current = this.pipeline;
+                    if (current != null)
+                    {
+                        return current;
+                    }
+
+                    // create the pipeline from scratch.
+                    var next = terminal.Create();
+                    if (Convert.ToBoolean(@"true"))
+                    {
+                        next = new SendAsyncFactory(Retry429).Create(next) ?? next;
+                        next = new SendAsyncFactory(RetryError).Create(next) ?? next;
+                    }
+                    foreach (var factory in steps)
+                    {
+                        // skip factories that return null.
+                        next = factory.Create(next) ?? next;
+                    }
+                    Volatile.Write(ref this.pipeline, next);
+                    return next;
                 }
-                foreach (var factory in steps)
-                {
-                    // skip factories that return null.
-                    next = factory.Create(next) ?? next;
-                }
-                return this.pipeline = next;
             }
         }
 
@@ -266,6 +286,10 @@ namespace Core.Runtime
         }
 
         // you can use this as the ISendAsync Implementation
-        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback) => Pipeline.SendAsync(request, callback);
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback) => Pipeline.SendAsync(request, callback);
     }
 }
+
+
+
+

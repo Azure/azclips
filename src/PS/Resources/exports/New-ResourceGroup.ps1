@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 function New-ResourceGroup {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     param (
@@ -15,7 +18,7 @@ function New-ResourceGroup {
         # Start telemetry activity
         $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
 
-        $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
+        $engine = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             $PSCmdlet.WriteObject($value)

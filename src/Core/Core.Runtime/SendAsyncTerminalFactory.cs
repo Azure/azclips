@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Runtime
 {
     using Core.Abstractions.Runtime;
@@ -13,6 +16,6 @@ namespace Core.Runtime
         public SendAsyncTerminalFactory(ISendAsync implementation) => this.implementation = implementation.SendAsync;
 
         public ISendAsync Create() => this;
-        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback) => implementation(request, callback);
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback) => implementation(request, callback);
     }
 }

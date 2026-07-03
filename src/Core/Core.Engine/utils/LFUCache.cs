@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Engine.Utils
 {
     using System.Collections.Generic;

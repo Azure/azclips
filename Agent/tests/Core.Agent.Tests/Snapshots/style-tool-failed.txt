@@ -1,0 +1,3 @@
+[Error]"  ✗ powershell "
+[Muted]"78ms · "
+[Error]"AuthenticationFailed: token expired"

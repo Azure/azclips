@@ -1,14 +1,20 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Extensions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Core.Runtime.Handler;
 
 public class DefaultTracingInterceptor : ITracingInterceptor
 {
-    public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventListener callback, ISendAsync next) =>
+    public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventPublisher callback, ISendAsync next) =>
     {
-        await callback.Signal(Events.TracingHttpRequestMessage, request);
+        await callback.Publish(Events.TracingHttpRequestMessage, request);
         return await next.SendAsync(request, callback);
     };
 }
+
+
+

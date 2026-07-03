@@ -1,0 +1,26 @@
+---
+summary: Manage local AzClips configuration settings and preferences.
+status: ga
+schema: 1.0.0
+online version:
+---
+
+Description: View, set, update, or delete configuration values used by AzClips. Configuration keys are organized in dot notation (e.g., core.debug, output.format). Configuration settings persist across CLI invocations and are stored in your local configuration file.
+
+### Get a configuration value
+
+```bash
+az config get --key output.format
+```
+
+### List all configuration settings
+
+```bash
+az config list
+```
+
+### Set a configuration value
+
+```bash
+az config set --key output.format --value json
+```

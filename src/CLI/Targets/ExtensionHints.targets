@@ -1,0 +1,185 @@
+<Project>
+  <UsingTask
+    TaskName="GenerateExtensionHintsTask"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ScanRoot ParameterType="System.String" Required="true" />
+      <OutputFile ParameterType="System.String" Required="true" />
+      <SourceHostVersion ParameterType="System.String" Required="false" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="System.Collections.Generic" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        // TODO(multi-host): the scanner is hardcoded to s_cliTable initializers and emits a
+        // CLI-shaped hint table. When another host (e.g. TUI) needs install-suggestion hints,
+        // either parameterize the table-field name (s_cliTable / s_tuiTable / ...) and emit
+        // per-host hint tables, or unify on a single client-keyed table at the source.
+        var verbAttrPattern = new Regex(@"\[\s*ExtensionVerb\s*\(\s*""([^""]+)""\s*\)\s*\]", RegexOptions.Multiline);
+        var cliTableBlock = new Regex(
+          @"s_cliTable\s*=\s*new[^{}]*\{(?<body>[^{}]*)\}",
+          RegexOptions.Multiline);
+        var leafKeyPattern = new Regex(@"\[\s*""([^""]+)""\s*\]", RegexOptions.Multiline);
+
+        var leafToPackage = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var duplicates = new List<string>();
+        var orphanLeaves = new List<string>();
+
+        void Add(string key, string packageId)
+        {
+          if (string.IsNullOrEmpty(key)) { return; }
+          string existing;
+          if (leafToPackage.TryGetValue(key, out existing))
+          {
+            if (!string.Equals(existing, packageId, StringComparison.OrdinalIgnoreCase))
+            {
+              duplicates.Add($"  '{key}' claimed by both '{existing}' and '{packageId}'");
+            }
+          }
+          else
+          {
+            leafToPackage[key] = packageId;
+          }
+        }
+
+        if (Directory.Exists(ScanRoot))
+        {
+          foreach (var csproj in Directory.EnumerateFiles(ScanRoot, "*.csproj", SearchOption.AllDirectories))
+          {
+            var projDir = Path.GetDirectoryName(csproj);
+            if (projDir == null) { continue; }
+
+            var csprojText = File.ReadAllText(csproj);
+            string packageId = null;
+            var pkgMatch = Regex.Match(csprojText, @"<PackageId>([^<]+)</PackageId>");
+            if (pkgMatch.Success)
+            {
+              packageId = pkgMatch.Groups[1].Value.Trim();
+            }
+            else
+            {
+              var asmMatch = Regex.Match(csprojText, @"<AssemblyName>([^<]+)</AssemblyName>");
+              if (asmMatch.Success)
+              {
+                packageId = asmMatch.Groups[1].Value.Trim();
+              }
+            }
+            if (string.IsNullOrEmpty(packageId)) { continue; }
+
+            // Per-project, collect declared [ExtensionVerb] verbs and the first token of every
+            // s_cliTable key. Every leaf's first token must appear in the declared set,
+            // otherwise the project's verb / leaf surface is inconsistent and we fail the build.
+            var projectVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var projectLeaves = new List<string>();
+
+            foreach (var cs in Directory.EnumerateFiles(projDir, "*.cs", SearchOption.AllDirectories))
+            {
+              if (cs.IndexOf(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0) { continue; }
+              if (cs.IndexOf(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0) { continue; }
+
+              var text = File.ReadAllText(cs);
+
+              // Bare-verb entries from [ExtensionVerb("...")] decls.
+              foreach (Match m in verbAttrPattern.Matches(text))
+              {
+                var v = m.Groups[1].Value.Trim();
+                projectVerbs.Add(v);
+                Add(v, packageId);
+              }
+
+              // Full-path leaves from s_cliTable initializers.
+              foreach (Match block in cliTableBlock.Matches(text))
+              {
+                var body = block.Groups["body"].Value;
+                foreach (Match k in leafKeyPattern.Matches(body))
+                {
+                  var key = k.Groups[1].Value.Trim();
+                  projectLeaves.Add(key);
+                  Add(key, packageId);
+                }
+              }
+            }
+
+            // Validate first-token of every leaf against this project's declared verb set.
+            foreach (var leaf in projectLeaves)
+            {
+              var sp = leaf.IndexOf(' ');
+              var firstToken = sp < 0 ? leaf : leaf.Substring(0, sp);
+              if (!projectVerbs.Contains(firstToken))
+              {
+                orphanLeaves.Add(
+                  $"  '{leaf}' in '{packageId}' (first token '{firstToken}' is not declared via [ExtensionVerb]; declared verbs: [{string.Join(", ", projectVerbs)}])");
+              }
+            }
+          }
+        }
+
+        if (duplicates.Count > 0)
+        {
+          var msg = "Duplicate extension hint keys detected across in-tree extension projects:\n" +
+                    string.Join("\n", duplicates) +
+                    "\nEvery (verb, path) tuple must be owned by exactly one package.";
+          Log.LogError(msg);
+          return false;
+        }
+
+        if (orphanLeaves.Count > 0)
+        {
+          var msg = "s_cliTable leaf keys whose first token is not declared via [ExtensionVerb]:\n" +
+                    string.Join("\n", orphanLeaves) +
+                    "\nEvery leaf's first token must match one of the project's [ExtensionVerb] declarations.";
+          Log.LogError(msg);
+          return false;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("{");
+        sb.AppendLine("  \"schemaVersion\": 1,");
+        sb.Append("  \"generatedAt\": \"").Append(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")).AppendLine("\",");
+        var hostVersion = string.IsNullOrEmpty(SourceHostVersion) ? "0.0.0" : SourceHostVersion;
+        sb.Append("  \"sourceHostVersion\": \"").Append(hostVersion).AppendLine("\",");
+        sb.AppendLine("  \"leaves\": {");
+        int i = 0;
+        foreach (var kv in leafToPackage)
+        {
+          var comma = (++i == leafToPackage.Count) ? "" : ",";
+          // Per-leaf entries are objects so optional fields (minCoreVersion / maxCoreVersion,
+          // reserved for the vNext feed half) can be added without a schema bump. v1
+          // first-party output only populates packageId.
+          sb.Append("    \"").Append(kv.Key).Append("\": { \"packageId\": \"").Append(kv.Value).Append("\" }").AppendLine(comma);
+        }
+        sb.AppendLine("  }");
+        sb.AppendLine("}");
+
+        // Path.GetDirectoryName returns null for a bare filename; Directory.CreateDirectory(null) throws.
+        var outputDir = Path.GetDirectoryName(OutputFile);
+        if (!string.IsNullOrEmpty(outputDir))
+        {
+          Directory.CreateDirectory(outputDir);
+        }
+        File.WriteAllText(OutputFile, sb.ToString());
+        Log.LogMessage(MessageImportance.Normal, $"Wrote {leafToPackage.Count} extension hint(s) to {OutputFile}");
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="GenerateExtensionHints"
+          BeforeTargets="PrepareForBuild;CoreCompile"
+          Outputs="$(IntermediateOutputPath)extension-hints.json">
+    <GenerateExtensionHintsTask
+      ScanRoot="$(MSBuildProjectDirectory)\..\Extensions"
+      OutputFile="$(IntermediateOutputPath)extension-hints.json"
+      SourceHostVersion="$(AssemblyVersion)" />
+
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)extension-hints.json">
+        <LogicalName>extension-hints.json</LogicalName>
+        <Visible>false</Visible>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+</Project>

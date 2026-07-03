@@ -1,415 +1,159 @@
 ---
-title: "Testing & Benchmarking"
-description: "Cirrus testing architecture: xUnit test framework, ExtensionDispatcher and Program fallback tests, Coverlet code coverage, BenchmarkDotNet integration with API/CLI/PS benchmarks, AppInsights export, and Chart.js visualization."
+title: Testing & Benchmarking
+description: How Azclips validates correctness (xUnit + Coverlet, snapshot & HTTP-mock strategy) and guards performance (BenchmarkDotNet) across the CLI, PowerShell, Core, and Agent surfaces.
+outline: deep
 ---
 
 # Testing & Benchmarking
 
-Cirrus employs a two-tier quality assurance strategy: **xUnit-based unit and integration tests** for correctness, and **BenchmarkDotNet performance benchmarks** for measuring execution overhead across the API, CLI, and PowerShell surfaces. Both tiers integrate with the CI pipeline and Application Insights for tracking quality over time.
+## Overview
 
-## Test Architecture Overview
+Azclips ships as a re-implementation of the Azure CLI/PowerShell experience, so a regression in argument parsing, extension loading, or HTTP request shaping is a regression in a tool people script against. The test strategy therefore optimizes for two properties that matter more than raw count:
 
-```mermaid
-flowchart TB
-    subgraph Tests["tests/"]
-        direction TB
-        subgraph Unit["Cli.Tests"]
-            EDT["ExtensionDispatcherTests<br>Parse validation"]
-            PFT["ProgramFallbackTests<br>Fallback behavior"]
-        end
-        subgraph Perf["Benchmark"]
-            Prog["Program.cs<br>Runner + Config"]
-            Base["BenchmarkBase<br>Auth + Cleanup"]
-            API["API.ResourceGroupBenchmarks"]
-            CLIB["CLI.ResourceGroupBenchmarks"]
-            PSB["PS.ResourceGroupBenchmarks"]
-            AIE["AppInsightsExporter"]
-            CG["ChartGenerator"]
-        end
-    end
+- **Determinism** — no test may reach the network. Every processor is exercised through hand-written fakes or stub DI registrations, so the same inputs always produce the same result on a laptop or in CI.
+- **Speed as a merge gate** — correctness (xUnit) *and* performance (BenchmarkDotNet) both block merges. A change that keeps the tests green but makes `az` start 20% slower is treated as a failure.
 
-    subgraph Infra["Test Infrastructure"]
-        direction TB
-        Coverlet["Coverlet<br>Code Coverage"]
-        xUnit["xUnit 2.9.3<br>Test Runner"]
-        BDN["BenchmarkDotNet 0.13.12<br>Performance"]
-        AppIns["Application Insights<br>Metric Storage"]
-    end
+Every test project targets `net10.0` and pulls its framework/coverage packages from a single `Directory.Build.props`, so the toolchain (xUnit 2.9.3, Coverlet 6.0.4, Test SDK 17.14.1) is uniform across the solution (`tests/Directory.Build.props:17`).
 
-    EDT --> xUnit
-    PFT --> xUnit
-    xUnit --> Coverlet
+> **Note:** the product is `Azclips` (see `<Product>Azclips</Product>` in `Shared.props:3`); the repository name `azclips` and the `Azclips.*` assembly prefixes are legacy naming that CI actively guards against re-introducing.
 
-    API --> Base
-    CLIB --> Base
-    PSB --> Base
-    Prog --> BDN
-    Prog --> CG
-    Prog --> AIE
-    AIE --> AppIns
+## Test project map
 
-    style Tests fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Unit fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Perf fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Infra fill:#161b22,stroke:#30363d,color:#e6edf3
-    style EDT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PFT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Prog fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Base fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style API fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CLIB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PSB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AIE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Coverlet fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style xUnit fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BDN fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AppIns fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+All test projects are members of the solution `azclips.slnx` and split across the top-level `/tests/` folder, the Agent's own test tree, and the help tool's tests (`azclips.slnx:31`, `azclips.slnx:34-45`).
+
+| Project | Location (slnx) | What it covers |
+| --- | --- | --- |
+| `Cli.Tests` | `azclips.slnx:35` | CLI integration — structured command dispatch, agent fallback, typo correction, extension add/pin/remove, profile CLI, REST processor URL validation |
+| `Cmdlets.Tests` | `azclips.slnx:37` | PowerShell cmdlet behavior |
+| `Core.Extensions.Tests` | `azclips.slnx:39` | Extension resolution / compatibility guard / leaf index |
+| `Core.Telemetry.Tests` | `azclips.slnx:40` | Telemetry senders, filters, activity naming |
+| `Tests.Common` | `azclips.slnx:38` | Shared stubs & utilities (not a test project — `IsPackable=false`, referenced by others) |
+| `SharedAlpha` / `SharedBeta` | `azclips.slnx:44-45` | Fixture extension assemblies for assembly-loading / multi-version tests |
+| `Core.Agent.Tests` | `azclips.slnx:31` | Agent tools, approval prompt, plan validation, snapshot rendering |
+| `Azclips.Help.Tool.Tests` | `azclips.slnx:41` | Build-time help validators (frontmatter, completeness, example syntax) |
+
+### Shared conventions
+
+The test props file enables nullable + implicit usings, marks projects non-packable, and — importantly — relaxes analyzer rule `CA1707` so that underscores are allowed in test method names (`tests/Directory.Build.props:13`). That exception exists specifically to permit the mandated naming convention:
+
+```
+MethodName_ShouldBehavior_WhenCondition
 ```
 
-## xUnit Test Framework Setup
+For example, `ProcessAsync_RejectsNonHttpsAbsoluteUrl_BeforeSending` reads as a sentence describing the guarantee under test (`tests/Cli.Tests/RestProcessorTests.cs:45`). The convention is documented in `AGENTS.md:38` and enforced by convention/review rather than by a linter.
 
-### Test Project Configuration
+## HTTP record / playback: no test touches the network
 
-The test project `Cli.Tests.csproj` (`tests/Cli.Tests/Cli.Tests.csproj:1`) references three source projects:
+Azclips routes every outbound Azure request through a composable HTTP pipeline whose two "ends" are exposed as `SendAsyncStep` delegates: a **tracing step** (`HttpRequestMessageTracingStep`) that observes requests and a **terminating step** (`HttpPipelineTerminatingStep`) that produces the final response (`src/Core/Core.Abstractions/IHttpPipelineService.cs:8-9`). *(See the [HTTP Pipeline](./http-pipeline.md) page for the full step chain.)* Tests exploit this seam two ways.
 
-```xml
-<ProjectReference Include="../../src/CLI/Core.Cli.csproj" />        <!-- line 4 -->
-<ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />   <!-- line 5 -->
-<ProjectReference Include="../../src/Core/Core.Agent/Core.Agent.csproj" />     <!-- line 6 -->
-```
+**1. Stub the terminating step at the DI level.** `StubHttpTerminateHandler` implements `IHttpTerminateHandler` and its `SendAsync` delegate short-circuits the pipeline, always returning `200 OK` with an empty JSON body — the whole auth/telemetry/tracing chain runs, but the "playback" response is canned (`tests/Common/Stubs/StubHttpTerminateHandler.cs:14-18`).
 
-This enables testing the CLI entry point (`Program.Main`), the engine's extension dispatcher, and the AI agent fallback path.
-
-### Directory.Build.props
-
-The shared test configuration (`tests/Directory.Build.props:1`) sets properties for all test projects:
-
-| Property | Value | Line |
-|---|---|---|
-| `TargetFramework` | `net9` | 4 |
-| `ImplicitUsings` | `enable` | 5 |
-| `Nullable` | `enable` | 6 |
-| `IsPackable` | `false` | 7 |
-| `EnableNETAnalyzers` | `true` | 8 |
-| `AnalysisLevel` | `latest` | 9 |
-| `EnforceCodeStyleInBuild` | `true` | 10 |
-| `TreatWarningsAsErrors` | `false` | 11 |
-
-Notably, `CA1707` (identifiers should not contain underscores) is suppressed (`tests/Directory.Build.props:13`) to allow the `MethodName_ShouldBehavior_WhenCondition` test naming convention.
-
-### Test Dependencies
-
-The test infrastructure packages (`tests/Directory.Build.props:16`):
-
-| Package | Version | Purpose |
-|---|---|---|
-| `coverlet.collector` | 6.0.4 | Code coverage collection |
-| `Microsoft.NET.Test.Sdk` | 17.14.1 | Test platform SDK |
-| `xunit` | 2.9.3 | Test framework |
-| `xunit.runner.visualstudio` | 3.1.4 | VS Test adapter |
-
-A global `<Using Include="Xunit" />` directive (`tests/Directory.Build.props:24`) makes xUnit types available without explicit `using` statements.
-
-## ExtensionDispatcherTests
-
-`ExtensionDispatcherTests` (`tests/Cli.Tests/ExtensionDispatcherTests.cs:11`) validates the core routing logic of the `ExtensionDispatcher` class—the component that loads extension assemblies and dispatches commands.
-
-### Test Cases
-
-**`Parse_ShouldThrowArgumentException_WhenArgsEmpty`** (`tests/Cli.Tests/ExtensionDispatcherTests.cs:14`) — `[Fact]`
-
-Verifies that passing empty arguments throws an `ArgumentException` with the message `"Arguments cannot be empty"`:
-
-```csharp
-var dispatcher = new ExtensionDispatcher();           // line 18
-var emptyArgs = Array.Empty<string>();                 // line 19
-var exception = Assert.Throws<ArgumentException>(
-    () => dispatcher.Parse(emptyArgs));                // line 22
-Assert.Contains("Arguments cannot be empty", exception.Message);  // line 23
-```
-
-**`Parse_ShouldThrowDispatchHelpException_WhenHelpFlagProvided`** (`tests/Cli.Tests/ExtensionDispatcherTests.cs:26`) — `[Theory]`
-
-Tests five help flag variants using `[InlineData]`:
-
-| Inline Data | Line |
-|---|---|
-| `"--help"` | 27 |
-| `"-h"` | 28 |
-| `"help"` | 29 |
-| `"?"` | 30 |
-| `"-?"` | 31 |
-
-Each variant must throw a `DispatchHelpException` (`tests/Cli.Tests/ExtensionDispatcherTests.cs:39`), confirming the dispatcher recognizes all standard help patterns.
-
-## ProgramFallbackTests
-
-`ProgramFallbackTests` (`tests/Cli.Tests/ProgramFallbackTests.cs:10`) validates the AI agent fallback mechanism—the behavior when structured extension parsing fails and the system falls back to natural language processing.
-
-### Automated Test
-
-**`Fallback_ShouldNotBeInvoked_ForHelpFlags`** (`tests/Cli.Tests/ProgramFallbackTests.cs:12`) — `[Fact]`
-
-Verifies that help flags are handled before the fallback path:
-
-```csharp
-var args = new[] { "--help" };                        // line 16
-var exitCode = await Core.Cli.Program.Main(args);     // line 19
-Assert.Equal(0, exitCode);                            // line 22
-```
-
-### Skipped Integration Tests
-
-Four tests are marked with `[Fact(Skip = "Requires AI agent with interactive prompts - manual test only")]`:
-
-| Test | Line | What It Tests |
-|---|---|---|
-| `Fallback_ShouldBeInvoked_WhenExtensionParsingFails` | 29 | Unknown command triggers agent fallback |
-| `Fallback_ShouldHandleNaturalLanguage` | 42 | Natural language input (`"create a resource group"`) |
-| `Fallback_ShouldUseDefaultFlavor_WhenNotSet` | 55 | Default `"azure cli"` flavor with spinner |
-| `Fallback_ShouldUsePowerShellFlavor_WhenSet` | 76 | `AZURECLI_FLAVOR=azure powershell` variant |
-
-These tests require interactive AI prompts and are designed for manual integration testing. The `AZURECLI_FLAVOR` environment variable tests (`tests/Cli.Tests/ProgramFallbackTests.cs:80`) validate flavor-specific behavior with proper cleanup in `finally` blocks.
-
-## Coverlet Code Coverage
-
-Coverlet is configured via the `coverlet.collector` package (`tests/Directory.Build.props:17`) and runs with:
-
-```bash
-dotnet test --collect:"XPlat Code Coverage"
-```
-
-The CI pipeline (`build-and-test.yml`) runs tests with `--verbosity normal` (`.github/workflows/build-and-test.yml:29`), and the build pipeline (`build.yml`) runs tests as part of the matrix build (`.github/workflows/build.yml:57`).
-
-## BenchmarkDotNet Integration
-
-The benchmark project provides performance comparison across all three product surfaces: direct API calls, CLI invocations, and PowerShell cmdlet execution.
-
-### Benchmark Project Structure
-
-`Benchmark.csproj` (`tests/Benchmark/Benchmark.csproj:1`) is configured as an executable:
-
-| Property | Value | Line |
-|---|---|---|
-| `OutputType` | `Exe` | 4 |
-| `TargetFramework` | `net9.0` | 5 |
-| `RootNamespace` | `Benchmark` | 6 |
-| `StartupObject` | `Benchmark.Program` | 9 |
-
-Dependencies include:
-- `BenchmarkDotNet` 0.13.12 (`tests/Benchmark/Benchmark.csproj:13`)
-- `Microsoft.PowerShell.SDK` 7.4.0 (`tests/Benchmark/Benchmark.csproj:14`)
-- `Microsoft.ApplicationInsights` 2.22.0 (`tests/Benchmark/Benchmark.csproj:15`)
-
-Project references connect to Core.Runtime, Core.DependencyInjection, and Extensions.Resources (`tests/Benchmark/Benchmark.csproj:19`).
-
-### Program.cs — Benchmark Runner
-
-`Program.cs` (`tests/Benchmark/Program.cs:14`) configures and runs benchmarks with rich output:
-
-**Configuration** (`tests/Benchmark/Program.cs:30`):
-- Column providers: Mean, StdDev, Median statistics
-- Exporters: `JsonExporter.Brief` and `MarkdownExporter.GitHub`
-- Time unit: seconds (`tests/Benchmark/Program.cs:42`)
-- Optimization validator disabled for realistic measurements
-
-**Product filtering** via `--product` flag (`tests/Benchmark/Program.cs:102`):
-
-```bash
-dotnet run -- --product CLI    # Only CLI benchmarks
-dotnet run -- --product API    # Only API benchmarks
-dotnet run -- --product ALL    # All benchmarks (default)
-dotnet run -- --local          # Skip App Insights upload
-```
-
-**Benchmark types** are statically defined (`tests/Benchmark/Program.cs:81`):
-
-```csharp
-typeof(API.ResourceGroupBenchmarks),   // line 83
-typeof(CLI.ResourceGroupBenchmarks),   // line 84
-typeof(PS.ResourceGroupBenchmarks)     // line 85
-```
-
-After running, the pipeline generates charts and optionally exports to Application Insights (`tests/Benchmark/Program.cs:53`).
-
-### BenchmarkBase Class
-
-`BenchmarkBase` (`tests/Benchmark/BenchmarkBase.cs:16`) provides common setup for all benchmark classes:
-
-**Protected state**:
-- `SubscriptionId`, `AccessToken` — authentication credentials (`tests/Benchmark/BenchmarkBase.cs:18`)
-- `InstanceId` — unique ID per run to avoid conflicts (`tests/Benchmark/BenchmarkBase.cs:20`)
-- `CreatedResourceGroups` — list for cleanup tracking (`tests/Benchmark/BenchmarkBase.cs:23`)
-
-**Constants**:
-- `TestLocation = "eastus"` (`tests/Benchmark/BenchmarkBase.cs:26`)
-- `TestRgPrefix = "benchmark-rg-"` (`tests/Benchmark/BenchmarkBase.cs:27`)
-- `ApiVersion = "2025-04-01"` (`tests/Benchmark/BenchmarkBase.cs:28`)
-
-**`InitializeCommon`** (`tests/Benchmark/BenchmarkBase.cs:33`) bootstraps the DI container via `CirrusServiceProvider.Initialize(clientType)`, locates the repo root by searching for `cirrus.slnx`, and acquires an auth token using `IAuthService.AcquireTokenSilentlyAsync` (`tests/Benchmark/BenchmarkBase.cs:51`).
-
-**`CleanupResourceGroups`** (`tests/Benchmark/BenchmarkBase.cs:65`) iterates `CreatedResourceGroups` and sends DELETE requests to the Azure Resource Manager API with Bearer authentication (`tests/Benchmark/BenchmarkBase.cs:74`).
-
-**`RunProcess`** (`tests/Benchmark/BenchmarkBase.cs:100`) executes external processes (CLI binary, PowerShell) with stdout/stderr capture and deadlock prevention.
-
-**`BenchmarkEventListener`** (`tests/Benchmark/BenchmarkBase.cs:145`) is a no-op `IEventListener` implementation used during API-level benchmarks to avoid telemetry overhead.
-
-## Benchmark Data Flow
+**2. Fake the pipeline directly for unit tests.** `RestProcessorTests` injects a `FakeHttpPipeline` implementing `IRuntimeHttpPipeline`; the test supplies a `Func<HttpRequestMessage, IEventPublisher, HttpResponseMessage>` responder and asserts on `SendCount` to prove whether a request was actually dispatched (`tests/Cli.Tests/RestProcessorTests.cs:535-550`). This lets a test assert that a non-HTTPS URL is rejected **before** any send happens (`SendCount == 0`), a security-sensitive guarantee (`tests/Cli.Tests/RestProcessorTests.cs:55`).
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Dev as Developer
-    participant Prog as Program.Main
-    participant BDN as BenchmarkDotNet
-    participant Base as BenchmarkBase
-    participant Azure as Azure REST API
-    participant CG as ChartGenerator
-    participant AIE as AppInsightsExporter
-    participant AI as Application Insights
+    participant T as Test method
+    participant P as Processor / Engine
+    participant PIPE as HTTP pipeline<br>(tracing → terminating)
+    participant STUB as StubHttpTerminateHandler<br>/ FakeHttpPipeline responder
+    T->>P: ProcessAsync() with fixture inputs
+    P->>PIPE: build & send HttpRequestMessage
+    PIPE->>PIPE: tracing step observes request
+    PIPE->>STUB: terminating step
+    STUB-->>PIPE: canned HttpResponseMessage (200 / custom)
+    PIPE-->>P: response
+    P-->>T: result + SendCount / written values
+    T->>T: assert (no real network hit)
+    style T fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
+    style P fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PIPE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style STUB fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+```
 
-    Dev->>Prog: dotnet run -- --product ALL
-    Prog->>Prog: Parse --product and --local flags
-    Prog->>BDN: BenchmarkRunner.Run(types, config)
+## Agent tests: predicates, validation, and snapshots
 
-    BDN->>Base: InitializeCommon()
-    Base->>Base: CirrusServiceProvider.Initialize()
-    Base->>Base: AcquireTokenSilentlyAsync()
-    Note over Base: Auth ready, InstanceId generated
+`Core.Agent.Tests` covers the interactive agent from three angles:
 
-    loop For each benchmark method
-        BDN->>Azure: Execute operation (API / CLI / PS)
-        Azure-->>BDN: Response
-        BDN->>BDN: Record timing statistics
+- **Protocol predicates** — `ClosingToolPredicateTests` pins the turn-protocol logic: `ChatAgent.IsClosingTool` recognizes `propose_plan`/`submit_response`, and only `submit_response` terminates a session. `[Theory]`/`[InlineData]` matrices cover one-shot vs interactive behavior (`Agent/tests/Core.Agent.Tests/ClosingToolPredicateTests.cs:16-34`).
+- **Structured validation** — e.g. `ProposePlanValidationTests`, `SubmitResponseValidationTests`, and `PlanGateTests` assert the agent's plan/response contracts.
+- **Snapshot rendering** — `EventRendererSnapshotTests` and `AgentEventStyleSnapshotTests` render agent events to text and diff them against baselines under `Agent/tests/Core.Agent.Tests/Snapshots/*.txt`.
+
+The snapshot harness is a hand-rolled `SnapshotAssert.Matches(name, actual)`: it locates a baseline file, and on mismatch writes `<name>.actual.txt` and fails with a diff. Setting `UPDATE_SNAPSHOTS=1` rebaselines locally; a **missing** baseline in CI is a hard failure so uncommitted snapshots can't sneak through (`Agent/tests/Core.Agent.Tests/SnapshotTesting/SnapshotAssert.cs:15-37`).
+
+## Fixture assemblies for assembly-loading tests
+
+`SharedAlpha` and `SharedBeta` are minimal extension assemblies (each just references `Core.Abstractions` and defines an `ExtensionIndex`) built purely as *fixtures* (`tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj:4-11`). `ExtensionAddPlannerTests` stages these DLLs into temp directories and registers both under the same verb (`sharedverb`) to exercise multi-version / conflicting-assembly resolution paths that can't be reproduced with in-memory stubs (`tests/Cli.Tests/ExtensionAddPlannerTests.cs:46-73`).
+
+## Benchmarking with BenchmarkDotNet
+
+`tests/Benchmark` is an executable (`OutputType=Exe`) BenchmarkDotNet 0.13.12 project that references the real CLI, Runtime, DI, and Resources projects plus `Tests.Common` (`tests/Benchmark/Benchmark.csproj:4-8,17-25`). It measures cold-start and command execution for both the CLI and PowerShell surfaces, selectable via a `--product` filter, with `--local` and `--ci` modes controlling output paths and App Insights upload (`tests/Benchmark/Program.cs:22-42`).
+
+Benchmarks stay deterministic by reusing the *same* stub infrastructure as the unit tests. `BenchmarkBase.RegisterBenchmarkStubs()` overrides the DI container to register `StubHttpTerminateHandler`, `StubTelemetryService`, `StubProfileService`, and `StubAuthService` before each iteration, then disposes the container in cleanup (`tests/Benchmark/BenchmarkBase.cs:41-55`).
+
+### In-process benchmark hooks in the CLI
+
+Two hooks in the CLI entrypoint exist specifically so BenchmarkDotNet can drive `az` in-process without cache warmth or telemetry noise skewing timings:
+
+| Hook | Location | Purpose |
+| --- | --- | --- |
+| `--no-cache` flag | `src/CLI/Program.cs:246` | `ParseNoCacheFlag` strips the flag and sets `AZCLIPS_NO_EXTENSION_CACHE=true`, which `AssemblyLoadingOptions.BypassExtensionCache` reads — forcing a cold extension load each run |
+| In-process guard | `src/CLI/Program.cs:417` | `SpawnTelemetryUploader` returns early unless the process is a real `az`/`az.exe`, so the benchmark host process never spawns a detached telemetry uploader |
+
+```mermaid
+flowchart LR
+    subgraph host["Benchmark host process"]
+        BDN["BenchmarkDotNet<br>Program.Main"]
+        BASE["BenchmarkBase<br>RegisterBenchmarkStubs()"]
     end
-
-    BDN->>Base: CleanupResourceGroups()
-    Base->>Azure: DELETE benchmark-rg-* resources
-
-    BDN-->>Prog: Summary[] results
-
-    Prog->>CG: Generate(artifactsPath, timestamp, summaries)
-    CG->>CG: ExtractChartData() + CalculateOverhead()
-    CG->>CG: Write HTML chart + JSON summary
-
-    Prog->>AIE: Export(chartData, timestamp)
-    AIE->>AI: TrackMetric("BenchmarkDuration")
-    AIE->>AI: TrackEvent("BenchmarkResult")
-    AIE->>AIE: Flush + 5s wait
+    subgraph cli["az entrypoint (in-process)"]
+        NC["ParseNoCacheFlag<br>--no-cache to AZCLIPS_NO_EXTENSION_CACHE"]
+        RUN["Command execution"]
+        TEL["SpawnTelemetryUploader<br>early-return if not real az"]
+    end
+    STUBS["Stub* handlers<br>(HTTP / telemetry / profile / auth)"]
+    BDN --> BASE --> STUBS
+    BDN --> NC --> RUN --> TEL
+    RUN -.uses.-> STUBS
+    style host fill:#161b22,stroke:#30363d,color:#e6edf3
+    style cli fill:#161b22,stroke:#30363d,color:#e6edf3
+    style BDN fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
+    style BASE fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
+    style NC fill:#5a4a2e,stroke:#d4a84b,color:#e6edf3
+    style TEL fill:#5a4a2e,stroke:#d4a84b,color:#e6edf3
+    style RUN fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style STUBS fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
 ```
 
-## AppInsightsExporter
+### Performance as a merge gate
 
-`AppInsightsExporter` (`tests/Benchmark/AppInsightsExporter.cs:14`) sends benchmark results to Application Insights for historical tracking and Grafana dashboards.
+Benchmarks run on every PR and every push to `main`. On a PR, if any benchmark exceeds **115%** of the historical baseline the check fails and a comment is posted; on push to `main`, new numbers are published to GitHub Pages and become the next baseline (`docs/spec/benchmark-workflows.md:5-8`). The dashboards live at `azure.github.io/azclips/dev/bench/cli/` and `.../ps/`. See [Build & CI/CD](./build-cicd.md) for how `benchmark.yml` wires this into the pipeline.
 
-### Connection Configuration
+## Running tests locally
 
-The connection string resolution follows a priority chain (`tests/Benchmark/AppInsightsExporter.cs:29`):
+| Goal | Command |
+| --- | --- |
+| Run the whole solution | `dotnet test azclips.slnx` |
+| Run one project | `dotnet test tests/Cli.Tests/Cli.Tests.csproj` |
+| Run with coverage (Coverlet) | `dotnet test --collect:"XPlat Code Coverage"` |
+| Run the agent suite | `dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj` |
+| Rebaseline agent snapshots | `UPDATE_SNAPSHOTS=1 dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj` |
+| Run benchmarks (local, no upload) | `dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local` |
 
-1. Constructor parameter `connectionString`
-2. `APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable
-3. Default hardcoded connection string (`tests/Benchmark/AppInsightsExporter.cs:20`)
-
-### Export Format
-
-Each benchmark result produces two telemetry items (`tests/Benchmark/AppInsightsExporter.cs:42`):
-
-**MetricTelemetry** (`tests/Benchmark/AppInsightsExporter.cs:47`):
-- Name: `"BenchmarkDuration"`
-- Sum: Mean execution time in seconds
-- Dimensions: Product, Operation, Resource, Method, Timestamp, Machine
-
-**EventTelemetry** (`tests/Benchmark/AppInsightsExporter.cs:65`):
-- Name: `"BenchmarkResult"`
-- Same dimensions plus `DurationSeconds` and `DurationMs` metrics
-
-### Operation Parsing
-
-The `ParseMethod` helper (`tests/Benchmark/AppInsightsExporter.cs:90`) extracts operation type from method names:
-
-| Contains | Operation |
-|---|---|
-| `list` | `List` |
-| `create` / `new` | `Create` |
-| `get` / `show` | `Get` |
-| `delete` / `remove` | `Delete` |
-
-## ChartGenerator
-
-`ChartGenerator` (`tests/Benchmark/ChartGenerator.cs:12`) produces visual outputs from benchmark summaries.
-
-### Output Artifacts
-
-The `Generate` method (`tests/Benchmark/ChartGenerator.cs:21`) produces three files:
-
-1. **Grouped bar chart** (`benchmark-comparison-{timestamp}.html`) — Chart.js interactive chart comparing API, CLI, and PS times (`tests/Benchmark/ChartGenerator.cs:29`)
-2. **Details chart** (`benchmark-details-{timestamp}.html`) — horizontal bar chart with per-method breakdown (`tests/Benchmark/ChartGenerator.cs:34`)
-3. **JSON summary** (`benchmark-summary-{timestamp}.json`) — machine-readable results and overhead calculations (`tests/Benchmark/ChartGenerator.cs:39`)
-
-### Data Models
-
-```csharp
-// ChartGenerator.cs:434
-public record ChartDataPoint(string Method, string Product, double MeanSeconds);
-```
-
-```csharp
-// ChartGenerator.cs:436
-internal class OverheadData
-{
-    public string Operation { get; set; }
-    public double ApiTime { get; set; }
-    public double CliTime { get; set; }
-    public double PsTime { get; set; }
-}
-```
-
-### Overhead Calculation
-
-`CalculateOverhead` (`tests/Benchmark/ChartGenerator.cs:79`) compares API times against CLI and PS times for three operations: `"List RG"`, `"Create RG"`, and `"Get RG"`. The HTML chart displays overhead as `+Xs` relative to the API baseline (`tests/Benchmark/ChartGenerator.cs:218`).
-
-### Chart.js Configuration
-
-The grouped bar chart (`tests/Benchmark/ChartGenerator.cs:99`) uses:
-
-- Three datasets: API (green `#10b981`), CLI (blue `#3b82f6`), PS (purple `#8b5cf6`)
-- Responsive layout with `maintainAspectRatio: false`
-- Y-axis in seconds with `beginAtZero: true`
-- Custom tooltip showing `{value}s` format
-
-## CI Test Pipeline
-
-### build-and-test.yml
-
-The `Build and Test` workflow (`.github/workflows/build-and-test.yml:1`) runs on pull requests and manual dispatch:
-
-| Step | Command | Line |
-|---|---|---|
-| Restore | `dotnet restore cirrus.slnx` | 22 |
-| Build | `dotnet build cirrus.slnx --no-restore --configuration Debug` | 25 |
-| Unit tests | `dotnet test cirrus.slnx --no-build --configuration Debug` | 29 |
-| E2E CLI | `./artifacts/Debug/Core.Cli/azv2 --help` | 33 |
-| E2E PowerShell | `Import-Module ./src/PS/Login/Login.psd1` | 44 |
-
-The PowerShell E2E step validates module import and command discovery (`.github/workflows/build-and-test.yml:46`).
-
-### build.yml
-
-The full build pipeline (`.github/workflows/build.yml:6`) runs a matrix strategy with `[Debug, Release]` × `[win-x64]` configurations (`.github/workflows/build.yml:19`). It includes unit test execution as part of the build-cli job (`.github/workflows/build.yml:56`).
+Coverlet is wired in via the `coverlet.collector` package reference in the shared props, so `--collect:"XPlat Code Coverage"` produces Cobertura output for every project without per-project configuration (`tests/Directory.Build.props:17`). CI builds/tests in **Debug** today (a known Release limitation for extension DLL location) — see [Build & CI/CD](./build-cicd.md).
 
 ## References
 
-| Source File | Key Elements |
-|---|---|
-| `tests/Cli.Tests/ExtensionDispatcherTests.cs` | `[Fact]` empty args, `[Theory]` help flags |
-| `tests/Cli.Tests/ProgramFallbackTests.cs` | Fallback behavior, skipped AI integration tests |
-| `tests/Cli.Tests/Cli.Tests.csproj` | Project references to CLI, Engine, Agent |
-| `tests/Directory.Build.props` | xUnit 2.9.3, Coverlet 6.0.4, analyzer config |
-| `tests/Benchmark/Program.cs` | BenchmarkDotNet runner, product filtering, chart generation |
-| `tests/Benchmark/BenchmarkBase.cs` | Auth setup, resource cleanup, `BenchmarkEventListener` |
-| `tests/Benchmark/Benchmark.csproj` | BenchmarkDotNet 0.13.12, PowerShell SDK 7.4.0 |
-| `tests/Benchmark/AppInsightsExporter.cs` | Metric and event telemetry export |
-| `tests/Benchmark/ChartGenerator.cs` | Chart.js HTML, JSON summary, overhead calculation |
-| `.github/workflows/build-and-test.yml` | PR test pipeline with E2E steps |
-| `.github/workflows/build.yml` | Matrix build with test execution |
+- `azclips.slnx:31,34-45` — test projects registered in the solution
+- `tests/Directory.Build.props:13,17-20` — xUnit/Coverlet/Test SDK versions and the `CA1707` underscore exception
+- `tests/Cli.Tests/RestProcessorTests.cs:45,55,535-550` — `FakeHttpPipeline` and offline URL-validation tests
+- `tests/Common/Stubs/StubHttpTerminateHandler.cs:12-18` — canned terminating-step response
+- `src/Core/Core.Abstractions/IHttpPipelineService.cs:8-9` — tracing & terminating pipeline steps
+- `Agent/tests/Core.Agent.Tests/ClosingToolPredicateTests.cs:16-34` — turn-protocol predicate tests
+- `Agent/tests/Core.Agent.Tests/SnapshotTesting/SnapshotAssert.cs:15-37` — snapshot harness with `UPDATE_SNAPSHOTS`
+- `tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj:4-11` — fixture extension assembly
+- `tests/Benchmark/Benchmark.csproj:4-25` — BenchmarkDotNet project references
+- `tests/Benchmark/BenchmarkBase.cs:41-55` — stub DI registration for benchmark isolation
+- `src/CLI/Program.cs:246,417` — `--no-cache` and in-process benchmark hooks
+- `docs/spec/benchmark-workflows.md:5-8` — 115% regression gate and dashboards
+- `AGENTS.md:38` — `MethodName_ShouldBehavior_WhenCondition` naming convention

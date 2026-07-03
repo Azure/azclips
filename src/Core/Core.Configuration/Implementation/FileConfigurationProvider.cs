@@ -1,5 +1,9 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Core.Abstractions;
 using Core.Configuration.Abstractions;
 
 namespace Core.Configuration.Implementation;
@@ -13,8 +17,7 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
 
     public string GetConfigFilePath()
     {
-        var homePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return Path.Combine(homePath, ".cirrus", "config.json");
+        return HomePaths.GetDefaultConfigFilePath();
     }
 
     public async Task<JsonObject> ReadAsync(CancellationToken cancellationToken = default)

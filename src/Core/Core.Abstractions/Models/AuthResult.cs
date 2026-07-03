@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Abstractions;
 
 /// <summary>
@@ -41,6 +44,11 @@ public record AuthResult
     /// The tenant ID from which the token was acquired.
     /// </summary>
     public required string TenantId;
+
+    /// <summary>
+    /// The authenticated account's user principal name (from MSAL <c>IAccount.Username</c>), if available.
+    /// </summary>
+    public string? UserPrincipalName;
 
     /// <summary>
     /// The correlation ID used for the authentication request.

@@ -1,0 +1,1 @@
+SessionErrored type=rate_limit status=429 code=user_model_rate_limited providerCallId=req-abc123 msg=You have exceeded the model rate limit. Retry in 30s.

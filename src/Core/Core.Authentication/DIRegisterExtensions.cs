@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,7 +14,6 @@ public static class DIRegisterExtensions
     public static IServiceCollection RegisterAuthenticationServices(this IServiceCollection services)
     {
         services.AddSingleton<IAuthService, MsalAuthService>();
-        services.AddSingleton<IAuthContextService, AuthContextService>();
         return services;
     }
 }

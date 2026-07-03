@@ -1,6 +1,9 @@
-using Extensions.Runtime.Json;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
+
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 public class VirtualMachine
 {
@@ -127,3 +130,7 @@ public class BootDiagnostics
     public bool Enabled { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
+
+
+
+

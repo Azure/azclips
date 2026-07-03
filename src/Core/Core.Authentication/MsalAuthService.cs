@@ -1,4 +1,7 @@
-﻿using Core.Abstractions;
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
 
@@ -11,7 +14,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
         if (request.UseDeviceCodeFlow)
         {
             return await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken);
@@ -22,10 +25,17 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         }
     }
 
-    public async Task LogoutAsync(CancellationToken cancellationToken = default)
+    public async Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(LogoutAsync)}");
-        Logger.Verbose($"[{nameof(MsalAuthService)}] Clearing MSAL token cache.");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LogoutAsync)}");
+
+        if (string.IsNullOrWhiteSpace(userPrincipalName))
+        {
+            Logger.Verbose($"[{nameof(MsalAuthService)}] No user principal name provided; nothing to remove from the token cache.");
+            return;
+        }
+
+        Logger.Verbose($"[{nameof(MsalAuthService)}] Removing account '{userPrincipalName}' from the MSAL token cache.");
 
         // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
         var app = PublicClientApplicationBuilder.Create(ClientId)
@@ -34,21 +44,21 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
         var accounts = (await app.GetAccountsAsync()).ToList();
-        Logger.Debug($"[{nameof(MsalAuthService)}] Found {accounts.Count} accounts in the token cache.");
+        var matching = accounts
+            .Where(a => string.Equals(a.Username, userPrincipalName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        Logger.Debug($"[{nameof(MsalAuthService)}] Found {matching.Count} matching account(s) for '{userPrincipalName}' of {accounts.Count} in the token cache.");
 
-        while (accounts.Any())
+        foreach (var account in matching)
         {
-            Logger.Debug($"[{nameof(MsalAuthService)}] Removing account: {accounts.First().Username}");
-            await app.RemoveAsync(accounts.First());
-            accounts = (await app.GetAccountsAsync()).ToList();
+            Logger.Debug($"[{nameof(MsalAuthService)}] Removing account: {account.Username}");
+            await app.RemoveAsync(account);
         }
-
-        await Task.CompletedTask;
     }
 
     private async Task<AuthResult> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
@@ -59,7 +69,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     private async Task<AuthResult> AcquireTokenWithDeviceCodeAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
@@ -82,7 +92,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
     {
-        var cacheDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
+        var cacheDirectory = HomePaths.GetDefaultLocalAppDataRoot();
         var filename = "MSAL.cache";
         if (plaintextUnsafe)
         {
@@ -94,13 +104,13 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         builder = plaintextUnsafe ?
             builder.WithUnprotectedFile() :
             builder.WithLinuxKeyring(
-                "Microsoft.Project.Cirrus",
+                "Microsoft.Azclips",
                 "default", // todo: post MVP: configurable?
-                "Tokens and credentials for Microsoft Project Cirrus",
-                new System.Collections.Generic.KeyValuePair<string, string>("application", "Microsoft.Project.Cirrus"),
+                "Tokens and credentials for Azclips",
+                new System.Collections.Generic.KeyValuePair<string, string>("application", "Microsoft.Azclips"),
                 new System.Collections.Generic.KeyValuePair<string, string>("service", "default"))
             .WithMacKeyChain(
-                "Microsoft Project Cirrus",
+                "Microsoft Azclips",
                 "default"); // todo: post MVP: does it make sense to split the cache by account?
 
         var storageProperties = builder.Build();
@@ -119,7 +129,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
     /// <exception cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</exception>
     public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
 
         var app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);

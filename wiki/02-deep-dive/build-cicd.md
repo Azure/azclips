@@ -1,463 +1,189 @@
 ---
-title: "Build System & CI/CD Pipeline"
-description: "Cirrus build architecture: solution structure, Directory.Build.props hierarchy, 50+ code quality rules, CI/CD pipelines with matrix builds, MSIX packaging, dynamic extension/module discovery, release versioning, and dev container configuration."
+title: Build & CI/CD
+description: The Azclips build and release toolchain — local dotnet build to artifacts/, the PowerShell help/PlatyPS scripts, the openspec design-doc workflow, the Markdown help-docs pipeline, and the GitHub Actions + Azure DevOps distribution pipelines.
+outline: deep
 ---
 
-# Build System & CI/CD Pipeline
+# Build & CI/CD
 
-Cirrus uses a layered build system with MSBuild property inheritance, two GitHub Actions workflows, dynamic discovery of extensions and PowerShell modules, MSIX packaging with code signing, and a dev container configuration featuring Zipkin for distributed tracing. Over 50 code quality rules are enforced at build time.
+## Overview
 
-## Solution Structure
+Azclips is a multi-surface product — a `dotnet`-hosted CLI (`az`), several PowerShell modules, and a set of dynamically-loaded extensions — all built from one solution, `azclips.slnx`. The build toolchain has to satisfy three constraints at once:
 
-The solution file `cirrus.slnx` (`cirrus.slnx:1`) organizes 12 projects into four logical folders:
+- **One reproducible SDK everywhere.** A pinned SDK (`global.json`) means a contributor's laptop, a GitHub runner, and an Azure DevOps release agent all compile against the same compiler and analyzers.
+- **A predictable artifact layout.** Because extensions are discovered at runtime from a directory, MSBuild must drop every project's output into a stable, per-extension folder under `artifacts/`. This is centralized in `Shared.props` rather than duplicated per project.
+- **Design before code.** Significant changes go through the `openspec/` change-proposal workflow (proposal → design → tasks → specs) before implementation, so the repo captures *why* a change exists, not just the diff.
 
-```mermaid
-flowchart TB
-    subgraph Solution["cirrus.slnx"]
-        direction TB
-        subgraph CLI["src/CLI/"]
-            CoreCli["Core.Cli.csproj<br>azv2 executable"]
-        end
+> **Naming:** the project codename is **Azclips**; the shipping products are **Azure CLI** and **Azure PowerShell**. Dedicated CI jobs fail any PR that introduces disallowed legacy naming references, keeping the codebase consistent (`.github/workflows/disallow-azclips-references.yml:1-28`).
 
-        subgraph Core["src/Core/"]
-            Abs["Core.Abstractions"]
-            Auth["Core.Authentication"]
-            Agent["Core.Agent"]
-            Engine["Core.Engine"]
-            Telem["Core.Telemetry"]
-            Runtime["Core.Runtime"]
-            DI["Core.DependencyInjection"]
-        end
+## Local build
 
-        subgraph Extensions["src/Extensions/"]
-            Ext["Extensions.Extension"]
-            Res["Extensions.Resources"]
-            Login["Extensions.Login"]
-        end
+The canonical build command produces the `az` binary and all extension assemblies:
 
-        subgraph TestsFolder["tests/"]
-            CliTests["Cli.Tests"]
-            Bench["Benchmark"]
-        end
-    end
-
-    CoreCli --> Abs
-    CoreCli --> Telem
-    CoreCli --> Engine
-    CoreCli --> Agent
-    CoreCli --> DI
-
-    CliTests --> CoreCli
-    CliTests --> Engine
-    CliTests --> Agent
-
-    Bench --> Runtime
-    Bench --> DI
-    Bench --> Res
-
-    style Solution fill:#161b22,stroke:#30363d,color:#e6edf3
-    style CLI fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Core fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Extensions fill:#161b22,stroke:#30363d,color:#e6edf3
-    style TestsFolder fill:#161b22,stroke:#30363d,color:#e6edf3
-    style CoreCli fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Abs fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Auth fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Agent fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Engine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Telem fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Runtime fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Ext fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Res fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Login fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CliTests fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Bench fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+```bash
+dotnet build -c Release azclips.slnx
+# CLI binary → artifacts/Release/Core.Cli/az
 ```
 
-The CLI project (`src/CLI/Core.Cli.csproj:2`) produces the `azv2` executable:
+The output path is **not** configured per project. Every project imports `Shared.props`, which sets a single templated `OutputPath` keyed on the build configuration and the project's `ExtName`, with the target-framework suffix disabled so paths stay flat (`Shared.props:8-10`):
 
 ```xml
-<OutputType>Exe</OutputType>
-<AssemblyName>azv2</AssemblyName>              <!-- line 4 -->
-<RootNamespace>Core.Cli</RootNamespace>         <!-- line 5 -->
-<StartupObject>Core.Cli.Program</StartupObject> <!-- line 13 -->
+<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+<OutputPath>$(RepoArtifacts)$(Configuration)/$(ExtName)/</OutputPath>
+<PublishDir>$(OutputPath)</PublishDir>
 ```
 
-It imports `Shared.props` (`src/CLI/Core.Cli.csproj:16`) and references five core projects: Abstractions, Telemetry, Engine, Agent, and DependencyInjection (`src/CLI/Core.Cli.csproj:18`).
+So the Login extension lands in `artifacts/Release/Microsoft.Azure.Azclips.Extensions.Login/` (`README.md:138`) and the CLI in `artifacts/Release/Core.Cli/`. `RepoArtifacts` itself resolves to `<repo>/artifacts/` (`Shared.props:6`).
 
-## Directory.Build.props Hierarchy
+Compiler behavior for product code is centralized in `src/Directory.Build.props`: `net10.0`, nullable + implicit usings, .NET analyzers at `latest`, `EnforceCodeStyleInBuild`, and — critically — **`TreatWarningsAsErrors=true`** with only NuGet-audit warnings (`NU1901`–`NU1904`) demoted to non-blocking (`src/Directory.Build.props:6-11`). Test projects deliberately relax this to `TreatWarningsAsErrors=false` (`tests/Directory.Build.props`), so an in-progress test can't be blocked by an analyzer nit while product code stays strict.
 
-Three levels of MSBuild properties form an inheritance chain:
+### SDK pin
 
-### Level 1: Shared.props (Repository Root)
-
-`Shared.props` (`Shared.props:1`) defines repository-wide path variables and output conventions:
-
-| Property | Value | Line |
-|---|---|---|
-| `RepoRoot` | `$(MSBuildThisFileDirectory)` | 3 |
-| `RepoSrc` | `$(RepoRoot)src/` | 4 |
-| `RepoArtifacts` | `$(RepoRoot)artifacts/` | 5 |
-| `AppendTargetFrameworkToOutputPath` | `false` | 7 |
-| `OutputPath` | `$(RepoArtifacts)$(Configuration)/$(ExtName)/` | 8 |
-| `PublishDir` | `$(OutputPath)` | 9 |
-
-PowerShell module manifests (`.psd1`) are copied to output via `<None Update="*.psd1" CopyToOutputDirectory="PreserveNewest" />` (`Shared.props:15`).
-
-### Level 2: src/Directory.Build.props
-
-`src/Directory.Build.props` (`src/Directory.Build.props:1`) sets source project defaults:
-
-| Property | Value | Line |
-|---|---|---|
-| `TargetFramework` | `net9` | 4 |
-| `ImplicitUsings` | `enable` | 5 |
-| `Nullable` | `enable` | 6 |
-| `EnableNETAnalyzers` | `true` | 7 |
-| `AnalysisLevel` | `latest` | 8 |
-| `EnforceCodeStyleInBuild` | `true` | 9 |
-| `TreatWarningsAsErrors` | `true` | 10 |
-
-Source projects treat warnings as errors (`src/Directory.Build.props:10`), enforcing zero-warning builds.
-
-### Level 3: tests/Directory.Build.props
-
-`tests/Directory.Build.props` (`tests/Directory.Build.props:1`) overrides for test projects:
-
-- Sets `IsPackable` to `false` (`tests/Directory.Build.props:7`)
-- Sets `TreatWarningsAsErrors` to `false` (`tests/Directory.Build.props:11`)
-- Suppresses `CA1707` for underscore-based test naming (`tests/Directory.Build.props:13`)
-- Adds a global `<Using Include="Xunit" />` directive (`tests/Directory.Build.props:24`)
-
-### .NET SDK Version
-
-`global.json` (`global.json:1`) pins the SDK:
+The SDK is pinned so the toolchain is deterministic (`global.json:1-6`):
 
 ```json
-{
-  "sdk": {
-    "version": "9.0.308",
-    "rollForward": "latestMinor"
-  }
-}
+{ "sdk": { "version": "10.0.203", "rollForward": "latestMinor" } }
 ```
 
-The `rollForward: "latestMinor"` policy allows minor version updates within .NET 9.x.
-
-## Code Quality Rules
-
-### EditorConfig
-
-The `.editorconfig` (`.editorconfig:1`) enforces comprehensive C# coding standards:
-
-**Naming Conventions**:
-- Constants use PascalCase (`.editorconfig:59`)
-- Static private fields use `s_` prefix with camelCase (`.editorconfig:67`)
-- Private/internal fields use `_` prefix with camelCase (`.editorconfig:77`)
-
-**Code Style** (`.editorconfig:85`):
-- `using` directives outside namespace (`.editorconfig:86`)
-- System directives sorted first (`.editorconfig:87`)
-- Prefer braces (`.editorconfig:88`)
-- Prefer static local functions (`.editorconfig:91`)
-- All expression-bodied member styles set to `silent` (`.editorconfig:114`)
-- Pattern matching preferred over `is`/`as` checks (`.editorconfig:124`)
-
-**License Header**: All C# files must include the .NET Foundation MIT license header (`.editorconfig:165`).
-
-### Analyzer Rules (50+)
-
-The `.editorconfig` configures over 50 diagnostic rules across categories:
-
-**Code Analysis (CA) rules** — 40+ rules covering:
-
-| Category | Example Rules | Severity |
-|---|---|---|
-| Design | CA1018 (AttributeUsage), CA1044 (write-only props), CA1050 (types in namespaces) | warning |
-| Performance | CA1821 (empty finalizers), CA1828 (no Count when Any works), CA1836 (IsEmpty over Count) | warning |
-| Security | CA5351 (broken crypto), CA5359 (certificate validation), CA5364 (deprecated protocols) | warning |
-| XML Security | CA3061 (schema by URL), CA3075 (DTD processing), CA3077 (API design) | warning |
-| Reliability | CA2011 (infinite recursion), CA2242 (NaN testing), CA2245 (self-assignment) | warning |
-
-**IDE rules**:
-- IDE0040: Accessibility modifiers required (`warning`) (`.editorconfig:321`)
-- IDE0041: Use `is null` check (`warning`) (`.editorconfig:270`)
-- IDE0043: Validate format strings (`warning`) (`.editorconfig:272`)
-- IDE0062: Make local function static (`warning`) (`.editorconfig:274`)
-- IDE0082: Convert typeof to nameof (`warning`) (`.editorconfig:276`)
-- IDE0200: Remove unnecessary lambda (`none`) (`.editorconfig:278`)
-- IDE0240: Remove redundant nullable directive (`warning`) (`.editorconfig:280`)
-
-## CI/CD Pipeline Architecture
+`latestMinor` roll-forward means an agent with `10.0.203` or any later `10.0.x`/`10.x` minor works, but a `9.x`-only machine fails fast with a clear SDK error. Every CI job feeds this file to `actions/setup-dotnet` via `global-json-file: global.json` (`.github/workflows/build-and-test.yml:20-22`).
 
 ```mermaid
-flowchart TB
-    subgraph Triggers["Triggers"]
-        Push["push to main"]
-        PR["pull_request to main"]
-        Manual["workflow_dispatch"]
-    end
-
-    subgraph BuildTest["build-and-test.yml (PR Gate)"]
-        direction TB
-        BT_Restore["dotnet restore"]
-        BT_Build["dotnet build (Debug)"]
-        BT_Test["dotnet test"]
-        BT_E2E_CLI["E2E: azv2 --help"]
-        BT_E2E_PS["E2E: Import-Module Login"]
-        BT_Restore --> BT_Build --> BT_Test --> BT_E2E_CLI --> BT_E2E_PS
-    end
-
-    subgraph BuildYml["build.yml (Full Build)"]
-        direction TB
-        subgraph BuildCli["build-cli<br>matrix: Debug/Release × win-x64"]
-            BC_Restore["Restore"]
-            BC_Build["Build Solution"]
-            BC_Test["Unit Tests"]
-            BC_Publish["Publish CLI + Extensions"]
-            BC_MSIX["Create MSIX Package"]
-            BC_Sign["Sign with PFX Certificate"]
-            BC_Upload["Upload Artifacts"]
-            BC_Restore --> BC_Build --> BC_Test --> BC_Publish --> BC_MSIX --> BC_Sign --> BC_Upload
-        end
-
-        subgraph DiscExt["discover-extensions"]
-            DE_Find["find src/Extensions -name *.csproj"]
-        end
-
-        subgraph BuildExt["build-extension<br>matrix: extensions × configs"]
-            BE_Meta["Extract Metadata"]
-            BE_Build["Build Extension"]
-            BE_Upload["Upload Artifacts"]
-            BE_Meta --> BE_Build --> BE_Upload
-        end
-
-        subgraph DiscPS["discover-powershell-modules"]
-            DP_Find["find src/PS -name *.psm1"]
-        end
-
-        subgraph BuildPS["build-powershell-module<br>matrix: modules"]
-            BP_Build["Build Extension DLL"]
-            BP_Import["Test Module Import"]
-            BP_Build --> BP_Import
-        end
-
-        subgraph Release["create-release<br>main only"]
-            CR_Version["v1.0.YYMMDD.RUN"]
-            CR_Notes["Release Notes"]
-            CR_Download["Download Artifacts"]
-            CR_Publish["GitHub Release"]
-            CR_Version --> CR_Notes --> CR_Download --> CR_Publish
-        end
-    end
-
-    Push --> BuildYml
-    PR --> BuildTest
-    PR --> BuildYml
-    Manual --> BuildTest
-
-    DiscExt --> BuildExt
-    DiscPS --> BuildPS
-    BuildCli --> Release
-    BuildExt --> Release
-
-    style Triggers fill:#161b22,stroke:#30363d,color:#e6edf3
-    style BuildTest fill:#161b22,stroke:#30363d,color:#e6edf3
-    style BuildYml fill:#161b22,stroke:#30363d,color:#e6edf3
-    style BuildCli fill:#161b22,stroke:#30363d,color:#e6edf3
-    style DiscExt fill:#161b22,stroke:#30363d,color:#e6edf3
-    style BuildExt fill:#161b22,stroke:#30363d,color:#e6edf3
-    style DiscPS fill:#161b22,stroke:#30363d,color:#e6edf3
-    style BuildPS fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Release fill:#161b22,stroke:#30363d,color:#e6edf3
-    style BT_Restore fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BT_Build fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BT_Test fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BT_E2E_CLI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BT_E2E_PS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BC_Restore fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BC_Build fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BC_Test fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BC_Publish fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BC_MSIX fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BC_Sign fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BC_Upload fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DE_Find fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BE_Meta fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BE_Build fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BE_Upload fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DP_Find fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BP_Build fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BP_Import fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CR_Version fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CR_Notes fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CR_Download fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CR_Publish fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Push fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PR fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Manual fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+flowchart LR
+    SRC["Source<br>azclips.slnx + src/**"]
+    GJ["global.json<br>SDK 10.0.203"]
+    SP["Shared.props<br>OutputPath per ExtName"]
+    DBP["src/Directory.Build.props<br>net10.0, warnings=errors"]
+    BUILD["dotnet build -c Release"]
+    ART["artifacts/Release/&lt;ExtName&gt;/"]
+    PKG["devops packaging scripts<br>build_common.sh → platform tarball/zip"]
+    DIST["Signed distribution<br>(GitHub Release / feeds)"]
+    GJ --> BUILD
+    SP --> BUILD
+    DBP --> BUILD
+    SRC --> BUILD --> ART --> PKG --> DIST
+    style SRC fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
+    style GJ fill:#2d2d3d,stroke:#7a7a8a,color:#e6edf3
+    style SP fill:#2d2d3d,stroke:#7a7a8a,color:#e6edf3
+    style DBP fill:#2d2d3d,stroke:#7a7a8a,color:#e6edf3
+    style BUILD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style ART fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style PKG fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style DIST fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
 ```
 
-## build-and-test.yml (PR Gate)
+## Build & help scripts (`build/`)
 
-The lightweight PR gate pipeline (`.github/workflows/build-and-test.yml:1`) runs on `pull_request` and `workflow_dispatch`. It executes on `ubuntu-latest` with five steps:
+The `build/` folder holds PowerShell tooling that wraps `dotnet build` with PowerShell-module and help-artifact concerns:
 
-1. **Restore** — `dotnet restore cirrus.slnx` (`.github/workflows/build-and-test.yml:22`)
-2. **Build** — Debug configuration with `--no-restore` (`.github/workflows/build-and-test.yml:25`)
-3. **Test** — `dotnet test` with normal verbosity (`.github/workflows/build-and-test.yml:29`)
-4. **E2E CLI** — Runs `./artifacts/Debug/Core.Cli/azv2 --help` to validate the binary (`.github/workflows/build-and-test.yml:33`)
-5. **E2E PowerShell** — Imports the Login module and verifies command count > 0 (`.github/workflows/build-and-test.yml:44`)
+| Script | Role |
+| --- | --- |
+| `build.ps1` | Orchestrates `dotnet build azclips.slnx`, fixes up `.psd1` module manifests, and (with `-GenerateHelpArtifacts`) runs the help pipeline |
+| `Install-BuildDependencies.ps1` | Idempotently installs `Microsoft.PowerShell.PlatyPS` **1.0.1** (CurrentUser scope) — the only build-time PS dependency |
+| `New-PSHelpMarkdown.ps1` | Scaffolds `src/PS/<Module>/help/<Cmdlet>.md` for every cmdlet via PlatyPS and post-processes its <code v-pre>{{ Fill in … }}</code> placeholders |
+| `Set-ModuleConfiguration.ps1` | Rewrites `.psd1` manifests to point at the correct `artifacts/<Configuration>/…` paths |
 
-## build.yml (Full Build)
+`build.ps1 -GenerateHelpArtifacts` is the help entrypoint: it first calls `Install-BuildDependencies.ps1` to guarantee PlatyPS 1.0.1 is present, then runs the help validation tool and publishes help artifacts, propagating the tool's exit code so CI fails on invalid help (`build/build.ps1:256-274`). PlatyPS is pinned to 1.0.1 because the scripts contain targeted work-arounds for that version's quirks — e.g. `New-PSHelpMarkdown.ps1` forces `en-US` locale and repairs unfenced example blocks emitted by schema `2024-05-01` (`build/New-PSHelpMarkdown.ps1:23,38,51`).
 
-The comprehensive build pipeline (`.github/workflows/build.yml:6`) triggers on push and PR to `main` and runs seven jobs.
+## The help-docs pipeline
 
-### Job 1: build-cli
+CLI help is authored as Markdown under `src/CLI/Help/Docs/<ext>/*.md` and parsed at runtime — there is no code-gen step for CLI help text. Two runtime parsers do the work:
 
-Runs a matrix of `[Debug, Release] × [win-x64]` on `windows-latest` (`.github/workflows/build.yml:18`):
+1. **`FrontmatterParser`** — a hand-rolled parser for a YAML-subset frontmatter block (`---`-delimited, flat `key: value` pairs plus one `relatedLinks:` list). It returns a `FrontmatterDoc` (`Summary`, `Status`, `Schema`, `OnlineVersion`, `RelatedLinks`) and the remaining body. It is deliberately **lenient**: unterminated or missing frontmatter degrades to `FrontmatterDoc.Empty` rather than throwing (`src/CLI/Help/FrontmatterParser.cs:27-59`).
+2. **`MarkdownCommandHelpProvider`** — resolves `src/CLI/Help/Docs/<ext>/<command>.md`, reads it, and calls `FrontmatterParser` to split summary (from frontmatter) from the `Description:` body line and ordered fenced example blocks, producing a `MarkdownCommandHelp` record. Missing/malformed input returns `MarkdownCommandHelp.Empty` — "strict checks live in the build-time help tool" (`src/CLI/Help/MarkdownCommandHelpProvider.cs:22-53`).
 
-- Restores and builds the full solution (`.github/workflows/build.yml:45`)
-- Executes unit tests (`.github/workflows/build.yml:56`)
-- Publishes the CLI as self-contained: `dotnet publish src/CLI/Core.Cli.csproj -r win-x64 --self-contained` (`.github/workflows/build.yml:76`)
-- Publishes the Extension project to a subdirectory (`.github/workflows/build.yml:81`)
+The strictness split is intentional: **runtime is lenient** (a bad help file must never crash `az --help`), while **build time is strict** (bad help must fail CI). That build-time strictness is the help tool.
 
-### MSIX Packaging and Signing
+### `tools/Help` — the help validation tool
 
-The pipeline creates MSIX packages using the Windows SDK:
+`tools/Help/Azclips.Help.Tool` is a console app that loads the built extension/cmdlet assemblies from `artifacts/<Configuration>` (resolving them via `AssemblyLoadContext.Default.Resolving`) and runs a battery of validators — `MarkdownStructureValidator`, `HelpCompletenessValidator`, `PsCompletenessValidator`, `ExampleSyntaxValidator`, `PowerShellExampleSyntaxValidator`, `PlaceholderDetector` — merging results into a `ValidationReport` (`tools/Help/Azclips.Help.Tool/Program.cs:22-36`). It resolves the `Microsoft.Azure.Azclips.*` assembly names (`tools/Help/Azclips.Help.Tool/Program.cs:24-32`). Its own behavior is pinned by `Azclips.Help.Tool.Tests` (e.g. `FrontmatterParserTests`, `HelpCompletenessValidatorTests`), which CI runs as a dedicated job.
 
-1. **Copy manifest**: `Core.Cli.appxmanifest` → `AppxManifest.xml` (`.github/workflows/build.yml:87`)
-2. **Copy assets**: Logo and icon assets to the `Assets/` folder (`.github/workflows/build.yml:91`)
-3. **Create MSIX**: Uses `MakeAppx.exe` from the latest Windows SDK bin directory (`.github/workflows/build.yml:100`)
-4. **Sign MSIX**: Uses `signtool.exe` with a PFX certificate from GitHub Secrets (`.github/workflows/build.yml:116`)
-5. **Cleanup**: Removes the PFX file (`.github/workflows/build.yml:132`)
-
-The SDK tools path is discovered dynamically by scanning `${env:ProgramFiles(x86)}/Windows Kits/10/bin/` for version-numbered directories (`.github/workflows/build.yml:102`).
-
-### Job 2-3: discover-extensions + build-extension
-
-**discover-extensions** (`.github/workflows/build.yml:141`) uses `find` to locate all `.csproj` files under `src/Extensions/`, converting paths to a JSON array for matrix input.
-
-**build-extension** (`.github/workflows/build.yml:155`) runs a matrix over discovered extensions × `[Debug, Release]`:
-
-1. Extracts `AssemblyName` and `ExtName` from the `.csproj` XML (`.github/workflows/build.yml:170`)
-2. Builds each extension independently
-3. Uploads artifacts named `Extension - {ExtName} ({Configuration})`
-
-### Job 4-5: discover-powershell-modules + build-powershell-module
-
-**discover-powershell-modules** (`.github/workflows/build.yml:209`) finds all `.psm1` files under `src/PS/`.
-
-**build-powershell-module** (`.github/workflows/build.yml:223`) for each module:
-
-1. Extracts the module name from the `.psm1` path (`.github/workflows/build.yml:241`)
-2. Installs latest PowerShell via `winget` (`.github/workflows/build.yml:236`)
-3. Builds the corresponding .NET extension DLL in Debug configuration (`.github/workflows/build.yml:264`)
-4. Tests module import: `Import-Module`, then verifies `Get-Command` returns > 0 commands (`.github/workflows/build.yml:299`)
-
-### Job 6: create-release
-
-Runs only on push to `main` (`.github/workflows/build.yml:330`), depending on `build-cli` and `build-extension`:
-
-**Version generation** (`.github/workflows/build.yml:342`):
-```bash
-VERSION="v1.0.$(date +'%y%m%d').${{ github.run_number }}"
+```mermaid
+sequenceDiagram
+    autonumber
+    participant DEV as Author
+    participant MD as src/CLI/Help/Docs/**.md
+    participant TOOL as Azclips.Help.Tool
+    participant ART as artifacts/&lt;cfg&gt; assemblies
+    participant RT as az (runtime)
+    DEV->>MD: write frontmatter + Description + examples
+    Note over TOOL: build-time (STRICT)
+    TOOL->>ART: load extension/cmdlet DLLs
+    TOOL->>MD: MarkdownStructureValidator + completeness/example checks
+    TOOL-->>DEV: ValidationReport (nonzero exit fails CI)
+    Note over RT: runtime (LENIENT)
+    RT->>MD: MarkdownCommandHelpProvider.Get(ext, cmd)
+    MD->>RT: FrontmatterParser → MarkdownCommandHelp (Empty on error)
+    RT-->>DEV: rendered az --help
+    style DEV fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
+    style MD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style TOOL fill:#5a4a2e,stroke:#d4a84b,color:#e6edf3
+    style ART fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style RT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-This produces versions like `v1.0.250115.42`, encoding the date and CI run number.
+## Packaging & distribution
 
-**Release notes** are generated from git history (`.github/workflows/build.yml:350`):
-- Commits since the last tag (or last 10 if no tags exist)
-- Format: `- {subject} ({short hash})`
+There is no single `scripts/deploy.sh`; distribution is a layered set of shell/PowerShell scripts under `devops/scripts/packaging/` driven by the Azure DevOps pipelines. The shared stage, `build_common.sh`, restores the solution, publishes the framework-dependent CLI, and builds + `dotnet pack`s every discovered `src/Extensions/**/Extensions.*.csproj` into an extensions pack (`devops/scripts/packaging/common/build_common.sh:12-49`). Platform scripts then produce self-contained bundles — e.g. `build_linux_tarball.sh` publishes a `linux-x64` self-contained CLI, injects built-in extensions, and emits a `.tar.gz`, choosing an `az` vs `az-lean` prefix from the package profile (`devops/scripts/packaging/linux/tarball/build_linux_tarball.sh:5-25`). Equivalent scripts exist for macOS tarballs and Windows zips.
 
-**Artifact collection** (`.github/workflows/build.yml:374`):
-- Release MSIX packages matching `Release-` pattern
-- Extension DLLs matching `(Release)` pattern
+## Continuous integration
 
-The GitHub Release is created via `softprops/action-gh-release@v2` (`.github/workflows/build.yml:422`).
+CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** produces signed, distributable releases.
 
-## Build Script
+| Workflow | System | Trigger | Purpose |
+| --- | --- | --- | --- |
+| `build-and-test.yml` | GitHub | PR to `main`, dispatch | Restore/build/test `azclips.slnx`, CLI + PowerShell E2E smoke, help validation, help-tool tests |
+| `build.yml` | GitHub | push/PR `main` | Windows Debug+Release matrix build & package |
+| `benchmark.yml` / `benchmark-comment.yml` | GitHub | push/PR touching `src/**`, `tests/Benchmark/**`, `global.json`, `azclips.slnx` | Run CLI+PS benchmarks, gate at 115% of baseline, publish dashboard |
+| `disallow-azclips-references.yml` / `disallow-azv2-references.yml` | GitHub | push/PR `main` | Fail PRs that add disallowed legacy naming references |
+| `build-wiki.yml` | GitHub | — | Build/publish this wiki |
+| `azclips-alpha-build.yml` | Azure DevOps | any PR (`pr-alpha` channel) | Unsigned per-PR distribution build |
+| `azclips-beta-build.yml` | Azure DevOps | beta channel | Unsigned beta distribution |
+| `azclips-stable-{build,sign,publish,release}.yml` | Azure DevOps | `v*.*.*` tags | Versioned, signed, published stable release |
 
-The PowerShell build script (`build/build.ps1:1`) is a single-line wrapper:
+The GitHub gate is intentionally pragmatic: `build-and-test.yml` builds and tests in **Debug**, not Release, with an inline comment noting Release currently has extension-DLL-location and `RequiredAssemblies` issues (`.github/workflows/build-and-test.yml:28-32`). E2E is a smoke test — run `az --help` and assert exit 0, and import the `Login` PS module and assert commands exist (`.github/workflows/build-and-test.yml:34-52`) — mirroring the criteria in `docs/spec/ci.md:5-15` ("the code builds; all tests pass; E2E tests pass").
 
-```powershell
-dotnet build "$PSScriptRoot/../cirrus.slnx"
-```
+The Azure DevOps side is template-driven. `azclips-stable-build.yml` triggers on SemVer `v*.*.*` tags, runs a preflight that ensures it's in the `release` project, then delegates to the shared `templates/dist/stages/build-unsigned-distribution.yml` stage (`.azure-pipelines/azclips-stable-build.yml:3-42`). The alpha pipeline reuses the same distribution stage with `release_channel: pr-alpha` on every PR (`.azure-pipelines/azclips-alpha-build.yml:14-20`), so alpha, beta, and stable share one build definition parameterized by channel.
 
-## Dev Container Configuration
+## The `openspec/` design-doc workflow
 
-### devcontainer.json
+Non-trivial changes are proposed as an **openspec change** before code is written. Each change is a folder under `openspec/changes/<name>/` containing four artifacts (`openspec/changes/profile-management/`):
 
-The dev container (`.devcontainer/devcontainer.json:1`) uses Docker Compose with two services:
+| Artifact | Content |
+| --- | --- |
+| `proposal.md` | *Why* (motivating pain points) and *What Changes* (concrete deltas) |
+| `design.md` | Detailed technical design |
+| `tasks.md` | Ordered, checkbox implementation tasks |
+| `specs/` | Capability spec deltas (new/modified capabilities) |
 
-**Features installed**:
-- GitHub CLI (`latest`) (`.devcontainer/devcontainer.json:28`)
-- Node.js (`lts`) (`.devcontainer/devcontainer.json:31`)
-- PowerShell (`7.5.4`) (`.devcontainer/devcontainer.json:34`)
+The `profile-management` change is a worked example: its proposal opens with a "Why" grounded in Azure CLI/PowerShell/AWS profile pain points and a "What Changes" list introducing the `Profile` model and `IProfileService` (`openspec/changes/profile-management/proposal.md:1-24`), while `tasks.md` decomposes it into checkbox-tracked steps grouped by area (Core model, service impl, engine integration) that get ticked off as implementation lands (`openspec/changes/profile-management/tasks.md:1-18`). The workflow schema is declared in `openspec/config.yaml` (`schema: spec-driven`), and the repo ships `.github/prompts/opsx-*.prompt.md` and `.github/skills/openspec-*` to drive the propose/apply/verify/archive loop.
 
-**Port forwarding** (`.devcontainer/devcontainer.json:40`):
-- Ports 50000-50009: MSAL authentication redirect (auto-open browser)
-- Port 9411: Zipkin UI (notify on forward)
+## Quick reference
 
-**Environment variables** (`.devcontainer/devcontainer.json:60`):
-- `PATH` includes both Debug and Release CLI artifact directories
-- `ZIPKIN_ENDPOINT` points to the Zipkin container: `http://zipkin:9411/api/v2/spans`
-
-**VS Code extensions**: C# (`ms-dotnettools.csharp`) and C# Dev Kit (`ms-dotnettools.csdevkit`) (`.devcontainer/devcontainer.json:70`).
-
-### docker-compose.yml
-
-The Docker Compose file (`.devcontainer/docker-compose.yml:1`) defines two services:
-
-**app** — the development container:
-- Mounts the repo as a volume
-- Sets `ZIPKIN_ENDPOINT` and `BROWSER` environment variables
-- Depends on Zipkin being healthy
-
-**zipkin** — the `openzipkin/zipkin` image:
-- Exposes port 9411 (`.devcontainer/docker-compose.yml:20`)
-- Health check via HTTP: `wget --spider http://localhost:9411/health` (`.devcontainer/docker-compose.yml:25`)
-- Check interval: 5s, timeout: 3s, 5 retries, 10s start period
-- Restart policy: `unless-stopped` (`.devcontainer/docker-compose.yml:23`)
-
-## Artifact Structure
-
-The build produces artifacts organized by configuration:
-
-```
-artifacts/
-├── Debug/
-│   ├── Core.Cli/
-│   │   └── azv2          # CLI executable
-│   └── Extensions.Resources/
-│       └── *.dll          # Extension assemblies
-├── Release/
-│   └── (same structure)
-publish/
-├── Debug/win-x64/         # Self-contained publish
-│   ├── azv2.exe
-│   ├── Extensions/Extension/
-│   └── AppxManifest.xml
-bin/
-├── Debug/
-│   └── azv2-win-x64.msix  # Signed MSIX package
-└── Release/
-    └── azv2-win-x64.msix
-```
+| Task | Command |
+| --- | --- |
+| Build everything (Release) | `dotnet build -c Release azclips.slnx` |
+| Run the CLI | `./artifacts/Release/Core.Cli/az --help` |
+| Build + generate help artifacts | `pwsh build/build.ps1 -Configuration Release -GenerateHelpArtifacts` |
+| Install build-time PS deps (PlatyPS) | `pwsh build/Install-BuildDependencies.ps1` |
+| Validate help content | `dotnet run --project tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj -- --artifacts-root artifacts/Release --output-root artifacts/help` |
+| Build a Linux tarball | `devops/scripts/packaging/linux/tarball/build_linux_tarball.sh` |
 
 ## References
 
-| Source File | Key Elements |
-|---|---|
-| `cirrus.slnx` | Solution structure, 12 projects in 4 folders |
-| `Shared.props` | Repository paths, output directory, PowerShell manifest copying |
-| `src/Directory.Build.props` | net9 target, analyzers, warnings-as-errors |
-| `tests/Directory.Build.props` | xUnit/Coverlet packages, CA1707 suppression |
-| `global.json` | .NET SDK 9.0.308, `latestMinor` roll-forward |
-| `.editorconfig` | 50+ analyzer rules, naming conventions, license header |
-| `.github/workflows/build.yml` | Full build: CLI, extensions, PS modules, MSIX, release |
-| `.github/workflows/build-and-test.yml` | PR gate: build, test, E2E validation |
-| `.devcontainer/devcontainer.json` | Features, ports, environment, VS Code extensions |
-| `.devcontainer/docker-compose.yml` | App + Zipkin services with health checks |
-| `build/build.ps1` | Single-line solution build script |
-| `src/CLI/Core.Cli.csproj` | azv2 executable, Shared.props import, project references |
+- `Shared.props:6,8-10` — `RepoArtifacts` and the per-`ExtName` `OutputPath` template
+- `src/Directory.Build.props:6-11` — net10.0, analyzers, `TreatWarningsAsErrors`
+- `global.json:1-6` — SDK pin `10.0.203`, `rollForward: latestMinor`
+- `build/build.ps1:256-274` — `-GenerateHelpArtifacts` orchestration
+- `build/Install-BuildDependencies.ps1:8-30` — pinned PlatyPS 1.0.1 install
+- `build/New-PSHelpMarkdown.ps1:23,38,51` — PlatyPS scaffolding & version work-arounds
+- `src/CLI/Help/FrontmatterParser.cs:27-59` — lenient frontmatter parsing
+- `src/CLI/Help/MarkdownCommandHelpProvider.cs:22-53` — runtime help-markdown parsing
+- `tools/Help/Azclips.Help.Tool/Program.cs:22-36` — build-time help validators
+- `devops/scripts/packaging/common/build_common.sh:12-49` — shared publish/pack step
+- `devops/scripts/packaging/linux/tarball/build_linux_tarball.sh:5-25` — platform bundle
+- `.github/workflows/build-and-test.yml:20-52` — PR build/test/E2E gate
+- `.github/workflows/disallow-azclips-references.yml:1-28` — legacy-name guard
+- `.azure-pipelines/azclips-stable-build.yml:3-42` — signed stable release build
+- `.azure-pipelines/azclips-alpha-build.yml:14-20` — per-PR unsigned build
+- `docs/spec/ci.md:5-15` — CI acceptance criteria
+- `openspec/changes/profile-management/proposal.md:1-24` & `tasks.md:1-18` — change-proposal workflow example

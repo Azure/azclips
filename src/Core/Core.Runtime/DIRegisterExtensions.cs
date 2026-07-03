@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;
@@ -20,6 +23,7 @@ public static class DIRegisterExtensions
         services.AddSingleton<IHttpTerminateHandler, DefaultHttpTerminateHandler>();
         services.AddSingleton<ITracingInterceptor, DefaultTracingInterceptor>();
         services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
+        services.AddSingleton<IProfileService, ProfileService>();
         return services;
     }
 }

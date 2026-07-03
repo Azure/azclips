@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -52,7 +55,7 @@ public class AppInsightsExporter : IDisposable
             };
 
             // Custom dimensions for Grafana filtering
-            metric.Properties["Product"] = result.Product;           // API, CLI, PS
+            metric.Properties["Product"] = result.Product;           // CLI, PS
             metric.Properties["Operation"] = operation;              // List, Create, Get
             metric.Properties["Resource"] = resource;                // ResourceGroup
             metric.Properties["Method"] = result.Method;             // Full method name

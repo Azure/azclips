@@ -1,0 +1,76 @@
+parameters:
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
+- name: PackagingScriptsRoot
+  type: string
+- name: PackagingCommonOutRoot
+  type: string
+- name: PackagingMacOSOutRoot
+  type: string
+
+jobs:
+- job: BuildMacOSOutput
+  displayName: macOS Tarball
+  timeoutInMinutes: 60
+  strategy:
+    matrix:
+      osx_arm64_lean:
+        Rid: osx-arm64
+        BuildProfile: lean
+        DistributionArtifact: Distribution_MacOS_Lean
+        VmImage: ${{ parameters.macos_arm64_pool }}
+        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/az-lean-osx-arm64-$(ArtifactVersion).tar.gz
+      osx_x64_lean:
+        Rid: osx-x64
+        BuildProfile: lean
+        DistributionArtifact: Distribution_MacOS_Intel_Lean
+        VmImage: ${{ parameters.macos_intel_pool }}
+        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/az-lean-osx-x64-$(ArtifactVersion).tar.gz
+      osx_arm64_full:
+        Rid: osx-arm64
+        BuildProfile: full
+        DistributionArtifact: Distribution_MacOS_Full
+        VmImage: ${{ parameters.macos_arm64_pool }}
+        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/az-osx-arm64-$(ArtifactVersion).tar.gz
+      osx_x64_full:
+        Rid: osx-x64
+        BuildProfile: full
+        DistributionArtifact: Distribution_MacOS_Intel_Full
+        VmImage: ${{ parameters.macos_intel_pool }}
+        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/az-osx-x64-$(ArtifactVersion).tar.gz
+  pool:
+    vmImage: $(VmImage)
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+    retryCountOnTaskFailure: 3
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Get Common
+    inputs:
+      artifact: Distribution_Common
+      path: ${{ parameters.PackagingCommonOutRoot }}
+
+  - script: |
+      set -euo pipefail
+      chmod +x "${{ parameters.PackagingScriptsRoot }}/macos/tarball/build_macos_tarball.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/build_macos_tarball.sh"
+    displayName: Build macOS Tarball
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish macOS
+    inputs:
+      targetPath: ${{ parameters.PackagingMacOSOutRoot }}
+      artifact: $(DistributionArtifact)
+      publishLocation: pipeline

@@ -1,16 +1,33 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
 {
     public class LoginProcessorBase : IProcessor
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
-        protected IEventListener EventListener = null!;
+        protected IEventPublisher Publisher = null!;
         protected readonly JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
+
+        /// <summary>The default cloud environment name stored on profiles created by login.</summary>
+        protected const string DefaultCloudName = "AzureCloud";
+
+        /// <summary>
+        /// Global <c>--profile</c>/<c>-Profile</c> parameter. On login it names an existing profile to
+        /// re-authenticate (see login-profile-integration). Bound from the invocation; resolution of the
+        /// active profile happens in the Engine.
+        /// </summary>
+        [ArgumentInfo(
+        Required = false,
+        Description = @"Re-authenticate the named existing profile (mutually exclusive with --out-profile).",
+        SerializedName = @"Profile")]
+        public string? Profile { get; set; }
 
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
@@ -24,7 +41,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
             BeforeInit();
 
             HttpPipeline = context.HttpPipeline;
-            EventListener = context.EventListener;
+            Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
 
             AfterInit();
@@ -32,6 +49,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
         }
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+        protected virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
     }
 }

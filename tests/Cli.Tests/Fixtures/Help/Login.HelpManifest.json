@@ -1,0 +1,89 @@
+{
+  "verb": "login",
+  "version": "1.0.0-alpha",
+  "rootSummary": "Authenticate to Azure.",
+  "commands": [
+    {
+      "cliName": "login",
+      "psName": "Connect-AzAccount",
+      "summary": "Authenticate to Azure.",
+      "description": "Authenticate to Azure and persist account context for subsequent commands.",
+      "parameters": [
+        {
+          "name": "out-profile",
+          "psName": "OutProfile",
+          "type": "string",
+          "required": false,
+          "description": "Create or overwrite a named profile with the login result (mutually exclusive with --profile).",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "profile",
+          "psName": "Profile",
+          "type": "string",
+          "required": false,
+          "description": "Re-authenticate the named existing profile (mutually exclusive with --out-profile).",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": false,
+          "description": "Azure Subscription Id.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "tenant-id",
+          "psName": "TenantId",
+          "type": "string",
+          "required": false,
+          "description": "Tenant ID to login to.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "use-device-code",
+          "psName": "UseDeviceCode",
+          "type": "bool",
+          "required": false,
+          "description": "Use device code flow for authentication.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        }
+      ],
+      "examples": {
+        "cli": [
+          {
+            "title": "Login with subscription id",
+            "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "Login with device code",
+            "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
+          }
+        ],
+        "powerShell": []
+      },
+      "tags": []
+    }
+  ]
+}

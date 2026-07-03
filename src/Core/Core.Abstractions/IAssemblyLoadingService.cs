@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Reflection;
 
 namespace Core.Abstractions;
@@ -17,4 +20,11 @@ public interface IAssemblyLoadingService
     /// <param name="extensionVersion">Optional version string. If null, the latest available version is loaded.</param>
     /// <returns>The loaded assembly.</returns>
     Assembly LoadExtension(string extensionName, string? extensionVersion = null);
+
+    /// <summary>
+    /// Returns all on-disk extension installations paired with a lazy assembly loader for
+    /// each. Delegates to <see cref="IAssemblyLoadingProvider.GetAllInstalledExtensions"/>.
+    /// Returns <c>null</c> when no extensions are discovered.
+    /// </summary>
+    IList<(InstalledExtensionRef Info, Func<Assembly> Load)>? LoadAllExtensions();
 }

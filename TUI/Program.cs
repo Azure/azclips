@@ -1,8 +1,10 @@
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Tui.AgentMode;
 using Core.Tui.Azure;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
+using Core.Tui.Telemetry;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -14,12 +16,13 @@ namespace Core.Tui;
 
 public static class Program
 {
-    private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
 
-    public static async Task Main()
+    public static async Task<int> Main(string[] args)
     {
-        CirrusServiceProvider.PrependRegistration(services =>
+        if (args.Length > 0 && args[0] == "--agent-mode") { return await AgentModeEntry.RunAsync(args); }
+
+        AzclipsServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<ArmClient>();
             services.AddSingleton<AzureVfs>();
@@ -28,28 +31,28 @@ public static class Program
             services.AddSingleton<HistoryService>();
             services.AddSingleton<AppState>();
         });
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             // Replace the default ScopedLoggingService (which falls back to
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
+            services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();
         });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
-        CirrusServiceProvider.Initialize(ClientType.TUI);
+        AzclipsServiceProvider.Initialize(ClientType.TUI);
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
-        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
-            var state = CirrusServiceProvider.GetRequiredService<AppState>();
+            var state = AzclipsServiceProvider.GetRequiredService<AppState>();
             var vfsSw = System.Diagnostics.Stopwatch.StartNew();
             await state.InitVfsAsync();
             Console.Error.WriteLine($"[startup] InitVfsAsync total: {vfsSw.ElapsedMilliseconds}ms");
             Console.Error.WriteLine($"[startup] Total before UI: {bootSw.ElapsedMilliseconds}ms");
 
-var theme = TuiTheme.CreateBaseTheme();
+            var theme = TuiTheme.CreateBaseTheme();
 
             await using var terminal = Hex1bTerminal.CreateBuilder()
                 .WithHex1bApp((app, options) =>
@@ -66,11 +69,11 @@ var theme = TuiTheme.CreateBaseTheme();
                 .Build();
 
             await terminal.RunAsync();
+            return 0;
         }
         finally
         {
-            _telemetryService?.Dispose();
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
         }
     }
 
@@ -91,6 +94,8 @@ var theme = TuiTheme.CreateBaseTheme();
             // ── Menu bar (themed dark) ──
             widgets.Add(TuiTheme.ApplyMenuBarTheme(v,
                 MenuBarRenderer.Render(v, state, () => app.Invalidate())));
+
+            widgets.Add(v.Separator());
 
             widgets.Add(v.VStack(top =>
             {
@@ -136,10 +141,13 @@ var theme = TuiTheme.CreateBaseTheme();
                 // ── Suggestions (above prompt, if configured) ──
                 if (t.SuggestionStyle == SuggestionStyle.Above && state.Suggestions.Count > 0)
                 {
+                    topWidgets.Add(v.Separator());
                     topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
                 }
-
-                topWidgets.Add(v.Separator());
+                else
+                {
+                    topWidgets.Add(v.Separator());
+                }
 
                 // Prompt + input (visible TextBox)
                 var prompt = state.Prompt.TrimEnd(' ', '>');
@@ -177,6 +185,10 @@ var theme = TuiTheme.CreateBaseTheme();
                     topWidgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
                     topWidgets.Add(v.Separator());
                 }
+                else
+                {
+                    topWidgets.Add(v.Separator());
+                }
 
                 return topWidgets.ToArray();
             }).Fill());
@@ -211,9 +223,11 @@ var theme = TuiTheme.CreateBaseTheme();
             bindings.Key(Hex1bKey.Escape).Global()
                 .Action(_ =>
                 {
-                    if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
+                    if (state.IsSuggestionSelected()) { state.ResetSelectedSuggestion(); }
+                    else if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
                     else if (state.IsRunning) { state.CancelRunning(); }
-                }, "Close/Cancel");
+                    else { app.RequestStop(); }
+                }, "Reset Suggestion Status/Close Help Panel/Cancel Running/Exit Application");
 
             bindings.Ctrl().Key(Hex1bKey.C).Global()
                 .Action(_ =>
@@ -240,9 +254,17 @@ var theme = TuiTheme.CreateBaseTheme();
             bindings.Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
                 {
-                    state.ExecuteCommand();
-                    app.Invalidate();
-                }, "Submit command");
+                    if (state.IsSuggestionSelected())
+                    {
+                        state.AcceptSuggestion();
+                        app.Invalidate();
+                    }
+                    else
+                    {
+                        state.ExecuteCommand();
+                        app.Invalidate();
+                    }
+                }, "Select suggestion or submit command");
 
             bindings.Ctrl().Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
@@ -257,9 +279,13 @@ var theme = TuiTheme.CreateBaseTheme();
                 .Action(_ =>
                 {
                     if (state.Suggestions.Count > 0)
-                        state.SelectedSuggestion = (state.SelectedSuggestion - 1 + state.Suggestions.Count) % state.Suggestions.Count;
+                    {
+                        state.NavigateSuggestion(-1);
+                    }
                     else
+                    {
                         state.NavigateHistory(-1);
+                    }
                     app.Invalidate();
                 }, "Previous suggestion/history");
 
@@ -268,7 +294,9 @@ var theme = TuiTheme.CreateBaseTheme();
                 .Action(_ =>
                 {
                     if (state.Suggestions.Count > 0)
-                        state.SelectedSuggestion = (state.SelectedSuggestion + 1) % state.Suggestions.Count;
+                    {
+                        state.NavigateSuggestion(1);
+                    }
                     else
                         state.NavigateHistory(1);
                     app.Invalidate();

@@ -1,4 +1,7 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 namespace Core.Abstractions.Runtime
@@ -49,9 +52,19 @@ namespace Core.Abstractions.Runtime
         public const string PollingFinished = nameof(PollingFinished);
         public const string PollingFailed = nameof(PollingFailed);
 
+        // Response
+        public const string ResponseNoContent = nameof(ResponseNoContent);
+        public const string ResponseEmptyBody = nameof(ResponseEmptyBody);
+        public const string ResponseInvalidJson = nameof(ResponseInvalidJson);
+        public const string ResourceOperationFailed = nameof(ResourceOperationFailed);
+
         // Auth
         public const string AuthBeforeTokenAcquisition = nameof(AuthBeforeTokenAcquisition);
         public const string AuthAfterTokenAcquisition = nameof(AuthAfterTokenAcquisition);
+
+        // Generic Events
+        public const string ActionStart = nameof(ActionStart);
+        public const string ActionEnd = nameof(ActionEnd);
 
         public const string Verbose = nameof(Verbose);
         public const string Debug = nameof(Debug);

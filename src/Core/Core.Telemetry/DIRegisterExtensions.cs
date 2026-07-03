@@ -1,6 +1,13 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
 using System.Diagnostics;
 using Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry;
 
 namespace Core.Telemetry;
 
@@ -11,13 +18,12 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
     {
-        services.AddSingleton<ITelemetryService>(sp =>
-        {
-            var clientType = sp.GetRequiredService<ClientType>();
-            var configService = sp.GetRequiredService<IConfigurationService>();
-            var telemetryOptions = configService.GetConfiguration<TelemetryOptions>();
-            return new TelemetryService(clientType, telemetryOptions);
-        });
+        services.AddSingleton<ITelemetryProvider, DefaultTelemetryProvider>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddSingleton<ITelemetryPropertyFilter, DefaultTelemetryPropertyFilter>();
+        services.AddSingleton<ITelemetryActivityNameFilter, DefaultTelemetryActivityNameFilter>();
+        services.AddSingleton<BaseProcessor<Activity>, DefaultActivityNameFilterProcessor>();
+        services.AddSingleton<BaseProcessor<Activity>, DefaultTelemetryPropertyFilterProcessor>();
         return services;
     }
 }

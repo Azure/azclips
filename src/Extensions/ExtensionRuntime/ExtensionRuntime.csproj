@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Microsoft.Azure.Azclips.ExtensionRuntime</AssemblyName>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <RootNamespace>Microsoft.Azure.Azclips.ExtensionRuntime</RootNamespace>
+        <ExtName>Microsoft.Azure.Azclips.ExtensionRuntime</ExtName>
+
+        <Description>Runtime library for Azclips extensions</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
+
+        <PackageId>Microsoft.Azure.Azclips.ExtensionRuntime</PackageId>
+        <Version>0.1.0</Version>
+        <Authors>Microsoft Corporation</Authors>
+        <Company>Microsoft Corporation</Company>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+    </ItemGroup>
+</Project>

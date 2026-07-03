@@ -1,0 +1,251 @@
+parameters:
+- name: artifact_version_override
+  type: string
+  default: 'auto'
+- name: bump_type
+  type: string
+  default: 'patch'
+- name: release_channel
+  type: string
+  default: 'auto'
+- name: release_date
+  type: string
+  default: 'auto'
+- name: pr_number
+  type: string
+  default: 'auto'
+- name: sequence
+  type: string
+  default: 'auto'
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+
+stages:
+- stage: Init
+  displayName: 'Init(ResolveVersion)'
+  jobs:
+  - job: Start
+    displayName: Resolve Distribution Version
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      persistCredentials: true
+      retryCountOnTaskFailure: 3
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+    - script: |
+        set -euo pipefail
+        echo "Starting release-ready distribution pipeline"
+        echo "Build number: $(Build.BuildNumber)"
+        echo "Branch: $(Build.SourceBranch)"
+      displayName: Context
+    - script: |
+        set -euo pipefail
+        core_project="$(Build.SourcesDirectory)/src/CLI/Core.Cli.csproj"
+        override_version="${{ parameters.artifact_version_override }}"
+        override_version="$(echo "$override_version" | xargs)"
+        bump_type="${{ parameters.bump_type }}"
+        release_channel="${{ parameters.release_channel }}"
+        release_date="${{ parameters.release_date }}"
+        pr_number="${{ parameters.pr_number }}"
+        sequence="${{ parameters.sequence }}"
+
+        read_core_version() {
+          local project_path="$1"
+          local version=""
+
+          version="$(grep -oPm1 '(?<=<Version>)[^<]+' "$project_path" || true)"
+          version="$(echo "$version" | xargs)"
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          echo "$version"
+        }
+
+        if [[ -n "$override_version" && "$override_version" != "auto" && "$override_version" != "infer_from_code" ]]; then
+          echo "Using artifact version override: $override_version"
+          echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$override_version"
+          echo "##vso[task.setvariable variable=ComputedVersion;isOutput=true]$override_version"
+          echo "##vso[task.setvariable variable=PipelineFlow;isOutput=true]override"
+          exit 0
+        fi
+
+        echo "Inferring artifact version from $core_project"
+
+        if [[ ! -f "$core_project" ]]; then
+          echo "ERROR: Core project not found at $core_project"
+          exit 1
+        fi
+
+        core_version="$(read_core_version "$core_project")"
+
+        if [[ -z "$core_version" ]]; then
+          echo "ERROR: Unable to resolve core version from $core_project"
+          exit 1
+        fi
+
+        if [[ ! "$core_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          echo "ERROR: Core version must be stable SemVer like 0.1.0. Got: $core_version"
+          exit 1
+        fi
+
+        major="${BASH_REMATCH[1]}"
+        minor="${BASH_REMATCH[2]}"
+        patch="${BASH_REMATCH[3]}"
+        source_branch="$(Build.SourceBranch)"
+        tag_version=""
+
+        if [[ "$source_branch" =~ ^refs/tags/v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+          tag_version="${BASH_REMATCH[1]}"
+        fi
+
+        if [[ "$release_channel" == "auto" ]]; then
+          build_reason="$(Build.Reason)"
+
+          if [[ "$build_reason" == "PullRequest" ]]; then
+            release_channel="pr-alpha"
+          elif [[ "$source_branch" == "refs/heads/main" ]]; then
+            release_channel="beta"
+          elif [[ -n "$tag_version" ]]; then
+            release_channel="stable"
+          else
+            release_channel="pr-alpha"
+            echo "Unable to infer release_channel from Build.Reason=$build_reason and Build.SourceBranch=$source_branch."
+            echo "Defaulting to pr-alpha for non-main validation build."
+          fi
+        fi
+
+        if [[ "$release_date" == "utc" || "$release_date" == "auto" ]]; then
+          release_date="$(date -u +%Y%m%d)"
+        fi
+
+        if [[ ! "$release_date" =~ ^[0-9]{8}$ ]]; then
+          echo "ERROR: release_date must be yyyyMMdd. Got: $release_date"
+          exit 1
+        fi
+
+        if [[ "$sequence" == "auto" ]]; then
+          sequence="$(Build.BuildId)"
+        fi
+
+        if [[ ! "$sequence" =~ ^[0-9]+$ ]] || [[ "$sequence" == "0" ]]; then
+          echo "ERROR: sequence must be a positive integer. Got: $sequence"
+          exit 1
+        fi
+
+        case "$bump_type" in
+          patch)
+            patch=$((patch + 1))
+            ;;
+          minor)
+            minor=$((minor + 1))
+            patch=0
+            ;;
+          major)
+            major=$((major + 1))
+            minor=0
+            patch=0
+            ;;
+          *)
+            echo "ERROR: Unsupported bump_type: $bump_type"
+            exit 1
+            ;;
+        esac
+
+        target_stable_version="$major.$minor.$patch"
+
+        if [[ "$release_channel" == "stable" ]]; then
+          if [[ -z "$tag_version" ]]; then
+            echo "ERROR: stable release_channel requires a stable SemVer tag like v0.1.1. Got Build.SourceBranch=$source_branch"
+            exit 1
+          fi
+
+          echo "Fetching origin/main to validate stable tag version"
+          git fetch origin +refs/heads/main:refs/remotes/origin/main --prune
+
+          source_commit="$(Build.SourceVersion)"
+          if [[ -n "$source_commit" ]] && ! git merge-base --is-ancestor "$source_commit" origin/main; then
+            echo "ERROR: Stable tag commit $source_commit must be contained in origin/main."
+            exit 1
+          fi
+
+          if [[ "$tag_version" != "$core_version" ]]; then
+            echo "ERROR: Stable tag version $tag_version must match the CLI version in the tagged source: $core_version"
+            exit 1
+          fi
+
+          echo "Stable tag version matches tagged CLI version: $tag_version"
+          target_stable_version="$tag_version"
+        fi
+
+        case "$release_channel" in
+          pr-alpha)
+            if [[ "$pr_number" == "auto" ]]; then
+              pr_number="${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-}"
+              if [[ -z "$pr_number" ]]; then
+                pr_number="${SYSTEM_PULLREQUEST_PULLREQUESTID:-}"
+              fi
+              if [[ -z "$pr_number" ]]; then
+                pr_number="0"
+              fi
+            fi
+
+            if [[ ! "$pr_number" =~ ^[0-9]+$ ]]; then
+              echo "ERROR: pr_number must be an integer for pr-alpha. Got: $pr_number"
+              exit 1
+            fi
+
+            computed_version="$target_stable_version-alpha.$release_date.pr$pr_number.$sequence"
+            pipeline_flow="build"
+            ;;
+          beta)
+            computed_version="$target_stable_version-beta.$release_date.$sequence"
+            pipeline_flow="build-sign"
+            ;;
+          stable)
+            computed_version="$target_stable_version"
+            pipeline_flow="build-sign-publish"
+            ;;
+          *)
+            echo "ERROR: Unsupported release_channel: $release_channel"
+            exit 1
+            ;;
+        esac
+
+        echo "base_version=$core_version"
+        echo "bump_type=$bump_type"
+        echo "release_channel=$release_channel"
+        echo "release_date=$release_date"
+        echo "pr_number=$pr_number"
+        echo "sequence=$sequence"
+        echo "pipeline_flow=$pipeline_flow"
+        echo "target_stable_version=$target_stable_version"
+        echo "computed_version=$computed_version"
+
+        echo "##vso[task.setvariable variable=BaseVersion;isOutput=true]$core_version"
+        echo "##vso[task.setvariable variable=BumpType;isOutput=true]$bump_type"
+        echo "##vso[task.setvariable variable=ReleaseChannel;isOutput=true]$release_channel"
+        echo "##vso[task.setvariable variable=ReleaseDate;isOutput=true]$release_date"
+        echo "##vso[task.setvariable variable=PrNumber;isOutput=true]$pr_number"
+        echo "##vso[task.setvariable variable=Sequence;isOutput=true]$sequence"
+        echo "##vso[task.setvariable variable=PipelineFlow;isOutput=true]$pipeline_flow"
+        echo "##vso[task.setvariable variable=TargetStableVersion;isOutput=true]$target_stable_version"
+        echo "##vso[task.setvariable variable=ComputedVersion;isOutput=true]$computed_version"
+        echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$computed_version"
+      name: SetCoreVersion
+      displayName: Resolve Distribution Version

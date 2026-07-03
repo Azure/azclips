@@ -1,9 +1,12 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Telemetry;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Compute;
+namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 [Cmdlet(VerbsCommon.New, "NetworkSecurityGroup", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class NewNetworkSecurityGroupCmdlet : PSCmdlet
@@ -11,6 +14,9 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
@@ -53,31 +59,14 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = new OutputStreams(
-            WriteOutput: (value, ct) => { WriteObject(value); return Task.CompletedTask; },
-            WriteVerbose: (value, ct) => { WriteVerbose(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteDebug: (value, ct) => { WriteDebug(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteWarning: (value, ct) => { WriteWarning(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteError: (value, ct) =>
-            {
-                WriteError(new ErrorRecord(
-                    new Exception(value?.ToString() ?? ""),
-                    "NetworkSecurityGroupError",
-                    ErrorCategory.NotSpecified,
-                    null));
-                return Task.CompletedTask;
-            },
-            WriteInformation: (value, ct) =>
-            {
-                WriteInformation(new InformationRecord(value, null));
-                return Task.CompletedTask;
-            });
-        engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        streams = CmdletOutputStreamsFactory.Create(this, "NetworkSecurityGroupError", ErrorCategory.NotSpecified);
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
             { "SubscriptionId", SubscriptionId },
@@ -95,12 +84,18 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
 
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
+
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Compute", "New-NetworkSecurityGroup", parameters, false, moduleName, moduleVersion);
+        telemetryService.TagInvocation(invocation);
 
-        using IInvocationSession session = engine.InvokeSession(invocation, streams, _cts.Token);
-        session.Process();
+        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
+        session.Run();
     }
 
     protected override void EndProcessing()

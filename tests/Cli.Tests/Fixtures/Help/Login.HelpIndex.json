@@ -1,0 +1,16 @@
+{
+  "groups": [
+    {
+      "verb": "login",
+      "summary": "Authenticate to Azure."
+    }
+  ],
+  "commands": [
+    {
+      "cliName": "login",
+      "psName": "Connect-AzAccount",
+      "verb": "login",
+      "summary": "Authenticate to Azure."
+    }
+  ]
+}

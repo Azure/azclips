@@ -1,0 +1,3 @@
+[Error]"  ✗ powershell "
+[Muted]"45ms · "
+[Default]"FAILURE · exit 1 · ResourceNotFound"

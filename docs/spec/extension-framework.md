@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cirrus ships as both a standalone CLI (`azv2`) and a set of PowerShell modules. Both surfaces share the same extension assemblies and core engine, but differ in how they build, package, load extensions, and manage assembly isolation.
+Azclips ships as both a standalone CLI (`az`) and a set of PowerShell modules. Both surfaces share the same extension assemblies and core engine, but differ in how they build, package, load extensions, and manage assembly isolation.
 
 > Items marked **[Proposal]** describe planned changes not yet implemented on `main`.
 > Items marked **[CLI]** or **[PS]** are specific to that surface.
@@ -11,20 +11,20 @@ Cirrus ships as both a standalone CLI (`azv2`) and a set of PowerShell modules. 
 
 ## 1. Architecture at a Glance
 
-Cirrus produces three categories of build artifact:
+Azclips produces three categories of build artifact:
 
-- **Core CLI** (`azv2.exe`) — Self-contained host process bundling the engines, AI agent, DI container, and auth
+- **Core CLI** (`az.exe`) — Self-contained host process bundling the engines, AI agent, DI container, and auth
 - **Extensions** (`.nupkg` / DLL) — Dynamically loaded at runtime, carrying their own dependencies
 - **PowerShell Modules** (`.psd1` / `.psm1`) — Script-based wrappers that drive the same .NET engine and extensions
 
 Two host surfaces consume the same extensions:
 
-| | CLI | PowerShell |
-|---|-----|------------|
-| **Entry point** | `azv2.exe` → `Program.cs` | `Import-Module` → `.psm1` → exported functions |
-| **Engine** | `CLIEngine` | `PSEngine` |
-| **Extension loading** | File-based, into isolated ALCs | Pre-loaded via manifest, into shared ALC |
-| **Output** | `Console.WriteLine` | `$PSCmdlet.WriteObject` via channel |
+|                       | CLI                            | PowerShell                                     |
+| --------------------- | ------------------------------ | ---------------------------------------------- |
+| **Entry point**       | `az.exe` → `Program.cs`        | `Import-Module` → `.psm1` → exported functions |
+| **Engine**            | `CLIEngine`                    | `PSEngine`                                     |
+| **Extension loading** | File-based, into isolated ALCs | Pre-loaded via manifest, into shared ALC       |
+| **Output**            | `Console.WriteLine`            | `$PSCmdlet.WriteObject` via channel            |
 
 ---
 
@@ -41,6 +41,7 @@ An extension is a .NET class library that implements a set of commands for one A
 ### 2.2 How to Build an Extension
 
 Key `.csproj` conventions:
+
 - `EnableDynamicLoading=true` — produces `.deps.json` / `.runtimeconfig.json` for runtime dependency resolution
 - `GeneratePackageOnBuild=true` — produces a `.nupkg` for distribution
 - `Core.Abstractions` referenced as **compile-only** (`Private=false`, `ExcludeAssets=runtime`) — shared contracts come from the host at runtime, not the extension's output
@@ -54,41 +55,123 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 ### 2.3 How Extensions Are Packaged
 
 - **Builtin** — shipped alongside the CLI host in an `Extensions/` subdirectory
-- **User-installed** — downloaded as NuGet packages via `azv2 extension add`, placed in `~/.cirrus/extensions/<PackageId>/<Version>/`; latest semantic version is selected automatically
+- **User-installed** — downloaded as NuGet packages via `az extension add`, placed in `~/.azclips/extensions/<PackageId>/<Version>/`; latest semantic version is selected automatically
 
 ---
 
-## 3. Host ↔ Extension Communication
+## 3. Extension Discovery
 
-### 3.1 Contract Boundary
+### 3.1 Discovery Is Authoritative
+
+Azclips uses **runtime discovery** to determine what extensions are installed and what they contribute. At startup, `DiscoverySession` walks the file system (`~/.azclips/extensions/` + builtin `Extensions/`) to enumerate all available extensions and versions. This discovery output is the **authoritative source of truth** — it determines what the CLI can dispatch to, what help shows, and what the extension API lists.
+
+The registry (`~/.azclips/extensions/registry.json`) is a **preferences layer** on top of discovery. It stores user choices (pinned versions, active-version overrides, install metadata) but does **not** determine installed state. If an extension is present on disk but missing from the registry, it is still discovered and available.
+
+### 3.2 DiscoveredExtensionInfo
+
+`DiscoverySession` emits `DiscoveredExtensionInfo` for each discovered extension:
+
+```csharp
+public sealed record DiscoveredExtensionInfo(
+  string PackageId,
+  string ResolvedVersion,
+  IReadOnlyList<string> Verbs,
+  IReadOnlyDictionary<string, CommandMetadata> Commands);
+```
+
+**Key fields:**
+
+- **PackageId** — Unique extension identifier. Builtin and user-installed extensions use the same id scheme.
+- **ResolvedVersion** — The semantic version being used for this discovery pass. For builtin extensions, this is the host version. For user-installed, this is determined by multi-version resolution (see §3.4).
+- **Verbs** — All top-level command namespaces contributed by this extension (e.g., an extension may contribute both `vm` and `disk`).
+- **Commands** — Full `CommandMetadata` for each command, keyed by invocation name (for example, `"vm create"`).
+
+### 3.3 Discovery Flow
+
+The discovery process is **index-only**. It does not execute command processors, but it does load extension assemblies and instantiate the extension index type to read declared verbs/commands.
+
+1. Walk `~/.azclips/extensions/<packageId>/` — find all installed versions
+2. Resolve the version to inspect (registry preference if present, otherwise latest semver)
+3. Load the extension assembly for the selected version
+4. Instantiate `IExtensionIndex`, then call `GetVerbs()` and `GetCommandTable()`
+5. Collect results into `DiscoveredExtensionInfo`
+
+Because assemblies are loaded and index types are instantiated, discovery may run static initializers and index constructors. The runtime guarantee is narrower: discovery avoids processor activation/execution and processor-context initialization.
+
+### 3.4 Multi-Version Selection
+
+When multiple versions of an extension are installed, `DiscoverySession` resolves which one to use:
+
+1. **Check registry preference** — if `registry.json` has an active-version override for this package, use that version.
+2. **Fallback to latest** — if no preference is set, use the semantically latest version (descending semver sort).
+3. **Pin respect** — pinned versions are recorded in the registry and locked against `extension update` (unless forced).
+
+Example:
+
+```
+~/.azclips/extensions/Microsoft.Azure.Azclips.Extensions.Compute/
+  0.9.0/
+  1.0.0/
+  1.1.0/  ← Latest; selected unless registry overrides
+
+registry.json:
+  {
+    "extensions": {
+      "Microsoft.Azure.Azclips.Extensions.Compute": {
+        "version": "1.0.0",           ← Pinned to this version
+        "pinned": true
+      }
+    }
+  }
+```
+
+With this setup, discovery resolves to version `1.0.0` (pinned preference) even though `1.1.0` is available.
+
+### 3.5 Discovery in Help & Dispatch
+
+**Help routing** uses discovery to resolve verb ownership. When a user runs `az vm --help`, the runtime:
+
+1. Runs a discovery pass to enumerate installed extensions
+2. Finds which extension's `Verbs` list includes `"vm"`
+3. Routes to that extension's help provider
+
+**Unknown verbs** fall back to an embedded hint table. The hint table is a build-time snapshot of first-party package mappings and is used only when discovery finds no installed owner.
+
+**Extension listing** (`az extension list`) runs discovery and overlays registry preferences (pin state, install timestamp) onto the discovered extensions.
+
+---
+
+## 4. Host ↔ Extension Communication
+
+### 4.1 Contract Boundary
 
 The host and extensions share type identity through `Core.Abstractions`. Extensions exclude this assembly from their output, and the extension ALC falls back to the host for `Core.*` assemblies. This ensures both sides see the same interface types.
 
-### 3.2 Key Interfaces
+### 4.2 Key Interfaces
 
-| Interface | Role |
-|-----------|------|
-| `IExtensionIndex` | Extension entry point — returns command metadata by name and client type |
-| `ICommandMetadata` | Describes one processor — name, .NET type, assembly |
-| `IProcessor` | The processor — `Init(context)` receives runtime services, `ProcessAsync()` executes |
-| `IProcessorContext` | Bundle of runtime services provided by the host |
-| `ICommandInvocation` | Parsed user input — extension name, command name, parameter dictionary |
+| Interface            | Role                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `IExtensionIndex`    | Extension entry point — returns command metadata by name and client type             |
+| `ICommandMetadata`   | Describes one processor — name, .NET type, assembly                                  |
+| `IProcessor`         | The processor — `Init(context)` receives runtime services, `ProcessAsync()` executes |
+| `IProcessorContext`  | Bundle of runtime services provided by the host                                      |
+| `ICommandInvocation` | Parsed user input — extension name, command name, parameter dictionary               |
 
 > **[Proposal]** Replace `Init(IProcessorContext)` with **constructor injection** via `ActivatorUtilities.CreateInstance`, removing two-phase initialization.
 
-### 3.3 Runtime Services (IProcessorContext)
+### 4.3 Runtime Services (IProcessorContext)
 
 The host creates a per-invocation `IProcessorContext` providing everything the processor needs:
 
-| Service | What It Provides |
-|---------|-----------------|
-| `IAuthHandler` | Auth context (tenant, subscription) + token acquisition delegate |
-| `IOutputHandler` | Output delegate — **[CLI]** `Console.WriteLine`, **[PS]** `$PSCmdlet.WriteObject` |
-| `ITelemetryHandler` | Distributed tracing via `StartActivity` |
-| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient` |
-| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient` |
+| Service                | What It Provides                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `IAuthHandler`         | Auth context (tenant, subscription) + token acquisition delegate                  |
+| `IOutputHandler`       | Output delegate — **[CLI]** `Console.WriteLine`, **[PS]** `$PSCmdlet.WriteObject` |
+| `ITelemetryHandler`    | Distributed tracing via `StartActivity`                                           |
+| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient`  |
+| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient`  |
 
-### 3.4 Execution Flow
+### 4.4 Execution Flow
 
 ```
   User Input
@@ -113,7 +196,9 @@ The host creates a per-invocation `IProcessorContext` providing everything the p
 
 > **[Proposal]** Replace `ExtensionDispatcher` with `CommandRouter` (thin routing) and `CommandActivator` (resolution + help integration).
 
-### 3.5 [Proposal] NativeAOT Compilation
+> **Dispatch model details.** The CLI dispatch path above (`Parse & Route` → `ExtensionDispatcher` → leaf resolution) is fully specified in [extension-management.md](./extension-management.md) — see §3 (user surface), §4 (registry / hint-catalog / `s_cliTable` interaction and the leaf-keyed routing model: shared verbs, per-leaf `(verb, path)` ownership), and §5 (conflict & validation). That document is the source of truth for how a parsed command is bound to a single extension at runtime; this document covers the surrounding host machinery (loading, contexts, packaging).
+
+### 4.5 [Proposal] NativeAOT Compilation
 
 NativeAOT eliminates the JIT compiler, producing a fully native executable. This conflicts with several patterns the extension framework currently relies on:
 
@@ -131,83 +216,87 @@ This is a significant architectural change. A pragmatic path would be to start w
 
 ---
 
-## 4. Assembly Isolation
+## 5. Assembly Isolation
 
-### 4.1 The Problem
+### 5.1 The Problem
 
 Extensions carry their own dependencies that may conflict with each other or the host. Without isolation, the first loaded version of a shared dependency wins, potentially breaking other extensions.
 
-### 4.2 The Solution: ExtensionLoadContext
+### 5.2 The Solution: ExtensionLoadContext
 
 A custom `AssemblyLoadContext` per extension with one rule:
 
 - **Shared** (`Core.*`, `Microsoft.Extensions.DependencyInjection.*`) → `Load()` returns `null` → falls back to host ALC → preserves type identity across the boundary
 - **Isolated** (everything else) → loaded from the extension's directory → sandboxed per extension
 
-### 4.3 [CLI] Dedicated ALC per Extension
+### 5.3 [CLI] Dedicated ALC per Extension
 
 Each extension is loaded into its own `ExtensionLoadContext`. Two loaders are tried in order:
-1. `MultiVersionExtensionLoader` — user-installed extensions at `~/.cirrus/extensions/`
+
+1. `MultiVersionExtensionLoader` — user-installed extensions at `~/.azclips/extensions/`
 2. `BuiltinExtensionLoader` — bundled extensions at `<appDir>/Extensions/`
 
 Each loader creates a fresh ALC per extension. Dependencies between extensions cannot conflict.
 
-### 4.4 [PS] Shared Default ALC
+### 5.4 [PS] Shared Default ALC
 
 PowerShell modules load all assemblies into the host's default ALC via `RequiredAssemblies` in the module manifest. There are no custom ALCs. `PSEngine` resolves extension types via `Type.GetType()` from assemblies already in the default ALC.
 
 **Current Problem**:
-* For PowerShell, there are in fact **3** different runtime contexts that could cause conflicts between each other:
+
+- For PowerShell, there are in fact **3** different runtime contexts that could cause conflicts between each other:
     1. The PowerShell host process and its loaded assemblies
-    2. The `runtime` / `command host` shared across all Cirrus PowerShell modules
+    2. The `runtime` / `command host` shared across all Azclips PowerShell modules
     3. The individual extension assemblies loaded by the command host
-* If we would like to share the type between extension and PowerShell host, we have to load the extension assembly into the default ALC, which means all extensions share the same ALC and can conflict with each other.
-* When developing configuration commands, we already see conflicts between `System.Text.Json` versions used by the PowerShell host and the extension, causing runtime errors.
+- If we would like to share the type between extension and PowerShell host, we have to load the extension assembly into the default ALC, which means all extensions share the same ALC and can conflict with each other.
+- When developing configuration commands, we already see conflicts between `System.Text.Json` versions used by the PowerShell host and the extension, causing runtime errors.
 
 **Consequence**: if two modules carry different versions of the same dependency, the first imported module wins. No isolation. This could also cause conflicts with the host if an extension's dependency version differs from the host's.
 
-### 4.5 Comparison
+### 5.5 Comparison
 
-| Aspect | CLI | PowerShell |
-|--------|-----|------------|
-| Extension isolation | Dedicated ALC per extension | All in default ALC |
-| Dependency conflicts | Impossible — sandboxed | Possible — first loaded wins |
-| Core assembly sharing | `Load()` → `null` → host fallback | Naturally shared (same ALC) |
-| Type resolution | `Activator.CreateInstance` in extension ALC | `Type.GetType()` in default ALC |
+| Aspect                | CLI                                         | PowerShell                      |
+| --------------------- | ------------------------------------------- | ------------------------------- |
+| Extension isolation   | Dedicated ALC per extension                 | All in default ALC              |
+| Dependency conflicts  | Impossible — sandboxed                      | Possible — first loaded wins    |
+| Core assembly sharing | `Load()` → `null` → host fallback           | Naturally shared (same ALC)     |
+| Type resolution       | `Activator.CreateInstance` in extension ALC | `Type.GetType()` in default ALC |
 
 > **[Proposal]** Introduce `CommandHost` with per-module ALCs for PowerShell, mirroring the CLI isolation model.
 
 ---
 
-## 5. Build & Deployment
+## 6. Build & Deployment
 
-### 5.1 [CLI] Core CLI
+### 6.1 [CLI] Core CLI
 
 **Build**: `dotnet publish src/CLI/Core.Cli.csproj -c Release -r win-x64 --self-contained`
 
 **Deployment layout**:
+
 ```
 publish/win-x64/
-  azv2.exe                         ← Self-contained host
+  az.exe                         ← Self-contained host
   Core.*.dll                       ← Core framework (host ALC)
   prompt.md                        ← AI agent system prompt
   Extensions/                      ← Builtin extensions (each in own ALC)
-    Microsoft.Azure.Cirrus.Extensions.Extension/
+    Microsoft.Azure.Azclips.Extensions.Extension/
 ```
 
 **MSIX packaging** is supported via `Core.Cli.appxmanifest` for Windows distribution.
 
-> **[Proposal]** Replace the static `Bootstrapper` with `CirrusHostBuilder`, a non-static builder exposing `AddCirrusCore()` / `AddCirrusCli()` / `AddCirrusPS()` and scoped DI per invocation.
+> **[Proposal]** Replace the static `Bootstrapper` with `AzclipsHostBuilder`, a non-static builder exposing `AddAzclipsCore()` / `AddAzclipsCli()` / `AddAzclipsPS()` and scoped DI per invocation.
 
 > **[Proposal]** Extract CLI argument parsing from `CLIEngine` into standalone DI-registered services: `ArgumentParser`, `PropertyParser`, `CommandResolver`.
 
-### 5.2 [PS] PowerShell Modules
+### 6.2 [PS] PowerShell Modules
 
 **Current state** (development only): modules live in `src/PS/` and reference `artifacts/Debug/` via relative paths in `RequiredAssemblies`.
 
 **Target production layout** (not yet implemented):
+
 ```
-Cirrus/
+Azclips/
   Login/
     Login.psd1, Login.psm1, exports/*.ps1
     lib/                            ← Assembled DLLs
@@ -222,7 +311,7 @@ A publish pipeline — copying assemblies into a portable module folder and upda
 
 ## 7. Open Items
 
-| Area | Status | Description |
-|------|--------|-------------|
+| Area                      | Status          | Description                                                                       |
+| ------------------------- | --------------- | --------------------------------------------------------------------------------- |
 | PowerShell module publish | Not implemented | Need a build step producing a portable module folder with correct assembly layout |
-| CLI publish automation | Partial | Manual steps documented; `build.yml` CI exists but `deploy.sh` is incomplete |
+| CLI publish automation    | Partial         | Manual steps documented; `build.yml` CI exists but `deploy.sh` is incomplete      |

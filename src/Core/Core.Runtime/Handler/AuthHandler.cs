@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Runtime.Handler
 {
     using Core.Abstractions;
@@ -10,7 +13,7 @@ namespace Core.Runtime.Handler
     /// </summary>
     public class AuthHandler : IAuthHandler
     {
-        public AuthContext AuthContext { get; set; } = null!;
+        public Profile? Profile { get; set; }
 
         /// <inheritdoc />
         public AcquireTokenAsyncDelegate AcquireTokenAsyncDefault { get; set; } = null!;
@@ -22,14 +25,19 @@ namespace Core.Runtime.Handler
         public bool ApplyOverride { get; set; } = false;
 
         /// <inheritdoc />
-        public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventListener callback, ISendAsync next) =>
+        public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventPublisher callback, ISendAsync next) =>
         {
-            await callback.Signal(Events.AuthBeforeTokenAcquisition);
-            AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null
-                    ? this.AcquireTokenAsyncOverride
-                    : this.AcquireTokenAsyncDefault;
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (await tokenAcquirer(null, this.AuthContext.TenantId, false)).AccessToken);
-            await callback.Signal(Events.AuthAfterTokenAcquisition);
+            // When no profile is resolved, acquire no token. Commands that require a profile
+            // (and therefore an authenticated call) fail at point of use with a clear error.
+            if (this.Profile is not null)
+            {
+                await callback.Publish(Events.AuthBeforeTokenAcquisition);
+                AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null
+                        ? this.AcquireTokenAsyncOverride
+                        : this.AcquireTokenAsyncDefault;
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (await tokenAcquirer(null, this.Profile.TenantId, false)).AccessToken);
+                await callback.Publish(Events.AuthAfterTokenAcquisition);
+            }
             return await next.SendAsync(request, callback);
         };
     }

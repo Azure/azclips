@@ -3,5 +3,4 @@
 FROM mcr.microsoft.com/devcontainers/dotnet:9.0
 
 # Set working directory
-WORKDIR /workspaces/cirrus
-
+WORKDIR /workspaces/azclips

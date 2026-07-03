@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <Product>Azclips</Product>
     <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
     <RepoSrc>$(RepoRoot)src/</RepoSrc>
     <RepoArtifacts>$(RepoRoot)artifacts/</RepoArtifacts>

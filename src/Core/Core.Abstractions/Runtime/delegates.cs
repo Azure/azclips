@@ -1,4 +1,7 @@
-﻿namespace Core.Abstractions.Runtime
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Core.Abstractions.Runtime
 {
     using System.Diagnostics;
     using System.Net.Http;
@@ -6,15 +9,15 @@
     using System.Threading.Tasks;
     using GetEventData = Func<object>;
 
-    public delegate Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback);
-    public delegate Task<HttpResponseMessage> SendAsyncStep(HttpRequestMessage request, IEventListener callback, ISendAsync next);
+    public delegate Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback);
+    public delegate Task<HttpResponseMessage> SendAsyncStep(HttpRequestMessage request, IEventPublisher callback, ISendAsync next);
     public delegate Task<HttpResponseMessage> SendAsyncStepExpand(
         HttpRequestMessage request,
         CancellationToken token,
         Action cancel,
-        SignalEvent signalEvent,
+        PublishEvent PublishEvent,
         Func<HttpRequestMessage, CancellationToken, Action, Func<string, CancellationToken, GetEventData, Task<HttpResponseMessage>>, Task<HttpResponseMessage>> next);
-    public delegate Task SignalEvent(string id, CancellationToken token, GetEventData getEventData);
+    public delegate Task PublishEvent(string id, CancellationToken token, GetEventData getEventData);
     public delegate Task Event(object message);
     public delegate void SyncEvent(object message);
 

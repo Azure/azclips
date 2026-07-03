@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Configuration.Abstractions;
 
 /// <summary>
@@ -13,12 +16,13 @@ public static class EnvironmentVariableMappings
     /// </summary>
     public static IReadOnlyList<(string EnvironmentVariableName, string ConfigurationKey)> Mappings { get; } =
     [
-        ("CIRRUS_LOG_LEVEL", "core.logging.level"),
+        ("AZCLIPS_LOG_LEVEL", "core.logging.level"),
         ("ZIPKIN_ENDPOINT", "telemetry.zipkinEndpoint"),
         ("PS_HTTP_MAX_RETRIES", "core.http.maxRetries"),
         ("AZURE_PS_HTTP_MAX_RETRIES", "core.http.maxRetries"),
         ("PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
         ("AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
+        ("AZCLIPS_NO_EXTENSION_CACHE", "assemblyLoading.bypassExtensionCache"),
     ];
 
     /// <summary>
