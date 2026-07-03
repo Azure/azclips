@@ -74,17 +74,35 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             string tenantId;
             string subscriptionId;
             string cloudName;
-
+            AuthMethod mode;
+            string? miClientId;
+            string? miObjectId;
+            string? miResourceId;
+            string? resultClientId;
+            string? resultManagedIdentityId;
 
             if (reAuthName is not null)
             {
-                // Re-authenticate an existing profile: source connection state from the named profile.
+                // Re-authenticate an existing profile: reproduce the profile's stored connection
+                // state and authentication method rather than deriving auth mode from CLI flags.
                 Profile existing = await profileService.GetProfileAsync(reAuthName)
                     ?? throw new ArgumentException($"Profile '{reAuthName}' does not exist.");
                 targetName = existing.Name;
                 tenantId = existing.TenantId;
                 subscriptionId = existing.SubscriptionId;
                 cloudName = string.IsNullOrEmpty(existing.CloudName) ? DefaultCloudName : existing.CloudName;
+                mode = existing.AuthMethod;
+                resultClientId = existing.ClientId;
+                resultManagedIdentityId = existing.ManagedIdentityId;
+
+                // Rebuild the managed-identity selector from the stored key so token refresh
+                // targets the same identity instead of silently falling back to system-assigned.
+                var (idType, idValue) = mode == AuthMethod.ManagedIdentity
+                    ? ManagedIdentityIdCodec.Parse(existing.ManagedIdentityId)
+                    : (ManagedIdentityIdType.SystemAssigned, (string?)null);
+                miClientId = idType == ManagedIdentityIdType.ClientId ? idValue : null;
+                miObjectId = idType == ManagedIdentityIdType.ObjectId ? idValue : null;
+                miResourceId = idType == ManagedIdentityIdType.ResourceId ? idValue : null;
             }
             else
             {
@@ -92,21 +110,24 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 tenantId = TenantId;
                 subscriptionId = SubscriptionId;
                 cloudName = DefaultCloudName;
-            }
-
-
-            var mode = Identity ? AuthMethod.ManagedIdentity
+                mode = Identity ? AuthMethod.ManagedIdentity
                      : UseDeviceCode ? AuthMethod.DeviceCode
                      : AuthMethod.Browser;
+                miClientId = string.IsNullOrEmpty(ClientId) ? null : ClientId;
+                miObjectId = string.IsNullOrEmpty(ObjectId) ? null : ObjectId;
+                miResourceId = string.IsNullOrEmpty(ResourceId) ? null : ResourceId;
+                resultClientId = string.IsNullOrEmpty(ClientId) ? null : ClientId;
+                resultManagedIdentityId = null;
+            }
 
             LoginRequest loginRequest = new()
             {
                 TenantId = tenantId,
                 SubscriptionId = subscriptionId,
                 Mode = mode,
-                ManagedIdentityClientId = string.IsNullOrEmpty(ClientId) ? null : ClientId,
-                ManagedIdentityObjectId = string.IsNullOrEmpty(ObjectId) ? null : ObjectId,
-                ManagedIdentityResourceId = string.IsNullOrEmpty(ResourceId) ? null : ResourceId,
+                ManagedIdentityClientId = miClientId,
+                ManagedIdentityObjectId = miObjectId,
+                ManagedIdentityResourceId = miResourceId,
             };
 
             AuthResult authResult = await authService.LoginAsync(loginRequest);
@@ -126,9 +147,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 CloudName = cloudName,
                 AuthMethod = mode,
                 UserPrincipalName = authResult.UserPrincipalName,
-                ClientId = string.IsNullOrEmpty(ClientId) ? null : ClientId,
+                ClientId = resultClientId,
                 ManagedIdentityId = mode == AuthMethod.ManagedIdentity
-                    ? ManagedIdentityIdCodec.Format(loginRequest)
+                    ? (resultManagedIdentityId ?? ManagedIdentityIdCodec.Format(loginRequest))
                     : null,
             };
 
@@ -151,6 +172,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             if (outName is not null)
             {
                 ProfileNameValidator.ValidateForCreation(outName);
+            }
+
+            // Re-authentication reuses the profile's stored authentication method, so auth-mode
+            // flags would be silently ignored. Reject them to keep re-auth deterministic.
+            if (reAuthName is not null &&
+                (Identity || UseDeviceCode
+                 || !string.IsNullOrEmpty(ClientId)
+                 || !string.IsNullOrEmpty(ObjectId)
+                 || !string.IsNullOrEmpty(ResourceId)))
+            {
+                throw new ArgumentException(
+                    "Authentication flags ('--identity', '--use-device-code', '--client-id', '--object-id', '--resource-id') cannot be combined with '--profile'. "
+                    + "Re-authentication reuses the profile's stored authentication method.");
             }
 
             // A subscription id is required for a fresh interactive/device-code login. It is not
