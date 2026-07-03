@@ -10,7 +10,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - [x] `tools/Help` (owner: Daniel, references: 0, files: 0)
 - [ ] `tests/Cli.Tests` (owner: Daniel, references: 60, files: 17)
 - [x] `src/Extensions` (owner: Daniel, references: 0, files: 0)
-- [ ] `src/Core` (owner: Daniel, references: 15, files: 36)
+- [ ] `src/Core` (owner: Daniel, references: 15, files: 11)
 - [ ] `src/CLI` (owner: Daniel, references: 9, files: 25)
 - [ ] `tests/Scripts` (owner: Daniel, references: 7, files: 109)
 
@@ -31,3 +31,7 @@ Track and remove remaining `Cirrus` references across selected directories.
 - tests/Cli.Tests scan result (2026-07-03): 60 references across 17 files.
 - tests/Cli.Tests hotspots: `ExtensionAddPlannerTests.cs` (15), `ExtensionRemoveTests.cs` (7), `StripKnownExtensionPrefixTests.cs` (6), `RegistryLookupTests.cs` (6).
 - src/Extensions scan result (2026-07-03): 0 remaining `Cirrus` references.
+- src/Core scan result (2026-07-03): 15 references across 11 files.
+- src/Core classification: mixed compatibility + stale naming/docs.
+	- Compatibility-preserving logic: dual package prefixes in assembly loading and registry lookup (`Microsoft.Azure.Cirrus.Extensions.*` retained intentionally for legacy installs).
+	- Candidate rename/update: `RegisterCirrusServices` method name/usages, README prose, and Cirrus wording in XML doc comments/examples.
