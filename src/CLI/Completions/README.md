@@ -52,6 +52,21 @@ Now press Tab after `az ` to see suggestions:
 az group <Tab>
 ```
 
+### bash
+
+```bash
+# Build solution
+pwsh ./build/build.ps1
+
+# Load completions into current session
+source ./bin/az.completions.bash
+```
+
+Now press Tab after `az ` to see suggestions:
+```bash
+az group <Tab>
+```
+
 ## Toggling Completion
 
 Completion is enabled by default. A config key gates it at the source of truth
@@ -64,11 +79,6 @@ az config set --key completion.enabled --value false
 # Re-enable
 az config set --key completion.enabled --value true
 ```
-
-Because the shells query `az` on each Tab, disabling takes effect immediately on the
-next Tab. When re-enabling, PowerShell caches per session (see
-`$global:_azCompletionCache`), so re-source `az.completions.ps1` or start a new session;
-bash and zsh pick it up on the next Tab.
 
 ## Testing Completions Manually
 
