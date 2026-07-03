@@ -223,7 +223,7 @@ echo "  $output"
 if echo "$output" | grep -q "could not be found"; then
   echo "  FAIL: Resources extension command not found"
   exit 1
-elif echo "$output" | grep -q "Required parameter 'SubscriptionId' is missing"; then
+elif echo "$output" | grep -Eqi "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved"; then
   echo "  PASS: Resources extension loaded"
 elif echo "$output" | grep -Eqi "AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication"; then
   echo "  PASS: Resources command resolved (authentication context not available)"
