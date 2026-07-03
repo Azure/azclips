@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783040300293,
+  "lastUpdate": 1783051494546,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -2312,6 +2312,48 @@ window.BENCHMARK_DATA = {
             "value": 947124.6064851881,
             "unit": "ns",
             "range": "± 292468.08033741993"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fe041d873eaa80de250686efc5591f13aec9f2d1",
+          "message": "[Autocomplete] Remove completion caching from bash and PowerShell scripts (#366)\n\nStandardize tab completion behavior between supported shells\n(Powershell, bash, zsh) to always make a hard query for autocompletion\nbehaviour.\n\n- Remove top level group caching for bash\n- Remove top level and sub command caching for Powershell\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-03T14:02:50+10:00",
+          "tree_id": "874956da7a3d42854429460d36c025897abfeaa0",
+          "url": "https://github.com/Azure/azclips/commit/fe041d873eaa80de250686efc5591f13aec9f2d1"
+        },
+        "date": 1783051494053,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 976984.4972989196,
+            "unit": "ns",
+            "range": "± 304889.55972016347"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 946239.7997998999,
+            "unit": "ns",
+            "range": "± 288158.7535398737"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 957171.9013408045,
+            "unit": "ns",
+            "range": "± 299496.0651528612"
           }
         ]
       }
