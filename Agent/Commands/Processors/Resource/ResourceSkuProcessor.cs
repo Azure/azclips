@@ -22,8 +22,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
             var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            var authContext = AzclipsServiceProvider.GetRequiredService<IAuthContextService>();
-            var tool = new AvailableLocationsTool(authService, authContext);
+            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+            var tool = new AvailableLocationsTool(authService, profileService);
 
             var args = new AIFunctionArguments
             {

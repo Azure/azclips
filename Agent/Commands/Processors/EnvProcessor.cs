@@ -21,8 +21,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-            var authContext = AzclipsServiceProvider.GetRequiredService<IAuthContextService>();
-            var prober = new EnvironmentProber(authContext, flavor: "cli");
+            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+            var prober = new EnvironmentProber(profileService, flavor: "cli");
             var snapshot = await prober.ProbeAsync(Token);
 
             await WriteOutput(JsonSerializer.Serialize(snapshot, s_json));
