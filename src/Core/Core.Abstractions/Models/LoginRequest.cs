@@ -11,10 +11,10 @@ public class LoginRequest
     public string[]? Scopes { get; init; }
 
     /// <summary>Authentication method; defaults to interactive browser sign-in.</summary>
-    public AuthMethod Mode { get; init; } = AuthMethod.Browser;
+    public AuthMethod AuthMode { get; init; } = AuthMethod.Browser;
 
     /// <summary>Compatibility flag for device code login.</summary>
-    public bool UseDeviceCodeFlow => Mode == AuthMethod.DeviceCode;
+    public bool UseDeviceCodeFlow => AuthMode == AuthMethod.DeviceCode;
 
     // Managed identity
 

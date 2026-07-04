@@ -74,7 +74,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             string tenantId;
             string subscriptionId;
             string cloudName;
-            AuthMethod mode;
+            AuthMethod authMode;
             string? miClientId;
             string? miObjectId;
             string? miResourceId;
@@ -91,13 +91,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 tenantId = existing.TenantId;
                 subscriptionId = existing.SubscriptionId;
                 cloudName = string.IsNullOrEmpty(existing.CloudName) ? DefaultCloudName : existing.CloudName;
-                mode = existing.AuthMethod;
+                authMode = existing.AuthMethod;
                 resultClientId = existing.ClientId;
                 resultManagedIdentityId = existing.ManagedIdentityId;
 
                 // Rebuild the managed-identity selector from the stored key so token refresh
                 // targets the same identity instead of silently falling back to system-assigned.
-                var (idType, idValue) = mode == AuthMethod.ManagedIdentity
+                var (idType, idValue) = authMode == AuthMethod.ManagedIdentity
                     ? ManagedIdentityIdCodec.Parse(existing.ManagedIdentityId)
                     : (ManagedIdentityIdType.SystemAssigned, (string?)null);
                 miClientId = idType == ManagedIdentityIdType.ClientId ? idValue : null;
@@ -110,7 +110,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 tenantId = TenantId;
                 subscriptionId = SubscriptionId;
                 cloudName = DefaultCloudName;
-                mode = Identity ? AuthMethod.ManagedIdentity
+                authMode = Identity ? AuthMethod.ManagedIdentity
                      : UseDeviceCode ? AuthMethod.DeviceCode
                      : AuthMethod.Browser;
                 miClientId = string.IsNullOrEmpty(ClientId) ? null : ClientId;
@@ -124,7 +124,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             {
                 TenantId = tenantId,
                 SubscriptionId = subscriptionId,
-                Mode = mode,
+                AuthMode = authMode,
                 ManagedIdentityClientId = miClientId,
                 ManagedIdentityObjectId = miObjectId,
                 ManagedIdentityResourceId = miResourceId,
@@ -145,10 +145,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 TenantId = string.IsNullOrEmpty(tenantId) ? authResult.TenantId : tenantId,
                 SubscriptionId = effectiveSubscriptionId,
                 CloudName = cloudName,
-                AuthMethod = mode,
+                AuthMethod = authMode,
                 UserPrincipalName = authResult.UserPrincipalName,
                 ClientId = resultClientId,
-                ManagedIdentityId = mode == AuthMethod.ManagedIdentity
+                ManagedIdentityId = authMode == AuthMethod.ManagedIdentity
                     ? (resultManagedIdentityId ?? ManagedIdentityIdCodec.Format(loginRequest))
                     : null,
             };
