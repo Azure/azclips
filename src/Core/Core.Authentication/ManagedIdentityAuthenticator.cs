@@ -1,5 +1,4 @@
 using Core.Abstractions;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace Core.Authentication;
 
@@ -25,15 +24,12 @@ public class ManagedIdentityAuthenticator(
 
         Logger.Debug($"[{nameof(ManagedIdentityAuthenticator)}] Token acquired. ExpiresOn:{token.ExpiresOn}");
 
-        // tenant id comes from the token's tid claim
-        var tenantId = ExtractTenantIdFromToken(token.Token);
-
         return new AuthResult
         {
             AccessToken = token.Token,
             ExpiresOn = token.ExpiresOn,
             Scopes = scopes,
-            TenantId = tenantId,
+            TenantId = string.Empty,
             CorrelationId = null,
         };
     }
@@ -78,23 +74,5 @@ public class ManagedIdentityAuthenticator(
         }
 
         return (ManagedIdentityIdType.SystemAssigned, null);
-    }
-
-    /// <summary>Reads the tenant ID from the token's tid claim.</summary>
-    private static string ExtractTenantIdFromToken(string accessToken)
-    {
-        var handler = new JwtSecurityTokenHandler();
-        // no signature validation; we trust the IMDS token source
-        var jwt = handler.ReadJwtToken(accessToken);
-        var tidClaim = jwt.Claims.FirstOrDefault(c => c.Type == "tid");
-
-        if (tidClaim == null)
-        {
-            throw new InvalidOperationException(
-                "Managed identity token is missing required 'tid' (tenant ID) claim. " +
-                "This indicates an invalid or malformed token from IMDS.");
-        }
-
-        return tidClaim.Value;
     }
 }
