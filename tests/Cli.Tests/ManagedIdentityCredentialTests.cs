@@ -102,4 +102,28 @@ public sealed class ManagedIdentityCredentialTests
         Assert.Equal("stub-token", result.AccessToken);
         factory.Verify(f => f.CreateManagedIdentityCredential(It.IsAny<string?>(), It.IsAny<ManagedIdentityIdType?>()), Times.Once);
     }
+
+    [Theory]
+    [InlineData("not-a-jwt")]                                    // arbitrary token; contents are irrelevant
+    [InlineData("eyJhbGciOiJub25lIn0.eyJhdWQiOiJhcm0ifQ.")]      // valid JWT, no 'tid' claim
+    public async Task ManagedIdentityAuthenticator_DoesNotStoreTenantId(string token)
+    {
+        var expected = new AccessToken(token, DateTimeOffset.UtcNow.AddHours(1));
+
+        var credential = new Mock<TokenCredential>();
+        credential.Setup(c => c.GetTokenAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var factory = new Mock<AzureCredentialFactory>();
+        factory.Setup(f => f.CreateManagedIdentityCredential(It.IsAny<string?>(), It.IsAny<ManagedIdentityIdType?>()))
+            .Returns(credential.Object);
+
+        var authenticator = new ManagedIdentityAuthenticator(factory.Object, Logger, Telemetry);
+
+        var request = new LoginRequest { AuthMode = AuthMethod.ManagedIdentity };
+        var result = await authenticator.AuthenticateAsync(request);
+
+        Assert.Equal(token, result.AccessToken);
+        Assert.Equal(string.Empty, result.TenantId);
+    }
 }
