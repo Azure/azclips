@@ -1,16 +1,16 @@
-name: "💬 Preview Feedback"
-description: Share your overall experience, first impressions, or usability feedback on the private preview.
+name: "💬 General Feedback"
+description: Share what worked well, what was confusing, or what could be easier as you use azclips.
 labels: ["feedback", "private-preview"]
 body:
   - type: markdown
     attributes:
       value: >
-        Thanks for taking the time to share feedback on the **azclips** private preview.
-        This is for general impressions and experience feedback — for a specific defect, use the Bug Report template instead.
+        Thanks for sharing your feedback on **azclips**!
+        Tell us about your overall experience. If you hit a specific problem, please use the Bug Report template instead.
   - type: dropdown
     id: surface
     attributes:
-      label: What did you try?
+      label: Which did you use?
       options:
         - CLI (`az`)
         - PowerShell
@@ -21,21 +21,21 @@ body:
     id: worked-well
     attributes:
       label: What worked well?
-      description: What did you like? What felt intuitive?
+      description: What did you like, or what was easy to use?
     validations:
       required: false
   - type: textarea
     id: friction
     attributes:
-      label: What was confusing or frustrating?
-      description: Where did you get stuck, surprised, or slowed down?
+      label: What was confusing or hard?
+      description: Where did you get stuck or slowed down?
     validations:
       required: true
   - type: textarea
     id: missing
     attributes:
-      label: What's missing for you to adopt it?
-      description: Commands, behaviors, docs, or guarantees you'd need before relying on azclips.
+      label: What would make azclips easier or more useful for you?
+      description: For example, commands, behavior, or docs you would want.
     validations:
       required: false
   - type: dropdown
