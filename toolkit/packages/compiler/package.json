@@ -1,5 +1,5 @@
 {
-  "name": "@cirrus/compiler",
+  "name": "@azure-client-engine/compiler",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/src/index.js",
@@ -11,8 +11,9 @@
     }
   },
   "dependencies": {
-    "@cirrus/ir": "*",
-    "@cirrus/typespec-emitter": "*"
+    "@azure-client-engine/ir": "*",
+    "@azure-client-engine/typespec-emitter": "*",
+    "@typespec/compiler": "^1.13.0"
   },
   "devDependencies": {
     "@types/node": "~20.14.0",
@@ -27,5 +28,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Host-agnostic orchestration backbone for the cirrus compiler (compile -> emit IR -> transform -> generate C#)"
+  "description": "Host-agnostic orchestration backbone for the Azure Client Engine compiler (compile -> emit IR -> transform -> generate C#)"
 }
