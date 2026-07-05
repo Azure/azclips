@@ -1,5 +1,5 @@
 {
-  "name": "@cirrus/ir",
+  "name": "@azure-client-engine/ir",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/src/index.js",
@@ -26,5 +26,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Intermediate Representation schemas for the cirrus compiler"
+  "description": "Intermediate Representation schemas for the Azure Client Engine compiler"
 }

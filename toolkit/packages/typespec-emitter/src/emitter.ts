@@ -28,7 +28,7 @@ import {
   IR_SCHEMA_VERSION,
   parseIR,
   type IR,
-} from "@cirrus/ir";
+} from "@azure-client-engine/ir";
 
 import { resolveOptions, type EmitterOptions } from "./options.js";
 import { createBuildContext } from "./context.js";

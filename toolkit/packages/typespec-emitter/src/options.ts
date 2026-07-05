@@ -27,7 +27,7 @@ export const EMITTER_OPTION_DEFAULTS = {
   outputFile: "ir.yaml",
   format: "yaml" as EmitterOutputFormat,
   pretty: true,
-  emitterName: "@cirrus/typespec-emitter",
+  emitterName: "@azure-client-engine/typespec-emitter",
   diagnosticsAsErrors: false,
 } as const;
 

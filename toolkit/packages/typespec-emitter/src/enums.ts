@@ -13,7 +13,7 @@
 import { NoTarget } from "@typespec/compiler";
 import { UsageFlags } from "@azure-tools/typespec-client-generator-core";
 import type { SdkEnumType } from "@azure-tools/typespec-client-generator-core";
-import type { IREnum, IREnumMember } from "@cirrus/ir";
+import type { IREnum, IREnumMember } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";

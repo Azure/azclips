@@ -1,5 +1,5 @@
 /**
- * Library definition for the cirrus TypeSpec emitter.
+ * Library definition for the Azure Client Engine TypeSpec emitter.
  *
  * Houses:
  *   - The declared diagnostic codes (mapped to `reportDiagnostic` / `createDiagnostic`).
@@ -47,7 +47,7 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
 };
 
 export const $lib = createTypeSpecLibrary({
-  name: "@cirrus/typespec-emitter",
+  name: "@azure-client-engine/typespec-emitter",
   diagnostics: {
     "unsupported-type-kind": {
       severity: "warning",

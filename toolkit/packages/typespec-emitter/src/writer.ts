@@ -12,7 +12,7 @@ import type { Program } from "@typespec/compiler";
 // Under nodenext ESM interop a named `{ dump }` import resolves to
 // `undefined` at runtime, so we take the default and read `.dump` off it.
 import jsYaml from "js-yaml";
-import type { IR } from "@cirrus/ir";
+import type { IR } from "@azure-client-engine/ir";
 
 const yamlDump = jsYaml.dump;
 

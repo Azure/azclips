@@ -33,7 +33,7 @@ import type {
   IRApiVersionStamp,
   IRServer,
   IRSource,
-} from "@cirrus/ir";
+} from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";

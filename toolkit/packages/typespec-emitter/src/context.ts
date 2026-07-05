@@ -21,7 +21,7 @@ import type {
   SdkType,
 } from "@azure-tools/typespec-client-generator-core";
 import type { Program } from "@typespec/compiler";
-import type { IRId } from "@cirrus/ir";
+import type { IRId } from "@azure-client-engine/ir";
 
 export type BuildContextOptions = {
   /** Source id used as the default module string in IRIds. */

@@ -3,7 +3,7 @@
   "sources": [
     {
       "id": "PetStore",
-      "entrypoint": "C:/workspace/cirrus/toolkit/packages/ir/examples/pets.tsp",
+      "entrypoint": "C:/workspace/azclips/toolkit/packages/ir/examples/pets.tsp",
       "apiVersion": {
         "value": "2025-01-01",
         "location": "query",

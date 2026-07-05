@@ -33,7 +33,7 @@ import type {
   IRResponse,
   IRResponseHeader,
   IRStatusCode,
-} from "@cirrus/ir";
+} from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";

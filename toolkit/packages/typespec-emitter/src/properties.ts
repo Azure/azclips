@@ -29,7 +29,7 @@ import type {
   IRTypeRefModel,
   IRTypeRefPrimitive,
   IRTypeRefUnion,
-} from "@cirrus/ir";
+} from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { pascalCase } from "./naming.js";

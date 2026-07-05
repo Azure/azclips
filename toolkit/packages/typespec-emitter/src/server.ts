@@ -22,7 +22,7 @@ import type {
 import type {
   IRServer,
   IRServerParameter,
-} from "@cirrus/ir";
+} from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { typeRefFor, unwrapNullable } from "./types.js";

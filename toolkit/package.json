@@ -1,5 +1,5 @@
 {
-  "name": "cirrus-toolkit",
+  "name": "azure-client-engine-toolkit",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -19,7 +19,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "cirrus toolkit monorepo",
+  "description": "Azure Client Engine toolkit monorepo",
   "devDependencies": {
     "@types/node": "^25.9.1",
     "syncpack": "^15.3.1",

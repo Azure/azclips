@@ -31,9 +31,9 @@ import {
   type CompilerHost,
   type Diagnostic,
 } from "@typespec/compiler";
-import { IR_SCHEMA_VERSION, parseIR, type IR } from "@cirrus/ir";
+import { IR_SCHEMA_VERSION, parseIR, type IR } from "@azure-client-engine/ir";
 
-const EMITTER = "@cirrus/typespec-emitter";
+const EMITTER = "@azure-client-engine/typespec-emitter";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PETS_TSP = normalizePath(

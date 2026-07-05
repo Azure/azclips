@@ -1,5 +1,5 @@
 /**
- * @cirrus/cli — programmatic entry.
+ * @azure-client-engine/cli — programmatic entry.
  *
  * Re-exports the command runner so the pipeline can be driven in tests or
  * embedded in other Node programs without spawning the bin. The actual

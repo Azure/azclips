@@ -1,5 +1,5 @@
 {
-  "name": "@cirrus/typespec-emitter",
+  "name": "@azure-client-engine/typespec-emitter",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/src/index.js",
@@ -11,7 +11,7 @@
     }
   },
   "dependencies": {
-    "@cirrus/ir": "*",
+    "@azure-client-engine/ir": "*",
     "js-yaml": "3.13.1"
   },
   "peerDependencies": {
@@ -60,5 +60,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "TypeSpec emitter package for the cirrus compiler"
+  "description": "TypeSpec emitter package for the Azure Client Engine compiler"
 }

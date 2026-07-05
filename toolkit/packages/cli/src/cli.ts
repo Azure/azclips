@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * `cirrus` command-line front end.
+ * `ace` command-line front end.
  *
- * This is a THIN shell over @cirrus/compiler: it parses argv, invokes the
+ * This is a THIN shell over @azure-client-engine/compiler: it parses argv, invokes the
  * backbone, then maps the structured result onto stdout/stderr and a process
  * exit code. All pipeline logic lives in the backbone so the future web app
  * can reuse it unchanged.
  *
- * Skeleton: only `cirrus compile <spec>` is sketched. Subcommands like
+ * Skeleton: only `ace compile <spec>` is sketched. Subcommands like
  * `emit`, `check`, and `watch` slot in alongside it later.
  */
 
-import { compile, type CompilerDiagnostic } from "@cirrus/compiler";
+import { compile, type CompilerDiagnostic } from "@azure-client-engine/compiler";
 
 /** Render a diagnostic for the terminal. */
 function formatDiagnostic(d: CompilerDiagnostic): string {
@@ -31,10 +31,10 @@ export async function run(argv: string[]): Promise<number> {
   if (!command || command === "help" || command === "--help" || command === "-h") {
     process.stdout.write(
       [
-        "cirrus — TypeSpec -> C# extension compiler",
+        "ace — TypeSpec -> C# extension compiler",
         "",
         "Usage:",
-        "  cirrus compile <spec.tsp> [--out <dir>] [--source-id <id>]",
+        "  ace compile <spec.tsp> [--out <dir>] [--source-id <id>]",
         "",
       ].join("\n"),
     );

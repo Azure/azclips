@@ -1,10 +1,10 @@
-# cirrus compiler
+# Azure Client Engine compiler
 
 ## Dependency Management
 
 ### Emitter
 
-The `@cirrus/typespec-emitter` package uses the **peer + dev duplication** pattern for TypeSpec compiler and related libraries:
+The `@azure-client-engine/typespec-emitter` package uses the **peer + dev duplication** pattern for TypeSpec compiler and related libraries:
 
 - **`peerDependencies`** declare the broad version ranges that consumers must provide (e.g. `"@typespec/compiler": ">=1.7.0 <2.0.0"`). These describe compatibility, not what gets installed when developing this package.
 - **`devDependencies`** mirror every peer entry with a specific version that satisfies the peer range (e.g. `"@typespec/compiler": "^1.12.0"`). This is what actually gets installed locally so that `tsc`, tests, and IDEs can resolve the modules during development.
@@ -18,7 +18,7 @@ Both lists must stay in sync. To guard against drift, the workspace uses [`syncp
 
 ```bash
 # from repo root
-npm install -w @cirrus/typespec-emitter --save-dev <pkg>@<version>
+npm install -w @azure-client-engine/typespec-emitter --save-dev <pkg>@<version>
 # then add or update the matching entry in "peerDependencies" by hand
 npm run lint:deps   # verify both lists agree; non-zero exit fails CI
 ```

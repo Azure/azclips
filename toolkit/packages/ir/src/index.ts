@@ -1,5 +1,5 @@
 /**
- * Public surface of @cirrus/ir.
+ * Public surface of @azure-client-engine/ir.
  *
  * Re-exports schemas, type aliases, and the small set of helpers needed
  * by emitters, transforms, and generators. Anything not re-exported here

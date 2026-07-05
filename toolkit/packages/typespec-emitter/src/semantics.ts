@@ -46,7 +46,7 @@ import type {
   IROperationSemantics,
   IRPageableSemantics,
   IRTypeRef,
-} from "@cirrus/ir";
+} from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
