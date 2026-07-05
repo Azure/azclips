@@ -1,5 +1,5 @@
 name: "🐞 Bug Report"
-description: Report a problem you hit while testing the azclips private preview.
+description: Report a problem you encountered while testing azclips.
 labels: ["bug", "private-preview"]
 body:
   - type: markdown
