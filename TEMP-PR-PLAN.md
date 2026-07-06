@@ -15,7 +15,7 @@
 - Completed: build + targeted test validation for the verb-source refactor.
 - Completed: same-identity selection engine is in place and wired into dispatch/help discovery paths (pin-aware + version-aware behavior verified locally).
 - Completed: structured debug diagnostics for same-identity selection decisions (selected/ignored candidates + reason) are emitted in dispatch/help/discovery call sites.
-- Remaining: finalize collision-policy task checklist status, path-level candidate provenance in diagnostics, and built-ins strategy/docs decisions.
+- Remaining: finalize collision-policy task checklist status, improve debug log readability, add path-level candidate provenance in diagnostics, and finalize built-ins strategy/docs decisions.
 
 ## Locked Decisions
 
@@ -71,6 +71,12 @@ Diagnostics requirements:
 - [ ] Build: `dotnet build azclips.slnx` and run targeted tests.
 - [ ] Manually validate default and overridden directory behavior plus conflict paths.
 - [ ] Prepare PR summary with behavior changes, test evidence, and deferred items.
+
+### Phase E: Diagnostics readability
+
+- [ ] Replace raw one-line selection JSON debug output with a human-readable summary format.
+- [ ] Keep machine-parsable payloads available (optional compact JSON toggle or secondary debug line).
+- [ ] Add one focused test/assertion for debug output shape stability.
 
 ### Precedence Acceptance Tests (Table-Driven)
 
