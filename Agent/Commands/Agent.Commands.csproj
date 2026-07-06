@@ -32,6 +32,10 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+        <ProjectReference Include="..\..\src\Core\Core.Configuration\Core.Configuration.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
         <ProjectReference Include="..\..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

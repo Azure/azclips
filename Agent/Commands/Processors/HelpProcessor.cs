@@ -4,6 +4,8 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Agent.Tools.Help;
+using Core.Configuration.Options;
+using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
 {
@@ -17,10 +19,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
             // Loader used LoadFromStream, so Assembly.Location is empty.
-            // Reconstruct the extension's on-disk directory from the assembly
-            // name and the CLI host's Extensions/ convention.
+            // Reconstruct the extension's on-disk directory by asking the host
+            // where it puts built-in extensions — Release lays them under
+            // <base>/Extensions/, Debug puts them under <base>/.. — instead of
+            // hard-coding "Extensions/" and breaking local debug runs.
+            var configService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+            var loadingOpts = configService.GetConfiguration<AssemblyLoadingOptions>();
             var extName = typeof(HelpProcessor).Assembly.GetName().Name!;
-            var corpusDir = Path.Combine(AppContext.BaseDirectory, "Extensions", extName, "Help");
+            var corpusDir = Path.Combine(loadingOpts.BuiltinInstallationDir, extName, "Help");
             var help = new HelpTools(corpusDir);
 
             string json;
