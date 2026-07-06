@@ -38,12 +38,6 @@ public sealed class RuntimeHelpDispatcher
     private readonly TextWriter _output;
     private readonly OutputStreams _streams;
 
-    // Verbs implemented by the CLI host itself on the cold-path (no engine, no extension load), not
-    // by any installed extension — currently `version` (`az version` / `az --version`). Their help
-    // still comes from the markdown corpus so they appear in `az --help` and `az <verb> --help` like
-    // any extension verb. Extend as new intrinsics (e.g. `upgrade`) land.
-    private static readonly string[] s_intrinsicVerbs = ["version"];
-
     public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams)
         : this(
             engine,
@@ -166,7 +160,7 @@ public sealed class RuntimeHelpDispatcher
     private bool TryRenderIntrinsicHelp(string verb, out int exitCode)
     {
         exitCode = 0;
-        if (!s_intrinsicVerbs.Contains(verb, StringComparer.OrdinalIgnoreCase))
+        if (!IntrinsicVerbs.All.Contains(verb))
         {
             return false;
         }
@@ -229,7 +223,7 @@ public sealed class RuntimeHelpDispatcher
 
         // Intrinsic host verbs (cold-path commands like `version`) aren't discovered as extensions,
         // so surface them from the markdown corpus to keep them listed in `az --help`.
-        foreach (var verb in s_intrinsicVerbs)
+        foreach (var verb in IntrinsicVerbs.All)
         {
             if (!seenVerbs.Add(verb))
             {
