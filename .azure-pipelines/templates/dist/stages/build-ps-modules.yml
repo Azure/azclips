@@ -1,0 +1,26 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: final_artifact_name
+  type: string
+  default: 'Final_Build_PSModules'
+- name: generate_help_artifacts
+  type: boolean
+  default: true
+- name: depends_on
+  type: string
+  default: ''
+
+stages:
+- stage: BuildPSModules
+  displayName: Build (PS) Common
+  ${{ if ne(parameters.depends_on, '') }}:
+    dependsOn: ${{ parameters.depends_on }}
+  condition: succeeded()
+  jobs:
+  - template: ../jobs/build-ps-modules.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      final_artifact_name: ${{ parameters.final_artifact_name }}
+      generate_help_artifacts: ${{ parameters.generate_help_artifacts }}

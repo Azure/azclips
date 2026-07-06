@@ -3,6 +3,6 @@ contact_links:
   - name: 💬 Questions & Discussion
     url: https://github.com/Azure/azclips/discussions
     about: For general questions, setup help, or discussion, please start a Discussion instead of opening an issue.
-  - name: 🔒 Report a security vulnerability
+  - name: 🔒 Report a Security Vulnerability
     url: https://github.com/Azure/azclips/security/policy
-    about: Please report security issues privately via our security policy, not as a public issue.
+    about: Report a potential security issue. Please review our security policy before submitting vulnerability details.
