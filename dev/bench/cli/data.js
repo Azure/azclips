@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783060373551,
+  "lastUpdate": 1783315682865,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2478,6 +2478,48 @@ window.BENCHMARK_DATA = {
             "value": 940588.7739095638,
             "unit": "ns",
             "range": "± 297155.7495642027"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "198982749+Copilot@users.noreply.github.com",
+            "name": "Copilot",
+            "username": "Copilot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d9ef8536f950fbc0a66b35010c26506b2aea865e",
+          "message": "Document CommandMetadata properties with inline XML docs (#341)\n\nAdds XML documentation to the `CommandMetadata` record in\n`src/Core/Core.Abstractions/Models/CommandMetadata.cs`, which previously\nhad no property-level docs. Examples and semantics are drawn from real\nusages (`ExtensionIndex` declarations, `DiscoverySession`,\n`ExecutionSession`) and the intent behind [PR\n#307](https://github.com/Azure/azclips/pull/307).\n\n### Changes\n- **Record summary** — describes `CommandMetadata` as the per-command\ndescriptor declared in an extension's `ExtensionIndex` and consumed by\nthe engine (discover/bind/execute) and CLI (help/completions).\n- **Per-property `<param>` docs with examples** for `Name`,\n`InvocationName`, `Aliases`, `FullName`, `AssemblyName`,\n`ProcessorType`, `Parameters`, and `ParameterAliases`.\n- **`Name` vs `InvocationName` distinction** — `Name` is the\ninternal/diagnostic processor type name; `InvocationName` is the\nclient-facing invocation token and the unique command-table key\n(discovery emits a `Dictionary<InvocationName, CommandMetadata>`), kept\nexplicit to allow future `ExtensionIndex` serialization.\n\n```csharp\n/// <param name=\"InvocationName\">\n/// The client-facing invocation token that end users type to run the command, and the unique key under\n/// which the command is registered in the discovered command table...\n/// Example: \"New-ResourceGroup\" (PowerShell verb-noun) or \"Get-ResourceGroup_List\".\n/// </param>\n```\n\nDocumentation-only change; no runtime behavior is affected.\n\n---------\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-06T05:25:46Z",
+          "tree_id": "3c8c57ede7e5c381931a8ca96a1dee86a71fb332",
+          "url": "https://github.com/Azure/azclips/commit/d9ef8536f950fbc0a66b35010c26506b2aea865e"
+        },
+        "date": 1783315682552,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 982796.6137682609,
+            "unit": "ns",
+            "range": "± 303337.08455692156"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 956766.6248124063,
+            "unit": "ns",
+            "range": "± 306756.8771145662"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 932056.1395558224,
+            "unit": "ns",
+            "range": "± 289407.0138620043"
           }
         ]
       }
