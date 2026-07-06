@@ -18,11 +18,22 @@ namespace Benchmark.PS;
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class PSBenchmarkBase : BenchmarkBase
 {
+    /// <summary>
+    /// The PowerShell module this benchmark exercises. Only this module and its
+    /// <c>RequiredModules</c> dependency closure are staged for the run.
+    /// </summary>
+    protected abstract string ModuleName { get; }
+
+    private string _psModuleManifestPath = null!;
+
     [GlobalSetup]
     public void GlobalSetup()
     {
         InitializeCommon();
-        Console.WriteLine("[Setup] PS benchmarks ready (stub HTTP)");
+
+        _psModuleManifestPath = PSManifestStager.StageModule(RepoRoot, ModuleName);
+
+        Console.WriteLine($"[Setup] PS benchmarks ready for '{ModuleName}' (stub HTTP)");
     }
 
     [IterationSetup]
@@ -38,14 +49,9 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     }
 
     protected object? RunPowerShellCommand(
-        string moduleName,
         string command,
         params (string Name, object Value)[] parameters)
     {
-        // Always resolve to "Release" because BDN always run benchmarks in release mode.
-        var psModulePath = Path.Combine(
-            RepoRoot, "artifacts", "Release", "PS", moduleName, $"{moduleName}.psd1");
-
         // Create and open a fresh runspace per invocation (cold start)
         var runspace = RunspaceFactory.CreateRunspace();
         runspace.Open();
@@ -56,7 +62,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
             using (var import = PowerShell.Create())
             {
                 import.Runspace = runspace;
-                import.AddCommand("Import-Module").AddParameter("Name", psModulePath).AddParameter("Force", true);
+                import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
                 import.Invoke();
             }
 
