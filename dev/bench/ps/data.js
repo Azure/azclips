@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783321291191,
+  "lastUpdate": 1783349323667,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -2352,6 +2352,48 @@ window.BENCHMARK_DATA = {
             "value": 5761178.835231154,
             "unit": "ns",
             "range": "± 97406.16441852813"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "644ee1aacf399c278fbcb4f27e199938890a8fec",
+          "message": "feat(completions): skip completion for non-cirrus az binaries (#371)",
+          "timestamp": "2026-07-07T00:40:46+10:00",
+          "tree_id": "4583a09fc5ba164feb3ff9a1ef955554abcb44e2",
+          "url": "https://github.com/Azure/azclips/commit/644ee1aacf399c278fbcb4f27e199938890a8fec"
+        },
+        "date": 1783349323642,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5814402.396311522,
+            "unit": "ns",
+            "range": "± 100811.87956387704"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5806057.514837977,
+            "unit": "ns",
+            "range": "± 100193.21250808427"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5806304.17916762,
+            "unit": "ns",
+            "range": "± 100933.86801669425"
           }
         ]
       }
