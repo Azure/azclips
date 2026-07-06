@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783315682865,
+  "lastUpdate": 1783320933223,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2520,6 +2520,48 @@ window.BENCHMARK_DATA = {
             "value": 932056.1395558224,
             "unit": "ns",
             "range": "± 289407.0138620043"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1c6cb4e487f7ac7d79007179818fecd45925ad9",
+          "message": "[Benchmark] Stage individual PS manifests during benchmarks (#378)\n\nReworks PSManifestStager so a PS benchmark stages only the module it\nexercises (plus that module's RequiredModules dependency closure) rather\nthan every manifest under src/PS. Running a filtered benchmark (e.g.\njust the Resources benchmarks) now stages just Resources + Login, not\nall 5 modules.\n\nAlso fixes current benchmark pipeline failing.",
+          "timestamp": "2026-07-06T16:53:36+10:00",
+          "tree_id": "5bebfabaf91e030cc74c728b54b663d7c193e8ef",
+          "url": "https://github.com/Azure/azclips/commit/d1c6cb4e487f7ac7d79007179818fecd45925ad9"
+        },
+        "date": 1783320932916,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 967859.9573201241,
+            "unit": "ns",
+            "range": "± 296085.4996639198"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 955606.2735641384,
+            "unit": "ns",
+            "range": "± 302117.7586418257"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 951854.4327798339,
+            "unit": "ns",
+            "range": "± 287211.4193102153"
           }
         ]
       }
