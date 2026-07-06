@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using NuGet.Versioning;
+using System.Text.Json;
 
 namespace Core.Extensions;
 
@@ -21,6 +22,32 @@ public sealed record SelectedExtensionCandidate(
 
 public static class ExtensionCandidateSelector
 {
+    public static string BuildDiagnostics(
+        string context,
+        SelectedExtensionCandidate selection,
+        ExtensionRegistryEntry? persistedPreference = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(context);
+        ArgumentNullException.ThrowIfNull(selection);
+
+        var payload = new
+        {
+            eventName = "ExtensionCandidateSelection",
+            context,
+            packageId = selection.Selected.PackageId,
+            reason = selection.Reason.ToString(),
+            persistedPreference = new
+            {
+                pinned = persistedPreference?.Pinned ?? false,
+                requestedVersion = persistedPreference?.Version,
+            },
+            selected = ToDiagnosticCandidate(selection.Selected),
+            ignored = selection.Ignored.Select(ToDiagnosticCandidate).ToArray(),
+        };
+
+        return JsonSerializer.Serialize(payload);
+    }
+
     public static SelectedExtensionCandidate Select(
         IReadOnlyList<DiscoveredExtensionInfo> candidates,
         ExtensionRegistryEntry? persistedPreference = null)
@@ -32,10 +59,15 @@ public static class ExtensionCandidateSelector
             throw new ArgumentException("At least one candidate is required.", nameof(candidates));
         }
 
-        if (candidates.Count == 1)
+        var uniqueCandidates = candidates
+            .GroupBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
+            .Select(static group => group.First())
+            .ToList();
+
+        if (uniqueCandidates.Count == 1)
         {
             return new SelectedExtensionCandidate(
-                candidates[0],
+                uniqueCandidates[0],
                 Array.Empty<DiscoveredExtensionInfo>(),
                 ExtensionSelectionReason.SingleCandidate);
         }
@@ -53,12 +85,12 @@ public static class ExtensionCandidateSelector
                 var selected = pinnedMatches[0];
                 return new SelectedExtensionCandidate(
                     selected,
-                    candidates.Where(candidate => !ReferenceEquals(candidate, selected)).ToList(),
+                    uniqueCandidates.Where(candidate => !ReferenceEquals(candidate, selected)).ToList(),
                     ExtensionSelectionReason.Pinned);
             }
         }
 
-        var ordered = candidates
+        var ordered = uniqueCandidates
             .Select(candidate => new CandidateOrdering(
                 Candidate: candidate,
                 ParsedVersion: NuGetVersion.TryParse(candidate.ResolvedVersion, out var parsedVersion) ? parsedVersion : null,
@@ -101,18 +133,18 @@ public static class ExtensionCandidateSelector
             var selected = highestMatches[0].Candidate;
             return new SelectedExtensionCandidate(
                 selected,
-                candidates.Where(candidate => !ReferenceEquals(candidate, selected)).ToList(),
+                uniqueCandidates.Where(candidate => !ReferenceEquals(candidate, selected)).ToList(),
                 highestMatches.Count == 1
                     ? ExtensionSelectionReason.HigherVersion
                     : ExtensionSelectionReason.EquivalentVersion);
         }
 
-        var equivalent = candidates
+        var equivalent = uniqueCandidates
             .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
             .ToList();
         return new SelectedExtensionCandidate(
             equivalent[0],
-            candidates.Where(candidate => !ReferenceEquals(candidate, equivalent[0])).ToList(),
+            uniqueCandidates.Where(candidate => !ReferenceEquals(candidate, equivalent[0])).ToList(),
             ExtensionSelectionReason.EquivalentVersion);
     }
 
@@ -129,6 +161,26 @@ public static class ExtensionCandidateSelector
             .OrderBy(static command => command, StringComparer.OrdinalIgnoreCase);
 
         return string.Join("\n", [candidate.PackageId, candidate.ResolvedVersion, string.Join("|", verbs), string.Join("|", commands)]);
+    }
+
+    private static object ToDiagnosticCandidate(DiscoveredExtensionInfo candidate)
+    {
+        var verbs = candidate.Verbs
+            .Where(static verb => !string.IsNullOrWhiteSpace(verb))
+            .Select(static verb => verb.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static verb => verb, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new
+        {
+            packageId = candidate.PackageId,
+            resolvedVersion = candidate.ResolvedVersion,
+            verbCount = verbs.Length,
+            verbs,
+            commandCount = candidate.Commands.Count,
+            fingerprint = BuildDeterministicFingerprint(candidate),
+        };
     }
 
     private sealed record CandidateOrdering(

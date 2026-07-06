@@ -227,7 +227,7 @@ public sealed class RuntimeHelpDispatcher
         return SelectPreferredCandidates(discovered);
     }
 
-    private static IReadOnlyList<DiscoveredExtensionInfo> SelectPreferredCandidates(IReadOnlyList<DiscoveredExtensionInfo> discovered)
+    private IReadOnlyList<DiscoveredExtensionInfo> SelectPreferredCandidates(IReadOnlyList<DiscoveredExtensionInfo> discovered)
     {
         if (discovered.Count == 0)
         {
@@ -253,10 +253,32 @@ public sealed class RuntimeHelpDispatcher
                 persisted = entry;
             }
 
-            selected.Add(ExtensionCandidateSelector.Select(group.ToList(), persisted).Selected);
+            var selection = ExtensionCandidateSelector.Select(group.ToList(), persisted);
+            EmitSelectionDebug(
+                context: "RuntimeHelpDispatcher.SelectPreferredCandidates",
+                selection: selection,
+                persistedPreference: persisted);
+            selected.Add(selection.Selected);
         }
 
         return selected;
+    }
+
+    private void EmitSelectionDebug(
+        string context,
+        SelectedExtensionCandidate selection,
+        ExtensionRegistryEntry? persistedPreference)
+    {
+        try
+        {
+            _streams.WriteDebug(
+                ExtensionCandidateSelector.BuildDiagnostics(context, selection, persistedPreference),
+                CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Help rendering must remain resilient even if debug sink fails.
+        }
     }
 
     private bool TryResolveExtension(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)

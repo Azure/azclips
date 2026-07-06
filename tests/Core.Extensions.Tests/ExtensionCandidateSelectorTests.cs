@@ -58,6 +58,19 @@ public sealed class ExtensionCandidateSelectorTests
         Assert.Single(selected.Ignored);
     }
 
+    [Fact]
+    public void Select_ShouldCollapseIdenticalCandidates_AndAvoidSelfDuplicateIgnored()
+    {
+        var original = CreateInfo("Contoso.Widget", "1.2.0", ["widget create", "widget delete"]);
+        var duplicate = CreateInfo("Contoso.Widget", "1.2.0", ["widget create", "widget delete"]);
+
+        var selected = ExtensionCandidateSelector.Select([original, duplicate]);
+
+        Assert.Equal("1.2.0", selected.Selected.ResolvedVersion);
+        Assert.Equal(ExtensionSelectionReason.SingleCandidate, selected.Reason);
+        Assert.Empty(selected.Ignored);
+    }
+
     private static DiscoveredExtensionInfo CreateInfo(string packageId, string version, IEnumerable<string> commandNames)
     {
         var commands = commandNames.ToDictionary(

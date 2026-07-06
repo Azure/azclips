@@ -15,13 +15,28 @@ internal static class DiscoveryBackedExtensionRegistry
     {
         ArgumentNullException.ThrowIfNull(fileRegistry);
 
+        ILoggingService? loggingService = null;
+        try
+        {
+            loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+        }
+        catch
+        {
+            // Registry synthesis should not fail if logging service is unavailable.
+        }
+
         var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
         var infos = RunDiscoverySession();
 
         foreach (var group in infos.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
         {
             fileRegistry.Extensions.TryGetValue(group.Key, out var fileEntry);
-            var info = ExtensionCandidateSelector.Select(group.ToList(), fileEntry).Selected;
+            var selection = ExtensionCandidateSelector.Select(group.ToList(), fileEntry);
+            loggingService?.Debug(ExtensionCandidateSelector.BuildDiagnostics(
+                context: "DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences",
+                selection: selection,
+                persistedPreference: fileEntry));
+            var info = selection.Selected;
 
             if (s_builtInPackageIds.Contains(info.PackageId))
             {

@@ -33,7 +33,9 @@ public static class CliExtensionServiceRegistration
 
         services.AddSingleton(sp => new ExtensionDispatcher(
             sp.GetRequiredService<IExtensionResolver>(),
-            () => BuildLeafIndexWithDiscovery(sp.GetRequiredService<IExtensionRegistryStore>())));
+            () => BuildLeafIndexWithDiscovery(
+                sp.GetRequiredService<IExtensionRegistryStore>(),
+                sp.GetRequiredService<ILoggingService>())));
 
         return services;
     }
@@ -43,12 +45,14 @@ public static class CliExtensionServiceRegistration
     /// Discovery is now the source of truth for installed state; registry provides preference overlays.
     /// §5.3: Routes verbs from disk even if registry.json is missing.
     /// </summary>
-    private static LeafIndex BuildLeafIndexWithDiscovery(IExtensionRegistryStore registryStore)
+    private static LeafIndex BuildLeafIndexWithDiscovery(
+        IExtensionRegistryStore registryStore,
+        ILoggingService loggingService)
     {
         var fileRegistry = registryStore.Load();
 
         // §5.3: Discover all installed extensions from disk. This is authoritative.
-        var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry);
+        var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry, loggingService);
 
         // Merge discovered extensions with file registry, preserving preferences from file.
         MergePreferencesFromFileRegistry(discoveredRegistry, fileRegistry);
@@ -60,7 +64,9 @@ public static class CliExtensionServiceRegistration
     /// Runs DiscoverySession to enumerate installed extensions and construct an ExtensionRegistry
     /// from discovered verbs. This is the authoritative source of installed state.
     /// </summary>
-    private static ExtensionRegistry DiscoverInstalledExtensions(ExtensionRegistry currentRegistry)
+    private static ExtensionRegistry DiscoverInstalledExtensions(
+        ExtensionRegistry currentRegistry,
+        ILoggingService loggingService)
     {
         try
         {
@@ -75,7 +81,7 @@ public static class CliExtensionServiceRegistration
                     // Capture discovered extensions and convert to registry entries.
                     if (result is List<DiscoveredExtensionInfo> infos)
                     {
-                        foreach (var info in SelectInstalledCandidates(infos, currentRegistry))
+                        foreach (var info in SelectInstalledCandidates(infos, currentRegistry, loggingService))
                         {
                             if (s_builtInPackageIds.Contains(info.PackageId))
                             {
@@ -126,12 +132,18 @@ public static class CliExtensionServiceRegistration
 
     private static IEnumerable<DiscoveredExtensionInfo> SelectInstalledCandidates(
         IEnumerable<DiscoveredExtensionInfo> infos,
-        ExtensionRegistry currentRegistry)
+        ExtensionRegistry currentRegistry,
+        ILoggingService loggingService)
     {
         foreach (var group in infos.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
         {
             currentRegistry.Extensions.TryGetValue(group.Key, out var persistedPreference);
-            yield return ExtensionCandidateSelector.Select(group.ToList(), persistedPreference).Selected;
+            var selection = ExtensionCandidateSelector.Select(group.ToList(), persistedPreference);
+            loggingService.Debug(ExtensionCandidateSelector.BuildDiagnostics(
+                context: "CliExtensionServiceRegistration.SelectInstalledCandidates",
+                selection: selection,
+                persistedPreference: persistedPreference));
+            yield return selection.Selected;
         }
     }
 
