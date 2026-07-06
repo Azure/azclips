@@ -3,15 +3,11 @@
 # The committed src/PS/<Module>/<Module>.psd1 files reference DLLs via
 # relative paths under '../../../artifacts/Debug/...' so that the local
 # `Import-Module ./src/PS/<Module>/<Module>.psd1` dev workflow works against
-# a Debug build. For Release builds (notably benchmarks in CI) we need a
-# manifest pointing at '../../../artifacts/Release/...' instead.
+# a Debug build.
 #
 # This script writes a transformed copy to:
 #   artifacts/<Configuration>/PS/<Module>/<Module>.psd1
-# leaving the tracked source manifests untouched. Benchmark code imports
-# from the artifact copy, so the working tree stays clean -- which lets
-# benchmark-action/github-action-benchmark switch to gh-pages without
-# hitting "local changes would be overwritten".
+# leaving the tracked source manifests untouched.
 #
 # Path rewrite: '../../../artifacts/<Config>/...' relative references are
 # rewritten to ABSOLUTE paths. PowerShell's RequiredAssemblies resolver
