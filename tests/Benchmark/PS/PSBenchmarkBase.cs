@@ -52,7 +52,21 @@ public abstract class PSBenchmarkBase : BenchmarkBase
 
         try
         {
-            // Import module — triggers AzclipsServiceProvider.Initialize(PowerShell) in .psm1
+            // Import the Login module first — its ModuleInitializer.OnImport is the only
+            // code that calls AzclipsServiceProvider.Initialize(PowerShell). Staged manifests
+            // no longer carry RequiredModules (Set-ModuleConfiguration.ps1 strips them for
+            // non-Login modules), so we must import Login explicitly to bootstrap DI.
+            if (!string.Equals(moduleName, "Login", StringComparison.OrdinalIgnoreCase))
+            {
+                var loginModulePath = Path.Combine(
+                    RepoRoot, "artifacts", "Release", "PS", "Login", "Login.psd1");
+                using var loginImport = PowerShell.Create();
+                loginImport.Runspace = runspace;
+                loginImport.AddCommand("Import-Module").AddParameter("Name", loginModulePath).AddParameter("Force", true);
+                loginImport.Invoke();
+            }
+
+            // Import module — triggers AzclipsServiceProvider.Initialize(PowerShell) via Login.
             using (var import = PowerShell.Create())
             {
                 import.Runspace = runspace;
