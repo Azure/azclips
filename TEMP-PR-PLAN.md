@@ -14,7 +14,8 @@
 - Completed: unified verb source-of-truth on this branch (removed `GetVerbs()` contract usage; consumers now resolve verbs from `[ExtensionVerb]`).
 - Completed: build + targeted test validation for the verb-source refactor.
 - Completed: same-identity selection engine is in place and wired into dispatch/help discovery paths (pin-aware + version-aware behavior verified locally).
-- Remaining: cross-identity collision-policy hard-fail path and diagnostics surfacing; finalize built-ins strategy and docs decisions.
+- Completed: structured debug diagnostics for same-identity selection decisions (selected/ignored candidates + reason) are emitted in dispatch/help/discovery call sites.
+- Remaining: finalize collision-policy task checklist status, path-level candidate provenance in diagnostics, and built-ins strategy/docs decisions.
 
 ## Locked Decisions
 
@@ -50,7 +51,7 @@ Diagnostics requirements:
 
 - [x] Add a pure selector component for candidate resolution by identity.
 - [x] Implement deterministic reason codes: `Pinned`, `HigherVersion`, `EquivalentVersion`, `SingleCandidate`.
-- [ ] Include selected candidate and ignored candidates in structured diagnostics.
+- [x] Include selected candidate and ignored candidates in structured diagnostics.
 
 ### Phase B: Collision handling
 
@@ -93,21 +94,22 @@ Legend:
 
 Diagnostics assertions for all precedence cases:
 
-- Include both candidate paths and versions when both are present.
-- Include selected path and selected version.
+- Include selected candidate and ignored candidates in structured debug payloads.
 - Include one deterministic reason code: `Pinned`, `HigherVersion`, `EquivalentVersion`, `SingleCandidate`.
+- Include persisted preference context (`pinned`, requested version) alongside selection.
+- Path-level candidate provenance in diagnostics is pending source-location wiring.
 
 ## Scenario Matrix
 
-| Scenario                                                   | Expected behavior                                                   | Test added | Notes                                               |
-| ---------------------------------------------------------- | ------------------------------------------------------------------- | ---------- | --------------------------------------------------- |
-| Same extension in builtin and versioned dirs               | Pin first, then higher version; equal version -> deterministic pick | [x]        | Automated + local validation                        |
-| Same command from same extension identity in both dirs     | Select one winner via precedence; no collision error                | [x]        | Automated + local validation                        |
-| Same command from different extension identities           | Hard-fail collision error                                           | [x]        | Automated in `CliExtensionServiceRegistrationTests` |
-| Custom `assemblyLoading.builtinInstallationDir` override   | TBD                                                                 | [ ]        | Verify effective path used                          |
-| Custom `assemblyLoading.versionedInstallationDir` override | TBD                                                                 | [ ]        | Verify effective path used                          |
-| `ExtensionVerb` duplicates `GetVerbs()` data               | Unified on `[ExtensionVerb]`                                        | [x]        | `GetVerbs()` contract removed                       |
-| Built-ins `login` and `config` command map maintenance     | TBD                                                                 | [ ]        | Assess manual-edit requirement                      |
+| Scenario                                                   | Expected behavior                                                   | Test added | Notes                                                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- |
+| Same extension in builtin and versioned dirs               | Pin first, then higher version; equal version -> deterministic pick | [x]        | Automated + local validation                                                  |
+| Same command from same extension identity in both dirs     | Select one winner via precedence; no collision error                | [x]        | Automated + local validation                                                  |
+| Same command from different extension identities           | Hard-fail collision error                                           | [x]        | Automated + local validation (`extension add --path` rejected duplicate leaf) |
+| Custom `assemblyLoading.builtinInstallationDir` override   | TBD                                                                 | [ ]        | Verify effective path used                                                    |
+| Custom `assemblyLoading.versionedInstallationDir` override | TBD                                                                 | [ ]        | Verify effective path used                                                    |
+| `ExtensionVerb` duplicates `GetVerbs()` data               | Unified on `[ExtensionVerb]`                                        | [x]        | `GetVerbs()` contract removed                                                 |
+| Built-ins `login` and `config` command map maintenance     | TBD                                                                 | [ ]        | Assess manual-edit requirement                                                |
 
 ## Pending Decisions (Not Locked)
 
