@@ -75,7 +75,7 @@ public static class CliExtensionServiceRegistration
                     // Capture discovered extensions and convert to registry entries.
                     if (result is List<DiscoveredExtensionInfo> infos)
                     {
-                        foreach (var info in infos)
+                        foreach (var info in SelectInstalledCandidates(infos, currentRegistry))
                         {
                             if (s_builtInPackageIds.Contains(info.PackageId))
                             {
@@ -121,6 +121,17 @@ public static class CliExtensionServiceRegistration
         {
             // Best-effort fallback for degraded environments where discovery cannot run.
             return currentRegistry;
+        }
+    }
+
+    private static IEnumerable<DiscoveredExtensionInfo> SelectInstalledCandidates(
+        IEnumerable<DiscoveredExtensionInfo> infos,
+        ExtensionRegistry currentRegistry)
+    {
+        foreach (var group in infos.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
+        {
+            currentRegistry.Extensions.TryGetValue(group.Key, out var persistedPreference);
+            yield return ExtensionCandidateSelector.Select(group.ToList(), persistedPreference).Selected;
         }
     }
 

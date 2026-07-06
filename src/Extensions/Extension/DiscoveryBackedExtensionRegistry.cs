@@ -18,8 +18,11 @@ internal static class DiscoveryBackedExtensionRegistry
         var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
         var infos = RunDiscoverySession();
 
-        foreach (var info in infos)
+        foreach (var group in infos.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
         {
+            fileRegistry.Extensions.TryGetValue(group.Key, out var fileEntry);
+            var info = ExtensionCandidateSelector.Select(group.ToList(), fileEntry).Selected;
+
             if (s_builtInPackageIds.Contains(info.PackageId))
             {
                 continue;

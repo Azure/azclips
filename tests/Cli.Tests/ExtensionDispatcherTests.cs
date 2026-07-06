@@ -132,7 +132,7 @@ public class ExtensionDispatcherTests
     // These tests build a dispatcher with a synthetic LeafIndex so we can exercise leaf-level
     // routing in isolation, independent of the on-disk registry.
 
-    private static ExtensionDispatcher CreateLeafDispatcher(params (string Verb, string Path, string PackageId, bool IsBuiltIn)[] leaves)
+    private static ExtensionDispatcher CreateLeafDispatcher(params (string Verb, string Path, string PackageId, bool IsBuiltIn, string Version)[] leaves)
     {
         var registry = new ExtensionRegistry();
         var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase);
@@ -149,7 +149,7 @@ public class ExtensionDispatcherTests
                 {
                     entry = new ExtensionRegistryEntry
                     {
-                        Version = "1.0.0",
+                        Version = leaf.Version,
                         InstalledAt = DateTimeOffset.UtcNow,
                     };
                     registry.Extensions[leaf.PackageId] = entry;
@@ -169,7 +169,7 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldRouteLeaf_ByLongestPrefixMatch()
     {
         var dispatcher = CreateLeafDispatcher(
-            ("vm", "create", "Microsoft.Azure.Azclips.Extensions.Compute", false));
+            ("vm", "create", "Microsoft.Azure.Azclips.Extensions.Compute", false, "1.0.0"));
 
         var invocation = dispatcher.Parse(["vm", "create", "--name", "foo"]);
 
@@ -184,8 +184,8 @@ public class ExtensionDispatcherTests
         // Multi-token leaf keys with positional residual binding.
         // Both ("vm", "create") and ("vm", "create extra") are registered; the longer wins.
         var dispatcher = CreateLeafDispatcher(
-            ("vm", "create", "Pkg.A", false),
-            ("vm", "create extra", "Pkg.A", false));
+            ("vm", "create", "Pkg.A", false, "1.0.0"),
+            ("vm", "create extra", "Pkg.A", false, "1.0.0"));
 
         var invocation = dispatcher.Parse(["vm", "create", "extra", "--name", "foo"]);
 
@@ -198,7 +198,7 @@ public class ExtensionDispatcherTests
         // Tokens past the longest matched leaf become positional
         // residual (parsed under the empty-string parameter key by ExtensionParser).
         var dispatcher = CreateLeafDispatcher(
-            ("vm", "create", "Pkg.A", false));
+            ("vm", "create", "Pkg.A", false, "1.0.0"));
 
         var invocation = dispatcher.Parse(["vm", "create", "myvm", "--size", "Standard_D2s_v3"]);
 
@@ -211,7 +211,7 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldRouteBuiltInRoot_ByVerb()
     {
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login"]);
 
@@ -225,7 +225,7 @@ public class ExtensionDispatcherTests
         // Built-ins contribute only (verb, ""). The dispatcher matches that, then prepends `verb`
         // to whatever ExtensionParser pulls out of the residual — yielding "login logout".
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login", "logout"]);
 
@@ -261,7 +261,7 @@ public class ExtensionDispatcherTests
         // could convert this to a typed AzclipsErrorException.CommandNotFound; if so, update
         // this assertion at that time.
         var dispatcher = CreateLeafDispatcher(
-            ("vm", "create", "Pkg.A", false));
+            ("vm", "create", "Pkg.A", false, "1.0.0"));
 
         Assert.Throws<KeyNotFoundException>(() => dispatcher.Parse(["nonexistentverb"]));
     }
@@ -293,6 +293,17 @@ public class ExtensionDispatcherTests
         Assert.Equal("Resources", positional[0][0]);
     }
 
+    [Fact]
+    public void Parse_ShouldCarrySelectedInstalledVersion_OnLeafMatch()
+    {
+        var dispatcher = CreateLeafDispatcher(
+            ("vm", "create", "Microsoft.Azure.Azclips.Extensions.Compute", false, "1.2.3"));
+
+        var invocation = dispatcher.Parse(["vm", "create"]);
+
+        Assert.Equal("1.2.3", invocation.ModuleVersion);
+    }
+
     // -------- Intermediate-group help path --------
     //
     // Regression: `az deployment group --help` is parsed with IsCommandHelp=true (the parser
@@ -306,7 +317,7 @@ public class ExtensionDispatcherTests
     {
         // Locks down the parser side of the contract: tokens past the verb cause IsCommandHelp=true.
         var dispatcher = CreateLeafDispatcher(
-            ("deployment", "group create", "Microsoft.Azure.Azclips.Extensions.Resources", false));
+            ("deployment", "group create", "Microsoft.Azure.Azclips.Extensions.Resources", false, "1.0.0"));
 
         var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["deployment", "group", "--help"]));
 

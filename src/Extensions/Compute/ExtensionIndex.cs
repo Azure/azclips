@@ -345,7 +345,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "zzzzThe name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()

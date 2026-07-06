@@ -73,7 +73,7 @@ public class ExtensionDispatcher //: IParser
             var path = string.Join(" ", nonFlagLeadingArgs, 0, len);
             if (_leafIndex.Value.TryGet(verb, path, out var leaf) && leaf is not null)
             {
-                resolved = new ResolvedExtension(verb, leaf.PackageId, Version: null);
+                resolved = new ResolvedExtension(verb, leaf.PackageId, leaf.Version);
                 matchedPathTokens = len;
                 break;
             }
@@ -130,7 +130,13 @@ public class ExtensionDispatcher //: IParser
             commandName = string.IsNullOrEmpty(subCommand) ? verb : $"{verb} {subCommand}";
         }
 
-        return new CommandInvocation(extensionName, commandName, parameters, IsTransient: true, ModuleName: extensionName);
+        return new CommandInvocation(
+            extensionName,
+            commandName,
+            parameters,
+            IsTransient: true,
+            ModuleName: extensionName,
+            ModuleVersion: resolved.Version);
     }
 
     private static bool IsBareTopLevelHelp(string[] args)

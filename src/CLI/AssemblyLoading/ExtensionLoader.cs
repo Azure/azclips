@@ -187,10 +187,31 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                     continue;
                 }
 
+                var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId);
+
                 seen.Add(shortName);
-                yield return (shortName, string.Empty);
+                yield return (shortName, discoveredVersion);
             }
         }
+    }
+
+    private static string ResolvePackageVersionFromNupkg(string packageDir, string packageId)
+    {
+        var prefix = packageId + ".";
+        var versions = Directory.EnumerateFiles(packageDir, "*.nupkg", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileName)
+            .Where(fileName => !string.IsNullOrWhiteSpace(fileName))
+            .Select(fileName => fileName!)
+            .Where(fileName => fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                               fileName.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
+            .Select(fileName => fileName[prefix.Length..^".nupkg".Length])
+            .Select(versionText => NuGetVersion.TryParse(versionText, out var parsed) ? parsed : null)
+            .Where(parsed => parsed is not null)
+            .Cast<NuGetVersion>()
+            .OrderByDescending(parsed => parsed)
+            .ToList();
+
+        return versions.Count == 0 ? string.Empty : versions[0].ToString();
     }
 }
 

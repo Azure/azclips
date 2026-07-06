@@ -220,9 +220,43 @@ public sealed class RuntimeHelpDispatcher
             return [];
         }
 
-        return discoveredInfos
+        var discovered = discoveredInfos
             .Where(static info => !string.IsNullOrWhiteSpace(info.PackageId))
             .ToList();
+
+        return SelectPreferredCandidates(discovered);
+    }
+
+    private static IReadOnlyList<DiscoveredExtensionInfo> SelectPreferredCandidates(IReadOnlyList<DiscoveredExtensionInfo> discovered)
+    {
+        if (discovered.Count == 0)
+        {
+            return discovered;
+        }
+
+        ExtensionRegistry? registry = null;
+        try
+        {
+            registry = new FileExtensionRegistryStore().Load();
+        }
+        catch
+        {
+            // Help discovery should remain resilient in degraded environments.
+        }
+
+        var selected = new List<DiscoveredExtensionInfo>();
+        foreach (var group in discovered.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
+        {
+            ExtensionRegistryEntry? persisted = null;
+            if (registry is not null && registry.Extensions.TryGetValue(group.Key, out var entry))
+            {
+                persisted = entry;
+            }
+
+            selected.Add(ExtensionCandidateSelector.Select(group.ToList(), persisted).Selected);
+        }
+
+        return selected;
     }
 
     private bool TryResolveExtension(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)

@@ -61,9 +61,12 @@ internal class DiscoverySession : ISession
             {
                 try
                 {
-                    IExtensionIndex index = isTransient
-                        ? asmFunc().GetExtensionIndex()
-                        : CacheGetOrAdd(info.Name, info.Version, () => asmFunc().GetExtensionIndex());
+                    var resolvedVersion = GetExtensionVersion(info.Name);
+                    var versionToLoad = string.IsNullOrWhiteSpace(resolvedVersion)
+                        ? info.Version
+                        : resolvedVersion;
+
+                    IExtensionIndex index = LoadDiscoveredIndex(info.Name, versionToLoad);
 
                     var commands = index.GetAllCommands(clientType)
                         .ToDictionary(c => c.InvocationName);
@@ -71,7 +74,7 @@ internal class DiscoverySession : ISession
 
                     extensionInfos.Add(new DiscoveredExtensionInfo(
                         PackageId: packageId,
-                        ResolvedVersion: info.Version,
+                        ResolvedVersion: versionToLoad,
                         Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
                         Commands: commands));
                 }
@@ -134,6 +137,34 @@ internal class DiscoverySession : ISession
         }
 
         await sessionOutputWriter(extensionInfos, EventBus.Token);
+    }
+
+    private IExtensionIndex LoadDiscoveredIndex(string extensionName, string versionToLoad)
+    {
+        if (isTransient)
+        {
+            return LoadAssemblyWithFallback(extensionName, versionToLoad).GetExtensionIndex();
+        }
+
+        return CacheGetOrAdd(
+            extensionName,
+            versionToLoad,
+            () => LoadAssemblyWithFallback(extensionName, versionToLoad).GetExtensionIndex());
+    }
+
+    private Assembly LoadAssemblyWithFallback(string extensionName, string versionToLoad)
+    {
+        try
+        {
+            return LoadAssembly.Invoke(extensionName, versionToLoad);
+        }
+        catch when (!string.IsNullOrWhiteSpace(versionToLoad))
+        {
+            // Some loader sources (install-root extension directories) do not support explicit
+            // version selection and require version=null to resolve. Keep the selected version
+            // as metadata, but retry load without a version so discovery remains resilient.
+            return LoadAssembly.Invoke(extensionName, string.Empty);
+        }
     }
 
     private static string ResolvePackageId(IExtensionIndex index, IReadOnlyDictionary<string, CommandMetadata> commands, string fallbackIdentifier)
