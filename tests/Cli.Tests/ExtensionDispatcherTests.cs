@@ -6,7 +6,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Config;
+using Microsoft.Azure.Azclips.Extensions.Config;
 using Tests.Common.Utilities;
 using Xunit;
 
@@ -119,12 +119,12 @@ public class ExtensionDispatcherTests
             "Login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
-        var commandHelp = helpProvider.GetCommandHelp(["login", "show"]);
+        var commandHelp = helpProvider.GetCommandHelp(["login"]);
 
         Assert.NotNull(groupHelp);
         Assert.NotNull(commandHelp);
         Assert.Equal("login", groupHelp!.GroupPath);
-        Assert.Equal("login show", commandHelp!.CommandPath);
+        Assert.Equal("login", commandHelp!.CommandPath);
     }
 
     // -------- Longest-prefix dispatch --------
@@ -258,7 +258,7 @@ public class ExtensionDispatcherTests
     {
         // Pins current behavior, not desired contract: today the dispatcher leaks the
         // resolver's underlying KeyNotFoundException for an unknown verb. A future change
-        // could convert this to a typed CirrusErrorException.CommandNotFound; if so, update
+        // could convert this to a typed AzclipsErrorException.CommandNotFound; if so, update
         // this assertion at that time.
         var dispatcher = CreateLeafDispatcher(
             ("vm", "create", "Pkg.A", false));
@@ -275,7 +275,7 @@ public class ExtensionDispatcherTests
         // command name "extension remove Resources". See BuiltInExtensions.Map.
         var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
         {
-            ["extension"] = new("extension", "Microsoft.Azure.Cirrus.Extensions.Extension")
+            ["extension"] = new("extension", "Microsoft.Azure.Azclips.Extensions.Extension")
             {
                 Leaves = new[] { "add", "list", "show", "remove" },
             },

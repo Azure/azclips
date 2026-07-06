@@ -16,7 +16,7 @@ namespace Core.Abstractions
     /// Provider-specific extension identifier passed to
     /// <see cref="IAssemblyLoadingProvider.LoadExtension"/>. Depending on provider,
     /// this may be a full package id (for example,
-    /// <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>) or a short extension name
+    /// <c>Microsoft.Azure.Azclips.Extensions.Compute</c>) or a short extension name
     /// (for example, <c>Compute</c>).
     /// </param>
     /// <param name="Version">The version directory name (e.g. <c>1.1.0</c>).</param>

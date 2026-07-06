@@ -6,14 +6,14 @@
 #
 # Shared test context:
 #   subscription: 282bb33f-067d-4179-a7a4-b833c13af735
-#   resource group: cirrus-test-group-1 (region: australiaeast)
+#   resource group: azclips-test-group-1 (region: australiaeast)
 # The resource-group-scoped what-if inherits the resource group's region,
 # so no location flag is required here.
 
 # Run unattended: on a command ERROR az normally hands off to the interactive
 # agent-mode TUI (which would block on input). Disable the agent via config so the
 # classic error and a non-zero exit surface instead, and the negative cases below
-# don't hang. (The old CIRRUS_AGENT_DISABLED env var was removed; the agent now
+# don't hang. (The old AZCLIPS_AGENT_DISABLED env var was removed; the agent now
 # reads config.agent.enabled and also auto-skips when stdin isn't a TTY.)
 az config set --key agent.enabled --value false
 
@@ -27,8 +27,8 @@ BICEP_DIR="$SCRIPT_DIR/../Bicep"
 # Happy path (template-uri): preview a public quickstart template in Incremental mode.
 az deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-whatif-1 \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-whatif-1 \
     --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json \
     --mode Incremental \
     --debug
@@ -37,22 +37,22 @@ az deployment group what-if \
 # preview it. Requires the Bicep CLI on PATH or the az-bundled bicep (~/.azure/bin/bicep).
 az deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-whatif-bicep \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-whatif-bicep \
     --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
     --mode Incremental \
     --debug
 
-# Inline-parameter precedence: the .bicepparam supplies storageAccountName=cirrusbicep0001
+# Inline-parameter precedence: the .bicepparam supplies storageAccountName=azclipsbicep0001
 # (the base); the repeatable --parameter overrides it, proving inline overlays the file.
 az deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-whatif-inline \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-whatif-inline \
     --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
-    --parameter "storageAccountName=cirruswhatifinline" \
+    --parameter "storageAccountName=azclipswhatifinline" \
     --mode Incremental \
     --debug
 
@@ -60,10 +60,10 @@ az deployment group what-if \
 # (no full before/after payloads).
 az deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-whatif-idonly \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-whatif-idonly \
     --template-file "$BICEP_DIR/sample-storage.bicep" \
-    --parameter "storageAccountName=cirruswhatifidonly" \
+    --parameter "storageAccountName=azclipswhatifidonly" \
     --result-format ResourceIdOnly \
     --mode Incremental \
     --debug
@@ -72,8 +72,8 @@ az deployment group what-if \
 # diagnostics (non-zero exit -> InvalidOperationException). No what-if is run.
 az deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-whatif-bicep-negative \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-whatif-bicep-negative \
     --template-file "$BICEP_DIR/malformed.bicep" \
     --mode Incremental \
     --debug
@@ -83,8 +83,8 @@ az deployment group what-if \
 # allowed values (FullResourcePayloads, ResourceIdOnly) and does NOT run a what-if.
 az deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-whatif-rf-negative \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-whatif-rf-negative \
     --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json \
     --result-format Foo \
     --mode Incremental \
@@ -98,8 +98,9 @@ az deployment group what-if \
 # a successful no-change result.
 az deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
-    --resource-group cirrus-test-group-1 \
-    --name cirrus-test-whatif-apierror \
+    --resource-group azclips-test-group-1 \
+    --name azclips-test-whatif-apierror \
     --template-file "$BICEP_DIR/whatif-invalid-template.json" \
     --mode Incremental \
     --debug
+

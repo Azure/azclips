@@ -8,8 +8,8 @@ During each PR and push to `main`, performance benchmarks are run and compared a
 - **On push to `main`** — new results are published to GitHub Pages, updating the baseline for future comparisons.
 
 **Dashboard:**
-- CLI — https://azure.github.io/cirrus/dev/bench/cli/
-- PS — https://azure.github.io/cirrus/dev/bench/ps/
+- CLI — https://azure.github.io/azclips/dev/bench/cli/
+- PS — https://azure.github.io/azclips/dev/bench/ps/
 
 ### `benchmark.yml` — Performance Benchmarks
 

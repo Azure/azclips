@@ -4,9 +4,9 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Microsoft.Azure.Cirrus.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 // What-if is a read-only preview: it never creates or modifies resources, so it intentionally
 // does NOT declare SupportsShouldProcess/ConfirmImpact (there is nothing to confirm).
@@ -59,12 +59,12 @@ public class NewResourceGroupDeploymentWhatIfCmdlet : PSCmdlet
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "ResourcesError", ErrorCategory.NotSpecified);
-        engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected override void ProcessRecord()
     {
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))

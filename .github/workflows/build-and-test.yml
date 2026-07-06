@@ -23,14 +23,14 @@ jobs:
           global-json-file: global.json
 
       - name: Restore dependencies
-        run: dotnet restore cirrus.slnx
+        run: dotnet restore azclips.slnx
 
       - name: Build
-        run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
+        run: dotnet build azclips.slnx --no-restore --configuration Debug # Should be Release but
         # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
       - name: Run tests
-        run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
+        run: dotnet test azclips.slnx --no-build --configuration Debug --verbosity normal
 
       - name: E2E - CLI Help
         run: |
@@ -65,14 +65,14 @@ jobs:
           global-json-file: global.json
 
       - name: Restore dependencies
-        run: dotnet restore cirrus.slnx
+        run: dotnet restore azclips.slnx
 
       - name: Build
-        run: dotnet build cirrus.slnx --no-restore --configuration Debug
+        run: dotnet build azclips.slnx --no-restore --configuration Debug
 
       - name: Validate help content
         run: |
-          dotnet run --project tools/Help/Cirrus.Help.Tool/Cirrus.Help.Tool.csproj --no-build --configuration Debug -- \
+          dotnet run --project tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj --no-build --configuration Debug -- \
             --artifacts-root artifacts/Debug \
             --output-root artifacts/help
 
@@ -89,10 +89,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore dependencies
-        run: dotnet restore tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
+        run: dotnet restore tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj
 
       - name: Build help tool tests
-        run: dotnet build tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-restore --configuration Debug
+        run: dotnet build tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-restore --configuration Debug
 
       - name: Run help tool tests
-        run: dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal
+        run: dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal

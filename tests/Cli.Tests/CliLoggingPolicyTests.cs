@@ -10,7 +10,7 @@ using Core.Configuration.Schema;
 
 namespace Cli.Tests;
 
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class CliLoggingPolicyTests
 {
     [Theory]
@@ -63,8 +63,8 @@ public class CliLoggingPolicyTests
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
         await service.SetConfigurationAsync("core.logging.level", "warn");
-        var originalLogLevel = Environment.GetEnvironmentVariable("CIRRUS_LOG_LEVEL");
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+        var originalLogLevel = Environment.GetEnvironmentVariable("AZCLIPS_LOG_LEVEL");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
 
         try
         {
@@ -74,7 +74,7 @@ public class CliLoggingPolicyTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", originalLogLevel);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", originalLogLevel);
         }
     }
 
@@ -92,7 +92,7 @@ public class CliLoggingPolicyTests
 
     private sealed class TempConfigurationFixture : IDisposable
     {
-        private readonly string _directory = Path.Combine(Path.GetTempPath(), "cirrus-cli-logging-policy-tests", Guid.NewGuid().ToString("N"));
+        private readonly string _directory = Path.Combine(Path.GetTempPath(), "azclips-cli-logging-policy-tests", Guid.NewGuid().ToString("N"));
 
         public TempConfigurationFixture()
         {

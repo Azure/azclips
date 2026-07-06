@@ -45,15 +45,17 @@ namespace Core.Extensions
             new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
                 // True core — present in every install, never removed.
-                ["extension"] = new("extension", "Microsoft.Azure.Cirrus.Extensions.Extension")
+                ["extension"] = new("extension", "Microsoft.Azure.Azclips.Extensions.Extension")
                 {
                     Leaves = new[] { "add", "list", "show", "remove", "update", "pin", "unpin" },
                 },
-                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login")
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
+                ["logout"] = new("logout", "Microsoft.Azure.Azclips.Extensions.Login"),
+                ["profile"] = new("profile", "Microsoft.Azure.Azclips.Extensions.Login")
                 {
-                    Leaves = new[] { "logout", "show" },
+                    Leaves = new[] { "list", "show", "set", "remove" },
                 },
-                ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config")
+                ["config"] = new("config", "Microsoft.Azure.Azclips.Extensions.Config")
                 {
                     Leaves = new[] { "get", "set", "delete", "list", "info" },
                 },

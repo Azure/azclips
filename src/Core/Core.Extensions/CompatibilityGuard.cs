@@ -10,7 +10,7 @@ using NuGet.Versioning;
 namespace Core.Extensions
 {
     /// <summary>
-    /// Enforces <c>[CirrusCompatibility(MinCoreVersion, MaxCoreVersion)]</c> ranges against a
+    /// Enforces <c>[AzclipsCompatibility(MinCoreVersion, MaxCoreVersion)]</c> ranges against a
     /// caller-supplied <em>current</em> core version. Pure, callable from both install
     /// (hard fail) and load (warn-and-skip) sites.
     /// </summary>
@@ -38,8 +38,8 @@ namespace Core.Extensions
     public static class CompatibilityGuard
     {
         // Match by FullName so we don't need to load Core.Abstractions into the metadata-only
-        // context. Keep in sync with CirrusCompatibilityAttribute.
-        private const string AttributeFullName = "Core.Abstractions.CirrusCompatibilityAttribute";
+        // context. Keep in sync with AzclipsCompatibilityAttribute.
+        private const string AttributeFullName = "Core.Abstractions.AzclipsCompatibilityAttribute";
 
         /// <summary>
         /// Result of a compatibility check.
@@ -110,7 +110,7 @@ namespace Core.Extensions
 
         /// <summary>
         /// Inspect every DLL in <paramref name="extensionDirectory"/> for an assembly-level
-        /// <c>[CirrusCompatibility]</c> attribute and check it against
+        /// <c>[AzclipsCompatibility]</c> attribute and check it against
         /// <paramref name="currentCoreVersion"/>. Returns the first decisive result encountered;
         /// if no attribute is found on any DLL, returns compatible (per the tolerant default).
         /// </summary>

@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+using Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 using Xunit;
 
 namespace Cli.Tests;
@@ -86,7 +86,7 @@ public class ExtensionPinTests
     {
         var registry = RegistryWithMultiLeafExtension(pinned: false);
 
-        var ex = Assert.Throws<CirrusErrorException>(
+        var ex = Assert.Throws<AzclipsErrorException>(
             () => PinHelper.ApplyPinChange(registry, name: "no-such-extension", pinned: true));
 
         Assert.Equal("ExtensionNotFound", ex.Code);
@@ -100,7 +100,7 @@ public class ExtensionPinTests
         // Instead, the lookup misses and the error message suggests the package short name.
         var registry = RegistryWithMultiLeafExtension(pinned: false);
 
-        var ex = Assert.Throws<CirrusErrorException>(
+        var ex = Assert.Throws<AzclipsErrorException>(
             () => PinHelper.ApplyPinChange(registry, name: "deployment", pinned: true));
 
         Assert.Equal("ExtensionNotFound", ex.Code);
@@ -126,7 +126,7 @@ public class ExtensionPinTests
         // Registry writes are preferences-only in §5.2+, so contributions/namespaces are
         // intentionally dropped during Save(). This check verifies pin state survives while
         // installed-state metadata is not persisted.
-        var tempPath = Path.Combine(Path.GetTempPath(), $"cirrus-pin-test-{Guid.NewGuid():N}.json");
+        var tempPath = Path.Combine(Path.GetTempPath(), $"azclips-pin-test-{Guid.NewGuid():N}.json");
         try
         {
             var registry = RegistryWithMultiLeafExtension(pinned: false);
@@ -146,3 +146,4 @@ public class ExtensionPinTests
         }
     }
 }
+

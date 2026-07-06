@@ -6,7 +6,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Common;
+namespace Microsoft.Azure.Azclips.Cmdlets.Common;
 
 internal enum LogLevel
 {
@@ -110,7 +110,7 @@ internal static class CmdletOutputStreamsFactory
 
     private static LogLevel ResolveEffectiveLevel()
     {
-        var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+        var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
         var configured = configurationService.GetConfiguration<CoreOptions>().Logging.Level;
         return Parse(configured);
     }

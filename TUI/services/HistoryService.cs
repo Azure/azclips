@@ -5,10 +5,10 @@ namespace Core.Tui.Services;
 /// </summary>
 class HistoryService
 {
-    private static readonly string CirrusDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
-    private static readonly string AzureHistoryPath = Path.Combine(CirrusDir, "tui_history_azure.txt");
-    private static readonly string LocalHistoryPath = Path.Combine(CirrusDir, "tui_history_local.txt");
+    private static readonly string AzclipsDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
+    private static readonly string AzureHistoryPath = Path.Combine(AzclipsDir, "tui_history_azure.txt");
+    private static readonly string LocalHistoryPath = Path.Combine(AzclipsDir, "tui_history_local.txt");
 
     private readonly List<string> _azureHistory = new();
     private readonly List<string> _localHistory = new();
@@ -90,7 +90,7 @@ class HistoryService
         try
         {
             var path = mode == ShellMode.Azure ? AzureHistoryPath : LocalHistoryPath;
-            Directory.CreateDirectory(CirrusDir);
+            Directory.CreateDirectory(AzclipsDir);
             await File.AppendAllTextAsync(path, command + Environment.NewLine);
         }
         catch { /* silently ignore */ }

@@ -5,11 +5,12 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Core.Extensions
 {
     /// <summary>
-    /// File-backed registry store. Default path is <c>~/.cirrus/extensions/registry.json</c>.
+    /// File-backed registry store. Default path is <c>~/.azclips/extensions/registry.json</c>.
     /// Writes are atomic: serialize to a sibling <c>.tmp</c> file then rename over the target.
     /// </summary>
     public sealed class FileExtensionRegistryStore : IExtensionRegistryStore
@@ -106,7 +107,7 @@ namespace Core.Extensions
                 var current = File.GetLastWriteTimeUtc(_path);
                 if (current != expected)
                 {
-                    throw CirrusErrorException.RegistryConcurrency(
+                    throw AzclipsErrorException.RegistryConcurrency(
                         $"Registry file '{_path}' was modified by another process between this command's read " +
                         $"and write. Retry the command. (expected write time {expected:o}, current {current:o})",
                         new Dictionary<string, object?>
@@ -178,7 +179,7 @@ namespace Core.Extensions
         /// <summary>
         /// Verifies the leaf-uniqueness invariant: no two contributions in the registry may
         /// declare the same <c>(verb, path)</c> tuple, whether they belong to different entries
-        /// or to the same entry. Throws <see cref="CirrusErrorException.RegistryInvalid"/> on
+        /// or to the same entry. Throws <see cref="AzclipsErrorException.RegistryInvalid"/> on
         /// violation so callers can recover (e.g. by editing the file).
         /// </summary>
         /// <remarks>
@@ -197,7 +198,7 @@ namespace Core.Extensions
                     var key = string.IsNullOrEmpty(c.Path) ? c.Verb : $"{c.Verb} {c.Path}";
                     if (!perEntrySeen.Add(key))
                     {
-                        throw CirrusErrorException.RegistryInvalid(
+                        throw AzclipsErrorException.RegistryInvalid(
                             $"Registry entry '{packageId}' contains duplicate contribution '{key}'. " +
                             $"Edit registry.json to remove the duplicate, or run 'az extension remove' " +
                             $"and reinstall.",
@@ -210,7 +211,7 @@ namespace Core.Extensions
                     if (seen.TryGetValue(key, out var owner) &&
                         !string.Equals(owner, packageId, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw CirrusErrorException.RegistryInvalid(
+                        throw AzclipsErrorException.RegistryInvalid(
                             $"Registry contains duplicate contribution '{key}' claimed by both '{owner}' and '{packageId}'. " +
                             $"Edit registry.json to remove one, or run 'az extension remove' for the offender.",
                             new Dictionary<string, object?>
@@ -278,12 +279,11 @@ namespace Core.Extensions
         }
 
         /// <summary>
-        /// Computes the default registry path: <c>~/.cirrus/extensions/registry.json</c>.
+        /// Computes the default registry path: <c>~/.azclips/extensions/registry.json</c>.
         /// </summary>
         public static string DefaultPath()
         {
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            return System.IO.Path.Combine(home, ".cirrus", "extensions", "registry.json");
+            return HomePaths.GetDefaultRegistryPath();
         }
     }
 }

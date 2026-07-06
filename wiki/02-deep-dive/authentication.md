@@ -1,402 +1,341 @@
 ---
-title: Authentication & Authorization
-description: MSAL-based authentication flows, token cache persistence, AuthContext state management, bearer token injection via AuthHandler, and the Login/Logout command implementations in Cirrus.
+title: Authentication (MSAL)
+description: How Azclips authenticates to Azure with MSAL — ARM-scoped tokens, device-code vs interactive login, the shared cross-platform token cache, profile-scoped logout, and how the resolved Profile flows through the HTTP auth pipeline.
+outline: deep
 ---
 
-# Authentication & Authorization
+# Authentication (MSAL)
 
-Cirrus authenticates users against Microsoft Entra ID (Azure AD) using the Microsoft Authentication Library (MSAL). The authentication subsystem manages three concerns: **acquiring tokens** (interactive and device-code flows), **persisting auth state** (token cache and auth context on disk), and **injecting tokens** into outbound HTTP requests via a delegating handler pipeline.
+## Overview — why this design
 
-## Authentication Architecture
+Azclips is a CLI that calls Azure Resource Manager (ARM) on the user's behalf. Every
+authenticated call needs a valid bearer token, and users expect to sign in once and have
+subsequent commands "just work" without re-prompting. To achieve this, the authentication
+subsystem is built on **Microsoft.Identity.Client (MSAL)** and is deliberately split into two
+concerns:
+
+1. **Token acquisition & cache management** — owned by `MsalAuthService`
+   (`src/Core/Core.Authentication/MsalAuthService.cs:11`), which implements the MSAL-agnostic
+   `IAuthService` contract (`src/Core/Core.Abstractions/IAuthService.cs:9`).
+2. **Token *usage*** — owned by the engine's `AuthHandler`
+   (`src/Core/Core.Runtime/Handler/AuthHandler.cs:14`), a step in the HTTP pipeline that attaches
+   a `Bearer` header to each outgoing request.
+
+The key architectural decision is that **`IAuthService` returns a simplified, MSAL-independent
+`AuthResult`** (`src/Core/Core.Abstractions/Models/AuthResult.cs:11`) rather than leaking MSAL's
+`AuthenticationResult` type across the whole codebase. This keeps the rest of Azclips free of a
+hard MSAL dependency, so the auth provider could be swapped without touching every processor.
+
+> **Naming note.** Product code, cache keyrings and the `~/.azclips` home directory all use the
+> **Azclips** codename. The target framework is **net10.0**.
+
+## Component map
 
 ```mermaid
-flowchart TB
-    subgraph User["User Interaction"]
-        direction LR
-        Login["LoginProcessor"]
-        Logout["LogoutProcessor"]
+graph TD
+    subgraph host["Host process (az)"]
+        LP["LoginProcessor<br>LogoutProcessor"]
+        ENG["Engine.CreateProcessorContext"]
+        AH["AuthHandler<br>(HTTP pipeline step)"]
+    end
+    subgraph auth["Core.Authentication"]
+        SVC["MsalAuthService : IAuthService"]
+        EXT["AuthResultExtensions<br>ToAuthResult()"]
+    end
+    subgraph msal["Microsoft.Identity.Client"]
+        PCA["PublicClientApplication"]
+        CACHE["MsalCacheHelper<br>MSAL.cache.plaintext"]
     end
 
-    subgraph Auth["Authentication Layer"]
-        direction TB
-        MAS["MsalAuthService"]
-        ACS["AuthContextService"]
-        MSAL["MSAL PCA"]
-        Cache["Token Cache<br>MSAL.cache.plaintext"]
-        Context["context.json"]
+    LP -->|"LoginAsync / LogoutAsync"| SVC
+    ENG -->|"AcquireTokenAsyncDefault ="| SVC
+    AH -->|"Profile.TenantId"| SVC
+    SVC --> PCA
+    SVC --> EXT
+    PCA --> CACHE
 
-        MAS --> MSAL
-        MSAL --> Cache
-        ACS --> Context
-    end
-
-    subgraph HTTP["HTTP Pipeline"]
-        direction LR
-        CAH["AuthHandler"]
-        Bearer["Authorization: Bearer token"]
-        ARM["Azure Resource Manager"]
-
-        CAH --> Bearer
-        Bearer --> ARM
-    end
-
-    Login --> MAS
-    Login --> ACS
-    Logout --> MAS
-    Logout --> ACS
-
-    MAS -.->|silent token| CAH
-    ACS -.->|TenantId| CAH
-
-    style User fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Auth fill:#161b22,stroke:#30363d,color:#e6edf3
-    style HTTP fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Login fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Logout fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style MAS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ACS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style MSAL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Cache fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Context fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CAH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Bearer fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ARM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-
-    linkStyle 0,1,2,3,4,5,6,7,8,9 stroke:#8b949e
+    style host fill:#161b22,stroke:#30363d,color:#e6edf3
+    style auth fill:#161b22,stroke:#30363d,color:#e6edf3
+    style msal fill:#161b22,stroke:#30363d,color:#e6edf3
+    style LP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style ENG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style AH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SVC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style EXT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PCA fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CACHE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    linkStyle default stroke:#8b949e
 ```
 
-## IAuthService Interface
+## The `IAuthService` contract
 
-The `IAuthService` contract (`src/Core/Core.Abstractions/IAuthService.cs:6`) defines three operations:
+`IAuthService` exposes exactly three operations, deliberately narrow
+(`src/Core/Core.Abstractions/IAuthService.cs:17`):
 
-| Method | Returns | Purpose |
-|---|---|---|
-| `LoginAsync(LoginRequest request, CancellationToken)` | `Task<AuthResult>` | Interactive or device-code login (line 14) |
-| `LogoutAsync(CancellationToken)` | `Task` | Clear tokens and cached credentials (line 21) |
-| `AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError, CancellationToken)` | `Task<AuthResult>` | Silent token acquisition with optional interactive fallback (line 31) |
+| Method | Purpose | Source |
+| --- | --- | --- |
+| `LoginAsync(LoginRequest, ct)` | Interactive/device-code sign-in; returns a fresh `AuthResult` | `IAuthService.cs:17` |
+| `LogoutAsync(string? userPrincipalName, ct)` | Remove **one** account (by UPN) from the shared cache | `IAuthService.cs:27` |
+| `AcquireTokenSilentlyAsync(scopes, tenantId, promptOnError, ct)` | Silent (cache-backed) token acquisition used by the engine | `IAuthService.cs:37` |
 
-## MsalAuthService Implementation
+The single concrete implementation is `MsalAuthService`, constructed with an `ILoggingService`
+and an `ITelemetryService` (`src/Core/Core.Authentication/MsalAuthService.cs:10`). Every public
+method opens a telemetry activity named `MsalAuthService.<Method>` so sign-in latency is traceable
+(`MsalAuthService.cs:17`).
 
-`MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs:7`) implements `IAuthService` using MSAL's `IPublicClientApplication`. It is registered as a singleton by the Bootstrapper (`src/Core/Core.Engine/Bootstrapper.cs:56`).
+### Fixed constants: scope and client id
 
-### Constants
+Two constants define *what* Azclips asks for and *as whom*
+(`src/Core/Core.Authentication/MsalAuthService.cs:12`):
 
 ```csharp
-private const string ArmDefaultScope = "https://management.core.windows.net//.default";  // line 9
-private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2";                  // line 10
+private const string ArmDefaultScope = "https://management.core.windows.net//.default";
+private const string ClientId        = "1950a258-227b-4e31-a9cf-717495945fc2";
 ```
 
-The `ClientId` is the well-known Azure CLI first-party application ID. The ARM scope covers all Azure Resource Manager operations.
+- **`ArmDefaultScope`** — the ARM `.default` scope. The double slash (`windows.net//.default`) is
+  intentional: `.default` is appended to the resource URI `https://management.core.windows.net/`,
+  which itself ends in a slash. This tells Entra ID to issue a token carrying every ARM permission
+  already consented for the app.
+- **`ClientId`** — a well-known Microsoft public-client application id (the same first-party id used
+  by other Azure command-line tools). Because it is a *public* client, no secret is embedded in the
+  binary; MSAL uses the redirect URI + PKCE flow instead.
 
-### LoginAsync Flow
+When no explicit scope is passed, every acquisition falls back to `[ArmDefaultScope]`
+(`MsalAuthService.cs:65`, `:76`, `:146`).
 
-`LoginAsync` (`src/Core/Core.Authentication/MsalAuthService.cs:12-23`) branches based on `request.UseDeviceCodeFlow`:
+## Login: device-code vs interactive
 
-- **Interactive** → `AcquireTokenInteractiveAsync` (line 21): Opens a browser via MSAL with embedded web view disabled (`WithUseEmbeddedWebView(false)`, line 55), using redirect URI `http://localhost:50000` (line 78).
-- **Device code** → `AcquireTokenWithDeviceCodeAsync` (line 17): Logs the device code message for the user to enter at `https://microsoft.com/devicelogin` (lines 66-69).
-
-Both methods call `BuildApp(tenantId)` → `RegisterTokenCacheAsync(app)` → `ExecuteAsync()` → `ToAuthResult()`.
-
-### BuildApp
-
-The `BuildApp` method (`src/Core/Core.Authentication/MsalAuthService.cs:77-81`) constructs an `IPublicClientApplication`:
+`LoginAsync` is a thin branch over the `LoginRequest.UseDeviceCodeFlow` flag
+(`src/Core/Core.Authentication/MsalAuthService.cs:15`):
 
 ```csharp
-PublicClientApplicationBuilder.Create(ClientId)
-    .WithRedirectUri("http://localhost:50000")
-    .WithTenantId(tenantId ?? "72f988bf-86f1-41af-91ab-2d7cd011db47")
-    .Build();
-```
-
-The fallback tenant ID `72f988bf-86f1-41af-91ab-2d7cd011db47` is the Microsoft corporate tenant.
-
-### Token Cache Persistence
-
-`RegisterTokenCacheAsync` (`src/Core/Core.Authentication/MsalAuthService.cs:83-111`) sets up platform-specific token cache persistence:
-
-**Cache location** (line 85):
-```
-{Environment.SpecialFolder.LocalApplicationData}/.cirrus/MSAL.cache[.plaintext]
-```
-
-**Platform-specific encryption** (lines 94-104):
-- **Linux** — `WithLinuxKeyring()` stores cache data in the GNOME Keyring with service `"Microsoft.Project.Cirrus"` (lines 96-101)
-- **macOS** — `WithMacKeyChain()` with service name `"Microsoft Project Cirrus"` (lines 102-104)
-- **Plaintext fallback** — `WithUnprotectedFile()` used when `plaintextUnsafe = true` (line 95)
-
-Currently, all calls pass `plaintextUnsafe: true` (lines 34, 53, 64, 125), meaning the encrypted keyring/keychain paths are defined but not yet active.
-
-### Silent Token Acquisition
-
-`AcquireTokenSilentlyAsync` (`src/Core/Core.Authentication/MsalAuthService.cs:120-152`) is the method used by command execution to get tokens without user interaction:
-
-1. Build the app and register cache (lines 124-125)
-2. Get cached accounts (line 127-128)
-3. If no account found, attempt silent acquisition with `null` account (lines 134-138)
-4. If account found, use it for silent acquisition (line 142)
-5. On `MsalUiRequiredException` when `promptOnError` is true, fall back to interactive (lines 145-148)
-
-### AuthResult Mapping
-
-`AuthResultExtensions.ToAuthResult()` (`src/Core/Core.Authentication/AuthResultExtensions.cs:8-18`) maps the MSAL `AuthenticationResult` to Cirrus's own `AuthResult` model:
-
-```csharp
-new AuthResult
+public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default)
 {
-    AccessToken = msalAuthResult.AccessToken,
-    ExpiresOn = msalAuthResult.ExpiresOn,
-    Scopes = msalAuthResult.Scopes.ToArray(),
-    TenantId = msalAuthResult.TenantId,
-    CorrelationId = msalAuthResult.CorrelationId
+    if (request.UseDeviceCodeFlow)
+        return await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, ct);
+    else
+        return await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, ct);
 }
 ```
 
-## Login Flow: Full Sequence
+| Flow | MSAL call | User experience | Source |
+| --- | --- | --- | --- |
+| **Interactive** (default) | `AcquireTokenInteractive(...).WithUseEmbeddedWebView(false)` | Opens the system browser via the `http://localhost` redirect | `MsalAuthService.cs:65` |
+| **Device code** | `AcquireTokenWithDeviceCode(...)` with a callback that logs the code | Prints "go to microsoft.com/devicelogin and enter code…" — used on headless/SSH hosts | `MsalAuthService.cs:76` |
+
+Both flows are constructed by the shared `BuildApp(tenantId)` helper, which sets the redirect URI
+to `http://localhost` and defaults to the Microsoft corporate tenant when no tenant is supplied
+(`MsalAuthService.cs:87`). After acquisition, `LogTokenMetadataDebug` records the username, token
+source and cache-refresh reason at debug level (`MsalAuthService.cs:164`), and the MSAL result is
+converted to an `AuthResult` via `ToAuthResult()`.
+
+### The `az login` end-to-end sequence
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant User
-    participant LoginCmd as LoginProcessor
-    participant AuthSvc as MsalAuthService
-    participant MSAL as MSAL PCA
-    participant Entra as Microsoft Entra ID
-    participant CtxSvc as AuthContextService
-    participant Disk as context.json
+    participant LP as LoginProcessor
+    participant SVC as MsalAuthService
+    participant MSAL as MSAL / Entra ID
+    participant CACHE as MSAL.cache.plaintext
+    participant PS as IProfileService
 
-    User->>LoginCmd: az login --SubscriptionId sub1 --TenantId t1
-
-    LoginCmd->>LoginCmd: Resolve IAuthService, IAuthContextService
-
-    alt UseDeviceCode == true
-        LoginCmd->>AuthSvc: LoginAsync(request)
-        AuthSvc->>MSAL: AcquireTokenWithDeviceCode(scopes)
-        MSAL->>User: Display device code message
-        User->>Entra: Enter code at microsoft.com/devicelogin
-        Entra-->>MSAL: AuthenticationResult
-    else Interactive (default)
-        LoginCmd->>AuthSvc: LoginAsync(request)
-        AuthSvc->>MSAL: AcquireTokenInteractive(scopes)
-        MSAL->>User: Open browser
-        User->>Entra: Authenticate in browser
-        Entra-->>MSAL: AuthenticationResult via redirect
+    User->>LP: az login --subscription-id ... [--use-device-code]
+    LP->>LP: validate --profile / --out-profile<br>(mutually exclusive)
+    LP->>SVC: LoginAsync(LoginRequest)
+    alt UseDeviceCodeFlow
+        SVC->>MSAL: AcquireTokenWithDeviceCode(scopes)
+        MSAL-->>User: "enter code at microsoft.com/devicelogin"
+    else Interactive
+        SVC->>MSAL: AcquireTokenInteractive(scopes)
+        MSAL-->>User: system browser sign-in
     end
-
-    MSAL-->>AuthSvc: AuthenticationResult
-    AuthSvc->>AuthSvc: ToAuthResult() extension method
-    AuthSvc-->>LoginCmd: AuthResult
-
-    LoginCmd->>LoginCmd: Create AuthContext(SubscriptionId, TenantId)
-    LoginCmd->>CtxSvc: SaveContextAsync(authContext)
-    CtxSvc->>Disk: Serialize to JSON, write context.json
-    CtxSvc-->>LoginCmd: done
-
-    LoginCmd->>User: WriteOutput(authContext)
-
-    style User fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style LoginCmd fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AuthSvc fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style MSAL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Entra fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CtxSvc fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Disk fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    MSAL-->>SVC: AuthenticationResult (+ IAccount)
+    SVC->>CACHE: RegisterCache persists refresh token
+    SVC-->>LP: AuthResult (incl. UserPrincipalName)
+    LP->>PS: SaveAndActivateProfileAsync(Profile)
+    PS-->>User: profile written + set active
 ```
 
-## AuthContextService: Persisted Auth State
+`LoginProcessor` builds a `LoginRequest` from its bound arguments, calls `LoginAsync`, then
+projects the returned `AuthResult` into a `Profile` (carrying `TenantId`, `SubscriptionId`,
+`AuthMethod` and `UserPrincipalName`) and persists it with a single
+`SaveAndActivateProfileAsync` call (`src/Extensions/Login/Processors/LoginProcessor.cs:90`). Note
+that `--profile` **re-authenticates** an existing profile while `--out-profile` **creates** one;
+supplying both fails fast before any network call (`LoginProcessor.cs:46`).
 
-`AuthContextService` (`src/Core/Core.Authentication/AuthContextService.cs:6`) manages the `AuthContext` model, which tracks the active subscription and tenant across CLI invocations.
+## Silent acquisition — the engine's default token source
 
-### Storage Paths
+Everyday commands never call `LoginAsync`. Instead the engine wires
+`AcquireTokenSilentlyAsync` as the default token acquirer (see below). This method:
 
-```csharp
-private static readonly string ContextDirectory =
-    Path.Combine(Environment.GetFolderPath(
-        Environment.SpecialFolder.LocalApplicationData), ".cirrus");        // line 8
-private static readonly string ContextFilePath =
-    Path.Combine(ContextDirectory, "context.json");                         // line 9
-```
-
-### IAuthContextService Interface
-
-The contract (`src/Core/Core.Abstractions/IAuthContextService.cs:6`) defines:
-
-| Method | Purpose | Line |
-|---|---|---|
-| `GetCurrentContextAsync()` | Returns the current `AuthContext?`, loading from disk if needed | 13 |
-| `SaveContextAsync(AuthContext)` | Serializes to JSON and writes to `context.json` | 21 |
-| `ClearContextAsync()` | Deletes `context.json` and nulls the in-memory reference | 28 |
-
-### Save Flow
-
-`SaveContextAsync` (`src/Core/Core.Authentication/AuthContextService.cs:12-27`):
-1. Create directory if missing (line 17)
-2. Serialize `authContext` with `WriteIndented = true` (line 18)
-3. Write to `ContextFilePath` (line 20)
-4. Update `_currentContext` in-memory cache (line 21)
-
-### Load Flow
-
-`GetCurrentContextAsync` (line 29-34) calls `LoadContextAsync` which reads from `ContextFilePath` if it exists (line 40), deserializing with `PropertyNameCaseInsensitive = true` (line 44). The result is cached in `_currentContext` (line 32).
-
-### Clear Flow
-
-`ClearContextAsync` (`src/Core/Core.Authentication/AuthContextService.cs:58-68`) nulls the in-memory reference (line 61) and deletes the file (line 65).
-
-## AuthHandler: Bearer Token Injection
-
-`AuthHandler` (`src/Core/Core.Runtime/Handler/AuthHandler.cs:11-36`) implements `IAuthHandler` and sits in the HTTP pipeline of every authenticated request.
-
-### Properties
-
-| Property | Type | Purpose | Line |
-|---|---|---|---|
-| `AuthContext` | `AuthContext` | Current tenant/subscription context | 13 |
-| `AcquireTokenAsyncDefault` | `AcquireTokenAsyncDelegate` | Default token acquisition function | 16 |
-| `AcquireTokenAsyncOverride` | `AcquireTokenAsyncDelegate?` | Optional override for custom token logic | 19 |
-| `ApplyOverride` | `bool` | Whether to use the override delegate | 22 |
-
-### SendAsync Pipeline Step
-
-The `SendAsync` property (lines 25-35) returns a lambda that:
-
-1. Starts a telemetry activity (line 27)
-2. Selects the token acquirer — override if `ApplyOverride && AcquireTokenAsyncOverride != null`, otherwise default (lines 29-31)
-3. Calls the acquirer with `(null, AuthContext.TenantId, false)` to get an `AuthResult`
-4. Sets the `Authorization` header to `"Bearer {AccessToken}"` (line 32)
-5. Calls the next handler in the pipeline (line 34)
-
-### Integration in CLIEngine
-
-`CLIEngine.CreateProcessorContext()` (`src/Core/Core.Engine/CLIEngine.cs:129-162`) wires the handler:
+1. Builds a `PublicClientApplication` for the tenant and registers the cache
+   (`MsalAuthService.cs:134`).
+2. Reads the first cached account; if none, it still attempts a silent call with a `null` account so
+   MSAL can use a login hint from the cache (`MsalAuthService.cs:137`).
+3. On `MsalUiRequiredException`, it *only* falls back to interactive sign-in when
+   `promptOnError` is `true` (`MsalAuthService.cs:155`); otherwise the exception propagates so the
+   caller can surface a "please run `az login`" message.
 
 ```csharp
-var authHandler = new AuthHandler
+catch (MsalUiRequiredException) when (promptOnError)
 {
-    AuthContext = authContext,                      // from AuthContextService
-    AcquireTokenAsyncDefault = AcquireTokenAsync    // from IAuthService
-};
+    result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
+                      .WithUseEmbeddedWebView(false)
+                      .ExecuteAsync(cancellationToken);
+}
 ```
 
-The `ProcessorContext` assembles `AuthHandler`, `OutputHandler`, and `TelemetryHandler` into an `HttpPipeline` that processors use for all ARM calls.
+## The token cache — shared and cross-platform
 
-### Integration in PSEngine
+`RegisterTokenCacheAsync` hooks MSAL's user token cache into a persistent, cross-platform store
+using `Microsoft.Identity.Client.Extensions.Msal` (`src/Core/Core.Authentication/MsalAuthService.cs:93`).
+Its behaviour depends on the `plaintextUnsafe` flag:
 
-`PSEngine.CreateProcessorContext()` (`src/Core/Core.Engine/PSEngine.cs:94-127`) follows the same pattern but sources delegates from its constructor-injected functions (`GetAuthContext`, `AcquireTokenSilentlyAsync`, `StartActivity`). The channel-based output handler writes to a `ChannelWriter<object>` instead of `Console`.
+| Mode | Storage backend | Notes |
+| --- | --- | --- |
+| `plaintextUnsafe: true` (currently used everywhere) | Unprotected file `MSAL.cache.plaintext` | `builder.WithUnprotectedFile()` — `MsalAuthService.cs:104` |
+| `plaintextUnsafe: false` (future) | Linux keyring / macOS keychain | Keyring labelled `Microsoft.Azclips` / `Microsoft Azclips` — `MsalAuthService.cs:106` |
 
-## Login Command Implementation
+The cache directory is resolved by `HomePaths.GetDefaultLocalAppDataRoot()`
+(`src/Core/Core.Abstractions/HomePaths.cs:47`), which places `MSAL.cache[.plaintext]` under the
+per-user local-app-data `.azclips` folder (`HomePaths.cs:12`). Crucially, **this one cache file is
+shared across all profiles** — a fact that shapes how logout works.
 
-`LoginProcessor` (`src/Extensions/Login/Processors/Login.cs:6`) extends `LoginProcessorBase` and exposes three properties:
+## Logout — remove *only* the active profile's account
 
-| Property | Type | Required | Default | Line |
-|---|---|---|---|---|
-| `SubscriptionId` | `string` | Yes | `""` | 8-12 |
-| `TenantId` | `string` | No | `""` | 14-18 |
-| `UseDeviceCode` | `bool` | No | `false` | 20-24 |
+Because the MSAL cache is shared, a naïve "clear the cache" logout would sign out accounts that
+belong to *other* profiles. The design therefore narrows logout to a single account. Per
+**Decision 6** of the profile-management design
+(`openspec/changes/profile-management/design.md:70`), `az logout`:
 
-The `ProcessAsync` method (lines 26-48):
-1. Resolves `IAuthService` and `IAuthContextService` from `CirrusServiceProvider` (lines 29-31)
-2. Creates a `LoginRequest` with `TenantId`, `SubscriptionId`, and `UseDeviceCodeFlow` (lines 33-38)
-3. Calls `authService.LoginAsync(loginRequest).GetAwaiter().GetResult()` — note the synchronous blocking (line 40)
-4. Creates an `AuthContext` with the subscription and tenant from the result (lines 41-45)
-5. Saves the context via `authContextService.SaveContextAsync()` (line 46)
-6. Writes output (line 47)
+1. Removes only the account whose `IAccount.Username` matches the active profile's
+   `UserPrincipalName` from the shared cache.
+2. Clears the active-profile pointer (the profile definition itself is retained).
 
-## Logout Command Implementation
-
-`LogoutProcessor` (`src/Extensions/Login/Processors/Logout.cs:6`) is simpler, with `ProcessAsync` (lines 8-17):
-
-1. Resolve services (lines 11-13)
-2. Call `authService.LogoutAsync()` — clears the MSAL token cache (line 14)
-3. Call `authContextService.ClearContextAsync()` — deletes `context.json` (line 15)
-4. Write `true` as output (line 16)
-
-The `LogoutAsync` method in `MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs:25-47`) iterates through all cached accounts and removes them one by one (lines 39-44).
-
-## DI Registration
-
-`DIRegisterExtensions.RegisterAuthenticationServices()` (`src/Core/Core.Authentication/DIRegisterExtensions.cs:11-16`) provides a clean extension method:
+`LogoutAsync(userPrincipalName)` implements step 1 (`src/Core/Core.Authentication/MsalAuthService.cs:28`):
 
 ```csharp
-services.AddSingleton<IAuthService, MsalAuthService>();        // line 13
-services.AddSingleton<IAuthContextService, AuthContextService>(); // line 14
+if (string.IsNullOrWhiteSpace(userPrincipalName)) return;      // nothing to remove
+var app = PublicClientApplicationBuilder.Create(ClientId).Build();
+await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+
+var matching = (await app.GetAccountsAsync())
+    .Where(a => string.Equals(a.Username, userPrincipalName, StringComparison.OrdinalIgnoreCase));
+foreach (var account in matching)
+    await app.RemoveAsync(account);                            // targeted removal
 ```
 
-Both are singletons because the token cache and auth context should be shared across all commands in a session.
-
-## Authenticated API Call: Full Sequence
+The orchestration lives in `LogoutProcessor`, which reads the active profile, calls
+`LogoutAsync(activeProfile.UserPrincipalName)`, then unsets the active pointer via
+`SetActiveProfileNameAsync(null)` (`src/Extensions/Login/Processors/LogoutProcessor.cs:21`). When no
+profile is active, logout is a safe no-op.
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Cmd as ResourceProcessor
-    participant Engine as CLIEngine
-    participant AuthCtx as AuthContextService
-    participant AuthHdlr as AuthHandler
-    participant AuthSvc as MsalAuthService
-    participant MSAL as MSAL PCA
-    participant Cache as Token Cache
-    participant ARM as Azure ARM
+graph LR
+    A["az logout"] --> B{"active profile?"}
+    B -->|no| N["no-op"]
+    B -->|yes| C["LogoutAsync(UPN)"]
+    C --> D{"account matches<br>UPN in cache?"}
+    D -->|yes| E["RemoveAsync(account)"]
+    D -->|no| F["nothing removed"]
+    E --> G["SetActiveProfileNameAsync(null)"]
+    F --> G
 
-    Cmd->>Engine: ProcessAsync()
-    Engine->>AuthCtx: GetCurrentContextAsync()
-    AuthCtx-->>Engine: AuthContext (TenantId, SubscriptionId)
-
-    Engine->>Engine: CreateProcessorContext()
-    Engine->>AuthHdlr: Set AuthContext, AcquireTokenAsyncDefault
-
-    Cmd->>ARM: HTTP GET /subscriptions/...
-    Note over Cmd,ARM: Request enters HTTP pipeline
-
-    AuthHdlr->>AuthHdlr: Select token acquirer
-    AuthHdlr->>AuthSvc: AcquireTokenSilentlyAsync(null, tenantId, false)
-    AuthSvc->>MSAL: AcquireTokenSilent(scopes, account)
-    MSAL->>Cache: Check for cached token
-    
-    alt Token in cache and valid
-        Cache-->>MSAL: Cached token
-    else Token expired or missing
-        MSAL->>MSAL: Refresh token flow
-    end
-
-    MSAL-->>AuthSvc: AuthenticationResult
-    AuthSvc-->>AuthHdlr: AuthResult
-
-    AuthHdlr->>AuthHdlr: Set Authorization: Bearer {token}
-    AuthHdlr->>ARM: Forward authenticated request
-    ARM-->>Cmd: HTTP response
-
-    style Cmd fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Engine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AuthCtx fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AuthHdlr fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AuthSvc fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style MSAL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Cache fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ARM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style A fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style B fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style C fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style D fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style E fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style F fill:#5a4a2e,stroke:#d4a84b,color:#e6edf3
+    style G fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style N fill:#2d333b,stroke:#7a7a8a,color:#e6edf3
+    linkStyle default stroke:#8b949e
 ```
 
-## Security Considerations
+## `AuthResult` and `AuthResultExtensions`
 
-1. **Plaintext cache** — All current code paths use `plaintextUnsafe: true` (`src/Core/Core.Authentication/MsalAuthService.cs:34,53,64,125`). The keyring/keychain integration is implemented but not activated. This is acceptable for development but should be hardened for production.
+`AuthResult` is a `record` that mirrors the useful fields of MSAL's `AuthenticationResult` while
+staying MSAL-free (`src/Core/Core.Abstractions/Models/AuthResult.cs:11`). It carries `AccessToken`,
+`ExpiresOn`, `Scopes`, `TenantId`, `CorrelationId`, and a **nullable `UserPrincipalName`**
+(`AuthResult.cs:51`).
 
-2. **Hardcoded tenant fallback** — The Microsoft corporate tenant `72f988bf-86f1-41af-91ab-2d7cd011db47` is used when no tenant is specified (`src/Core/Core.Authentication/MsalAuthService.cs:80`). Users must pass `--TenantId` explicitly for non-Microsoft tenants.
+That `UserPrincipalName` field was added specifically so logout can later identify the account: the
+mapping happens in `AuthResultExtensions.ToAuthResult()`, which copies `Account?.Username` into it
+(`src/Core/Core.Authentication/AuthResultExtensions.cs:20`):
 
-3. **Synchronous blocking in processors** — `LoginProcessor` uses `.GetAwaiter().GetResult()` (line 40) instead of `await`. This is a deliberate choice because the processor's `ProcessAsync` runs in a `Task.Run` wrapper within the engine, avoiding deadlocks.
+```csharp
+UserPrincipalName = msalAuthResult.Account?.Username,
+```
 
-4. **Token in memory only** — `AuthHandler` never persists the bearer token. It calls `AcquireTokenSilentlyAsync` on every request, relying on MSAL's in-memory + disk cache for performance.
+The extension also copies the scopes into a fresh array rather than referencing MSAL's internal
+array, keeping the returned record fully decoupled (`AuthResultExtensions.cs:17`).
+
+## From `AuthContext`/`context.json` to `Profile` on `ProcessorContext`
+
+Historically the signed-in session was represented by an `AuthContext` object persisted to
+`context.json` (still described by the now-stale spec `docs/spec/auth-context.md`). That model was
+**removed**. Per **Decision 5** of the profile-management design, `AuthContext`,
+`IAuthContextService`/`AuthContextService`, and `context.json` were deleted, and the resolved
+**`Profile`** became the single connection-state object flowing through the runtime
+(`openspec/changes/profile-management/design.md:70`).
+
+Today, per invocation:
+
+1. `Engine.CreateProcessorContext` resolves the profile (explicit `--profile`, else the active
+   profile, else `null`) and constructs an `AuthHandler`, binding
+   `AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync`
+   (`src/Core/Core.Engine/Engine.cs:101`).
+2. The resolved `Profile?` is placed both on the `AuthHandler` and on the `ProcessorContext` record
+   (`src/Core/Core.Abstractions/Models/ProcessorContext.cs:9`).
+3. On each outgoing request, `AuthHandler.SendAsync` acquires a token **only when a profile is
+   present**, reading `Profile.TenantId` for the acquisition and attaching the `Bearer` header
+   (`src/Core/Core.Runtime/Handler/AuthHandler.cs:38`):
+
+```csharp
+if (this.Profile is not null)
+{
+    var token = await tokenAcquirer(null, this.Profile.TenantId, false);
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
+}
+```
+
+When no profile is resolved, no token is attached; commands that genuinely require auth fail at the
+point of use with a clear error rather than sending an anonymous request
+(`AuthHandler.cs:30`). The token acquirer is the `AcquireTokenAsyncDelegate` whose signature
+deliberately matches `AcquireTokenSilentlyAsync`
+(`src/Core/Core.Abstractions/Runtime/delegates.cs:28`), and an override slot
+(`AcquireTokenAsyncOverride`) lets tests inject mock tokens without touching MSAL.
+
+> **See also:** [Configuration & Profile Management](./configuration-profiles.md) for how profiles
+> are stored, activated, and resolved, and how `--profile`/`-Profile` pre-binding feeds
+> `CreateProcessorContext`.
+
+## Threat model & current limitations
+
+| Concern | Current state | Source |
+| --- | --- | --- |
+| Token-at-rest protection | Cache written **unencrypted** (`MSAL.cache.plaintext`); keyring/keychain code exists but is not the active path | `MsalAuthService.cs:104` |
+| Multi-tenant | `BuildApp` falls back to a hard-coded corporate tenant when none supplied | `MsalAuthService.cs:90` |
+| Client id | Single hard-coded first-party public-client id (marked `todo: 1P or 3P?`) | `MsalAuthService.cs:13` |
+| App reuse | A new `PublicClientApplication` is built per call (`todo` notes reuse when tenant is stable) | `MsalAuthService.cs:86` |
+
+These are tracked as inline `todo`s in `MsalAuthService` and represent the main hardening backlog for
+the auth subsystem.
 
 ## References
 
-| Source File | Key Lines | Purpose |
-|---|---|---|
-| `src/Core/Core.Authentication/MsalAuthService.cs` | 7-161 | MSAL token acquisition, cache registration |
-| `src/Core/Core.Authentication/AuthContextService.cs` | 6-69 | Auth context persistence to `context.json` |
-| `src/Core/Core.Authentication/AuthResultExtensions.cs` | 6-18 | MSAL → Cirrus auth result mapping |
-| `src/Core/Core.Authentication/DIRegisterExtensions.cs` | 6-16 | DI registration extension method |
-| `src/Core/Core.Abstractions/IAuthService.cs` | 6-31 | Auth service contract |
-| `src/Core/Core.Abstractions/IAuthContextService.cs` | 6-28 | Auth context service contract |
-| `src/Core/Core.Runtime/Handler/AuthHandler.cs` | 11-36 | Bearer token injection handler |
-| `src/Extensions/Login/Processors/Login.cs` | 6-48 | Login processor implementation |
-| `src/Extensions/Login/Processors/Logout.cs` | 6-17 | Logout processor implementation |
-| `src/Core/Core.Engine/CLIEngine.cs` | 129-162 | CLI command context creation |
-| `src/Core/Core.Engine/PSEngine.cs` | 94-127 | PowerShell command context creation |
+- `src/Core/Core.Authentication/MsalAuthService.cs:11` — MSAL implementation of `IAuthService`
+- `src/Core/Core.Authentication/MsalAuthService.cs:28` — profile-scoped `LogoutAsync`
+- `src/Core/Core.Authentication/AuthResultExtensions.cs:20` — surfaces `UserPrincipalName`
+- `src/Core/Core.Abstractions/IAuthService.cs:9` — the auth contract
+- `src/Core/Core.Abstractions/Models/AuthResult.cs:11` — MSAL-independent result record
+- `src/Core/Core.Abstractions/HomePaths.cs:47` — token-cache location under `.azclips`
+- `src/Core/Core.Runtime/Handler/AuthHandler.cs:38` — HTTP pipeline token attachment
+- `src/Core/Core.Engine/Engine.cs:101` — wires `AcquireTokenSilentlyAsync` + resolves `Profile`
+- `src/Extensions/Login/Processors/LoginProcessor.cs:90` — login → profile save + activate
+- `src/Extensions/Login/Processors/LogoutProcessor.cs:21` — active-profile logout orchestration
+- `openspec/changes/profile-management/design.md:70` — Decisions 5 & 6 (Profile replaces AuthContext; scoped logout)
+- `docs/spec/auth-context.md` — **stale** legacy spec; the `AuthContext`/`context.json` model it describes was removed

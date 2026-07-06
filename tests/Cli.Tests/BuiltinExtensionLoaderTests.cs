@@ -14,9 +14,9 @@ public class BuiltinExtensionLoaderTests
     public void GetInstalledExtensions_ShouldEnumerateBuiltinExtensionsFromConfiguredRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
-        var extensionPackage = Path.Combine(root, "Microsoft.Azure.Cirrus.Extensions.Extension");
-        var loginPackage = Path.Combine(root, "Microsoft.Azure.Cirrus.Extensions.Login");
-        var configPackage = Path.Combine(root, "Microsoft.Azure.Cirrus.Extensions.Config");
+        var extensionPackage = Path.Combine(root, "Microsoft.Azure.Azclips.Extensions.Extension");
+        var loginPackage = Path.Combine(root, "Microsoft.Azure.Azclips.Extensions.Login");
+        var configPackage = Path.Combine(root, "Microsoft.Azure.Azclips.Extensions.Config");
 
         Directory.CreateDirectory(extensionPackage);
         Directory.CreateDirectory(loginPackage);
@@ -24,9 +24,9 @@ public class BuiltinExtensionLoaderTests
 
         try
         {
-            File.WriteAllText(Path.Combine(extensionPackage, "Microsoft.Azure.Cirrus.Extensions.Extension.dll"), string.Empty);
-            File.WriteAllText(Path.Combine(loginPackage, "Microsoft.Azure.Cirrus.Extensions.Login.dll"), string.Empty);
-            File.WriteAllText(Path.Combine(configPackage, "Microsoft.Azure.Cirrus.Extensions.Config.dll"), string.Empty);
+            File.WriteAllText(Path.Combine(extensionPackage, "Microsoft.Azure.Azclips.Extensions.Extension.dll"), string.Empty);
+            File.WriteAllText(Path.Combine(loginPackage, "Microsoft.Azure.Azclips.Extensions.Login.dll"), string.Empty);
+            File.WriteAllText(Path.Combine(configPackage, "Microsoft.Azure.Azclips.Extensions.Config.dll"), string.Empty);
 
             var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
             var installed = loader.GetInstalledExtensions().ToArray();
@@ -48,12 +48,12 @@ public class BuiltinExtensionLoaderTests
     public void GetInstalledExtensions_ShouldEnumerateInstallRootPackages_NotInBuiltInMap()
     {
         var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
-        var packageDir = Path.Combine(root, "Microsoft.Azure.Cirrus.Extensions.Foo");
+        var packageDir = Path.Combine(root, "Microsoft.Azure.Azclips.Extensions.Foo");
         Directory.CreateDirectory(packageDir);
 
         try
         {
-            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Cirrus.Extensions.Foo.dll"), string.Empty);
+            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Foo.dll"), string.Empty);
             var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
 
             var installed = loader.GetInstalledExtensions().ToArray();

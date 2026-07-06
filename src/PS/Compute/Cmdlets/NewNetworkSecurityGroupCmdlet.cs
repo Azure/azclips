@@ -4,9 +4,9 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Microsoft.Azure.Cirrus.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Compute;
+namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 [Cmdlet(VerbsCommon.New, "NetworkSecurityGroup", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class NewNetworkSecurityGroupCmdlet : PSCmdlet
@@ -14,6 +14,9 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
@@ -57,12 +60,12 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "NetworkSecurityGroupError", ErrorCategory.NotSpecified);
-        engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected override void ProcessRecord()
     {
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
@@ -80,6 +83,11 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationPortRanges)))      { parameters.Add("RuleDestinationPortRanges", RuleDestinationPortRanges!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

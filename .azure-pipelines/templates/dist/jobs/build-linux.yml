@@ -11,7 +11,7 @@ parameters:
 
 jobs:
 - job: BuildLinuxOutput
-  displayName: Linux Tarball
+  displayName: CLI Linux Tarball
   timeoutInMinutes: 60
   strategy:
     matrix:
@@ -19,22 +19,18 @@ jobs:
         Rid: linux-x64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Lean
-        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/az-lean-linux-x64-$(ArtifactVersion).tar.gz
       linux_arm64_lean:
         Rid: linux-arm64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Arm64_Lean
-        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/az-lean-linux-arm64-$(ArtifactVersion).tar.gz
       linux_x64_full:
         Rid: linux-x64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Full
-        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/az-linux-x64-$(ArtifactVersion).tar.gz
       linux_arm64_full:
         Rid: linux-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Arm64_Full
-        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/az-linux-arm64-$(ArtifactVersion).tar.gz
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
   steps:
@@ -50,7 +46,7 @@ jobs:
       useGlobalJson: true
 
   - task: DownloadPipelineArtifact@2
-    displayName: Get Common
+    displayName: Get CLI Common
     inputs:
       artifact: Distribution_Common
       path: ${{ parameters.PackagingCommonOutRoot }}
@@ -58,11 +54,11 @@ jobs:
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
-    displayName: Build Linux Tarball
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
+    displayName: Build CLI Linux Tarball
 
   - task: PublishPipelineArtifact@1
-    displayName: Publish Linux
+    displayName: Publish CLI Linux
     inputs:
       targetPath: ${{ parameters.PackagingLinuxOutRoot }}
       artifact: $(DistributionArtifact)

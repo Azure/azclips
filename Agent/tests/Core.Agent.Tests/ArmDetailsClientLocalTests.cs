@@ -15,7 +15,7 @@ namespace Core.Agent.Tests;
 ///
 /// To run locally:
 ///   az login --tenant &lt;your-tenant&gt;
-///   $env:CIRRUS_TEST_ARM_ID = "/subscriptions/&lt;sub&gt;/resourceGroups/&lt;rg&gt;"
+///   $env:AZCLIPS_TEST_ARM_ID = "/subscriptions/&lt;sub&gt;/resourceGroups/&lt;rg&gt;"
 ///   dotnet test --filter "Category=Local"
 ///
 /// To skip in CI (default behaviour):
@@ -30,7 +30,7 @@ namespace Core.Agent.Tests;
 /// </summary>
 public sealed class ArmDetailsClientLocalTests
 {
-    private const string ArmIdEnvVar = "CIRRUS_TEST_ARM_ID";
+    private const string ArmIdEnvVar = "AZCLIPS_TEST_ARM_ID";
 
     // Local tests use an AzureCliCredential-backed IAuthService stub so
     // they exercise the full IAuthService -> AuthServiceTokenCredential -> ArmClient
@@ -38,7 +38,7 @@ public sealed class ArmDetailsClientLocalTests
     private static ArmDetailsClient NewClient() =>
         new ArmDetailsClient(new AzureCliAuthServiceStub());
 
-    [Fact(Skip = "Local-only — requires CIRRUS_TEST_ARM_ID. Run with: dotnet test --filter Category=Local after setting the env var.")]
+    [Fact(Skip = "Local-only — requires AZCLIPS_TEST_ARM_ID. Run with: dotnet test --filter Category=Local after setting the env var.")]
     [Trait("Category", "Local")]
     public async Task GetByIdAsync_ShouldReturnResourceBody_ForRealArmId()
     {
@@ -60,7 +60,7 @@ public sealed class ArmDetailsClientLocalTests
         Assert.Null(result);
     }
 
-    [Fact(Skip = "Local-only — requires CIRRUS_TEST_ARM_ID. Run with: dotnet test --filter Category=Local after setting the env var.")]
+    [Fact(Skip = "Local-only — requires AZCLIPS_TEST_ARM_ID. Run with: dotnet test --filter Category=Local after setting the env var.")]
     [Trait("Category", "Local")]
     public async Task GetByIdAsync_ShouldCacheRepeatedCalls()
     {
@@ -134,7 +134,7 @@ public sealed class ArmDetailsClientLocalTests
         public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task LogoutAsync(CancellationToken cancellationToken = default)
+        public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
     }
 }

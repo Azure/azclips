@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 public class PinExtensionProcessor : IProcessor
 {
@@ -90,7 +90,7 @@ public static class PinHelper
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw CirrusErrorException.UsageError("Name is required.");
+            throw AzclipsErrorException.UsageError("Name is required.");
         }
 
         var store = new FileExtensionRegistryStore();
@@ -108,7 +108,7 @@ public static class PinHelper
                 message += $" '{name}' is a verb contributed by package '{suggested}'; " +
                            $"to {verb} that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
             }
-            throw CirrusErrorException.ExtensionNotFound(
+            throw AzclipsErrorException.ExtensionNotFound(
                 message,
                 new Dictionary<string, object?> { ["name"] = name });
         }
@@ -159,7 +159,7 @@ public static class PinHelper
                 message += $" '{name}' is a verb contributed by package '{suggested}'; " +
                            $"to {verb} that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
             }
-            throw CirrusErrorException.ExtensionNotFound(
+            throw AzclipsErrorException.ExtensionNotFound(
                 message,
                 new Dictionary<string, object?> { ["name"] = name });
         }

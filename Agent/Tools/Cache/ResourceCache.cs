@@ -1,11 +1,12 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Core.Agent.Tools.Cache;
 
 /// <summary>
 /// Process-wide singleton over the on-disk ARM cache under
-/// <c>%USERPROFILE%/.cirrus/arm-cache/</c>.
+/// <c>%USERPROFILE%/.azclips/arm-cache/</c>.
 ///
 /// Designed for the three agent tools (find_resources / get_resource_tree
 /// / get_resource_details). The cache itself (build / refresh / TTL
@@ -22,9 +23,7 @@ public sealed class ResourceCache
     private static readonly Lazy<ResourceCache> _instance = new(() => new ResourceCache());
     public static ResourceCache Current => _instance.Value;
 
-    public static string DefaultCacheDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".cirrus", "arm-cache");
+    public static string DefaultCacheDir => HomePaths.GetDefaultArmCacheDirectory();
 
     private static readonly JsonSerializerOptions Json = new()
     {

@@ -32,16 +32,52 @@ internal static class CompletionGenerator
             return null;
         }
 
+        if (!IsCompletionEnabled())
+        {
+            Console.WriteLine("{}");
+            return 0;
+        }
+
         // Extract any command context passed after --completions
         var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
         return await GenerateAsync(clientType, commandContext);
+    }
+
+    /// <summary>
+    /// Resolves the configuration service and reports whether shell tab-completion
+    /// is enabled. Isolated so the DI lookup can fail independently of the config read.
+    /// </summary>
+    private static bool IsCompletionEnabled()
+    {
+        try
+        {
+            var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+            return ResolveEnabled(config);
+        }
+        catch
+        {
+            // Configuration service unavailable
+            return true;
+        }
+    }
+
+    internal static bool ResolveEnabled(IConfigurationService config)
+    {
+        try
+        {
+            return config.GetConfiguration<CompletionOptions>().Enabled;
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     private static async Task<int> GenerateAsync(ClientType clientType, List<string>? commandContext = null)
     {
         commandContext ??= new List<string>();
 
-        var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
         // Parse command context: first token is command group name (verb)
         string? commandGroupName = commandContext.Count > 0 ? commandContext[0].ToLowerInvariant() : null;
@@ -137,9 +173,11 @@ internal static class CompletionGenerator
             foreach (var dir in Directory.EnumerateDirectories(root))
             {
                 var dirName = Path.GetFileName(dir);
-                if (dirName.StartsWith(Constants.cirrusPrefix, StringComparison.OrdinalIgnoreCase))
+                var matchedPrefix = Constants.extensionPackagePrefixes
+                    .FirstOrDefault(prefix => dirName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrEmpty(matchedPrefix))
                 {
-                    var shortName = dirName[Constants.cirrusPrefix.Length..];
+                    var shortName = dirName[matchedPrefix.Length..];
                     if (!string.IsNullOrEmpty(shortName) && seen.Add(shortName))
                     {
                         yield return shortName;

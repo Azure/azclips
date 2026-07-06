@@ -107,4 +107,24 @@ public class ConfigurationSchemaTests
         // Must stay in sync with AgentOptions.Enabled = false (PP opt-in default).
         Assert.Equal("false", key.DefaultValue);
     }
+
+    [Fact]
+    public void ValidateValue_ShouldRejectNonBoolValue_ForCompletionEnabled()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("completion.enabled", "notabool");
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldDefaultCompletionEnabledToTrue()
+    {
+        var key = _schema.GetAllKeys()
+            .Single(k => string.Equals(k.Key, "completion.enabled", StringComparison.OrdinalIgnoreCase));
+
+        // Must stay in sync with CompletionOptions.Enabled = true (opt-out default).
+        Assert.Equal("true", key.DefaultValue);
+    }
 }

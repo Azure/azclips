@@ -4,7 +4,7 @@ namespace Core.Agent.Tools.Cache;
 
 /// <summary>
 /// On-disk cache file envelope. Every cache JSON file under
-/// <c>%USERPROFILE%/.cirrus/arm-cache/</c> matches this shape:
+/// <c>%USERPROFILE%/.azclips/arm-cache/</c> matches this shape:
 ///   { schemaVersion, cachedAt, ttlSeconds, itemCount, items: [...] }
 /// </summary>
 public sealed class CacheFile<T>

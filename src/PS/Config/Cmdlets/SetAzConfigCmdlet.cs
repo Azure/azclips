@@ -3,7 +3,7 @@
 
 using System.Management.Automation;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
+namespace Microsoft.Azure.Azclips.Cmdlets.Config;
 
 [Cmdlet(VerbsCommon.Set, "AzConfig", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class SetAzConfigCmdlet : ConfigCmdletBase

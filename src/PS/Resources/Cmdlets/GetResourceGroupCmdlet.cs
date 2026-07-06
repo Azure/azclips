@@ -4,9 +4,9 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Microsoft.Azure.Cirrus.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
+namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.Get, "ResourceGroup", DefaultParameterSetName = "List")]
 public class GetResourceGroupCmdlet : PSCmdlet
@@ -14,6 +14,9 @@ public class GetResourceGroupCmdlet : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     [Parameter(ParameterSetName = "List", Mandatory = true)]
@@ -25,12 +28,12 @@ public class GetResourceGroupCmdlet : PSCmdlet
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "ResourceGroupError", ErrorCategory.NotSpecified, enumerateOutput: true);
-        engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected override void ProcessRecord()
     {
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
@@ -44,6 +47,11 @@ public class GetResourceGroupCmdlet : PSCmdlet
 
         var parameterSetName = ParameterSetName;
         var commandName = $"Get-ResourceGroup_{parameterSetName}";
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
+        {
+            parameters.Add("Profile", Profile!);
+        }
+
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Resources", commandName, parameters, false, moduleName, moduleVersion);

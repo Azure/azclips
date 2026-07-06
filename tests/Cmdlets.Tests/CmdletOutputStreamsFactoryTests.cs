@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Management.Automation;
-using Microsoft.Azure.Cirrus.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Cmdlets.Tests;
 

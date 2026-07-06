@@ -39,7 +39,7 @@ public static class ExtensionAddPlanner
             // First token must be a declared [ExtensionVerb].
             if (!declaredVerbSet.Contains(leafVerb))
             {
-                throw CirrusErrorException.LeafConflict(
+                throw AzclipsErrorException.LeafConflict(
                     $"Extension '{packageId}' contributes leaf '{leafKey}' whose first token is '{leafVerb}', " +
                     $"but only verbs [{string.Join(", ", verbs)}] are declared via [ExtensionVerb]. " +
                     $"Every s_cliTable key must start with a declared verb.",
@@ -57,7 +57,7 @@ public static class ExtensionAddPlanner
             // case; this is defense-in-depth.)
             if (BuiltInExtensions.IsBuiltInVerb(leafVerb) && string.IsNullOrEmpty(leafPath))
             {
-                throw CirrusErrorException.LeafConflict(
+                throw AzclipsErrorException.LeafConflict(
                     $"Extension '{packageId}' contributes root leaf '{leafKey}', which is reserved for " +
                     $"the built-in '{leafVerb}' extension.",
                     new Dictionary<string, object?>
@@ -122,7 +122,7 @@ public static class ExtensionAddPlanner
             }
             lines.Add("Remove the conflicting extension(s) first or rename the offending leaves.");
 
-            throw CirrusErrorException.LeafConflict(
+            throw AzclipsErrorException.LeafConflict(
                 string.Join("\n", lines),
                 new Dictionary<string, object?>
                 {

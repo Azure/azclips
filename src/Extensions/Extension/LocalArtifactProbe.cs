@@ -4,7 +4,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 /// <summary>
 /// On `extension add --name` feed-miss, probes the local repo (artifacts/Debug/) for a freshly
@@ -57,7 +57,7 @@ public static class LocalArtifactProbe
 
     /// <summary>
     /// Walks up the directory tree from <paramref name="startDirectory"/> looking for
-    /// <c>cirrus.slnx</c>. Returns the directory containing it, or <c>null</c> if the walk
+    /// <c>azclips.slnx</c>. Returns the directory containing it, or <c>null</c> if the walk
     /// reaches a root without finding one.
     /// </summary>
     private static string? FindRepoRoot(string startDirectory)
@@ -65,7 +65,7 @@ public static class LocalArtifactProbe
         var dir = new DirectoryInfo(startDirectory);
         while (dir is not null)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "cirrus.slnx")))
+            if (File.Exists(Path.Combine(dir.FullName, "azclips.slnx")))
             {
                 return dir.FullName;
             }

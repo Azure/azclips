@@ -1,15 +1,15 @@
 ---
 layout: home
-title: "Cirrus Wiki"
-description: "Technical documentation for the Cirrus CLI framework"
+title: "Azclips Wiki"
+description: "Technical documentation for Project Azclips"
 
 hero:
-  name: "Cirrus"
+  name: "Azclips"
   text: "Technical Wiki"
-  tagline: "A .NET 9.0 extension-based CLI framework with AI-powered natural language capabilities for Azure resource management"
+  tagline: "A .NET 10 extension-based CLI (the `az` binary) for Azure resource management — with an out-of-process AI agent fallback, an interactive Terminal UI, and mirrored PowerShell cmdlets"
   image:
     src: /logo.svg
-    alt: Cirrus
+    alt: Azclips
   actions:
     - theme: brand
       text: Get Started
@@ -22,24 +22,24 @@ hero:
       link: /02-deep-dive/core-engine-orchestration
 
 features:
-    - icon: 🧩
+  - icon: 🧩
     title: Extension Architecture
-    details: Dynamic extension loading from NuGet packages and local DLLs with assembly isolation and version management.
-    - icon: 🤖
-    title: AI-Powered Fallback
-    details: Natural language command processing via Azure OpenAI with automatic fallback when structured parsing fails.
-    - icon: 🔧
-    title: Dual Interface
-    details: Both CLI (az) and PowerShell modules for Azure resource management with shared core libraries.
-    - icon: 🔐
-    title: MSAL Authentication
-    details: Microsoft Authentication Library integration with persistent token caching and device code flow support.
-    - icon: 📊
-    title: OpenTelemetry
-    details: Full observability with Azure Monitor, Zipkin (dev), and local file export for distributed tracing.
-    - icon: 🏗️
-    title: CI/CD Pipeline
-    details: GitHub Actions with MSIX packaging, matrix extension builds, and PowerShell module validation.
+    details: Dynamic extension loading from NuGet packages and local DLLs with assembly isolation and multi-version management.
+  - icon: 🤖
+    title: Out-of-Process AI Agent
+    details: On failure the CLI hands off to an interactive TUI in agent-mode, running ChatAgent on the GitHub Copilot SDK with a bundled native daemon.
+  - icon: 🖥️
+    title: Interactive Terminal UI
+    details: A full-screen TUI that browses Azure resources as a virtual filesystem, sharing the same composition root and engine as the CLI.
+  - icon: 🔧
+    title: Multiple Client Surfaces
+    details: CLI (az), PowerShell cmdlets, TUI, and agent-mode all share one AzclipsServiceProvider DI composition root and engine.
+  - icon: 🔐
+    title: MSAL Authentication & Profiles
+    details: Microsoft Authentication Library with persistent token cache, device-code/interactive flows, and named connection profiles under ~/.azclips.
+  - icon: 📊
+    title: Telemetry & Observability
+    details: System.Diagnostics activities with a privacy-preserving filter model and a detached background uploader to Azure Monitor.
 ---
 
 ## Quick Navigation

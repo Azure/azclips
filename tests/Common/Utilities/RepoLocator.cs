@@ -13,7 +13,7 @@ public static class RepoLocator
         var dir = new DirectoryInfo(startPath);
         while (dir != null)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "cirrus.slnx")))
+            if (File.Exists(Path.Combine(dir.FullName, "azclips.slnx")))
             {
                 return dir.FullName;
             }
@@ -25,5 +25,5 @@ public static class RepoLocator
     public static string GetRepoRoot() =>
         FindRepoRoot(AppContext.BaseDirectory)
         ?? FindRepoRoot(Directory.GetCurrentDirectory())
-        ?? throw new InvalidOperationException("Cannot find repository root (looking for cirrus.slnx)");
+        ?? throw new InvalidOperationException("Cannot find repository root (looking for azclips.slnx)");
 }

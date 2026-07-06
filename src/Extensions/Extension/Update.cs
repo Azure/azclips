@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 public class UpdateExtensionProcessor : IProcessor
 {
@@ -52,11 +52,11 @@ public class UpdateExtensionProcessor : IProcessor
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
-            throw CirrusErrorException.UsageError("Name is required to update an extension.");
+            throw AzclipsErrorException.UsageError("Name is required to update an extension.");
         }
 
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        var loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.StartActivity($"{nameof(UpdateExtensionProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
@@ -70,7 +70,7 @@ public class UpdateExtensionProcessor : IProcessor
                 message = $"No installed extension matches '{Name}' (by package id or short name). " +
                           $"'{Name}' is a verb contributed by package '{suggested}'; to update that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
             }
-            throw CirrusErrorException.ExtensionNotFound(
+            throw AzclipsErrorException.ExtensionNotFound(
                 message,
                 new Dictionary<string, object?> { ["name"] = Name });
         }
@@ -86,7 +86,7 @@ public class UpdateExtensionProcessor : IProcessor
         // Pinning blocks update unless --force is passed.
         if (existing.Pinned && !Force)
         {
-            throw CirrusErrorException.PinViolation(
+            throw AzclipsErrorException.PinViolation(
                 $"Extension '{packageId}' is pinned at version '{existing.Version}'. Pass --force to override the pin.",
                 new Dictionary<string, object?>
                 {
@@ -109,7 +109,7 @@ public class UpdateExtensionProcessor : IProcessor
             var verbs = ExtensionVerbReader.ReadVerbs(installPath);
             if (verbs.Count == 0)
             {
-                throw CirrusErrorException.VerbConflict(
+                throw AzclipsErrorException.VerbConflict(
                     $"Updated package '{packageId}' does not declare an [ExtensionVerb] attribute.",
                     new Dictionary<string, object?> { ["packageId"] = packageId });
             }
@@ -126,7 +126,7 @@ public class UpdateExtensionProcessor : IProcessor
             // Block namespace changes across versions to prevent silent command-surface rebinding.
             if (!existingVerbs.SetEquals(newVerbSet))
             {
-                throw CirrusErrorException.VerbConflict(
+                throw AzclipsErrorException.VerbConflict(
                     $"Updated package '{packageId}' declares verbs [{string.Join(", ", verbs)}], " +
                     $"but the previously installed version owned [{string.Join(", ", existingVerbs)}]. " +
                     $"Refusing to silently rebind. Run 'extension remove {packageId}' then 'extension add' to change verbs.",
@@ -153,7 +153,7 @@ public class UpdateExtensionProcessor : IProcessor
                 var (leafVerb, leafPath) = LeafReader.SplitLeafKey(leafKey);
                 if (!newVerbSet.Contains(leafVerb))
                 {
-                    throw CirrusErrorException.LeafConflict(
+                    throw AzclipsErrorException.LeafConflict(
                         $"Updated package '{packageId}' contributes leaf '{leafKey}' whose first token is '{leafVerb}', " +
                         $"but only verbs [{string.Join(", ", verbs)}] are declared via [ExtensionVerb]. " +
                         $"Every s_cliTable key must start with a declared verb.",

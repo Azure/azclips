@@ -11,12 +11,12 @@ using Core.DependencyInjection;
 using Core.Runtime;
 using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Azure.Cirrus.Extensions.Config.Commands;
+using Microsoft.Azure.Azclips.Extensions.Config.Commands;
 using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class ConfigCliTests
 {
     [Fact]
@@ -136,7 +136,7 @@ public class ConfigCliTests
         Assert.Contains("core.logging.level = debug [global config]", globalOutput.Single());
 
         // Set environment variable (this persists for subsequent CLI invocations within the fixture)
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
 
         try
         {
@@ -146,7 +146,7 @@ public class ConfigCliTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 
@@ -225,7 +225,7 @@ public class ConfigCliTests
         using var fixture = new ConfigCommandFixture();
 
         fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
 
         try
         {
@@ -234,7 +234,7 @@ public class ConfigCliTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 
@@ -255,7 +255,7 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "{\"kind\":\"structured\",\"enabled\":true}");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "{\"kind\":\"structured\",\"enabled\":true}");
 
         try
         {
@@ -267,7 +267,7 @@ public class ConfigCliTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 
@@ -321,7 +321,7 @@ public class ConfigCliTests
     {
         private static readonly string[] s_environmentKeys =
         [
-            "CIRRUS_LOG_LEVEL",
+            "AZCLIPS_LOG_LEVEL",
             "ZIPKIN_ENDPOINT",
             "PS_HTTP_MAX_RETRIES",
             "AZURE_PS_HTTP_MAX_RETRIES",
@@ -335,7 +335,7 @@ public class ConfigCliTests
 
         public ConfigCommandFixture()
         {
-            var directory = Path.Combine(Path.GetTempPath(), "cirrus-config-cli-tests", Guid.NewGuid().ToString("N"));
+            var directory = Path.Combine(Path.GetTempPath(), "azclips-config-cli-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             _configPath = Path.Combine(directory, "config.json");
 
@@ -345,19 +345,19 @@ public class ConfigCliTests
                 Environment.SetEnvironmentVariable(key, null);
             }
 
-            CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.OverrideRegistration(services =>
+            AzclipsServiceProvider.Dispose();
+            AzclipsServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
-                services.AddSingleton<IAuthContextService, StubAuthContextService>();
+                services.AddSingleton<IProfileService, StubProfileService>();
                 services.AddSingleton<IAuthService, StubAuthService>();
                 // Register CLI-specific services for argument parsing
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });
-            CirrusServiceProvider.Initialize(ClientType.CLI);
+            AzclipsServiceProvider.Initialize(ClientType.CLI);
         }
 
         public IReadOnlyList<string> ExecuteCli(string[] args)
@@ -366,7 +366,7 @@ public class ConfigCliTests
 
             var dispatcher = new ExtensionDispatcher();
             var invocation = dispatcher.Parse(args);
-            var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+            var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
             var streams = new OutputStreams(
                 WriteOutput: (value, _) =>
@@ -388,7 +388,7 @@ public class ConfigCliTests
 
         public void Dispose()
         {
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
 
             foreach (var entry in _originalEnvironment)
             {
@@ -418,12 +418,12 @@ public class ConfigCliTests
         // Resolve path from test assembly location
         var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
         var repoRoot = Path.GetDirectoryName(testAssemblyPath);
-        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
+        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "azclips.slnx")))
         {
             repoRoot = Path.GetDirectoryName(repoRoot);
         }
 
-        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing cirrus.slnx from test assembly location.");
+        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing azclips.slnx from test assembly location.");
 
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
@@ -445,7 +445,7 @@ public class ConfigCliTests
             Assert.Contains(cmdlet, manifestContent);
         }
 
-        Assert.Contains("Microsoft.Azure.Cirrus.Cmdlets.Config.dll", manifestContent);
+        Assert.Contains("Microsoft.Azure.Azclips.Cmdlets.Config.dll", manifestContent);
         Assert.Contains("FunctionsToExport = @()", manifestContent);
     }
 
@@ -455,12 +455,12 @@ public class ConfigCliTests
         // Resolve path from test assembly location
         var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
         var repoRoot = Path.GetDirectoryName(testAssemblyPath);
-        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
+        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "azclips.slnx")))
         {
             repoRoot = Path.GetDirectoryName(repoRoot);
         }
 
-        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing cirrus.slnx from test assembly location.");
+        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing azclips.slnx from test assembly location.");
 
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
@@ -472,7 +472,7 @@ public class ConfigCliTests
         Assert.Contains("Core.Configuration.dll", manifestContent);
         Assert.Contains("Core.Engine.dll", manifestContent);
         Assert.Contains("Core.DependencyInjection.dll", manifestContent);
-        Assert.Contains("Microsoft.Azure.Cirrus.Extensions.Config.dll", manifestContent);
+        Assert.Contains("Microsoft.Azure.Azclips.Extensions.Config.dll", manifestContent);
 
         // Verify cmdlets are exported
         Assert.Contains("Get-AzConfig", manifestContent);
@@ -485,7 +485,7 @@ public class ConfigCliTests
     [Fact]
     public void ExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
     {
-        var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
+        var extensionIndex = new Microsoft.Azure.Azclips.Extensions.Config.ExtensionIndex();
 
         var getMetadata = extensionIndex.GetCommandMetadata("Get-AzConfig", ClientType.PowerShell);
         Assert.Contains("Json", getMetadata.Parameters.Keys);
@@ -522,3 +522,4 @@ public class ConfigCliTests
         }
     }
 }
+

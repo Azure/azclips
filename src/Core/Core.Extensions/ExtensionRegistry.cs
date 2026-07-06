@@ -9,7 +9,7 @@ using System.Text.Json.Serialization;
 namespace Core.Extensions
 {
     /// <summary>
-    /// Root document persisted at <c>~/.cirrus/extensions/registry.json</c>.
+    /// Root document persisted at <c>~/.azclips/extensions/registry.json</c>.
     /// Tracks every installed (non-built-in) extension. Built-ins live in the host's static seed.
     /// </summary>
     /// <remarks>
@@ -26,7 +26,7 @@ namespace Core.Extensions
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
         /// <summary>
-        /// Map from NuGet package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>) to entry.
+        /// Map from NuGet package id (e.g. <c>Microsoft.Azure.Azclips.Extensions.Compute</c>) to entry.
         /// </summary>
         [JsonPropertyName("extensions")]
         public Dictionary<string, ExtensionRegistryEntry> Extensions { get; set; } = new(StringComparer.OrdinalIgnoreCase);

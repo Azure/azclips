@@ -103,7 +103,7 @@ if [[ $has_wildcard -eq 1 ]]; then
   done < <(find "$BUILTIN_PUBLISH_ROOT" -mindepth 1 -maxdepth 1 -type d | sort)
 else
   for entry in "${CONFIG_INCLUDE_ENTRIES[@]}"; do
-    ext_assembly_name="Microsoft.Azure.Cirrus.Extensions.$entry"
+    ext_assembly_name="Microsoft.Azure.Azclips.Extensions.$entry"
     builtin_dir="$BUILTIN_PUBLISH_ROOT/$ext_assembly_name"
     if [[ ! -d "$builtin_dir" ]]; then
       echo "ERROR: Built-in publish directory not found for '$entry' at $builtin_dir"

@@ -7,7 +7,7 @@ using Core.DependencyInjection;
 using Core.Extensions;
 using NuGet.Versioning;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 public class RemoveExtensionProcessor : IProcessor
 {
@@ -35,17 +35,17 @@ public class RemoveExtensionProcessor : IProcessor
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
-            throw CirrusErrorException.UsageError("Name is required to remove an extension.");
+            throw AzclipsErrorException.UsageError("Name is required to remove an extension.");
         }
 
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        var loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.StartActivity($"{nameof(RemoveExtensionProcessor)}.{nameof(Process)}");
 
         // Built-in verbs aren't in the registry; give a clear error rather than "not found".
         if (BuiltInExtensions.IsBuiltInVerb(Name))
         {
-            throw CirrusErrorException.VerbConflict(
+            throw AzclipsErrorException.VerbConflict(
                 $"'{Name}' is a built-in verb and cannot be removed. Built-ins are part of the host.",
                 new Dictionary<string, object?> { ["verb"] = Name });
         }
@@ -67,7 +67,7 @@ public class RemoveExtensionProcessor : IProcessor
                 message += $" '{Name}' is a verb contributed by package '{suggested}'; " +
                            $"to remove that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
             }
-            throw CirrusErrorException.ExtensionNotFound(
+            throw AzclipsErrorException.ExtensionNotFound(
                 message,
                 new Dictionary<string, object?> { ["name"] = Name });
         }
@@ -205,7 +205,7 @@ public class RemoveExtensionProcessor : IProcessor
         }
         catch (PathTooLongException ex)
         {
-            throw new CirrusErrorException(
+            throw new AzclipsErrorException(
                 "ExtensionRemoveFailed",
                 1,
                 $"Failed to remove extension '{packageId}'. Path too long deleting '{packageDir}': {ex.Message}",
@@ -217,7 +217,7 @@ public class RemoveExtensionProcessor : IProcessor
         }
         catch (IOException ex)
         {
-            throw new CirrusErrorException(
+            throw new AzclipsErrorException(
                 "ExtensionRemoveFailed",
                 1,
                 $"Failed to remove extension '{packageId}'. Could not delete '{packageDir}': {ex.Message}",
@@ -229,7 +229,7 @@ public class RemoveExtensionProcessor : IProcessor
         }
         catch (UnauthorizedAccessException ex)
         {
-            throw new CirrusErrorException(
+            throw new AzclipsErrorException(
                 "ExtensionRemoveFailed",
                 1,
                 $"Failed to remove extension '{packageId}'. Access denied deleting '{packageDir}': {ex.Message}",
@@ -241,7 +241,7 @@ public class RemoveExtensionProcessor : IProcessor
         }
         catch (System.Security.SecurityException ex)
         {
-            throw new CirrusErrorException(
+            throw new AzclipsErrorException(
                 "ExtensionRemoveFailed",
                 1,
                 $"Failed to remove extension '{packageId}'. Security policy blocked delete for '{packageDir}': {ex.Message}",
@@ -254,7 +254,7 @@ public class RemoveExtensionProcessor : IProcessor
 
         if (Directory.Exists(packageDir))
         {
-            throw new CirrusErrorException(
+            throw new AzclipsErrorException(
                 "ExtensionRemoveFailed",
                 1,
                 $"Failed to remove extension '{packageId}'. Directory '{packageDir}' still exists after delete.",

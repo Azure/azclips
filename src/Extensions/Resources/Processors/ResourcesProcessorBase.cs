@@ -7,6 +7,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
+using ProfileModel = Core.Abstractions.Profile;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
@@ -21,7 +22,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected IEventPublisher Publisher = null!;
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
-        protected AuthContext AuthContext = null!;
+
+        /// <summary>The resolved connection profile from the processor context; null when none is available.</summary>
+        protected ProfileModel? ResolvedProfile;
+
+        /// <summary>
+        /// Bound <c>--profile</c>/<c>-Profile</c> parameter. The Engine resolves the named profile into
+        /// <see cref="ResolvedProfile"/> before the processor runs, so this property exists only to accept
+        /// the value during argument binding (per-processor workaround until a global-parameter framework exists).
+        /// </summary>
+        public string? Profile { get; set; }
+
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
 
@@ -43,7 +54,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            AuthContext = context.AuthHandler.AuthContext;
+            ResolvedProfile = context.Profile;
 
             AfterInit();
             return this;
@@ -53,7 +64,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
-        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, AuthContext)
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile)
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
@@ -66,7 +77,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 JsonOptions = JsonOptions,
             };
             child.WriteOutput = WriteOutput;
-            child.AuthContext = AuthContext;
+            child.ResolvedProfile = ResolvedProfile;
             configure?.Invoke(child);
             return child;
         }
@@ -95,7 +106,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return _response;
         }
 
-        /* 
+        /*
             For LRO API has
                 "x-ms-long-running-operation-options": {
                 "final-state-via": "location/azure-async-operation"
@@ -376,10 +387,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         public string SubscriptionId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="AuthContext"/>.
+        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="ResolvedProfile"/>.
         /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport.
         /// </summary>
-        /// TODO: update processor context to accept tenantId and subscriptionId instead of auth context
         protected void ResolveSubscriptionId()
         {
             if (!string.IsNullOrWhiteSpace(SubscriptionId))
@@ -387,17 +397,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 return;
             }
 
-            if (AuthContext is null)
+            if (ResolvedProfile is null)
             {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(AuthContext)}, so SubscriptionId cannot be resolved. Provide it via the property instead.");
+                throw new InvalidOperationException($"Processor {GetType().Name} has no profile, so SubscriptionId cannot be resolved. Sign in with 'login' or pass --subscription-id / --profile.");
             }
 
-            if (string.IsNullOrWhiteSpace(AuthContext.SubscriptionId))
+            if (string.IsNullOrWhiteSpace(ResolvedProfile.SubscriptionId))
             {
-                throw new InvalidOperationException("SubscriptionId must be provided either via property or auth context.");
+                throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.");
             }
 
-            SubscriptionId = AuthContext.SubscriptionId;
+            SubscriptionId = ResolvedProfile.SubscriptionId;
         }
 
         internal override Task<HttpResponseMessage> SendAsync()

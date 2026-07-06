@@ -1,7 +1,63 @@
-# az Tab Completion for Bash
+# az Tab Completion for Bash (Dynamic)
 # Usage: source <path-to>/az.completions.bash
 # Or add to your ~/.bashrc to auto-load on every session.
 # Requires: jq
+#
+# Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
+# at tab time. This ensures completions match whichever `az` binary is on PATH.
+
+_az_resolve_exe() {
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # 1. Same directory as this script
+    if [[ -x "$script_dir/az" ]]; then
+        echo "$script_dir/az"
+        return
+    fi
+    if [[ -x "$script_dir/az.exe" ]]; then
+        echo "$script_dir/az.exe"
+        return
+    fi
+    # 2. Walk up to find repo root (look for global.json), then check artifacts/
+    local dir="$script_dir"
+    while [[ -n "$dir" && "$dir" != "/" ]]; do
+        if [[ -f "$dir/global.json" ]]; then
+            local cfg
+            for cfg in Release Debug; do
+                if [[ -x "$dir/artifacts/$cfg/Core.Cli/az" ]]; then
+                    echo "$dir/artifacts/$cfg/Core.Cli/az"
+                    return
+                fi
+                if [[ -x "$dir/artifacts/$cfg/Core.Cli/az.exe" ]]; then
+                    echo "$dir/artifacts/$cfg/Core.Cli/az.exe"
+                    return
+                fi
+            done
+            break
+        fi
+        dir="$(dirname "$dir")"
+    done
+    # 3. Fall back to PATH
+    if command -v az &>/dev/null; then
+        command -v az
+    fi
+}
+
+_az_query() {
+    local exe
+    exe="$(_az_resolve_exe)"
+    [[ -n "$exe" ]] || return 1
+    "$exe" --completions "$@" 2>/dev/null
+}
+
+# Always query `az --completions` at tab time (no caching).
+_az_get_top_level() {
+    local json
+    json="$(_az_query)"
+    if [[ -n "$json" ]]; then
+        echo "$json" | jq -r 'keys[]' 2>/dev/null
+    fi
+}
 
 _az_completions() {
     local cur prev words cword
@@ -13,36 +69,45 @@ _az_completions() {
         cword=$COMP_CWORD
     }
 
-    local json_file="${BASH_SOURCE%/*}/az.completions.json"
-    if [[ ! -f "$json_file" ]]; then
-        return
-    fi
-
     case $cword in
         1)
             # Level 0: command groups
-            COMPREPLY=($(compgen -W "$(jq -r 'keys[]' "$json_file" 2>/dev/null)" -- "$cur"))
+            local groups
+            groups="$(_az_get_top_level)"
+            COMPREPLY=($(compgen -W "$groups" -- "$cur"))
             ;;
         2)
-            # Level 1: subcommands + group-level params
+            # Level 1: subcommands + group-level params (dynamic)
             local group="${words[1]}"
-            local subs
-            subs=$(jq -r --arg g "$group" '.[$g]._subcommands[]? // empty' "$json_file" 2>/dev/null)
-            local params
-            params=$(jq -r --arg g "$group" '.[$g]._params[]? // empty' "$json_file" 2>/dev/null)
-            COMPREPLY=($(compgen -W "$subs $params" -- "$cur"))
+            local json
+            json="$(_az_query "$group")"
+            if [[ -n "$json" ]]; then
+                local subs params
+                subs=$(echo "$json" | jq -r '._subcommands[]? // empty' 2>/dev/null)
+                params=$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)
+                COMPREPLY=($(compgen -W "$subs $params" -- "$cur"))
+            fi
             ;;
         *)
-            # Level 2+: parameters
+            # Level 2+: parameters (dynamic)
             local group="${words[1]}"
             local sub="${words[2]}"
-            local params
-
-            # Check if sub is a valid subcommand
-            if jq -e --arg g "$group" --arg s "$sub" '.[$g][$s]' "$json_file" &>/dev/null; then
-                params=$(jq -r --arg g "$group" --arg s "$sub" '.[$g][$s][]? // empty' "$json_file" 2>/dev/null)
+            local json
+            # If sub is a flag, query group-level params only
+            if [[ "$sub" == --* ]]; then
+                json="$(_az_query "$group")"
             else
-                params=$(jq -r --arg g "$group" '.[$g]._params[]? // empty' "$json_file" 2>/dev/null)
+                json="$(_az_query "$group" "$sub")"
+            fi
+            local params=""
+            if [[ -n "$json" ]]; then
+                # Try subcommand-specific params first, then group-level
+                if [[ "$sub" != --* ]]; then
+                    params=$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)
+                fi
+                if [[ -z "$params" ]]; then
+                    params=$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)
+                fi
             fi
 
             # Filter out already-used params
@@ -72,6 +137,9 @@ _az_completions() {
     esac
 }
 
-complete -F _az_completions az
+complete -F _az_completions az az.exe
 
-echo "az tab completion registered (bash)."
+# Show all completions on first Tab press (like PowerShell's MenuComplete)
+bind 'set show-all-if-ambiguous on' 2>/dev/null
+
+echo "az tab completion registered (bash, dynamic)."

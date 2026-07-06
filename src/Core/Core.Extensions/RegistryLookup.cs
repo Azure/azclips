@@ -21,9 +21,9 @@ namespace Core.Extensions
     /// identifiers only:
     /// </para>
     /// <list type="bullet">
-    ///   <item>the exact package id (case-insensitive), e.g. <c>Microsoft.Azure.Cirrus.Extensions.Compute</c></item>
+    ///   <item>the exact package id (case-insensitive), e.g. <c>Microsoft.Azure.Azclips.Extensions.Compute</c></item>
     ///   <item>a short suffix that matches the trailing dotted segment, e.g. <c>Compute</c>
-    ///     matches <c>Microsoft.Azure.Cirrus.Extensions.Compute</c></item>
+    ///     matches <c>Microsoft.Azure.Azclips.Extensions.Compute</c></item>
     /// </list>
     /// <para>
     /// Verbs and namespaces are still useful as *suggestion* signals — see
@@ -36,7 +36,6 @@ namespace Core.Extensions
         private static readonly string[] s_knownExtensionPrefixes =
         [
             "Microsoft.Azure.Azclips.Extensions.",
-            "Microsoft.Azure.Cirrus.Extensions.",
         ];
 
         /// <summary>

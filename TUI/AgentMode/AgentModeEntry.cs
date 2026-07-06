@@ -30,14 +30,14 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        CirrusServiceProvider.Initialize(ClientType.TUI);
+        AzclipsServiceProvider.Initialize(ClientType.TUI);
 
         TraceAgentRenderer? trace = null;
         try
         {
-            var auth        = CirrusServiceProvider.GetRequiredService<IAuthService>();
-            var authContext = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
-            var config      = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+            var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
+            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+            var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             // Prompt is chosen by interaction mode: oneShot → oneshot.md,
             // interactive → inline.md. (tui.md exists for a future full-screen
@@ -58,7 +58,7 @@ public static class AgentModeEntry
             IAgentRenderer renderer = consoleRenderer;
             if (agentOpts.Trace.Enabled && !string.IsNullOrWhiteSpace(agentOpts.Trace.Path))
             {
-                // Expand a leading ~ (the documented default is ~/.cirrus/trace) — .NET
+                // Expand a leading ~ (the documented default is ~/.azclips/trace) — .NET
                 // does NOT expand it, so without this the trace lands in a literal "~"
                 // directory. Resolve to an absolute path so the announced location works.
                 var traceDir = ExpandHome(agentOpts.Trace.Path);
@@ -82,7 +82,7 @@ public static class AgentModeEntry
                 onQuit:  () => cts.Cancel());
             var approval = new ConsoleApprovalPrompt(spinner, renderer, abortWatcher: watcher);
 
-            // Funnel cirrus-internal logs through the renderer so they don't
+            // Funnel Azclips-internal logs through the renderer so they don't
             // race the spinner. Verbose/Debug/Info dropped; Warn/Error become
             // HostLogEmitted events the renderer draws under its lock.
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
@@ -90,7 +90,7 @@ public static class AgentModeEntry
             await using var agent = await ChatAgent.CreateAsync(
                 flavor: flavor,
                 auth: auth,
-                authContext: authContext,
+                profileService: profileService,
                 azExePath: az,
                 approvalSink: approval,
                 renderer: renderer,
@@ -127,7 +127,7 @@ public static class AgentModeEntry
         finally
         {
             trace?.Dispose();
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
         }
     }
 
@@ -349,7 +349,7 @@ public static class AgentModeEntry
     }
 
     // .NET does not expand a leading "~"; do it ourselves so the documented default
-    // (~/.cirrus/trace) resolves under the user profile instead of a literal "~" dir.
+    // (~/.azclips/trace) resolves under the user profile instead of a literal "~" dir.
     private static string ExpandHome(string path)
     {
         if (path == "~")

@@ -33,16 +33,16 @@ public abstract class BenchmarkBase
 
     /// <summary>
     /// Registers stub DI overrides for benchmark isolation.
-    /// Call before each iteration since <see cref="CirrusServiceProvider.Dispose"/>
+    /// Call before each iteration since <see cref="AzclipsServiceProvider.Dispose"/>
     /// clears all registrations.
     /// </summary>
     protected void RegisterBenchmarkStubs()
     {
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IAuthContextService, StubAuthContextService>();
+            services.AddSingleton<IProfileService, StubProfileService>();
             services.AddSingleton<IAuthService, StubAuthService>();
         });
     }
@@ -52,6 +52,6 @@ public abstract class BenchmarkBase
     /// </summary>
     protected void CleanupCommon()
     {
-        CirrusServiceProvider.Dispose();
+        AzclipsServiceProvider.Dispose();
     }
 }

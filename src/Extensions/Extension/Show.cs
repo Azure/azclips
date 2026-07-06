@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 public class ShowExtensionProcessor : IProcessor
 {
@@ -34,10 +34,10 @@ public class ShowExtensionProcessor : IProcessor
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
-            throw CirrusErrorException.UsageError("Name is required to show an extension.");
+            throw AzclipsErrorException.UsageError("Name is required to show an extension.");
         }
 
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var _ = telemetryService.StartActivity($"{nameof(ShowExtensionProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
@@ -54,7 +54,7 @@ public class ShowExtensionProcessor : IProcessor
                 message += $" '{Name}' is a verb contributed by package '{suggested}'; " +
                            $"to act on that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
             }
-            throw CirrusErrorException.ExtensionNotFound(
+            throw AzclipsErrorException.ExtensionNotFound(
                 message,
                 new Dictionary<string, object?> { ["name"] = Name });
         }

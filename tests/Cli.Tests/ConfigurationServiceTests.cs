@@ -10,7 +10,7 @@ using Core.Configuration.Schema;
 
 namespace Cli.Tests;
 
-[Collection("Cirrus Service Provider Tests")]
+[Collection("Azclips Service Provider Tests")]
 public class ConfigurationServiceTests
 {
     [Fact]
@@ -49,7 +49,7 @@ public class ConfigurationServiceTests
         var service = fixture.CreateService();
         await service.SetConfigurationAsync("core.logging.level", "info");
 
-        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "error");
 
         try
         {
@@ -59,7 +59,7 @@ public class ConfigurationServiceTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", null);
         }
     }
 
@@ -144,6 +144,43 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public void GetConfiguration_ShouldDefaultCompletionEnabled_OnEmptyConfig()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var options = service.GetConfiguration<CompletionOptions>();
+
+        // Completion is opt-out: sourcing a completion script works out of the box.
+        Assert.True(options.Enabled);
+    }
+
+    [Fact]
+    public async Task SetConfigurationAsync_ShouldRoundTripCompletionEnabled()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("completion.enabled", false);
+
+        var options = service.GetConfiguration<CompletionOptions>();
+
+        Assert.False(options.Enabled);
+    }
+
+    [Fact]
+    public async Task ListConfigurationAsync_ShouldReportCompletionEnabledDefaultTrue()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+
+        // Schema/list default must match the POCO default (CompletionOptions.Enabled=true).
+        Assert.Equal(true, values["completion.enabled"]);
+    }
+
+    [Fact]
     public async Task ListConfigurationAsync_ShouldReportAgentEnabledDefaultFalse()
     {
         using var fixture = new TempConfigurationFixture();
@@ -159,7 +196,7 @@ public class ConfigurationServiceTests
 
     private sealed class TempConfigurationFixture : IDisposable
     {
-        private readonly string _directory = Path.Combine(Path.GetTempPath(), "cirrus-config-tests", Guid.NewGuid().ToString("N"));
+        private readonly string _directory = Path.Combine(Path.GetTempPath(), "azclips-config-tests", Guid.NewGuid().ToString("N"));
 
         public TempConfigurationFixture()
         {
@@ -217,3 +254,4 @@ public class ConfigurationServiceTests
         }
     }
 }
+

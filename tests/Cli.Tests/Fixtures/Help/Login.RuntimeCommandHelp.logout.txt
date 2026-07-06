@@ -1,0 +1,9 @@
+Command
+    az logout : Sign out of the active profile.
+
+Arguments
+    (none)
+
+Examples
+    Sign out
+        az logout

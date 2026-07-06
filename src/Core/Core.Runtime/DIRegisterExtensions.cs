@@ -22,7 +22,9 @@ public static class DIRegisterExtensions
         services.AddSingleton<ILoggingService, ScopedLoggingService>();
         services.AddSingleton<IHttpTerminateHandler, DefaultHttpTerminateHandler>();
         services.AddSingleton<ITracingInterceptor, DefaultTracingInterceptor>();
+        services.AddSingleton<IUserAgentHandler, DefaultUserAgentHandler>();
         services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
+        services.AddSingleton<IProfileService, ProfileService>();
         return services;
     }
 }

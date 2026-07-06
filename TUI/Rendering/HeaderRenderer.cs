@@ -31,7 +31,7 @@ static class HeaderRenderer
             }
             else
             {
-                widgets.Add(inner.Text(Ansi.GradientLine("  ◈  Cirrus", 0, 1)));
+                widgets.Add(inner.Text(Ansi.GradientLine("  ◈  Azclips", 0, 1)));
             }
 
             widgets.Add(inner.Text(""));

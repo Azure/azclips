@@ -10,7 +10,7 @@ namespace Core.Extensions
     /// Result of resolving a top-level verb to the extension that owns it.
     /// </summary>
     /// <param name="Verb">The verb that was matched (preserves the seed/registry casing).</param>
-    /// <param name="PackageId">Full extension package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</param>
+    /// <param name="PackageId">Full extension package id (e.g. <c>Microsoft.Azure.Azclips.Extensions.Compute</c>).</param>
     /// <param name="Version">Installed version. <c>null</c> for built-ins, which ship with the host.</param>
     /// <remarks>
     /// Built-in vs. installed is implicit: a verb is built-in iff <see cref="BuiltInExtensions.IsBuiltInVerb"/>
@@ -25,7 +25,7 @@ namespace Core.Extensions
     /// Source order, per the spec:
     /// <list type="number">
     ///   <item>Built-in seed (<see cref="BuiltInExtensions.Map"/>) — wins on conflict.</item>
-    ///   <item>On-disk registry (<c>~/.cirrus/extensions/registry.json</c>).</item>
+    ///   <item>On-disk registry (<c>~/.azclips/extensions/registry.json</c>).</item>
     /// </list>
     /// </remarks>
     public interface IExtensionResolver

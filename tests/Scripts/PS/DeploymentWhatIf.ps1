@@ -9,7 +9,7 @@
 #
 # Shared test context:
 #   SubscriptionId: 282bb33f-067d-4179-a7a4-b833c13af735
-#   ResourceGroupName: cirrus-test-group-1 (region: australiaeast)
+#   ResourceGroupName: azclips-test-group-1 (region: australiaeast)
 # The resource-group-scoped what-if inherits the resource group's region,
 # so no location parameter is required here.
 
@@ -24,8 +24,8 @@ $DebugPreference = 'Continue'
 # Happy path (TemplateUri): preview a public quickstart template in Incremental mode.
 New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name cirrus-test-whatif-1 `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name azclips-test-whatif-1 `
     -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
     -Mode Incremental
 
@@ -33,31 +33,31 @@ New-ResourceGroupDeploymentWhatIf `
 # preview it. Requires the Bicep CLI on PATH or the az-bundled bicep (~/.azure/bin/bicep).
 New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name cirrus-test-whatif-bicep `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name azclips-test-whatif-bicep `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
     -Mode Incremental
 
-# Inline-parameter precedence: the .bicepparam supplies storageAccountName=cirrusbicep0001
+# Inline-parameter precedence: the .bicepparam supplies storageAccountName=azclipsbicep0001
 # (the base); the repeatable -Parameter (KEY=VALUE) overrides it, proving inline overlays the file.
 New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name cirrus-test-whatif-inline `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name azclips-test-whatif-inline `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
-    -Parameter "storageAccountName=cirruswhatifinline" `
+    -Parameter "storageAccountName=azclipswhatifinline" `
     -Mode Incremental
 
 # -ResultFormat ResourceIdOnly: the predicted changes carry resource ids only
 # (no full before/after payloads).
 New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name cirrus-test-whatif-idonly `
+    -ResourceGroupName azclips-test-group-1 `
+    -Name azclips-test-whatif-idonly `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
-    -Parameter "storageAccountName=cirruswhatifidonly" `
+    -Parameter "storageAccountName=azclipswhatifidonly" `
     -ResultFormat ResourceIdOnly `
     -Mode Incremental
 
@@ -67,8 +67,8 @@ New-ResourceGroupDeploymentWhatIf `
 try {
     New-ResourceGroupDeploymentWhatIf `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-        -ResourceGroupName cirrus-test-group-1 `
-        -Name cirrus-test-whatif-bicep-negative `
+        -ResourceGroupName azclips-test-group-1 `
+        -Name azclips-test-whatif-bicep-negative `
         -TemplateFile (Join-Path $BicepDir 'malformed.bicep') `
         -Mode Incremental `
         -ErrorAction Stop
@@ -89,8 +89,8 @@ try {
 try {
     New-ResourceGroupDeploymentWhatIf `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-        -ResourceGroupName cirrus-test-group-1 `
-        -Name cirrus-test-whatif-rf-negative `
+        -ResourceGroupName azclips-test-group-1 `
+        -Name azclips-test-whatif-rf-negative `
         -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
         -ResultFormat Foo `
         -Mode Incremental `
@@ -117,8 +117,8 @@ $TemplateDir = Join-Path $PSScriptRoot '..' 'Bicep'
 try {
     New-ResourceGroupDeploymentWhatIf `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-        -ResourceGroupName cirrus-test-group-1 `
-        -Name cirrus-test-whatif-apierror `
+        -ResourceGroupName azclips-test-group-1 `
+        -Name azclips-test-whatif-apierror `
         -TemplateFile (Join-Path $TemplateDir 'whatif-invalid-template.json') `
         -Mode Incremental `
         -ErrorAction Stop
@@ -132,3 +132,4 @@ try {
         Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
+

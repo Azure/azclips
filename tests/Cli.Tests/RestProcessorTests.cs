@@ -30,11 +30,13 @@ public class RestProcessorTests
         FakeEventPublisher? publisher = null)
     {
         var processor = new RestProcessor_Orchestrator();
+        var profile = new Profile() { TenantId = "test-tenant", SubscriptionId = subscriptionId };
         var context = new ProcessorContext(
             pipeline,
             publisher ?? new FakeEventPublisher(),
-            new FakeAuthHandler(new AuthContext("test-tenant", subscriptionId)),
-            output);
+            new FakeAuthHandler(profile),
+            output,
+            Profile: profile);
         processor.Init(context);
         return processor;
     }
@@ -129,7 +131,7 @@ public class RestProcessorTests
         var pipeline = CapturingPipeline(uri => sentUri = uri);
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
-        processor.ResourceGroupName = "cirrus-test-group-1";
+        processor.ResourceGroupName = "azclips-test-group-1";
         processor.ResourceProviderName = "Microsoft.Storage";
         processor.ResourceType = ["storageAccounts"];
         processor.Name = ["myaccount"];
@@ -140,7 +142,7 @@ public class RestProcessorTests
         Assert.Equal(1, pipeline.SendCount);
         Assert.NotNull(sentUri);
         Assert.Equal(
-            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/cirrus-test-group-1/providers/Microsoft.Storage/storageAccounts/myaccount?api-version=2023-01-01",
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/azclips-test-group-1/providers/Microsoft.Storage/storageAccounts/myaccount?api-version=2023-01-01",
             sentUri!.ToString());
     }
 
@@ -152,7 +154,7 @@ public class RestProcessorTests
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
         processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroupName = "cirrus-test-group-1";
+        processor.ResourceGroupName = "azclips-test-group-1";
         processor.ResourceProviderName = "Microsoft.Storage";
         processor.ResourceType = ["storageAccounts"];
         // No Name → collection GET on the last type.
@@ -162,7 +164,7 @@ public class RestProcessorTests
 
         Assert.Equal(1, pipeline.SendCount);
         Assert.Equal(
-            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/cirrus-test-group-1/providers/Microsoft.Storage/storageAccounts?api-version=2023-01-01",
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/azclips-test-group-1/providers/Microsoft.Storage/storageAccounts?api-version=2023-01-01",
             sentUri!.ToString());
     }
 
@@ -516,9 +518,9 @@ public class RestProcessorTests
 
     private sealed class FakeAuthHandler : IAuthHandler
     {
-        public FakeAuthHandler(AuthContext authContext) => AuthContext = authContext;
+        public FakeAuthHandler(Profile? profile) => Profile = profile;
 
-        public AuthContext AuthContext { get; set; }
+        public Profile? Profile { get; set; }
 
         public AcquireTokenAsyncDelegate AcquireTokenAsyncDefault { get; set; } =
             (_, _, _, _) => throw new NotSupportedException("Token acquisition is not exercised in these offline tests.");
@@ -595,3 +597,4 @@ public class RestProcessorTests
         public Task Publish(string id, Uri uri) { PublishedIds.Add(id); return Task.CompletedTask; }
     }
 }
+

@@ -3,7 +3,7 @@
 
 using Core.Abstractions.Runtime;
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+using Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 using Xunit;
 
 namespace Cli.Tests;
@@ -54,7 +54,7 @@ public class ExtensionAddPinTests
     {
         var registry = RegistryWith("1.1.0-alpha", pinned: true);
 
-        var ex = Assert.Throws<CirrusErrorException>(
+        var ex = Assert.Throws<AzclipsErrorException>(
             () => AddExtensionProcessor.CheckPinPrecondition(registry, PackageId, "1.0.0-alpha", force: false, pin: false));
 
         Assert.Equal("PinViolation", ex.Code);

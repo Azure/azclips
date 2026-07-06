@@ -10,10 +10,34 @@
       "description": "Authenticate to Azure and persist account context for subsequent commands.",
       "parameters": [
         {
+          "name": "out-profile",
+          "psName": "OutProfile",
+          "type": "string",
+          "required": false,
+          "description": "Create or overwrite a named profile with the login result (mutually exclusive with --profile).",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "profile",
+          "psName": "Profile",
+          "type": "string",
+          "required": false,
+          "description": "Re-authenticate the named existing profile (mutually exclusive with --out-profile).",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
           "name": "subscription-id",
           "psName": "SubscriptionId",
           "type": "string",
-          "required": true,
+          "required": false,
           "description": "Azure Subscription Id.",
           "aliases": [],
           "allowedValues": [],
@@ -55,40 +79,6 @@
           {
             "title": "Login with device code",
             "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
-          }
-        ],
-        "powerShell": []
-      },
-      "tags": []
-    },
-    {
-      "cliName": "login logout",
-      "psName": "Disconnect-AzAccount",
-      "summary": "Sign out from the current Azure account context.",
-      "description": "Sign out from the current Azure account context.",
-      "parameters": [],
-      "examples": {
-        "cli": [
-          {
-            "title": "Sign out",
-            "command": "az login logout"
-          }
-        ],
-        "powerShell": []
-      },
-      "tags": []
-    },
-    {
-      "cliName": "login show",
-      "psName": "Get-AzAccount",
-      "summary": "Show the current Azure account context.",
-      "description": "Show the current Azure account context.",
-      "parameters": [],
-      "examples": {
-        "cli": [
-          {
-            "title": "Show current account context",
-            "command": "az login show"
           }
         ],
         "powerShell": []

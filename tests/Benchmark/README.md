@@ -1,6 +1,6 @@
-# Cirrus Benchmark Suite
+# Azclips Benchmark Suite
 
-Performance benchmarking for Cirrus CLI/PowerShell engine, comparing execution time across CLI and PowerShell products.
+Performance benchmarking for Azclips CLI/PowerShell engine, comparing execution time across CLI and PowerShell products.
 
 ## Quick Start
 
@@ -10,7 +10,7 @@ Benchmarks execute the **Release** build artifacts (CLI host, extensions, and Po
 
 ```bash
 # Build the solution in Release (produces artifacts/Release/...)
-dotnet build cirrus.slnx -c Release
+dotnet build azclips.slnx -c Release
 
 # Stage PS module manifests into artifacts/Release/PS/ (required for PS benchmarks)
 ./build/Set-ModuleConfiguration.ps1 -c Release

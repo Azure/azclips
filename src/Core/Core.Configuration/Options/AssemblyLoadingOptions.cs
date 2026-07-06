@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Core.Configuration.Options;
 
 public sealed class AssemblyLoadingOptions
@@ -14,8 +16,8 @@ public sealed class AssemblyLoadingOptions
     /// <summary>
     /// When true, <see cref="Core.Cli.MultiVersionExtensionLoader"/> skips its process-wide ALC cache
     /// and constructs a fresh <see cref="System.Runtime.Loader.AssemblyLoadContext"/> on every load.
-    /// Test/benchmark hook; set via the <c>--no-cache</c> CLI flag or <c>CIRRUS_NO_EXTENSION_CACHE</c>
-    /// environment variable.
+    /// Test/benchmark hook; set via the <c>--no-cache</c> CLI flag or
+    /// <c>AZCLIPS_NO_EXTENSION_CACHE</c> environment variable.
     /// </summary>
     public bool BypassExtensionCache { get; set; }
 
@@ -30,10 +32,9 @@ public sealed class AssemblyLoadingOptions
 
     private static string GetDefaultVersionedInstallationDir()
     {
-        // Always use ~/.cirrus/extensions regardless of build configuration.
+        // Always use ~/.azclips/extensions regardless of build configuration.
         // Installed extensions live there, even during local development.
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return Path.Combine(home, ".cirrus", "extensions");
+        return HomePaths.GetDefaultExtensionsRoot();
     }
 
     private static string GetDefaultExtensionFolderPrefix()

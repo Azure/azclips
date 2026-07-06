@@ -16,5 +16,5 @@ az extension remove --name Compute
 ### Remove by package id
 
 ```bash
-az extension remove --name Microsoft.Azure.Cirrus.Extensions.Compute
+az extension remove --name Microsoft.Azure.Azclips.Extensions.Compute
 ```

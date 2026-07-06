@@ -2,10 +2,10 @@
 
 ## How It Works
 
-1. **Build time**: `build/build.ps1` runs `az --completions`, which introspects all loaded extensions and outputs a JSON command tree to `bin/az.completions.json`.
-2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) load the same JSON tree and register tab completion for `az`.
+1. **Build time**: `build/build.ps1` builds the solution and copies shell completion scripts to `bin/`.
+2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) dynamically invoke `az --completions [group] [subcommand]` at tab time, ensuring completions always match whichever `az` binary is on PATH.
 
-The completion tree structure:
+The completion tree structure returned by `az --completions`:
 
 ```json
 {
@@ -23,7 +23,7 @@ The completion tree structure:
 ### PowerShell
 
 ```powershell
-# Build solution + generate completion data
+# Build solution
 .\build\build.ps1
 
 # Load completions into current session
@@ -38,7 +38,7 @@ az group <Tab>
 ### zsh
 
 ```zsh
-# Build solution + generate completion data
+# Build solution
 pwsh ./build/build.ps1
 
 # Load completions into current session
@@ -52,18 +52,46 @@ Now press Tab after `az ` to see suggestions:
 az group <Tab>
 ```
 
+### bash
+
+```bash
+# Build solution
+pwsh ./build/build.ps1
+
+# Load completions into current session
+source ./bin/az.completions.bash
+```
+
+Now press Tab after `az ` to see suggestions:
+```bash
+az group <Tab>
+```
+
+## Toggling Completion
+
+Completion is enabled by default. A config key gates it at the source of truth
+(`az --completions`), so you can turn it off without un-sourcing the script:
+
+```bash
+# Disable — az --completions returns an empty tree, so no shell offers suggestions
+az config set --key completion.enabled --value false
+
+# Re-enable
+az config set --key completion.enabled --value true
+```
+
 ## Testing Completions Manually
 
 ```powershell
 # After loading the script, call the internal function directly:
-_azGetCompletions "az group " 11
+_azGetCompletions "az group " 9
 ```
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `CompletionGenerator.cs` | `--completions` handler; builds JSON tree from extension metadata |
-| `az.completions.ps1` | PowerShell completer; loads JSON + registers `TabExpansion2` override |
-| `az.completions.bash` | Bash completer (same JSON data source) |
-| `az.completions.zsh` | Native zsh completer using `compdef` (same JSON data source) |
+| `CompletionGenerator.cs` | `--completions` handler; builds JSON tree from extension metadata (called at tab time) |
+| `az.completions.ps1` | PowerShell completer; queries `az --completions` dynamically + `TabExpansion2` override |
+| `az.completions.bash` | Bash completer; queries `az --completions` dynamically |
+| `az.completions.zsh` | Native zsh completer using `compdef`; queries `az --completions` dynamically |

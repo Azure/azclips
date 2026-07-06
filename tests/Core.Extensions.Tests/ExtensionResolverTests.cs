@@ -15,7 +15,7 @@ namespace Core.Extensions.Tests
             new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
                 ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
-                ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config"),
+                ["config"] = new("config", "Microsoft.Azure.Azclips.Extensions.Config"),
             };
 
         private static InMemoryRegistryStore EmptyStore() => new(new ExtensionRegistry());
@@ -57,7 +57,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void TryResolve_ShouldReturnRegistryEntry_WhenVerbIsInstalled()
         {
-            var store = StoreWith("Microsoft.Azure.Cirrus.Extensions.Compute", "vm", "1.1.0");
+            var store = StoreWith("Microsoft.Azure.Azclips.Extensions.Compute", "vm", "1.1.0");
             var resolver = new ExtensionResolver(store, TestBuiltIns);
 
             var found = resolver.TryResolve("vm", out var resolved);
@@ -65,7 +65,7 @@ namespace Core.Extensions.Tests
             Assert.True(found);
             Assert.NotNull(resolved);
             Assert.False(BuiltInExtensions.IsBuiltInVerb(resolved!.Verb));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", resolved.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", resolved.PackageId);
             Assert.Equal("1.1.0", resolved.Version);
         }
 
@@ -109,16 +109,19 @@ namespace Core.Extensions.Tests
         }
 
         [Fact]
-        public void DefaultBuiltIns_ShouldContainExactlyCoreThree()
+        public void DefaultBuiltIns_ShouldContainExactlyCoreN()
         {
-            // The seed is exactly extension/login/config.
-            // group (Resources) and vm (Compute) are installable extensions, not built-ins.
+            // The seed is extension/login/logout/profile/config. login and profile are both served by
+            // the Login built-in package. group (Resources) and vm (Compute) are installable
+            // extensions, not built-ins.
             Assert.Contains("extension", BuiltInExtensions.Map.Keys);
             Assert.Contains("login", BuiltInExtensions.Map.Keys);
+            Assert.Contains("logout", BuiltInExtensions.Map.Keys);
+            Assert.Contains("profile", BuiltInExtensions.Map.Keys);
             Assert.Contains("config", BuiltInExtensions.Map.Keys);
             Assert.DoesNotContain("group", BuiltInExtensions.Map.Keys);
             Assert.DoesNotContain("vm", BuiltInExtensions.Map.Keys);
-            Assert.Equal(3, BuiltInExtensions.Map.Count);
+            Assert.Equal(5, BuiltInExtensions.Map.Count);
         }
 
         [Fact]
@@ -131,3 +134,4 @@ namespace Core.Extensions.Tests
         }
     }
 }
+

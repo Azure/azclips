@@ -1,0 +1,55 @@
+name: "✨ Feature Request or Idea"
+description: Suggest a new capability or enhancement for azclips.
+labels: ["feature-request", "private-preview"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Have an idea to make **azclips** better? We'd love to hear it.
+
+
+        Please search the [existing issues](https://github.com/Azure/azclips/issues) first to see if someone already suggested it.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Target surface
+      description: Where would this feature apply?
+      options:
+        - CLI (`az`)
+        - PowerShell
+        - Both
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the scenario or pain point behind this request.
+      placeholder: As a user, I want to ... so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe what you'd like azclips to do. Include an example command if you can.
+      placeholder: |
+        e.g., `az group create` should support ...
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: How do you handle this today (e.g., with Azure CLI, Azure PowerShell, or scripts)?
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other context, mockups, or references.
+    validations:
+      required: false

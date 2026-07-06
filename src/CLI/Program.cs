@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
+using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
@@ -21,6 +22,7 @@ namespace Core.Cli;
 
 public class Program
 {
+    private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ILoggingService? _logger;
@@ -37,35 +39,36 @@ public class Program
             return 0;
         }
 
-        CirrusServiceProvider.PrependRegistration(services =>
+        AzclipsServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
             services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
             services.AddSingleton<PropertyParser>();
             services.AddCliExtensionDispatch();
         });
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
             services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
+            services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
         });
-        CirrusServiceProvider.Initialize(_clientType);
+        AzclipsServiceProvider.Initialize(_clientType);
 
         // Shell tab-completion metadata (after DI so generator can resolve IEngine directly)
         int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
         if (completionExit.HasValue)
             return completionExit.Value;
 
-        _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+        _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+        var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
 
         try
         {
             using var activity = telemetryService.StartRootActivity();
-            var dispatcher = CirrusServiceProvider.GetRequiredService<ExtensionDispatcher>();
+            var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
             args = ParseDebugFlag(args, out var debugOverride);
             var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(configurationService, debugOverride);
             streams = BuildStreams(effectiveLogLevel);
@@ -79,7 +82,7 @@ public class Program
                 using var commandActivity =
                     telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
 
-                var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ??
+                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
                              throw new InvalidOperationException("Engine service not found.");
                 using ISession session =
                     engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
@@ -90,8 +93,8 @@ public class Program
             }
             catch (DispatchHelpException)
             {
-                var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
                 var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
@@ -99,8 +102,8 @@ public class Program
             }
             catch (RuntimeExtensionHelpException helpException)
             {
-                var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
                 try
                 {
                     var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderExtensionHelp(helpException);
@@ -108,7 +111,7 @@ public class Program
                     activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
                     return exitCode;
                 }
-                catch (CirrusErrorException structured)
+                catch (AzclipsErrorException structured)
                 {
                     // RenderExtensionHelp surfaces ExtensionNotInstalledException when the user asks
                     // for help on a verb owned by an uninstalled package (smart-suggestion path).
@@ -125,9 +128,9 @@ public class Program
 
                 return await TryAgentFallbackAsync(args, ex.Message);
             }
-            catch (CirrusErrorException ex)
+            catch (AzclipsErrorException ex)
             {
-                // Structured Cirrus error: render per --output mode and return the symbolic exit code.
+                // Structured AzClips error: render per --output mode and return the symbolic exit code.
                 // No AI fallback — the failure is well-known and the user's intent is unambiguous.
                 EmitStructuredError(ex, outputJson);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -145,7 +148,7 @@ public class Program
         }
         finally
         {
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
     }
@@ -240,7 +243,7 @@ public class Program
         return result.ToArray();
     }
 
-    // Strips `--no-cache` and propagates the bypass via the CIRRUS_NO_EXTENSION_CACHE env var,
+    // Strips `--no-cache` and propagates the bypass via AZCLIPS_NO_EXTENSION_CACHE env var,
     // which AssemblyLoadingOptions.BypassExtensionCache reads through ConfigurationService.
     // Test hook for benchmarking.
     private static string[] ParseNoCacheFlag(string[] args)
@@ -249,11 +252,11 @@ public class Program
         {
             return args;
         }
-        Environment.SetEnvironmentVariable("CIRRUS_NO_EXTENSION_CACHE", "true");
+        Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
         return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 
-    private static void EmitStructuredError(CirrusErrorException ex, bool outputJson)
+    private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
     {
         if (outputJson)
         {
@@ -286,7 +289,7 @@ public class Program
         // original error rather than spawning the agent on an unknown state.
         try
         {
-            var config = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+            var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             if (!config.GetConfiguration<AgentOptions>().Enabled)
             {
                 return 1;
@@ -302,7 +305,7 @@ public class Program
         // the terminal. When this isn't an interactive TTY (CI, a pipe, an
         // unattended script) it can't interact and would hang or spew, so surface
         // the original error instead of spawning it. Replaces the removed
-        // CIRRUS_AGENT_DISABLED env guard for unattended runs. Inlined (not the
+        // legacy agent-disabled env guard for unattended runs. Inlined (not the
         // agent's ConsoleEnvironment helper) so Core.Cli stays decoupled from
         // Core.Agent — same semantics: a TTY on both stdin and stdout.
         if (Console.IsInputRedirected || Console.IsOutputRedirected)
@@ -312,7 +315,7 @@ public class Program
 
         // Recursion guard: a failed az invoked by powershell from inside an
         // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
-        if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
+        if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
         {
             return 1;
         }
@@ -336,7 +339,7 @@ public class Program
                 RedirectStandardError = false,
                 RedirectStandardInput = false,
             };
-            psi.Environment["CIRRUS_IN_AGENT_MODE"] = "1";
+            psi.Environment[AgentModeEnvVar] = "1";
             psi.ArgumentList.Add("--agent-mode");
             psi.ArgumentList.Add("--failed-command");
             psi.ArgumentList.Add(JoinShellQuoted(args));

@@ -12,6 +12,39 @@ $ErrorActionPreference = 'Stop'
 $OutRoot = [System.IO.Path]::GetFullPath($OutRoot)
 $CommonOutRoot = [System.IO.Path]::GetFullPath($CommonOutRoot)
 
+$packagingRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+
+function Get-ArtifactConfigValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DefaultValue
+    )
+
+    $configPath = $env:ARTIFACT_NAMING_CONFIG
+    if ([string]::IsNullOrWhiteSpace($configPath)) {
+        $configPath = Join-Path $packagingRoot 'config/artifact_naming.config'
+    }
+
+    if (Test-Path -Path $configPath -PathType Leaf) {
+        foreach ($line in Get-Content -Path $configPath) {
+            $trimmed = $line.Trim()
+            if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) {
+                continue
+            }
+
+            $parts = $trimmed.Split('=', 2)
+            if ($parts.Count -eq 2 -and $parts[0].Trim() -eq $Name) {
+                return $parts[1].Trim()
+            }
+        }
+    }
+
+    return $DefaultValue
+}
+
 $packageProfile = $env:PACKAGE_PROFILE
 if ([string]::IsNullOrWhiteSpace($packageProfile)) {
     $packageProfile = 'lean'
@@ -19,10 +52,16 @@ if ([string]::IsNullOrWhiteSpace($packageProfile)) {
 $packageProfile = $packageProfile.ToLowerInvariant()
 
 if ($packageProfile -eq 'full') {
-    $artifactPrefix = 'az'
+    $artifactStem = $env:CLI_ARCHIVE_STEM
+    if ([string]::IsNullOrWhiteSpace($artifactStem)) {
+        $artifactStem = Get-ArtifactConfigValue -Name 'cli_archive_stem' -DefaultValue 'azcli'
+    }
 }
 elseif ($packageProfile -eq 'lean') {
-    $artifactPrefix = 'az-lean'
+    $artifactStem = $env:CLI_LEAN_ARCHIVE_STEM
+    if ([string]::IsNullOrWhiteSpace($artifactStem)) {
+        $artifactStem = Get-ArtifactConfigValue -Name 'cli_lean_archive_stem' -DefaultValue 'azcli-lean'
+    }
 }
 else {
     throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
@@ -35,11 +74,28 @@ $SimRoot = [System.IO.Path]::GetFullPath($SimRoot)
 
 if ([string]::IsNullOrWhiteSpace($CliZipPath)) {
     $artifactVersion = $env:ARTIFACT_VERSION
+    $artifactVersionSuffix = [System.Environment]::GetEnvironmentVariable('ARTIFACT_VERSION_SUFFIX')
+    if ($null -eq $artifactVersionSuffix) {
+        $artifactVersionSuffix = Get-ArtifactConfigValue -Name 'artifact_version_suffix' -DefaultValue 'preview'
+    }
+    $assetArchitecture = $Rid
+    if ($Rid -eq 'win-x64') {
+        $assetArchitecture = Get-ArtifactConfigValue -Name 'windows_x64_label' -DefaultValue 'win-x64'
+    }
+    elseif ($Rid -eq 'win-arm64') {
+        $assetArchitecture = Get-ArtifactConfigValue -Name 'windows_arm64_label' -DefaultValue 'win-arm64'
+    }
+
     if (-not [string]::IsNullOrWhiteSpace($artifactVersion)) {
-        $CliZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid-$artifactVersion.zip"
+        $artifactVersionSegment = $artifactVersion
+        if (-not [string]::IsNullOrWhiteSpace($artifactVersionSuffix) -and -not $artifactVersionSegment.EndsWith("-$artifactVersionSuffix", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $artifactVersionSegment = "$artifactVersionSegment-$artifactVersionSuffix"
+        }
+
+        $CliZipPath = Join-Path $OutRoot "Release/zip/$artifactStem-$artifactVersionSegment-$assetArchitecture.zip"
     }
     else {
-        $CliZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid.zip"
+        $CliZipPath = Join-Path $OutRoot "Release/zip/$artifactStem-$assetArchitecture.zip"
     }
 }
 else {
@@ -48,7 +104,7 @@ else {
 $ExtPackDir = Join-Path $CommonOutRoot 'extensions-pack'
 
 if (-not (Test-Path -Path $CliZipPath -PathType Leaf)) {
-    throw "Windows CLI zip not found at $CliZipPath. Run ./devops/scripts/packaging/common/build_common.sh, then ./devops/scripts/packaging/windows/zip/build_win_zip.sh."
+    throw "Windows CLI zip not found at $CliZipPath. Run ./devops/scripts/packaging/common/build_common.sh, then ./devops/scripts/packaging/windows/zip/build_win_zip.ps1."
 }
 
 if (-not (Test-Path -Path $ExtPackDir -PathType Container)) {
@@ -75,10 +131,18 @@ if (-not (Test-Path -Path $azExe -PathType Leaf)) {
 }
 Write-Host 'PASS: az.exe found'
 
+foreach ($legalFile in @('NOTICE', 'LICENSE')) {
+    $legalPath = Join-Path $SimRoot "install/$legalFile"
+    if (-not (Test-Path -Path $legalPath -PathType Leaf)) {
+        throw "FAIL: $legalFile file missing from extracted zip."
+    }
+    Write-Host "PASS: $legalFile file present"
+}
+
 $builtins = @(
-    'Microsoft.Azure.Cirrus.Extensions.Extension',
+    'Microsoft.Azure.Azclips.Extensions.Extension',
     'Microsoft.Azure.Azclips.Extensions.Login',
-    'Microsoft.Azure.Cirrus.Extensions.Config'
+    'Microsoft.Azure.Azclips.Extensions.Config'
 )
 
 foreach ($ext in $builtins) {
@@ -89,7 +153,7 @@ foreach ($ext in $builtins) {
     Write-Host "PASS: Extensions/$ext present"
 }
 
-$resNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'Microsoft.Azure.Azclips.Extensions.Resources*.nupkg' | Select-Object -First 1
+$resNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'azcli.extensions.resources*.nupkg' | Select-Object -First 1
 
 if (-not $resNupkg) { throw 'FAIL: Resources nupkg not found.' }
 
@@ -139,7 +203,7 @@ if ($IsWindows -and -not $SkipRuntime) {
     $groupText.Trim() | Out-Host
     if ($groupText -match 'could not be found') {
         throw 'FAIL: Resources command not resolved after install.'
-    } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided") {
+    } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved") {
         Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
     } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
         Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'

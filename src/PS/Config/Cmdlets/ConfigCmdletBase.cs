@@ -4,9 +4,9 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Microsoft.Azure.Cirrus.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
+namespace Microsoft.Azure.Azclips.Cmdlets.Config;
 
 public abstract class ConfigCmdletBase : PSCmdlet
 {
@@ -18,12 +18,12 @@ public abstract class ConfigCmdletBase : PSCmdlet
     {
         Streams = CmdletOutputStreamsFactory.Create(this, "ConfigError", ErrorCategory.NotSpecified);
 
-        Engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        Engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected void ExecuteInvocation(Dictionary<string, object> parameters)
     {
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var commandName = MyInvocation.MyCommand.Name;
 

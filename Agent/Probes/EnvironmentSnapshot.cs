@@ -12,7 +12,7 @@ public sealed record EnvironmentSnapshot(
     string? SubscriptionId,
     string? TenantId,
     string Flavor,
-    string CirrusVersion)
+    string AzclipsVersion)
 {
     public string Format()
     {
@@ -32,8 +32,8 @@ public sealed record EnvironmentSnapshot(
         sb.Append("  subscription-id: ").Append(SubscriptionId ?? "(none)").Append('\n');
         sb.Append("  tenant-id: ").Append(TenantId ?? "(none)").Append('\n');
 
-        sb.Append("cirrus\n");
-        sb.Append("  version: ").Append(CirrusVersion).Append('\n');
+        sb.Append("azclips\n");
+        sb.Append("  version: ").Append(AzclipsVersion).Append('\n');
         sb.Append("  flavor: ").Append(Flavor).Append('\n');
 
         return sb.ToString().TrimEnd();

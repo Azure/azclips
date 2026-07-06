@@ -3,7 +3,7 @@ using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 internal static class DiscoveryBackedExtensionRegistry
 {
@@ -91,7 +91,7 @@ internal static class DiscoveryBackedExtensionRegistry
 
     private static List<DiscoveredExtensionInfo> RunDiscoverySession()
     {
-        var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
         var discoveredInfos = new List<DiscoveredExtensionInfo>();
 
         var outputStreams = new OutputStreams(
