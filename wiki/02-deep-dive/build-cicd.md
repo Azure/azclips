@@ -134,7 +134,7 @@ CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** 
 | `build-and-test.yml` | GitHub | PR to `main`, dispatch | Restore/build/test `azclips.slnx`, CLI + PowerShell E2E smoke, help validation, help-tool tests |
 | `build.yml` | GitHub | push/PR `main` | Windows Debug+Release matrix build & package |
 | `benchmark.yml` / `benchmark-comment.yml` | GitHub | push/PR touching `src/**`, `tests/Benchmark/**`, `global.json`, `azclips.slnx` | Run CLI+PS benchmarks, gate at 115% of baseline, publish dashboard |
-| `disallow-azclips-references.yml` / `disallow-azv2-references.yml` | GitHub | push/PR `main` | Fail PRs that add disallowed legacy naming references |
+| `disallow-azclips-references.yml` | GitHub | push/PR `main` | Fail PRs that add disallowed legacy naming references |
 | `build-wiki.yml` | GitHub | — | Build/publish this wiki |
 | `azclips-alpha-build.yml` | Azure DevOps | any PR (`pr-alpha` channel) | Unsigned per-PR distribution build |
 | `azclips-beta-build.yml` | Azure DevOps | beta channel | Unsigned beta distribution |
