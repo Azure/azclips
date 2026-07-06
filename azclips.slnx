@@ -22,7 +22,6 @@
     <Project Path="src/Extensions/Login/Extensions.Login.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
-    <Project Path="src/Extensions/Version/Extensions.Version.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
