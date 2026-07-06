@@ -31,7 +31,10 @@ parameters:
   default: 'macOS-15'
 - name: final_artifact_name
   type: string
-  default: 'Distribution_Final'
+  default: 'Final_Build_Distribution'
+- name: ps_modules_artifact_name
+  type: string
+  default: 'PSModules'
 
 stages:
 - template: init-resolve-version.yml
@@ -44,8 +47,15 @@ stages:
     sequence: ${{ parameters.sequence }}
     ubuntu_pool: ${{ parameters.ubuntu_pool }}
 
+- template: component-governance.yml
+  parameters:
+    stage_name: ComponentGovernance
+    display_name: Component Governance
+    windows_pool: ${{ parameters.windows_pool }}
+    depends_on: Init
+
 - stage: BuildCommon
-  displayName: Build Common
+  displayName: Build (CLI) Common
   dependsOn: Init
   condition: succeeded()
   variables:
@@ -57,8 +67,15 @@ stages:
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
 
+- template: build-ps-modules.yml
+  parameters:
+    ubuntu_pool: ${{ parameters.ubuntu_pool }}
+    final_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+    generate_help_artifacts: true
+    depends_on: Init
+
 - stage: BuildLinux
-  displayName: Build Linux
+  displayName: Build (CLI) Linux
   dependsOn:
   - Init
   - BuildCommon
@@ -74,7 +91,7 @@ stages:
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
 - stage: BuildWindows
-  displayName: Build Windows
+  displayName: Build (CLI) Windows
   dependsOn:
   - Init
   - BuildCommon
@@ -90,7 +107,7 @@ stages:
       PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
 
 - stage: BuildMacOS
-  displayName: Build macOS
+  displayName: Build (CLI) macOS
   dependsOn:
   - Init
   - BuildCommon
@@ -129,7 +146,7 @@ stages:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
 
 - stage: ValidateLinux
-  displayName: Validate Linux
+  displayName: Validate (CLI) Linux
   dependsOn:
   - Init
   - BuildLinux
@@ -137,7 +154,7 @@ stages:
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
-  - template: ../jobs/validate-linux.yml
+  - template: ../jobs/validate-build-linux.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
@@ -145,7 +162,7 @@ stages:
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
 - stage: ValidateWindows
-  displayName: Validate Windows
+  displayName: Validate (CLI) Windows
   dependsOn:
   - Init
   - BuildWindows
@@ -153,7 +170,7 @@ stages:
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
-  - template: ../jobs/validate-windows.yml
+  - template: ../jobs/validate-build-windows.yml
     parameters:
       windows_pool: ${{ parameters.windows_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
@@ -161,7 +178,7 @@ stages:
       PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
 
 - stage: ValidateMacOS
-  displayName: Validate macOS
+  displayName: Validate (CLI) macOS
   dependsOn:
   - Init
   - BuildMacOS
@@ -169,7 +186,7 @@ stages:
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
-  - template: ../jobs/validate-macos.yml
+  - template: ../jobs/validate-build-macos.yml
     parameters:
       macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
       macos_intel_pool: ${{ parameters.macos_intel_pool }}
@@ -178,30 +195,37 @@ stages:
       PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
 
 - stage: Finalize
-  displayName: Finalize
+  displayName: Finalize Build
   dependsOn:
+  - Init
   - BuildCommon
   - BuildLinux
   - BuildWindows
   - BuildMacOS
   - Test
   - Benchmark
+  - BuildPSModules
   - ValidateLinux
   - ValidateWindows
   - ValidateMacOS
+  - ComponentGovernance
   condition: always()
   variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
     BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
     BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
     TestResult: $[ stageDependencies.Test.UnitTests.result ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
+    BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
+    ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]
   jobs:
-  - template: ../jobs/finalize-summary.yml
+  - template: ../jobs/finalize-build-summary.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
       final_artifact_name: ${{ parameters.final_artifact_name }}
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}

@@ -43,9 +43,6 @@ _az_resolve_exe() {
     fi
 }
 
-# Cache for top-level groups (populated on first tab)
-_az_top_level=""
-
 _az_query() {
     local exe
     exe="$(_az_resolve_exe)"
@@ -53,17 +50,13 @@ _az_query() {
     "$exe" --completions "$@" 2>/dev/null
 }
 
+# Always query `az --completions` at tab time (no caching).
 _az_get_top_level() {
-    if [[ -n "$_az_top_level" ]]; then
-        echo "$_az_top_level"
-        return
-    fi
     local json
     json="$(_az_query)"
     if [[ -n "$json" ]]; then
-        _az_top_level="$(echo "$json" | jq -r 'keys[]' 2>/dev/null)"
+        echo "$json" | jq -r 'keys[]' 2>/dev/null
     fi
-    echo "$_az_top_level"
 }
 
 _az_completions() {

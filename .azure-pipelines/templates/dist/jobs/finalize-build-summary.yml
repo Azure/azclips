@@ -4,7 +4,10 @@ parameters:
   default: 'ubuntu-latest'
 - name: final_artifact_name
   type: string
-  default: 'Distribution_Final'
+  default: 'Final_Build_Distribution'
+- name: ps_modules_artifact_name
+  type: string
+  default: 'PSModules'
 
 jobs:
 - job: Summary
@@ -12,6 +15,11 @@ jobs:
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
   steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 1
+    retryCountOnTaskFailure: 3
+
   - script: |
       echo "BuildCommon: $(BuildCommonResult)"
       echo "BuildLinux: $(BuildLinuxResult)"
@@ -19,10 +27,26 @@ jobs:
       echo "BuildMacOS: $(BuildMacOSResult)"
       echo "Test: $(TestResult)"
       echo "Benchmark: $(BenchmarkResult)"
+      echo "BuildPSModules: $(BuildPSModulesResult)"
       echo "ValidateLinux: $(ValidateLinuxResult)"
       echo "ValidateWindows: $(ValidateWindowsResult)"
       echo "ValidateMacOS: $(ValidateMacOSResult)"
+      echo "ComponentGovernance: $(ComponentGovernanceResult)"
     displayName: Stage Summary
+
+  - bash: |
+      set -euo pipefail
+
+      case "$(ComponentGovernanceResult)" in
+        Succeeded|SucceededWithIssues)
+          echo "Component Governance completed with acceptable result: $(ComponentGovernanceResult)"
+          ;;
+        *)
+          echo "ERROR: Component Governance did not complete successfully. Result: $(ComponentGovernanceResult)"
+          exit 1
+          ;;
+      esac
+    displayName: Validate Component Governance Result
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Common Distribution Artifacts
@@ -115,16 +139,24 @@ jobs:
       artifact: Distribution_MacOS_Intel_Full
       path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_MacOS_Intel_Full
 
+  - task: DownloadPipelineArtifact@2
+    displayName: Download PS Modules Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['BuildPSModulesResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: ${{ parameters.ps_modules_artifact_name }}
+      path: $(Pipeline.Workspace)/distribution-artifacts/${{ parameters.ps_modules_artifact_name }}
+
   - bash: |
       set -euo pipefail
 
       source_root="$(Pipeline.Workspace)/distribution-artifacts"
       final_root="$(Pipeline.Workspace)/${{ parameters.final_artifact_name }}"
       archives_root="$final_root/archives"
-      extensions_root="$final_root/extensions"
+      cli_extensions_root="$final_root/CLIextensions"
+      ps_modules_root="$final_root/PSModules"
 
       rm -rf "$final_root"
-      mkdir -p "$archives_root" "$extensions_root"
+      mkdir -p "$archives_root" "$cli_extensions_root" "$ps_modules_root"
 
       if [[ ! -d "$source_root" ]]; then
         echo "ERROR: Distribution artifact download root not found: $source_root"
@@ -143,8 +175,30 @@ jobs:
 
       mapfile -t extension_packages < <(find "$source_root" -path '*/extensions-pack/*.nupkg' -type f | sort)
       for package in "${extension_packages[@]}"; do
-        cp "$package" "$extensions_root/"
+        cp "$package" "$cli_extensions_root/"
       done
+
+      ps_module_repo_root="$source_root/${{ parameters.ps_modules_artifact_name }}/artifacts/PSGallery/local-repo"
+      if [[ ! -d "$ps_module_repo_root" ]]; then
+        echo "ERROR: PS module artifact root not found: $ps_module_repo_root"
+        exit 1
+      fi
+
+      mapfile -t ps_module_packages < <(find "$ps_module_repo_root" -type f -name 'Az.*.nupkg' | sort)
+      if [[ ${#ps_module_packages[@]} -eq 0 ]]; then
+        echo "ERROR: No Az PowerShell module packages found under $ps_module_repo_root"
+        exit 1
+      fi
+
+      for package in "${ps_module_packages[@]}"; do
+        cp "$package" "$ps_modules_root/"
+      done
+
+      chmod +x "$(Build.SourcesDirectory)/devops/scripts/packaging/common/create_component_archives.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" "$(Build.SourcesDirectory)/devops/scripts/packaging/common/create_component_archives.sh" \
+        --cli-extensions-root "$cli_extensions_root" \
+        --ps-modules-root "$ps_modules_root" \
+        --output-root "$archives_root"
 
       manifest="$final_root/manifest.txt"
       {
@@ -157,18 +211,21 @@ jobs:
         echo "archives:"
         find "$archives_root" -type f -printf '%P\n' | sort | sed 's/^/  /'
         echo ""
-        echo "extensions:"
-        find "$extensions_root" -type f -printf '%P\n' | sort | sed 's/^/  /'
+        echo "CLIextensions:"
+        find "$cli_extensions_root" -type f -printf '%P\n' | sort | sed 's/^/  /'
+        echo ""
+        echo "PSModules:"
+        find "$ps_modules_root" -type f -printf '%P\n' | sort | sed 's/^/  /'
       } > "$manifest"
 
       echo "Final distribution outputs:"
       find "$final_root" -type f | sort
     displayName: Collect Final Distribution Outputs
-    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['BuildPSModulesResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
 
   - task: PublishPipelineArtifact@1
     displayName: Publish Final Distribution Outputs
-    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['BuildPSModulesResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
       targetPath: $(Pipeline.Workspace)/${{ parameters.final_artifact_name }}
       artifact: ${{ parameters.final_artifact_name }}
