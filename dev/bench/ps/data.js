@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783349323667,
+  "lastUpdate": 1783382315889,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -2394,6 +2394,48 @@ window.BENCHMARK_DATA = {
             "value": 5806304.17916762,
             "unit": "ns",
             "range": "± 100933.86801669425"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44df115e0ba9b22cbb97b12b103615b9613f55e9",
+          "message": "{DevOps} Fix GitHub service connection variable (#382)\n\nUpdates the Azure Pipelines shared variables so\n`github_service_connection` uses the configured GitHub service\nconnection name `Azure` instead of `github.com_Azure`.\n\nValidation:\n- Confirmed the branch is based on latest `origin/main`.\n- Confirmed the diff from `origin/main` is limited to\n`.azure-pipelines/templates/variables.yml`.",
+          "timestamp": "2026-07-07T09:50:42+10:00",
+          "tree_id": "82a0441767a9fc24d23cbb3b3e22da9b51a4aab1",
+          "url": "https://github.com/Azure/azclips/commit/44df115e0ba9b22cbb97b12b103615b9613f55e9"
+        },
+        "date": 1783382315864,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5803730.193694715,
+            "unit": "ns",
+            "range": "± 98616.72853744464"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5796181.00647139,
+            "unit": "ns",
+            "range": "± 96342.44307168377"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5786170.686104784,
+            "unit": "ns",
+            "range": "± 100699.553127895"
           }
         ]
       }
