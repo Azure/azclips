@@ -66,25 +66,30 @@ Diagnostics requirements:
 ### Phase D: Verification and packaging
 
 - [ ] Add table-driven tests for precedence cases P1-P10.
-- [ ] Add explicit tests for same-identity dedup vs cross-identity hard-fail.
+- [x] Add explicit tests for same-identity dedup vs cross-identity hard-fail.
 - [ ] Build: `dotnet build azclips.slnx` and run targeted tests.
 - [ ] Manually validate default and overridden directory behavior plus conflict paths.
 - [ ] Prepare PR summary with behavior changes, test evidence, and deferred items.
 
 ### Precedence Acceptance Tests (Table-Driven)
 
-| Case | Implements | Candidate in builtin dir | Candidate in versioned dir | Pin state                | Expected winner | Expected reason                                     |
-| ---- | ---------- | ------------------------ | -------------------------- | ------------------------ | --------------- | --------------------------------------------------- |
-| P1   | [x]        | 1.2.0                    | 1.1.9                      | none                     | builtin         | Higher semantic version                             |
-| P2   | [x]        | 1.1.9                    | 1.2.0                      | none                     | versioned       | Higher semantic version                             |
-| P3   | [x]        | 1.2.0                    | 1.2.0                      | none                     | either          | Equivalent package id + version; deterministic pick |
-| P4   | [x]        | 1.2.0                    | 1.3.0                      | pinned=1.2.0 (builtin)   | builtin         | Pin wins over higher unpinned candidate             |
-| P5   | [x]        | 1.2.0                    | 1.3.0                      | pinned=1.3.0 (versioned) | versioned       | Pin wins and selects matching candidate             |
-| P6   | [x]        | 1.4.0                    | 1.3.0                      | pinned=1.3.0 (versioned) | versioned       | Pin wins over higher unpinned candidate             |
-| P7   | [x]        | 1.2.0                    | absent                     | none                     | builtin         | Only builtin candidate exists                       |
-| P8   | [x]        | absent                   | 1.2.0                      | none                     | versioned       | Only versioned candidate exists                     |
-| P9   | [x]        | 1.2.0                    | 1.2.0                      | pinned=not-present       | either          | Pin unresolved -> equivalent-version selection      |
-| P10  | [ ]        | 1.2.0                    | 1.3.0                      | none + custom dirs       | versioned       | Override paths respected, then version precedence   |
+Legend:
+
+- `Implements`: whether behavior is implemented in code.
+- `Validation`: `Automated`, `Manual`, `Automated+Manual`, or `Pending`.
+
+| Case | Implements | Validation       | Candidate in builtin dir | Candidate in versioned dir | Pin state                | Expected winner | Expected reason                                     |
+| ---- | ---------- | ---------------- | ------------------------ | -------------------------- | ------------------------ | --------------- | --------------------------------------------------- |
+| P1   | [x]        | Automated        | 1.2.0                    | 1.1.9                      | none                     | builtin         | Higher semantic version                             |
+| P2   | [x]        | Automated        | 1.1.9                    | 1.2.0                      | none                     | versioned       | Higher semantic version                             |
+| P3   | [x]        | Automated        | 1.2.0                    | 1.2.0                      | none                     | either          | Equivalent package id + version; deterministic pick |
+| P4   | [x]        | Automated+Manual | 1.2.0                    | 1.3.0                      | pinned=1.2.0 (builtin)   | builtin         | Pin wins over higher unpinned candidate             |
+| P5   | [x]        | Automated+Manual | 1.2.0                    | 1.3.0                      | pinned=1.3.0 (versioned) | versioned       | Pin wins and selects matching candidate             |
+| P6   | [x]        | Automated        | 1.4.0                    | 1.3.0                      | pinned=1.3.0 (versioned) | versioned       | Pin wins over higher unpinned candidate             |
+| P7   | [x]        | Automated        | 1.2.0                    | absent                     | none                     | builtin         | Only builtin candidate exists                       |
+| P8   | [x]        | Automated        | absent                   | 1.2.0                      | none                     | versioned       | Only versioned candidate exists                     |
+| P9   | [x]        | Automated        | 1.2.0                    | 1.2.0                      | pinned=not-present       | either          | Pin unresolved -> equivalent-version selection      |
+| P10  | [ ]        | Pending          | 1.2.0                    | 1.3.0                      | none + custom dirs       | versioned       | Override paths respected, then version precedence   |
 
 Diagnostics assertions for all precedence cases:
 
@@ -94,15 +99,15 @@ Diagnostics assertions for all precedence cases:
 
 ## Scenario Matrix
 
-| Scenario                                                   | Expected behavior                                                   | Test added | Notes                                |
-| ---------------------------------------------------------- | ------------------------------------------------------------------- | ---------- | ------------------------------------ |
-| Same extension in builtin and versioned dirs               | Pin first, then higher version; equal version -> deterministic pick | [x]        | Selector + runtime/help path wired   |
-| Same command from same extension identity in both dirs     | Select one winner via precedence; no collision error                | [x]        | Local validation completed           |
-| Same command from different extension identities           | Hard-fail collision error                                           | [ ]        | Verify cross-identity collision path |
-| Custom `assemblyLoading.builtinInstallationDir` override   | TBD                                                                 | [ ]        | Verify effective path used           |
-| Custom `assemblyLoading.versionedInstallationDir` override | TBD                                                                 | [ ]        | Verify effective path used           |
-| `ExtensionVerb` duplicates `GetVerbs()` data               | Unified on `[ExtensionVerb]`                                        | [x]        | `GetVerbs()` contract removed        |
-| Built-ins `login` and `config` command map maintenance     | TBD                                                                 | [ ]        | Assess manual-edit requirement       |
+| Scenario                                                   | Expected behavior                                                   | Test added | Notes                                               |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- | ---------- | --------------------------------------------------- |
+| Same extension in builtin and versioned dirs               | Pin first, then higher version; equal version -> deterministic pick | [x]        | Automated + local validation                        |
+| Same command from same extension identity in both dirs     | Select one winner via precedence; no collision error                | [x]        | Automated + local validation                        |
+| Same command from different extension identities           | Hard-fail collision error                                           | [x]        | Automated in `CliExtensionServiceRegistrationTests` |
+| Custom `assemblyLoading.builtinInstallationDir` override   | TBD                                                                 | [ ]        | Verify effective path used                          |
+| Custom `assemblyLoading.versionedInstallationDir` override | TBD                                                                 | [ ]        | Verify effective path used                          |
+| `ExtensionVerb` duplicates `GetVerbs()` data               | Unified on `[ExtensionVerb]`                                        | [x]        | `GetVerbs()` contract removed                       |
+| Built-ins `login` and `config` command map maintenance     | TBD                                                                 | [ ]        | Assess manual-edit requirement                      |
 
 ## Pending Decisions (Not Locked)
 
