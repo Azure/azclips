@@ -1,12 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Azclips.Extensions.Version.Models;
+namespace Core.Cli.Version;
 
 /// <summary>
 /// Runtime environment information (.NET runtime, OS, and architecture).
 /// </summary>
-public class RuntimeInfo
+internal sealed class RuntimeInfo
 {
     public string DotNet { get; set; } = string.Empty;
     public string Os { get; set; } = string.Empty;

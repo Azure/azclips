@@ -59,10 +59,6 @@ namespace Core.Extensions
                 {
                     Leaves = new[] { "get", "set", "delete", "list", "info" },
                 },
-                ["version"] = new("version", "Microsoft.Azure.Azclips.Extensions.Version")
-                {
-                    Leaves = Array.Empty<string>(),
-                },
             };
 
         /// <summary>

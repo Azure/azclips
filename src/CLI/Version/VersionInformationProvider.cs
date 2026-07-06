@@ -4,53 +4,32 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
-using Core.DependencyInjection;
-using Microsoft.Azure.Azclips.Extensions.Version.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Version.Processors;
+namespace Core.Cli.Version;
 
-public class GetVersionProcessor : IProcessor
+/// <summary>
+/// Gathers CLI version information from the running host: the <c>az</c> entry assembly,
+/// the .NET runtime, and the configuration paths. Pure data collection with no rendering,
+/// so both <c>az version</c> (JSON) and <c>az --version</c> (text) can share one source of truth.
+/// </summary>
+/// <remarks>
+/// Sections are not wrapped defensively: if something goes wrong, exceptions bubble up to
+/// diagnose initialization or configuration problems cleanly instead of masking them behind
+/// an "unknown" placeholder.
+/// </remarks>
+internal static class VersionInformationProvider
 {
-    protected OutputStreamDelegate WriteOutput = null!;
-    protected CancellationToken CancellationToken { get; private set; }
-    protected IEventPublisher Publisher = null!;
-
-    public IProcessor Init(ProcessorContext context)
+    public static VersionInformation Gather(IConfigurationService configurationService)
     {
-        WriteOutput = context.OutputHandler.WriteOutput;
-        CancellationToken = context.Publisher.Token;
-        Publisher = context.Publisher;
-        return this;
-    }
+        ArgumentNullException.ThrowIfNull(configurationService);
 
-    public async Task ProcessAsync()
-    {
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-
-        // `az version` is a purely local gather (reflection + RuntimeInformation) with no API call,
-        // so it publishes only the processor lifecycle events. The Start/End pair is bracketed by a
-        // telemetry activity in the engine; there is no request/response stage to surface.
-        var versionInfo = GatherVersionInformation();
-
-        // Write the structured object, consistent with every other extension. The CLI output
-        // formatter serializes it to JSON (like `az version`); PowerShell renders a rich object.
-        await WriteOutput(versionInfo);
-
-        await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-    }
-
-    // Sections are not wrapped defensively: if something goes wrong, exceptions are bubbled up
-    // to diagnose initialization or configuration problems cleanly instead of falling back.
-    private static VersionInformation GatherVersionInformation()
-    {
         var entryAssembly = Assembly.GetEntryAssembly();
 
         return new VersionInformation
         {
             AzCli = GetAzCliVersion(entryAssembly),
             Runtime = GetRuntimeInformation(),
-            Paths = GetConfigurationPaths()
+            Paths = GetConfigurationPaths(configurationService)
         };
     }
 
@@ -90,7 +69,7 @@ public class GetVersionProcessor : IProcessor
         };
     }
 
-    private static PathInfo GetConfigurationPaths()
+    private static PathInfo GetConfigurationPaths(IConfigurationService configurationService)
     {
         // Install location never depends on config, so resolve it first and independently.
         var info = new PathInfo
@@ -101,8 +80,6 @@ public class GetVersionProcessor : IProcessor
 
         // Resolve from the configuration system so the reported paths match what the CLI actually
         // uses (config-driven, honoring user overrides).
-        var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-
         var configFilePath = configurationService.GetConfigFilePath();
         info.ConfigLocation = Path.GetDirectoryName(configFilePath) ?? configFilePath;
 

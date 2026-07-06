@@ -1,12 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Azclips.Extensions.Version.Models;
+namespace Core.Cli.Version;
 
 /// <summary>
 /// Aggregated version information for AzCli, runtime, and configuration paths.
 /// </summary>
-public class VersionInformation
+internal sealed class VersionInformation
 {
     public string AzCli { get; set; } = string.Empty;
     public RuntimeInfo Runtime { get; set; } = new();

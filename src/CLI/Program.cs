@@ -9,6 +9,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
+using Core.Cli.Version;
 using Core.Configuration.Options;
 using Core.Engine;
 using Core.Extensions;
@@ -118,6 +119,17 @@ public class Program
                     activity?.SetStatus(ActivityStatusCode.Error, structured.Message);
                     return structured.ExitCode;
                 }
+            }
+            catch (DispatchVersionException versionException)
+            {
+                // Version is a host cold-path command (like help): gather locally and render without
+                // an engine session or extension load. JSON reuses the same formatter the old
+                // `az version` command used; text serves `az --version`.
+                var exitCode = new RuntimeVersionDispatcher(configurationService, Console.Out)
+                    .Render(versionException.Format);
+
+                activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
+                return exitCode;
             }
             catch (HttpRequestException ex)
             {

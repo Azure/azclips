@@ -38,6 +38,12 @@ public sealed class RuntimeHelpDispatcher
     private readonly TextWriter _output;
     private readonly OutputStreams _streams;
 
+    // Verbs implemented by the CLI host itself on the cold-path (no engine, no extension load), not
+    // by any installed extension — currently `version` (`az version` / `az --version`). Their help
+    // still comes from the markdown corpus so they appear in `az --help` and `az <verb> --help` like
+    // any extension verb. Extend as new intrinsics (e.g. `upgrade`) land.
+    private static readonly string[] s_intrinsicVerbs = ["version"];
+
     public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams)
         : this(
             engine,
@@ -81,6 +87,13 @@ public sealed class RuntimeHelpDispatcher
         var discovered = DiscoverInstalledExtensions();
         if (!TryResolveExtension(discovered, helpException.Verb, out var extensionInfo))
         {
+            // Intrinsic host verbs (e.g. `version`) are not owned by any installed extension, but
+            // their help still lives in the markdown corpus so `az <verb> --help` keeps working.
+            if (TryRenderIntrinsicHelp(helpException.Verb, out var intrinsicExitCode))
+            {
+                return intrinsicExitCode;
+            }
+
             // No discovered owner for this verb. If the embedded hint table knows it,
             // surface the structured "extension not installed" message — same UX as
             // the execute path (see ExtensionDispatcher.Parse).
@@ -147,6 +160,35 @@ public sealed class RuntimeHelpDispatcher
         }
     }
 
+    // Renders help for an intrinsic host verb straight from its markdown doc, bypassing discovery
+    // and the ExtensionIndex adapter (there is no extension to project). Returns false for
+    // non-intrinsic verbs so the caller can fall through to the hint-table / not-found path.
+    private bool TryRenderIntrinsicHelp(string verb, out int exitCode)
+    {
+        exitCode = 0;
+        if (!s_intrinsicVerbs.Contains(verb, StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var markdown = MarkdownCommandHelpProvider.Get(verb, string.Empty);
+        var examples = markdown.Examples
+            .Where(static example => !example.IsPowerShell)
+            .Select(static example => new RuntimeHelpExample(example.Title, example.Command))
+            .ToList();
+
+        var command = new RuntimeHelpCommand(
+            CommandPath: verb,
+            Summary: markdown.Summary,
+            Description: markdown.Description,
+            Parameters: [],
+            Examples: examples,
+            Tags: []);
+
+        WriteLines(_renderer.RenderCommand(command, TerminalWidth()));
+        return true;
+    }
+
     /// <summary>
     /// Yields one <see cref="RuntimeHelpGroup"/> per discovered (package, verb) pair.
     /// Discovery is authoritative for installed state; built-ins are used only as tie-breaker
@@ -183,6 +225,19 @@ public sealed class RuntimeHelpDispatcher
 
                 yield return root;
             }
+        }
+
+        // Intrinsic host verbs (cold-path commands like `version`) aren't discovered as extensions,
+        // so surface them from the markdown corpus to keep them listed in `az --help`.
+        foreach (var verb in s_intrinsicVerbs)
+        {
+            if (!seenVerbs.Add(verb))
+            {
+                continue;
+            }
+
+            var summary = MarkdownCommandHelpProvider.Get(verb, string.Empty).Summary;
+            yield return new RuntimeHelpGroup(verb, summary, [], []);
         }
     }
 

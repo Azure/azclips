@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
+using Core.Cli.Version;
 using Core.Extensions;
 using Microsoft.Azure.Azclips.Extensions.Config;
 using Tests.Common.Utilities;
@@ -70,9 +71,38 @@ public class ExtensionDispatcherTests
         // Arrange
         var dispatcher = new ExtensionDispatcher();
         var args = new[] { helpFlag };
-        
+
         // Act & Assert
         Assert.Throws<DispatchHelpException>(() => dispatcher.Parse(args));
+    }
+
+    [Fact]
+    public void Parse_ShouldThrowDispatchVersionException_WithJson_ForBareVersionVerb()
+    {
+        // `az version` is a host cold-path command → structured JSON, mirroring the command it replaced.
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<DispatchVersionException>(() => dispatcher.Parse(["version"]));
+        Assert.Equal(VersionOutputFormat.Json, exception.Format);
+    }
+
+    [Fact]
+    public void Parse_ShouldThrowDispatchVersionException_WithText_ForVersionFlag()
+    {
+        // `az --version` is a top-level flag (peer of `az --help`) → human-readable text.
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<DispatchVersionException>(() => dispatcher.Parse(["--version"]));
+        Assert.Equal(VersionOutputFormat.Text, exception.Format);
+    }
+
+    [Fact]
+    public void Parse_ShouldRouteToHelp_ForVersionHelp_NotVersionDispatch()
+    {
+        // `az version --help` is a help request, not a version request: help detection runs first.
+        var dispatcher = new ExtensionDispatcher();
+
+        Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["version", "--help"]));
     }
 
     [Fact]

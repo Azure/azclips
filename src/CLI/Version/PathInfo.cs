@@ -1,12 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Azclips.Extensions.Version.Models;
+namespace Core.Cli.Version;
 
 /// <summary>
 /// Filesystem paths relevant to the CLI installation and configuration.
 /// </summary>
-public class PathInfo
+internal sealed class PathInfo
 {
     public string InstallLocation { get; set; } = string.Empty;
     public string ConfigLocation { get; set; } = string.Empty;
