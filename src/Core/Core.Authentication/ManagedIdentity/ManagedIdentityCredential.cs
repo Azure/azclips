@@ -80,7 +80,7 @@ public sealed class ManagedIdentityCredential : TokenCredential
     }
 
     /// <summary>Converts a scope to the resource format expected by MI endpoints.</summary>
-    internal static string ScopeToResource(string[] scopes)
+    public static string ScopeToResource(string[] scopes)
     {
         var scope = scopes is { Length: > 0 } ? scopes[0] : AuthConstants.ArmDefaultScope;
         return scope.EndsWith("/.default", StringComparison.Ordinal)
