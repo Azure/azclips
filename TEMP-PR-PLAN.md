@@ -9,45 +9,104 @@
 - Verify assembly-loading config paths are respected, configurable, and observable.
 - Reduce manual maintenance for built-in command mapping where feasible.
 
-## Minimal Checklist
+## Current Status
 
-### 1) Lock decisions
+- Completed: unified verb source-of-truth on this branch (removed `GetVerbs()` contract usage; consumers now resolve verbs from `[ExtensionVerb]`).
+- Completed: build + targeted test validation for the verb-source refactor.
+- Remaining: implement and validate locked precedence/collision behavior; finalize built-ins strategy and docs decisions.
 
-- [ ] Decide precedence for same extension identity across builtin and versioned directories.
-- [ ] Decide duplicate-command policy: hard-fail or deterministic winner.
-- [ ] Decide built-ins strategy: keep explicit command-map maintenance or move to discovery/generation.
-- [ ] Decide whether `ExtensionVerb` and `GetVerbs()` stay dual-source or are unified.
-- [ ] Lock canonical naming: `verb` vs `leaf` vs `command group`.
+## Locked Decisions
 
-### 2) Implement
+### 1) Verb source of truth
 
-- [ ] Centralize extension resolution into one code path.
-- [ ] Enforce configured assembly-loading directories during discovery/loading.
-- [ ] Implement conflict diagnostics showing selected source and reason.
-- [ ] Reduce manual built-in command-map edits where feasible.
+- Locked: `[ExtensionVerb]` is canonical; `GetVerbs()` contract is removed.
 
-### 3) Verify and package
+### 2) Precedence within same extension identity
 
-- [ ] Add or update tests for all scenarios in matrix.
+When the same extension identity exists in both locations, resolve in this order:
+
+1. Pin first: if a pinned version exists, prefer pinned candidate.
+2. Otherwise choose the higher semantic version.
+3. If versions are equal, prefer `assemblyLoading.builtinInstallationDir`.
+4. Final fallback: `assemblyLoading.versionedInstallationDir`.
+
+### 3) Duplicate-command collision policy
+
+1. Group candidates by extension identity (package id) first.
+2. Same identity across multiple locations is treated as candidate selection, not a collision.
+3. Pick one winner within same identity using the precedence rules.
+4. Detect collisions only across different extension identities.
+5. Across different identities, duplicate command ownership remains a hard-fail.
+
+Diagnostics requirements:
+
+- For same-identity duplicates: log ignored candidates and selection reason.
+- For cross-identity duplicates: throw collision error with all conflicting owners.
+
+## Implementation Plan (Locked Decisions)
+
+### Phase A: Selection engine
+
+- [ ] Add a pure selector component for candidate resolution by identity.
+- [ ] Implement deterministic reason codes: `Pinned`, `HigherVersion`, `EqualVersionBuiltinFirst`, `SingleCandidate`.
+- [ ] Include selected candidate and ignored candidates in structured diagnostics.
+
+### Phase B: Collision handling
+
+- [ ] Apply selector before collision detection.
+- [ ] Run collision detection only across different extension identities.
+- [ ] Keep hard-fail behavior for cross-identity duplicate command ownership.
+
+### Phase C: Wiring and path behavior
+
+- [ ] Enforce configured `assemblyLoading.builtinInstallationDir` and `assemblyLoading.versionedInstallationDir` in discovery/loading.
+- [ ] Ensure tie-break behavior is stable regardless of directory enumeration order.
+
+### Phase D: Verification and packaging
+
+- [ ] Add table-driven tests for precedence cases P1-P10.
+- [ ] Add explicit tests for same-identity dedup vs cross-identity hard-fail.
 - [ ] Build: `dotnet build azclips.slnx` and run targeted tests.
 - [ ] Manually validate default and overridden directory behavior plus conflict paths.
 - [ ] Prepare PR summary with behavior changes, test evidence, and deferred items.
 
+### Precedence Acceptance Tests (Table-Driven)
+
+| Case | Candidate in builtin dir | Candidate in versioned dir | Pin state                | Expected winner | Expected reason                                     |
+| ---- | ------------------------ | -------------------------- | ------------------------ | --------------- | --------------------------------------------------- |
+| P1   | 1.2.0                    | 1.1.9                      | none                     | builtin         | Higher semantic version                             |
+| P2   | 1.1.9                    | 1.2.0                      | none                     | versioned       | Higher semantic version                             |
+| P3   | 1.2.0                    | 1.2.0                      | none                     | builtin         | Equal version tie-break -> builtin first            |
+| P4   | 1.2.0                    | 1.3.0                      | pinned=1.2.0 (builtin)   | builtin         | Pin wins over higher unpinned candidate             |
+| P5   | 1.2.0                    | 1.3.0                      | pinned=1.3.0 (versioned) | versioned       | Pin wins and selects matching candidate             |
+| P6   | 1.4.0                    | 1.3.0                      | pinned=1.3.0 (versioned) | versioned       | Pin wins over higher unpinned candidate             |
+| P7   | 1.2.0                    | absent                     | none                     | builtin         | Only builtin candidate exists                       |
+| P8   | absent                   | 1.2.0                      | none                     | versioned       | Only versioned candidate exists                     |
+| P9   | 1.2.0                    | 1.2.0                      | pinned=not-present       | builtin         | Pin unresolved -> fall through to normal precedence |
+| P10  | 1.2.0                    | 1.3.0                      | none + custom dirs       | versioned       | Override paths respected, then version precedence   |
+
+Diagnostics assertions for all precedence cases:
+
+- Include both candidate paths and versions when both are present.
+- Include selected path and selected version.
+- Include one deterministic reason code: `Pinned`, `HigherVersion`, `EqualVersionBuiltinFirst`, `SingleCandidate`.
+
 ## Scenario Matrix
 
-| Scenario                                                   | Expected behavior | Test added | Notes                                    |
-| ---------------------------------------------------------- | ----------------- | ---------- | ---------------------------------------- |
-| Same extension in builtin and versioned dirs               | TBD               | [ ]        | Validate precedence + diagnostics        |
-| Same command contributed by extensions in both dirs        | TBD               | [ ]        | Verify hard-fail vs deterministic winner |
-| Custom `assemblyLoading.builtinInstallationDir` override   | TBD               | [ ]        | Verify effective path used               |
-| Custom `assemblyLoading.versionedInstallationDir` override | TBD               | [ ]        | Verify effective path used               |
-| `ExtensionVerb` duplicates `GetVerbs()` data               | TBD               | [ ]        | Validate purpose vs redundancy           |
-| Built-ins `login` and `config` command map maintenance     | TBD               | [ ]        | Assess manual-edit requirement           |
+| Scenario                                                   | Expected behavior                                                 | Test added | Notes                                |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- | ---------- | ------------------------------------ |
+| Same extension in builtin and versioned dirs               | Pin first, then higher version; equal version -> builtin dir wins | [ ]        | Validate precedence + diagnostics    |
+| Same command from same extension identity in both dirs     | Select one winner via precedence; no collision error              | [ ]        | Verify same-identity dedup behavior  |
+| Same command from different extension identities           | Hard-fail collision error                                         | [ ]        | Verify cross-identity collision path |
+| Custom `assemblyLoading.builtinInstallationDir` override   | TBD                                                               | [ ]        | Verify effective path used           |
+| Custom `assemblyLoading.versionedInstallationDir` override | TBD                                                               | [ ]        | Verify effective path used           |
+| `ExtensionVerb` duplicates `GetVerbs()` data               | Unified on `[ExtensionVerb]`                                      | [x]        | `GetVerbs()` contract removed        |
+| Built-ins `login` and `config` command map maintenance     | TBD                                                               | [ ]        | Assess manual-edit requirement       |
 
-## Open Questions
+## Pending Decisions (Not Locked)
 
-- If command contributors conflict, preserve hard error behavior or switch to deterministic selection?
 - Should built-ins continue explicit command-map maintenance or shift to discovery/generation?
+- Should canonical naming be `verb`, `leaf`, or `command group` across code/docs?
 - Are user-facing docs/help updates required for any policy changes?
 
 ## PR Link
