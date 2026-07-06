@@ -16,6 +16,15 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class ManagedIdentityE2ETests : IAsyncLifetime
 {
+    // Resolve artifacts against the configuration these tests were built with,
+    // so the suite works whether the solution is built Debug (local/GitHub) or
+    // Release (distribution pipeline).
+#if DEBUG
+    private const string BuildConfiguration = "Debug";
+#else
+    private const string BuildConfiguration = "Release";
+#endif
+
     private MockImdsServer? _imds;
     private static readonly ILoggingService Logger = Mock.Of<ILoggingService>();
     private static readonly ITelemetryService Telemetry = Mock.Of<ITelemetryService>();
@@ -46,7 +55,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         var debugDir = Path.GetFullPath(
             Path.Combine(
                 AppContext.BaseDirectory,
-                "..", "..", "..", "..", "..", "artifacts", "Debug"
+                "..", "..", "..", "..", "..", "artifacts", BuildConfiguration
             )
         );
 
@@ -298,7 +307,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         var cliBinary = Path.GetFullPath(
             Path.Combine(
                 AppContext.BaseDirectory,
-                "..", "..", "..", "..", "..", "artifacts", "Debug", "Core.Cli", "az"
+                "..", "..", "..", "..", "..", "artifacts", BuildConfiguration, "Core.Cli", "az"
             )
         );
 
