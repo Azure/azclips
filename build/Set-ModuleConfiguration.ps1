@@ -50,17 +50,6 @@ foreach ($file in $psd1Files) {
     # the target configuration. Both Debug and Release source forms are accepted.
     $updated = $content -replace '\.\./\.\./\.\./artifacts/(Debug|Release)/', "$absArtifacts/"
 
-    if ($moduleDir -ne 'Login')
-    {
-        # Path-based RequiredModules entries make Test-ModuleManifest validate the
-        # staged Login manifest, which has absolute RequiredAssemblies paths.
-        # Import validation loads dependency modules explicitly instead.
-        $updated = [regex]::Replace(
-            $updated,
-            '(?ms)^RequiredModules\s*=\s*@\(\s*@\{.*?\}\s*\)',
-            'RequiredModules = @()')
-    }
-
     Set-Content -Path $targetPath -Value $updated -NoNewline
     Write-Host "Staged $moduleDir/$($file.Name) -> $targetPath"
 }
