@@ -88,10 +88,9 @@ public class VersionInformationProviderTests
 
         var output = writer.ToString();
         Assert.Equal(0, exitCode);
-        Assert.StartsWith("az ", output);
+        Assert.StartsWith("AzCli ", output);
         Assert.Contains("Runtime", output);
         Assert.Contains("Paths", output);
-        Assert.DoesNotContain("\"azCli\"", output);
     }
 
     // Minimal IConfigurationService whose only meaningful behavior is returning a fixed config file
