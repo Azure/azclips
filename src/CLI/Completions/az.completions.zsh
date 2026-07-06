@@ -61,7 +61,7 @@ _az_is_azclips() {
     if [[ -n "$_az_is_azclips_cached" ]]; then
         return $(( 1 - _az_is_azclips_cached ))
     fi
-    # Check the az on PATH (what the user actually runs)
+    # $commands[az] returns the filesystem path (zsh command hash table)
     local exe
     if (( $+commands[az] )); then
         exe="${commands[az]}"
@@ -70,7 +70,11 @@ _az_is_azclips() {
         return 1
     fi
     local ver
-    ver="$("$exe" --version 2>&1)"
+    if ! ver="$("$exe" --version 2>&1)" || [[ -z "$ver" ]]; then
+        # --version failed or empty output → not azclips
+        _az_is_azclips_cached=0
+        return 1
+    fi
     if echo "$ver" | grep -q 'azure-cli'; then
         _az_is_azclips_cached=0
         return 1

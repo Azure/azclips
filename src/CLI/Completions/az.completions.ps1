@@ -14,20 +14,21 @@ $global:_azIsAzclipsCache = @{}
 function global:_azIsAzclips {
     param([string]$exePath)
     # Resolve which binary to check
-    if (-not $exePath) {
-        $cmd = Get-Command az -ErrorAction SilentlyContinue
-        if (-not $cmd) { return $false }
-        $exePath = $cmd.Source
-    }
+    if (-not $exePath) { return $false }
+    $resolved = Get-Command $exePath -ErrorAction SilentlyContinue
+    if ($resolved) { $exePath = $resolved.Source }
     $key = $exePath.ToLower()
     if ($global:_azIsAzclipsCache.ContainsKey($key)) { return $global:_azIsAzclipsCache[$key] }
     $result = $false
     try {
         $ver = & $exePath --version 2>&1 | Out-String
-        # System Azure CLI outputs 'azure-cli X.Y.Z'; azclips does not
-        $result = ($ver -notmatch 'azure-cli')
+        # System Azure CLI outputs 'azure-cli X.Y.Z'; azclips does not.
+        # If --version failed or returned empty, treat as not azclips.
+        if ($ver) {
+            $result = ($ver -notmatch 'azure-cli')
+        }
     } catch {
-        $result = $true
+        # --version threw → not azclips
     }
     $global:_azIsAzclipsCache[$key] = $result
     return $result
@@ -221,7 +222,7 @@ function global:TabExpansion2 {
             $azPath = $Matches[2]  # path prefix: e.g. "artifacts\...\" or $null
 
             # Check the actual binary is azclips, not system azure-cli
-            $isAzclips = if ($azPath) { _azIsAzclips $azCmd } else { _azIsAzclips }
+            $isAzclips = _azIsAzclips $azCmd
             if ($isAzclips) {
                 $results = @(_azGetCompletions $line $cursor)
                 if ($results.Count -gt 0) {
@@ -242,7 +243,9 @@ function global:TabExpansion2 {
             return [System.Management.Automation.CommandCompletion]::CompleteInput($inputScript, $cursorColumn, $options)
         } else {
             return [System.Management.Automation.CommandCompletion]::CompleteInput($ast, $tokens, $positionOfCursor, $options)
-        }
+        export PATH="/mnt/c/Users/norizhang/repos/cirrus/artifacts/Release/Core.Cli:$PATH"
+        source src/CLI/Completions/az.completions.bash
+        az <Tab>  # 生效        }
     }
 }
 
