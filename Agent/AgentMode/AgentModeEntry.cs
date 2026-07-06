@@ -42,7 +42,7 @@ public static class AgentModeEntry
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
-            // Prompt is chosen by interaction mode: oneShot → oneshot.md,
+            // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md. (tui.md exists for a future full-screen
             // entry point that nothing spawns yet.)
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
@@ -153,7 +153,7 @@ public static class AgentModeEntry
         var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt, ct,
             initialVerb: "Analyzing error root cause using AI");
 
-        // submit_response is the sole terminator. oneShot proposes a fix then closes
+        // submit_response is the sole terminator. oneshot proposes a fix then closes
         // with submit_response; drain any redirect until it does (or the agent stops
         // without one, e.g. an out-of-scope rejection), but never open a "> " prompt.
         if (!interactive)

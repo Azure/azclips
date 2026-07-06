@@ -13,7 +13,7 @@ internal sealed class SessionState
     // True once the user has approved any plan this session. Gates bash/powershell.
     public bool PlanApproved { get; set; }
 
-    // oneShot: single turn, plan then submit_response closes. interactive: plan is
+    // oneshot: single turn, plan then submit_response closes. interactive: plan is
     // approved via y/n and execution proceeds, then submit_response closes.
     public bool IsOneShot { get; set; }
 

@@ -83,7 +83,7 @@ internal static class PreToolUseHook
 
         // propose_plan is a mid-turn artifact — it renders a plan and never ends
         // the session (submit_response does). Validate args (deny + correction on
-        // failure), then render. oneShot shows the plan and allows; interactive
+        // failure), then render. oneshot shows the plan and allows; interactive
         // asks y/n and, on yes, unblocks execution. Either way the agent continues
         // and must call submit_response to close.
         if (string.Equals(input.ToolName, "propose_plan", StringComparison.OrdinalIgnoreCase))
