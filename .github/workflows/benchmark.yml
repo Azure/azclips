@@ -47,6 +47,7 @@ jobs:
       # The PS benchmarks import these instead of the tracked src/PS/<Module>/<Module>.psd1
       # files, so the working tree stays clean and benchmark-action's `git switch gh-pages`
       # below doesn't fail with "local changes would be overwritten".
+      # below doesn't fail with "local changes would be overwritten".
       - name: Stage PS module manifests
         run: pwsh -NoProfile -File build/Set-ModuleConfiguration.ps1 -Configuration Release
 
