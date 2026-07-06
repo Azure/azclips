@@ -243,9 +243,7 @@ function global:TabExpansion2 {
             return [System.Management.Automation.CommandCompletion]::CompleteInput($inputScript, $cursorColumn, $options)
         } else {
             return [System.Management.Automation.CommandCompletion]::CompleteInput($ast, $tokens, $positionOfCursor, $options)
-        export PATH="/mnt/c/Users/norizhang/repos/cirrus/artifacts/Release/Core.Cli:$PATH"
-        source src/CLI/Completions/az.completions.bash
-        az <Tab>  # 生效        }
+        }
     }
 }
 
