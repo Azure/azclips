@@ -51,15 +51,9 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        // test binary sits five levels below the repo root
-        var debugDir = Path.GetFullPath(
-            Path.Combine(
-                AppContext.BaseDirectory,
-                "..", "..", "..", "..", "..", "artifacts", BuildConfiguration
-            )
-        );
+        var artifactsDir = ResolveArtifactsDirectory();
 
-        var loginExtensionDir = Path.Combine(debugDir, "Microsoft.Azure.Azclips.Extensions.Login");
+        var loginExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Login");
 
         if (!Directory.Exists(loginExtensionDir))
         {
@@ -68,7 +62,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
                 $"Run `dotnet build tests/Cli.Tests/Cli.Tests.csproj` (or `dotnet test`) to regenerate it.");
         }
 
-        Console.WriteLine($"Extensions found in: {debugDir}");
+        Console.WriteLine($"Extensions found in: {artifactsDir}");
         Console.WriteLine($"   - Login extension: {loginExtensionDir}");
 
         // route MSAL MI discovery to the mock IMDS server
@@ -304,12 +298,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
     private static string ResolveCliBinary()
     {
-        var cliBinary = Path.GetFullPath(
-            Path.Combine(
-                AppContext.BaseDirectory,
-                "..", "..", "..", "..", "..", "artifacts", BuildConfiguration, "Core.Cli", "az"
-            )
-        );
+        var cliBinary = Path.Combine(ResolveArtifactsDirectory(), "Core.Cli", "az");
 
         if (!File.Exists(cliBinary))
         {
@@ -317,6 +306,28 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         }
 
         return cliBinary;
+    }
+
+    /// <summary>
+    /// Locates the <c>artifacts/&lt;Configuration&gt;</c> directory by walking up from the test
+    /// assembly location, so the tests do not depend on a fixed directory depth. The distribution
+    /// layout there (per-package extension subdirectories) is required for the CLI subprocess to
+    /// resolve extensions such as Login.
+    /// </summary>
+    private static string ResolveArtifactsDirectory()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "artifacts", BuildConfiguration);
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Could not locate 'artifacts/{BuildConfiguration}' above {AppContext.BaseDirectory}. " +
+            $"Run `dotnet build azclips.slnx` to produce it.");
     }
 
     private static ProfileService CreateProfileService()
