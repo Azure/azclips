@@ -12,9 +12,9 @@ namespace Core.Cli.Version;
 /// share one source of truth.
 /// </summary>
 /// <remarks>
-/// Sections are not wrapped defensively: if something goes wrong, exceptions bubble up to
-/// diagnose initialization or configuration problems cleanly instead of masking them behind
-/// an "unknown" placeholder.
+/// Version data is gathered directly from host/runtime APIs; most failures are allowed to bubble up
+/// to aid diagnosis, with a small number of fields falling back to "unknown" when the host does not
+/// provide a value (e.g. no entry assembly or empty base directory).
 /// </remarks>
 internal static class VersionInformationProvider
 {
