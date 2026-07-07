@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace Core.Agent.Tools.Cache;
+namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Single source of truth for "what searchable cache kinds exist". Each

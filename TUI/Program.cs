@@ -1,6 +1,5 @@
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Tui.AgentMode;
 using Core.Tui.Azure;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
@@ -20,8 +19,6 @@ public static class Program
 
     public static async Task<int> Main(string[] args)
     {
-        if (args.Length > 0 && args[0] == "--agent-mode") { return await AgentModeEntry.RunAsync(args); }
-
         AzclipsServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<ArmClient>();

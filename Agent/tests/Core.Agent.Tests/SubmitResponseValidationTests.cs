@@ -1,11 +1,12 @@
 using System.Text.Json;
 using Core.Agent;
+using Core.Agent.Plan;
 using Xunit;
 
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Unit tests for <see cref="ChatAgent.ValidateSubmitResponse"/> — the PP-stage
+/// Unit tests for <see cref="PlanArgsParser.ValidateSubmitResponse"/> — the PP-stage
 /// argument validation that runs in OnPreToolUse and, on failure, denies the
 /// submit_response call with a correction prompt instead of throwing.
 ///
@@ -32,7 +33,7 @@ public class SubmitResponseValidationTests
             _          => new { status },
         };
 
-        var error = ChatAgent.ValidateSubmitResponse(Args(payload));
+        var error = PlanArgsParser.ValidateSubmitResponse(Args(payload));
 
         Assert.Null(error);
     }
@@ -40,7 +41,7 @@ public class SubmitResponseValidationTests
     [Fact]
     public void Rejects_missing_status()
     {
-        var error = ChatAgent.ValidateSubmitResponse(Args(new { message = "hi" }));
+        var error = PlanArgsParser.ValidateSubmitResponse(Args(new { message = "hi" }));
 
         Assert.NotNull(error);
         Assert.Contains("status", error);
@@ -49,7 +50,7 @@ public class SubmitResponseValidationTests
     [Fact]
     public void Rejects_unknown_status()
     {
-        var error = ChatAgent.ValidateSubmitResponse(Args(new { status = "done" }));
+        var error = PlanArgsParser.ValidateSubmitResponse(Args(new { status = "done" }));
 
         Assert.NotNull(error);
         Assert.Contains("done", error);
@@ -60,7 +61,7 @@ public class SubmitResponseValidationTests
     [InlineData("failed")]
     public void Rejects_missing_message_when_required(string status)
     {
-        var error = ChatAgent.ValidateSubmitResponse(Args(new { status }));
+        var error = PlanArgsParser.ValidateSubmitResponse(Args(new { status }));
 
         Assert.NotNull(error);
         Assert.Contains("message", error);
@@ -69,7 +70,7 @@ public class SubmitResponseValidationTests
     [Fact]
     public void Rejects_rejected_message_without_scope_prefix()
     {
-        var error = ChatAgent.ValidateSubmitResponse(
+        var error = PlanArgsParser.ValidateSubmitResponse(
             Args(new { status = "rejected", message = "not relevant" }));
 
         Assert.NotNull(error);
@@ -79,7 +80,7 @@ public class SubmitResponseValidationTests
     [Fact]
     public void Completed_does_not_require_message()
     {
-        var error = ChatAgent.ValidateSubmitResponse(Args(new { status = "completed" }));
+        var error = PlanArgsParser.ValidateSubmitResponse(Args(new { status = "completed" }));
 
         Assert.Null(error);
     }

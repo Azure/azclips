@@ -1,7 +1,7 @@
 using Azure.Core;
 using Azure.Identity;
 using Core.Abstractions;
-using Core.Agent.Tools.Cache;
+using Core.Agent.Tools.Resource.Cache;
 using Xunit;
 using Xunit.Sdk;
 

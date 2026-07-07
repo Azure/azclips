@@ -1,4 +1,4 @@
-namespace Core.Agent.Probes;
+namespace Core.Agent.Tools.Env;
 
 internal static class EnvironmentProbes
 {

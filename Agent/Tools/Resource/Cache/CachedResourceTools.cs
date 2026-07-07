@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 
-namespace Core.Agent.Tools.Cache;
+namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Three AI agent tools that READ the local ARM cache (built and

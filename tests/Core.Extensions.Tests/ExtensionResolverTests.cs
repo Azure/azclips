@@ -111,18 +111,19 @@ namespace Core.Extensions.Tests
         [Fact]
         public void DefaultBuiltIns_ShouldContainExactlyCoreN()
         {
-            // The seed is extension/login/logout/profile/config. login and profile are both served by
-            // the Login built-in package. group (Resources) and vm (Compute) are installable
-            // extensions, not built-ins. version is a CLI host command (cold-path), not an extension.
+            // The seed is extension/login/logout/profile/config/agent. login and profile are both
+            // served by the Login built-in package. group (Resources) and vm (Compute) are
+            // installable extensions, not built-ins.
             Assert.Contains("extension", BuiltInExtensions.Map.Keys);
             Assert.Contains("login", BuiltInExtensions.Map.Keys);
             Assert.Contains("logout", BuiltInExtensions.Map.Keys);
             Assert.Contains("profile", BuiltInExtensions.Map.Keys);
             Assert.Contains("config", BuiltInExtensions.Map.Keys);
             Assert.DoesNotContain("version", BuiltInExtensions.Map.Keys);
+            Assert.Contains("agent", BuiltInExtensions.Map.Keys);
             Assert.DoesNotContain("group", BuiltInExtensions.Map.Keys);
             Assert.DoesNotContain("vm", BuiltInExtensions.Map.Keys);
-            Assert.Equal(5, BuiltInExtensions.Map.Count);
+            Assert.Equal(6, BuiltInExtensions.Map.Count);
         }
 
         [Fact]

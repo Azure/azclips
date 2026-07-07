@@ -28,6 +28,8 @@
   </Folder>
   <Folder Name="/Agent/">
     <Project Path="Agent/Core.Agent.csproj" />
+    <Project Path="Agent/Tools/Core.Agent.Tools.csproj" />
+    <Project Path="Agent/Commands/Agent.Commands.csproj" />
     <Project Path="Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj" />
   </Folder>
   <Folder Name="/src/PS/Config/" />

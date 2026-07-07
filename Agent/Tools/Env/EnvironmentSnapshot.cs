@@ -1,4 +1,4 @@
-namespace Core.Agent.Probes;
+namespace Core.Agent.Tools.Env;
 
 /// <summary>Read-only snapshot of host facts injected as system context every turn.</summary>
 public sealed record EnvironmentSnapshot(

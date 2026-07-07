@@ -3,7 +3,7 @@ using Azure.Core;
 using Azure.ResourceManager;
 using Core.Abstractions;
 
-namespace Core.Agent.Tools.Cache;
+namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Live ARM details fetcher used by <c>get_resource_details</c> when the
