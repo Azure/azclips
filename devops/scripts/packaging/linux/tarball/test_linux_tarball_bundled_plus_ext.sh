@@ -125,6 +125,13 @@ if [[ ! -f "$SIM_ROOT/install/LICENSE" ]]; then
   exit 1
 fi
 
+for completion_file in az.completions.ps1 az.completions.bash az.completions.zsh; do
+  if [[ ! -f "$SIM_ROOT/install/completions/$completion_file" ]]; then
+    echo "FAIL: completions/$completion_file missing from extracted tarball"
+    exit 1
+  fi
+done
+
 if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Extension" ]]; then
   echo "FAIL: Built-in Extension manager bundle missing"
   exit 1
@@ -139,7 +146,7 @@ if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Conf
 fi
 
 echo "PASS: Bundled extension folders are present"
-echo "PASS: NOTICE and LICENSE files are present"
+echo "PASS: NOTICE, LICENSE, and completion scripts are present"
 
 if [[ "$SKIP_RUNTIME" == "true" ]]; then
   echo "NOTE: SKIP_RUNTIME=true, skipping Linux runtime execution checks."
