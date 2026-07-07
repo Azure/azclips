@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783406810261,
+  "lastUpdate": 1783412608532,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -2604,6 +2604,48 @@ window.BENCHMARK_DATA = {
             "value": 5898710.63350486,
             "unit": "ns",
             "range": "± 98601.64614165568"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xumingk1@gmail.com",
+            "name": "xuming-ms",
+            "username": "xuming-ms"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a58415db8ba1871e75cf11668f8525ee2892231",
+          "message": "[Login] Add managed identity login support (#381)\n\n## Summary\n\nAdds managed identity (MI) authentication to the login flow, supporting\nboth system-assigned and user-assigned identities via MSAL, wired\nthrough the CLI login processor, PowerShell cmdlets, and the token\ncache.\n\n## What's included\n\n- **Managed identity auth**: `ManagedIdentityAuthenticator`,\n`ManagedIdentityCredential`, and `AzureCredentialFactory` acquire tokens\nfor system-assigned and user-assigned (client-id / object-id /\nresource-id) identities.\n- **Login wiring**: `LoginProcessor` gains `--identity`, `--client-id`,\n`--object-id`, `--resource-id`; MI login does not require\n`--subscription-id` (a default subscription is auto-discovered from the\ntoken when omitted).\n- **Subscription discovery**: `SubscriptionService` /\n`ISubscriptionService` list subscriptions for a token so login can pick\na sensible default.\n- **Profile persistence**: MI identity selector is encoded/decoded via\n`ManagedIdentityIdCodec` and stored on the profile.\n- **Enum consolidation**: removed the duplicate `LoginMode` enum in\nfavor of the existing `AuthMethod`.\n- **Validation cleanup**: consolidated the subscription-id requirement\ninto `ValidateArguments` (skipped for MI and for `--profile` re-auth).\n\n## Testing\n\n- New unit tests: `ManagedIdentityCredentialTests`,\n`ManagedIdentityIdCodecTests`, `ConnectAccountCmdletTests`.\n- New E2E tests: `ManagedIdentityE2ETests` exercise the real `az` CLI\nsubprocess against a mock IMDS server (`MockImdsServer`).\n- Full suite green: 0 failures across all projects, including the MI E2E\ntests.\n\n---------\n\nCo-authored-by: Ming Xu <xumi@microsoft.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-07T18:15:26+10:00",
+          "tree_id": "fff724310b9819c48cb4352cbc9065b4fd2a27d1",
+          "url": "https://github.com/Azure/azclips/commit/5a58415db8ba1871e75cf11668f8525ee2892231"
+        },
+        "date": 1783412608500,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5837895.712746551,
+            "unit": "ns",
+            "range": "± 106544.50530416006"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5814399.887340036,
+            "unit": "ns",
+            "range": "± 106220.83165955091"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5761869.44758296,
+            "unit": "ns",
+            "range": "± 99102.27188482364"
           }
         ]
       }
