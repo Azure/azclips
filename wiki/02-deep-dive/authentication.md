@@ -196,8 +196,8 @@ Its behaviour depends on the `plaintextUnsafe` flag:
 
 | Mode | Storage backend | Notes |
 | --- | --- | --- |
-| `plaintextUnsafe: true` (currently used everywhere) | Unprotected file `MSAL.cache.plaintext` | `builder.WithUnprotectedFile()` — `MsalAuthService.cs:104` |
-| `plaintextUnsafe: false` (future) | Linux keyring / macOS keychain | Keyring labelled `Microsoft.Azclips` / `Microsoft Azclips` — `MsalAuthService.cs:106` |
+| `plaintextUnsafe: false` (currently used everywhere) | Platform-native encrypted store: DPAPI-protected file on Windows, macOS keychain, Linux keyring | Keyring labelled `Microsoft.Azclips` / `Microsoft Azclips` — `MsalAuthService.cs:106` |
+| `plaintextUnsafe: true` (opt-in/dev only) | Unprotected file `MSAL.cache.plaintext` | `builder.WithUnprotectedFile()` — `MsalAuthService.cs:104` |
 
 The cache directory is resolved by `HomePaths.GetDefaultLocalAppDataRoot()`
 (`src/Core/Core.Abstractions/HomePaths.cs:47`), which places `MSAL.cache[.plaintext]` under the
@@ -220,7 +220,7 @@ belong to *other* profiles. The design therefore narrows logout to a single acco
 ```csharp
 if (string.IsNullOrWhiteSpace(userPrincipalName)) return;      // nothing to remove
 var app = PublicClientApplicationBuilder.Create(ClientId).Build();
-await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+await RegisterTokenCacheAsync(app, plaintextUnsafe: false);
 
 var matching = (await app.GetAccountsAsync())
     .Where(a => string.Equals(a.Username, userPrincipalName, StringComparison.OrdinalIgnoreCase));
@@ -317,7 +317,7 @@ deliberately matches `AcquireTokenSilentlyAsync`
 
 | Concern | Current state | Source |
 | --- | --- | --- |
-| Token-at-rest protection | Cache written **unencrypted** (`MSAL.cache.plaintext`); keyring/keychain code exists but is not the active path | `MsalAuthService.cs:104` |
+| Token-at-rest protection | Cache written to platform-native encrypted storage (DPAPI file on Windows, macOS keychain, Linux keyring); the unencrypted `MSAL.cache.plaintext` path is opt-in for dev only | `MsalAuthService.cs:104` |
 | Multi-tenant | `BuildApp` falls back to a hard-coded corporate tenant when none supplied | `MsalAuthService.cs:90` |
 | Client id | Single hard-coded first-party public-client id (marked `todo: 1P or 3P?`) | `MsalAuthService.cs:13` |
 | App reuse | A new `PublicClientApplication` is built per call (`todo` notes reuse when tenant is stable) | `MsalAuthService.cs:86` |
