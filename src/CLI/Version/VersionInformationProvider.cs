@@ -8,8 +8,8 @@ using Core.Abstractions;
 namespace Core.Cli.Version;
 
 /// <summary>
-/// Gathers CLI version information from the running host: both <c>az version</c> (JSON) and <c>az --version</c> (text)
-/// shares one source of truth.
+/// Gathers CLI version information from the running host. Both <c>az version</c> (JSON) and <c>az --version</c> (text)
+/// share one source of truth.
 /// </summary>
 /// <remarks>
 /// Sections are not wrapped defensively: if something goes wrong, exceptions bubble up to
