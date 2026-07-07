@@ -134,6 +134,7 @@ public class MsalAuthService(
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
 
         // profile will be set from the engine, fallback for other direct caller like TUI/Tooling
+        // TODO: Consider making the profile mandatory
         profile ??= await ProfileService.GetActiveProfileAsync(cancellationToken);
         if (profile?.AuthMethod == AuthMethod.ManagedIdentity)
         {
