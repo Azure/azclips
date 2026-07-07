@@ -52,6 +52,8 @@
 #   normalize to Unix-style line endings on check-in
 ###############################################################################
 *.sh        text        eol=lf
+*.bash      text        eol=lf
+*.zsh       text        eol=lf
 
 ###############################################################################
 # Set file behavior to:

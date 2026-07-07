@@ -8,6 +8,32 @@
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 
+# Per-binary cache: path -> $true/$false
+$global:_azIsAzclipsCache = @{}
+
+function global:_azIsAzclips {
+    param([string]$exePath)
+    # Resolve which binary to check
+    if (-not $exePath) { return $false }
+    $resolved = Get-Command $exePath -ErrorAction SilentlyContinue
+    if ($resolved) { $exePath = $resolved.Source }
+    $key = $exePath.ToLower()
+    if ($global:_azIsAzclipsCache.ContainsKey($key)) { return $global:_azIsAzclipsCache[$key] }
+    $result = $false
+    try {
+        $ver = & $exePath --version 2>&1 | Out-String
+        # System Azure CLI outputs 'azure-cli X.Y.Z'; azclips does not.
+        # If --version failed or returned empty, treat as not azclips.
+        if ($ver) {
+            $result = ($ver -notmatch 'azure-cli')
+        }
+    } catch {
+        # --version threw → not azclips
+    }
+    $global:_azIsAzclipsCache[$key] = $result
+    return $result
+}
+
 function global:_azResolveExe {
     # 1. Same directory as this script (e.g. artifacts/Release/Core.Cli/)
     $local = Join-Path $PSScriptRoot 'az.exe'
@@ -191,17 +217,24 @@ function global:TabExpansion2 {
         $line = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $inputScript } else { $ast.Extent.Text }
         $cursor = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $cursorColumn } else { $positionOfCursor.Offset }
 
-        if ($line -match '^\s*(\S*[\\/])?az(\.exe)?\s') {
-            $results = @(_azGetCompletions $line $cursor)
-            if ($results.Count -gt 0) {
-                $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
-                $lastSpace = $textUpToCursor.LastIndexOf(' ')
-                $replIndex = $lastSpace + 1
-                $replLength = $cursor - $replIndex
+        if ($line -match '^\s*((\S*[\\/])?(az(\.exe)?))\s') {
+            $azCmd = $Matches[1]   # full command: e.g. "artifacts\...\az.exe" or "az"
+            $azPath = $Matches[2]  # path prefix: e.g. "artifacts\...\" or $null
 
-                $matches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
-                foreach ($r in $results) { $matches.Add($r) }
-                return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
+            # Check the actual binary is azclips, not system azure-cli
+            $isAzclips = _azIsAzclips $azCmd
+            if ($isAzclips) {
+                $results = @(_azGetCompletions $line $cursor)
+                if ($results.Count -gt 0) {
+                    $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
+                    $lastSpace = $textUpToCursor.LastIndexOf(' ')
+                    $replIndex = $lastSpace + 1
+                    $replLength = $cursor - $replIndex
+
+                    $matches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
+                    foreach ($r in $results) { $matches.Add($r) }
+                    return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
+                }
             }
         }
 
