@@ -225,6 +225,18 @@ public sealed class ChatAgent : IAsyncDisposable
         return agent;
     }
 
+    // Duplicates the classic-CLI-boundary line already present in every
+    // prompts/*.md (added in RN2 layer 1). The prompt version lives in a
+    // long system message that models sometimes skim; injecting the same
+    // reminder via SessionStart's AdditionalContext puts it in a spot the
+    // model reads at every session boot. Wording deliberately mirrors the
+    // prompt copy (Azclips — NOT classic Azure CLI / training data may be
+    // wrong / verify with get_command) so the two channels reinforce each
+    // other instead of introducing wording drift.
+    private const string AzclipsBoundary =
+        "Reminder: this `az` is Azclips — NOT classic Azure CLI. " +
+        "Your training data about classic `az` may be wrong; verify every command with get_command().";
+
     private static SessionConfig BuildBaseSessionConfig(
         string systemPrompt,
         CachedResourceTools cacheTools,
@@ -257,10 +269,11 @@ public sealed class ChatAgent : IAsyncDisposable
                 {
                     var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
                     var ctx = EnvSnapshotFormatter.Format(envJson);
+                    ctx = string.IsNullOrEmpty(ctx) ? AzclipsBoundary : $"{ctx}\n\n{AzclipsBoundary}";
                     // Append the pre-fetched help for the failed command (if any) so
                     // the agent starts with it instead of spending a turn on get_command.
                     if (!string.IsNullOrEmpty(failedHelp))
-                        ctx = string.IsNullOrEmpty(ctx) ? failedHelp : $"{ctx}\n\n{failedHelp}";
+                        ctx = $"{ctx}\n\n{failedHelp}";
                     return new SessionStartHookOutput { AdditionalContext = ctx };
                 },
                 OnUserPromptSubmitted = async (_, _) =>
