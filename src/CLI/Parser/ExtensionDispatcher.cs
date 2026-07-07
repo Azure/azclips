@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Cli.Exceptions;
+using Core.Cli.Version;
 using Core.Extensions;
 
 namespace Core.Cli.Parser;
@@ -55,6 +56,14 @@ public class ExtensionDispatcher //: IParser
         if (TryCreateHelpRequest(args, out var helpRequest))
         {
             throw new RuntimeExtensionHelpException(helpRequest.Verb, helpRequest.Path, helpRequest.IsCommandHelp);
+        }
+
+        // Version is a host cold-path command (like help): `az version` and `az --version` are
+        // handled without loading an extension or opening an engine session. Checked after help so
+        // `az version --help` still routes to help.
+        if (TryCreateVersionRequest(args, out var versionFormat))
+        {
+            throw new DispatchVersionException(versionFormat);
         }
 
         var verb = args[0];
@@ -197,4 +206,27 @@ public class ExtensionDispatcher //: IParser
 
     private static string[] StripHelpFlags(string[] tokens)
         => tokens.Where(static t => !IsHelpToken(t)).ToArray();
+
+    // Global flags (--output/--debug/--no-cache) are stripped in Program before Parse runs, so by
+    // here `az --version` is ["--version"] and `az version` is ["version"].
+    private static bool TryCreateVersionRequest(string[] args, out VersionOutputFormat format)
+    {
+        // `az --version` is a top-level flag (peer of `az --help`) → human-readable text.
+        if (args.Length == 1 && args[0].Equals("--version", StringComparison.OrdinalIgnoreCase))
+        {
+            format = VersionOutputFormat.Text;
+            return true;
+        }
+
+        // Bare `az version` verb → structured JSON, preserving the output shape of the command it
+        // replaces. Trailing tokens fall through to normal resolution (there is no `version` subcommand).
+        if (args.Length == 1 && args[0].Equals("version", StringComparison.OrdinalIgnoreCase))
+        {
+            format = VersionOutputFormat.Json;
+            return true;
+        }
+
+        format = VersionOutputFormat.Json;
+        return false;
+    }
 }
