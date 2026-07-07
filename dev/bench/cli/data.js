@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783394513637,
+  "lastUpdate": 1783406442266,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2772,6 +2772,48 @@ window.BENCHMARK_DATA = {
             "value": 953412.422345642,
             "unit": "ns",
             "range": "± 299922.94951401517"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3a03324449b2f2357507ba3f81bcd01d2e5c10e0",
+          "message": "az version implementation (#388) (#389)\n\nRelated command\n`az version`\n\nDescription\nThis PR adds az version command to the AZ CLI, which lets you display\nthe AZ CLI version and environment information\n\nSamples\n\nwindows-x64\n`az version`\n\n```\n{\n  \"azCli\": \"0.1.3\",\n  \"runtime\": {\n    \"dotNet\": \".NET 10.0.9\",\n    \"os\": \"Microsoft Windows 10.0.26200\",\n    \"architecture\": \"X64\"\n  },\n  \"paths\": {\n    \"installLocation\": \"C:\\\\Dev\\\\repos\\\\msarfraz\\\\cirrus\\\\artifacts\\\\Debug\\\\Core.Cli\",\n    \"configLocation\": \"C:\\\\Users\\\\msarfraz\\\\.azclips\"\n  }\n}\n```\nlinux-x64\n`az version`\n\n```\n{\n  \"azCli\": \"0.1.3\",\n  \"runtime\": {\n    \"dotNet\": \".NET 10.0.9\",\n    \"os\": \"Ubuntu 24.04.4 LTS\",\n    \"architecture\": \"X64\"\n  },\n  \"paths\": {\n    \"installLocation\": \"/app/Core.Cli\",\n    \"configLocation\": \"/root/.azclips\"\n  }\n}\n```\nlinux-arm64\n`az version`\n\n```\n{\n  \"azCli\": \"0.1.3\",\n  \"runtime\": {\n    \"dotNet\": \".NET 10.0.9\",\n    \"os\": \"Ubuntu 24.04.4 LTS\",\n    \"architecture\": \"Arm64\"\n  },\n  \"paths\": {\n    \"installLocation\": \"/app/Core.Cli\",\n    \"configLocation\": \"/root/.azclips\"\n  }\n}\n```\n`az --version` provides the same above information in Text format\n\n```\nAzCli             0.1.0\n\nRuntime\n    .NET:         .NET 10.0.9\n    OS:           Microsoft Windows 10.0.26200\n    Architecture: X64\n\nPaths\n    Install:      C:\\Dev\\repos\\msarfraz\\cirrus\\artifacts\\Debug\\Core.Cli\n    Config:       C:\\Users\\msarfraz\\.azclips\n```\n\n---------\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-07T16:38:47+10:00",
+          "tree_id": "bb41c85f0bb78fefdc0990c9fd61bef45885f37f",
+          "url": "https://github.com/Azure/azclips/commit/3a03324449b2f2357507ba3f81bcd01d2e5c10e0"
+        },
+        "date": 1783406441809,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 988084.3526057818,
+            "unit": "ns",
+            "range": "± 298856.00740591367"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 959394.9172086043,
+            "unit": "ns",
+            "range": "± 312016.95730833616"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 949288.443577431,
+            "unit": "ns",
+            "range": "± 298352.54439627304"
           }
         ]
       }
