@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783391383045,
+  "lastUpdate": 1783394513637,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2730,6 +2730,48 @@ window.BENCHMARK_DATA = {
             "value": 957947.2902451225,
             "unit": "ns",
             "range": "± 304684.6393161992"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6cf403c123d51b062f2fe45d35ee8bb2d2c79547",
+          "message": "feat(agent): package agent + expose 4 tool commands + refactor ChatAgent (#380)\n\n## Summary\n\nMerges three related workstreams on one branch, all Agent-owned, rebased\nonto latest main:\n\n**1. Decouple agent from TUI + package as `az` tool** (v3-#11)\n- Move `AgentModeEntry` into `Agent/`; CLI now spawns\n`azclips-agent.exe` instead of hosting the agent in-process.\n- Extract `Core.Agent.Tools` class library (assembly\n`Azclips.Agent.Tools`) so the standalone agent and the `az agent`\nextension host share one tools implementation.\n- Scaffold `Agent.Commands` extension: `AgentExtensionIndex` + 4\nprocessors registering `agent tool env` / `agent tool help` / `agent\ntool resource find` / `agent tool resource sku`.\n- Register agent as built-in verb in `BuiltInExtensions.Map`.\n- Packaging: wire the agent exe + extension into azclips zip / tarball\nfor Windows, macOS, Linux.\n- Add 5 command help markdown files.\n\n**2. Expose 4 agent tools as `az agent tool ...` commands** (v3-#21,\npartial)\n- `env` / `help` / `resource find` / `resource sku` — each command's\nJSON output is byte-identical to the corresponding LLM tool return, so\nthe commands double as test entry points and as skill definitions for\nCopilot CLI / Claude Code.\n\n**3. Refactor `ChatAgent.cs`** (R1)\nSplit 1056-line `ChatAgent.cs` into single-purpose files while keeping\nthe public surface identical:\n\n| Extracted | New file | ChatAgent size after |\n|---|---|---|\n| SessionState class | `Agent/SessionState.cs` | 1014 |\n| Failed-command help injection | `Agent/Plan/FailedCommandHelp.cs` |\n941 |\n| Args normalization | `Agent/Common/ArgsNormalizer.cs` | (helper only)\n|\n| propose_plan / submit_response arg parsers |\n`Agent/Plan/PlanArgsParser.cs` | 707 |\n| PreToolUse hook + helpers | `Agent/Hooks/PreToolUseHook.cs` | 413 |\n| Builtin provider wiring | `Agent/Providers/BuiltinProviderConfig.cs` |\n347 |\n\n`ChatAgent.cs`: **1056 → 347 lines** (-67%). Everything left is session\nlifecycle.\n\nAlso fixed a latent `HelpToolsTests` path bug (`Tools/Help/` → `Help/`)\nexposed by the tools-library extraction.",
+          "timestamp": "2026-07-07T13:19:52+10:00",
+          "tree_id": "178aa868cc86cf75c0a301947e25a24f68139977",
+          "url": "https://github.com/Azure/azclips/commit/6cf403c123d51b062f2fe45d35ee8bb2d2c79547"
+        },
+        "date": 1783394513298,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 974252.9783870322,
+            "unit": "ns",
+            "range": "± 309516.67769257555"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 966103.8603080924,
+            "unit": "ns",
+            "range": "± 299142.27365146356"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 953412.422345642,
+            "unit": "ns",
+            "range": "± 299922.94951401517"
           }
         ]
       }
