@@ -10,6 +10,42 @@
       "description": "Authenticate to Azure and persist account context for subsequent commands.",
       "parameters": [
         {
+          "name": "client-id",
+          "psName": "ClientId",
+          "type": "string",
+          "required": false,
+          "description": "Client ID of the user-assigned managed identity.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "identity",
+          "psName": "Identity",
+          "type": "bool",
+          "required": false,
+          "description": "Login using managed identity in the current environment.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "object-id",
+          "psName": "ObjectId",
+          "type": "string",
+          "required": false,
+          "description": "Object ID of the user-assigned managed identity.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
           "name": "out-profile",
           "psName": "OutProfile",
           "type": "string",
@@ -27,6 +63,18 @@
           "type": "string",
           "required": false,
           "description": "Re-authenticate the named existing profile (mutually exclusive with --out-profile).",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "resource-id",
+          "psName": "ResourceId",
+          "type": "string",
+          "required": false,
+          "description": "Resource ID of the user-assigned managed identity.",
           "aliases": [],
           "allowedValues": [],
           "parameterSetName": "(All)",

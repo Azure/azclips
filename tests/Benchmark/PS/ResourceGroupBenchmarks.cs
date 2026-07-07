@@ -14,12 +14,12 @@ namespace Benchmark.PS;
 /// </summary>
 public class ResourceGroupBenchmarks : PSBenchmarkBase
 {
-    private const string ModuleName = "Resources";
+    protected override string ModuleName => "Resources";
 
     [Benchmark(Description = "PS: List RG")]
     public object? ListResourceGroups()
     {
-        return RunPowerShellCommand(ModuleName, "Get-ResourceGroup",
+        return RunPowerShellCommand("Get-ResourceGroup",
             ("SubscriptionId", SubscriptionId));
     }
 
@@ -27,7 +27,7 @@ public class ResourceGroupBenchmarks : PSBenchmarkBase
     public object? CreateResourceGroup()
     {
         var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
-        return RunPowerShellCommand(ModuleName, "New-ResourceGroup",
+        return RunPowerShellCommand("New-ResourceGroup",
             ("SubscriptionId", SubscriptionId),
             ("Name", rgName),
             ("Location", "eastus"));
@@ -36,7 +36,7 @@ public class ResourceGroupBenchmarks : PSBenchmarkBase
     [Benchmark(Description = "PS: Get RG")]
     public object? GetResourceGroup()
     {
-        return RunPowerShellCommand(ModuleName, "Get-ResourceGroup",
+        return RunPowerShellCommand("Get-ResourceGroup",
             ("SubscriptionId", SubscriptionId),
             ("Name", "bench-rg-get"));
     }

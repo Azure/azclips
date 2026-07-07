@@ -149,7 +149,7 @@ jobs:
         fetch-depth: 0
     - id: discover-extensions
       run: |
-        extensions=$(find src/Extensions -name "*.csproj" -type f | jq -R -s -c 'split("\n") | map(select(length > 0))')
+        extensions=$( { find src/Extensions -name "*.csproj" -type f; find Agent -name "Agent.Commands.csproj" -type f; } | jq -R -s -c 'split("\n") | map(select(length > 0))')
         echo "extensions=$extensions" >> $GITHUB_OUTPUT
 
   build-extension:

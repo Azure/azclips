@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Core.Agent.Plan;
 using Core.Agent.Tools.Help;
 using Microsoft.Extensions.AI;
 using Xunit;
@@ -119,7 +120,7 @@ public class HelpToolsTests
         var index = await InvokeAsync(tools.ListCommands);
         var indexCount = index.GetProperty("commands").GetArrayLength();
 
-        var manifestPath = Path.Combine(AppContext.BaseDirectory, "Tools", "Help", "HelpManifest.json");
+        var manifestPath = Path.Combine(AppContext.BaseDirectory, "Help", "HelpManifest.json");
         using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
         var manifestCount = manifest.RootElement.GetProperty("commands").GetArrayLength();
 
@@ -149,7 +150,7 @@ public class HelpToolsTests
     [Fact]
     public void BuildFailedCommandContext_InjectsHelp_OnRealCommand()
     {
-        var ctx = ChatAgent.BuildFailedCommandContext(new HelpTools(), "vm create -g rg -n x");
+        var ctx = FailedCommandHelp.BuildContext(new HelpTools(), "vm create -g rg -n x");
         Assert.NotNull(ctx);
         Assert.Contains("vm create", ctx!);
     }
@@ -160,13 +161,13 @@ public class HelpToolsTests
         // A multi-word command whose trailing positional arg gets swept into the
         // extracted verb resolves to not_found — we must NOT inject "not_found"
         // (it would mislead the agent into thinking its real command doesn't exist).
-        var ctx = ChatAgent.BuildFailedCommandContext(new HelpTools(), "vm create totally-not-a-real-verb");
+        var ctx = FailedCommandHelp.BuildContext(new HelpTools(), "vm create totally-not-a-real-verb");
         Assert.Null(ctx);
     }
 
     [Fact]
     public void BuildFailedCommandContext_ReturnsNull_OnNaturalLanguage()
     {
-        Assert.Null(ChatAgent.BuildFailedCommandContext(new HelpTools(), "帮我创建一个虚拟机"));
+        Assert.Null(FailedCommandHelp.BuildContext(new HelpTools(), "帮我创建一个虚拟机"));
     }
 }

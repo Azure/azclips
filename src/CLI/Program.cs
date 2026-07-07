@@ -10,6 +10,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
+using Core.Cli.Version;
 using Core.Configuration.Options;
 using Core.Engine;
 using Core.Extensions;
@@ -120,6 +121,17 @@ public class Program
                     activity?.SetStatus(ActivityStatusCode.Error, structured.Message);
                     return structured.ExitCode;
                 }
+            }
+            catch (DispatchVersionException versionException)
+            {
+                // Version is a host cold-path command (like help): gather locally and render without
+                // an engine session or extension load. JSON reuses the same formatter the old
+                // `az version` command used; text serves `az --version`.
+                var exitCode = new RuntimeVersionDispatcher(configurationService, Console.Out)
+                    .Render(versionException.Format);
+
+                activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
+                return exitCode;
             }
             catch (HttpRequestException ex)
             {
@@ -314,16 +326,16 @@ public class Program
         }
 
         // Recursion guard: a failed az invoked by powershell from inside an
-        // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
+        // already-running agent process must NOT spawn another agent.
         if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
         {
             return 1;
         }
 
-        var tuiExe = FindTuiExe();
-        if (tuiExe is null)
+        var agentExe = FindAgentExe();
+        if (agentExe is null)
         {
-            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside az");
+            _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
             return 1;
         }
 
@@ -331,7 +343,7 @@ public class Program
         {
             var psi = new ProcessStartInfo
             {
-                FileName = tuiExe,
+                FileName = agentExe,
                 // Inherit stdio so streaming tokens, y/n prompt, device-code links
                 // all show live in the user's terminal.
                 UseShellExecute = false,
@@ -349,7 +361,7 @@ public class Program
                 psi.ArgumentList.Add(errorText);
             }
 
-            // The child TUI takes over Ctrl+C (it cancels the session). The parent
+            // The child agent takes over Ctrl+C (it cancels the session). The parent
             // must also intercept it — otherwise Ctrl+C kills the parent first, the
             // shell redraws its prompt, and the child's remaining output prints onto
             // that prompt ("terminal hijack"). Intercept-only here; the child owns the
@@ -390,15 +402,20 @@ public class Program
         return sb.ToString();
     }
 
-    private static string? FindTuiExe()
+    private static string? FindAgentExe()
     {
         var baseDir = AppContext.BaseDirectory;
         foreach (var candidate in new[]
         {
-            Path.Combine(baseDir, "Core.Tui.exe"),
-            Path.Combine(baseDir, "Core.Tui"),
-            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui.exe"),
-            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui"),
+            // Packaged layout: azclips-agent.exe + its dependency closure live
+            // in a dedicated agent/ subdir next to az.exe, published by
+            // build_win_zip.ps1 to avoid dll collisions with the CLI host.
+            Path.Combine(baseDir, "agent", "azclips-agent.exe"),
+            Path.Combine(baseDir, "agent", "azclips-agent"),
+            // Local dev layout: `dotnet build` publishes each project to its
+            // own artifacts/Debug/<ExtName>/ directory.
+            Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent.exe"),
+            Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent"),
         })
         {
             if (File.Exists(candidate)) return Path.GetFullPath(candidate);
