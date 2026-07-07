@@ -10,11 +10,11 @@ Description: Return a list of virtual machines that live in the specified resour
 ### List VMs in a resource group
 
 ```bash
-az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
+az vm list --resource-group myrg
 ```
 
-### List using shell variables
+### List VMs with a different profile
 
 ```bash
-az vm list --resource-group $rg --subscription-id $subId
+az vm list --resource-group myrg --profile dev
 ```

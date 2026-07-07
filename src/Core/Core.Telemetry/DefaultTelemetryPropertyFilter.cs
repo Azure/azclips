@@ -44,6 +44,9 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         "otel.status_code",
         "exception.type",
         "exception.stacktrace",
+
+        // auth tags
+        "auth.profile.usingNamedProfile",
     };
 
     /// <summary>

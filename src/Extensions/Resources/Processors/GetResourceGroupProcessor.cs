@@ -23,7 +23,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-            string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
+            string uri = $"https://management.azure.com/subscriptions/{ResolvedProfile?.SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;

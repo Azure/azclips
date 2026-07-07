@@ -20,13 +20,13 @@ Show details of a specific resource group.
 ### List (Default)
 
 ```
-Get-ResourceGroup -SubscriptionId <string> [<CommonParameters>]
+Get-ResourceGroup [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-ResourceGroup -SubscriptionId <string> -Name <string> [<CommonParameters>]
+Get-ResourceGroup -Name <string> [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -37,24 +37,24 @@ This cmdlet has the following aliases,
 ## DESCRIPTION
 
 Display information about a resource group including its name, location, provisioning state, and resource count.
-Specify the resource group name and optionally the subscription ID (defaults to current subscription if not provided).
+The subscription is resolved from the current login context.
 
 ## EXAMPLES
 
 ### Show a resource group
 
-Return the properties of the resource group `myrg` in the specified subscription.
+Return the properties of the resource group `myrg`.
 
 ```powershell
-Get-ResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myrg
+Get-ResourceGroup -Name myrg
 ```
 
-### List all resource groups in a subscription
+### List all resource groups
 
-List every resource group in the specified subscription. Omit `-Name` to list rather than fetch.
+List every resource group in the current subscription.
 
 ```powershell
-Get-ResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000
+Get-ResourceGroup
 ```
 
 ## PARAMETERS
@@ -70,33 +70,6 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
     - Name: Get
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -SubscriptionId
-
-Azure Subscription Id.
-
-```yaml
-Type: System.String
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: Get
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-    - Name: List
       Position: Named
       IsRequired: true
       ValueFromPipeline: false

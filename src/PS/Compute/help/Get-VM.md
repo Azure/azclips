@@ -20,13 +20,13 @@ Show details for a virtual machine.
 ### List (Default)
 
 ```
-Get-VM -SubscriptionId <string> -ResourceGroupName <string> [<CommonParameters>]
+Get-VM -ResourceGroupName <string> [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-VM -SubscriptionId <string> -ResourceGroupName <string> -Name <string> [<CommonParameters>]
+Get-VM -ResourceGroupName <string> -Name <string> [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -45,7 +45,7 @@ Retrieves the properties of a single virtual machine identified by name within t
 Retrieve metadata for the virtual machine `myvm` in resource group `myrg`.
 
 ```powershell
-Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm
+Get-VM -ResourceGroupName myrg -Name myvm
 ```
 
 ### List all VMs in a resource group
@@ -53,7 +53,7 @@ Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName m
 Return every virtual machine that lives in `myrg`.
 
 ```powershell
-Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg
+Get-VM -ResourceGroupName myrg
 ```
 
 ## PARAMETERS
@@ -106,28 +106,7 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -SubscriptionId
-
-Azure Subscription Id.
-
-```yaml
-Type: System.String
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: Get
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-    - Name: List
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+### CommonParameters
 DontShow: false
 AcceptedValues: []
 HelpMessage: ""

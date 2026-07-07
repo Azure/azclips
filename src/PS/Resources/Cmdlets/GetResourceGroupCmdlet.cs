@@ -19,10 +19,6 @@ public class GetResourceGroupCmdlet : PSCmdlet
     public string? Profile { get; set; }
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
-    [Parameter(ParameterSetName = "List", Mandatory = true)]
-    public string SubscriptionId { get; set; } = "";
-
-    [Parameter(ParameterSetName = "Get", Mandatory = true)]
     public string? Name { get; set; }
 
     protected override void BeginProcessing()
@@ -36,10 +32,6 @@ public class GetResourceGroupCmdlet : PSCmdlet
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
-        {
-            parameters.Add("SubscriptionId", SubscriptionId);
-        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))
         {
             parameters.Add("Name", Name!);

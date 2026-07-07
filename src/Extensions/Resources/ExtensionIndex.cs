@@ -38,7 +38,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.GetResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Name"]           = new("Name", "Name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
@@ -52,7 +51,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ProcessorType: typeof(Processors.ListResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

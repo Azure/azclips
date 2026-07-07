@@ -225,7 +225,7 @@
         "powerShell": [
           {
             "title": "Show a resource group",
-            "command": "Get-ResourceGroup_Get -Name \"myresourcegroup\" -SubscriptionId \"00000000-0000-0000-0000-000000000000\""
+            "command": "Get-ResourceGroup_Get -Name \"myresourcegroup\""
           }
         ]
       }
@@ -427,8 +427,8 @@
           "cliName": "subscription-id",
           "psName": "SubscriptionId",
           "type": "string",
-          "required": true,
-          "description": "Azure Subscription Id."
+          "required": false,
+          "description": "Azure Subscription Id. Defaults to current login context."
         },
         {
           "cliName": "name",
@@ -450,12 +450,16 @@
           {
             "title": "Show a VM",
             "command": "az vm show --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "Show using default subscription",
+            "command": "az vm show --name myvm --resource-group myrg"
           }
         ],
         "powerShell": [
           {
             "title": "Show a VM",
-            "command": "Get-VM_Get -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -ResourceGroupName \"myrg\""
+            "command": "Get-VM_Get -Name \"myvm\" -ResourceGroupName \"myrg\""
           }
         ]
       }
@@ -473,8 +477,8 @@
           "cliName": "subscription-id",
           "psName": "SubscriptionId",
           "type": "string",
-          "required": true,
-          "description": "Azure Subscription Id."
+          "required": false,
+          "description": "Azure Subscription Id. Defaults to current login context."
         },
         {
           "cliName": "resource-group",
@@ -488,13 +492,17 @@
         "cli": [
           {
             "title": "List VMs in a resource group",
+            "command": "az vm list --resource-group myrg"
+          },
+          {
+            "title": "List with explicit subscription",
             "command": "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000"
           }
         ],
         "powerShell": [
           {
             "title": "List VMs in a resource group",
-            "command": "Get-VM_List -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -ResourceGroupName \"myrg\""
+            "command": "Get-VM_List -ResourceGroupName \"myrg\""
           }
         ]
       }

@@ -21,10 +21,6 @@ public class GetVMCmdlet : PSCmdlet
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     [Parameter(ParameterSetName = "List", Mandatory = true)]
-    public string SubscriptionId { get; set; } = "";
-
-    [Parameter(ParameterSetName = "Get", Mandatory = true)]
-    [Parameter(ParameterSetName = "List", Mandatory = true)]
     public string ResourceGroupName { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
@@ -41,10 +37,6 @@ public class GetVMCmdlet : PSCmdlet
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
-        {
-            parameters.Add("SubscriptionId", SubscriptionId);
-        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceGroupName)))
         {
             parameters.Add("ResourceGroupName", ResourceGroupName);

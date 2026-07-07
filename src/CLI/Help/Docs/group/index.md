@@ -22,5 +22,5 @@ az group list --subscription-id 00000000-0000-0000-0000-000000000000
 ### Show a specific resource group
 
 ```bash
-az group show --name myresourcegroup --subscription-id 00000000-0000-0000-0000-000000000000
+az group show --name myresourcegroup
 ```

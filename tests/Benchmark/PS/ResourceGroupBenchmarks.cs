@@ -19,8 +19,7 @@ public class ResourceGroupBenchmarks : PSBenchmarkBase
     [Benchmark(Description = "PS: List RG")]
     public object? ListResourceGroups()
     {
-        return RunPowerShellCommand("Get-ResourceGroup",
-            ("SubscriptionId", SubscriptionId));
+        return RunPowerShellCommand("Get-ResourceGroup");
     }
 
     [Benchmark(Description = "PS: Create RG")]
@@ -37,7 +36,6 @@ public class ResourceGroupBenchmarks : PSBenchmarkBase
     public object? GetResourceGroup()
     {
         return RunPowerShellCommand("Get-ResourceGroup",
-            ("SubscriptionId", SubscriptionId),
             ("Name", "bench-rg-get"));
     }
 }

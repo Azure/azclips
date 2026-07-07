@@ -26,7 +26,6 @@ public class ActivityNameFilterTests
     }
 
     [Theory]
-    [InlineData("AuthContextService.SaveContextAsync")]
     [InlineData("AddExtensionProcessor.Process")]
     [InlineData("RemoveExtensionProcessor.Process")]
     [InlineData("UpdateExtensionProcessor.Process")]

@@ -4,11 +4,12 @@
 using Core.Abstractions;
 using Core.Cli;
 using Core.Configuration.Options;
+using Tests.Common.Stubs;
 using Xunit;
 
 namespace Cli.Tests;
 
-public class BuiltinExtensionLoaderTests
+public partial class BuiltinExtensionLoaderTests
 {
     [Fact]
     public void GetInstalledExtensions_ShouldEnumerateBuiltinExtensionsFromConfiguredRoot()
@@ -102,15 +103,5 @@ public class BuiltinExtensionLoaderTests
         public string GetConfigFilePath() => string.Empty;
 
         public IConfigurationSchema GetSchema() => throw new NotSupportedException();
-    }
-
-    private sealed class NullLoggingService : ILoggingService
-    {
-        public void Log(string message) { }
-        public void Debug(string message) { }
-        public void Error(string message) { }
-        public void Info(string message) { }
-        public void Verbose(string message) { }
-        public void Warn(string message) { }
     }
 }

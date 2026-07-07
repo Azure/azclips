@@ -18,10 +18,12 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     private readonly string _azclipsDirectory;
     private readonly string _profilesFilePath;
     private readonly string _activeProfileFilePath;
+    private readonly ITelemetryService _telemetryService;
 
-    public ProfileService(ILoggingService logger, string? baseDirectory = null)
+    public ProfileService(ILoggingService logger, ITelemetryService telemetryService, string? baseDirectory = null)
     {
         _logger = logger;
+        _telemetryService = telemetryService;
         _azclipsDirectory = string.IsNullOrWhiteSpace(baseDirectory) ? DefaultAzclipsDirectory : baseDirectory;
         _profilesFilePath = Path.Combine(_azclipsDirectory, "profiles.json");
         _activeProfileFilePath = Path.Combine(_azclipsDirectory, "active-profile");
@@ -39,6 +41,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     public async Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken cancellationToken = default)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(GetAllProfilesAsync)}");
         await _gate.WaitAsync(cancellationToken);
         try
         {
@@ -53,6 +56,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     public async Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(GetProfileAsync)}");
         await _gate.WaitAsync(cancellationToken);
         try
         {
@@ -67,6 +71,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     public async Task SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(SaveProfileAsync)}");
         ArgumentNullException.ThrowIfNull(profile);
         ProfileNameValidator.Validate(profile.Name);
 
@@ -85,6 +90,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     public async Task SaveAndActivateProfileAsync(Profile profile, CancellationToken cancellationToken = default)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(SaveAndActivateProfileAsync)}");
         ArgumentNullException.ThrowIfNull(profile);
         ProfileNameValidator.Validate(profile.Name);
 
@@ -104,6 +110,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     public async Task<bool> RemoveProfileAsync(string name, CancellationToken cancellationToken = default)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(RemoveProfileAsync)}");
         await _gate.WaitAsync(cancellationToken);
         try
         {
@@ -131,6 +138,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     public async Task<string?> GetActiveProfileNameAsync(CancellationToken cancellationToken = default)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(GetActiveProfileNameAsync)}");
         await _gate.WaitAsync(cancellationToken);
         try
         {
@@ -144,10 +152,13 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     public async Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default)
     {
+        using var activity = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(GetActiveProfileAsync)}");
         await _gate.WaitAsync(cancellationToken);
         try
         {
             var name = await ReadActiveProfileNameAsync(cancellationToken);
+            activity?.AddTag("auth.profile.usingNamedProfile", !string.IsNullOrWhiteSpace(name) && !name.Equals(ProfileNameValidator.ReservedTempName));
+
             if (string.IsNullOrWhiteSpace(name))
             {
                 return null;
@@ -164,6 +175,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     public async Task SetActiveProfileNameAsync(string? name, CancellationToken cancellationToken = default)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(SetActiveProfileNameAsync)}");
         await _gate.WaitAsync(cancellationToken);
         try
         {
@@ -177,6 +189,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     private async Task<Dictionary<string, Profile>> LoadProfilesAsync(CancellationToken cancellationToken)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(LoadProfilesAsync)}");
         try
         {
             if (!File.Exists(_profilesFilePath))
@@ -211,6 +224,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
 
     private async Task<string?> ReadActiveProfileNameAsync(CancellationToken cancellationToken)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(ReadActiveProfileNameAsync)}");
         if (!File.Exists(_activeProfileFilePath))
         {
             return null;
@@ -239,6 +253,7 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     /// <summary>Writes content to a temporary file then atomically renames it over the destination.</summary>
     private async Task WriteFileAtomicAsync(string path, string content, CancellationToken cancellationToken)
     {
+        using var _ = _telemetryService.StartActivity($"{nameof(ProfileService)}.{nameof(WriteFileAtomicAsync)}");
         Directory.CreateDirectory(_azclipsDirectory);
         var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try

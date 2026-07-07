@@ -333,7 +333,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
     private static ProfileService CreateProfileService()
     {
         // same profile location as the CLI subprocess
-        return new ProfileService(Logger);
+        return new ProfileService(Logger, Telemetry);
     }
 
     private static void ResetProfiles()

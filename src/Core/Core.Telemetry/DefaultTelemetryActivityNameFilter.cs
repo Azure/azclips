@@ -36,8 +36,8 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // The activity *name* never carries secrets — tokens / account IDs land
         // in tags, which the property filter scrubs independently.
         "MsalAuthService.",
+        "ProfileService.",
         "ManagedIdentityAuthenticator.",
-        "AuthContextService.",
 
         // Extension processors (Add/Remove/Update/Show/List).
         "AddExtensionProcessor.",
@@ -52,6 +52,14 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "ListConfigCommand.",
         "DeleteConfigCommand.",
         "InfoConfigCommand.",
+
+        // Auth
+        "LoginProcessor.",
+        "LogoutProcessor.",
+        "ProfileListProcessor.",
+        "ProfileShowProcessor.",
+        "ProfileSetProcessor.",
+        "ProfileRemoveProcessor.",
 
         // Engine.Subscriptions writes $"{ActionStart}.{ClassName}.{FunctionName}"
         // for the ActionStart event, so we need the prefix not the exact match.

@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.Runtime;
+using Tests.Common.Stubs;
 using Xunit;
 
 namespace Cli.Tests;
@@ -13,7 +14,7 @@ public sealed class ProfileServiceTests : IDisposable
     {
         _dir = Path.Combine(Path.GetTempPath(), "azclips-profile-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_dir);
-        _service = new ProfileService(new ConsoleLoggingService(), _dir);
+        _service = new ProfileService(new NullLoggingService(), new StubTelemetryService(), _dir);
     }
 
     private static Profile MakeProfile(string name, string sub = "sub-1", string tenant = "tenant-1") => new()

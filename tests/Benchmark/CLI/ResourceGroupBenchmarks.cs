@@ -15,7 +15,7 @@ public class ResourceGroupBenchmarks : CLIBenchmarkBase
     [Benchmark(Description = "CLI: List RG")]
     public int ListResourceGroups()
     {
-        var exitCode = Core.Cli.Program.Main(["group", "list", "--subscription-id", SubscriptionId]).GetAwaiter().GetResult();
+        var exitCode = Core.Cli.Program.Main(["group", "list"]).GetAwaiter().GetResult();
         if (exitCode != 0) throw new InvalidOperationException($"CLI exited with code {exitCode}");
         return exitCode;
     }
@@ -32,7 +32,7 @@ public class ResourceGroupBenchmarks : CLIBenchmarkBase
     [Benchmark(Description = "CLI: Get RG")]
     public int GetResourceGroup()
     {
-        var exitCode = Core.Cli.Program.Main(["group", "show", "--name", "bench-rg-get", "--subscription-id", SubscriptionId]).GetAwaiter().GetResult();
+        var exitCode = Core.Cli.Program.Main(["group", "show", "--name", "bench-rg-get"]).GetAwaiter().GetResult();
         if (exitCode != 0) throw new InvalidOperationException($"CLI exited with code {exitCode}");
         return exitCode;
     }

@@ -36,7 +36,7 @@ New-ResourceGroup -Name myrg -Location eastus -SubscriptionId <sub-id>
 New-VM -Name myvm -ResourceGroupName myrg -Location eastus -SubscriptionId <sub-id> `
        -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword <pwd> `
        -NetworkInterfaceName nic1 -VirtualNetworkName vnet1 -NetworkSecurityGroupName nsg1
-Get-VM -ResourceGroupName myrg -SubscriptionId <sub-id>
+Get-VM -ResourceGroupName myrg
 
 # Opt out of telemetry via config
 Set-AzConfig -Key telemetry.enabled -Value false
