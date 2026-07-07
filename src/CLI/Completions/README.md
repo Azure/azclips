@@ -3,7 +3,23 @@
 ## How It Works
 
 1. **Build time**: `build/build.ps1` builds the solution and copies shell completion scripts to `bin/`.
-2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) dynamically invoke `az --completions [group] [subcommand]` at tab time, ensuring completions always match whichever `az` binary is on PATH.
+2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) dynamically invoke `az --completions [group] [subcommand]` at tab time, ensuring completions always match whichever `az` binary is configured.
+
+### Binary Resolution
+
+Each script needs to know which `az` binary is the azclips CLI. The resolution order is:
+
+| Priority | Method | Applies to |
+|---|---|---|
+| 1 | **User-provided path** (bash/zsh: argument to `source`; PS: automatic via regex) | bash, zsh |
+| 2 | **Script directory** — looks for `az` or `az.exe` next to the script | all |
+| 3 | **Repo artifacts** — walks up from script dir to find `global.json`, then checks `artifacts/{Release,Debug}/Core.Cli/az(.exe)` | all |
+
+**Bare `az` guard**: When the user types bare `az <Tab>` (no path prefix):
+- **PowerShell**: runs `az --version` on the resolved binary and checks that output does NOT contain `azure-cli` (system Azure CLI).
+- **bash/zsh**: compares the `realpath` of the PATH `az` against the configured azclips binary. If they differ, completions are skipped.
+
+Path-qualified invocations (e.g. `./az <Tab>`, `/path/to/az <Tab>`) always complete.
 
 The completion tree structure returned by `az --completions`:
 
@@ -27,44 +43,56 @@ The completion tree structure returned by `az --completions`:
 .\build\build.ps1
 
 # Load completions into current session
-. .\bin\az.completions.ps1
+. .\artifacts\Release\Core.Cli\az.completions.ps1
+
+# Test with bare az (if azclips is on PATH)
+az <Tab>
+
+# Test with path-qualified invocation (always works)
+.\artifacts\Release\Core.Cli\az.exe <Tab>
+# Or without .exe extension (PowerShell resolves via PATHEXT)
+.\artifacts\Release\Core.Cli\az <Tab>
 ```
 
-Now press Tab after `az ` to see suggestions:
-```powershell
-az group <Tab>
+### bash (e.g. WSL)
+
+```bash
+# Option 1: Pass the azclips binary path explicitly
+source src/CLI/Completions/az.completions.bash /mnt/c/path/to/artifacts/Release/Core.Cli/az.exe
+
+# Option 2: Auto-detect from script directory or repo artifacts
+source artifacts/Release/Core.Cli/az.completions.bash
+
+# If azclips is on PATH, bare az completes:
+az <Tab>
+
+# If system Azure CLI is on PATH instead, add azclips to PATH first:
+export PATH="/path/to/artifacts/Release/Core.Cli:$PATH"
+source src/CLI/Completions/az.completions.bash
+az <Tab>
 ```
 
 ### zsh
 
 ```zsh
-# Build solution
-pwsh ./build/build.ps1
+# Option 1: Pass the azclips binary path explicitly
+autoload -U compinit && compinit
+source src/CLI/Completions/az.completions.zsh /path/to/artifacts/Release/Core.Cli/az.exe
 
-# Load completions into current session
-autoload -U compinit
-compinit
-source ./bin/az.completions.zsh
+# Option 2: Auto-detect from script directory or repo artifacts
+autoload -U compinit && compinit
+source artifacts/Release/Core.Cli/az.completions.zsh
+
+# If azclips is on PATH, bare az completes:
+az <Tab>
 ```
 
-Now press Tab after `az ` to see suggestions:
-```zsh
-az group <Tab>
-```
-
-### bash
-
+**Note**: bash/zsh `complete`/`compdef` registers by command name (`az`, `az.exe`), so
+path-qualified invocations like `/full/path/to/az.exe <Tab>` do NOT trigger completions.
+Use bare `az` with PATH set correctly, or use an alias:
 ```bash
-# Build solution
-pwsh ./build/build.ps1
-
-# Load completions into current session
-source ./bin/az.completions.bash
-```
-
-Now press Tab after `az ` to see suggestions:
-```bash
-az group <Tab>
+alias az='/path/to/artifacts/Release/Core.Cli/az.exe'
+az <Tab>  # works
 ```
 
 ## Toggling Completion

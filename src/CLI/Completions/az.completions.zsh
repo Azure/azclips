@@ -2,12 +2,15 @@
 # az Tab Completion for zsh (Dynamic)
 # Usage:
 #   autoload -U compinit && compinit
-#   source <path-to>/az.completions.zsh
+#   source <path-to>/az.completions.zsh [/path/to/azclips/az]
 # Or add to your ~/.zshrc to auto-load on every session.
 # Requires: jq
 #
+# If the azclips binary path is not provided as an argument, the script will
+# attempt to locate it relative to itself or in the repo artifacts directory.
+#
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
-# at tab time. This ensures completions match whichever `az` binary is on PATH.
+# at tab time. This ensures completions match whichever `az` binary is configured.
 
 # Opt-in debug logging:
 #   export AZ_COMPLETION_DEBUG=1
@@ -18,70 +21,77 @@ _az_debug() {
     print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$log_file"
 }
 
+# The resolved azclips binary path (set during source)
+_az_azclips_exe=""
+
 _az_resolve_exe() {
-    local script_dir="${${(%):-%x}:A:h}"
-    # 1. Same directory as this script
-    if [[ -x "$script_dir/az" ]]; then
-        echo "$script_dir/az"
+    # Return the configured azclips binary
+    if [[ -n "$_az_azclips_exe" ]]; then
+        echo "$_az_azclips_exe"
         return
+    fi
+    return 1
+}
+
+_az_init() {
+    local user_path="${1:-}"
+
+    # 1. User-provided path
+    if [[ -n "$user_path" ]]; then
+        if [[ -x "$user_path" ]] || (( $+commands[$user_path] )); then
+            _az_azclips_exe="${user_path:A}"
+            return 0
+        else
+            print -u2 "az completions: '$user_path' is not executable or not found."
+            return 1
+        fi
+    fi
+
+    # 2. Same directory as this script
+    local script_dir="${${(%):-%x}:A:h}"
+    if [[ -x "$script_dir/az" ]]; then
+        _az_azclips_exe="$script_dir/az"
+        return 0
     fi
     if [[ -x "$script_dir/az.exe" ]]; then
-        echo "$script_dir/az.exe"
-        return
+        _az_azclips_exe="$script_dir/az.exe"
+        return 0
     fi
-    # 2. Walk up to find repo root (look for global.json), then check artifacts/
+
+    # 3. Walk up to find repo root (look for global.json), then check artifacts/
     local dir="$script_dir"
     while [[ -n "$dir" && "$dir" != "/" ]]; do
         if [[ -f "$dir/global.json" ]]; then
             local cfg
             for cfg in Release Debug; do
                 if [[ -x "$dir/artifacts/$cfg/Core.Cli/az" ]]; then
-                    echo "$dir/artifacts/$cfg/Core.Cli/az"
-                    return
+                    _az_azclips_exe="$dir/artifacts/$cfg/Core.Cli/az"
+                    return 0
                 fi
                 if [[ -x "$dir/artifacts/$cfg/Core.Cli/az.exe" ]]; then
-                    echo "$dir/artifacts/$cfg/Core.Cli/az.exe"
-                    return
+                    _az_azclips_exe="$dir/artifacts/$cfg/Core.Cli/az.exe"
+                    return 0
                 fi
             done
             break
         fi
         dir="${dir:h}"
     done
-    # 3. Fall back to PATH
-    if (( $+commands[az] )); then
-        echo "${commands[az]}"
-    fi
+
+    print -u2 "az completions: could not locate azclips binary. Pass the path as an argument:"
+    print -u2 "  source ${(%):-%x} /path/to/az"
+    return 1
 }
 
-# Cached result: empty = not checked, 1 = azclips, 0 = not azclips
-_az_is_azclips_cached=""
-
-_az_is_azclips() {
-    if [[ -n "$_az_is_azclips_cached" ]]; then
-        return $(( 1 - _az_is_azclips_cached ))
-    fi
-    # $commands[az] returns the filesystem path (zsh command hash table)
-    local exe
-    if (( $+commands[az] )); then
-        exe="${commands[az]}"
-    else
-        _az_is_azclips_cached=0
-        return 1
-    fi
-    local ver
-    if ! ver="$("$exe" --version 2>&1)" || [[ -z "$ver" ]]; then
-        # --version failed or empty output → not azclips
-        _az_is_azclips_cached=0
-        return 1
-    fi
-    if echo "$ver" | grep -q 'azure-cli'; then
-        _az_is_azclips_cached=0
-        return 1
-    else
-        _az_is_azclips_cached=1
-        return 0
-    fi
+_az_is_azclips_on_path() {
+    # Check if bare "az" on PATH resolves to the same binary as our configured azclips
+    [[ -n "$_az_azclips_exe" ]] || return 1
+    (( $+commands[az] )) || return 1
+    local path_az="${commands[az]}"
+    # Compare real paths
+    local real_path="${path_az:A}"
+    local real_configured="${_az_azclips_exe:A}"
+    [[ "$real_path" == "$real_configured" ]]
 }
 
 _az_query() {
@@ -93,9 +103,9 @@ _az_query() {
 
 _az() {
     # Path-qualified invocation → always complete.
-    # Bare "az" → check PATH to ensure it's azclips, not system azure-cli.
+    # Bare "az" → only complete if PATH az is the same as our configured azclips binary.
     if [[ "${words[1]}" != */* && "${words[1]}" != *\\* ]]; then
-        if ! _az_is_azclips; then
+        if ! _az_is_azclips_on_path; then
             _default
             return
         fi
@@ -199,4 +209,7 @@ _az() {
 }
 compdef _az az az.exe
 
-echo "az tab completion registered (zsh, dynamic)."
+# Initialize: resolve the azclips binary (accepts optional path argument)
+if _az_init "$1"; then
+    echo "az tab completion registered (zsh, dynamic). Binary: $_az_azclips_exe"
+fi
