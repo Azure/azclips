@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Core.Agent.Tools.Cache;
+using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Tools.Help;
@@ -32,9 +32,27 @@ public sealed class HelpTools
     private readonly Dictionary<string, JsonElement> _byCliName;
     private readonly Dictionary<string, JsonElement> _byPsName;
 
-    public HelpTools()
+    public HelpTools(string? corpusDir = null)
     {
-        var dir = Path.Combine(AppContext.BaseDirectory, "Tools", "Help");
+        // Corpus path resolution order:
+        //   1. Explicit corpusDir (used by az agent tool extension host, which
+        //      knows its own extension dir since Assembly.Location is empty when
+        //      loaded via LoadFromStream).
+        //   2. This assembly's directory (works for the standalone azclips-agent
+        //      exe host where LoadFromStream isn't used).
+        //   3. AppContext.BaseDirectory fallback.
+        string dir;
+        if (!string.IsNullOrEmpty(corpusDir))
+        {
+            dir = corpusDir;
+        }
+        else
+        {
+            var assemblyDir = Path.GetDirectoryName(typeof(HelpTools).Assembly.Location);
+            dir = !string.IsNullOrEmpty(assemblyDir)
+                ? Path.Combine(assemblyDir, "Help")
+                : Path.Combine(AppContext.BaseDirectory, "Help");
+        }
         var indexPath = Path.Combine(dir, "HelpIndex.json");
         var manifestPath = Path.Combine(dir, "HelpManifest.json");
 

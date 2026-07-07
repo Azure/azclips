@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Core.Abstractions;
 
-namespace Core.Agent.Probes;
+namespace Core.Agent.Tools.Env;
 
 /// <summary>Builds an <see cref="EnvironmentSnapshot"/> on demand.</summary>
 public sealed class EnvironmentProber

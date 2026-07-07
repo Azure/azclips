@@ -5,10 +5,10 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Azure.Core;
 using Core.Abstractions;
-using Core.Agent.Tools.Cache;
+using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
-namespace Core.Agent.Tools.Sku;
+namespace Core.Agent.Tools.Resource.Sku;
 
 /// <summary>
 /// Agent tool: given a VM SKU, return which Azure locations currently expose

@@ -1,14 +1,15 @@
 using System.Text.Json;
 using Core.Agent;
+using Core.Agent.Plan;
 using Xunit;
 
 namespace Core.Agent.Tests;
 
 /// <summary>
 /// Unit tests for the propose_plan content extractors introduced with the unified
-/// display system (A20): <see cref="ChatAgent.ExtractIssues"/>,
-/// <see cref="ChatAgent.ExtractUserInputNeeds"/> (placeholders), and
-/// <see cref="ChatAgent.ExtractChosenDefaults"/>. They parse SDK-shaped JsonElement
+/// display system (A20): <see cref="PlanArgsParser.ExtractIssues"/>,
+/// <see cref="PlanArgsParser.ExtractUserInputNeeds"/> (placeholders), and
+/// <see cref="PlanArgsParser.ExtractChosenDefaults"/>. They parse SDK-shaped JsonElement
 /// args into the host's content-block views; absent/blank → null, valid → records.
 /// </summary>
 public class ProposePlanContentTests
@@ -18,7 +19,7 @@ public class ProposePlanContentTests
     [Fact]
     public void Issues_parses_strings_and_skips_blanks()
     {
-        var issues = ChatAgent.ExtractIssues(Args(new
+        var issues = PlanArgsParser.ExtractIssues(Args(new
         {
             issues = new[] { "No -g short flag", "   ", "--image not supported" },
         }));
@@ -30,14 +31,14 @@ public class ProposePlanContentTests
     [Fact]
     public void Issues_null_when_absent_or_all_blank()
     {
-        Assert.Null(ChatAgent.ExtractIssues(Args(new { steps = System.Array.Empty<object>() })));
-        Assert.Null(ChatAgent.ExtractIssues(Args(new { issues = new[] { "  ", "" } })));
+        Assert.Null(PlanArgsParser.ExtractIssues(Args(new { steps = System.Array.Empty<object>() })));
+        Assert.Null(PlanArgsParser.ExtractIssues(Args(new { issues = new[] { "  ", "" } })));
     }
 
     [Fact]
     public void Placeholders_parses_name_and_description()
     {
-        var ph = ChatAgent.ExtractUserInputNeeds(Args(new
+        var ph = PlanArgsParser.ExtractUserInputNeeds(Args(new
         {
             placeholders = new[] { new { name = "admin-password", description = "Strong password" } },
         }), "placeholders");
@@ -51,7 +52,7 @@ public class ProposePlanContentTests
     [Fact]
     public void Placeholders_skips_entries_with_blank_name()
     {
-        var ph = ChatAgent.ExtractUserInputNeeds(Args(new
+        var ph = PlanArgsParser.ExtractUserInputNeeds(Args(new
         {
             placeholders = new[]
             {
@@ -68,7 +69,7 @@ public class ProposePlanContentTests
     [Fact]
     public void Defaults_parses_name_value_note()
     {
-        var defs = ChatAgent.ExtractChosenDefaults(Args(new
+        var defs = PlanArgsParser.ExtractChosenDefaults(Args(new
         {
             defaults = new[]
             {
@@ -87,6 +88,6 @@ public class ProposePlanContentTests
     [Fact]
     public void Defaults_null_when_absent()
     {
-        Assert.Null(ChatAgent.ExtractChosenDefaults(Args(new { issues = new[] { "x" } })));
+        Assert.Null(PlanArgsParser.ExtractChosenDefaults(Args(new { issues = new[] { "x" } })));
     }
 }

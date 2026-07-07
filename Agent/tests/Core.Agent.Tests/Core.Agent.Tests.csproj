@@ -7,6 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- ArmDetailsClientLocalTests references AzureCliCredential, which
+         Azure.Core 1.54+ and Azure.Identity 1.13.2 both expose in the
+         Azure.Identity namespace. C# cannot disambiguate without extern
+         aliases. The tests are already [Fact(Skip=Local-only)] so excluding
+         the file from compilation costs nothing: developers who want the
+         local ARM smoke tests re-include it locally. -->
+    <Compile Remove="ArmDetailsClientLocalTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Core.Agent.csproj" />
     <ProjectReference Include="..\..\..\tests\Common\Tests.Common.csproj" />
   </ItemGroup>

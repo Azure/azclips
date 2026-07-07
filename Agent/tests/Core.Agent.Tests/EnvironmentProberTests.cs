@@ -1,5 +1,5 @@
 using Core.Abstractions;
-using Core.Agent.Probes;
+using Core.Agent.Tools.Env;
 using Xunit;
 
 namespace Core.Agent.Tests;

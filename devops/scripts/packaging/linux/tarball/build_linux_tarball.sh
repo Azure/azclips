@@ -103,6 +103,27 @@ dotnet publish "$CLI_PROJECT" \
   --self-contained true \
   -o "$CLI_SC_DIR"
 
+# Publish the Agent executable into a dedicated agent/ subdir next to the
+# CLI host. Isolating agent's ~100+MB dependency closure (Copilot SDK, MSAL,
+# Azure.ResourceManager, ...) from the CLI's own dlls avoids assembly
+# collisions during install. FindAgentExe in src/CLI/Program.cs probes this
+# exact path first.
+echo "Publishing Agent exe (Release, $RID)"
+AGENT_PUBLISH_DIR="$CLI_SC_DIR/agent"
+dotnet publish "$REPO_ROOT/Agent/Core.Agent.csproj" \
+  -c Release \
+  -r "$RID" \
+  --self-contained true \
+  -o "$AGENT_PUBLISH_DIR"
+
+# Publish the Agent.Commands extension into builtin-publish/ so the inject
+# script picks it up in the same pass as Login/Config.
+echo "Publishing Agent.Commands extension (Release)"
+AGENT_EXT_DIR="$COMMON_OUT_ROOT/builtin-publish/Microsoft.Azure.Azclips.Extensions.Agent"
+dotnet publish "$REPO_ROOT/Agent/Commands/Agent.Commands.csproj" \
+  -c Release \
+  -o "$AGENT_EXT_DIR"
+
 chmod +x "$INJECTOR_SCRIPT"
 OUT_ROOT="$OUT_ROOT" "$INJECTOR_SCRIPT" --publish-dir "$CLI_SC_DIR" --builtin-root "$COMMON_OUT_ROOT/builtin-publish"
 cp "$NOTICE_FILE" "$CLI_SC_DIR/NOTICE"

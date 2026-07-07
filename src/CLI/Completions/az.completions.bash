@@ -43,6 +43,35 @@ _az_resolve_exe() {
     fi
 }
 
+# Cached result: empty = not checked, 1 = azclips, 0 = not azclips
+_az_is_azclips_cached=""
+
+_az_is_azclips() {
+    if [[ -n "$_az_is_azclips_cached" ]]; then
+        return $(( 1 - _az_is_azclips_cached ))
+    fi
+    # Use type -P to get the filesystem path, skipping aliases/functions
+    local exe
+    exe="$(type -P az 2>/dev/null)"
+    if [[ -z "$exe" ]]; then
+        _az_is_azclips_cached=0
+        return 1
+    fi
+    local ver
+    if ! ver="$("$exe" --version 2>&1)" || [[ -z "$ver" ]]; then
+        # --version failed or empty output → not azclips
+        _az_is_azclips_cached=0
+        return 1
+    fi
+    if echo "$ver" | grep -q 'azure-cli'; then
+        _az_is_azclips_cached=0
+        return 1
+    else
+        _az_is_azclips_cached=1
+        return 0
+    fi
+}
+
 _az_query() {
     local exe
     exe="$(_az_resolve_exe)"
@@ -60,6 +89,12 @@ _az_get_top_level() {
 }
 
 _az_completions() {
+    # Path-qualified invocation → always complete.
+    # Bare "az" → check PATH to ensure it's azclips, not system azure-cli.
+    if [[ "${COMP_WORDS[0]}" != */* && "${COMP_WORDS[0]}" != *\\* ]]; then
+        _az_is_azclips || return
+    fi
+
     local cur prev words cword
     _init_completion 2>/dev/null || {
         COMPREPLY=()
