@@ -8,9 +8,8 @@ using Core.Abstractions;
 namespace Core.Cli.Version;
 
 /// <summary>
-/// Gathers CLI version information from the running host: the <c>az</c> entry assembly,
-/// the .NET runtime, and the configuration paths. Pure data collection with no rendering,
-/// so both <c>az version</c> (JSON) and <c>az --version</c> (text) can share one source of truth.
+/// Gathers CLI version information from the running host: both <c>az version</c> (JSON) and <c>az --version</c> (text)
+/// shares one source of truth.
 /// </summary>
 /// <remarks>
 /// Sections are not wrapped defensively: if something goes wrong, exceptions bubble up to
@@ -71,25 +70,21 @@ internal static class VersionInformationProvider
 
     private static PathInfo GetConfigurationPaths(IConfigurationService configurationService)
     {
-        // Install location never depends on config, so resolve it first and independently.
+        
+        // Resolve from the configuration system 
+        var configFilePath = configurationService.GetConfigFilePath();
+        
         var info = new PathInfo
         {
             InstallLocation = GetInstallLocation(),
-            ConfigLocation = "unknown"
+            ConfigLocation = Path.GetDirectoryName(configFilePath) ?? configFilePath
         };
-
-        // Resolve from the configuration system so the reported paths match what the CLI actually
-        // uses (config-driven, honoring user overrides).
-        var configFilePath = configurationService.GetConfigFilePath();
-        info.ConfigLocation = Path.GetDirectoryName(configFilePath) ?? configFilePath;
 
         return info;
     }
 
     // Report the app base directory — a stable, directory-like path that also works under single-file
-    // publish (unlike Assembly.Location, which is empty there). Mirrors how the CLI derives its
-    // install/base directory in AssemblyLoadingOptions. The trailing directory separator is trimmed so
-    // the value reads like the Config path (e.g. "...\Core.Cli" instead of "...\Core.Cli\").
+    // publish (unlike Assembly.Location, which is empty there).
     private static string GetInstallLocation()
     {
         var baseDirectory = AppContext.BaseDirectory;
