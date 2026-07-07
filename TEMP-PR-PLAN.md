@@ -15,7 +15,8 @@
 - Completed: build + targeted test validation for the verb-source refactor.
 - Completed: same-identity selection engine is in place and wired into dispatch/help discovery paths (pin-aware + version-aware behavior verified locally).
 - Completed: structured debug diagnostics for same-identity selection decisions (selected/ignored candidates + reason) are emitted in dispatch/help/discovery call sites.
-- Remaining: finalize collision-policy task checklist status, improve debug log readability, add path-level candidate provenance in diagnostics, and finalize built-ins strategy/docs decisions.
+- Completed: cross-identity collision policy is enforced (selector-before-collision; cross-identity duplicate leaf ownership hard-fails in startup and add flows).
+- Remaining: improve debug log readability, add path-level candidate provenance in diagnostics, and finalize built-ins strategy/docs decisions.
 
 ## Locked Decisions
 
@@ -55,9 +56,9 @@ Diagnostics requirements:
 
 ### Phase B: Collision handling
 
-- [ ] Apply selector before collision detection.
-- [ ] Run collision detection only across different extension identities.
-- [ ] Keep hard-fail behavior for cross-identity duplicate command ownership.
+- [x] Apply selector before collision detection.
+- [x] Run collision detection only across different extension identities.
+- [x] Keep hard-fail behavior for cross-identity duplicate command ownership.
 
 ### Phase C: Wiring and path behavior
 
