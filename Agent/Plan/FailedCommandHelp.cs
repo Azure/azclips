@@ -16,10 +16,12 @@ internal static class FailedCommandHelp
     // injection), and the agent just uses its tools as before — never worse
     // than today.
     //
-    // Goes through HelpTools.LookupCommand, the same path the get_command tool
-    // uses, so when the help source switches to the extension index this block
-    // changes with it automatically (no separate code path to keep in sync).
-    internal static string? BuildContext(HelpTools helpTools, string? failedCommand)
+    // Goes through HelpTools.LookupCommandAsync, the same path the get_command
+    // tool uses, so they can't drift.
+    internal static async Task<string?> BuildContextAsync(
+        HelpTools helpTools,
+        string? failedCommand,
+        CancellationToken ct = default)
     {
         var name = ExtractCommandName(failedCommand);
         if (name is null) return null;
@@ -31,16 +33,16 @@ internal static class FailedCommandHelp
             // wasn't a real command (e.g. a multi-word command whose trailing
             // positional arg got swept in), so injecting "not_found" would just
             // mislead. Skip injection and let the agent look it up with its tools.
-            var help = helpTools.LookupCommand(name);
+            var help = await helpTools.LookupCommandAsync(name, ct).ConfigureAwait(false);
             if (IsNotFound(help))
                 return null;
             return $"Help for the command you were triggered by (`{name}`), pre-fetched so you don't need to call get_command for it:\n{help}";
         }
         catch
         {
-            // Pre-fetch is best-effort: if the lookup throws (today it can't, but a
-            // future index-backed resolver might), fall back to no injection rather
-            // than killing agent startup. Never worse than not pre-fetching.
+            // Pre-fetch is best-effort: if the shell-out throws / times out / the
+            // subprocess isn't there, fall back to no injection rather than
+            // killing agent startup. Never worse than not pre-fetching.
             return null;
         }
     }

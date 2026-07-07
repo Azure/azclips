@@ -26,17 +26,6 @@
     <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- HelpTools reads these JSON corpus files from the assembly's own
-         directory at runtime. Link them into a Help/ subdir at output so
-         both the standalone azclips-agent.exe host and the az agent tool
-         extension host find them next to Core.Agent.Tools.dll. -->
-    <None Include="Help\*.json">
-      <Link>Help\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <InternalsVisibleTo Include="Core.Agent.Tests" Key="$(MSSharedLibPublicKey)" />
   </ItemGroup>

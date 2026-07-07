@@ -5,11 +5,11 @@ using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
 using Core.Agent.Providers;
-using Core.Agent.Tools.Env;
 using Core.Agent.Tools;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Sku;
+using Core.Agent.Tools.Shell;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.AI;
@@ -149,11 +149,10 @@ public sealed class ChatAgent : IAsyncDisposable
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
         var armDetails = new ArmDetailsClient(auth);
         var cacheTools = new CachedResourceTools(armDetails);
-        var helpTools = new HelpTools();
+        var helpTools = new HelpTools(azExePath);
         var skuTools = new AvailableLocationsTool(auth, profileService);
         var submitTool = new SubmitResponseTool();
         var planTool = new ProposePlanTool();
-        var prober = new EnvironmentProber(profileService, flavor);
 
         ChatAgent? self = null;
         SessionErrored? earlyError = null;
@@ -194,9 +193,9 @@ public sealed class ChatAgent : IAsyncDisposable
         // looking up the command it was triggered by. Same lookup the LLM's
         // get_command uses — on a hit it's the parameter table; on a miss it's the
         // not_found JSON with suggestions, which is still useful context.
-        var failedHelp = FailedCommandHelp.BuildContext(helpTools, failedCommand);
+        var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
         var sessionConfig = BuildBaseSessionConfig(
-            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool, prober,
+            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
             azExePath, approvalSink, eventRenderer, state, failedHelp, ct);
 
         string resolvedModel;
@@ -233,7 +232,6 @@ public sealed class ChatAgent : IAsyncDisposable
         AvailableLocationsTool skuTools,
         SubmitResponseTool submitTool,
         ProposePlanTool planTool,
-        EnvironmentProber prober,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         EventRenderer eventRenderer,
@@ -257,8 +255,8 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnPreToolUse = (input, _) => PreToolUseHook.HandleAsync(input, azExePath, approvalSink, state, ct),
                 OnSessionStart = async (_, _) =>
                 {
-                    var snap = await prober.ProbeAsync(ct).ConfigureAwait(false);
-                    var ctx = snap.FormatForSystemPrompt();
+                    var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
+                    var ctx = EnvSnapshotFormatter.Format(envJson);
                     // Append the pre-fetched help for the failed command (if any) so
                     // the agent starts with it instead of spending a turn on get_command.
                     if (!string.IsNullOrEmpty(failedHelp))
@@ -267,8 +265,8 @@ public sealed class ChatAgent : IAsyncDisposable
                 },
                 OnUserPromptSubmitted = async (_, _) =>
                 {
-                    var snap = await prober.ProbeAsync(ct).ConfigureAwait(false);
-                    return new UserPromptSubmittedHookOutput { AdditionalContext = snap.FormatForSystemPrompt() };
+                    var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
+                    return new UserPromptSubmittedHookOutput { AdditionalContext = EnvSnapshotFormatter.Format(envJson) };
                 },
             },
             OnPermissionRequest = async (req, invocation) =>

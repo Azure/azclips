@@ -6,10 +6,7 @@ namespace Core.Agent.Tests;
 
 /// <summary>
 /// Contract tests for <see cref="EnvironmentProber"/>. Assert on the snapshot
-/// properties the caller consumes — NOT the string format of
-/// <see cref="EnvironmentSnapshot.FormatForSystemPrompt"/>.
-/// Format-string assertions are an anti-pattern
-/// (rename a label, test breaks; user never sees the label).
+/// properties the caller consumes.
 /// </summary>
 public class EnvironmentProberTests
 {

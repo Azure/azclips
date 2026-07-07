@@ -1,92 +1,30 @@
 using System.ComponentModel;
-using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Core.Agent.Tools.Resource.Cache;
+using Core.Agent.Tools.Shell;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Tools.Help;
 
 /// <summary>
-/// Two AI agent tools that READ the embedded azclips help corpus:
+/// Two AI agent tools that surface the azclips help catalog to the LLM:
 ///   • list_commands — flat catalog of every azclips command (cliName + psName + summary)
 ///   • get_command   — full HelpCommand for one verb (parameters + examples + description)
 ///
-/// Data source is two static JSON files copied to output (HelpIndex.json / HelpManifest.json)
-/// shaped after PR #226's HelpIndex / HelpManifest records. v2 will swap this for an
-/// IHelpIndex runtime adapter once #226 merges; tool surface stays the same.
+/// Both shell out to <c>az agent tool help [--name &lt;x&gt;]</c>; the CLI processor
+/// (<c>HelpProcessor</c>) is the single source of truth. Adding an extension via
+/// <c>az extension add</c> shows up on the next call — no cached catalog to invalidate.
+/// The tool contract stays "always return a JSON string", so this class simply
+/// forwards stdout to the model.
 /// </summary>
 public sealed class HelpTools
 {
-    private static readonly JsonSerializerOptions Json = new()
+    private readonly string _azExePath;
+
+    public HelpTools(string azExePath)
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        WriteIndented = false,
-    };
+        _azExePath = azExePath ?? throw new ArgumentNullException(nameof(azExePath));
 
-    private readonly string _indexJson;
-    private readonly int _indexCommandCount;
-    private readonly int _indexGroupCount;
-    private readonly Dictionary<string, JsonElement> _byCliName;
-    private readonly Dictionary<string, JsonElement> _byPsName;
-
-    public HelpTools(string? corpusDir = null)
-    {
-        // Corpus path resolution order:
-        //   1. Explicit corpusDir (used by az agent tool extension host, which
-        //      knows its own extension dir since Assembly.Location is empty when
-        //      loaded via LoadFromStream).
-        //   2. This assembly's directory (works for the standalone azclips-agent
-        //      exe host where LoadFromStream isn't used).
-        //   3. AppContext.BaseDirectory fallback.
-        string dir;
-        if (!string.IsNullOrEmpty(corpusDir))
-        {
-            dir = corpusDir;
-        }
-        else
-        {
-            var assemblyDir = Path.GetDirectoryName(typeof(HelpTools).Assembly.Location);
-            dir = !string.IsNullOrEmpty(assemblyDir)
-                ? Path.Combine(assemblyDir, "Help")
-                : Path.Combine(AppContext.BaseDirectory, "Help");
-        }
-        var indexPath = Path.Combine(dir, "HelpIndex.json");
-        var manifestPath = Path.Combine(dir, "HelpManifest.json");
-
-        if (!File.Exists(indexPath) || !File.Exists(manifestPath))
-        {
-            throw new FileNotFoundException(
-                $"Help corpus missing. Expected: {indexPath} and {manifestPath}");
-        }
-
-        _indexJson = File.ReadAllText(indexPath);
-
-        // Index counts are surfaced in ListCommands telemetry on every call.
-        // _indexJson is read-only file content captured here, so cache the
-        // counts at construction time instead of re-parsing per invocation.
-        using (var indexDoc = JsonDocument.Parse(_indexJson))
-        {
-            _indexCommandCount = indexDoc.RootElement.GetProperty("commands").GetArrayLength();
-            _indexGroupCount   = indexDoc.RootElement.GetProperty("groups").GetArrayLength();
-        }
-
-        using var manifestDoc = JsonDocument.Parse(File.ReadAllText(manifestPath));
-        _byCliName = new(StringComparer.OrdinalIgnoreCase);
-        _byPsName = new(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var cmd in manifestDoc.RootElement.GetProperty("commands").EnumerateArray())
-        {
-            var clone = cmd.Clone();
-            if (clone.TryGetProperty("cliName", out var cliEl) && cliEl.GetString() is { Length: > 0 } cliName)
-                _byCliName[cliName] = clone;
-            if (clone.TryGetProperty("psName", out var psEl) && psEl.GetString() is { Length: > 0 } psName)
-                _byPsName[psName] = clone;
-        }
-
-        ListCommands = AIFunctionFactory.Create(ListCommandsImpl, new AIFunctionFactoryOptions
+        ListCommands = AIFunctionFactory.Create(ListCommandsAsync, new AIFunctionFactoryOptions
         {
             Name = "list_commands",
             Description = "Return the full catalog of azclips commands across all extensions. " +
@@ -97,14 +35,14 @@ public sealed class HelpTools
                 "Cheap (~1 KB), no network call.",
         });
 
-        GetCommand = AIFunctionFactory.Create(GetCommandImpl, new AIFunctionFactoryOptions
+        GetCommand = AIFunctionFactory.Create(GetCommandAsync, new AIFunctionFactoryOptions
         {
             Name = "get_command",
             Description = "Return the full HelpCommand for one azclips verb: parameters (cliName/psName, type, required, description), " +
                 "examples (cli[] and powerShell[]), description, summary. " +
                 "Pass 'name' as the cliName (e.g. 'vm create-combined') OR the psName (e.g. 'New-VMCombined') — " +
                 "lookup is case-insensitive and searches both surfaces. " +
-                "Returns error=not_found with suggestions when the verb doesn't exist. " +
+                "Returns error=not_found when the verb doesn't exist. " +
                 "Call AFTER list_commands has confirmed the verb exists.",
         });
 
@@ -118,59 +56,25 @@ public sealed class HelpTools
     // Host-side entry to the same lookup the LLM's get_command uses. Lets the host
     // pre-fetch a failed command's help and inject it into context, so the agent
     // doesn't spend a turn looking up the command it was triggered by. Returns the
-    // exact same JSON (help or not_found) the tool would return.
-    //
-    // Today both this and get_command resolve through the same GetCommandImpl, so
-    // they stay in sync by construction. If a future index-backed lookup splits
-    // them into separate resolvers, that "stays in sync automatically" no longer
-    // holds — keep a single resolver entry point to preserve it.
-    public string LookupCommand(string name) => GetCommandImpl(name);
+    // exact same JSON (help or not_found) the tool would return — both funnel
+    // through the same shell-out call so they can't drift.
+    public Task<string> LookupCommandAsync(string name, CancellationToken ct = default) =>
+        GetCommandAsync(name, ct);
 
     [Description("Return the full HelpIndex catalog.")]
-    private string ListCommandsImpl()
+    private Task<string> ListCommandsAsync(CancellationToken ct)
     {
         using var scope = ToolInvocationLog.Start("list_commands", "full catalog");
-        scope.SetResult($"groups={_indexGroupCount} commands={_indexCommandCount}");
-        return _indexJson;
+        return ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct);
     }
 
     [Description("Return one command's full HelpCommand (parameters + examples + description).")]
-    private string GetCommandImpl(
+    private Task<string> GetCommandAsync(
         [Description("Command name. Pass cliName (e.g. 'vm create-combined', 'group list') OR psName (e.g. 'New-VMCombined', 'Get-ResourceGroup_Get'). Case-insensitive.")]
-        string name)
+        string name,
+        CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("get_command", $"name={name}");
-
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            scope.SetResult("error=missing_name");
-            return JsonSerializer.Serialize(new { error = "missing_name", hint = "Pass cliName or psName." }, Json);
-        }
-
-        if (_byCliName.TryGetValue(name, out var cliHit))
-        {
-            scope.SetResult($"cli hit: {name}");
-            return cliHit.GetRawText();
-        }
-        if (_byPsName.TryGetValue(name, out var psHit))
-        {
-            scope.SetResult($"ps hit: {name}");
-            return psHit.GetRawText();
-        }
-
-        var suggestions = _byCliName.Keys.Concat(_byPsName.Keys)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(k => k.Contains(name, StringComparison.OrdinalIgnoreCase)
-                     || name.Contains(k, StringComparison.OrdinalIgnoreCase))
-            .Take(5)
-            .ToArray();
-        scope.SetResult($"not_found, suggestions={suggestions.Length}");
-        return JsonSerializer.Serialize(new
-        {
-            error = "not_found",
-            name,
-            hint = "Call list_commands to see the full catalog.",
-            suggestions,
-        }, Json);
+        return ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name ?? string.Empty }, ct);
     }
 }

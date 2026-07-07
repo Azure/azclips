@@ -11,7 +11,7 @@ namespace Core.Agent.Tools.Shell;
 /// for that business logic, and the agent (regardless of host process) reads
 /// them through the same shell-out entry point.
 /// </summary>
-internal static class ShellOutHelper
+public static class ShellOutHelper
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
 

@@ -1,0 +1,71 @@
+using System.Text;
+using System.Text.Json;
+
+namespace Core.Agent.Common;
+
+/// <summary>
+/// Formats the JSON emitted by <c>az agent tool env</c> into the
+/// <c>&lt;environment&gt;...&lt;/environment&gt;</c> block injected as system
+/// context every turn. Kept alongside the SDK-hook wire-up (not in the shared
+/// tool library) because only the agent host consumes it — the CLI processor
+/// emits the JSON verbatim so scripts / other tooling can parse it structurally.
+/// </summary>
+internal static class EnvSnapshotFormatter
+{
+    public static string Format(string envJson)
+    {
+        // A subprocess failure surfaces as a JSON payload with an "error" field
+        // (see ShellOutHelper). Injecting that as "environment" would confuse the
+        // model; emit an empty block and let the agent proceed without env facts.
+        try
+        {
+            using var doc = JsonDocument.Parse(envJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return string.Empty;
+            var root = doc.RootElement;
+            if (root.TryGetProperty("error", out _)) return string.Empty;
+
+            var sb = new StringBuilder(512);
+            sb.Append("<environment>\n");
+            sb.Append("Runtime facts the harness probed at the start of this turn. Trust them; do not ");
+            sb.Append("ask the user for anything listed here. Refresh happens automatically each turn — ");
+            sb.Append("after a state-changing command (e.g. `az login`) the next turn's snapshot will ");
+            sb.Append("reflect the new state.\n");
+
+            sb.Append("runtime\n");
+            sb.Append("  os: ").Append(GetString(root, "os", "unknown")).Append('\n');
+            sb.Append("  shell: ").Append(GetString(root, "shell", "unknown")).Append('\n');
+            sb.Append("  cwd: ").Append(GetString(root, "cwd", "(unknown)")).Append('\n');
+
+            sb.Append("interactivity\n");
+            sb.Append("  ssh-session: ").Append(GetBool(root, "sshSession") ? "true" : "false").Append('\n');
+            sb.Append("  browser-available: ").Append(GetBool(root, "browserAvailable") ? "true" : "false").Append('\n');
+            sb.Append("  stdin-interactive: ").Append(GetBool(root, "stdinInteractive") ? "true" : "false").Append('\n');
+
+            sb.Append("auth\n");
+            sb.Append("  signed-in: ").Append(GetBool(root, "signedIn") ? "true" : "false").Append('\n');
+            sb.Append("  subscription-id: ").Append(GetString(root, "subscriptionId", "(none)")).Append('\n');
+            sb.Append("  tenant-id: ").Append(GetString(root, "tenantId", "(none)")).Append('\n');
+
+            sb.Append("azclips\n");
+            sb.Append("  version: ").Append(GetString(root, "azclipsVersion", "unknown")).Append('\n');
+            sb.Append("  flavor: ").Append(GetString(root, "flavor", "unknown")).Append('\n');
+
+            sb.Append("</environment>");
+            return sb.ToString();
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string GetString(JsonElement root, string name, string fallback)
+    {
+        if (!root.TryGetProperty(name, out var el)) return fallback;
+        if (el.ValueKind == JsonValueKind.Null) return fallback;
+        return el.ValueKind == JsonValueKind.String ? (el.GetString() ?? fallback) : fallback;
+    }
+
+    private static bool GetBool(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.True;
+}
