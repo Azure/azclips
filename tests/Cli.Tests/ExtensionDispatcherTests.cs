@@ -97,6 +97,20 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
+    public void Parse_ShouldNotDispatchVersion_WhenVersionFlagHasTrailingTokens()
+    {
+        // `az --version foo` is not a version request: the trailing token is invalid, so it must fall
+        // through to normal resolution/error handling instead of being silently ignored. This mirrors
+        // the `az version` verb path, which only dispatches for the exact single-token shape.
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Record.Exception(() => dispatcher.Parse(["--version", "foo"]));
+
+        Assert.NotNull(exception);
+        Assert.IsNotType<DispatchVersionException>(exception);
+    }
+
+    [Fact]
     public void Parse_ShouldRouteToHelp_ForVersionHelp_NotVersionDispatch()
     {
         // `az version --help` is a help request, not a version request: help detection runs first.

@@ -206,7 +206,7 @@ public class ExtensionDispatcher //: IParser
     private static bool TryCreateVersionRequest(string[] args, out VersionOutputFormat format)
     {
         // `az --version` is a top-level flag (peer of `az --help`) → human-readable text.
-        if (args[0].Equals("--version", StringComparison.OrdinalIgnoreCase))
+        if (args.Length == 1 && args[0].Equals("--version", StringComparison.OrdinalIgnoreCase))
         {
             format = VersionOutputFormat.Text;
             return true;
