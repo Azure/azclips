@@ -32,7 +32,16 @@ function global:_azResolveExe {
     $local = Join-Path $PSScriptRoot 'az'
     if (Test-Path $local) { return $local }
 
-    # 2. Walk up to find repo root (look for global.json), then check artifacts/
+    # 2. Parent directory (e.g. script is in Completions/, az.exe is in parent)
+    $parent = Split-Path $PSScriptRoot -Parent
+    if ($parent) {
+        $local = Join-Path $parent 'az.exe'
+        if (Test-Path $local) { return $local }
+        $local = Join-Path $parent 'az'
+        if (Test-Path $local) { return $local }
+    }
+
+    # 3. Walk up to find repo root (look for global.json), then check artifacts/
     $dir = $PSScriptRoot
     while ($dir) {
         if (Test-Path (Join-Path $dir 'global.json')) {
