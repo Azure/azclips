@@ -87,6 +87,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata s_resourceShow_CLI = new(
+            Name: "ResourceShowProcessor",
+            InvocationName: "agent tool resource show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource.ResourceShowProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(ResourceShowProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["name"] = new("Name", "name", typeof(string), "Name or full ARM id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["kind"] = new("Kind", "kind", typeof(string), "Optional kind filter: tenant | subscription | resourceGroup | resource.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["live"] = new("Live", "live", typeof(bool), "Fetch live ARM body (properties, provisioningState, endpoints). Adds ~200-500ms. Default false.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         // ── Dispatch Tables ──
         // Full-path keys keyed on the space-joined invocation path. The root
         // verb ("agent") isn't a runnable leaf — dispatcher treats it as a group.
@@ -100,6 +116,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["agent tool resource find"]  = s_resourceFind_CLI,
             ["agent tool resource sku"]   = s_resourceSku_CLI,
             ["agent tool resource tree"]  = s_resourceTree_CLI,
+            ["agent tool resource show"]  = s_resourceShow_CLI,
         };
 
         // ── Lookup ──
