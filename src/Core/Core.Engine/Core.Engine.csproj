@@ -9,7 +9,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <InternalsVisibleTo Include="Core.Engine.Tests" Key="$(MSSharedLibPublicKey)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
     <InternalsVisibleTo Include="Core.Engine.Tests" />
   </ItemGroup>
 
