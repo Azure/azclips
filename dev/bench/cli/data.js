@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783412245491,
+  "lastUpdate": 1783467665289,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2856,6 +2856,48 @@ window.BENCHMARK_DATA = {
             "value": 944247.6410487341,
             "unit": "ns",
             "range": "± 292732.8795150072"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d113413b80a496e1e6aa6537d3e01690c470099",
+          "message": "{DevOps} Ship CLI completion scripts in installer archives (#391)\n\n## Summary\n- Publish non-C# CLI completion assets into `completions/` from\n`Core.Cli.csproj`\n- Require Linux/macOS tarballs and Windows zip archives to include the\ncompletion scripts under `completions/`\n\n## Validation\n- `dotnet publish src/CLI/Core.Cli.csproj -c Release -r linux-x64\n--self-contained true -o /tmp/azclips-publish-completions`\n- Verified published output contains:\n  - `completions/az.completions.ps1`\n  - `completions/az.completions.bash`\n  - `completions/az.completions.zsh`\n- `bash -n\ndevops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh`\n- `bash -n\ndevops/scripts/packaging/macos/tarball/test_macos_tarball_bundled_plus_ext.sh`\n- PowerShell parse check for\n`devops/scripts/packaging/windows/zip/test_windows_zip_bundled_plus_ext.ps1`\n- `git diff --check`\n- `./devops/scripts/packaging/common/build_common.sh`\n- `./devops/scripts/packaging/linux/tarball/build_linux_tarball.sh`\n- `SKIP_RUNTIME=true\n./devops/scripts/packaging/linux/tarball/test_linux_tarball_bundled_plus_ext.sh`",
+          "timestamp": "2026-07-08T09:39:03+10:00",
+          "tree_id": "387c23808111858965100f1faaa23c6cf32c5e96",
+          "url": "https://github.com/Azure/azclips/commit/3d113413b80a496e1e6aa6537d3e01690c470099"
+        },
+        "date": 1783467664835,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 982442.3677470988,
+            "unit": "ns",
+            "range": "± 307925.8892103974"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 949886.2754203363,
+            "unit": "ns",
+            "range": "± 295638.76274627633"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 939636.0356142457,
+            "unit": "ns",
+            "range": "± 290255.0587168732"
           }
         ]
       }
