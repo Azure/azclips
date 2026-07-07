@@ -16,7 +16,8 @@
 - Completed: same-identity selection engine is in place and wired into dispatch/help discovery paths (pin-aware + version-aware behavior verified locally).
 - Completed: structured debug diagnostics for same-identity selection decisions (selected/ignored candidates + reason) are emitted in dispatch/help/discovery call sites.
 - Completed: cross-identity collision policy is enforced (selector-before-collision; cross-identity duplicate leaf ownership hard-fails in startup and add flows).
-- Remaining: improve debug log readability, add path-level candidate provenance in diagnostics, and finalize built-ins strategy/docs decisions.
+- Completed: debug selection logs now use a human-readable summary format in `--debug` output.
+- Remaining: add path-level candidate provenance in diagnostics, decide whether machine-parsable payloads still matter, and finalize built-ins strategy/docs decisions.
 
 ## Locked Decisions
 
@@ -75,7 +76,7 @@ Diagnostics requirements:
 
 ### Phase E: Diagnostics readability
 
-- [ ] Replace raw one-line selection JSON debug output with a human-readable summary format.
+- [x] Replace raw one-line selection JSON debug output with a human-readable summary format.
 - [ ] Keep machine-parsable payloads available (optional compact JSON toggle or secondary debug line).
 - [ ] Add one focused test/assertion for debug output shape stability.
 
