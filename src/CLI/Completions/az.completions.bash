@@ -7,7 +7,7 @@
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
 # Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli).
-# Completions are cached indefinitely until the exe path changes (version update).
+# Completions are cached for the current shell session and invalidated if the resolved exe path changes (e.g., after an update).
 # To refresh manually, run: _az_clear_cache
 
 _az_resolve_exe() {
@@ -183,8 +183,7 @@ complete -F _az_completions az az.exe
 
 # Manual cache refresh function
 _az_clear_cache() {
-    unset _az_completions_cache
-    declare -gA _az_completions_cache
+    _az_completions_cache_root=""
     _az_completions_cache_exe=""
     echo "az completions cache cleared."
 }

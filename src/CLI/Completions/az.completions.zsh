@@ -9,8 +9,8 @@
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
-# Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli)..
-# Completions are cached indefinitely until the exe path changes (version update).
+# Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli).
+# Completions are cached for the current shell session and invalidated if the resolved exe path changes (e.g., after an update).
 # To refresh manually, run: _az_clear_cache
 #
 # Opt-in debug logging:
