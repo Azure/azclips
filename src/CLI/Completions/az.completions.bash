@@ -61,10 +61,10 @@ _az_query() {
     [[ -n "$exe" ]] || return 1
     
     # Check cache validity: only invalidate on exe path change
-    if [[ -n "${_az_completions_cache[root]:-}" && "$_az_completions_cache_exe" == "$exe" ]]; then
+    if [[ -n "$_az_completions_cache_root" && "$_az_completions_cache_exe" == "$exe" ]]; then
         # Use cached tree if no context args
         if [[ $# -eq 0 ]]; then
-            echo "${_az_completions_cache[root]}"
+            echo "$_az_completions_cache_root"
             return 0
         fi
     fi
@@ -75,7 +75,7 @@ _az_query() {
     
     # Only cache root-level query (no arguments) to minimize memory
     if [[ $# -eq 0 && -n "$json" ]]; then
-        _az_completions_cache[root]="$json"
+        _az_completions_cache_root="$json"
         _az_completions_cache_exe="$exe"
     fi
     
@@ -83,7 +83,7 @@ _az_query() {
 }
 
 # Session cache for completions tree (persists until exe path changes)
-declare -A _az_completions_cache
+_az_completions_cache_root=""
 _az_completions_cache_exe=""
 
 # Always query `az --completions` at tab time (cached).
