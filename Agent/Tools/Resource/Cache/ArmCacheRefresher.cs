@@ -74,13 +74,18 @@ public sealed class ArmCacheRefresher
         IAuthService authService,
         IProfileService profileService,
         HttpClient? http = null,
-        string? cacheRoot = null)
+        string? cacheRoot = null,
+        Action<string>? progress = null)
     {
         _authService = authService;
         _profileService = profileService;
-        _http = http ?? new HttpClient();
+        _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
         _cacheRoot = cacheRoot ?? HomePaths.GetDefaultArmCacheDirectory();
+        _progress = progress;
     }
+
+    private readonly Action<string>? _progress;
+    private void Report(string message) => _progress?.Invoke(message);
 
     /// <summary>
     /// Fire-and-forget: start a refresh for the active profile's tenant/sub
@@ -150,31 +155,76 @@ public sealed class ArmCacheRefresher
         var tenantsPath = Path.Combine(_cacheRoot, "tenants.json");
         if (!File.Exists(tenantsPath))
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            Report("→ tenants (ARM /tenants)");
             await RefreshTenantsListAsync(tenantsPath, ct).ConfigureAwait(false);
+            Report($"  tenants done in {sw.Elapsed.TotalSeconds:F1}s");
         }
 
         // Subscriptions: presence check on file. Refresh when missing.
+        // Special-cased because rgs / resources need the sub id list in their
+        // ARG POST body — without it, ARG returns cross-tenant data with an
+        // unbounded skipToken chain (observed: 692k rows and still going).
         var subsPath = Path.Combine(tenantDir, "subscriptions.json");
         if (!File.Exists(subsPath))
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            Report("→ subscriptions (ARG)");
             await RefreshArgFileAsync(
-                subsPath, SubQuery, SubscriptionTtl, tenantId, ct).ConfigureAwait(false);
+                subsPath, SubQuery, SubscriptionTtl, tenantId, subscriptionIds: null, ct).ConfigureAwait(false);
+            Report($"  subscriptions done in {sw.Elapsed.TotalSeconds:F1}s");
         }
+
+        // Load the sub id list for the subsequent scoped queries.
+        var subIds = LoadSubscriptionIds(subsPath);
+        Report($"  scoping subsequent queries to {subIds.Count} subscriptions");
 
         // Resource groups: TTL 1 day.
         var rgsPath = Path.Combine(tenantDir, "resource-groups.json");
         if (NeedsTtlRefresh(rgsPath, ResourceGroupTtl))
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            Report("→ resource-groups (ARG)");
             await RefreshArgFileAsync(
-                rgsPath, RgQuery, ResourceGroupTtl, tenantId, ct).ConfigureAwait(false);
+                rgsPath, RgQuery, ResourceGroupTtl, tenantId, subIds, ct).ConfigureAwait(false);
+            Report($"  resource-groups done in {sw.Elapsed.TotalSeconds:F1}s");
         }
 
         // Resources: TTL 8 hours.
         var resPath = Path.Combine(tenantDir, "resources.json");
         if (NeedsTtlRefresh(resPath, ResourceTtl))
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            Report("→ resources (ARG, paged)");
             await RefreshArgFileAsync(
-                resPath, ResourceQuery, ResourceTtl, tenantId, ct).ConfigureAwait(false);
+                resPath, ResourceQuery, ResourceTtl, tenantId, subIds, ct).ConfigureAwait(false);
+            Report($"  resources done in {sw.Elapsed.TotalSeconds:F1}s");
+        }
+    }
+
+    private static IReadOnlyList<string> LoadSubscriptionIds(string subsPath)
+    {
+        if (!File.Exists(subsPath)) return Array.Empty<string>();
+        try
+        {
+            using var fs = File.OpenRead(subsPath);
+            using var doc = JsonDocument.Parse(fs);
+            if (!doc.RootElement.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                return Array.Empty<string>();
+            var ids = new List<string>(items.GetArrayLength());
+            foreach (var item in items.EnumerateArray())
+            {
+                if (item.TryGetProperty("subscriptionId", out var idEl) && idEl.ValueKind == JsonValueKind.String)
+                {
+                    var id = idEl.GetString();
+                    if (!string.IsNullOrEmpty(id)) ids.Add(id!);
+                }
+            }
+            return ids;
+        }
+        catch
+        {
+            return Array.Empty<string>();
         }
     }
 
@@ -233,15 +283,13 @@ public sealed class ArmCacheRefresher
         string query,
         TimeSpan ttl,
         string tenantId,
+        IReadOnlyList<string>? subscriptionIds,
         CancellationToken ct)
     {
         var lockPath = Path.Combine(Path.GetDirectoryName(path)!, ".lock", $"{Path.GetFileNameWithoutExtension(path)}.lock");
         using var lockStream = await FileLockHelper.TryAcquireAsync(lockPath, ct).ConfigureAwait(false);
-        if (lockStream is null) return;                    // another process is refreshing; bow out
+        if (lockStream is null) return;
 
-        // Re-check TTL under the lock: another process may have refreshed
-        // between our NeedsTtlRefresh() call and here. Presence-check files
-        // (TTL 0) also fall through this — if the file exists we're done.
         if (ttl == TimeSpan.Zero)
         {
             if (File.Exists(path)) return;
@@ -251,38 +299,57 @@ public sealed class ArmCacheRefresher
             return;
         }
 
-        // Stamp a fresh cachedAt marker BEFORE the network calls, so a peer
-        // process reading NeedsTtlRefresh sees "someone is on it" and skips
-        // (see PP.md §step-5 "锁 + TTL 竞争"). The peer serves stale from
-        // whatever items file already exists; we overwrite when done.
         await WriteCacheMarkerAsync(path, ttl, ct).ConfigureAwait(false);
 
-        var items = await QueryArgAsync(query, tenantId, ct).ConfigureAwait(false);
+        var items = await QueryArgAsync(query, tenantId, subscriptionIds, ct).ConfigureAwait(false);
         await WriteCacheFileRawAsync(path, ttl, items, ct).ConfigureAwait(false);
     }
 
-    private async Task<List<JsonElement>> QueryArgAsync(string kql, string tenantId, CancellationToken ct)
+    private async Task<List<JsonElement>> QueryArgAsync(
+        string kql,
+        string tenantId,
+        IReadOnlyList<string>? subscriptionIds,
+        CancellationToken ct)
     {
         var token = await GetArmTokenAsync(tenantId, ct).ConfigureAwait(false);
         var results = new List<JsonElement>();
         string? skipToken = null;
+        int page = 0;
 
         while (true)
         {
             ct.ThrowIfCancellationRequested();
+            page++;
 
-            var body = skipToken is null
-                ? JsonSerializer.Serialize(new
-                {
-                    query = kql,
-                    options = new { resultFormat = "objectArray", top = ArgPageSize },
-                })
-                : JsonSerializer.Serialize(new
-                {
-                    query = kql,
-                    options = new { resultFormat = "objectArray", top = ArgPageSize, skipToken },
-                });
+            // Body shape mirrors what `az graph query` sends: subscriptions
+            // array scopes the query (without it, ARG returns cross-tenant
+            // and pagination can run away — observed 692k+ rows for a 15k
+            // resource tenant). $skipToken is the server's cursor for the
+            // next page and MUST NOT be sent on the first request.
+            //
+            // Uses Dictionary<string, object> (not anonymous types) because
+            // System.Text.Json's default behavior serializes `object` by its
+            // STATIC type — anonymous properties on a variable typed
+            // `object` come out empty. Dictionaries serialize by contents.
+            var options = new Dictionary<string, object>
+            {
+                ["resultFormat"] = "objectArray",
+                ["top"] = ArgPageSize,
+                ["allowPartialScopes"] = false,
+            };
+            if (skipToken is not null) options["$skipToken"] = skipToken;
 
+            var payload = new Dictionary<string, object>
+            {
+                ["query"] = kql,
+                ["options"] = options,
+            };
+            if (subscriptionIds is { Count: > 0 }) payload["subscriptions"] = subscriptionIds;
+
+            var body = JsonSerializer.Serialize(payload);
+
+
+            var pageSw = System.Diagnostics.Stopwatch.StartNew();
             using var req = new HttpRequestMessage(HttpMethod.Post, ArgQueryUri)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
@@ -294,11 +361,13 @@ public sealed class ArmCacheRefresher
 
             using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
             var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+            int pageRows = 0;
             if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
             {
                 foreach (var row in data.EnumerateArray())
                 {
                     results.Add(row.Clone());
+                    pageRows++;
                 }
             }
 
@@ -306,6 +375,7 @@ public sealed class ArmCacheRefresher
                 ? st.GetString()
                 : null;
             doc.Dispose();
+            Report($"    page {page}: {pageRows} rows in {pageSw.Elapsed.TotalSeconds:F1}s (total {results.Count}){(skipToken is null ? " [end]" : "")}");
             if (string.IsNullOrEmpty(skipToken)) break;
         }
 

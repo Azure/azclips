@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
+using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent
@@ -103,6 +104,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata s_cacheRefresh_CLI = new(
+            Name: "CacheRefreshProcessor",
+            InvocationName: "agent tool cache refresh",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache.CacheRefreshProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(CacheRefreshProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         // ── Dispatch Tables ──
         // Full-path keys keyed on the space-joined invocation path. The root
         // verb ("agent") isn't a runnable leaf — dispatcher treats it as a group.
@@ -117,6 +129,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["agent tool resource sku"]   = s_resourceSku_CLI,
             ["agent tool resource tree"]  = s_resourceTree_CLI,
             ["agent tool resource show"]  = s_resourceShow_CLI,
+            ["agent tool cache refresh"]  = s_cacheRefresh_CLI,
         };
 
         // ── Lookup ──

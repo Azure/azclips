@@ -1,3 +1,7 @@
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
 using Xunit;
@@ -5,34 +9,17 @@ using Xunit;
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Focused tests for <see cref="ArmCacheRefresher"/> that don't require network
-/// or a real IAuthService. Full end-to-end behavior (ARG paging, atomic write,
-/// lock contention) is exercised by manual runs against a live tenant — those
-/// paths can't be unit-tested without an ARM emulator.
+/// Tests for <see cref="ArmCacheRefresher"/>. Two concerns:
+///
+/// 1. Not-signed-in fast path — must NOT call auth or touch disk.
+/// 2. ARG pagination — the refresher pages via <c>$skipToken</c>. If a future
+///    ARG api-version renames or drops that field, refreshers would silently
+///    truncate at page 1. This test pins the wire contract so any drift
+///    fails CI.
 /// </summary>
 public class ArmCacheRefresherTests
 {
-    private sealed class NullAuth : IAuthService
-    {
-        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
-            throw new NotImplementedException();
-        public Task LogoutAsync(string? clientId = null, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException("no token expected — refresher must return early");
-    }
-
-    private sealed class NoActiveProfile : IProfileService
-    {
-        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyCollection<Profile>>(Array.Empty<Profile>());
-        public Task<Profile?> GetProfileAsync(string name, CancellationToken ct = default) => Task.FromResult<Profile?>(null);
-        public Task SaveProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
-        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<bool> RemoveProfileAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
-        public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) => Task.FromResult<string?>(null);
-        public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) => Task.FromResult<Profile?>(null);
-        public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
-    }
+    // ── not-signed-in fast path ──
 
     [Fact]
     public async Task NotSignedIn_RefreshOnceReturnsWithoutTouchingAuth()
@@ -44,8 +31,6 @@ public class ArmCacheRefresherTests
             http: null,
             cacheRoot: tempDir.Path);
 
-        // Should NOT throw — the not-signed-in early return prevents auth from
-        // being called (NullAuth would blow up if it were).
         await refresher.RefreshOnceAsync();
         Assert.Null(refresher.LastError);
         Assert.False(File.Exists(Path.Combine(tempDir.Path, "tenants.json")));
@@ -62,10 +47,148 @@ public class ArmCacheRefresherTests
             cacheRoot: tempDir.Path);
 
         refresher.KickAsync();
-        // Give the fire-and-forget task a beat to complete; the not-signed-in
-        // path returns synchronously in ~ms after entering the Task.
         await Task.Delay(100);
         Assert.Null(refresher.LastError);
+    }
+
+    // ── ARG pagination ──
+
+    [Fact]
+    public async Task ArgQuery_FollowsSkipToken_AndConcatenatesAllPages()
+    {
+        // Two-page ARG response: page 1 carries $skipToken=PAGE2 and 2 rows;
+        // page 2 has no $skipToken and 1 row. Refresher must issue exactly two
+        // POSTs (second one carrying skipToken in the body) and write all 3
+        // rows into resources.json.
+        using var tempDir = new TempDirectory();
+        const string tenantId = "11111111-1111-1111-1111-111111111111";
+
+        var recorded = new List<string>();
+        var handler = new SequenceHandler(
+            recordBody: recorded,
+            responses: new Queue<string>(new[]
+            {
+                // Any URL that isn't ARG (tenants list, subs, rgs) is returned
+                // empty so the flow reaches the resources query which is what
+                // we care about pinning here.
+                """{"value":[]}""",                                                    // GET /tenants
+                """{"data":[],"$skipToken":null}""",                                   // subs
+                """{"data":[],"$skipToken":null}""",                                   // rgs
+                """{"data":[{"id":"r1","name":"one"},{"id":"r2","name":"two"}],"$skipToken":"PAGE2"}""",
+                """{"data":[{"id":"r3","name":"three"}]}""",
+            }));
+        using var http = new HttpClient(handler);
+
+        var refresher = new ArmCacheRefresher(
+            new StaticTokenAuth(),
+            new SignedInProfile(tenantId),
+            http,
+            cacheRoot: tempDir.Path);
+
+        await refresher.RefreshOnceAsync();
+        Assert.Null(refresher.LastError);
+
+        // Wire assertion: the second ARG POST must carry skipToken=PAGE2 in
+        // its JSON body. That's the actual bug we're guarding against.
+        var argBodies = recorded.Where(b => b.Contains("\"query\"", StringComparison.Ordinal)).ToList();
+        Assert.True(argBodies.Count >= 4,
+            $"expected at least 4 ARG POSTs (subs + rgs + 2 pages of resources), saw {argBodies.Count}");
+        var resourceBodies = argBodies.Where(b => b.Contains("\"Resources ", StringComparison.Ordinal)).ToList();
+        Assert.Equal(2, resourceBodies.Count);
+        Assert.DoesNotContain("skipToken", resourceBodies[0]);
+        Assert.Contains("\"skipToken\":\"PAGE2\"", resourceBodies[1]);
+
+        // Payload assertion: all 3 rows made it to disk.
+        var resPath = Path.Combine(tempDir.Path, tenantId, "resources.json");
+        Assert.True(File.Exists(resPath));
+        using var doc = JsonDocument.Parse(File.ReadAllText(resPath));
+        var items = doc.RootElement.GetProperty("items");
+        Assert.Equal(3, items.GetArrayLength());
+        Assert.Equal("r1", items[0].GetProperty("id").GetString());
+        Assert.Equal("r2", items[1].GetProperty("id").GetString());
+        Assert.Equal("r3", items[2].GetProperty("id").GetString());
+    }
+
+    // ── stubs ──
+
+    private sealed class NullAuth : IAuthService
+    {
+        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public Task LogoutAsync(string? clientId = null, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException("no token expected — refresher must return early");
+    }
+
+    private sealed class StaticTokenAuth : IAuthService
+    {
+        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public Task LogoutAsync(string? clientId = null, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AuthResult
+            {
+                AccessToken = "fake-token",
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                Scopes = scopes ?? Array.Empty<string>(),
+                TenantId = tenantId ?? "fake-tenant",
+                CorrelationId = Guid.NewGuid(),
+            });
+    }
+
+    private sealed class NoActiveProfile : IProfileService
+    {
+        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyCollection<Profile>>(Array.Empty<Profile>());
+        public Task<Profile?> GetProfileAsync(string name, CancellationToken ct = default) => Task.FromResult<Profile?>(null);
+        public Task SaveProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<bool> RemoveProfileAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) => Task.FromResult<string?>(null);
+        public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) => Task.FromResult<Profile?>(null);
+        public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    private sealed class SignedInProfile : IProfileService
+    {
+        private readonly Profile _profile;
+        public SignedInProfile(string tenantId) =>
+            _profile = new Profile { Name = "default", TenantId = tenantId, SubscriptionId = "sub-1", CloudName = "AzureCloud" };
+        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyCollection<Profile>>(new[] { _profile });
+        public Task<Profile?> GetProfileAsync(string name, CancellationToken ct = default) =>
+            Task.FromResult<Profile?>(_profile.Name == name ? _profile : null);
+        public Task SaveProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<bool> RemoveProfileAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) => Task.FromResult<string?>(_profile.Name);
+        public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) => Task.FromResult<Profile?>(_profile);
+        public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    private sealed class SequenceHandler : HttpMessageHandler
+    {
+        private readonly List<string> _recordBody;
+        private readonly Queue<string> _responses;
+
+        public SequenceHandler(List<string> recordBody, Queue<string> responses)
+        {
+            _recordBody = recordBody;
+            _responses = responses;
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = request.Content is null
+                ? string.Empty
+                : await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            _recordBody.Add(body);
+            var payload = _responses.Count > 0 ? _responses.Dequeue() : "{}";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+            };
+        }
     }
 
     private sealed class TempDirectory : IDisposable
