@@ -134,6 +134,25 @@ jobs:
           -EnableNonAzclipsDllSigning '${{ parameters.esrp_enable_non_azclips_dll_signing }}'
         pwsh: true
     - task: PowerShell@2
+      displayName: Stage InstallModule Script For Signing
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $source = "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/InstallModule.ps1"
+          if (-not (Test-Path $source)) {
+            throw "InstallModule.ps1 was not found: $source"
+          }
+
+          $targetRoot = "$(Pipeline.Workspace)/signing-work/standalone-powershell"
+          New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+          Copy-Item $source -Destination (Join-Path $targetRoot 'InstallModule.ps1') -Force
+
+          Write-Host "Staged InstallModule.ps1 for Authenticode signing."
+          Write-Host "##vso[task.setvariable variable=HasPowerShellPayload]true"
+          Write-Host "##vso[task.setvariable variable=HasInstallModulePayload]true"
+    - task: PowerShell@2
       displayName: List PowerShell Module Signing Candidates
       inputs:
         targetType: inline
@@ -143,6 +162,7 @@ jobs:
           $workingRoot = "$(Pipeline.Workspace)/signing-work"
           $nupkgRoot = Join-Path $workingRoot 'nupkg'
           $extractRoot = Join-Path $workingRoot 'nupkg-extracted'
+          $standalonePowerShellRoot = Join-Path $workingRoot 'standalone-powershell'
 
           $packages = Get-ChildItem -Path $nupkgRoot -File -Filter 'Az.*.nupkg' | Sort-Object Name
           Write-Host "PowerShell module package wrappers to NuGetSign ($($packages.Count))"
@@ -150,7 +170,8 @@ jobs:
             Write-Host ("  {0} ({1} bytes)" -f $pkg.Name, $pkg.Length)
           }
 
-          $payloads = Get-ChildItem -Path $extractRoot -Recurse -File | Where-Object {
+          $payloadRoots = @($extractRoot, $standalonePowerShellRoot) | Where-Object { Test-Path $_ }
+          $payloads = Get-ChildItem -Path $payloadRoots -Recurse -File | Where-Object {
             $_.Extension -in '.ps1', '.psm1', '.psd1', '.ps1xml' -or
             $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
             $_.Name -like 'Core.*.dll' -or
@@ -236,7 +257,7 @@ jobs:
         AuthSignCertName: '$(ESRPSignCertName)'
         batchSignPolicyFile: ''
         ciPolicyFile: ''
-        FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg-extracted'
+        FolderPath: '$(Pipeline.Workspace)/signing-work'
         UseMinimatch: true
         Pattern: |
           **/*.ps1
@@ -389,7 +410,7 @@ jobs:
           AuthSignCertName: '$(ESRPSignCertName)'
           batchSignPolicyFile: ''
           ciPolicyFile: ''
-          FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg-extracted'
+          FolderPath: '$(Pipeline.Workspace)/signing-work'
           UseMinimatch: true
           Pattern: |
             **/*.ps1
@@ -538,9 +559,10 @@ jobs:
           -ExpectedStrongNameToken '${{ parameters.esrp_strong_name_public_key_token }}'
           -RequirePowerShellAuthenticode $true
           -RequirePackagePayloadAuthenticode $true
+          -RequireInstallModuleAuthenticode $true
         pwsh: true
     - task: PowerShell@2
-      displayName: Publish Signed PowerShell Module Packages
+      displayName: Publish Signed PowerShell Module Artifacts
       inputs:
         targetType: inline
         pwsh: true
@@ -552,6 +574,13 @@ jobs:
             Copy-Item $_.FullName -Destination (Join-Path $releaseRoot $_.Name) -Force
             Write-Host "Copied signed PowerShell module package: $($_.Name)"
           }
+
+          $signedInstallModule = "$(Pipeline.Workspace)/signing-work/standalone-powershell/InstallModule.ps1"
+          if (-not (Test-Path $signedInstallModule)) {
+            throw "Signed InstallModule.ps1 was not found: $signedInstallModule"
+          }
+          Copy-Item $signedInstallModule -Destination (Join-Path $releaseRoot 'InstallModule.ps1') -Force
+          Write-Host "Copied signed InstallModule.ps1."
     - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
       displayName: Generate SBOM For Signed PowerShell Module Packages
       inputs:
