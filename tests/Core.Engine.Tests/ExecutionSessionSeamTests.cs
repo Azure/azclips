@@ -55,7 +55,7 @@ public class ExecutionSessionSeamTests
             GetExtensionVersion = () => string.Empty,
             LoadAssembly = (_, _) => throw new InvalidOperationException("LoadAssembly must not be called"),
             CacheGetOrAdd = (_, _, _) => new SeamStubIndex(),
-            CreateProcessorContext = _ => Task.FromResult<ProcessorContext>(null!),
+            CreateProcessorContext = (_, _) => Task.FromResult<ProcessorContext>(null!),
             BindProcessor = (p, _, _, _) => p,
         };
         return session;
