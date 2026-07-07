@@ -3,7 +3,6 @@
 
 using Core.Abstractions;
 using NuGet.Versioning;
-using System.Text.Json;
 
 namespace Core.Extensions;
 
@@ -30,22 +29,20 @@ public static class ExtensionCandidateSelector
         ArgumentException.ThrowIfNullOrWhiteSpace(context);
         ArgumentNullException.ThrowIfNull(selection);
 
-        var payload = new
+        var lines = new List<string>
         {
-            eventName = "ExtensionCandidateSelection",
-            context,
-            packageId = selection.Selected.PackageId,
-            reason = selection.Reason.ToString(),
-            persistedPreference = new
-            {
-                pinned = persistedPreference?.Pinned ?? false,
-                requestedVersion = persistedPreference?.Version,
-            },
-            selected = ToDiagnosticCandidate(selection.Selected),
-            ignored = selection.Ignored.Select(ToDiagnosticCandidate).ToArray(),
+            $"[ExtensionCandidateSelection] context={context} package={selection.Selected.PackageId} reason={selection.Reason} " +
+            $"selectedVersion={SafeValue(selection.Selected.ResolvedVersion)} ignored={selection.Ignored.Count} " +
+            $"pinned={(persistedPreference?.Pinned == true ? "true" : "false")} requestedVersion={SafeValue(persistedPreference?.Version)}",
+            $"  selected: verbs={FormatVerbs(selection.Selected.Verbs)} commands={selection.Selected.Commands.Count}",
         };
 
-        return JsonSerializer.Serialize(payload);
+        foreach (var ignored in selection.Ignored)
+        {
+            lines.Add($"  ignored: version={SafeValue(ignored.ResolvedVersion)} verbs={FormatVerbs(ignored.Verbs)} commands={ignored.Commands.Count}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     public static SelectedExtensionCandidate Select(
@@ -163,24 +160,21 @@ public static class ExtensionCandidateSelector
         return string.Join("\n", [candidate.PackageId, candidate.ResolvedVersion, string.Join("|", verbs), string.Join("|", commands)]);
     }
 
-    private static object ToDiagnosticCandidate(DiscoveredExtensionInfo candidate)
+    private static string FormatVerbs(IReadOnlyList<string> verbs)
     {
-        var verbs = candidate.Verbs
+        var normalized = verbs
             .Where(static verb => !string.IsNullOrWhiteSpace(verb))
             .Select(static verb => verb.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(static verb => verb, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        return new
-        {
-            packageId = candidate.PackageId,
-            resolvedVersion = candidate.ResolvedVersion,
-            verbCount = verbs.Length,
-            verbs,
-            commandCount = candidate.Commands.Count,
-            fingerprint = BuildDeterministicFingerprint(candidate),
-        };
+        return normalized.Length == 0 ? "-" : string.Join(",", normalized);
+    }
+
+    private static string SafeValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
     }
 
     private sealed record CandidateOrdering(
