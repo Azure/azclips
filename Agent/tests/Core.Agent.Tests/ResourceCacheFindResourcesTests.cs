@@ -223,8 +223,8 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
         WriteEnvelope("subscriptions.json", new object[]
         {
-            new { subscriptionId = SubA, displayName = "Sub A", tenantId = tenant, state = "Enabled", isDefault = true },
-            new { subscriptionId = SubB, displayName = "Sub B", tenantId = tenant, state = "Enabled", isDefault = false },
+            new { subscriptionId = SubA, displayName = "Sub A", tenantId = tenant, state = "Enabled" },
+            new { subscriptionId = SubB, displayName = "Sub B", tenantId = tenant, state = "Enabled" },
         });
 
         WriteEnvelope("resource-groups.json", new object[]

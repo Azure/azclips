@@ -47,7 +47,7 @@ public sealed class ArmCacheRefresher
     // extra mapping.
     private const string SubQuery =
         "ResourceContainers | where type =~ 'microsoft.resources/subscriptions' " +
-        "| project subscriptionId, displayName=name, tenantId, state=properties.state, isDefault=tobool(false)";
+        "| project subscriptionId, displayName=name, tenantId, state=tostring(properties.state)";
     private const string RgQuery =
         "ResourceContainers | where type =~ 'microsoft.resources/subscriptions/resourcegroups' " +
         "| project id, name, location, subscriptionId, tenantId, tags";
