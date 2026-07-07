@@ -8,6 +8,155 @@ namespace Core.Extensions.Tests;
 
 public sealed class ExtensionCandidateSelectorTests
 {
+    public static TheoryData<string, DiscoveredExtensionInfo[], ExtensionRegistryEntry?, string, ExtensionSelectionReason, int> PrecedenceCases => new()
+    {
+        {
+            "P1_HigherVersionFirstCandidateWins",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget alpha"]),
+                CreateInfo("Contoso.Widget", "1.1.9", ["widget beta"]),
+            },
+            null,
+            "widget alpha",
+            ExtensionSelectionReason.HigherVersion,
+            1
+        },
+        {
+            "P2_HigherVersionSecondCandidateWins",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.1.9", ["widget alpha"]),
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget beta"]),
+            },
+            null,
+            "widget beta",
+            ExtensionSelectionReason.HigherVersion,
+            1
+        },
+        {
+            "P3_EqualVersionChoosesDeterministically",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget zeta"]),
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget alpha"]),
+            },
+            null,
+            "widget alpha",
+            ExtensionSelectionReason.EquivalentVersion,
+            1
+        },
+        {
+            "P4_PinBeatsHigherUnpinnedFirstCandidate",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget alpha"]),
+                CreateInfo("Contoso.Widget", "1.3.0", ["widget beta"]),
+            },
+            new ExtensionRegistryEntry
+            {
+                Version = "1.2.0",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            },
+            "widget alpha",
+            ExtensionSelectionReason.Pinned,
+            1
+        },
+        {
+            "P5_PinSelectsMatchingHigherVersionCandidate",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget alpha"]),
+                CreateInfo("Contoso.Widget", "1.3.0", ["widget beta"]),
+            },
+            new ExtensionRegistryEntry
+            {
+                Version = "1.3.0",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            },
+            "widget beta",
+            ExtensionSelectionReason.Pinned,
+            1
+        },
+        {
+            "P6_PinBeatsHigherOtherCandidate",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.4.0", ["widget alpha"]),
+                CreateInfo("Contoso.Widget", "1.3.0", ["widget beta"]),
+            },
+            new ExtensionRegistryEntry
+            {
+                Version = "1.3.0",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            },
+            "widget beta",
+            ExtensionSelectionReason.Pinned,
+            1
+        },
+        {
+            "P7_OnlyFirstCandidateExists",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget alpha"]),
+            },
+            null,
+            "widget alpha",
+            ExtensionSelectionReason.SingleCandidate,
+            0
+        },
+        {
+            "P8_OnlySecondLocationConceptuallyExists",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget beta"]),
+            },
+            null,
+            "widget beta",
+            ExtensionSelectionReason.SingleCandidate,
+            0
+        },
+        {
+            "P9_UnresolvedPinFallsBackToEquivalentSelection",
+            new[]
+            {
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget zeta"]),
+                CreateInfo("Contoso.Widget", "1.2.0", ["widget alpha"]),
+            },
+            new ExtensionRegistryEntry
+            {
+                Version = "9.9.9",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            },
+            "widget alpha",
+            ExtensionSelectionReason.EquivalentVersion,
+            1
+        },
+    };
+
+    [Theory]
+    [MemberData(nameof(PrecedenceCases))]
+    public void Select_ShouldHonorPrecedenceTable(
+        string caseName,
+        DiscoveredExtensionInfo[] candidates,
+        ExtensionRegistryEntry? persisted,
+        string expectedInvocation,
+        ExtensionSelectionReason expectedReason,
+        int expectedIgnoredCount)
+    {
+        Assert.False(string.IsNullOrWhiteSpace(caseName));
+
+        var selected = ExtensionCandidateSelector.Select(candidates, persisted);
+
+        Assert.Equal(expectedReason, selected.Reason);
+        Assert.Equal(expectedIgnoredCount, selected.Ignored.Count);
+        Assert.Contains(expectedInvocation, selected.Selected.Commands.Keys, StringComparer.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void Select_ShouldPreferPinnedVersion_WhenPinnedPreferenceMatchesCandidate()
     {

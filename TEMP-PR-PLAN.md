@@ -17,6 +17,7 @@
 - Completed: structured debug diagnostics for same-identity selection decisions (selected/ignored candidates + reason) are emitted in dispatch/help/discovery call sites.
 - Completed: cross-identity collision policy is enforced (selector-before-collision; cross-identity duplicate leaf ownership hard-fails in startup and add flows).
 - Completed: debug selection logs now use a human-readable summary format in `--debug` output.
+- Completed: table-driven precedence coverage now exists for selector cases P1-P9, with separate automated CLI coverage for P10 path override behavior.
 - Remaining: add path-level candidate provenance in diagnostics and finalize built-ins strategy/docs decisions.
 
 ## Locked Decisions
@@ -68,7 +69,7 @@ Diagnostics requirements:
 
 ### Phase D: Verification and packaging
 
-- [ ] Add table-driven tests for precedence cases P1-P10.
+- [x] Add table-driven tests for precedence cases P1-P10.
 - [x] Add explicit tests for same-identity dedup vs cross-identity hard-fail.
 - [ ] Build: `dotnet build azclips.slnx` and run targeted tests.
 - [ ] Manually validate default and overridden directory behavior plus conflict paths.
@@ -96,7 +97,7 @@ Legend:
 | P7   | [x]        | Automated        | 1.2.0                    | absent                     | none                     | builtin         | Only builtin candidate exists                       |
 | P8   | [x]        | Automated        | absent                   | 1.2.0                      | none                     | versioned       | Only versioned candidate exists                     |
 | P9   | [x]        | Automated        | 1.2.0                    | 1.2.0                      | pinned=not-present       | either          | Pin unresolved -> equivalent-version selection      |
-| P10  | [ ]        | Pending          | 1.2.0                    | 1.3.0                      | none + custom dirs       | versioned       | Override paths respected, then version precedence   |
+| P10  | [x]        | Automated        | 1.2.0                    | 1.3.0                      | none + custom dirs       | versioned       | Override paths respected, then version precedence   |
 
 Diagnostics assertions for all precedence cases:
 
@@ -112,8 +113,8 @@ Diagnostics assertions for all precedence cases:
 | Same extension in builtin and versioned dirs               | Pin first, then higher version; equal version -> deterministic pick | [x]        | Automated + local validation                                                  |
 | Same command from same extension identity in both dirs     | Select one winner via precedence; no collision error                | [x]        | Automated + local validation                                                  |
 | Same command from different extension identities           | Hard-fail collision error                                           | [x]        | Automated + local validation (`extension add --path` rejected duplicate leaf) |
-| Custom `assemblyLoading.builtinInstallationDir` override   | TBD                                                                 | [ ]        | Verify effective path used                                                    |
-| Custom `assemblyLoading.versionedInstallationDir` override | TBD                                                                 | [ ]        | Verify effective path used                                                    |
+| Custom `assemblyLoading.builtinInstallationDir` override   | Override path is honored during selection inputs                    | [x]        | Automated in `ExtensionSelectionPathOverrideTests`                            |
+| Custom `assemblyLoading.versionedInstallationDir` override | Override path is honored during selection inputs                    | [x]        | Automated in `ExtensionSelectionPathOverrideTests`                            |
 | `ExtensionVerb` duplicates `GetVerbs()` data               | Unified on `[ExtensionVerb]`                                        | [x]        | `GetVerbs()` contract removed                                                 |
 | Built-ins `login` and `config` command map maintenance     | TBD                                                                 | [ ]        | Assess manual-edit requirement                                                |
 
