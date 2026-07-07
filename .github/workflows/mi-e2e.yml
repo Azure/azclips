@@ -1,0 +1,71 @@
+name: Managed Identity E2E
+
+# Real Azure managed-identity end-to-end test: builds the self-contained az
+# bundle, ships it to a Linux VM, and verifies `login --identity` + `vm show`
+# for system- and user-assigned identities. Provisions real Azure resources, so
+# it is manual/scheduled only — never on PRs.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1" # weekly, Monday 03:00 UTC
+  push:
+    branches: [ming/test-sp-mi-au] # TEMP: test the pipeline on this branch; remove before merge
+
+concurrency:
+  group: mi-e2e
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC login to Azure
+  contents: read
+
+jobs:
+  mi-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Run MI E2E test
+        env:
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          eval "$(ssh-agent -s)"; ssh-add ~/.ssh/id_ed25519
+          # terraform.tfvars is gitignored (local-only), so synthesize it here.
+          # The public key is derived from the private SSH key secret; SSH is
+          # opened to the runner's dynamic egress IP (hence --provision below).
+          RUNNER_IP="$(curl -fsS https://api.ipify.org)"
+          PUBKEY="$(ssh-keygen -y -f ~/.ssh/id_ed25519)"
+          cat > terraform/linux-vm/terraform.tfvars <<EOF
+          ssh_public_key          = "${PUBKEY}"
+          allowed_ssh_source_cidr = "${RUNNER_IP}/32"
+          resource_group_name     = "ming-test"
+          EOF
+          echo "Opening SSH to runner IP ${RUNNER_IP}/32"
+          scripts/mi-e2e-test.sh --provision

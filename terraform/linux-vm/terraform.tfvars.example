@@ -1,0 +1,32 @@
+# Example variable values. Copy to terraform.tfvars and adjust.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#   terraform init
+#   terraform plan
+#   terraform apply
+#
+# Required inputs (no defaults — must be set here):
+#   - ssh_public_key
+#   - allowed_ssh_source_cidr
+#   - resource_group_name
+
+# REQUIRED — your OpenSSH public key (contents of e.g. ~/.ssh/id_ed25519.pub).
+ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILExampleExampleExampleExampleExampleExample user@host"
+
+# REQUIRED — source CIDR allowed to reach SSH. Use your IP to lock it down, or "*" for any.
+allowed_ssh_source_cidr = "1.2.3.4/32"
+
+# REQUIRED — name of the EXISTING resource group to deploy into.
+resource_group_name = "ming-test"
+
+# Optional overrides:
+# subscription_id         = "0c302431-1ad0-4187-87c9-d4cebcf7edc2"
+# resource_group_name     = "ming-test"
+# vm_name                 = "ming-test-vm"
+# vm_size                 = "Standard_B2s"
+# admin_username          = "azureuser"
+# os_disk_type            = "Standard_LRS"
+# tags = {
+#   owner   = "ming"
+#   purpose = "test"
+# }

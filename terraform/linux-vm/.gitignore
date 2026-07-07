@@ -1,0 +1,14 @@
+# Local Terraform state and working files — never commit these.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Variable files may contain secrets/keys — keep the example only.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Saved plans.
+*.tfplan
