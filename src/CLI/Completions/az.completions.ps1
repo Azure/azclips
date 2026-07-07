@@ -9,7 +9,8 @@
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
 # Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli).
-# Completions are cached for the current PowerShell session and invalidated if the resolved exe path changes (e.g., after an update).
+# Completions are cached for the current PowerShell session and invalidated if the resolved exe path changes (e.g., after an update)
+# or if the user config file changes.
 # To refresh manually, run:
 #   _azClearCache
 
@@ -54,17 +55,62 @@ function global:_azResolveExe {
     return $null
 }
 
-# Session cache for completions tree (persists until exe path changes)
-$global:_azCompletionsCache = @{ tree = $null; exe = $null }
+# Session cache for completions tree (persists until exe path/config stamp changes)
+$global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null }
+
+function global:_azGetConfigStamp {
+    # Prefer semantic invalidation based on completion.enabled.
+    # Fall back to file metadata if the config cannot be parsed.
+    $configPath = Join-Path $HOME '.azclips/config.json'
+    if (-not (Test-Path $configPath)) {
+        # Missing config means defaults apply (completion.enabled=true).
+        return "$configPath|enabled:true|missing"
+    }
+
+    try {
+        $raw = Get-Content -LiteralPath $configPath -Raw -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            return "$configPath|enabled:true|empty"
+        }
+
+        $doc = $raw | ConvertFrom-Json -AsHashtable -ErrorAction Stop
+        $enabled = $true
+
+        if ($doc -is [System.Collections.Hashtable]) {
+            if ($doc.ContainsKey('completion')) {
+                $completionNode = $doc['completion']
+                if ($completionNode -is [System.Collections.Hashtable] -and $completionNode.ContainsKey('enabled')) {
+                    $enabled = [System.Convert]::ToBoolean($completionNode['enabled'])
+                } elseif ($completionNode -and $completionNode.PSObject.Properties['enabled']) {
+                    $enabled = [System.Convert]::ToBoolean($completionNode.enabled)
+                }
+            } elseif ($doc.ContainsKey('completion.enabled')) {
+                # Legacy flat key support.
+                $enabled = [System.Convert]::ToBoolean($doc['completion.enabled'])
+            }
+        }
+
+        return "$configPath|enabled:$enabled"
+    } catch {
+        try {
+            $item = Get-Item -LiteralPath $configPath -ErrorAction Stop
+            return "$configPath|fallback-meta|$($item.Length)|$($item.LastWriteTimeUtc.Ticks)"
+        } catch {
+            return "$configPath|error"
+        }
+    }
+}
 
 function global:_azQueryCompletions {
     param([string[]]$context)
     $exe = _azResolveExe
     if (-not $exe) { return $null }
+    $configStamp = _azGetConfigStamp
     
     # Check cache validity: only invalidate on exe path change
     $isCacheValid = ($null -ne $global:_azCompletionsCache.tree) -and 
-                    ($global:_azCompletionsCache.exe -eq $exe)
+                    ($global:_azCompletionsCache.exe -eq $exe) -and
+                    ($global:_azCompletionsCache.configStamp -eq $configStamp)
     
     if ($isCacheValid) {
         # Use cached tree, navigate to requested context
@@ -93,6 +139,7 @@ function global:_azQueryCompletions {
                 if ($context.Count -eq 0) {
                     $global:_azCompletionsCache.tree = $result
                     $global:_azCompletionsCache.exe = $exe
+                    $global:_azCompletionsCache.configStamp = $configStamp
                 }
                 return $result
             }
@@ -122,7 +169,7 @@ function global:_azGetGroupDef {
 
 # Manual cache refresh function (use if needed)
 function global:_azClearCache {
-    $global:_azCompletionsCache = @{ tree = $null; exe = $null }
+    $global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null }
     Write-Host "az completions cache cleared. Completions will be refreshed on next Tab press." -ForegroundColor Green
 }
 
@@ -263,6 +310,11 @@ function global:TabExpansion2 {
                     foreach ($r in $results) { $matches.Add($r) }
                     return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
                 }
+
+                # For az/az.exe, do not delegate to built-in completion when dynamic completion is disabled
+                # or returns no matches. This keeps Tab behavior aligned with completion.enabled=false.
+                $emptyMatches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
+                return [System.Management.Automation.CommandCompletion]::new($emptyMatches, 0, $cursor, 0)
             }
         }
 
