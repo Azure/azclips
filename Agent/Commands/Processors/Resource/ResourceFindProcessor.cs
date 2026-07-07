@@ -3,8 +3,6 @@
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Agent.Tools.Resource.Cache;
-using Core.DependencyInjection;
 using Microsoft.Extensions.AI;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
@@ -21,10 +19,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-            var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            var armDetails = new ArmDetailsClient(authService);
-            var tool = new CachedResourceTools(armDetails);
-
+            var (tools, _) = await ResourceProcessorSetup.InitializeAsync(Token);
             var args = new AIFunctionArguments
             {
                 ["namePattern"] = Name,
@@ -34,7 +29,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
                 args["kind"] = Kind;
             }
 
-            var result = await tool.FindResources.InvokeAsync(args, Token);
+            var result = await tools.FindResources.InvokeAsync(args, Token);
             await WriteOutput(result?.ToString() ?? "{}");
 
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);

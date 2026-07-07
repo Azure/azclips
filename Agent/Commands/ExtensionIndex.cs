@@ -71,6 +71,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata s_resourceTree_CLI = new(
+            Name: "ResourceTreeProcessor",
+            InvocationName: "agent tool resource tree",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource.ResourceTreeProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(ResourceTreeProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["name"]      = new("Name", "name", typeof(string), "Name, full ARM id, subscription id/name, or tenant id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["kind"]      = new("Kind", "kind", typeof(string), "Kind of node to root the tree at: tenant | subscription | resourceGroup | resource.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["max-depth"] = new("MaxDepth", "max-depth", typeof(int), "Max depth from the root node. Defaults to 2.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         // ── Dispatch Tables ──
         // Full-path keys keyed on the space-joined invocation path. The root
         // verb ("agent") isn't a runnable leaf — dispatcher treats it as a group.
@@ -83,6 +99,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["agent tool help"]           = s_help_CLI,
             ["agent tool resource find"]  = s_resourceFind_CLI,
             ["agent tool resource sku"]   = s_resourceSku_CLI,
+            ["agent tool resource tree"]  = s_resourceTree_CLI,
         };
 
         // ── Lookup ──
