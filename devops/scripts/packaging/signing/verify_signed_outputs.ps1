@@ -167,6 +167,7 @@ if (Test-Path $windowsRoot) {
 }
 
 $nupkgExtractRoot = Join-Path $WorkingRoot 'nupkg-extracted'
+$tarballExtractRoot = Join-Path $WorkingRoot 'tarballs-extracted'
 if (Test-Path $nupkgExtractRoot) {
   $packagePayloads = Get-ChildItem -Path $nupkgExtractRoot -Recurse -File | Where-Object { Test-IsFirstPartyPayload -File $_ }
   $packagePayloadCount = $packagePayloads.Count
@@ -191,8 +192,9 @@ if (Test-Path $nupkgExtractRoot) {
   }
 }
 
-if ($RequirePowerShellAuthenticode -and (Test-Path $nupkgExtractRoot)) {
-  $psFiles = Get-ChildItem -Path $nupkgExtractRoot -Recurse -File | Where-Object {
+$powerShellRoots = @($nupkgExtractRoot, $tarballExtractRoot) | Where-Object { Test-Path $_ }
+if ($RequirePowerShellAuthenticode -and $powerShellRoots) {
+  $psFiles = Get-ChildItem -Path $powerShellRoots -Recurse -File | Where-Object {
     $_.Extension -in '.ps1', '.psm1', '.psd1', '.ps1xml'
   }
   $powerShellCount = $psFiles.Count
@@ -214,7 +216,7 @@ if ($RequireStrongName -and ($windowsDllCount + $packageDllCount) -eq 0) {
 }
 
 if ($RequirePowerShellAuthenticode -and $powerShellCount -eq 0) {
-  Add-SigningFailure "Verification matrix failed: expected at least one PowerShell payload under $nupkgExtractRoot"
+  Add-SigningFailure "Verification matrix failed: expected at least one PowerShell payload under $nupkgExtractRoot or $tarballExtractRoot"
 }
 
 if ($failures.Count -gt 0) {
