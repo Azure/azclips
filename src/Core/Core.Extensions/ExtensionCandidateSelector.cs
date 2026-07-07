@@ -72,7 +72,7 @@ public static class ExtensionCandidateSelector
         if (persistedPreference?.Pinned == true &&
             !string.IsNullOrWhiteSpace(persistedPreference.Version))
         {
-            var pinnedMatches = candidates
+            var pinnedMatches = uniqueCandidates
                 .Where(candidate => string.Equals(candidate.ResolvedVersion, persistedPreference.Version, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
                 .ToList();

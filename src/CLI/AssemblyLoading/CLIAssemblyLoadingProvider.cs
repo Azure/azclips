@@ -45,6 +45,7 @@ public class CLIAssemblyLoadingProvider(
                 // If the package is pinned in registry.json, force discovery/load to that exact
                 // installed version instead of the loader's default semver-latest choice.
                 if (!string.IsNullOrWhiteSpace(version) &&
+                    loader is not BuiltinExtensionLoader &&
                     registry is not null &&
                     RegistryLookup.TryFind(registry, name, out var match) &&
                     match.Value.Pinned &&
