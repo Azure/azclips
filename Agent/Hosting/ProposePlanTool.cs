@@ -1,8 +1,8 @@
 using System.ComponentModel;
-using Core.Agent.Tools.Cache;
+using Core.Agent.Tools.Resource.Cache;
 using Microsoft.Extensions.AI;
 
-namespace Core.Agent.Tools;
+namespace Core.Agent.Hosting;
 
 /// <summary>
 /// The plan-proposal tool. Before the agent runs commands to fix a failed

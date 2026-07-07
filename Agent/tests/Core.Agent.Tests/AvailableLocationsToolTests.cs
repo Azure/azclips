@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
-using Core.Agent.Tools.Sku;
+using Core.Agent.Tools.Resource.Sku;
 using Microsoft.Extensions.AI;
 using Xunit;
 

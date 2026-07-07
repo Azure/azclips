@@ -1,11 +1,12 @@
 using System.Text.Json;
 using Core.Agent;
+using Core.Agent.Plan;
 using Xunit;
 
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Unit tests for <see cref="ChatAgent.ValidateProposePlan"/> — the PP-stage
+/// Unit tests for <see cref="PlanArgsParser.ValidateProposePlan"/> — the PP-stage
 /// validation run in OnPreToolUse before a plan is rendered for approval. Asserts
 /// the real rules (at least one issue, at least one step, each step has label+cmd)
 /// against SDK-shaped JsonElement args; returns null when valid, else a message.
@@ -29,7 +30,7 @@ public class ProposePlanValidationTests
             steps = new[] { Step(1, "Create RG", "az group create -n foo -l eastus") },
         });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.Null(error);
     }
@@ -43,7 +44,7 @@ public class ProposePlanValidationTests
             steps = new[] { Step(1, "Create RG", "az group create -n foo") },
         });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.NotNull(error);
         Assert.Contains("issues", error);
@@ -54,7 +55,7 @@ public class ProposePlanValidationTests
     {
         var args = Args(new { steps = new[] { Step(1, "Create RG", "az group create -n foo") } });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.NotNull(error);
         Assert.Contains("issues", error);
@@ -69,7 +70,7 @@ public class ProposePlanValidationTests
             steps = new[] { Step(1, "Create RG", "az group create -n foo") },
         });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.NotNull(error);
         Assert.Contains("issue", error);
@@ -80,7 +81,7 @@ public class ProposePlanValidationTests
     {
         var args = Args(new { issues = OneIssue, steps = Array.Empty<object>() });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.NotNull(error);
         Assert.Contains("steps", error);
@@ -91,7 +92,7 @@ public class ProposePlanValidationTests
     {
         var args = Args(new { issues = OneIssue });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.NotNull(error);
         Assert.Contains("steps", error);
@@ -106,7 +107,7 @@ public class ProposePlanValidationTests
             steps = new[] { new { id = 1, cmd = "az group list" } },
         });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.NotNull(error);
         Assert.Contains("label", error);
@@ -121,7 +122,7 @@ public class ProposePlanValidationTests
             steps = new[] { new { id = 1, label = "List groups" } },
         });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.NotNull(error);
         Assert.Contains("cmd", error);
@@ -140,7 +141,7 @@ public class ProposePlanValidationTests
             },
         });
 
-        var error = ChatAgent.ValidateProposePlan(args);
+        var error = PlanArgsParser.ValidateProposePlan(args);
 
         Assert.NotNull(error);
         Assert.Contains("step 1", error);

@@ -1,11 +1,12 @@
 using System.Text.Json;
 using Core.Agent;
+using Core.Agent.Plan;
 using Xunit;
 
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Unit tests for <see cref="ChatAgent.ExtractPlanSteps"/> — parsing the
+/// Unit tests for <see cref="PlanArgsParser.ExtractPlanSteps"/> — parsing the
 /// validated steps array into the host's PlanStep render view. Covers the real
 /// branches: normal parse, id fallback when absent, destructive flagging
 /// (model flag + host danger-verb backstop), and empty/no steps → null.
@@ -27,7 +28,7 @@ public class ExtractPlanStepsTests
             },
         });
 
-        var steps = ChatAgent.ExtractPlanSteps(args);
+        var steps = PlanArgsParser.ExtractPlanSteps(args);
 
         Assert.NotNull(steps);
         Assert.Equal(2, steps!.Count);
@@ -50,7 +51,7 @@ public class ExtractPlanStepsTests
             },
         });
 
-        var steps = ChatAgent.ExtractPlanSteps(args);
+        var steps = PlanArgsParser.ExtractPlanSteps(args);
 
         Assert.NotNull(steps);
         Assert.Equal(1, steps![0].Id);
@@ -72,7 +73,7 @@ public class ExtractPlanStepsTests
             },
         });
 
-        var steps = ChatAgent.ExtractPlanSteps(args);
+        var steps = PlanArgsParser.ExtractPlanSteps(args);
 
         Assert.NotNull(steps);
         Assert.Equal(2, steps!.Count);
@@ -92,7 +93,7 @@ public class ExtractPlanStepsTests
             },
         });
 
-        var steps = ChatAgent.ExtractPlanSteps(args);
+        var steps = PlanArgsParser.ExtractPlanSteps(args);
 
         Assert.NotNull(steps);
         Assert.True(steps![0].Destructive);
@@ -112,7 +113,7 @@ public class ExtractPlanStepsTests
             },
         });
 
-        var steps = ChatAgent.ExtractPlanSteps(args);
+        var steps = PlanArgsParser.ExtractPlanSteps(args);
 
         Assert.NotNull(steps);
         Assert.True(steps![0].Destructive);
@@ -130,7 +131,7 @@ public class ExtractPlanStepsTests
             },
         });
 
-        var steps = ChatAgent.ExtractPlanSteps(args);
+        var steps = PlanArgsParser.ExtractPlanSteps(args);
 
         Assert.NotNull(steps);
         Assert.False(steps![0].Destructive);
@@ -154,21 +155,21 @@ public class ExtractPlanStepsTests
             steps = new[] { new { id = 1, label = "Tag it", cmd = "az group update -n foo", destructive = 1 } },
         });
 
-        Assert.False(ChatAgent.ExtractPlanSteps(stringArgs)![0].Destructive);
-        Assert.False(ChatAgent.ExtractPlanSteps(numberArgs)![0].Destructive);
+        Assert.False(PlanArgsParser.ExtractPlanSteps(stringArgs)![0].Destructive);
+        Assert.False(PlanArgsParser.ExtractPlanSteps(numberArgs)![0].Destructive);
     }
 
     [Fact]
     public void Returns_null_when_steps_absent()
     {
-        var steps = ChatAgent.ExtractPlanSteps(Args(new { planMd = "plan" }));
+        var steps = PlanArgsParser.ExtractPlanSteps(Args(new { planMd = "plan" }));
         Assert.Null(steps);
     }
 
     [Fact]
     public void Returns_null_when_steps_empty()
     {
-        var steps = ChatAgent.ExtractPlanSteps(Args(new { planMd = "plan", steps = Array.Empty<object>() }));
+        var steps = PlanArgsParser.ExtractPlanSteps(Args(new { planMd = "plan", steps = Array.Empty<object>() }));
         Assert.Null(steps);
     }
 }

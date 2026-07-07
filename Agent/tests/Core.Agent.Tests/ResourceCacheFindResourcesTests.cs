@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Core.Agent.Tools.Cache;
+using Core.Agent.Tools.Resource.Cache;
 using Xunit;
 
 namespace Core.Agent.Tests;

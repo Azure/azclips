@@ -1,7 +1,7 @@
 using Azure.Core;
 using Core.Abstractions;
 
-namespace Core.Agent.Tools.Cache;
+namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Adapter exposing <see cref="IAuthService"/> as an Azure SDK

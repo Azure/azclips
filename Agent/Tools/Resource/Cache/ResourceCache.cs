@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Core.Abstractions;
 
-namespace Core.Agent.Tools.Cache;
+namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
 /// Process-wide singleton over the on-disk ARM cache under

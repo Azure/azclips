@@ -22,6 +22,18 @@
     <None Remove="tests\**" />
     <Content Remove="tests\**" />
     <EmbeddedResource Remove="tests\**" />
+    <!-- Commands/ is its own extension project (Agent.Commands.csproj); do not
+         include its sources in the Core.Agent exe build. -->
+    <Compile Remove="Commands\**" />
+    <None Remove="Commands\**" />
+    <Content Remove="Commands\**" />
+    <EmbeddedResource Remove="Commands\**" />
+    <!-- Tools/ is its own class library (Core.Agent.Tools.csproj) that the
+         extension and this exe both consume via ProjectReference below. -->
+    <Compile Remove="Tools\**" />
+    <None Remove="Tools\**" />
+    <Content Remove="Tools\**" />
+    <EmbeddedResource Remove="Tools\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,23 +42,29 @@
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.0" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.0" />
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.67.2" />
-    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.67.2" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.83.1" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.83.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <!-- AgentModeEntry (moved from TUI) needs the DI container + scoped logging.
+         These follow the code: they were on Core.Tui when the entry lived there. -->
+    <ProjectReference Include="..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
+    <ProjectReference Include="..\src\Core\Core.Runtime\Core.Runtime.csproj" />
+    <!-- Agent tool implementations (EnvironmentProber / HelpTools /
+         CachedResourceTools / AvailableLocationsTool) live in their own class
+         library so Agent.Commands (the extension) can consume them without
+         pulling in the whole azclips-agent.exe assembly. -->
+    <ProjectReference Include="Tools\Core.Agent.Tools.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- These files are already picked up as None items by the SDK's default glob
          (EnableDefaultNoneItems=true); Update just sets CopyToOutputDirectory on them.
          If default-item collection is ever disabled, switch these to Include (and add
-         EnableDefaultNoneItems=false) so prompts/help still reach the output dir. -->
+         EnableDefaultNoneItems=false) so prompts still reach the output dir. -->
     <None Update="prompts\*.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Tools\Help\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update=".env" Condition="Exists('.env')">
