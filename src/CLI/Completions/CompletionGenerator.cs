@@ -162,6 +162,7 @@ internal static class CompletionGenerator
     {
         var roots = new[]
         {
+            Path.Combine(AppContext.BaseDirectory, "Extensions"),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug")),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release")),
