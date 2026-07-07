@@ -115,14 +115,15 @@ try {
     Write-Host "Publishing CLI (Release, $Rid)"
     dotnet publish $CliProject -c Release -r $Rid --self-contained true -o $cliWinScDir
 
-    # Publish the Agent executable into a dedicated agent/ subdir next to the
-    # CLI host. Isolating agent's ~100+MB dependency closure (Copilot SDK, MSAL,
-    # Azure.ResourceManager, ...) from the CLI's own dlls avoids assembly
-    # collisions during install. FindAgentExe in src/CLI/Program.cs probes this
-    # exact path first.
-    Write-Host "Publishing Agent exe (Release, $Rid)"
-    $agentPublishDir = Join-Path $cliWinScDir 'agent'
-    dotnet publish (Join-Path $repoRoot 'Agent/Core.Agent.csproj') -c Release -r $Rid --self-contained true -o $agentPublishDir
+    # Publish the Agent executable directly into the CLI publish dir so it
+    # shares az.exe's runtime pack + dependency closure. Previously agent lived
+    # in a dedicated agent/ subdir with its own --self-contained runtime pack,
+    # bloating the zip by ~80 MB of byte-identical duplicates. Every shared dll
+    # is verified identical across the two publishes (same repo, same NuGet
+    # graph, same build); if a future dependency-version drift is introduced
+    # the later publish's copy wins and the agent uses the CLI's version.
+    Write-Host "Publishing Agent exe (Release, $Rid) into CLI publish dir"
+    dotnet publish (Join-Path $repoRoot 'Agent/Core.Agent.csproj') -c Release -r $Rid --self-contained true -o $cliWinScDir
 
     # Publish the Agent.Commands extension into builtin-publish/ so the inject
     # script picks it up in the same pass as Login/Config.

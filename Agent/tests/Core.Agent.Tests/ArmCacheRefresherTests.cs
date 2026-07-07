@@ -95,8 +95,8 @@ public class ArmCacheRefresherTests
             $"expected at least 4 ARG POSTs (subs + rgs + 2 pages of resources), saw {argBodies.Count}");
         var resourceBodies = argBodies.Where(b => b.Contains("\"Resources ", StringComparison.Ordinal)).ToList();
         Assert.Equal(2, resourceBodies.Count);
-        Assert.DoesNotContain("skipToken", resourceBodies[0]);
-        Assert.Contains("\"skipToken\":\"PAGE2\"", resourceBodies[1]);
+        Assert.DoesNotContain("$skipToken", resourceBodies[0]);
+        Assert.Contains("\"$skipToken\":\"PAGE2\"", resourceBodies[1]);
 
         // Payload assertion: all 3 rows made it to disk.
         var resPath = Path.Combine(tempDir.Path, tenantId, "resources.json");
