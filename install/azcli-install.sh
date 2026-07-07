@@ -31,7 +31,9 @@ usage() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --package) PACKAGE="$2"; shift 2;;
+    --package)
+      [[ $# -ge 2 ]] || die "--package requires a value: lean or full."
+      PACKAGE="$2"; shift 2;;
     -h|--help) usage;;
     *) die "Unknown argument: $1 (use --help)";;
   esac
@@ -40,6 +42,11 @@ done
 case "$PACKAGE" in
   lean|full) ;;
   *) die "--package must be 'lean' or 'full'. Got: $PACKAGE";;
+esac
+
+# Refuse obviously unsafe install roots (guards against a mis-set AZCLI_INSTALL_ROOT).
+case "${INSTALL_ROOT%/}" in
+  ""|"/"|"$HOME"|/root|/home|/Users|/usr|/etc|/var|/bin) die "Refusing to use unsafe install root: '$INSTALL_ROOT'." ;;
 esac
 
 # 1. Require an authenticated GitHub CLI.

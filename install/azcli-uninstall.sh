@@ -28,6 +28,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Refuse obviously unsafe install roots (guards against a mis-set AZCLI_INSTALL_ROOT).
+case "${INSTALL_ROOT%/}" in
+  ""|"/"|"$HOME"|/root|/home|/Users|/usr|/etc|/var|/bin) die "Refusing to operate on unsafe install root: '$INSTALL_ROOT'." ;;
+esac
+
 echo "Install root: $INSTALL_ROOT"
 
 # Remove the install directory.

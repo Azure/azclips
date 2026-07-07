@@ -28,6 +28,12 @@ $ErrorActionPreference = 'Stop'
 $Repo = if ($env:AZCLI_REPO) { $env:AZCLI_REPO } else { 'Azure/azclips' }
 $InstallRoot = if ($env:AZCLI_INSTALL_ROOT) { $env:AZCLI_INSTALL_ROOT } else { "$env:LOCALAPPDATA\Programs\azcli" }
 
+# Refuse obviously unsafe install roots (guards against a mis-set AZCLI_INSTALL_ROOT).
+$__root = $InstallRoot.TrimEnd('\', '/')
+if ([string]::IsNullOrWhiteSpace($InstallRoot) -or $__root -match '^[A-Za-z]:$' -or $__root -eq $env:USERPROFILE.TrimEnd('\', '/')) {
+  throw "Refusing to use unsafe install root: '$InstallRoot'."
+}
+
 # 1. Require an authenticated GitHub CLI.
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
   throw "GitHub CLI 'gh' is required. Install it from https://cli.github.com/ and re-run."

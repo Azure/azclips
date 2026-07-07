@@ -19,6 +19,12 @@ $ErrorActionPreference = 'Stop'
 # InstallRoot is the fixed default; the AZCLI_INSTALL_ROOT env override is internal.
 $InstallRoot = if ($env:AZCLI_INSTALL_ROOT) { $env:AZCLI_INSTALL_ROOT } else { "$env:LOCALAPPDATA\Programs\azcli" }
 
+# Refuse obviously unsafe install roots (guards against a mis-set AZCLI_INSTALL_ROOT).
+$__root = $InstallRoot.TrimEnd('\', '/')
+if ([string]::IsNullOrWhiteSpace($InstallRoot) -or $__root -match '^[A-Za-z]:$' -or $__root -eq $env:USERPROFILE.TrimEnd('\', '/')) {
+  throw "Refusing to operate on unsafe install root: '$InstallRoot'."
+}
+
 Write-Host "Install root: $InstallRoot"
 
 # 1. Remove the install directory.
