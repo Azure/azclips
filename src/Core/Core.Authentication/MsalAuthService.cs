@@ -129,12 +129,12 @@ public class MsalAuthService(
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The acquired access token.</returns>
     /// <exception cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</exception>
-    public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
+    public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
 
-        // managed identity tokens are refreshed from the active profile
-        var profile = await ProfileService.GetActiveProfileAsync(cancellationToken);
+        // profile will be set from the engine, fallback for other direct caller like TUI/Tooling
+        profile ??= await ProfileService.GetActiveProfileAsync(cancellationToken);
         if (profile?.AuthMethod == AuthMethod.ManagedIdentity)
         {
             return await ManagedIdentityAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
