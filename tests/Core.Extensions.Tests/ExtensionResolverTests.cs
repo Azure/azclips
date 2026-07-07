@@ -119,6 +119,7 @@ namespace Core.Extensions.Tests
             Assert.Contains("logout", BuiltInExtensions.Map.Keys);
             Assert.Contains("profile", BuiltInExtensions.Map.Keys);
             Assert.Contains("config", BuiltInExtensions.Map.Keys);
+            Assert.DoesNotContain("version", BuiltInExtensions.Map.Keys);
             Assert.Contains("agent", BuiltInExtensions.Map.Keys);
             Assert.DoesNotContain("group", BuiltInExtensions.Map.Keys);
             Assert.DoesNotContain("vm", BuiltInExtensions.Map.Keys);
