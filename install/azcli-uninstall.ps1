@@ -11,7 +11,6 @@
 #>
 [CmdletBinding()]
 param(
-  [switch]$KeepPath,
   [switch]$Force
 )
 
@@ -34,22 +33,6 @@ if (Test-Path $InstallRoot) {
 }
 else {
   Write-Host "Nothing to remove at $InstallRoot (already absent)."
-}
-
-# 2. Remove the entry from the user PATH.
-if (-not $KeepPath) {
-  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-  if ($userPath) {
-    $entries = $userPath -split ';'
-    $kept = $entries | Where-Object { $_ -and ($_.TrimEnd('\') -ne $InstallRoot.TrimEnd('\')) }
-    $newPath = ($kept -join ';')
-    if ($newPath -ne $userPath) {
-      [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
-      Write-Host "Removed $InstallRoot from your user PATH."
-    }
-  }
-  # Also drop it from the current session PATH.
-  $env:Path = (($env:Path -split ';') | Where-Object { $_ -and ($_.TrimEnd('\') -ne $InstallRoot.TrimEnd('\')) }) -join ';'
 }
 
 Write-Host ""

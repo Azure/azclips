@@ -93,7 +93,7 @@ try {
 
   # 6. Install (clean replace of the install root).
   if ((Test-Path $InstallRoot) -and -not (Test-Path (Join-Path $InstallRoot 'az.exe')) -and (Get-ChildItem $InstallRoot -Force | Select-Object -First 1)) {
-    throw "Install root '$InstallRoot' is not empty and does not look like an azcli install. Refusing to overwrite. Pass -InstallRoot to choose another folder."
+    throw "Install root '$InstallRoot' is not empty and does not look like an azcli install. Refusing to overwrite. Remove it and re-run."
   }
   if (Test-Path $InstallRoot) { Remove-Item -Recurse -Force $InstallRoot }
   New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null

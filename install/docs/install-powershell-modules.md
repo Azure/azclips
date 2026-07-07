@@ -20,8 +20,8 @@ Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShel
 ## Option A — install with the bundled script (recommended)
 
 ```bash
-version="0.1.0"
-tar -xzf "./azps-cmdlets-$version.tar.gz" -C azps-cmdlets
+mkdir -p azps-cmdlets
+tar -xzf ./azps-cmdlets-*.tar.gz -C azps-cmdlets
 ```
 
 Then from PowerShell 7.6+:

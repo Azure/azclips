@@ -113,7 +113,7 @@ archive="$tmp/$chosen"
 
 # 6. Install (clean replace of the install root).
 if [[ -e "$INSTALL_ROOT" && ! -e "$INSTALL_ROOT/az" && -n "$(ls -A "$INSTALL_ROOT" 2>/dev/null)" ]]; then
-  die "Install root '$INSTALL_ROOT' is not empty and does not look like an azcli install. Refusing to overwrite. Pass --install-root to choose another folder."
+  die "Install root '$INSTALL_ROOT' is not empty and does not look like an azcli install. Refusing to overwrite. Remove it and re-run."
 fi
 rm -rf "$INSTALL_ROOT"
 mkdir -p "$INSTALL_ROOT"

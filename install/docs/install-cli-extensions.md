@@ -20,7 +20,7 @@ Add-on extensions ship as NuGet packages named `azcli.extensions.<name>.<version
 
 ## Install from the extensions bundle
 
-Each release includes a single `azcli-extensions-<version>.tar.gz` containing every extension package plus `NOTICE`/`LICENSE`. This bundle is the only way to install add-on extensions.
+Each release includes a single `azcli-extensions-<version>.tar.gz` containing every extension package plus `NOTICE`/`LICENSE`. This bundle is how add-on extensions are distributed.
 
 Get the bundle from the latest release. The quickest way is your authenticated GitHub CLI (`gh`) — the same session the installer uses, which works on the private repo:
 
