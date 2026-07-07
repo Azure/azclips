@@ -7,38 +7,21 @@
 #
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
-
-# Per-binary cache: path -> $true/$false
-$global:_azIsAzclipsCache = @{}
+#
+# Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli).
+# Completions are cached indefinitely until the exe path changes (version update).
+# To refresh manually, run:
+#   _azClearCache
 
 function global:_azIsAzclips {
     param([string]$exePath)
-    # Resolve which binary to check
-    if (-not $exePath) { return $false }
-    $resolved = Get-Command $exePath -ErrorAction SilentlyContinue
-    if ($resolved) {
-        $exePath = $resolved.Source
-    } elseif (Test-Path $exePath) {
-        # Bare name in current directory (e.g. user typed "az.exe" while in the binary's folder)
-        $exePath = (Resolve-Path $exePath).Path
-    } else {
-        return $false
-    }
-    $key = $exePath.ToLower()
-    if ($global:_azIsAzclipsCache.ContainsKey($key)) { return $global:_azIsAzclipsCache[$key] }
-    $result = $false
-    try {
-        $ver = & $exePath --version 2>&1 | Out-String
-        # System Azure CLI outputs 'azure-cli X.Y.Z'; azclips does not.
-        # If --version failed or returned empty, treat as not azclips.
-        if ($ver) {
-            $result = ($ver -notmatch 'azure-cli')
-        }
-    } catch {
-        # --version threw → not azclips
-    }
-    $global:_azIsAzclipsCache[$key] = $result
-    return $result
+    
+    # Environment variable override: set $env:AZCLIPS_BINARY = '1' for azclips, '0' for old az
+    if ($env:AZCLIPS_BINARY -eq '1') { return $true }
+    if ($env:AZCLIPS_BINARY -eq '0') { return $false }
+    
+    # Default: assume old az (unset env var means old az completions)
+    return $false
 }
 
 function global:_azResolveExe {
@@ -71,23 +54,54 @@ function global:_azResolveExe {
     return $null
 }
 
+# Session cache for completions tree (persists until exe path changes)
+$global:_azCompletionsCache = @{ tree = $null; exe = $null }
+
 function global:_azQueryCompletions {
     param([string[]]$context)
     $exe = _azResolveExe
     if (-not $exe) { return $null }
+    
+    # Check cache validity: only invalidate on exe path change
+    $isCacheValid = ($null -ne $global:_azCompletionsCache.tree) -and 
+                    ($global:_azCompletionsCache.exe -eq $exe)
+    
+    if ($isCacheValid) {
+        # Use cached tree, navigate to requested context
+        $tree = $global:_azCompletionsCache.tree
+        foreach ($part in $context) {
+            if ($tree -is [System.Collections.Hashtable] -and $tree.ContainsKey($part)) {
+                $tree = $tree[$part]
+            } else {
+                return $null  # Path not in cache
+            }
+        }
+        return $tree
+    }
+    
+    # Cache miss or exe changed: query fresh
     $args_ = @('--completions') + $context
     try {
         $json = & $exe @args_ 2>$null
         if ($json) {
             $joined = ($json | Where-Object { $_ -match '^\s*[\{\[]' }) -join ''
-            if ($joined) { return $joined | ConvertFrom-Json -AsHashtable }
+            if ($joined) {
+                $result = $joined | ConvertFrom-Json -AsHashtable
+                
+                # Only cache root-level query (no context) to minimize memory
+                if ($context.Count -eq 0) {
+                    $global:_azCompletionsCache.tree = $result
+                    $global:_azCompletionsCache.exe = $exe
+                }
+                return $result
+            }
         }
     } catch {}
     return $null
 }
 
 function global:_azGetTopLevelGroups {
-    # Always query `az --completions` at tab time (no caching).
+    # Query completions (cached until exe path changes on version update)
     $tree = _azQueryCompletions
     if ($tree -and $tree.Count -gt 0) {
         return @($tree.Keys | Sort-Object)
@@ -97,12 +111,18 @@ function global:_azGetTopLevelGroups {
 
 function global:_azGetGroupDef {
     param([string]$group)
-    # Always query `az --completions <group>` at tab time (no caching).
+    # Query group definition (cached until exe path changes on version update)
     $tree = _azQueryCompletions @($group)
     if ($tree -and $tree.Count -gt 0) {
         return $tree
     }
     return $null
+}
+
+# Manual cache refresh function (use if needed)
+function global:_azClearCache {
+    $global:_azCompletionsCache = @{ tree = $null; exe = $null }
+    Write-Host "az completions cache cleared. Completions will be refreshed on next Tab press." -ForegroundColor Green
 }
 
 # Core completion logic — returns CompletionResult[] for a given input line and cursor

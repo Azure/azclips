@@ -5,6 +5,10 @@
 #
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
+#
+# Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli).
+# Completions are cached indefinitely until the exe path changes (version update).
+# To refresh manually, run: _az_clear_cache
 
 _az_resolve_exe() {
     local script_dir
@@ -43,43 +47,46 @@ _az_resolve_exe() {
     fi
 }
 
-# Cached result: empty = not checked, 1 = azclips, 0 = not azclips
-_az_is_azclips_cached=""
-
 _az_is_azclips() {
-    if [[ -n "$_az_is_azclips_cached" ]]; then
-        return $(( 1 - _az_is_azclips_cached ))
-    fi
-    # Use type -P to get the filesystem path, skipping aliases/functions
-    local exe
-    exe="$(type -P az 2>/dev/null)"
-    if [[ -z "$exe" ]]; then
-        _az_is_azclips_cached=0
-        return 1
-    fi
-    local ver
-    if ! ver="$("$exe" --version 2>&1)" || [[ -z "$ver" ]]; then
-        # --version failed or empty output → not azclips
-        _az_is_azclips_cached=0
-        return 1
-    fi
-    if echo "$ver" | grep -q 'azure-cli'; then
-        _az_is_azclips_cached=0
-        return 1
-    else
-        _az_is_azclips_cached=1
-        return 0
-    fi
+    # Environment variable override: set AZCLIPS_BINARY=1 for azclips, 0 for old az
+    if [[ "$AZCLIPS_BINARY" == "1" ]]; then return 0; fi
+    if [[ "$AZCLIPS_BINARY" == "0" ]]; then return 1; fi
+    # Default: assume old az (unset env var means old az completions)
+    return 1
 }
 
 _az_query() {
     local exe
     exe="$(_az_resolve_exe)"
     [[ -n "$exe" ]] || return 1
-    "$exe" --completions "$@" 2>/dev/null
+    
+    # Check cache validity: only invalidate on exe path change
+    if [[ -n "${_az_completions_cache[root]:-}" && "$_az_completions_cache_exe" == "$exe" ]]; then
+        # Use cached tree if no context args
+        if [[ $# -eq 0 ]]; then
+            echo "${_az_completions_cache[root]}"
+            return 0
+        fi
+    fi
+    
+    # Cache miss or exe changed: query fresh
+    local json
+    json="$("$exe" --completions "$@" 2>/dev/null)"
+    
+    # Only cache root-level query (no arguments) to minimize memory
+    if [[ $# -eq 0 && -n "$json" ]]; then
+        _az_completions_cache[root]="$json"
+        _az_completions_cache_exe="$exe"
+    fi
+    
+    echo "$json"
 }
 
-# Always query `az --completions` at tab time (no caching).
+# Session cache for completions tree (persists until exe path changes)
+declare -A _az_completions_cache
+_az_completions_cache_exe=""
+
+# Always query `az --completions` at tab time (cached).
 _az_get_top_level() {
     local json
     json="$(_az_query)"
@@ -173,6 +180,14 @@ _az_completions() {
 }
 
 complete -F _az_completions az az.exe
+
+# Manual cache refresh function
+_az_clear_cache() {
+    unset _az_completions_cache
+    declare -gA _az_completions_cache
+    _az_completions_cache_exe=""
+    echo "az completions cache cleared."
+}
 
 # Show all completions on first Tab press (like PowerShell's MenuComplete)
 bind 'set show-all-if-ambiguous on' 2>/dev/null
