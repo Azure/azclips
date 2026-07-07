@@ -16,7 +16,14 @@ function global:_azIsAzclips {
     # Resolve which binary to check
     if (-not $exePath) { return $false }
     $resolved = Get-Command $exePath -ErrorAction SilentlyContinue
-    if ($resolved) { $exePath = $resolved.Source }
+    if ($resolved) {
+        $exePath = $resolved.Source
+    } elseif (Test-Path $exePath) {
+        # Bare name in current directory (e.g. user typed "az.exe" while in the binary's folder)
+        $exePath = (Resolve-Path $exePath).Path
+    } else {
+        return $false
+    }
     $key = $exePath.ToLower()
     if ($global:_azIsAzclipsCache.ContainsKey($key)) { return $global:_azIsAzclipsCache[$key] }
     $result = $false
