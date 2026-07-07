@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783385192906,
+  "lastUpdate": 1783391744119,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -2478,6 +2478,48 @@ window.BENCHMARK_DATA = {
             "value": 5882696.5857664235,
             "unit": "ns",
             "range": "± 104600.92925108701"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "91cf737fcfd40804d3ffd5e8dec59b3258e6ee58",
+          "message": "fix ps path for bare az.exe (#387)",
+          "timestamp": "2026-07-07T12:27:48+10:00",
+          "tree_id": "6a7786f4345a43f2ccf800afc3fe991a96988fd6",
+          "url": "https://github.com/Azure/azclips/commit/91cf737fcfd40804d3ffd5e8dec59b3258e6ee58"
+        },
+        "date": 1783391744093,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5807689.239903625,
+            "unit": "ns",
+            "range": "± 93663.05866015099"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5783974.690339934,
+            "unit": "ns",
+            "range": "± 99850.57719569943"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5800133.047646252,
+            "unit": "ns",
+            "range": "± 98507.42694286394"
           }
         ]
       }
