@@ -212,8 +212,9 @@ public sealed class RuntimeHelpDispatcher
                 {
                     root = new ExtensionIndexHelpAdapter(info.Commands, verb).GetRootGroup();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    TryWriteDebug($"RuntimeHelpDispatcher: failed to build root help for '{info.PackageId}' verb '{verb}': {ex.Message}");
                     continue;
                 }
 
@@ -264,8 +265,9 @@ public sealed class RuntimeHelpDispatcher
 
             session.RunAsync().GetAwaiter().GetResult();
         }
-        catch
+        catch (Exception ex)
         {
+            TryWriteDebug($"RuntimeHelpDispatcher: discovery session failed: {ex.Message}");
             return [];
         }
 
@@ -288,9 +290,10 @@ public sealed class RuntimeHelpDispatcher
         {
             registry = new FileExtensionRegistryStore().Load();
         }
-        catch
+        catch (Exception ex)
         {
             // Help discovery should remain resilient in degraded environments.
+            TryWriteDebug($"RuntimeHelpDispatcher: failed to load registry preferences: {ex.Message}");
         }
 
         var selected = new List<DiscoveredExtensionInfo>();
@@ -324,9 +327,22 @@ public sealed class RuntimeHelpDispatcher
                 ExtensionCandidateSelector.BuildDiagnostics(context, selection, persistedPreference),
                 CancellationToken.None).GetAwaiter().GetResult();
         }
-        catch
+        catch (Exception ex)
         {
             // Help rendering must remain resilient even if debug sink fails.
+            TryWriteDebug($"RuntimeHelpDispatcher: failed to write selection diagnostics: {ex.Message}");
+        }
+    }
+
+    private void TryWriteDebug(string message)
+    {
+        try
+        {
+            _streams.WriteDebug(message, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Keep help paths resilient even if debug output is unavailable.
         }
     }
 

@@ -158,13 +158,18 @@ internal class DiscoverySession : ISession
         {
             return LoadAssembly.Invoke(extensionName, versionToLoad);
         }
-        catch when (!string.IsNullOrWhiteSpace(versionToLoad))
+        catch (InvalidOperationException ex) when (
+            !string.IsNullOrWhiteSpace(versionToLoad) &&
+            IsVersionedLoadMiss(ex))
         {
-            // Some loader sources (install-root extension directories) do not support explicit
-            // version selection and require version=null to resolve. Keep the selected version
-            // as metadata, but retry load without a version so discovery remains resilient.
+            // Some loaders cannot resolve explicit versions; retry unversioned to keep discovery resilient.
             return LoadAssembly.Invoke(extensionName, string.Empty);
         }
+    }
+
+    private static bool IsVersionedLoadMiss(InvalidOperationException ex)
+    {
+        return ex.Message.Contains("could not be found by any extension loader", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ResolvePackageId(IExtensionIndex index, IReadOnlyDictionary<string, CommandMetadata> commands, string fallbackIdentifier)

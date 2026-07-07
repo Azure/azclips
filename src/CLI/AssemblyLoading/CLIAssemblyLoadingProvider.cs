@@ -25,16 +25,7 @@ public class CLIAssemblyLoadingProvider(
     public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
     {
         var result = new List<InstalledExtensionRef>();
-
-        ExtensionRegistry? registry = null;
-        try
-        {
-            registry = (registryStore ?? new FileExtensionRegistryStore()).Load();
-        }
-        catch
-        {
-            // Discovery is best-effort; if registry read fails, keep loader defaults.
-        }
+        var registry = TryLoadRegistry();
 
         foreach (var loader in extensionLoaders)
         {
@@ -44,14 +35,9 @@ public class CLIAssemblyLoadingProvider(
 
                 // If the package is pinned in registry.json, force discovery/load to that exact
                 // installed version instead of the loader's default semver-latest choice.
-                if (!string.IsNullOrWhiteSpace(version) &&
-                    loader is not BuiltinExtensionLoader &&
-                    registry is not null &&
-                    RegistryLookup.TryFind(registry, name, out var match) &&
-                    match.Value.Pinned &&
-                    !string.IsNullOrWhiteSpace(match.Value.Version))
+                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion))
                 {
-                    effectiveVersion = match.Value.Version;
+                    effectiveVersion = pinnedVersion;
                 }
 
                 result.Add(new InstalledExtensionRef(name, effectiveVersion));
@@ -59,5 +45,42 @@ public class CLIAssemblyLoadingProvider(
         }
 
         return result.Count > 0 ? result : null;
+    }
+
+    private ExtensionRegistry? TryLoadRegistry()
+    {
+        try
+        {
+            return (registryStore ?? new FileExtensionRegistryStore()).Load();
+        }
+        catch (Exception ex)
+        {
+            // Discovery is best-effort; if registry read fails, keep loader defaults.
+            loggingService.Debug($"Failed to load extension registry during discovery: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static bool ShouldOverrideWithPinnedVersion(
+        IExtensionLoader loader,
+        string? discoveredVersion,
+        ExtensionRegistry? registry,
+        string extensionName,
+        out string pinnedVersion)
+    {
+        pinnedVersion = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(discoveredVersion) ||
+            loader is BuiltinExtensionLoader ||
+            registry is null ||
+            !RegistryLookup.TryFind(registry, extensionName, out var match) ||
+            !match.Value.Pinned ||
+            string.IsNullOrWhiteSpace(match.Value.Version))
+        {
+            return false;
+        }
+
+        pinnedVersion = match.Value.Version;
+        return true;
     }
 }

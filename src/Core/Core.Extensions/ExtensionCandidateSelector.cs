@@ -82,7 +82,7 @@ public static class ExtensionCandidateSelector
                 var selected = pinnedMatches[0];
                 return new SelectedExtensionCandidate(
                     selected,
-                    uniqueCandidates.Where(candidate => !ReferenceEquals(candidate, selected)).ToList(),
+                    GetOrderedIgnored(uniqueCandidates, selected),
                     ExtensionSelectionReason.Pinned);
             }
         }
@@ -130,7 +130,7 @@ public static class ExtensionCandidateSelector
             var selected = highestMatches[0].Candidate;
             return new SelectedExtensionCandidate(
                 selected,
-                uniqueCandidates.Where(candidate => !ReferenceEquals(candidate, selected)).ToList(),
+                GetOrderedIgnored(uniqueCandidates, selected),
                 highestMatches.Count == 1
                     ? ExtensionSelectionReason.HigherVersion
                     : ExtensionSelectionReason.EquivalentVersion);
@@ -141,8 +141,18 @@ public static class ExtensionCandidateSelector
             .ToList();
         return new SelectedExtensionCandidate(
             equivalent[0],
-            uniqueCandidates.Where(candidate => !ReferenceEquals(candidate, equivalent[0])).ToList(),
+            GetOrderedIgnored(uniqueCandidates, equivalent[0]),
             ExtensionSelectionReason.EquivalentVersion);
+    }
+
+    private static IReadOnlyList<DiscoveredExtensionInfo> GetOrderedIgnored(
+        IEnumerable<DiscoveredExtensionInfo> candidates,
+        DiscoveredExtensionInfo selected)
+    {
+        return candidates
+            .Where(candidate => !ReferenceEquals(candidate, selected))
+            .OrderBy(BuildDeterministicFingerprint, StringComparer.Ordinal)
+            .ToList();
     }
 
     private static string BuildDeterministicFingerprint(DiscoveredExtensionInfo candidate)

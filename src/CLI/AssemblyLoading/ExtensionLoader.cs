@@ -201,17 +201,25 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
         var versions = Directory.EnumerateFiles(packageDir, "*.nupkg", SearchOption.TopDirectoryOnly)
             .Select(Path.GetFileName)
             .Where(fileName => !string.IsNullOrWhiteSpace(fileName))
-            .Select(fileName => fileName!)
-            .Where(fileName => fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-                               fileName.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
-            .Select(fileName => fileName[prefix.Length..^".nupkg".Length])
-            .Select(versionText => NuGetVersion.TryParse(versionText, out var parsed) ? parsed : null)
+            .Select(fileName => ParseVersionFromNupkgFileName(fileName!, prefix))
             .Where(parsed => parsed is not null)
             .Cast<NuGetVersion>()
             .OrderByDescending(parsed => parsed)
             .ToList();
 
         return versions.Count == 0 ? string.Empty : versions[0].ToString();
+    }
+
+    private static NuGetVersion? ParseVersionFromNupkgFileName(string fileName, string packagePrefix)
+    {
+        if (!fileName.StartsWith(packagePrefix, StringComparison.OrdinalIgnoreCase) ||
+            !fileName.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var versionText = fileName[packagePrefix.Length..^".nupkg".Length];
+        return NuGetVersion.TryParse(versionText, out var parsed) ? parsed : null;
     }
 }
 
