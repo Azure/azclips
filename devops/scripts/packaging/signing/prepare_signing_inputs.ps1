@@ -35,13 +35,11 @@ if (-not (Test-Path $UnsignedRoot)) {
 $windowsRoot = Join-Path $WorkingRoot 'windows-extracted'
 $nupkgRoot = Join-Path $WorkingRoot 'nupkg'
 $nupkgExtractRoot = Join-Path $WorkingRoot 'nupkg-extracted'
-$tarballRoot = Join-Path $WorkingRoot 'tarballs'
-$tarballExtractRoot = Join-Path $WorkingRoot 'tarballs-extracted'
 $thirdPartyRoot = Join-Path $WorkingRoot 'thirdparty'
 $strongNameRoot = Join-Path $WorkingRoot 'strongname'
 
 Remove-Item $WorkingRoot, $ReleaseRoot -Recurse -Force -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path $WorkingRoot, $ReleaseRoot, $windowsRoot, $nupkgRoot, $nupkgExtractRoot, $tarballRoot, $tarballExtractRoot, $thirdPartyRoot, $strongNameRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $WorkingRoot, $ReleaseRoot, $windowsRoot, $nupkgRoot, $nupkgExtractRoot, $thirdPartyRoot, $strongNameRoot -Force | Out-Null
 
 function Test-IsFirstPartyDll {
   param([Parameter(Mandatory = $true)][System.IO.FileInfo]$File)
@@ -117,41 +115,14 @@ foreach ($pkg in @($nupkgs)) {
 }
 $packageMap | ConvertTo-Json -Depth 8 | Out-File -FilePath (Join-Path $WorkingRoot 'nupkg-map.json') -Encoding utf8
 
-$psCmdletArchives = $assets | Where-Object { $_.Name -like 'azps-cmdlets-*.tar.gz' }
-$tarballMap = @()
-foreach ($archive in @($psCmdletArchives)) {
-  $targetArchive = Join-Path $tarballRoot $archive.Name
-  Copy-Item $archive.FullName -Destination $targetArchive -Force
-
-  $safeName = $archive.Name -replace '[^A-Za-z0-9_.-]', '_'
-  $extractFolder = Join-Path $tarballExtractRoot $safeName
-  New-Item -ItemType Directory -Path $extractFolder -Force | Out-Null
-  & tar -xzf $targetArchive -C $extractFolder
-  if ($LASTEXITCODE -ne 0) {
-    throw "Failed to extract PowerShell cmdlets archive for signing: $($archive.FullName)"
-  }
-
-  $tarballMap += [PSCustomObject]@{
-    ArchiveName = $archive.Name
-    ArchivePath = $targetArchive
-    ExtractedDir = $extractFolder
-  }
-}
-$tarballMap | ConvertTo-Json -Depth 8 | Out-File -FilePath (Join-Path $WorkingRoot 'tarball-map.json') -Encoding utf8
-
 $firstPartyPayloads = Get-ChildItem -Path $windowsRoot, $nupkgExtractRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
   (Test-IsFirstPartyDll -File $_) -or
   $_.Name -like 'Microsoft.Azure.Azclips*.exe' -or
   $_.Name -ieq 'az.exe'
 }
 
-$powerShellPayloadRoots = @($nupkgExtractRoot, $tarballExtractRoot) | Where-Object { Test-Path $_ }
-$psPayloads = if ($powerShellPayloadRoots) {
-  Get-ChildItem -Path $powerShellPayloadRoots -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
-    $_.Extension -in '.ps1', '.psm1', '.psd1', '.ps1xml'
-  }
-} else {
-  @()
+$psPayloads = Get-ChildItem -Path $nupkgExtractRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+  $_.Extension -in '.ps1', '.psm1', '.psd1', '.ps1xml'
 }
 
 $strongNamePayloads = @()
@@ -261,7 +232,6 @@ if ([System.Convert]::ToBoolean($EnableNonAzclipsDllSigning)) {
 }
 
 $hasNupkg = if (@($nupkgs).Count -gt 0) { 'true' } else { 'false' }
-$hasPowerShellCmdletsArchive = if (@($psCmdletArchives).Count -gt 0) { 'true' } else { 'false' }
 $hasWindows = if (@($windowsAssets).Count -gt 0) { 'true' } else { 'false' }
 $hasFirstPartyPayload = if (@($firstPartyPayloads).Count -gt 0) { 'true' } else { 'false' }
 $hasPowerShellPayload = if (@($psPayloads).Count -gt 0) { 'true' } else { 'false' }
@@ -270,14 +240,12 @@ $hasThirdPartyDllPayload = if (@($thirdPartyDllPayloads).Count -gt 0) { 'true' }
 
 Write-Host "Prepared $(@($assets).Count) release assets"
 Write-Host "Prepared $(@($nupkgs).Count) nupkg files for NuGet signing"
-Write-Host "Prepared $(@($psCmdletArchives).Count) PowerShell cmdlets archives for payload signing"
 Write-Host "Prepared $(@($windowsAssets).Count) Windows zip payloads for binary signing"
 Write-Host "Prepared $(@($firstPartyPayloads).Count) first-party binary payloads"
 Write-Host "Prepared $(@($psPayloads).Count) PowerShell script/manifest payloads"
 Write-Host "Prepared $(@($strongNamePayloads).Count) explicit strong-name payloads"
 Write-Host "Prepared $(@($thirdPartyDllPayloads).Count) unsigned third-party DLL payloads for co-signing"
 Write-Host "##vso[task.setvariable variable=HasNupkg]$hasNupkg"
-Write-Host "##vso[task.setvariable variable=HasPowerShellCmdletsArchive]$hasPowerShellCmdletsArchive"
 Write-Host "##vso[task.setvariable variable=HasWindowsPayload]$hasWindows"
 Write-Host "##vso[task.setvariable variable=HasFirstPartyPayload]$hasFirstPartyPayload"
 Write-Host "##vso[task.setvariable variable=HasPowerShellPayload]$hasPowerShellPayload"

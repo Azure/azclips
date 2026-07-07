@@ -96,7 +96,7 @@ jobs:
           artifact: ${{ parameters.source_artifact_name }}
           path: $(Pipeline.Workspace)/unsigned-all
     - task: PowerShell@2
-      displayName: Filter PowerShell Module Packages And Archive
+      displayName: Filter PowerShell Module Packages
       inputs:
         targetType: inline
         pwsh: true
@@ -107,23 +107,18 @@ jobs:
           Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
 
-          $allAssets = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
+          $allNupkgs = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
             $_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg'
           }
-          $selectedPackages = $allAssets | Where-Object { $_.Name -like 'Az.*.nupkg' } | Sort-Object Name
-          if (-not $selectedPackages) {
+          $selected = $allNupkgs | Where-Object { $_.Name -like 'Az.*.nupkg' } | Sort-Object Name
+          if (-not $selected) {
             throw "No PowerShell module packages found under $sourceRoot (expected Az.*.nupkg)"
           }
 
-          $selectedArchives = Get-ChildItem -Path $sourceRoot -Recurse -File -Filter 'azps-cmdlets-*.tar.gz' | Sort-Object Name
-          if (-not $selectedArchives) {
-            throw "No PowerShell cmdlets archive found under $sourceRoot (expected azps-cmdlets-*.tar.gz)"
-          }
-
-          foreach ($asset in @($selectedPackages) + @($selectedArchives)) {
+          foreach ($asset in $selected) {
             Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
           }
-          Write-Host "Selected $($selectedPackages.Count) PowerShell module package(s) and $($selectedArchives.Count) PowerShell cmdlets archive(s)."
+          Write-Host "Selected $($selected.Count) PowerShell module package(s)."
     - task: PowerShell@2
       displayName: Prepare PowerShell Module Signing Inputs
       inputs:
@@ -139,6 +134,25 @@ jobs:
           -EnableNonAzclipsDllSigning '${{ parameters.esrp_enable_non_azclips_dll_signing }}'
         pwsh: true
     - task: PowerShell@2
+      displayName: Stage InstallModule Script For Signing
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $source = "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/InstallModule.ps1"
+          if (-not (Test-Path $source)) {
+            throw "InstallModule.ps1 was not found: $source"
+          }
+
+          $targetRoot = "$(Pipeline.Workspace)/signing-work/standalone-powershell"
+          New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+          Copy-Item $source -Destination (Join-Path $targetRoot 'InstallModule.ps1') -Force
+
+          Write-Host "Staged InstallModule.ps1 for Authenticode signing."
+          Write-Host "##vso[task.setvariable variable=HasPowerShellPayload]true"
+          Write-Host "##vso[task.setvariable variable=HasInstallModulePayload]true"
+    - task: PowerShell@2
       displayName: List PowerShell Module Signing Candidates
       inputs:
         targetType: inline
@@ -148,8 +162,7 @@ jobs:
           $workingRoot = "$(Pipeline.Workspace)/signing-work"
           $nupkgRoot = Join-Path $workingRoot 'nupkg'
           $extractRoot = Join-Path $workingRoot 'nupkg-extracted'
-          $tarballRoot = Join-Path $workingRoot 'tarballs'
-          $tarballExtractRoot = Join-Path $workingRoot 'tarballs-extracted'
+          $standalonePowerShellRoot = Join-Path $workingRoot 'standalone-powershell'
 
           $packages = Get-ChildItem -Path $nupkgRoot -File -Filter 'Az.*.nupkg' | Sort-Object Name
           Write-Host "PowerShell module package wrappers to NuGetSign ($($packages.Count))"
@@ -157,13 +170,7 @@ jobs:
             Write-Host ("  {0} ({1} bytes)" -f $pkg.Name, $pkg.Length)
           }
 
-          $archives = Get-ChildItem -Path $tarballRoot -File -Filter 'azps-cmdlets-*.tar.gz' | Sort-Object Name
-          Write-Host "PowerShell cmdlets archives to repack after payload signing ($($archives.Count))"
-          foreach ($archive in $archives) {
-            Write-Host ("  {0} ({1} bytes)" -f $archive.Name, $archive.Length)
-          }
-
-          $payloadRoots = @($extractRoot, $tarballExtractRoot) | Where-Object { Test-Path $_ }
+          $payloadRoots = @($extractRoot, $standalonePowerShellRoot) | Where-Object { Test-Path $_ }
           $payloads = Get-ChildItem -Path $payloadRoots -Recurse -File | Where-Object {
             $_.Extension -in '.ps1', '.psm1', '.psd1', '.ps1xml' -or
             $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
@@ -257,10 +264,10 @@ jobs:
           nupkg-extracted/**/*.psm1
           nupkg-extracted/**/*.psd1
           nupkg-extracted/**/*.ps1xml
-          tarballs-extracted/**/*.ps1
-          tarballs-extracted/**/*.psm1
-          tarballs-extracted/**/*.psd1
-          tarballs-extracted/**/*.ps1xml
+          standalone-powershell/**/*.ps1
+          standalone-powershell/**/*.psm1
+          standalone-powershell/**/*.psd1
+          standalone-powershell/**/*.ps1xml
         signConfigType: inlineSignParams
         SessionTimeout: '60'
         MaxConcurrency: '25'
@@ -414,10 +421,10 @@ jobs:
             nupkg-extracted/**/*.psm1
             nupkg-extracted/**/*.psd1
             nupkg-extracted/**/*.ps1xml
-            tarballs-extracted/**/*.ps1
-            tarballs-extracted/**/*.psm1
-            tarballs-extracted/**/*.psd1
-            tarballs-extracted/**/*.ps1xml
+            standalone-powershell/**/*.ps1
+            standalone-powershell/**/*.psm1
+            standalone-powershell/**/*.psd1
+            standalone-powershell/**/*.ps1xml
           signConfigType: inlineSignParams
           inlineOperation: |
             [
@@ -549,53 +556,6 @@ jobs:
               }
             ]
     - task: PowerShell@2
-      displayName: Repack Signed PowerShell Cmdlets Archive
-      condition: eq(variables['HasPowerShellCmdletsArchive'], 'true')
-      inputs:
-        targetType: inline
-        pwsh: true
-        script: |
-          $ErrorActionPreference = 'Stop'
-          $workingRoot = "$(Pipeline.Workspace)/signing-work"
-          $nupkgRoot = Join-Path $workingRoot 'nupkg'
-          $mapPath = Join-Path $workingRoot 'tarball-map.json'
-
-          if (-not (Test-Path $mapPath)) {
-            throw "PowerShell cmdlets archive map was not found: $mapPath"
-          }
-
-          $tarballMap = @(Get-Content $mapPath -Raw | ConvertFrom-Json)
-          foreach ($entry in $tarballMap) {
-            $archivePath = [string]$entry.ArchivePath
-            $extractDir = [string]$entry.ExtractedDir
-            if (-not (Test-Path $extractDir)) {
-              throw "Extracted PowerShell cmdlets archive directory was not found: $extractDir"
-            }
-
-            Get-ChildItem -Path $extractDir -File -Filter '*.nupkg' | ForEach-Object {
-              $signedPackage = Join-Path $nupkgRoot $_.Name
-              if (-not (Test-Path $signedPackage)) {
-                throw "Signed package for PowerShell cmdlets archive was not found: $signedPackage"
-              }
-              Copy-Item $signedPackage -Destination $_.FullName -Force
-            }
-
-            if (Test-Path $archivePath) {
-              Remove-Item $archivePath -Force
-            }
-
-            $entryNames = @(Get-ChildItem -Path $extractDir -Force | Sort-Object Name | ForEach-Object { $_.Name })
-            if (-not $entryNames) {
-              throw "PowerShell cmdlets archive extract directory is empty: $extractDir"
-            }
-
-            & tar -czf $archivePath -C $extractDir @entryNames
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to repack PowerShell cmdlets archive: $archivePath"
-            }
-            Write-Host "Repacked signed PowerShell cmdlets archive: $archivePath"
-          }
-    - task: PowerShell@2
       displayName: Verify Signed PowerShell Module Outputs
       inputs:
         targetType: filePath
@@ -607,9 +567,10 @@ jobs:
           -ExpectedStrongNameToken '${{ parameters.esrp_strong_name_public_key_token }}'
           -RequirePowerShellAuthenticode $true
           -RequirePackagePayloadAuthenticode $true
+          -RequireInstallModuleAuthenticode $true
         pwsh: true
     - task: PowerShell@2
-      displayName: Publish Signed PowerShell Module Packages
+      displayName: Publish Signed PowerShell Module Artifacts
       inputs:
         targetType: inline
         pwsh: true
@@ -621,10 +582,13 @@ jobs:
             Copy-Item $_.FullName -Destination (Join-Path $releaseRoot $_.Name) -Force
             Write-Host "Copied signed PowerShell module package: $($_.Name)"
           }
-          Get-ChildItem -Path "$(Pipeline.Workspace)/signing-work/tarballs" -File -Filter 'azps-cmdlets-*.tar.gz' | ForEach-Object {
-            Copy-Item $_.FullName -Destination (Join-Path $releaseRoot $_.Name) -Force
-            Write-Host "Copied signed PowerShell cmdlets archive: $($_.Name)"
+
+          $signedInstallModule = "$(Pipeline.Workspace)/signing-work/standalone-powershell/InstallModule.ps1"
+          if (-not (Test-Path $signedInstallModule)) {
+            throw "Signed InstallModule.ps1 was not found: $signedInstallModule"
           }
+          Copy-Item $signedInstallModule -Destination (Join-Path $releaseRoot 'InstallModule.ps1') -Force
+          Write-Host "Copied signed InstallModule.ps1."
     - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
       displayName: Generate SBOM For Signed PowerShell Module Packages
       inputs:
