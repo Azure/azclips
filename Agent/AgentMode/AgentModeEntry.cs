@@ -372,11 +372,16 @@ public static class AgentModeEntry
 
     private static string? FindAzExe()
     {
+        // Packaged layout: azclips-agent.exe lives in <install>/agent/, az.exe
+        // is one directory up in <install>/az.exe — that's the only real
+        // candidate on a shipped install. Dev-loop layout puts az.exe in
+        // <artifacts>/Core.Cli/ next to the agent's <artifacts>/Core.Agent/;
+        // keep that fallback so a debug F5 works without packaging.
         var baseDir = AppContext.BaseDirectory;
         var name = OperatingSystem.IsWindows() ? "az.exe" : "az";
         foreach (var candidate in new[]
         {
-            Path.Combine(baseDir, name),
+            Path.Combine(baseDir, "..", name),
             Path.Combine(baseDir, "..", "Core.Cli", name),
         })
         {
