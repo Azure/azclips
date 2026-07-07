@@ -33,6 +33,10 @@ public interface IAuthService
     /// <param name="tenantId">The tenant ID for which the token is requested.</param>
     /// <param name="promptOnError">Whether to prompt the user on error.</param>
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <param name="profile">
+    /// The resolved profile for the current invocation.
+    /// profile will be set from the engine, fallback for other direct caller like TUI/Tooling
+    /// </param>
     /// <returns>The result of the token acquisition attempt.</returns>
-    Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default);
+    Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null);
 }

@@ -116,7 +116,7 @@ public sealed class ArmDetailsClientLocalTests
     {
         private readonly AzureCliCredential _credential = new();
 
-        public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
+        public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)
         {
             var requestedScopes = scopes ?? new[] { "https://management.core.windows.net//.default" };
             var ctx = new TokenRequestContext(requestedScopes, tenantId: tenantId);
