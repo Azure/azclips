@@ -59,7 +59,7 @@ public static class StartupEviction
                 // if a password would be required. No system mutation, so safe on the probe path.
                 if (!Run("/bin/bash", "-c \"sudo -n true\"")) return false;
                 if (probe) return true;
-                return RunBash("sync; echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null");
+                return RunBash("sync; echo 3 | sudo -n tee /proc/sys/vm/drop_caches > /dev/null");
             }
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
