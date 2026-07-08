@@ -523,7 +523,7 @@ public class RestProcessorTests
         public Profile? Profile { get; set; }
 
         public AcquireTokenAsyncDelegate AcquireTokenAsyncDefault { get; set; } =
-            (_, _, _, _) => throw new NotSupportedException("Token acquisition is not exercised in these offline tests.");
+            (_, _, _, _, _) => throw new NotSupportedException("Token acquisition is not exercised in these offline tests.");
 
         public AcquireTokenAsyncDelegate? AcquireTokenAsyncOverride { get; set; }
 

@@ -315,7 +315,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ProcessorType: typeof(Processors.GetVMProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the logged-in subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
             },

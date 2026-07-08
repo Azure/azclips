@@ -92,6 +92,33 @@ public sealed class ProfileCliTests
     }
 
     [Fact]
+    public async Task Login_WithProfile_ShouldPreserveManagedIdentityAuthMethodAndSelector()
+    {
+        using var fixture = new ProfileCliFixture();
+        const string miKey = "MSIClient@11111111-1111-1111-1111-111111111111";
+        fixture.SeedManagedIdentityProfile("mi-prod", "sub-original", miKey);
+
+        fixture.ExecuteCli(["login", "--profile", "mi-prod"]);
+
+        var prod = await fixture.Profiles.GetProfileAsync("mi-prod");
+        Assert.NotNull(prod);
+        // Re-auth reuses the stored auth method instead of falling back to interactive/browser.
+        Assert.Equal(AuthMethod.ManagedIdentity, prod!.AuthMethod);
+        // The managed-identity selector is preserved so token refresh targets the same identity.
+        Assert.Equal(miKey, prod.ManagedIdentityId);
+    }
+
+    [Fact]
+    public void Login_WithProfileAndAuthFlag_ShouldFail()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-1");
+
+        Assert.ThrowsAny<Exception>(() =>
+            fixture.ExecuteCli(["login", "--profile", "prod", "--identity"]));
+    }
+
+    [Fact]
     public void Login_WithNonExistentProfile_ShouldFail()
     {
         using var fixture = new ProfileCliFixture();
@@ -333,6 +360,17 @@ public sealed class ProfileCliTests
                 SubscriptionId = subscriptionId,
                 CloudName = "AzureCloud",
                 AuthMethod = AuthMethod.Browser,
+            }).GetAwaiter().GetResult();
+
+        public void SeedManagedIdentityProfile(string name, string subscriptionId, string managedIdentityId) =>
+            Profiles.SaveProfileAsync(new Profile
+            {
+                Name = name,
+                TenantId = "tenant-1",
+                SubscriptionId = subscriptionId,
+                CloudName = "AzureCloud",
+                AuthMethod = AuthMethod.ManagedIdentity,
+                ManagedIdentityId = managedIdentityId,
             }).GetAwaiter().GetResult();
 
         public void SeedActiveProfile(string name, string subscriptionId, string? userPrincipalName) =>

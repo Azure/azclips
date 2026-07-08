@@ -37,7 +37,7 @@ public class StubAuthService : IAuthService
         return Task.CompletedTask;
     }
 
-    public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
+    public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)
     {
         return Task.FromResult(CreateFakeResult());
     }

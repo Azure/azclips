@@ -17,8 +17,8 @@ public class ConnectAccountCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = true)]
-    public string SubscriptionId { get; set; } = "";
+    [Parameter(Mandatory = false)]
+    public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? TenantId { get; set; }
@@ -31,6 +31,19 @@ public class ConnectAccountCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
+
+    [Parameter(Mandatory = false)]
+    [Alias("MSI", "ManagedIdentity")]
+    public SwitchParameter Identity { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ClientId { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ObjectId { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ResourceId { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -45,7 +58,7 @@ public class ConnectAccountCmdlet : PSCmdlet
         var parameters = new Dictionary<string, object>();
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
-            parameters.Add("SubscriptionId", SubscriptionId);
+            parameters.Add("SubscriptionId", SubscriptionId!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TenantId)))
         {
@@ -62,6 +75,22 @@ public class ConnectAccountCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
             parameters.Add("Profile", Profile!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Identity)))
+        {
+            parameters.Add("Identity", Identity.IsPresent);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ClientId)))
+        {
+            parameters.Add("ClientId", ClientId!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ObjectId)))
+        {
+            parameters.Add("ObjectId", ObjectId!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceId)))
+        {
+            parameters.Add("ResourceId", ResourceId!);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;

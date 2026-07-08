@@ -19,7 +19,10 @@ param(
   [bool]$RequirePowerShellAuthenticode = $false,
 
   [Parameter()]
-  [bool]$RequirePackagePayloadAuthenticode = $false
+  [bool]$RequirePackagePayloadAuthenticode = $false,
+
+  [Parameter()]
+  [bool]$RequireInstallModuleAuthenticode = $false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +38,7 @@ $windowsDllCount = 0
 $packageDllCount = 0
 $strongNameVerifiedCount = 0
 $powerShellCount = 0
+$installModuleCount = 0
 $packagePayloadCount = 0
 $expectedToken = $ExpectedStrongNameToken.Trim().ToLowerInvariant()
 
@@ -191,13 +195,28 @@ if (Test-Path $nupkgExtractRoot) {
   }
 }
 
-if ($RequirePowerShellAuthenticode -and (Test-Path $nupkgExtractRoot)) {
-  $psFiles = Get-ChildItem -Path $nupkgExtractRoot -Recurse -File | Where-Object {
-    $_.Extension -in '.ps1', '.psm1', '.psd1', '.ps1xml'
+$standalonePowerShellRoot = Join-Path $WorkingRoot 'standalone-powershell'
+if ($RequirePowerShellAuthenticode) {
+  $powerShellRoots = @($nupkgExtractRoot, $standalonePowerShellRoot) | Where-Object { Test-Path $_ }
+  if ($powerShellRoots) {
+    $psFiles = Get-ChildItem -Path $powerShellRoots -Recurse -File | Where-Object {
+      $_.Extension -in '.ps1', '.psm1', '.psd1', '.ps1xml'
+    }
+    $powerShellCount = $psFiles.Count
+    foreach ($file in @($psFiles)) {
+      Test-AuthenticodeValid -File $file
+    }
   }
-  $powerShellCount = $psFiles.Count
-  foreach ($file in @($psFiles)) {
-    Test-AuthenticodeValid -File $file
+}
+
+if ($RequireInstallModuleAuthenticode) {
+  $installModulePath = Join-Path $standalonePowerShellRoot 'InstallModule.ps1'
+  if (-not (Test-Path $installModulePath)) {
+    Add-SigningFailure "Verification matrix failed: expected signed InstallModule.ps1 under $standalonePowerShellRoot"
+  }
+  else {
+    $installModuleCount = 1
+    Test-AuthenticodeValid -File (Get-Item $installModulePath)
   }
 }
 
@@ -214,7 +233,7 @@ if ($RequireStrongName -and ($windowsDllCount + $packageDllCount) -eq 0) {
 }
 
 if ($RequirePowerShellAuthenticode -and $powerShellCount -eq 0) {
-  Add-SigningFailure "Verification matrix failed: expected at least one PowerShell payload under $nupkgExtractRoot"
+  Add-SigningFailure "Verification matrix failed: expected at least one PowerShell payload under $nupkgExtractRoot or $standalonePowerShellRoot"
 }
 
 if ($failures.Count -gt 0) {
@@ -243,4 +262,5 @@ if ($RequireStrongName) {
   Write-Host '  Windows DLLs strong-name verified: skipped (policy disabled)'
 }
 Write-Host "  PowerShell payloads Authenticode verified: $powerShellCount"
+Write-Host "  Standalone InstallModule.ps1 Authenticode verified: $installModuleCount"
 Write-Host 'Signed output verification completed successfully.'

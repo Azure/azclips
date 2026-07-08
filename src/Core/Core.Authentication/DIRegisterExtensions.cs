@@ -13,7 +13,10 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterAuthenticationServices(this IServiceCollection services)
     {
+        services.AddSingleton<AzureCredentialFactory>();
+        services.AddSingleton<ManagedIdentityAuthenticator>();
         services.AddSingleton<IAuthService, MsalAuthService>();
+        services.AddSingleton<ISubscriptionService, SubscriptionService>();
         return services;
     }
 }

@@ -301,11 +301,13 @@ stages:
         find "$(Pipeline.Workspace)/signed-macos" -maxdepth 2 -type f -exec cp -v {} "$release_dir/" \;
 
         chmod +x "$(Build.SourcesDirectory)/devops/scripts/packaging/common/create_component_archives.sh"
+        INSTALL_MODULE_SCRIPT="$release_dir/InstallModule.ps1" \
         "$(Build.SourcesDirectory)/devops/scripts/packaging/common/create_component_archives.sh" \
           --cli-extensions-root "$release_dir" \
           --psgallery-root "$release_dir" \
           --output-root "$release_dir" \
           --version-source-root "$release_dir"
+        rm -f "$release_dir/InstallModule.ps1"
 
         python3 - <<'PY'
         import hashlib
