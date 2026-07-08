@@ -2,7 +2,7 @@
 
 ## How It Works
 
-1. **Build time**: `build/build.ps1` builds the solution and copies shell completion scripts to `bin/`.
+1. **Build time**: `build/build.ps1` builds the solution and copies shell completion scripts to `artifacts/<Configuration>/Core.Cli/`.
 2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) dynamically invoke `az --completions [group] [subcommand]` at tab time, ensuring completions always match whichever `az` binary is on PATH.
 
 The completion tree structure returned by `az --completions`:
@@ -20,52 +20,62 @@ The completion tree structure returned by `az --completions`:
 
 ## Quick Start
 
+Build the solution first:
+```powershell
+.\build\build.ps1 -Configuration Release
+```
+
 ### PowerShell
 
 ```powershell
-# Build solution
-.\build\build.ps1
+. <path-to>/az.completions.ps1
 
-# Load completions into current session
-. .\bin\az.completions.ps1
-```
+# Set env var to enable azclips detection (skip system Azure CLI)
+$env:AZCLIPS_BINARY = '1'
 
-Now press Tab after `az ` to see suggestions:
-```powershell
-az group <Tab>
-```
+# Optional: alias az so you can test without full path
+Set-Alias az <path-to>\az.exe
 
-### zsh
-
-```zsh
-# Build solution
-pwsh ./build/build.ps1
-
-# Load completions into current session
-autoload -U compinit
-compinit
-source ./bin/az.completions.zsh
-```
-
-Now press Tab after `az ` to see suggestions:
-```zsh
-az group <Tab>
+# Test completions
+az <Tab>                              # top-level groups
+<path-to>\az.exe <Tab>                # path-qualified also works
+az vm create --<Tab>                  # parameters
 ```
 
 ### bash
 
 ```bash
-# Build solution
-pwsh ./build/build.ps1
+export AZCLIPS_BINARY=1
+source <path-to>/az.completions.bash
 
-# Load completions into current session
-source ./bin/az.completions.bash
+# Optional: add az to PATH so you can test without full path
+export PATH="<path-to-az-directory>:$PATH"
+
+az <Tab>              # top-level groups
+az vm <Tab>           # subcommands
+az vm create --<Tab>  # parameters
 ```
 
-Now press Tab after `az ` to see suggestions:
-```bash
-az group <Tab>
+### zsh
+
+```zsh
+export AZCLIPS_BINARY=1
+autoload -U compinit && compinit
+source <path-to>/az.completions.zsh
+
+# Optional: add az to PATH so you can test without full path
+export PATH="<path-to-az-directory>:$PATH"
+
+az <Tab>              # top-level groups
+az vm <Tab>           # subcommands
+az vm create --<Tab>  # parameters
 ```
+
+### Notes
+
+- `$AZCLIPS_BINARY=1` tells the scripts this is azclips, not system Azure CLI. Without it, bare `az` completions are skipped.
+- Completion results are cached per session. Run `_azClearCache` (PS) or `_az_clear_cache` (bash/zsh) to refresh.
+- Requires `jq` for bash/zsh.
 
 ## Toggling Completion
 
