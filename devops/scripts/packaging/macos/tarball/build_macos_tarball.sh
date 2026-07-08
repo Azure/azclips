@@ -46,6 +46,7 @@ COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}"
 CLI_PROJECT="${CLI_PROJECT:-src/CLI/Core.Cli.csproj}"
 RID="${RID:-osx-arm64}"
 INJECTOR_SCRIPT="$PACKAGING_ROOT/common/inject_builtin_extensions.sh"
+JQ_ACQUIRE_SCRIPT="$PACKAGING_ROOT/common/acquire_jq.sh"
 NOTICE_FILE="${NOTICE_FILE:-$REPO_ROOT/NOTICE}"
 LICENSE_FILE="${LICENSE_FILE:-$REPO_ROOT/LICENSE}"
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
@@ -83,6 +84,11 @@ fi
 
 if [[ ! -f "$INJECTOR_SCRIPT" ]]; then
   echo "ERROR: Injector script not found at $INJECTOR_SCRIPT"
+  exit 1
+fi
+
+if [[ ! -f "$JQ_ACQUIRE_SCRIPT" ]]; then
+  echo "ERROR: jq acquisition script not found at $JQ_ACQUIRE_SCRIPT"
   exit 1
 fi
 
@@ -128,6 +134,8 @@ chmod +x "$INJECTOR_SCRIPT"
 OUT_ROOT="$OUT_ROOT" "$INJECTOR_SCRIPT" --publish-dir "$CLI_SC_DIR" --builtin-root "$COMMON_OUT_ROOT/builtin-publish"
 cp "$NOTICE_FILE" "$CLI_SC_DIR/NOTICE"
 cp "$LICENSE_FILE" "$CLI_SC_DIR/LICENSE"
+chmod +x "$JQ_ACQUIRE_SCRIPT"
+"$JQ_ACQUIRE_SCRIPT" --rid "$RID" --output-dir "$CLI_SC_DIR/tools/jq"
 
 mkdir -p "$(dirname "$CLI_TAR_PATH")"
 rm -f "$CLI_TAR_PATH"

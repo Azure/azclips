@@ -131,6 +131,12 @@ for completion_file in az.completions.ps1 az.completions.bash az.completions.zsh
   fi
 done
 
+JQ="$SIM_ROOT/install/tools/jq/jq"
+if [[ ! -x "$JQ" ]]; then
+  echo "FAIL: bundled jq binary missing or not executable at tools/jq/jq"
+  exit 1
+fi
+
 if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Extension" ]]; then
   echo "FAIL: Built-in Extension manager bundle missing"
   exit 1
@@ -145,7 +151,7 @@ if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Conf
 fi
 
 echo "PASS: Bundled extension folders are present"
-echo "PASS: NOTICE, LICENSE, and completion scripts are present"
+echo "PASS: NOTICE, LICENSE, completion scripts, and bundled jq are present"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "NOTE: Non-macOS host detected; skipping macOS runtime execution checks."
@@ -180,11 +186,15 @@ if [[ "$is_runnable" != "true" ]]; then
 fi
 
 echo ""
-echo "[1/4] CLI help (bundled install)"
+echo "[1/5] Bundled jq version"
+"$JQ" --version
+
+echo ""
+echo "[2/5] CLI help (bundled install)"
 HOME="$SIM_ROOT/home" "$AZ" --help 2>&1 | head -n 20 || true
 
 echo ""
-echo "[2/4] Verify built-in extension manager is available"
+echo "[3/5] Verify built-in extension manager is available"
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -qi "Extension.*could not be found"; then
@@ -198,7 +208,7 @@ else
 fi
 
 echo ""
-echo "[3/4] Verify bundled Config commands work"
+echo "[4/5] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
 get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
 echo "  $set_output"
@@ -211,7 +221,7 @@ else
 fi
 
 echo ""
-echo "[4/4] Install Resources extension and verify command resolves"
+echo "[5/5] Install Resources extension and verify command resolves"
 RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"

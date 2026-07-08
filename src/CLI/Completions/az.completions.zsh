@@ -4,7 +4,7 @@
 #   autoload -U compinit && compinit
 #   source <path-to>/az.completions.zsh
 # Or add to your ~/.zshrc to auto-load on every session.
-# Requires: jq
+# Uses bundled jq when available; falls back to jq on PATH.
 #
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
@@ -23,8 +23,12 @@ _az_debug() {
     print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$log_file"
 }
 
+_az_resolve_script_dir() {
+    print -r -- "${${(%):-%x}:A:h}"
+}
+
 _az_resolve_exe() {
-    local script_dir="${${(%):-%x}:A:h}"
+    local script_dir="$(_az_resolve_script_dir)"
     # 1. Same directory as this script
     if [[ -x "$script_dir/az" ]]; then
         echo "$script_dir/az"
@@ -59,6 +63,25 @@ _az_resolve_exe() {
     fi
 }
 
+_az_resolve_jq() {
+    local script_dir candidate
+    script_dir="$(_az_resolve_script_dir)"
+
+    for candidate in \
+        "$script_dir/../tools/jq/jq" \
+        "$script_dir/tools/jq/jq" \
+        "$script_dir/jq"; do
+        if [[ -x "$candidate" ]]; then
+            print -r -- "$candidate"
+            return 0
+        fi
+    done
+
+    if (( $+commands[jq] )); then
+        print -r -- "${commands[jq]}"
+    fi
+}
+
 _az_is_azclips() {
     # Environment variable override: set AZCLIPS_BINARY=1 for azclips, 0 for old az
     if [[ "$AZCLIPS_BINARY" == "1" ]]; then return 0; fi
@@ -77,9 +100,11 @@ _az_get_config_stamp() {
     fi
 
     # Prefer semantic invalidation by reading completion.enabled.
-    if (( $+commands[jq] )); then
+    local jq_cmd
+    jq_cmd="$(_az_resolve_jq)"
+    if [[ -n "$jq_cmd" ]]; then
         local enabled
-        enabled="$(jq -r '
+        enabled="$("$jq_cmd" -r '
             if has("completion") and (.completion|type=="object") and (.completion|has("enabled")) then
                 .completion.enabled
             elif has("completion.enabled") then
@@ -125,16 +150,19 @@ _az_query() {
     [[ -n "$exe" ]] || return 1
     local config_stamp
     config_stamp="$(_az_get_config_stamp)"
+    local jq_cmd
+    jq_cmd="$(_az_resolve_jq)"
+    [[ -n "$jq_cmd" ]] || return 1
     
     # Check cache validity: invalidate on exe/config stamp changes.
     if [[ -n "${_az_completions_cache_root:-}" && "$_az_completions_cache_exe" == "$exe" && "$_az_completions_cache_stamp" == "$config_stamp" ]]; then
-        # Navigate cached tree by context args using jq
+        # Navigate cached tree by context args using the resolved jq binary.
         if [[ $# -eq 0 ]]; then
             _az_query_result="$_az_completions_cache_root"
             return 0
         fi
         local subtree
-        subtree="$(echo "$_az_completions_cache_root" | jq -e --arg k "$1" '.[$k]' 2>/dev/null)"
+        subtree="$(echo "$_az_completions_cache_root" | "$jq_cmd" -e --arg k "$1" '.[$k]' 2>/dev/null)"
         if [[ $? -eq 0 && -n "$subtree" && "$subtree" != "null" ]]; then
             _az_query_result="$subtree"
         fi
@@ -155,7 +183,7 @@ _az_query() {
     if [[ $# -eq 0 ]]; then
         _az_query_result="$root_json"
     else
-        _az_query_result="$(echo "$root_json" | jq -e --arg k "$1" '.[$k]' 2>/dev/null)"
+        _az_query_result="$(echo "$root_json" | "$jq_cmd" -e --arg k "$1" '.[$k]' 2>/dev/null)"
     fi
 }
 
@@ -187,7 +215,9 @@ _az() {
             json="$_az_query_result"
             _az_debug "json=$json"
             if [[ -n "$json" ]]; then
-                candidates=("${(@f)$(echo "$json" | jq -r 'keys[]' 2>/dev/null)}")
+                local jq_cmd
+                jq_cmd="$(_az_resolve_jq)"
+                candidates=("${(@f)$(echo "$json" | "$jq_cmd" -r 'keys[]' 2>/dev/null)}")
             fi
             _az_debug "level=0 candidates=(${candidates[*]})"
             ;;
@@ -200,14 +230,16 @@ _az() {
             if [[ -n "$json" ]]; then
                 local subs_output params_output
                 local -a arr
+                local jq_cmd
+                jq_cmd="$(_az_resolve_jq)"
 
-                subs_output="$(echo "$json" | jq -r '._subcommands[]? // empty' 2>/dev/null)"
+                subs_output="$(echo "$json" | "$jq_cmd" -r '._subcommands[]? // empty' 2>/dev/null)"
                 if [[ -n "$subs_output" ]]; then
                     arr=("${(f)subs_output}")
                     candidates+=("${arr[@]}")
                 fi
 
-                params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
+                params_output="$(echo "$json" | "$jq_cmd" -r '._params[]? // empty' 2>/dev/null)"
                 if [[ -n "$params_output" ]]; then
                     arr=("${(f)params_output}")
                     candidates+=("${arr[@]}")
@@ -226,12 +258,14 @@ _az() {
             _az_debug "json=$json"
             if [[ -n "$json" ]]; then
                 local params_output
+                local jq_cmd
+                jq_cmd="$(_az_resolve_jq)"
                 # Try subcommand-specific params, then group-level
                 if [[ "$sub" != --* ]]; then
-                    params_output="$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)"
+                    params_output="$(echo "$json" | "$jq_cmd" -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)"
                 fi
                 if [[ -z "$params_output" ]]; then
-                    params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
+                    params_output="$(echo "$json" | "$jq_cmd" -r '._params[]? // empty' 2>/dev/null)"
                 fi
 
                 if [[ -n "$params_output" ]]; then

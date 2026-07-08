@@ -75,7 +75,7 @@ az vm create --<Tab>  # parameters
 
 - `$AZCLIPS_BINARY=1` tells the scripts this is azclips, not system Azure CLI. Without it, bare `az` completions are skipped.
 - Completion results are cached per session. Run `_azClearCache` (PS) or `_az_clear_cache` (bash/zsh) to refresh.
-- Requires `jq` for bash/zsh.
+- Bash/zsh use the bundled `tools/jq/jq` binary when installed, with `jq` on `PATH` as a fallback.
 
 ## Toggling Completion
 

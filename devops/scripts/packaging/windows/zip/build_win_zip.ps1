@@ -109,6 +109,7 @@ $CliWinZipPath = [System.IO.Path]::GetFullPath($CliWinZipPath)
 $cliWinScDir = Join-Path $OutRoot "publish/cli/$Rid"
 $builtinPublishRoot = Join-Path $CommonOutRoot 'builtin-publish'
 $injectScriptPath = Join-Path $packagingRoot 'common/inject_builtin_extensions.ps1'
+$jqAcquireScriptPath = Join-Path $packagingRoot 'common/acquire_jq.ps1'
 
 Push-Location $repoRoot
 try {
@@ -134,6 +135,10 @@ try {
         throw "Injector script not found at $injectScriptPath"
     }
 
+    if (-not (Test-Path -Path $jqAcquireScriptPath -PathType Leaf)) {
+        throw "jq acquisition script not found at $jqAcquireScriptPath"
+    }
+
     if (-not (Test-Path -Path $noticeFile -PathType Leaf)) {
         throw "NOTICE file was not found: $noticeFile"
     }
@@ -145,6 +150,7 @@ try {
     & $injectScriptPath -PublishDir $cliWinScDir -BuiltinRoot $builtinPublishRoot
     Copy-Item -Path $noticeFile -Destination (Join-Path $cliWinScDir 'NOTICE') -Force
     Copy-Item -Path $licenseFile -Destination (Join-Path $cliWinScDir 'LICENSE') -Force
+    & $jqAcquireScriptPath -Rid $Rid -OutputDir (Join-Path $cliWinScDir 'tools/jq')
 
     $zipDir = Split-Path -Parent $CliWinZipPath
     New-Item -Path $zipDir -ItemType Directory -Force | Out-Null

@@ -147,6 +147,12 @@ foreach ($completionFile in @('az.completions.ps1', 'az.completions.bash', 'az.c
     Write-Host "PASS: completions/$completionFile present"
 }
 
+$jqExe = Join-Path $SimRoot 'install/tools/jq/jq.exe'
+if (-not (Test-Path -Path $jqExe -PathType Leaf)) {
+    throw 'FAIL: bundled jq.exe missing from extracted zip.'
+}
+Write-Host 'PASS: tools/jq/jq.exe present'
+
 $builtins = @(
     'Microsoft.Azure.Azclips.Extensions.Extension',
     'Microsoft.Azure.Azclips.Extensions.Login',
@@ -172,6 +178,11 @@ if ($IsWindows -and -not $SkipRuntime) {
     Write-Host '[Runtime] Running az.exe checks on Windows'
 
     $env:USERPROFILE = Join-Path $SimRoot 'home'
+
+    & $jqExe --version | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw "FAIL: bundled jq.exe --version exited with code $LASTEXITCODE."
+    }
 
     & $azExe --help | Select-Object -First 20 | Out-Host
     if ($LASTEXITCODE -ne 0) {
