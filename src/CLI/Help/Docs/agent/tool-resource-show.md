@@ -24,3 +24,11 @@ az agent tool resource show --name my-vm --kind resource --live true
 ```bash
 az agent tool resource show --name /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg/providers/Microsoft.Compute/virtualMachines/my-vm
 ```
+
+### Disambiguate a name shared across subscriptions or resource groups
+
+```bash
+az agent tool resource show --name my-vm --kind resource --subscription-id 00000000-0000-0000-0000-000000000000 --resource-group my-rg
+```
+
+Optional flags: `--kind` (tenant | subscription | resourceGroup | resource; defaults to all), `--subscription-id` (subscription scope), `--resource-group` (only meaningful for `--kind resource`), `--live` (add a live ARM GET for deep fields).

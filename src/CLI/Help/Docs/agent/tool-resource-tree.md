@@ -24,3 +24,11 @@ az agent tool resource tree --name my-subscription --kind subscription --max-dep
 ```bash
 az agent tool resource tree --name my-rg --kind resourceGroup
 ```
+
+### Disambiguate a resource group whose name repeats across subscriptions
+
+```bash
+az agent tool resource tree --name my-rg --kind resourceGroup --subscription-id 00000000-0000-0000-0000-000000000000
+```
+
+Optional flags: `--max-depth` (traversal cap, default 2), `--subscription-id` (subscription scope, used when `--kind resourceGroup` and the RG name repeats across subscriptions).

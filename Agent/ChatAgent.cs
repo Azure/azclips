@@ -199,8 +199,9 @@ public sealed class ChatAgent : IAsyncDisposable
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's
-        // get_command uses — on a hit it's the parameter table; on a miss it's the
-        // not_found JSON with suggestions, which is still useful context.
+        // get_command uses — on a hit it's the parameter table. On a miss (any
+        // error payload, including not_found) FailedCommandHelp skips injection
+        // entirely rather than seeding the session with an error blob.
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
         var sessionConfig = BuildBaseSessionConfig(
             systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
