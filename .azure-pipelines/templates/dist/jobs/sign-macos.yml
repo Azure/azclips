@@ -174,6 +174,16 @@ jobs:
         path: $(Pipeline.Workspace)/macos-signing-inputs
     - pwsh: |
         $ErrorActionPreference = 'Stop'
+        $entitlementsPath = "$(Pipeline.Workspace)/macos-signing-inputs/azclips-runtime.entitlements.plist"
+        if (-not (Test-Path $entitlementsPath)) {
+          throw "macOS signing entitlements file was not found: $entitlementsPath"
+        }
+
+        $jsonSafeEntitlementsPath = $entitlementsPath.Replace('\', '/')
+        Write-Host "##vso[task.setvariable variable=MacOSEntitlementsPath]$jsonSafeEntitlementsPath"
+      displayName: Resolve macOS Entitlements Path For ESRP
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
         $inputRoot = "$(Pipeline.Workspace)/macos-signing-inputs"
         $mappingPath = Join-Path $inputRoot 'file-mapping.tsv'
         $toBeSignedDir = Join-Path $inputRoot 'toBeSigned'
@@ -235,7 +245,7 @@ jobs:
               "OperationCode": "MacAppDeveloperSign",
               "Parameters": {
                 "Hardening": "--options=runtime",
-                "Entitlements": "$(Pipeline.Workspace)/macos-signing-inputs/azclips-runtime.entitlements.plist",
+                "Entitlements": "$(MacOSEntitlementsPath)",
                 "OpusInfo": "http://Microsoft.com"
               },
               "ToolName": "sign",
