@@ -13,8 +13,20 @@
 # or if the completion.enabled setting changes in user config.
 # To refresh manually, run: _az_clear_cache
 
+# Resolve config path once at source time.
+# In WSL, Windows exe writes config to the Windows user profile, not $HOME.
+_az_config_path="$HOME/.azclips/config.json"
+if [[ -f /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+    _az_wsl_profile="$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r\n')"
+    if [[ -n "$_az_wsl_profile" ]] && command -v wslpath >/dev/null 2>&1; then
+        _az_wsl_home="$(wslpath "$_az_wsl_profile" 2>/dev/null)"
+        [[ -n "$_az_wsl_home" ]] && _az_config_path="$_az_wsl_home/.azclips/config.json"
+    fi
+    unset _az_wsl_profile _az_wsl_home
+fi
+
 _az_get_config_stamp() {
-    local config_path="$HOME/.azclips/config.json"
+    local config_path="$_az_config_path"
 
     # Missing config means defaults apply (completion.enabled=true).
     if [[ ! -f "$config_path" ]]; then
