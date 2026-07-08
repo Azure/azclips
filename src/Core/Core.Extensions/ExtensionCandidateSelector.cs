@@ -159,15 +159,44 @@ public static class ExtensionCandidateSelector
     {
         var verbs = candidate.Verbs
             .Where(static verb => !string.IsNullOrWhiteSpace(verb))
-            .Select(static verb => verb.Trim())
-            .OrderBy(static verb => verb, StringComparer.OrdinalIgnoreCase);
+            .Select(static verb => verb.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static verb => verb, StringComparer.Ordinal);
 
         var commands = candidate.Commands.Keys
             .Where(static command => !string.IsNullOrWhiteSpace(command))
-            .Select(static command => command.Trim())
-            .OrderBy(static command => command, StringComparer.OrdinalIgnoreCase);
+            .Select(static command => command.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static command => command, StringComparer.Ordinal);
 
-        return string.Join("\n", [candidate.PackageId, candidate.ResolvedVersion, string.Join("|", verbs), string.Join("|", commands)]);
+        return string.Join("\n", [
+            NormalizeToken(candidate.PackageId),
+            NormalizeVersion(candidate.ResolvedVersion),
+            string.Join("|", verbs),
+            string.Join("|", commands)]);
+    }
+
+    private static string NormalizeVersion(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = version.Trim();
+        if (!NuGetVersion.TryParse(trimmed, out var parsedVersion))
+        {
+            return trimmed.ToLowerInvariant();
+        }
+
+        return parsedVersion.ToNormalizedString().ToLowerInvariant();
+    }
+
+    private static string NormalizeToken(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim().ToLowerInvariant();
     }
 
     private static string FormatVerbs(IReadOnlyList<string> verbs)

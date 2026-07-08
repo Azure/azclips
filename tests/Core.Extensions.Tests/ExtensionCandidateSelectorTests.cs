@@ -220,6 +220,18 @@ public sealed class ExtensionCandidateSelectorTests
         Assert.Empty(selected.Ignored);
     }
 
+    [Fact]
+    public void Select_ShouldCollapseCandidates_WhenDifferencesAreOnlyCasing()
+    {
+        var upper = CreateInfo("Contoso.Widget", "1.0.0-ALPHA", ["Widget Create"]);
+        var lower = CreateInfo("contoso.widget", "1.0.0-alpha", ["widget create"]);
+
+        var selected = ExtensionCandidateSelector.Select([upper, lower]);
+
+        Assert.Equal(ExtensionSelectionReason.SingleCandidate, selected.Reason);
+        Assert.Empty(selected.Ignored);
+    }
+
     private static DiscoveredExtensionInfo CreateInfo(string packageId, string version, IEnumerable<string> commandNames)
     {
         var commands = commandNames.ToDictionary(

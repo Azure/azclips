@@ -66,7 +66,8 @@ internal class DiscoverySession : ISession
                         ? info.Version
                         : resolvedVersion;
 
-                    IExtensionIndex index = LoadDiscoveredIndex(info.Name, versionToLoad);
+                    var loaded = LoadDiscoveredIndex(info.Name, versionToLoad);
+                    IExtensionIndex index = loaded.Index;
 
                     var commands = index.GetAllCommands(clientType)
                         .ToDictionary(c => c.InvocationName);
@@ -74,7 +75,7 @@ internal class DiscoverySession : ISession
 
                     extensionInfos.Add(new DiscoveredExtensionInfo(
                         PackageId: packageId,
-                        ResolvedVersion: versionToLoad,
+                        ResolvedVersion: loaded.EffectiveVersion,
                         Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
                         Commands: commands));
                 }
@@ -139,31 +140,56 @@ internal class DiscoverySession : ISession
         await sessionOutputWriter(extensionInfos, EventBus.Token);
     }
 
-    private IExtensionIndex LoadDiscoveredIndex(string extensionName, string versionToLoad)
+    private LoadedDiscoveredIndex LoadDiscoveredIndex(string extensionName, string versionToLoad)
     {
         if (isTransient)
         {
-            return LoadAssemblyWithFallback(extensionName, versionToLoad).GetExtensionIndex();
+            var loadedAssembly = LoadAssemblyWithFallback(extensionName, versionToLoad);
+            return new LoadedDiscoveredIndex(loadedAssembly.Assembly.GetExtensionIndex(), loadedAssembly.EffectiveVersion);
         }
 
-        return CacheGetOrAdd(
-            extensionName,
-            versionToLoad,
-            () => LoadAssemblyWithFallback(extensionName, versionToLoad).GetExtensionIndex());
+        if (string.IsNullOrWhiteSpace(versionToLoad))
+        {
+            return new LoadedDiscoveredIndex(
+                CacheGetOrAdd(
+                    extensionName,
+                    string.Empty,
+                    () => LoadAssembly.Invoke(extensionName, string.Empty).GetExtensionIndex()),
+                string.Empty);
+        }
+
+        try
+        {
+            return new LoadedDiscoveredIndex(
+                CacheGetOrAdd(
+                    extensionName,
+                    versionToLoad,
+                    () => LoadAssembly.Invoke(extensionName, versionToLoad).GetExtensionIndex()),
+                versionToLoad);
+        }
+        catch (InvalidOperationException ex) when (IsVersionedLoadMiss(ex))
+        {
+            return new LoadedDiscoveredIndex(
+                CacheGetOrAdd(
+                    extensionName,
+                    string.Empty,
+                    () => LoadAssembly.Invoke(extensionName, string.Empty).GetExtensionIndex()),
+                string.Empty);
+        }
     }
 
-    private Assembly LoadAssemblyWithFallback(string extensionName, string versionToLoad)
+    private LoadedAssembly LoadAssemblyWithFallback(string extensionName, string versionToLoad)
     {
         try
         {
-            return LoadAssembly.Invoke(extensionName, versionToLoad);
+            return new LoadedAssembly(LoadAssembly.Invoke(extensionName, versionToLoad), versionToLoad);
         }
         catch (InvalidOperationException ex) when (
             !string.IsNullOrWhiteSpace(versionToLoad) &&
             IsVersionedLoadMiss(ex))
         {
             // Some loaders cannot resolve explicit versions; retry unversioned to keep discovery resilient.
-            return LoadAssembly.Invoke(extensionName, string.Empty);
+            return new LoadedAssembly(LoadAssembly.Invoke(extensionName, string.Empty), string.Empty);
         }
     }
 
@@ -171,6 +197,10 @@ internal class DiscoverySession : ISession
     {
         return ex.Message.Contains("could not be found by any extension loader", StringComparison.OrdinalIgnoreCase);
     }
+
+    private sealed record LoadedAssembly(Assembly Assembly, string EffectiveVersion);
+
+    private sealed record LoadedDiscoveredIndex(IExtensionIndex Index, string EffectiveVersion);
 
     private static string ResolvePackageId(IExtensionIndex index, IReadOnlyDictionary<string, CommandMetadata> commands, string fallbackIdentifier)
     {
