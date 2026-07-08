@@ -4,6 +4,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Reflection;
 using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Exporters;
@@ -23,6 +24,8 @@ public class Program
         var productFilter = ParseProductFilter(args);
         var localMode = ParseLocalMode(args);
         var ciMode = ParseCiMode(args);
+        var extensionFilter = ParseExtensionFilter(args);
+        var listMode = ParseListMode(args);
 
         if (ciMode)
         {
@@ -35,10 +38,22 @@ public class Program
             Console.WriteLine("[Benchmark] Local mode: App Insights upload will be skipped");
         }
 
+        if (listMode)
+        {
+            var discovered = GetBenchmarkTypes(productFilter, extensionFilter);
+            Console.WriteLine($"[Benchmark] Discovered {discovered.Length} class(es):");
+            foreach (var t in discovered)
+            {
+                var ext = t.GetCustomAttribute<BenchmarkExtensionAttribute>()!.Name;
+                Console.WriteLine($"  - {ext} / {ProductOf(t)} / {t.Name}");
+            }
+            return 0;
+        }
+
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
 
         var artifactsPath = ciMode
-            ? Path.Combine(RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", "ci", productFilter ?? "ALL")
+            ? Path.Combine(RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", "ci", extensionFilter ?? "ALL", productFilter ?? "ALL")
             : Path.Combine(RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", timestamp);
 
         var config = ManualConfig.CreateEmpty()
@@ -57,7 +72,7 @@ public class Program
             .WithOptions(ConfigOptions.DisableOptimizationsValidator);
 
         // Get benchmark types based on --product filter
-        var benchmarkTypes = GetBenchmarkTypes(productFilter);
+        var benchmarkTypes = GetBenchmarkTypes(productFilter, extensionFilter);
         Console.WriteLine($"[Benchmark] Running {benchmarkTypes.Length} benchmark class(es): {string.Join(", ", benchmarkTypes.Select(t => t.Name))}");
 
         // Run all matching benchmarks directly (no interactive menu).
@@ -170,26 +185,58 @@ public class Program
         }
     }
 
-    private static Type[] GetBenchmarkTypes(string? product)
+    /// <summary>
+    /// Discovers benchmark classes by reflection and filters them by product (inferred
+    /// from the base type) and extension (from <see cref="BenchmarkExtensionAttribute"/>).
+    /// A class missing the attribute is a hard error — this keeps the taxonomy honest.
+    /// </summary>
+    private static Type[] GetBenchmarkTypes(string? product, string? extension)
     {
-        var allTypes = new[]
-        {
-            typeof(CLI.ResourceGroupBenchmarks),
-            typeof(PS.ResourceGroupBenchmarks)
-        };
+        var allTypes = typeof(Program).Assembly.GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract)
+            .Where(t => typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t)
+                     || typeof(PS.PSBenchmarkBase).IsAssignableFrom(t))
+            .ToArray();
 
-        if (string.IsNullOrEmpty(product) || product == "ALL")
+        var untagged = allTypes
+            .Where(t => t.GetCustomAttribute<BenchmarkExtensionAttribute>() is null)
+            .Select(t => t.Name)
+            .ToArray();
+        if (untagged.Length > 0)
         {
-            return allTypes;
+            throw new InvalidOperationException(
+                $"Benchmark classes missing [BenchmarkExtension]: {string.Join(", ", untagged)}");
         }
 
-        return product switch
+        IEnumerable<Type> filtered = allTypes;
+
+        if (!string.IsNullOrEmpty(product) && product != "ALL")
         {
-            "CLI" => new[] { typeof(CLI.ResourceGroupBenchmarks) },
-            "PS" => new[] { typeof(PS.ResourceGroupBenchmarks) },
-            _ => throw new ArgumentException($"Unknown product: {product}. Use: CLI, PS, or ALL")
-        };
+            filtered = product switch
+            {
+                "CLI" => filtered.Where(t => typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t)),
+                "PS" => filtered.Where(t => typeof(PS.PSBenchmarkBase).IsAssignableFrom(t)),
+                _ => throw new ArgumentException($"Unknown product: {product}. Use: CLI, PS, or ALL")
+            };
+        }
+
+        if (!string.IsNullOrEmpty(extension) && extension != "ALL")
+        {
+            filtered = filtered.Where(t => string.Equals(
+                t.GetCustomAttribute<BenchmarkExtensionAttribute>()!.Name,
+                extension,
+                StringComparison.OrdinalIgnoreCase));
+        }
+
+        return filtered
+            .OrderBy(t => t.GetCustomAttribute<BenchmarkExtensionAttribute>()!.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(t => ProductOf(t), StringComparer.Ordinal)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
+            .ToArray();
     }
+
+    private static string ProductOf(Type t) =>
+        typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t) ? "CLI" : "PS";
 
     private static string? ParseProductFilter(string[] args)
     {
@@ -215,5 +262,26 @@ public class Program
     private static bool ParseCiMode(string[] args)
     {
         return args.Any(arg => arg == "--ci");
+    }
+
+    private static string? ParseExtensionFilter(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i] == "--extension" && i + 1 < args.Length)
+            {
+                return args[i + 1].ToUpperInvariant();
+            }
+            if (args[i].StartsWith("--extension="))
+            {
+                return args[i].Substring("--extension=".Length).ToUpperInvariant();
+            }
+        }
+        return null;
+    }
+
+    private static bool ParseListMode(string[] args)
+    {
+        return args.Any(arg => arg == "--list");
     }
 }
