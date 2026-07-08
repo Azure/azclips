@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783468685025,
+  "lastUpdate": 1783495428664,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -2730,6 +2730,48 @@ window.BENCHMARK_DATA = {
             "value": 6095604.030866999,
             "unit": "ns",
             "range": "± 167282.57639917874"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "467e53604bf63d4388c6eb42dbe0b8bfb06b1269",
+          "message": "{Extensions} Handle precedence checks, verbiage cleanup, and builtIn management (#370)\n\n## Summary\n- Unifies extension command metadata on `[ExtensionVerb]` and removes\nredundant `GetVerbs()` contract usage.\n- Adds deterministic same-identity extension selection across install\nlocations.\n- Enforces cross-identity duplicate-command collisions as hard-fail\nafter same-identity selection.\n- Improves selection diagnostics readability in `--debug` output.\n\n## Behavior Changes\n- Precedence for same extension identity:\n  1. Pinned version wins.\n  2. Otherwise higher semantic version wins.\n  3. Equal package+version uses deterministic equivalent selection.\n- Collision policy:\n- Same identity across locations is resolved by precedence (not treated\nas collision).\n- Different identities owning the same command now hard-fail with\ncollision error.\n- Assembly loading:\n- Honors configured builtin/versioned installation directory overrides.\n- Selection behavior is stable regardless of directory enumeration\norder.\n\n## Validation\n- Automated coverage for precedence cases P1-P10.\n- Automated coverage for same-identity dedup vs cross-identity\nhard-fail.\n- Local/manual validation of duplicate-command rejection via `extension\nadd --path`.\n\n## Deferred Follow-ups (Not in this PR)\n- Add path-level candidate provenance in selection diagnostics.\n- Final built-in command-map strategy/docs decision.",
+          "timestamp": "2026-07-08T17:15:22+10:00",
+          "tree_id": "0eb29ecc268497597ee880fa6f0bf814490f821d",
+          "url": "https://github.com/Azure/azclips/commit/467e53604bf63d4388c6eb42dbe0b8bfb06b1269"
+        },
+        "date": 1783495428626,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5838431.678371907,
+            "unit": "ns",
+            "range": "± 99581.18864038252"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5820323.859440958,
+            "unit": "ns",
+            "range": "± 99099.36806588102"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5803022.36599292,
+            "unit": "ns",
+            "range": "± 101166.75310236558"
           }
         ]
       }
