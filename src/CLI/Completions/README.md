@@ -20,52 +20,53 @@ The completion tree structure returned by `az --completions`:
 
 ## Quick Start
 
+Build the solution first:
+```powershell
+.\build\build.ps1 -Configuration Release
+```
+
 ### PowerShell
 
 ```powershell
-# Build solution
-.\build\build.ps1
+. .\artifacts\Release\Core.Cli\az.completions.ps1
 
-# Load completions into current session
-. .\bin\az.completions.ps1
+# Set env var to enable azclips detection (skip system Azure CLI)
+$env:AZCLIPS_BINARY = '1'
+
+# Test completions
+az <Tab>                              # top-level groups
+.\artifacts\Release\Core.Cli\az.exe <Tab>   # path-qualified also works
+az vm create --<Tab>                  # parameters
 ```
 
-Now press Tab after `az ` to see suggestions:
-```powershell
-az group <Tab>
-```
-
-### zsh
-
-```zsh
-# Build solution
-pwsh ./build/build.ps1
-
-# Load completions into current session
-autoload -U compinit
-compinit
-source ./bin/az.completions.zsh
-```
-
-Now press Tab after `az ` to see suggestions:
-```zsh
-az group <Tab>
-```
-
-### bash
+### bash (WSL)
 
 ```bash
-# Build solution
-pwsh ./build/build.ps1
+export AZCLIPS_BINARY=1
+source artifacts/Release/Core.Cli/az.completions.bash
 
-# Load completions into current session
-source ./bin/az.completions.bash
+az <Tab>              # top-level groups
+az vm <Tab>           # subcommands
+az vm create --<Tab>  # parameters
 ```
 
-Now press Tab after `az ` to see suggestions:
-```bash
-az group <Tab>
+### zsh (WSL)
+
+```zsh
+export AZCLIPS_BINARY=1
+autoload -U compinit && compinit
+source artifacts/Release/Core.Cli/az.completions.zsh
+
+az <Tab>              # top-level groups
+az vm <Tab>           # subcommands
+az vm create --<Tab>  # parameters
 ```
+
+### Notes
+
+- `$AZCLIPS_BINARY=1` tells the scripts this is azclips, not system Azure CLI. Without it, bare `az` completions are skipped.
+- Completion results are cached per session. Run `_azClearCache` (PS) or `_az_clear_cache` (bash/zsh) to refresh.
+- Requires `jq` for bash/zsh.
 
 ## Toggling Completion
 

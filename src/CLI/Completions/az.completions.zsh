@@ -123,25 +123,34 @@ _az_query() {
     
     # Check cache validity: invalidate on exe/config stamp changes.
     if [[ -n "${_az_completions_cache_root:-}" && "$_az_completions_cache_exe" == "$exe" && "$_az_completions_cache_stamp" == "$config_stamp" ]]; then
-        # Use cached tree if no context args
+        # Navigate cached tree by context args using jq
         if [[ $# -eq 0 ]]; then
             echo "$_az_completions_cache_root"
             return 0
         fi
+        local subtree
+        subtree="$(echo "$_az_completions_cache_root" | jq -e --arg k "$1" '.[$k]' 2>/dev/null)"
+        if [[ $? -eq 0 && -n "$subtree" && "$subtree" != "null" ]]; then
+            echo "$subtree"
+            return 0
+        fi
     fi
-    
-    # Cache miss or exe changed: query fresh
-    local json
-    json="$("$exe" --completions "$@" 2>/dev/null)"
-    
-    # Only cache root-level query (no arguments) to minimize memory
-    if [[ $# -eq 0 && -n "$json" ]]; then
-        _az_completions_cache_root="$json"
+
+    # Cache miss: query fresh root tree and cache it
+    local root_json
+    root_json="$("$exe" --completions 2>/dev/null)"
+    if [[ -n "$root_json" ]]; then
+        _az_completions_cache_root="$root_json"
         _az_completions_cache_exe="$exe"
         _az_completions_cache_stamp="$config_stamp"
     fi
-    
-    echo "$json"
+
+    # Return the requested subtree (or root if no args)
+    if [[ $# -eq 0 ]]; then
+        echo "$root_json"
+    else
+        echo "$root_json" | jq -e --arg k "$1" '.[$k]' 2>/dev/null
+    fi
 }
 
 # Session cache for completions tree (persists until exe path changes)
@@ -203,12 +212,7 @@ _az() {
             # Level 2+: parameters for the command
             group="${words[2]:l}"
             local sub="${words[3]:l}"
-            # If sub is a flag, query group-level params only
-            if [[ "$sub" == --* ]]; then
-                json="$(_az_query "$group")"
-            else
-                json="$(_az_query "$group" "$sub")"
-            fi
+            json="$(_az_query "$group")"
             _az_debug "json=$json"
             if [[ -n "$json" ]]; then
                 local params_output
