@@ -50,9 +50,12 @@ public class ExecutionSessionSeamTests
         var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);
         var invocation = new CommandInvocation("seam", "x", new Dictionary<string, object>(), IsTransient: false);
 
+        var index = new SeamStubIndex();
         var session = new ExecutionSession(clientType, invocation, streams)
         {
             GetExtensionVersion = () => string.Empty,
+            CacheGetOrAdd = (_, _, _) => index,
+            BindProcessor = (processor, _, _, _) => processor,
             CreateProcessorContext =
                 (s, _) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
         };
