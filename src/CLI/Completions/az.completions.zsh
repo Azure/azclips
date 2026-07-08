@@ -54,36 +54,6 @@ _az_resolve_exe() {
     fi
 }
 
-# Cached result: empty = not checked, 1 = azclips, 0 = not azclips
-_az_is_azclips_cached=""
-
-_az_is_azclips() {
-    if [[ -n "$_az_is_azclips_cached" ]]; then
-        return $(( 1 - _az_is_azclips_cached ))
-    fi
-    # $commands[az] returns the filesystem path (zsh command hash table)
-    local exe
-    if (( $+commands[az] )); then
-        exe="${commands[az]}"
-    else
-        _az_is_azclips_cached=0
-        return 1
-    fi
-    local ver
-    if ! ver="$("$exe" --version 2>&1)" || [[ -z "$ver" ]]; then
-        # --version failed or empty output → not azclips
-        _az_is_azclips_cached=0
-        return 1
-    fi
-    if echo "$ver" | grep -q 'azure-cli'; then
-        _az_is_azclips_cached=0
-        return 1
-    else
-        _az_is_azclips_cached=1
-        return 0
-    fi
-}
-
 _az_query() {
     local exe
     exe="$(_az_resolve_exe)"
@@ -92,15 +62,6 @@ _az_query() {
 }
 
 _az() {
-    # Path-qualified invocation → always complete.
-    # Bare "az" → check PATH to ensure it's azclips, not system azure-cli.
-    if [[ "${words[1]}" != */* && "${words[1]}" != *\\* ]]; then
-        if ! _az_is_azclips; then
-            _default
-            return
-        fi
-    fi
-
     _az_debug "enter _az CURRENT=$CURRENT words=(${words[*]})"
 
     local -a candidates prefix_words subcommands params used_params available
