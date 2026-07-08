@@ -917,6 +917,8 @@ Expected: Completes without error.
 
 - In `tests/Benchmark/CLI/CLIBenchmarkBase.cs`: change `[IterationCount(10000)]` → `[IterationCount(5)]`.
 - In `tests/Benchmark/PS/PSBenchmarkBase.cs`: change `[IterationCount(10000)]` → `[IterationCount(5)]`.
+- Rebuild the Benchmark project so the runs below pick up the lowered count:
+  `dotnet build tests/Benchmark/Benchmark.csproj -c Release` (the extensions/modules from Steps 1–2 are reused).
 
 - [ ] **Step 4: Run the Compute benchmarks (local mode)**
 
