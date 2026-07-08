@@ -21,6 +21,7 @@ public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;
     protected int RgCounter = 0;
+    protected int VmCounter = 0;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
 
     /// <summary>
