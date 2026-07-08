@@ -17,7 +17,7 @@ The Az PowerShell cmdlets ship as NuGet module packages (`Az.*.nupkg`). Each rel
 
 Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShell from <https://aka.ms/powershell> if needed.
 
-## Option A — install with the bundled script (recommended)
+## Install with the bundled script
 
 ```bash
 mkdir -p azps-cmdlets
@@ -45,24 +45,6 @@ Example — install just the Compute module for all users:
 
 ```powershell
 pwsh -File ./azps-cmdlets/InstallModule.ps1 -ModuleName Az.Compute -Scope AllUsers
-```
-
-## Option B — install manually
-
-If you prefer to run the steps yourself (PowerShell 7.6+):
-
-```powershell
-$version = '0.1.0'
-$repoRoot = (Resolve-Path ./azps-cmdlets).Path
-
-Register-PSRepository -Name LocalAzclips `
-  -SourceLocation $repoRoot -PublishLocation $repoRoot `
-  -InstallationPolicy Trusted -PackageManagementProvider NuGet
-
-Install-Module -Name Az -RequiredVersion $version `
-  -Repository LocalAzclips -Scope CurrentUser -Force -AllowClobber
-
-Unregister-PSRepository -Name LocalAzclips
 ```
 
 ## Verify
