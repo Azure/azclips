@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'tests/Benchmark/**'
+      - 'tests/Common/**'
       - 'global.json'
       - 'azclips.slnx'
       - '.github/workflows/benchmark.yml'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'src/**'
       - 'tests/Benchmark/**'
+      - 'tests/Common/**'
       - 'global.json'
       - 'azclips.slnx'
       - '.github/workflows/benchmark.yml'
@@ -22,13 +24,92 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  # ─────────────── Detect which extensions changed ───────────────
+  detect-changes:
+    name: Detect changed extensions
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_work: ${{ steps.set-matrix.outputs.has_work }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared:
+              - 'src/Core/**'
+              - 'tests/Benchmark/*.cs'
+              - 'tests/Common/**'
+              - 'global.json'
+              - 'azclips.slnx'
+              - 'Shared.props'
+              - '.github/workflows/benchmark.yml'
+            compute:
+              - 'src/Extensions/Compute/**'
+              - 'src/PS/Compute/**'
+              - 'tests/Benchmark/CLI/VirtualMachineBenchmarks.cs'
+              - 'tests/Benchmark/PS/VirtualMachineBenchmarks.cs'
+            resources:
+              - 'src/Extensions/Resources/**'
+              - 'src/PS/Resources/**'
+              - 'tests/Benchmark/CLI/ResourceGroupBenchmarks.cs'
+              - 'tests/Benchmark/PS/ResourceGroupBenchmarks.cs'
+
+      - name: Build extension matrix
+        id: set-matrix
+        env:
+          SHARED: ${{ steps.filter.outputs.shared }}
+          COMPUTE: ${{ steps.filter.outputs.compute }}
+          RESOURCES: ${{ steps.filter.outputs.resources }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          ALL='["compute","resources"]'
+          if [ "$EVENT" = "workflow_dispatch" ] || [ "$SHARED" = "true" ]; then
+            MATRIX="$ALL"
+          else
+            exts=()
+            [ "$COMPUTE" = "true" ] && exts+=("compute")
+            [ "$RESOURCES" = "true" ] && exts+=("resources")
+            if [ ${#exts[@]} -eq 0 ]; then
+              MATRIX='[]'
+            else
+              MATRIX=$(printf '"%s",' "${exts[@]}")
+              MATRIX="[${MATRIX%,}]"
+            fi
+          fi
+          echo "matrix={\"extension\":$MATRIX}" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_work=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_work=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved matrix: {\"extension\":$MATRIX}"
+
+  # ─────────────── Run + publish per extension ───────────────
   benchmark:
-    name: Run benchmarks and gate regressions
+    name: Benchmark ${{ matrix.extension }}
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_work == 'true'
     runs-on: [self-hosted, Linux, X64, benchmark]
     permissions:
       contents: write          # gh-pages auto-push (main only)
       pull-requests: write     # PR comments on regression
+    strategy:
+      fail-fast: false
+      max-parallel: 1          # serialize gh-pages pushes
+      matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -40,24 +121,37 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Compute display title
+        id: names
+        run: |
+          ext="${{ matrix.extension }}"
+          echo "title=$(tr '[:lower:]' '[:upper:]' <<< ${ext:0:1})${ext:1}" >> "$GITHUB_OUTPUT"
+
       - name: Restore + build
         run: dotnet build azclips.slnx --configuration Release
+
+      - name: Clean CI artifacts
+        run: rm -rf artifacts/Benchmark/ci
 
       # ─────────────── CLI ───────────────
       - name: Run CLI benchmarks (with retry)
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 15
+          timeout_minutes: 20
           max_attempts: 2
           retry_wait_seconds: 30
-          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product CLI
+          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --extension ${{ matrix.extension }} --product CLI
+
+      - name: Resolve CLI report path
+        id: cli-report
+        run: echo "path=$(ls artifacts/Benchmark/ci/*/CLI/results/*-report-full-compressed.json | head -n1)" >> "$GITHUB_OUTPUT"
 
       - name: Publish CLI dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Azclips CLI Benchmarks'
+          name: 'Azclips ${{ steps.names.outputs.title }} CLI Benchmarks'
           tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
+          output-file-path: ${{ steps.cli-report.outputs.path }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
@@ -72,17 +166,21 @@ jobs:
       - name: Run PS benchmarks (with retry)
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 15
+          timeout_minutes: 20
           max_attempts: 2
           retry_wait_seconds: 30
-          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product PS
+          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --extension ${{ matrix.extension }} --product PS
+
+      - name: Resolve PS report path
+        id: ps-report
+        run: echo "path=$(ls artifacts/Benchmark/ci/*/PS/results/*-report-full-compressed.json | head -n1)" >> "$GITHUB_OUTPUT"
 
       - name: Publish PS dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Azclips PS Benchmarks'
+          name: 'Azclips ${{ steps.names.outputs.title }} PS Benchmarks'
           tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
+          output-file-path: ${{ steps.ps-report.outputs.path }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
@@ -99,10 +197,8 @@ jobs:
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results
-          path: |
-            artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
-            artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
+          name: benchmark-results-${{ matrix.extension }}
+          path: artifacts/Benchmark/ci/**/results/*-report-full-compressed.json
           retention-days: 1
 
       # ─────────────── Always ────────────
@@ -110,6 +206,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-ci-${{ github.run_id }}
+          name: benchmark-ci-${{ matrix.extension }}-${{ github.run_id }}
           path: artifacts/Benchmark/ci/**
           retention-days: 14
