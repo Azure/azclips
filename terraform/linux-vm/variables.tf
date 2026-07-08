@@ -46,23 +46,6 @@ variable "admin_username" {
   default     = "azureuser"
 }
 
-variable "ssh_public_key" {
-  type        = string
-  description = "SSH public key (OpenSSH format) used for admin login. Required — password auth is disabled."
-  nullable    = false
-
-  validation {
-    condition     = can(regex("^ssh-(rsa|ed25519|ecdsa) ", var.ssh_public_key))
-    error_message = "ssh_public_key must be an OpenSSH public key starting with 'ssh-rsa', 'ssh-ed25519', or 'ssh-ecdsa'."
-  }
-}
-
-variable "allowed_ssh_source_cidr" {
-  type        = string
-  description = "Source CIDR allowed to reach SSH (port 22). Required — use your IP (e.g. 1.2.3.4/32) to lock it down, or '*' to allow any."
-  nullable    = false
-}
-
 variable "os_disk_type" {
   type        = string
   description = "Managed OS disk storage account type."

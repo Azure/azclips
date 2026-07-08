@@ -136,7 +136,6 @@ if [[ "$MAKE_TAR" == "1" ]]; then
   echo "==> Creating tarball: $TARBALL"
   tar -czf "$TARBALL" -C "$(dirname "$OUT")" "$(basename "$OUT")"
   echo
-  echo "    Ship and set up on the VM:"
-  echo "      scp \"$TARBALL\" <user>@<vm>:~/"
-  echo "      ssh <user>@<vm> 'tar -xzf azclips-${CONFIG}-${RID}.tar.gz && ${CONFIG}-${RID}/setup-vm-mi.sh --bundle ~/${CONFIG}-${RID}'"
+  echo "    The bundle travels to the VM via Azure Storage + 'az vm run-command'"
+  echo "    (no SSH). Run the full flow with: scripts/mi-e2e-test.sh"
 fi

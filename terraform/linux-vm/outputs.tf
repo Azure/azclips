@@ -19,13 +19,8 @@ output "location" {
 }
 
 output "public_ip_address" {
-  description = "Public IP address of the VM."
+  description = "Public IP address of the VM (used for outbound access only; no inbound SSH)."
   value       = azurerm_public_ip.pip.ip_address
-}
-
-output "ssh_command" {
-  description = "Ready-to-use SSH command to connect to the VM."
-  value       = "ssh ${var.admin_username}@${azurerm_public_ip.pip.ip_address}"
 }
 
 output "user_assigned_identity_client_id" {

@@ -40,17 +40,13 @@ resource "azurerm_network_security_group" "nsg" {
   location            = local.location
   tags                = var.tags
 
-  security_rule {
-    name                       = "AllowSSHInbound"
-    priority                   = 1000
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = var.allowed_ssh_source_cidr
-    destination_address_prefix = "*"
-  }
+  # No inbound rules: the E2E test uses `az vm run-command` (Azure control plane
+  # via the VM guest agent), not SSH, so port 22 is not opened. security_rule is
+  # a computed attribute, so it must be set to an explicit empty list to REMOVE
+  # any pre-existing rules (merely omitting the block would leave them in place).
+  # Default NSG rules still deny inbound Internet traffic; outbound to Azure
+  # Storage (to pull the test bundle) stays allowed by the default rules.
+  security_rule = []
 }
 
 resource "azurerm_network_interface" "nic" {
@@ -97,10 +93,13 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = var.ssh_public_key
+    public_key = tls_private_key.vm_admin.public_key_openssh
   }
 
-  # SSH-key only; no password login.
+  # SSH-key only; no password login. The keypair is generated below purely to
+  # satisfy Azure's requirement that a Linux VM has an admin credential — SSH is
+  # never used (the test drives the VM through `az vm run-command`), the private
+  # key is never exported, and inbound port 22 is closed on the NSG.
   disable_password_authentication = true
 
   os_disk {
@@ -114,6 +113,25 @@ resource "azurerm_linux_virtual_machine" "vm" {
     sku       = var.image.sku
     version   = var.image.version
   }
+
+  # The admin SSH key is a throwaway credential that is never used to connect
+  # (the test drives the VM via `az vm run-command`). Ignore changes to it so
+  # switching the key source never forces a destructive VM replacement — and so
+  # it never collides with the resource group's CanNotDelete lock. New VMs still
+  # get the generated key; existing VMs keep whatever key they were created with.
+  lifecycle {
+    ignore_changes = [admin_ssh_key]
+  }
+}
+
+# Throwaway SSH keypair used only to satisfy Azure's requirement that a Linux VM
+# be created with an admin credential. It is NOT used to connect: the E2E test
+# drives the VM via `az vm run-command`, port 22 is closed, and the private key
+# stays in Terraform state (never output). This removes the need for a
+# long-lived SSH private key secret in CI.
+resource "tls_private_key" "vm_admin" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
 # User-assigned managed identity attached to the VM (see the identity block above).
