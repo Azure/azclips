@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Graph
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_getUser_PS = new(
             Name: "GetUserProcessor",
-            InvocationName: "Get-User",
+            InvocationName: "Get-AzGraphUser",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Graph.Processors.GetUserProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Graph",
@@ -39,7 +39,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Graph
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
-            ["Get-User"] = s_getUser_PS,
+            ["Get-AzGraphUser"] = s_getUser_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches an [ExtensionVerb]
         // declaration on this class; the dispatcher does longest-prefix match on the (verb, path)
