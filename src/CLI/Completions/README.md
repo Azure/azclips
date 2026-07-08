@@ -28,14 +28,14 @@ Build the solution first:
 ### PowerShell
 
 ```powershell
-. .\artifacts\Release\Core.Cli\az.completions.ps1
+. <path-to>/az.completions.ps1
 
 # Set env var to enable azclips detection (skip system Azure CLI)
 $env:AZCLIPS_BINARY = '1'
 
 # Test completions
 az <Tab>                              # top-level groups
-.\artifacts\Release\Core.Cli\az.exe <Tab>   # path-qualified also works
+<path-to>\az.exe <Tab>                # path-qualified also works
 az vm create --<Tab>                  # parameters
 ```
 
@@ -43,7 +43,7 @@ az vm create --<Tab>                  # parameters
 
 ```bash
 export AZCLIPS_BINARY=1
-source artifacts/Release/Core.Cli/az.completions.bash
+source <path-to>/az.completions.bash
 
 az <Tab>              # top-level groups
 az vm <Tab>           # subcommands
@@ -55,7 +55,7 @@ az vm create --<Tab>  # parameters
 ```zsh
 export AZCLIPS_BINARY=1
 autoload -U compinit && compinit
-source artifacts/Release/Core.Cli/az.completions.zsh
+source <path-to>/az.completions.zsh
 
 az <Tab>              # top-level groups
 az vm <Tab>           # subcommands
