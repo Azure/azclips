@@ -15,7 +15,7 @@ internal static class BundledDaemonResolver
             ?? throw new InvalidOperationException(
                 "Bundled Copilot CLI not found. " +
                 (AgentInstallLayout.IsPackaged
-                    ? "Packaging bug — stage_agent should have staged the native binary under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/github.copilot.sdk/<ver>/runtimes/<rid>/native/."
+                    ? "Packaging bug — stage_agent should have staged the native binary under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/<rid>/native/."
                     : "Dev build bug — NuGet restore should place copilot under runtimes/<rid>/native/."));
 
     private static string? FindBundledExe()

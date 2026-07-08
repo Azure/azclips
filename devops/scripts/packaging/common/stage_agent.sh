@@ -10,11 +10,10 @@
 #     azclips-agent.runtimeconfig.json        during Phase 1 native bootstrap
 #     Extensions/Microsoft.Azure.Azclips.Extensions.Agent/
 #       prompts/                            agent-only assets grouped
-#       deps/                               under the Agent extension dir,
-#         github.copilot.sdk/<ver>/         in NuGet-style layout so
-#           lib/net10.0/GitHub.Copilot.SDK.dll        additionalProbingPaths
-#           runtimes/<rid>/native/copilot            resolves them
-#         <other agent-only nugets>/<ver>/lib/<tfm>/*.dll
+#       deps/                               under the Agent extension dir:
+#         <agent-only nugets>/<ver>/lib/<tfm>/*.dll   NuGet-style so
+#         runtimes/<rid>/native/copilot                additionalProbingPaths
+#                                                      + SdkNativeDir resolve them
 #
 # Runtime pack files (System.*.dll, libhostpolicy.so, etc.) come from the
 # CLI's own publish and are byte-identical between the two publishes; this
@@ -108,7 +107,6 @@ deps = json.load(open(deps_json))
 
 dll_map = {}                # dll basename -> (pkg, ver, rel_path)
 runtimepack_names = set()   # dll basenames that come from the .NET runtime pack
-sdk_version = None
 
 for tfm, tge in deps['targets'].items():
     for lib_id, lib in tge.items():
@@ -126,35 +124,9 @@ for tfm, tge in deps['targets'].items():
         # Azclips.Agent.Tools.Reference/1.0.0.0).
         if pkg.endswith('.Reference'):
             continue
-        if pkg == 'GitHub.Copilot.SDK':
-            sdk_version = ver
         if 'runtime' in lib:
             for fp in lib['runtime']:
                 dll_map[os.path.basename(fp)] = (pkg, ver, fp)
-
-if not sdk_version:
-    print("Could not find GitHub.Copilot.SDK version in azclips-agent.deps.json", file=sys.stderr)
-    sys.exit(1)
-
-# 3. Copilot native binary -> deps/github.copilot.sdk/<ver>/runtimes/<rid>/native/
-copilot_moved = 0
-native_root = os.path.join(agent_publish, 'runtimes')
-if os.path.isdir(native_root):
-    for rid_dir in os.listdir(native_root):
-        native_src_dir = os.path.join(native_root, rid_dir, 'native')
-        if not os.path.isdir(native_src_dir):
-            continue
-        for name in os.listdir(native_src_dir):
-            if name not in ('copilot.exe', 'copilot'):
-                continue
-            src = os.path.join(native_src_dir, name)
-            dst_dir = os.path.join(deps_dir, 'github.copilot.sdk', sdk_version,
-                                   'runtimes', rid_dir, 'native')
-            os.makedirs(dst_dir, exist_ok=True)
-            shutil.move(src, os.path.join(dst_dir, name))
-            copilot_moved += 1
-print(f'  [3/6] copilot native: moved {copilot_moved} files to '
-      f'deps/github.copilot.sdk/{sdk_version}/runtimes/<rid>/native/')
 
 # 4-5. Remaining top-level files in agent publish:
 runtimepack_deduped = 0
@@ -251,6 +223,24 @@ if os.path.isdir(ext_runtimes):
     shutil.rmtree(ext_runtimes)
 
 print(f'  [6/6] extension top-level: removed {ext_cleaned} redundant files')
+
+# Any directory still at the agent-publish top level is one not handled above
+# (prompts/ was moved in step 2; runtimes/ and anything new land here). Move
+# each verbatim under deps/<name>/ so it ships instead of being silently
+# dropped — the directory-side counterpart of the unclassified-file check
+# below. runtimes/<rid>/native/copilot then resolves via AgentInstallLayout.
+dirs_moved = 0
+for name in os.listdir(agent_publish):
+    src = os.path.join(agent_publish, name)
+    if not os.path.isdir(src):
+        continue
+    dst = os.path.join(deps_dir, name)
+    if os.path.isdir(dst):
+        shutil.rmtree(dst)
+    shutil.move(src, dst)
+    dirs_moved += 1
+if dirs_moved:
+    print(f'  [6/6] extra dirs: moved {dirs_moved} top-level dir(s) to deps/ verbatim')
 
 if unclassified:
     print('')

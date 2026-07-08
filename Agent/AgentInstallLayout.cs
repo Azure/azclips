@@ -1,4 +1,5 @@
-using System.Text.Json;
+using System;
+using System.IO;
 
 namespace Core.Agent;
 
@@ -35,34 +36,11 @@ internal static class AgentInstallLayout
         ? Path.Combine(AgentExtensionDir, "prompts")
         : Path.Combine(BaseDir, "prompts");
 
+    // Packaged: stage_agent copies the daemon publish's runtimes/ dir verbatim
+    // to deps/runtimes/, so the native binary keeps its NuGet-native subpath
+    // (runtimes/<rid>/native/). Dev: NuGet restore leaves it next to the exe.
+    // Both therefore share the same runtimes/<rid>/native/ tail.
     public static string SdkNativeDir(string rid) => IsPackaged
-        ? Path.Combine(AgentExtensionDir, "deps", "github.copilot.sdk",
-            ReferencedSdkVersionOrThrow(), "runtimes", rid, "native")
+        ? Path.Combine(AgentExtensionDir, "deps", "runtimes", rid, "native")
         : Path.Combine(BaseDir, "runtimes", rid, "native");
-
-    private static string? _cachedSdkVersion;
-    private static string ReferencedSdkVersionOrThrow()
-    {
-        if (_cachedSdkVersion is not null) return _cachedSdkVersion;
-        var depsJson = Path.Combine(BaseDir, "azclips-agent.deps.json");
-        if (!File.Exists(depsJson))
-            throw new InvalidOperationException(
-                $"azclips-agent.deps.json not found at {depsJson}; cannot resolve Copilot SDK version.");
-        using var doc = JsonDocument.Parse(File.ReadAllText(depsJson));
-        foreach (var tfm in doc.RootElement.GetProperty("targets").EnumerateObject())
-        {
-            foreach (var lib in tfm.Value.EnumerateObject())
-            {
-                var parts = lib.Name.Split('/', 2);
-                if (parts.Length == 2 &&
-                    parts[0].Equals("GitHub.Copilot.SDK", StringComparison.OrdinalIgnoreCase))
-                {
-                    _cachedSdkVersion = parts[1];
-                    return _cachedSdkVersion;
-                }
-            }
-        }
-        throw new InvalidOperationException(
-            $"GitHub.Copilot.SDK entry not found in {depsJson}.");
-    }
 }

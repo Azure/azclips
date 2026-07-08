@@ -10,15 +10,17 @@
 #     azclips-agent.runtimeconfig.json        Phase 1 native bootstrap
 #     Extensions/Microsoft.Azure.Azclips.Extensions.Agent/
 #       prompts/                            agent-only assets grouped
-#       deps/                               under the Agent extension dir,
-#         github.copilot.sdk/<ver>/         in NuGet-style layout so
-#           lib/net10.0/GitHub.Copilot.SDK.dll        additionalProbingPaths
-#           runtimes/<rid>/native/copilot[.exe]       resolves them
-#         <other agent-only nugets>/<ver>/lib/<tfm>/*.dll
+#       deps/                               under the Agent extension dir:
+#         <agent-only nugets>/<ver>/lib/<tfm>/*.dll   NuGet-style so
+#         runtimes/<rid>/native/copilot[.exe]         additionalProbingPaths
+#                                                      + SdkNativeDir resolve them
 #
 # Runtime pack files (System.*.dll, hostpolicy.dll, etc.) come from the CLI's
 # own publish and are byte-identical between the two publishes; this script
 # deletes them from the agent publish output rather than duplicating.
+#
+# Top-level dirs other than prompts/ (e.g. runtimes/) are moved verbatim under
+# deps/<name>/ — same rule for all of them, so nothing new is silently dropped.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$AgentPublishDir,   # dotnet publish output for Core.Agent
@@ -46,8 +48,8 @@ foreach ($p in @($AgentPublishDir, $CliPublishDir, $AgentExtensionDir)) {
     }
 }
 
-$sdkRuntime = Join-Path $AgentExtensionDir 'deps'
-$null = New-Item -Path $sdkRuntime -ItemType Directory -Force
+$depsDir = Join-Path $AgentExtensionDir 'deps'
+$null = New-Item -Path $depsDir -ItemType Directory -Force
 
 Write-Host "Staging agent daemon into hybrid layout"
 Write-Host "  agent publish : $AgentPublishDir"
@@ -90,7 +92,6 @@ $deps = Get-Content -Raw -Path $depsPath | ConvertFrom-Json
 
 $dllMap = @{}
 $runtimePackNames = @{}
-$sdkVersion = $null
 
 foreach ($tfmProp in $deps.targets.PSObject.Properties) {
     foreach ($libProp in $tfmProp.Value.PSObject.Properties) {
@@ -114,8 +115,6 @@ foreach ($tfmProp in $deps.targets.PSObject.Properties) {
         # Azclips.Agent.Tools/1.0.0 vs Azclips.Agent.Tools.Reference/1.0.0.0.
         if ($pkg.EndsWith('.Reference')) { continue }
 
-        if ($pkg -eq 'GitHub.Copilot.SDK') { $sdkVersion = $ver }
-
         if ($lib.PSObject.Properties.Match('runtime').Count -gt 0) {
             foreach ($fileProp in $lib.runtime.PSObject.Properties) {
                 $relPath = $fileProp.Name
@@ -125,31 +124,6 @@ foreach ($tfmProp in $deps.targets.PSObject.Properties) {
         }
     }
 }
-
-if (-not $sdkVersion) {
-    throw "Could not find GitHub.Copilot.SDK version in azclips-agent.deps.json"
-}
-
-# 4. copilot native binary -> deps/github.copilot.sdk/<ver>/runtimes/<rid>/native/
-#    Preserves the exact NuGet package layout so future runtime-pack
-#    conventions continue to work.
-$nativeSrcRoot = Join-Path $AgentPublishDir 'runtimes'
-$copilotMoved = 0
-if (Test-Path -Path $nativeSrcRoot -PathType Container) {
-    foreach ($ridDir in Get-ChildItem -Path $nativeSrcRoot -Directory) {
-        $nativeSrc = Join-Path $ridDir.FullName 'native'
-        if (-not (Test-Path -Path $nativeSrc -PathType Container)) { continue }
-        foreach ($file in Get-ChildItem -Path $nativeSrc -File) {
-            # Only relocate copilot binaries; leave other RID-specific natives alone
-            if ($file.Name -ne 'copilot.exe' -and $file.Name -ne 'copilot') { continue }
-            $dstDir = Join-Path $sdkRuntime "github.copilot.sdk/$sdkVersion/runtimes/$($ridDir.Name)/native"
-            $null = New-Item -Path $dstDir -ItemType Directory -Force
-            Move-Item -Path $file.FullName -Destination (Join-Path $dstDir $file.Name) -Force
-            $copilotMoved++
-        }
-    }
-}
-Write-Host "  [3/6] copilot native: moved $copilotMoved files to deps/github.copilot.sdk/$sdkVersion/runtimes/<rid>/native/"
 
 # 5. Remaining files in AgentPublishDir:
 #    - runtime pack member with SHA identical to CLI root: delete
@@ -184,7 +158,7 @@ foreach ($file in Get-ChildItem -Path $AgentPublishDir -File) {
 
     if ($dllMap.ContainsKey($name)) {
         $entry = $dllMap[$name]
-        $dstDir = Join-Path $sdkRuntime "$($entry.pkg.ToLowerInvariant())/$($entry.ver)"
+        $dstDir = Join-Path $depsDir "$($entry.pkg.ToLowerInvariant())/$($entry.ver)"
         $relDir = [System.IO.Path]::GetDirectoryName($entry.rel)
         if ($relDir) { $dstDir = Join-Path $dstDir $relDir }
         $null = New-Item -Path $dstDir -ItemType Directory -Force
@@ -208,7 +182,22 @@ if ($purged -gt 0) {
     Write-Host "        (purged $purged non-shipping files: pdb / .env / dll.config)"
 }
 
-# Clean up empty subdirs left behind (runtimes/, empty prompts/, etc.)
+# Any directory still at the agent-publish top level is one not handled above
+# (prompts/ was moved earlier; runtimes/ and anything new land here). Move each
+# verbatim under deps/<name>/ so it ships instead of being silently dropped —
+# the directory-side counterpart of the unclassified-file check below.
+$dirsMoved = 0
+foreach ($dir in Get-ChildItem -Path $AgentPublishDir -Directory) {
+    $dst = Join-Path $depsDir $dir.Name
+    if (Test-Path -Path $dst) { Remove-Item -Path $dst -Recurse -Force }
+    Move-Item -Path $dir.FullName -Destination $dst -Force
+    $dirsMoved++
+}
+if ($dirsMoved -gt 0) {
+    Write-Host "        (moved $dirsMoved top-level dir(s) to deps/ verbatim)"
+}
+
+# Clean up empty subdirs left behind (empty prompts/, etc.)
 Get-ChildItem -Path $AgentPublishDir -Directory -Recurse |
     Sort-Object FullName -Descending |
     Where-Object { -not (Get-ChildItem -Path $_.FullName -Force -ErrorAction SilentlyContinue) } |
@@ -243,7 +232,7 @@ foreach ($file in Get-ChildItem -Path $AgentExtensionDir -File) {
             ((Get-Sha256Hex -Path $file.FullName) -eq (Get-Sha256Hex -Path $rootTwin))) {
             $isDeletable = $true
         }
-        elseif (Get-ChildItem -Path $sdkRuntime -Filter $name -Recurse -File -ErrorAction SilentlyContinue |
+        elseif (Get-ChildItem -Path $depsDir -Filter $name -Recurse -File -ErrorAction SilentlyContinue |
                 Where-Object { (Get-Sha256Hex -Path $_.FullName) -eq (Get-Sha256Hex -Path $file.FullName) } |
                 Select-Object -First 1) {
             $isDeletable = $true
