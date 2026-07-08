@@ -23,10 +23,10 @@ namespace Core.Agent.Tools.Resource.Cache;
 ///
 /// <para>Cross-process safety: each cache file has its own <c>.lock</c> under
 /// <c>.lock/</c>; a refresher that can't acquire the lock in ~10 s assumes
-/// another process is doing the work and bows out. The refresher also
-/// stamps the fresh <c>cachedAt</c> as its first write action, so other
-/// processes reading the file skip their own refresh even before the
-/// payload finishes writing.</para>
+/// another process is doing the work and bows out. The lock (not the
+/// on-disk <c>cachedAt</c>) is what coalesces peer refreshers — the
+/// <c>cachedAt</c> field is only stamped once the fresh payload is on disk,
+/// so a transient ARG failure doesn't pin peers stale for a full TTL.</para>
 /// </summary>
 public sealed class ArmCacheRefresher
 {
@@ -317,8 +317,13 @@ public sealed class ArmCacheRefresher
             return;
         }
 
-        await WriteCacheMarkerAsync(path, ttl, ct).ConfigureAwait(false);
-
+        // Query first, THEN write. Stamping a fresh cachedAt marker before the
+        // query would make NeedsTtlRefresh() skip the file for another TTL
+        // window if the ARG call throws — a transient failure would look like
+        // a successful refresh and pin the cache stale until TTL expiry (up to
+        // 8 h for resources). The .lock acquired above already coalesces peer
+        // refreshers; the marker was double-protection at the cost of
+        // correctness under failure.
         var items = await QueryArgAsync(query, tenantId, subscriptionIds, ct).ConfigureAwait(false);
         await WriteCacheFileRawAsync(path, ttl, items, ct).ConfigureAwait(false);
     }
@@ -408,32 +413,6 @@ public sealed class ArmCacheRefresher
             promptOnError: false,
             cancellationToken: ct).ConfigureAwait(false);
         return result.AccessToken;
-    }
-
-    // Writes a fresh cachedAt marker while preserving the existing items array
-    // (or an empty one if the file doesn't exist yet). Peer processes reading
-    // NeedsTtlRefresh() see this and skip their own refresh.
-    private static async Task WriteCacheMarkerAsync(string path, TimeSpan ttl, CancellationToken ct)
-    {
-        try
-        {
-            List<JsonElement> existing = new();
-            if (File.Exists(path))
-            {
-                using var fs = OpenForSharedRead(path);
-                using var doc = await JsonDocument.ParseAsync(fs, cancellationToken: ct).ConfigureAwait(false);
-                if (doc.RootElement.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var el in arr.EnumerateArray()) existing.Add(el.Clone());
-                }
-            }
-            await WriteCacheFileRawAsync(path, ttl, existing, ct).ConfigureAwait(false);
-        }
-        catch
-        {
-            // Best-effort — a marker-write failure just means peers may kick
-            // their own refresh too. Not fatal.
-        }
     }
 
     private static async Task WriteCacheFileAsync<T>(string path, TimeSpan ttl, IReadOnlyList<T> items, CancellationToken ct)

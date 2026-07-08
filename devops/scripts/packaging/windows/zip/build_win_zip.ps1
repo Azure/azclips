@@ -149,7 +149,7 @@ try {
 
     # Repackage agent daemon into the hybrid layout: launcher files land next
     # to az.exe, everything else lands under the freshly-injected agent
-    # extension directory (prompts, sdk-runtime NuGet layout, native copilot).
+    # extension directory (prompts, deps/ NuGet layout, native copilot).
     $agentExtInPublish = Join-Path $cliWinScDir 'Extensions/Microsoft.Azure.Azclips.Extensions.Agent'
     if (-not (Test-Path -Path $agentExtInPublish -PathType Container)) {
         throw "Agent extension dir not present in publish after inject: $agentExtInPublish"

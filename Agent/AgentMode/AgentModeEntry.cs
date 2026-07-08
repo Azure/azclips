@@ -373,7 +373,9 @@ public static class AgentModeEntry
     private static string? FindAzExe()
     {
         // Packaged layout: azclips-agent.exe sits next to az.exe in the CLI
-        // publish dir (flattened from the old agent/ subdir). Dev-loop layout
+        // publish dir (hybrid layout: launcher siblings share the runtime pack,
+        // agent-only NuGet deps + prompts + copilot native live under
+        // Extensions/Microsoft.Azure.Azclips.Extensions.Agent/). Dev-loop layout
         // still puts az.exe in <artifacts>/Core.Cli/ next to the agent's
         // <artifacts>/Core.Agent/; keep both fallbacks so a debug F5 works
         // without packaging.

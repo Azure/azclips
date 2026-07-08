@@ -22,7 +22,7 @@ Typical output when the tenant has ~15k resources:
 ### After creating new resources you want to query immediately
 
 ```bash
-az group create --name my-new-rg --location eastus
+az group create --name my-new-rg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000
 az agent tool cache refresh
 az agent tool resource find --name my-new-rg --kind resourceGroup
 ```

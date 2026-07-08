@@ -69,7 +69,7 @@ foreach ($f in $launcherFiles) {
         $launcherMoved++
     }
 }
-Write-Host "  [1/5] launcher: moved $launcherMoved files to CLI publish root"
+Write-Host "  [1/6] launcher: moved $launcherMoved files to CLI publish root"
 
 # 2. prompts/ -> extension dir
 $promptsSrc = Join-Path $AgentPublishDir 'prompts'
@@ -77,7 +77,7 @@ if (Test-Path -Path $promptsSrc -PathType Container) {
     $promptsDst = Join-Path $AgentExtensionDir 'prompts'
     if (Test-Path -Path $promptsDst) { Remove-Item -Path $promptsDst -Recurse -Force }
     Move-Item -Path $promptsSrc -Destination $promptsDst -Force
-    Write-Host "  [2/5] prompts/: moved to $promptsDst"
+    Write-Host "  [2/6] prompts/: moved to $promptsDst"
 }
 
 # 3. Parse the (now-moved) deps.json to build the dll_name -> (pkg, ver, rel_path) map
@@ -149,7 +149,7 @@ if (Test-Path -Path $nativeSrcRoot -PathType Container) {
         }
     }
 }
-Write-Host "  [3/5] copilot native: moved $copilotMoved files to deps/github.copilot.sdk/$sdkVersion/runtimes/<rid>/native/"
+Write-Host "  [3/6] copilot native: moved $copilotMoved files to deps/github.copilot.sdk/$sdkVersion/runtimes/<rid>/native/"
 
 # 5. Remaining files in AgentPublishDir:
 #    - runtime pack member with SHA identical to CLI root: delete
@@ -202,8 +202,8 @@ foreach ($file in Get-ChildItem -Path $AgentPublishDir -File) {
     $unclassified += $name
 }
 
-Write-Host "  [4/5] runtime pack: deduped $runtimePackDeduped files (byte-identical to CLI root)"
-Write-Host "  [5/5] agent NuGet: moved $nugetMoved dlls to deps/<pkg>/<ver>/<lib-path>/"
+Write-Host "  [4/6] runtime pack: deduped $runtimePackDeduped files (byte-identical to CLI root)"
+Write-Host "  [5/6] agent NuGet: moved $nugetMoved dlls to deps/<pkg>/<ver>/<lib-path>/"
 if ($purged -gt 0) {
     Write-Host "        (purged $purged non-shipping files: pdb / .env / dll.config)"
 }
@@ -267,8 +267,9 @@ Write-Host "  [6/6] extension top-level: removed $extCleaned redundant files"
 
 if ($unclassified.Count -gt 0) {
     Write-Host ""
-    Write-Host "WARNING: unclassified agent publish outputs. Verify packaging is not silently dropping something needed:" -ForegroundColor Yellow
-    foreach ($u in $unclassified) { Write-Host "  - $u" -ForegroundColor Yellow }
+    Write-Host "ERROR: unclassified agent publish outputs. Packaging cannot silently drop or ship unknown files:" -ForegroundColor Red
+    foreach ($u in $unclassified) { Write-Host "  - $u" -ForegroundColor Red }
+    throw "stage_agent: $($unclassified.Count) unclassified file(s); update stage_agent classification rules before shipping."
 }
 
 Write-Host "OK: stage_agent complete"

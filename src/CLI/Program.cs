@@ -412,10 +412,10 @@ public class Program
         var baseDir = AppContext.BaseDirectory;
         foreach (var candidate in new[]
         {
-            // Packaged layout: azclips-agent.exe lives next to az.exe and shares
-            // the CLI's runtime pack + dependency closure (saves ~80 MB vs the
-            // old agent/ subdir layout). Guaranteed safe because CI produces
-            // byte-identical duplicates for every shared dll.
+            // Packaged layout: azclips-agent.exe lives next to az.exe (hybrid
+            // layout — see stage_agent). The two share the runtime pack + all
+            // shared NuGet dlls; agent-only deps + prompts + copilot native
+            // live under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/.
             Path.Combine(baseDir, "azclips-agent.exe"),
             Path.Combine(baseDir, "azclips-agent"),
             // Local dev layout: `dotnet build` publishes each project to its

@@ -253,9 +253,10 @@ print(f'  [6/6] extension top-level: removed {ext_cleaned} redundant files')
 
 if unclassified:
     print('')
-    print('WARNING: unclassified agent publish outputs. Verify packaging is not silently dropping something needed:')
+    print('ERROR: unclassified agent publish outputs. Packaging cannot silently drop or ship unknown files:', file=sys.stderr)
     for u in unclassified:
-        print(f'  - {u}')
+        print(f'  - {u}', file=sys.stderr)
+    sys.exit(1)
 
 print('OK: stage_agent complete')
 PY
