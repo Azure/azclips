@@ -102,15 +102,10 @@ public sealed class ArmCacheRefresher
         // detached background refresh. Runs on CancellationToken.None; failures
         // surface via LastError.
         //
-        // Fast-out when a refresh is already in flight: read paths call this on
-        // every query, and RefreshOnceAsync already coalesces per-tenant via
-        // _inFlight, so a second refresh wouldn't run anyway. Skipping the outer
-        // Task.Run here avoids piling up throwaway tasks that would only await
-        // the same shared work.
-        if (!_inFlight.IsEmpty)
-        {
-            return;
-        }
+        // No de-dup needed here: RefreshOnceAsync coalesces per-tenant via
+        // _inFlight and RefreshTenantAsync guards with a file lock, so repeated
+        // kicks never run a second real refresh — the extra outer tasks just
+        // await the shared work and cost nothing worth optimizing.
         _ = Task.Run(async () =>
         {
             try
