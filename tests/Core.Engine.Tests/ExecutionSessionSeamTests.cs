@@ -53,7 +53,9 @@ public class ExecutionSessionSeamTests
         var session = new ExecutionSession(clientType, invocation, streams)
         {
             GetExtensionVersion = () => string.Empty,
-            CreateProcessorContext = (s, _) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
+            CreateProcessorContext =
+                (s, _) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
+        };
         return session;
     }
 
