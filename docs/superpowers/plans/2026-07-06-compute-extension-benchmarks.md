@@ -18,6 +18,7 @@
 - `BenchmarkExtensionAttribute.cs` (create) — the `[BenchmarkExtension("Name")]` marker.
 - `Program.cs` (modify) — reflection discovery, `--extension` + `--list` args, per-extension CI artifacts path.
 - `BenchmarkBase.cs` (modify) — add `VmCounter`.
+- `ChartGenerator.cs` (modify) — derive operation labels from benchmark names (drop hardcoded RG list); generic subtitle. Local/CI-log artifacts only.
 - `CLI/ResourceGroupBenchmarks.cs` (modify) — add `[BenchmarkExtension("Resources")]`.
 - `PS/ResourceGroupBenchmarks.cs` (modify) — add `[BenchmarkExtension("Resources")]`.
 - `CLI/VirtualMachineBenchmarks.cs` (create) — Compute CLI benchmarks.
@@ -821,7 +822,81 @@ git commit -m "feat(benchmark): add Compute PS VirtualMachine benchmarks"
 
 ---
 
-## Task 8: Smoke-validate the benchmarks end-to-end
+## Task 8: Generalize `ChartGenerator` for any extension
+
+`ChartGenerator` produces the local/CI-log HTML + JSON artifacts (it does **not** feed the gh-pages dashboard, the regression gate, or PR comments — those come from BenchmarkDotNet's own report JSON). Today it hardcodes the three Resource-Group operations, so a Compute run would show empty/misleading rows. Derive operation labels from the benchmark display names instead, so the local charts work for any extension automatically.
+
+**Files:**
+- Modify: `tests/Benchmark/ChartGenerator.cs`
+
+- [ ] **Step 1: Replace `CalculateOverhead` with a dynamic version**
+
+In `tests/Benchmark/ChartGenerator.cs`, replace the entire `CalculateOverhead` method (the one beginning `private static List<OverheadData> CalculateOverhead`) with:
+
+```csharp
+    private static List<OverheadData> CalculateOverhead(List<ChartDataPoint> data)
+    {
+        // Derive the operation label from each benchmark's display name by stripping the
+        // leading product prefix ("CLI: " / "PS: "). This keeps the comparison view
+        // extension-agnostic — whatever operations ran show up automatically, in
+        // first-seen order — instead of a hardcoded Resource-Group list.
+        return data
+            .Select(x => OperationLabel(x.Method))
+            .Distinct()
+            .Select(op =>
+            {
+                var cliResult = data.FirstOrDefault(x => OperationLabel(x.Method) == op && x.Product == "CLI");
+                var psResult = data.FirstOrDefault(x => OperationLabel(x.Method) == op && x.Product == "PS");
+
+                return new OverheadData
+                {
+                    Operation = op,
+                    CliTime = Math.Round(cliResult?.MeanSeconds ?? 0, 4),
+                    PsTime = Math.Round(psResult?.MeanSeconds ?? 0, 4)
+                };
+            }).ToList();
+    }
+
+    // "CLI: List VM" -> "List VM"; "PS: Create RG" -> "Create RG"; falls back to the
+    // whole trimmed name when there is no "<product>: " prefix.
+    private static string OperationLabel(string method)
+    {
+        var colon = method.IndexOf(':');
+        return colon >= 0 ? method[(colon + 1)..].Trim() : method.Trim();
+    }
+```
+
+- [ ] **Step 2: Generalize the comparison subtitle**
+
+In the same file, inside `GenerateGroupedBarChart`, replace the hardcoded subtitle line (note the doubled quotes — it is inside a C# verbatim string):
+
+```html
+        <p class=""subtitle"">Execution time comparison across CLI and PowerShell for Resource Group operations</p>
+```
+
+with:
+
+```html
+        <p class=""subtitle"">Execution time comparison across CLI and PowerShell</p>
+```
+
+- [ ] **Step 3: Build**
+
+Run: `dotnet build tests/Benchmark/Benchmark.csproj`
+Expected: Build succeeds.
+
+(Functional verification happens in Task 9's smoke run, which inspects the generated summary JSON.)
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add tests/Benchmark/ChartGenerator.cs
+git commit -m "refactor(benchmark): derive chart operations from benchmark names (extension-agnostic)"
+```
+
+---
+
+## Task 9: Smoke-validate the benchmarks end-to-end
 
 Confirm both extensions build and run to completion (including the orchestrated create) at a low iteration count. This uses the `validate-benchmarks` skill's technique.
 
@@ -853,12 +928,19 @@ Expected: ends with `[Benchmark] PASS — all benchmarks completed successfully.
 Run: `dotnet run --project tests/Benchmark/Benchmark.csproj -c Release --no-build -- --local --extension ALL --product ALL`
 Expected: ends with `[Benchmark] PASS`; both Compute and Resources classes run.
 
-- [ ] **Step 6: ALWAYS restore the iteration count to 10000**
+- [ ] **Step 6: Inspect the generated summary JSON (verifies Task 8's ChartGenerator change)**
+
+The `--local` runs above wrote `artifacts/Benchmark/<timestamp>/benchmark-summary-*.json`. Confirm the latest summary lists the VM operations by their derived labels (not the old hardcoded RG labels):
+
+Run: `Get-Content (Get-ChildItem artifacts/Benchmark -Recurse -Filter 'benchmark-summary-*.json' | Sort-Object LastWriteTime | Select-Object -Last 1).FullName | Select-String 'List VM','Create VM','Get VM'`
+Expected: matches for `List VM`, `Create VM`, and `Get VM` (the full-suite run's summary also contains the RG operations). This proves the dynamic operation derivation replaced the hardcoded list.
+
+- [ ] **Step 7: ALWAYS restore the iteration count to 10000**
 
 - In `tests/Benchmark/CLI/CLIBenchmarkBase.cs`: change `[IterationCount(5)]` → `[IterationCount(10000)]`.
 - In `tests/Benchmark/PS/PSBenchmarkBase.cs`: change `[IterationCount(5)]` → `[IterationCount(10000)]`.
 
-- [ ] **Step 7: Verify restore**
+- [ ] **Step 8: Verify restore**
 
 Run: `git diff -- tests/Benchmark/CLI/CLIBenchmarkBase.cs tests/Benchmark/PS/PSBenchmarkBase.cs`
 Expected: empty diff (both files back to `[IterationCount(10000)]`, no `[IterationCount(5)]` remaining).
@@ -867,7 +949,7 @@ No commit for this task (validation only; no intended file changes remain).
 
 ---
 
-## Task 9: CI workflow — path-filter matrix + per-extension charts
+## Task 10: CI workflow — path-filter matrix + per-extension charts
 
 Rework `benchmark.yml` into a `detect-changes` job (computes which extensions changed) plus a matrix `benchmark` job that runs and publishes one extension at a time. Standardize the Resources chart names.
 
@@ -1106,7 +1188,7 @@ git commit -m "ci(benchmark): path-filter matrix over extensions + per-extension
 
 ---
 
-## Task 10: Fork-PR comment workflow — consume all per-extension artifacts
+## Task 11: Fork-PR comment workflow — consume all per-extension artifacts
 
 The matrix now uploads one `benchmark-results-<ext>` artifact per extension. Update the comment workflow to download all of them.
 
@@ -1146,7 +1228,7 @@ git commit -m "ci(benchmark): comment workflow downloads all per-extension resul
 
 ---
 
-## Task 11: Documentation
+## Task 12: Documentation
 
 **Files:**
 - Modify: `tests/Benchmark/README.md`
@@ -1256,7 +1338,7 @@ git commit -m "docs(benchmark): document extension dimension, Compute scenarios,
 
 ---
 
-## Task 12: Final full-suite verification
+## Task 13: Final full-suite verification
 
 - [ ] **Step 1: Build the solution in Release**
 
@@ -1275,7 +1357,7 @@ Run:
 dotnet run --project tests/Benchmark -c Release --no-build -- --ci --extension Compute --product CLI
 ls artifacts/Benchmark/ci/*/CLI/results/*-report-full-compressed.json
 ```
-Expected: the `--ci` run finishes (`[Benchmark] PASS`) and the `ls` prints exactly one JSON path (this is the file the workflow's "Resolve CLI report path" step globs). Note: this is a full 10,000-iteration run and may take a while; if you only need to confirm the path shape, you may keep the temporary `[IterationCount(5)]` from Task 8's technique and restore afterward.
+Expected: the `--ci` run finishes (`[Benchmark] PASS`) and the `ls` prints exactly one JSON path (this is the file the workflow's "Resolve CLI report path" step globs). Note: this is a full 10,000-iteration run and may take a while; if you only need to confirm the path shape, you may keep the temporary `[IterationCount(5)]` from Task 9's technique and restore afterward.
 
 - [ ] **Step 4: Confirm no stray edits remain**
 
@@ -1287,6 +1369,6 @@ Expected: clean (all work committed; no `[IterationCount(5)]` left behind).
 ## Notes for the implementer
 
 - **Do not** commit anything under `artifacts/` (it is gitignored and regenerated).
-- The two `[IterationCount(10000)]` attributes must never be left at `5` — Task 8 and any local smoke runs must restore them (see the `validate-benchmarks` skill).
+- The two `[IterationCount(10000)]` attributes must never be left at `5` — Task 9 and any local smoke runs must restore them (see the `validate-benchmarks` skill).
 - The stub change lives in `tests/Common` and is consumed only by the Benchmark project; the added unit test in `Cli.Tests` is what guards it. If `StubHttpTerminateHandlerTests` throws `FileNotFoundException`, the fixture copy-to-output (Task 4, Step 4) is misconfigured — fix that before proceeding.
 - Chart-name casing: the CI `names` step title-cases the lowercase matrix id (`compute` -> `Compute`). The benchmark run receives the lowercase id via `--extension`; the runner upper-cases it internally only for the artifacts directory, and the workflow globs that directory with `*`, so casing never needs to line up by hand.

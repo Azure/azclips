@@ -200,6 +200,21 @@ uniformly. **No behavior change.**
 - `CLI/ResourceGroupBenchmarks.cs` → add `[BenchmarkExtension("Resources")]`
 - `PS/ResourceGroupBenchmarks.cs` → add `[BenchmarkExtension("Resources")]`
 
+### 4.6 `ChartGenerator` generalization (local artifacts only)
+
+`ChartGenerator` produces the local/CI-log HTML + JSON artifacts
+(`benchmark-comparison-*.html`, `benchmark-details-*.html`, `benchmark-summary-*.json`).
+It does **not** feed the gh-pages dashboard, the regression gate, or PR comments — those
+consume BenchmarkDotNet's own `*-report-full-compressed.json`. Today `CalculateOverhead`
+hardcodes the three Resource-Group operations (`{ "List RG", "Create RG", "Get RG" }`)
+and the comparison subtitle says "…for Resource Group operations", so a Compute run would
+render empty/misleading rows.
+
+To keep the local charts extension-agnostic, derive the operation label from each
+benchmark's display name by stripping the `"CLI: "` / `"PS: "` prefix (e.g. `"CLI: List VM"`
+→ `"List VM"`), group by that label in first-seen order, and make the subtitle generic.
+No behavior change for Resources; the dashboard/gate/comments are unaffected either way.
+
 ---
 
 ## 5. HTTP Stub — Resource-Aware Chained-Response Mocking
