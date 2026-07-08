@@ -1,0 +1,44 @@
+/**
+ * @azure-client-engine/compiler — orchestration backbone.
+ *
+ * Pure, host-agnostic library that sequences the Azure Client Engine compilation pipeline
+ * end to end:
+ *
+ *   1. compile     TypeSpec source -> typespec-compiler program (in process)
+ *   2. emit        program -> raw IR (via @azure-client-engine/typespec-emitter)
+ *   3. transform   IR -> IR (an injectable pipeline; identity by default)
+ *   4. generate    IR -> output files (an injectable back end; no-op by default)
+ *
+ * Design contract (so a CLI *and* a web service can both consume it):
+ *   - Inputs are data / an entrypoint, never assumed to be on disk.
+ *   - Outputs are RETURNED (files as a map, IR as an object), never written.
+ *   - Diagnostics are structured data, never printed.
+ *   - No process side effects (no process.exit, no console.*).
+ *   - Cancellable via AbortSignal; per-run state stays per-run.
+ */
+
+export { compile } from "./compile.js";
+
+export type {
+  DiagnosticSeverity,
+  CompilerDiagnostic,
+  CompileConfig,
+  CompileInput,
+  CompileOptions,
+  CompileResult,
+} from "./types.js";
+
+export {
+  createTransformPipeline,
+  identityPipeline,
+  type TransformPipeline,
+  type TransformStep,
+  type TransformContext,
+} from "./transform.js";
+
+export {
+  noopGenerator,
+  type Generator,
+  type GeneratorContext,
+  type GeneratorOutput,
+} from "./generate.js";
