@@ -73,6 +73,12 @@ public class Program
 
         // Get benchmark types based on --product filter
         var benchmarkTypes = GetBenchmarkTypes(productFilter, extensionFilter);
+        if (benchmarkTypes.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"No benchmark classes found for extension='{extensionFilter ?? "ALL"}', product='{productFilter ?? "ALL"}'.");
+        }
+
         Console.WriteLine($"[Benchmark] Running {benchmarkTypes.Length} benchmark class(es): {string.Join(", ", benchmarkTypes.Select(t => t.Name))}");
 
         // Run all matching benchmarks directly (no interactive menu).
