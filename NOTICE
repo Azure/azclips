@@ -26,57 +26,7 @@ Apache License
 
 Version 2.0, January 2004
 
-<<<<<<< HEAD
 http://www.apache.org/licenses/ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-=======
-- Azure.Core (1.54.0)
-- Azure.Identity (1.13.2)
-- Azure.Monitor.OpenTelemetry.Exporter (1.8.0)
-- Azure.ResourceManager (1.13.1)
-- DotNetEnv (3.1.1)
-- Microsoft.Bcl.AsyncInterfaces (10.0.3)
-- Microsoft.Extensions.AI (9.10.0)
-- Microsoft.Extensions.AI.Abstractions (10.2.0)
-- Microsoft.Extensions.Caching.Abstractions (9.0.10)
-- Microsoft.Extensions.Configuration (10.0.0)
-- Microsoft.Extensions.Configuration.Abstractions (10.0.0)
-- Microsoft.Extensions.Configuration.Abstractions (10.0.3)
-- Microsoft.Extensions.Configuration.Binder (10.0.0)
-- Microsoft.Extensions.Configuration.FileExtensions (10.0.0)
-- Microsoft.Extensions.Configuration.Json (10.0.0)
-- Microsoft.Extensions.DependencyInjection (10.0.0)
-- Microsoft.Extensions.DependencyInjection.Abstractions (10.0.0)
-- Microsoft.Extensions.DependencyInjection.Abstractions (10.0.3)
-- Microsoft.Extensions.Diagnostics.Abstractions (10.0.3)
-- Microsoft.Extensions.FileProviders.Abstractions (10.0.0)
-- Microsoft.Extensions.FileProviders.Abstractions (10.0.3)
-- Microsoft.Extensions.FileProviders.Physical (10.0.0)
-- Microsoft.Extensions.FileSystemGlobbing (10.0.0)
-- Microsoft.Extensions.Hosting.Abstractions (10.0.3)
-- Microsoft.Extensions.Logging (10.0.0)
-- Microsoft.Extensions.Logging.Abstractions (10.0.3)
-- Microsoft.Extensions.Logging.Configuration (10.0.0)
-- Microsoft.Extensions.Options (10.0.3)
-- Microsoft.Extensions.Options.ConfigurationExtensions (10.0.0)
-- Microsoft.Extensions.Primitives (10.0.0)
-- Microsoft.Extensions.Primitives (10.0.3)
-- Microsoft.Identity.Client (4.83.1)
-- Microsoft.Identity.Client.Extensions.Msal (4.83.1)
-- Microsoft.IdentityModel.Abstractions (8.14.0)
-- Microsoft.IdentityModel.JsonWebTokens (8.2.1)
-- Microsoft.IdentityModel.Logging (8.2.1)
-- Microsoft.IdentityModel.Tokens (8.2.1)
-- Microsoft.Win32.SystemEvents (6.0.0)
-- Newtonsoft.Json (13.0.3)
-- QRCoder (1.7.0)
-- System.ClientModel (1.10.0)
-- System.Drawing.Common (6.0.0)
-- System.IdentityModel.Tokens.Jwt (8.2.1)
-- System.Memory.Data (10.0.3)
-- System.Reflection.MetadataLoadContext (9.0.0)
-- System.Security.Cryptography.Pkcs (8.0.1)
-- System.Security.Cryptography.ProtectedData (8.0.0)
->>>>>>> origin/main
 
    1. Definitions.
 
@@ -90,15 +40,11 @@ http://www.apache.org/licenses/ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND 
 
       
 
-<<<<<<< HEAD
       "Legal Entity" shall mean the union of the acting entity and all other entities that control, are controlled by, or are under common control with that entity. For the purposes of this definition, "control" means (i) the power, direct or indirect, to cause the direction or management of such entity, whether by contract or otherwise, or (ii) ownership of fifty percent (50%) or more of the outstanding shares, or (iii) beneficial ownership of such entity.
 
       
 
       "You" (or "Your") shall mean an individual or Legal Entity exercising permissions granted by this License.
-=======
-https://github.com/dotnet/corefx/blob/master/LICENSE.TXT License:
->>>>>>> origin/main
 
       
 
