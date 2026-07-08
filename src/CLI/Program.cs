@@ -303,10 +303,12 @@ public class Program
         // The user opts in with `az config set --key agent.enabled --value true`.
         // Fail-safe: if config can't be read, treat as disabled and surface the
         // original error rather than spawning the agent on an unknown state.
+        AgentOptions agentOptions;
         try
         {
             var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-            if (!config.GetConfiguration<AgentOptions>().Enabled)
+            agentOptions = config.GetConfiguration<AgentOptions>();
+            if (!agentOptions.Enabled)
             {
                 return 1;
             }
@@ -317,14 +319,15 @@ public class Program
             return 1;
         }
 
-        // Non-interactive guard: the agent reads y/n approvals and prompts from
-        // the terminal. When this isn't an interactive TTY (CI, a pipe, an
-        // unattended script) it can't interact and would hang or spew, so surface
-        // the original error instead of spawning it. Replaces the removed
-        // legacy agent-disabled env guard for unattended runs. Inlined (not the
-        // agent's ConsoleEnvironment helper) so Core.Cli stays decoupled from
-        // Core.Agent — same semantics: a TTY on both stdin and stdout.
-        if (Console.IsInputRedirected || Console.IsOutputRedirected)
+        // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
+        // = interactive keeps a chat loop that reads y/n approvals and prompts from
+        // the terminal, so a non-TTY (CI, a pipe, an unattended script) would hang or
+        // spew; surface the original error instead. oneshot proposes a plan and exits
+        // without any approval turn, so it's safe (and useful) even when stdio is
+        // redirected — don't gate it. Inlined (not the agent's ConsoleEnvironment
+        // helper) so Core.Cli stays decoupled from Core.Agent — same TTY semantics.
+        if (agentOptions.IsInteractive &&
+            (Console.IsInputRedirected || Console.IsOutputRedirected))
         {
             return 1;
         }
