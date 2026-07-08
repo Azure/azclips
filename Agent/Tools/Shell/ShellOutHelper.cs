@@ -37,6 +37,12 @@ public static class ShellOutHelper
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
+            // az emits UTF-8; force UTF-8 decoding so non-ASCII output (resource
+            // names, localized errors, paths) isn't mangled by the OS default
+            // code page (e.g. GBK / cp1252) before it's returned to the model as
+            // JSON. Matches BicepCompiler's subprocess handling.
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (var arg in args) psi.ArgumentList.Add(arg);
 
