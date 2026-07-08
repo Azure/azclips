@@ -57,7 +57,7 @@ internal class DiscoverySession : ISession
         if (extensionNames == null || extensionNames.Count == 0)
         {
             // All installed extensions: enumerate every on-disk installation.
-            foreach (var (info, asmFunc) in LoadAllAssemblies() ?? [])
+            foreach (var (info, _) in LoadAllAssemblies() ?? [])
             {
                 try
                 {
