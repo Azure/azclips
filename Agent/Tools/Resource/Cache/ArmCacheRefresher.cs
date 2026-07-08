@@ -96,17 +96,22 @@ public sealed class ArmCacheRefresher
     /// </summary>
     public void KickAsync(CancellationToken ct = default)
     {
+        // Fire-and-forget: the whole point is to leave a fresh cache behind for
+        // the NEXT query, so it must outlive the caller. Using the caller's ct
+        // to schedule/await would mean a caller that cancels quickly (or passes
+        // an already-cancelled token) never starts — or aborts — the refresh.
+        // Detach with CancellationToken.None; failures surface via LastError.
         _ = Task.Run(async () =>
         {
             try
             {
-                await RefreshOnceAsync(ct).ConfigureAwait(false);
+                await RefreshOnceAsync(CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 LastError = ex;
             }
-        }, ct);
+        }, CancellationToken.None);
     }
 
     /// <summary>Exposed for troubleshooting / tests; last background failure.</summary>
@@ -400,7 +405,7 @@ public sealed class ArmCacheRefresher
             var options = new Dictionary<string, object>
             {
                 ["resultFormat"] = "objectArray",
-                ["top"] = ArgPageSize,
+                ["$top"] = ArgPageSize,
                 ["allowPartialScopes"] = false,
             };
             if (skipToken is not null) options["$skipToken"] = skipToken;

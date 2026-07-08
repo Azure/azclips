@@ -64,7 +64,7 @@ public sealed class HelpTools
         GetCommandAsync(name, ct);
 
     [Description("Return the full HelpIndex catalog.")]
-    private async Task<string> ListCommandsAsync(CancellationToken ct)
+    private async Task<string> ListCommandsAsync(CancellationToken ct = default)
     {
         // Async + await so ToolInvocationLog's scope stays alive for the entire
         // subprocess call — returning the Task without awaiting would dispose
