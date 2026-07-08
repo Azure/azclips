@@ -23,7 +23,7 @@ internal static class DiscoveryBackedExtensionRegistry
         catch (Exception ex)
         {
             // Registry synthesis should not fail if logging service is unavailable.
-            Console.Error.WriteLine($"DiscoveryBackedExtensionRegistry: logging unavailable, continuing without debug diagnostics ({ex.Message}).");
+            _ = ex;
         }
 
         var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
