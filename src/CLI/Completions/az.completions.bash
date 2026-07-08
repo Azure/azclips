@@ -89,9 +89,12 @@ _az_get_config_stamp() {
 
     # Fallback to metadata stamp when semantic read is unavailable/invalid.
     local size mtime
-    size="$(wc -c < "$config_path" 2>/dev/null | tr -d '[:space:]')"
 
     # GNU stat first, then BSD/macOS stat.
+    size="$(stat -c %s "$config_path" 2>/dev/null)"
+    if [[ -z "$size" ]]; then
+        size="$(stat -f %z "$config_path" 2>/dev/null)"
+    fi
     mtime="$(stat -c %Y "$config_path" 2>/dev/null)"
     if [[ -z "$mtime" ]]; then
         mtime="$(stat -f %m "$config_path" 2>/dev/null)"
@@ -122,8 +125,9 @@ _az_query() {
         subtree="$(echo "$_az_completions_cache_root" | jq -e --arg k "$1" '.[$k]' 2>/dev/null)"
         if [[ $? -eq 0 && -n "$subtree" && "$subtree" != "null" ]]; then
             echo "$subtree"
-            return 0
         fi
+        # Cache is valid; don't re-query even if key was missing
+        return 0
     fi
 
     # Cache miss: query fresh root tree and cache it

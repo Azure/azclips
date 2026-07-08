@@ -116,7 +116,7 @@ function global:_azQueryCompletions {
     if (-not $exe) { return $null }
     $configStamp = _azGetConfigStamp
     
-    # Check cache validity: only invalidate on exe path change
+    # Check cache validity: invalidate on exe path or config stamp change
     $isCacheValid = ($null -ne $global:_azCompletionsCache.tree) -and 
                     ($global:_azCompletionsCache.exe -eq $exe) -and
                     ($global:_azCompletionsCache.configStamp -eq $configStamp)
