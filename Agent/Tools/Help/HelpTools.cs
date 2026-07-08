@@ -8,7 +8,7 @@ namespace Core.Agent.Tools.Help;
 /// <summary>
 /// Two AI agent tools that surface the azclips help catalog to the LLM:
 ///   • list_commands — flat catalog of every azclips command (cliName + psName + summary)
-///   • get_command   — full HelpCommand for one verb (parameters + examples + description)
+///   • get_command   — full HelpCommand for one command (parameters + examples + description)
 ///
 /// Both shell out to <c>az agent tool help [--name &lt;x&gt;]</c>; the CLI processor
 /// (<c>HelpProcessor</c>) is the single source of truth. Adding an extension via
@@ -40,12 +40,12 @@ public sealed class HelpTools
         GetCommand = AIFunctionFactory.Create(GetCommandAsync, new AIFunctionFactoryOptions
         {
             Name = "get_command",
-            Description = "Return the full HelpCommand for one azclips verb: parameters (cliName/psName, type, required, description), " +
+            Description = "Return the full HelpCommand for one azclips command: parameters (cliName/psName, type, required, description), " +
                 "examples (cli[] and powerShell[]), description, summary. " +
                 "Pass 'name' as the cliName (e.g. 'vm create') OR the psName (e.g. 'New-VM') — " +
                 "lookup is case-insensitive and searches both surfaces. " +
-                "Returns error=not_found when the verb doesn't exist. " +
-                "Call AFTER list_commands has confirmed the verb exists.",
+                "Returns error=not_found when the command doesn't exist. " +
+                "Call AFTER list_commands has confirmed the command exists.",
         });
 
         All = new[] { ListCommands, GetCommand };
