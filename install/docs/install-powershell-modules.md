@@ -19,6 +19,16 @@ Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShel
 
 ## Install with the bundled script
 
+Get the bundle from the latest release. The quickest way is your authenticated GitHub CLI (`gh`) — the same session the azcli installer uses, which works on the private repo:
+
+```bash
+gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber
+```
+
+Alternatively, download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.
+
+Then extract it:
+
 ```bash
 mkdir -p azps-cmdlets
 tar -xzf ./azps-cmdlets-*.tar.gz -C azps-cmdlets
