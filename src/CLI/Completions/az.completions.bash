@@ -214,7 +214,7 @@ _az_completions() {
 
             # Filter out already-used params
             local used_params=()
-            for ((i=3; i<cword; i++)); do
+            for ((i=2; i<cword; i++)); do
                 if [[ "${words[i]}" == --* ]]; then
                     used_params+=("${words[i]}")
                 fi

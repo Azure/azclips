@@ -2,7 +2,7 @@
 
 ## How It Works
 
-1. **Build time**: `build/build.ps1` builds the solution and copies shell completion scripts to `bin/`.
+1. **Build time**: `build/build.ps1` builds the solution and copies shell completion scripts to `artifacts/<Configuration>/Core.Cli/`.
 2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) dynamically invoke `az --completions [group] [subcommand]` at tab time, ensuring completions always match whichever `az` binary is on PATH.
 
 The completion tree structure returned by `az --completions`:
@@ -39,7 +39,7 @@ az <Tab>                              # top-level groups
 az vm create --<Tab>                  # parameters
 ```
 
-### bash (WSL)
+### bash
 
 ```bash
 export AZCLIPS_BINARY=1
@@ -50,7 +50,7 @@ az vm <Tab>           # subcommands
 az vm create --<Tab>  # parameters
 ```
 
-### zsh (WSL)
+### zsh
 
 ```zsh
 export AZCLIPS_BINARY=1
@@ -67,6 +67,7 @@ az vm create --<Tab>  # parameters
 - `$AZCLIPS_BINARY=1` tells the scripts this is azclips, not system Azure CLI. Without it, bare `az` completions are skipped.
 - Completion results are cached per session. Run `_azClearCache` (PS) or `_az_clear_cache` (bash/zsh) to refresh.
 - Requires `jq` for bash/zsh.
+- If `az` is not on `PATH`, add it or create an alias: `alias az=/path/to/az`.
 
 ## Toggling Completion
 

@@ -10,7 +10,7 @@
 #
 # Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli).
 # Completions are cached for the current PowerShell session and invalidated if the resolved exe path changes (e.g., after an update)
-# or if the user config file changes.
+# or if the completion.enabled setting changes in user config.
 # To refresh manually, run:
 #   _azClearCache
 
