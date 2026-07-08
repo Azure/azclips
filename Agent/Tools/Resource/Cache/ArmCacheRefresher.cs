@@ -145,9 +145,8 @@ public sealed class ArmCacheRefresher
         var task = _inFlight.GetOrAdd(tenantId, tid =>
         {
             var t = Task.Run(() => RefreshTenantAsync(tid, CancellationToken.None));
-            t.ContinueWith(
-                (_, state) => _inFlight.TryRemove((string)state!, out _),
-                tid,
+            _ = t.ContinueWith(
+                completed => _inFlight.TryRemove(tid, out _),
                 CancellationToken.None,
                 TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
