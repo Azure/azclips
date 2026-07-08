@@ -62,24 +62,28 @@ public sealed class HelpTools
         GetCommandAsync(name, ct);
 
     [Description("Return the full HelpIndex catalog.")]
-    private Task<string> ListCommandsAsync(CancellationToken ct)
+    private async Task<string> ListCommandsAsync(CancellationToken ct)
     {
+        // Async + await so ToolInvocationLog's scope stays alive for the entire
+        // subprocess call — returning the Task without awaiting would dispose
+        // the scope immediately, recording a near-zero duration.
         using var scope = ToolInvocationLog.Start("list_commands", "full catalog");
-        return ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct);
+        return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct).ConfigureAwait(false);
     }
 
     [Description("Return one command's full HelpCommand (parameters + examples + description).")]
-    private Task<string> GetCommandAsync(
+    private async Task<string> GetCommandAsync(
         [Description("Command name. Pass cliName (e.g. 'vm create-combined', 'group list') OR psName (e.g. 'New-VMCombined', 'Get-ResourceGroup_Get'). Case-insensitive.")]
         string name,
         CancellationToken ct = default)
     {
+        // See ListCommandsAsync — async so the scope covers the shell-out.
         using var scope = ToolInvocationLog.Start("get_command", $"name={name}");
         if (string.IsNullOrWhiteSpace(name))
         {
             scope.SetResult("error=missing_name");
-            return Task.FromResult("{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}");
+            return "{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}";
         }
-        return ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct);
+        return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct).ConfigureAwait(false);
     }
 }

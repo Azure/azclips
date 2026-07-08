@@ -137,16 +137,23 @@ public sealed class ArmCacheRefresher
         // other caller that coalesced onto the same task. Each caller applies
         // their own ct only to their own await via WaitAsync — they see
         // OperationCanceledException locally while the shared work continues.
-        var task = _inFlight.GetOrAdd(tenantId,
-            tid => Task.Run(() => RefreshTenantAsync(tid, CancellationToken.None)));
-        try
+        //
+        // Removal is tied to the task's *actual* completion via ContinueWith,
+        // not to any caller's finally. If A cancels while the shared task is
+        // still running, the entry stays in _inFlight and B still coalesces
+        // onto the same running task instead of starting a second refresh.
+        var task = _inFlight.GetOrAdd(tenantId, tid =>
         {
-            await task.WaitAsync(ct).ConfigureAwait(false);
-        }
-        finally
-        {
-            _inFlight.TryRemove(tenantId, out _);
-        }
+            var t = Task.Run(() => RefreshTenantAsync(tid, CancellationToken.None));
+            t.ContinueWith(
+                (_, state) => _inFlight.TryRemove((string)state!, out _),
+                tid,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return t;
+        });
+        await task.WaitAsync(ct).ConfigureAwait(false);
     }
 
     private async Task RefreshTenantAsync(string tenantId, CancellationToken ct)
