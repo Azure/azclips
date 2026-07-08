@@ -21,7 +21,7 @@ public class CliWarmStartupBenchmarks : StartupBenchmarkBase
     public void Config() => RunToExit(CliStartInfo("config", "list"));
 
     [Benchmark(Description = "login")]
-    public void Login() => RunToExit(CliStartInfo("login", "show"));
+    public void Login() => RunToExit(CliStartInfo("login"));
 
     [Benchmark(Description = "extension")]
     public void Extension() => RunToExit(CliStartInfo("extension", "list"));

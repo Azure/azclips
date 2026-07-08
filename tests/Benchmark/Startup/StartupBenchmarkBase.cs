@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Benchmark.PS;
 using Tests.Common.Utilities;
 
 namespace Benchmark.Startup;
@@ -30,9 +31,15 @@ public abstract class StartupBenchmarkBase
         return Path.Combine(RepoRoot, "artifacts", Configuration, "Core.Cli", exe);
     }
 
-    /// <summary>Absolute path to a staged PS manifest written by build/Set-ModuleConfiguration.ps1.</summary>
-    protected string StagedModulePath(string module) =>
-        Path.Combine(RepoRoot, "artifacts", Configuration, "PS", module, $"{module}.psd1");
+    /// <summary>
+    /// Stage a PS module and its <c>RequiredModules</c> dependency closure via
+    /// <see cref="PSManifestStager"/>, returning the absolute path to the staged manifest.
+    /// Unlike build/Set-ModuleConfiguration.ps1, this preserves <c>RequiredModules</c>, so importing
+    /// a dependent module (e.g. Config) transitively imports Login and initializes the service
+    /// provider. Staged fresh from source each run, so it is never stale (survives renames).
+    /// Call from <c>[GlobalSetup]</c> so the staging I/O stays outside the measured region.
+    /// </summary>
+    protected string StageModule(string module) => PSManifestStager.StageModule(RepoRoot, module);
 
     /// <summary>ProcessStartInfo for an az CLI invocation, stopping at the seam.</summary>
     protected ProcessStartInfo CliStartInfo(params string[] args)

@@ -14,12 +14,21 @@ namespace Benchmark.Startup;
 [SimpleJob(RunStrategy.Monitoring, warmupCount: 10, iterationCount: 100)]
 public class PsWarmStartupBenchmarks : StartupBenchmarkBase
 {
+    private string _configManifest = null!;
+    private string _loginManifest = null!;
+
     [GlobalSetup]
-    public void Setup() => InitializeCommon();
+    public void Setup()
+    {
+        InitializeCommon();
+        // Stage once, outside the measured region. Staging Config pulls in Login via RequiredModules.
+        _configManifest = StageModule("Config");
+        _loginManifest = StageModule("Login");
+    }
 
     [Benchmark(Description = "config")]
-    public void Config() => RunToExit(PsStartInfo(StagedModulePath("Config"), "Get-AzConfigList"));
+    public void Config() => RunToExit(PsStartInfo(_configManifest, "Get-AzConfigList"));
 
     [Benchmark(Description = "login")]
-    public void Login() => RunToExit(PsStartInfo(StagedModulePath("Login"), "Get-AzAccount"));
+    public void Login() => RunToExit(PsStartInfo(_loginManifest, "Connect-AzAccount"));
 }
