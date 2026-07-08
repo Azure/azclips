@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783495428664,
+  "lastUpdate": 1783503316988,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -2772,6 +2772,48 @@ window.BENCHMARK_DATA = {
             "value": 5803022.36599292,
             "unit": "ns",
             "range": "± 101166.75310236558"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b08c328a8e35b4b7773ad80bbe129db84a1ba606",
+          "message": "Updated autocompletion scripts to reference env variable and caching for perf tuning  (#394)\n\nreplacing #390 to pass CI\n\n---------\n\nCo-authored-by: Teresa Ritorto <tritorto@microsoft.com>\nCo-authored-by: Teresa Ritorto <tritorto@gmail.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-08T19:26:56+10:00",
+          "tree_id": "b140e12dc578c46e54c5c197d9b87d6cc9cf5a07",
+          "url": "https://github.com/Azure/azclips/commit/b08c328a8e35b4b7773ad80bbe129db84a1ba606"
+        },
+        "date": 1783503316947,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5905449.813600727,
+            "unit": "ns",
+            "range": "± 106148.67910751443"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5879733.2197365435,
+            "unit": "ns",
+            "range": "± 104538.03149462459"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5897378.342301087,
+            "unit": "ns",
+            "range": "± 106471.96990199428"
           }
         ]
       }
