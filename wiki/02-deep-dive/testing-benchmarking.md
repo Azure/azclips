@@ -46,7 +46,7 @@ For example, `ProcessAsync_RejectsNonHttpsAbsoluteUrl_BeforeSending` reads as a 
 
 Azclips routes every outbound Azure request through a composable HTTP pipeline whose two "ends" are exposed as `SendAsyncStep` delegates: a **tracing step** (`HttpRequestMessageTracingStep`) that observes requests and a **terminating step** (`HttpPipelineTerminatingStep`) that produces the final response (`src/Core/Core.Abstractions/IHttpPipelineService.cs:8-9`). *(See the [HTTP Pipeline](./http-pipeline.md) page for the full step chain.)* Tests exploit this seam two ways.
 
-**1. Stub the terminating step at the DI level.** `StubHttpTerminateHandler` implements `IHttpTerminateHandler` and its `SendAsync` delegate short-circuits the pipeline, always returning `200 OK` with an empty JSON body — the whole auth/telemetry/tracing chain runs, but the "playback" response is canned (`tests/Common/Stubs/StubHttpTerminateHandler.cs:14-18`).
+**1. Stub the terminating step at the DI level.** `StubHttpTerminateHandler` (in `tests/Common/Stubs/`) short-circuits every outgoing request so benchmarks never call Azure. It resolves a minimal, correctly-shaped ARM response per resource type via `StubResponseMappings` (backed by JSON fixtures under `Stubs/Fixtures/`), and sets `Retry-After: 0` so long-running-operation polling does not wait. Unmapped paths return `{}`. This lets orchestrated creates (e.g. Compute `vm create`: VNet -> NSG -> NIC -> VM) run to completion under benchmark conditions (`tests/Common/Stubs/StubHttpTerminateHandler.cs:14-18`).
 
 **2. Fake the pipeline directly for unit tests.** `RestProcessorTests` injects a `FakeHttpPipeline` implementing `IRuntimeHttpPipeline`; the test supplies a `Func<HttpRequestMessage, IEventPublisher, HttpResponseMessage>` responder and asserts on `SendCount` to prove whether a request was actually dispatched (`tests/Cli.Tests/RestProcessorTests.cs:535-550`). This lets a test assert that a non-HTTPS URL is rejected **before** any send happens (`SendCount == 0`), a security-sensitive guarantee (`tests/Cli.Tests/RestProcessorTests.cs:55`).
 
@@ -147,7 +147,7 @@ Coverlet is wired in via the `coverlet.collector` package reference in the share
 - `azclips.slnx:31,34-45` — test projects registered in the solution
 - `tests/Directory.Build.props:13,17-20` — xUnit/Coverlet/Test SDK versions and the `CA1707` underscore exception
 - `tests/Cli.Tests/RestProcessorTests.cs:45,55,535-550` — `FakeHttpPipeline` and offline URL-validation tests
-- `tests/Common/Stubs/StubHttpTerminateHandler.cs:12-18` — canned terminating-step response
+- `tests/Common/Stubs/StubHttpTerminateHandler.cs:12-18` — resource-aware terminating-step stub
 - `src/Core/Core.Abstractions/IHttpPipelineService.cs:8-9` — tracing & terminating pipeline steps
 - `Agent/tests/Core.Agent.Tests/ClosingToolPredicateTests.cs:16-34` — turn-protocol predicate tests
 - `Agent/tests/Core.Agent.Tests/SnapshotTesting/SnapshotAssert.cs:15-37` — snapshot harness with `UPDATE_SNAPSHOTS`

@@ -7,13 +7,21 @@ During each PR and push to `main`, performance benchmarks are run and compared a
 - **On PR** — if any benchmark exceeds **115%** of the baseline, the check fails and a comment is posted to the PR with details.
 - **On push to `main`** — new results are published to GitHub Pages, updating the baseline for future comparisons.
 
-**Dashboard:**
-- CLI — https://azure.github.io/azclips/dev/bench/cli/
-- PS — https://azure.github.io/azclips/dev/bench/ps/
+**Dashboards** (one page per product; one chart per extension):
+- CLI — https://azure.github.io/azclips/dev/bench/cli/ (charts: `Azclips <Extension> CLI Benchmarks`)
+- PS — https://azure.github.io/azclips/dev/bench/ps/ (charts: `Azclips <Extension> PS Benchmarks`)
 
 ### `benchmark.yml` — Performance Benchmarks
 
 Runs CLI and PS benchmarks and uploads results as artifacts to be consumed by `benchmark-comment.yml`. The pipeline will fail if any benchmark exceeds **115%** of the baseline, preventing merges that degrade performance. For same-repo PRs, it also directly posts a warning comment on the PR.
+
+A `detect-changes` job uses `dorny/paths-filter` to determine which extensions changed
+and emits a matrix. Changes to shared code (`src/Core/**`, the benchmark runner/stubs,
+`global.json`, `azclips.slnx`) run **all** extensions; changes scoped to a single
+extension (`src/Extensions/<Ext>/**`, `src/PS/<Ext>/**`, or its benchmark classes) run
+only that extension. `workflow_dispatch` runs all. The matrix `benchmark` job builds,
+runs `--ci --extension <ext> --product CLI|PS`, and publishes each report to
+`dev/bench/cli` / `dev/bench/ps` under its own chart name.
 
 ### `benchmark-comment.yml` — Post Benchmark Comment
 
