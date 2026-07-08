@@ -12,6 +12,7 @@ namespace Benchmark.PS;
 /// PS benchmarks — runs cmdlets with mocked HTTP. Does NOT hit Azure.
 /// Cold-start benchmarks: fresh runspace + module import + DI init + engine process + dispose per call.
 /// </summary>
+[BenchmarkExtension("Resources")]
 public class ResourceGroupBenchmarks : PSBenchmarkBase
 {
     protected override string ModuleName => "Resources";

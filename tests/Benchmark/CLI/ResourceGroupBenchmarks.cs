@@ -8,6 +8,7 @@ using BenchmarkDotNet.Attributes;
 
 namespace Benchmark.CLI;
 
+[BenchmarkExtension("Resources")]
 public class ResourceGroupBenchmarks : CLIBenchmarkBase
 {
     protected override IReadOnlyList<string> RequiredExtensions => new[] { "Resources" };
