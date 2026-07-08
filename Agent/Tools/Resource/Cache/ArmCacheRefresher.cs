@@ -101,6 +101,16 @@ public sealed class ArmCacheRefresher
         // no CancellationToken — a caller can't (and shouldn't) cancel a
         // detached background refresh. Runs on CancellationToken.None; failures
         // surface via LastError.
+        //
+        // Fast-out when a refresh is already in flight: read paths call this on
+        // every query, and RefreshOnceAsync already coalesces per-tenant via
+        // _inFlight, so a second refresh wouldn't run anyway. Skipping the outer
+        // Task.Run here avoids piling up throwaway tasks that would only await
+        // the same shared work.
+        if (!_inFlight.IsEmpty)
+        {
+            return;
+        }
         _ = Task.Run(async () =>
         {
             try
