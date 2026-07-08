@@ -36,6 +36,15 @@ public sealed class ArmCacheRefresher
     internal static readonly TimeSpan ResourceGroupTtl = TimeSpan.FromDays(1);
     internal static readonly TimeSpan ResourceTtl = TimeSpan.FromHours(8);
 
+    // Wall-clock budget for one full tenant refresh (tenants→subs→rgs→resources).
+    // Enforced per-refresh via a linked CTS in RefreshTenantAsync so it holds
+    // regardless of the injected HttpClient's own Timeout — most call sites pass
+    // the DI singleton (Timeout=100s), which is shorter than a large-tenant ARG
+    // sweep needs and must not silently cap this background work. Sized as a
+    // conservative multiple of the measured ~15k-resource baseline so ~10x-larger
+    // tenants still complete.
+    internal static readonly TimeSpan RefreshBudget = TimeSpan.FromSeconds(300);
+
     private const int SchemaVersion = 1;
     private const string ArmScope = "https://management.azure.com/.default";
     private const string TenantsListUri = "https://management.azure.com/tenants?api-version=2022-12-01";
@@ -79,7 +88,11 @@ public sealed class ArmCacheRefresher
     {
         _authService = authService;
         _profileService = profileService;
-        _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+        // Self-constructed fallback only (tests / direct construction). Production
+        // call sites inject the DI singleton, whose Timeout we deliberately don't
+        // touch — the per-refresh budget is enforced by the linked CTS in
+        // RefreshTenantAsync instead, so it applies no matter who owns the client.
+        _http = http ?? new HttpClient { Timeout = RefreshBudget };
         _cacheRoot = cacheRoot ?? HomePaths.GetDefaultArmCacheDirectory();
         _progress = progress;
     }
@@ -167,8 +180,16 @@ public sealed class ArmCacheRefresher
         await task.WaitAsync(ct).ConfigureAwait(false);
     }
 
-    private async Task RefreshTenantAsync(string tenantId, CancellationToken ct)
+    private async Task RefreshTenantAsync(string tenantId, CancellationToken outerCt)
     {
+        // Cap the whole tenant sweep at RefreshBudget regardless of the injected
+        // HttpClient's own Timeout. Linked to the caller's token so an explicit
+        // cancel still wins; on budget expiry every in-flight ARM/ARG call sees
+        // OperationCanceledException and the refresh bails rather than hanging.
+        using var budgetCts = CancellationTokenSource.CreateLinkedTokenSource(outerCt);
+        budgetCts.CancelAfter(RefreshBudget);
+        var ct = budgetCts.Token;
+
         Directory.CreateDirectory(_cacheRoot);
 
         var tenantDir = Path.Combine(_cacheRoot, tenantId);

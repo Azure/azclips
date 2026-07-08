@@ -52,9 +52,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
             }
             else
             {
-                var command = FindCommand(manifests, Name);
+                var command = HelpLookup.FindCommand(manifests, Name);
                 json = command is null
-                    ? JsonSerializer.Serialize(new { error = "not_found", name = Name, suggestions = FindSuggestions(manifests, Name) }, s_json)
+                    ? JsonSerializer.Serialize(new { error = "not_found", name = Name, suggestions = HelpLookup.FindSuggestions(manifests, Name) }, s_json)
                     : JsonSerializer.Serialize(command, s_json);
             }
 
@@ -93,57 +93,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
             }
 
             return manifests;
-        }
-
-        /// <summary>
-        /// Looks up a HelpCommand across all manifests by cliName or psName (case-insensitive,
-        /// same behavior as the old static-JSON lookup).
-        /// </summary>
-        internal static HelpCommand? FindCommand(IEnumerable<HelpManifest> manifests, string name)
-        {
-            foreach (var manifest in manifests)
-            {
-                foreach (var command in manifest.Commands)
-                {
-                    if (string.Equals(command.CliName, name, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(command.PsName, name, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return command;
-                    }
-                }
-            }
-            return null;
-        }
-
-        // On a not_found, offer commands whose cliName/psName contains the query
-        // (or vice versa) so a partial or slightly-off name — e.g. "vm" -> "vm create",
-        // "create" -> "vm create-basic" — can still be recovered by the caller/model
-        // instead of a dead end. Capped to keep the payload small.
-        internal static IReadOnlyList<string> FindSuggestions(IEnumerable<HelpManifest> manifests, string name)
-        {
-            const int max = 8;
-            var q = name.Trim();
-            if (q.Length == 0) return System.Array.Empty<string>();
-
-            var hits = new List<string>();
-            foreach (var manifest in manifests)
-            {
-                foreach (var command in manifest.Commands)
-                {
-                    foreach (var candidate in new[] { command.CliName, command.PsName })
-                    {
-                        if (string.IsNullOrEmpty(candidate)) continue;
-                        if (candidate.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                            q.Contains(candidate, StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (!hits.Contains(candidate, StringComparer.OrdinalIgnoreCase))
-                                hits.Add(candidate);
-                        }
-                    }
-                    if (hits.Count >= max) return hits;
-                }
-            }
-            return hits;
         }
     }
 }

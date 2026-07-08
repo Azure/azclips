@@ -9,6 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core.Agent.csproj" />
     <ProjectReference Include="..\..\..\tests\Common\Tests.Common.csproj" />
+    <!-- HelpLookup lives in the Agent.Commands extension; referenced for its
+         public FindCommand / FindSuggestions unit coverage. -->
+    <ProjectReference Include="..\..\Commands\Agent.Commands.csproj" />
   </ItemGroup>
 
   <ItemGroup>
