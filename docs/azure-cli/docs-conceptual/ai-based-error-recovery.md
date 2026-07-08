@@ -1,14 +1,14 @@
 ---
-title: AI-based error recovery in AzCLIPS (Private preview)
-description: Learn how AI-based error recovery in AzCLIPS analyzes command failures, identifies likely root causes, and provides guided troubleshooting steps.
+title: AI-based error recovery in Azure CLI (Private preview)
+description: Learn how AI-based error recovery in Azure CLI analyzes command failures, identifies likely root causes, and provides guided troubleshooting steps.
 ---
 
-# AI-based error recovery in AzCLIPS (Private preview)
+# AI-based error recovery in Azure CLI (Private preview)
 
-AI-based error recovery in AzCLIPS is a built-in feature that helps you resolve command failures in
-Azure CLI and Azure PowerShell workflows more efficiently.
+AI-based error recovery in Azure CLI private preview is a built-in feature that helps you resolve
+command failures in Azure CLI and Azure PowerShell workflows more efficiently.
 
-When a command fails, instead of displaying only raw or cryptic error messages, AzCLIPS uses an
+When a command fails, instead of displaying only raw or cryptic error messages, Azure CLI uses an
 integrated AI model to:
 
 - Analyze the error message
@@ -54,14 +54,14 @@ Check the current setting:
 az config get --key agent.enabled
 ```
 
-After you enable the feature, AzCLIPS automatically invokes AI-based error recovery whenever an `az`
-command fails. No per-command option is required.
+After you enable the feature, Azure CLI automatically invokes AI-based error recovery whenever an
+`az` command fails. No per-command option is required.
 
 ## Configure the AI provider
 
 By default, AI-based error recovery uses Microsoft's built-in AI provider.
 
-You can also configure AzCLIPS to use your GitHub Copilot subscription.
+You can also configure Azure CLI to use your GitHub Copilot subscription.
 
 Use the built-in provider:
 
@@ -151,7 +151,7 @@ The required sign-in depends on the configured AI provider:
 
 ### Which model powers this feature?
 
-AzCLIPS uses a built-in AI model (GPT-5.4).
+Azure CLI uses a built-in AI model (GPT-5.4).
 
 You can also configure AI-based error recovery to use your GitHub Copilot subscription:
 
@@ -168,7 +168,7 @@ your subscription plan and usage.
 
 ### What data is used and collected?
 
-During the private preview, AzCLIPS doesn't collect telemetry from AI-based error recovery.
+During the private preview, Azure CLI doesn't collect telemetry from AI-based error recovery.
 
 If you want a local record of the model input and output for debugging or auditing purposes, enable
 tracing:

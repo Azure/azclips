@@ -1,15 +1,15 @@
 ---
-title: Troubleshoot AzCLIPS issues (Private preview)
-description: Learn what to do if you encounter issues while using AzCLIPS during the private preview and how to report problems to the development team.
+title: Troubleshoot Azure CLI issues (Private preview)
+description: Learn what to do if you encounter issues while using Azure CLI during the private preview and how to report problems to the development team.
 ms.topic: troubleshooting
 ---
 
-# Troubleshoot AzCLIPS issues (Private preview)
+# Troubleshoot Azure CLI issues (Private preview)
 
-This article provides general guidance for troubleshooting issues encountered while using AzCLIPS
+This article provides general guidance for troubleshooting issues encountered while using Azure CLI
 during the private preview.
 
-Because AzCLIPS is under active development, you may encounter unexpected behavior, incomplete
+Because Azure CLI is under active development, you may encounter unexpected behavior, incomplete
 functionality, or other issues.
 
 ## Report an issue
@@ -22,7 +22,7 @@ When creating an issue, include as much information as possible, such as:
 - The command you ran
 - Any error messages or output
 - Your operating system and shell
-- The AzCLIPS version
+- The Azure CLI version
 - Steps to reproduce the issue, if known
 
 Providing detailed information helps the development team investigate and resolve issues more
