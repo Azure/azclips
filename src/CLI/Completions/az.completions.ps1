@@ -5,7 +5,7 @@
 # Usage: . <path-to>/az.completions.ps1
 # Or add to your $PROFILE to auto-load on every session.
 #
-# Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
+# Completions are resolved dynamically by invoking `az --completion-candidates [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
 # Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli).
@@ -64,12 +64,10 @@ function global:_azResolveExe {
     return $null
 }
 
-# Session cache for completions tree (persists until exe path/config stamp changes)
-$global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null }
+# Session cache for candidate output (persists until exe path/config stamp/context changes)
+$global:_azCompletionsCache = @{ candidates = $null; exe = $null; configStamp = $null; contextKey = $null }
 
 function global:_azGetConfigStamp {
-    # Prefer semantic invalidation based on completion.enabled.
-    # Fall back to file metadata if the config cannot be parsed.
     $configPath = Join-Path $HOME '.azclips/config.json'
     if (-not (Test-Path $configPath)) {
         # Missing config means defaults apply (completion.enabled=true).
@@ -77,108 +75,49 @@ function global:_azGetConfigStamp {
     }
 
     try {
-        $raw = Get-Content -LiteralPath $configPath -Raw -ErrorAction Stop
-        if ([string]::IsNullOrWhiteSpace($raw)) {
-            return "$configPath|enabled:true|empty"
-        }
-
-        $doc = $raw | ConvertFrom-Json -AsHashtable -ErrorAction Stop
-        $enabled = $true
-
-        if ($doc -is [System.Collections.Hashtable]) {
-            if ($doc.ContainsKey('completion')) {
-                $completionNode = $doc['completion']
-                if ($completionNode -is [System.Collections.Hashtable] -and $completionNode.ContainsKey('enabled')) {
-                    $enabled = [System.Convert]::ToBoolean($completionNode['enabled'])
-                } elseif ($completionNode -and $completionNode.PSObject.Properties['enabled']) {
-                    $enabled = [System.Convert]::ToBoolean($completionNode.enabled)
-                }
-            } elseif ($doc.ContainsKey('completion.enabled')) {
-                # Legacy flat key support.
-                $enabled = [System.Convert]::ToBoolean($doc['completion.enabled'])
-            }
-        }
-
-        return "$configPath|enabled:$enabled"
+        $item = Get-Item -LiteralPath $configPath -ErrorAction Stop
+        return "$configPath|meta|$($item.Length)|$($item.LastWriteTimeUtc.Ticks)"
     } catch {
-        try {
-            $item = Get-Item -LiteralPath $configPath -ErrorAction Stop
-            return "$configPath|fallback-meta|$($item.Length)|$($item.LastWriteTimeUtc.Ticks)"
-        } catch {
-            return "$configPath|error"
-        }
+        return "$configPath|error"
     }
 }
 
-function global:_azQueryCompletions {
+function global:_azQueryCandidates {
     param([string[]]$context)
     $exe = _azResolveExe
-    if (-not $exe) { return $null }
+    if (-not $exe) { return @() }
     $configStamp = _azGetConfigStamp
+    $contextKey = ($context -join '|')
     
-    # Check cache validity: invalidate on exe path or config stamp change
-    $isCacheValid = ($null -ne $global:_azCompletionsCache.tree) -and 
+    # Check cache validity: invalidate on exe path, config stamp, or context change
+    $isCacheValid = ($null -ne $global:_azCompletionsCache.candidates) -and 
                     ($global:_azCompletionsCache.exe -eq $exe) -and
-                    ($global:_azCompletionsCache.configStamp -eq $configStamp)
+                    ($global:_azCompletionsCache.configStamp -eq $configStamp) -and
+                    ($global:_azCompletionsCache.contextKey -eq $contextKey)
     
     if ($isCacheValid) {
-        # Use cached tree, navigate to requested context
-        $tree = $global:_azCompletionsCache.tree
-        foreach ($part in $context) {
-            if ($tree -is [System.Collections.Hashtable] -and $tree.ContainsKey($part)) {
-                $tree = $tree[$part]
-            } else {
-                $isCacheValid = $false
-                break
-            }
-        }
-        if ($isCacheValid) { return $tree }
+        return @($global:_azCompletionsCache.candidates)
     }
     
-    # Cache miss or exe changed: query fresh
-    $args_ = @('--completions') + $context
+    $args_ = @('--completion-candidates') + $context
     try {
-        $json = & $exe @args_ 2>$null
-        if ($json) {
-            $joined = ($json | Where-Object { $_ -match '^\s*[\{\[]' }) -join ''
-            if ($joined) {
-                $result = $joined | ConvertFrom-Json -AsHashtable
-                
-                # Only cache root-level query (no context) to minimize memory
-                if ($context.Count -eq 0) {
-                    $global:_azCompletionsCache.tree = $result
-                    $global:_azCompletionsCache.exe = $exe
-                    $global:_azCompletionsCache.configStamp = $configStamp
-                }
-                return $result
-            }
-        }
+        $candidates = @(& $exe @args_ 2>$null | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        $global:_azCompletionsCache.candidates = $candidates
+        $global:_azCompletionsCache.exe = $exe
+        $global:_azCompletionsCache.configStamp = $configStamp
+        $global:_azCompletionsCache.contextKey = $contextKey
+        return $candidates
     } catch {}
-    return $null
-}
-
-function global:_azGetTopLevelGroups {
-    # Query completions (cached until exe path changes on version update)
-    $tree = _azQueryCompletions
-    if ($tree -and $tree.Count -gt 0) {
-        return @($tree.Keys | Sort-Object)
-    }
     return @()
 }
 
-function global:_azGetGroupDef {
-    param([string]$group)
-    # Query group definition (cached until exe path changes on version update)
-    $tree = _azQueryCompletions @($group)
-    if ($tree -and $tree.Count -gt 0) {
-        return $tree
-    }
-    return $null
+function global:_azGetTopLevelGroups {
+    return @(_azQueryCandidates | Sort-Object)
 }
 
 # Manual cache refresh function (use if needed)
 function global:_azClearCache {
-    $global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null }
+    $global:_azCompletionsCache = @{ candidates = $null; exe = $null; configStamp = $null; contextKey = $null }
     Write-Host "az completions cache cleared. Completions will be refreshed on next Tab press." -ForegroundColor Green
 }
 
@@ -203,49 +142,25 @@ function global:_azGetCompletions {
     }
 
     $group = $completedArgs[0].ToLower()
-    $groupDef = _azGetGroupDef $group
-    if (-not $groupDef) { return @() }
-
-    $subcommands = if ($groupDef.ContainsKey('_subcommands')) { $groupDef['_subcommands'] } else { @() }
+    $groupCandidates = @(_azQueryCandidates @($group))
+    if (-not $groupCandidates -or $groupCandidates.Count -eq 0) { return @() }
 
     # --- Level 1: completing subcommand ---
-    $hasSubcommand = $false
-    $subcommand = $null
-
-    if ($completedArgs.Count -ge 2) {
-        $candidate = $completedArgs[1].ToLower()
-        if ($subcommands -contains $candidate) {
-            $hasSubcommand = $true
-            $subcommand = $candidate
-        }
-    }
-
-    if ((-not $hasSubcommand) -and ($completedArgs.Count -eq 1 -and $isCompletingNewToken) -or
-        ($completedArgs.Count -eq 2 -and -not $isCompletingNewToken -and -not $hasSubcommand)) {
+    if (($completedArgs.Count -eq 1 -and $isCompletingNewToken) -or
+        ($completedArgs.Count -eq 2 -and -not $isCompletingNewToken)) {
         $prefix = if ($completedArgs.Count -ge 2) { $completedArgs[1] } else { '' }
-        $results = @()
-
-        $results += @($subcommands | Where-Object { $_ -like "$prefix*" } | ForEach-Object {
-            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', "$group $_")
+        return @($groupCandidates | Where-Object { $_ -like "$prefix*" } | ForEach-Object {
+            $resultType = if ($_ -like '--*') { 'ParameterName' } else { 'ParameterValue' }
+            $toolTip = if ($_ -like '--*') { $_ } else { "$group $_" }
+            [System.Management.Automation.CompletionResult]::new($_, $_, $resultType, $toolTip)
         })
-
-        if ($groupDef.ContainsKey('_params')) {
-            $results += @($groupDef['_params'] | Where-Object { $_ -like "$prefix*" } | ForEach-Object {
-                [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
-            })
-        }
-        return $results
     }
 
     # --- Level 2: completing parameters ---
-    $paramStartIndex = if ($hasSubcommand) { 2 } else { 1 }
-    $paramList = @()
-    if ($hasSubcommand -and $groupDef.ContainsKey($subcommand)) {
-        $paramList = $groupDef[$subcommand]
-    }
-    elseif (-not $hasSubcommand -and $groupDef.ContainsKey('_params')) {
-        $paramList = $groupDef['_params']
-    }
+    $subcommand = if ($completedArgs.Count -ge 2 -and $completedArgs[1] -notlike '--*') { $completedArgs[1].ToLower() } else { $null }
+    $paramStartIndex = if ($subcommand) { 2 } else { 1 }
+    $paramList = if ($subcommand) { @(_azQueryCandidates @($group, $subcommand)) } else { $groupCandidates }
+    $paramList = @($paramList | Where-Object { $_ -like '--*' })
 
     if ($paramList.Count -eq 0) { return @() }
 

@@ -16,30 +16,45 @@ namespace Core.Cli.Completions;
 /// </summary>
 internal static class CompletionGenerator
 {
+    private const string JsonCompletionsCommand = "--completions";
+    private const string CandidateCompletionsCommand = "--completion-candidates";
+
     /// <summary>
-    /// Handles <c>--completions</c> when it is the first argument and returns the exit code.
+    /// Handles <c>--completions</c> and <c>--completion-candidates</c> when either is the first argument and returns the exit code.
     /// Returns <see langword="null"/> when completion generation should not run.
     /// Usage: az --completions [command-group] [subcommand...]
+    ///        az --completion-candidates [command-group] [subcommand...]
     /// Examples:
     ///   az --completions              (full tree)
     ///   az --completions vm           (commands in vm group)
     ///   az --completions vm create    (specific command metadata)
+    ///   az --completion-candidates    (top-level groups, one per line)
+    ///   az --completion-candidates vm (subcommands and group params, one per line)
     /// </summary>
     public static async Task<int?> TryHandleAsync(string[] args, ClientType clientType)
     {
-        if (args.Length == 0 || args[0] != "--completions")
+        if (args.Length == 0 || (args[0] != JsonCompletionsCommand && args[0] != CandidateCompletionsCommand))
         {
             return null;
         }
 
+        var isCandidateMode = args[0] == CandidateCompletionsCommand;
         if (!IsCompletionEnabled())
         {
-            Console.WriteLine("{}");
+            if (!isCandidateMode)
+            {
+                Console.WriteLine("{}");
+            }
             return 0;
         }
 
-        // Extract any command context passed after --completions
+        // Extract any command context passed after the completion command.
         var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
+        if (isCandidateMode)
+        {
+            return await GenerateCandidatesAsync(clientType, commandContext);
+        }
+
         return await GenerateAsync(clientType, commandContext);
     }
 
@@ -93,12 +108,79 @@ internal static class CompletionGenerator
         return await GenerateFullTreeAsync(clientType, engine);
     }
 
+    private static async Task<int> GenerateCandidatesAsync(ClientType clientType, List<string>? commandContext = null)
+    {
+        commandContext ??= new List<string>();
+
+        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        var commandGroupName = commandContext.Count > 0 ? commandContext[0].ToLowerInvariant() : null;
+        var subcommand = commandContext.Count > 1 ? commandContext[1].ToLowerInvariant() : null;
+
+        var discoveredCommands = string.IsNullOrEmpty(commandGroupName)
+            ? await DiscoverFullTreeCommandsAsync(clientType, engine)
+            : await DiscoverCommandGroupCommandsAsync(clientType, engine, commandGroupName, subcommand: null);
+
+        foreach (var candidate in BuildCandidateList(discoveredCommands, commandGroupName, subcommand))
+        {
+            Console.WriteLine(candidate);
+        }
+
+        return 0;
+    }
+
     /// <summary>
     /// Generate completion data for a specific command group.
     /// This extracts the group's data from discovery output keyed by invocation name.
     /// Allows dynamic, context-aware completion for faster shell feedback.
     /// </summary>
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
+    {
+        var filteredCommands = await DiscoverCommandGroupCommandsAsync(clientType, engine, commandGroupName, subcommand);
+        var tree = BuildCompletionTree(filteredCommands, scopedToVerb: true);
+
+        Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
+        return 0;
+    }
+
+    /// <summary>
+    /// Generate full completion tree for all available commands.
+    /// This is called when no specific command group is provided.
+    /// </summary>
+    private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
+    {
+        var discoveredCommands = await DiscoverFullTreeCommandsAsync(clientType, engine);
+        var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
+
+        Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
+        return 0;
+    }
+
+    private static async Task<Dictionary<string, CommandMetadata>> DiscoverFullTreeCommandsAsync(ClientType clientType, IEngine engine)
+    {
+        var registryStore = new FileExtensionRegistryStore();
+        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
+        var discoveryExtensionNames = leafIndex.Entries.Values
+            .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // Also discover extensions available on disk (same roots the BuiltinExtensionLoader scans)
+        foreach (var name in ScanLocalExtensionNames())
+        {
+            if (!discoveryExtensionNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                discoveryExtensionNames.Add(name);
+            }
+        }
+
+        return await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
+    }
+
+    private static async Task<IEnumerable<KeyValuePair<string, CommandMetadata>>> DiscoverCommandGroupCommandsAsync(
+        ClientType clientType,
+        IEngine engine,
+        string commandGroupName,
+        string? subcommand)
     {
         var registryStore = new FileExtensionRegistryStore();
         var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
@@ -119,39 +201,7 @@ internal static class CompletionGenerator
             filteredCommands = filteredCommands.Where(kvp => kvp.Key.Equals(requestedKey, StringComparison.OrdinalIgnoreCase));
         }
 
-        var tree = BuildCompletionTree(filteredCommands, scopedToVerb: true);
-
-        Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
-        return 0;
-    }
-
-    /// <summary>
-    /// Generate full completion tree for all available commands.
-    /// This is called when no specific command group is provided.
-    /// </summary>
-    private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
-    {
-        var registryStore = new FileExtensionRegistryStore();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
-        var discoveryExtensionNames = leafIndex.Entries.Values
-            .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // Also discover extensions available on disk (same roots the BuiltinExtensionLoader scans)
-        foreach (var name in ScanLocalExtensionNames())
-        {
-            if (!discoveryExtensionNames.Contains(name, StringComparer.OrdinalIgnoreCase))
-            {
-                discoveryExtensionNames.Add(name);
-            }
-        }
-
-        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
-        var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
-
-        Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
-        return 0;
+        return filteredCommands;
     }
 
     /// <summary>
@@ -291,6 +341,55 @@ internal static class CompletionGenerator
         }
 
         return tree;
+    }
+
+    internal static List<string> BuildCandidateList(
+        IEnumerable<KeyValuePair<string, CommandMetadata>> commands,
+        string? commandGroupName,
+        string? subcommand)
+    {
+        var commandList = commands.ToList();
+        if (string.IsNullOrEmpty(commandGroupName))
+        {
+            return commandList
+                .Select(kvp => kvp.Key.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault())
+                .OfType<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        var groupCommand = commandList.FirstOrDefault(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(subcommand))
+        {
+            var candidates = commandList
+                .Select(kvp => kvp.Key.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                .Where(tokens => tokens.Length > 1 && tokens[0].Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
+                .Select(tokens => string.Join(' ', tokens.Skip(1)))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!string.IsNullOrEmpty(groupCommand.Key))
+            {
+                candidates.AddRange(groupCommand.Value.Parameters.Keys.Select(k => $"--{k}"));
+            }
+
+            return candidates.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        var requestedCommand = commandList.FirstOrDefault(kvp =>
+            kvp.Key.Equals($"{commandGroupName} {subcommand}", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(requestedCommand.Key))
+        {
+            return requestedCommand.Value.Parameters.Keys.Select(k => $"--{k}").ToList();
+        }
+
+        if (!string.IsNullOrEmpty(groupCommand.Key))
+        {
+            return groupCommand.Value.Parameters.Keys.Select(k => $"--{k}").ToList();
+        }
+
+        return new List<string>();
     }
 
     private static Dictionary<string, object> GetOrCreateGroupEntry(Dictionary<string, object> tree, string verb)
