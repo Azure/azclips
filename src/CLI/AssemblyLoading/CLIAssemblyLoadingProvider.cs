@@ -32,9 +32,6 @@ public class CLIAssemblyLoadingProvider(
             foreach (var (name, version) in loader.GetInstalledExtensions())
             {
                 var effectiveVersion = version;
-
-                // If the package is pinned in registry.json, force discovery/load to that exact
-                // installed version instead of the loader's default semver-latest choice.
                 if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion))
                 {
                     effectiveVersion = pinnedVersion;
@@ -55,7 +52,6 @@ public class CLIAssemblyLoadingProvider(
         }
         catch (Exception ex)
         {
-            // Discovery is best-effort; if registry read fails, keep loader defaults.
             loggingService.Debug($"Failed to load extension registry during discovery: {ex.Message}");
             return null;
         }
