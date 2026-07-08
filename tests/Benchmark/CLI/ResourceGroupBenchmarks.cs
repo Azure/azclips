@@ -11,8 +11,6 @@ namespace Benchmark.CLI;
 [BenchmarkExtension("Resources")]
 public class ResourceGroupBenchmarks : CLIBenchmarkBase
 {
-    protected override IReadOnlyList<string> RequiredExtensions => new[] { "Resources" };
-
     [Benchmark(Description = "CLI: List RG")]
     public int ListResourceGroups()
     {

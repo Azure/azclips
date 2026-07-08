@@ -26,9 +26,11 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
     /// <summary>
     /// Short extension names (the segment after <see cref="PackageIdPrefix"/>) whose verbs this
-    /// benchmark's CLI invocations need staged. Override per benchmark class; empty stages nothing.
+    /// benchmark's CLI invocations need staged. Defaults to the single extension named by the
+    /// class's <c>[BenchmarkExtension]</c> attribute; override only in the rare case a benchmark
+    /// must stage additional extensions.
     /// </summary>
-    protected virtual IReadOnlyList<string> RequiredExtensions => Array.Empty<string>();
+    protected virtual IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
 

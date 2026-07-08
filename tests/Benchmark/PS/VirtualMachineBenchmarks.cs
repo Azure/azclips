@@ -17,8 +17,6 @@ namespace Benchmark.PS;
 [BenchmarkExtension("Compute")]
 public class VirtualMachineBenchmarks : PSBenchmarkBase
 {
-    protected override string ModuleName => "Compute";
-
     private const string ResourceGroup = "bench-rg";
 
     [Benchmark(Description = "PS: List VM")]

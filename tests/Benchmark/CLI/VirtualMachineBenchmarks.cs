@@ -16,8 +16,6 @@ namespace Benchmark.CLI;
 [BenchmarkExtension("Compute")]
 public class VirtualMachineBenchmarks : CLIBenchmarkBase
 {
-    protected override IReadOnlyList<string> RequiredExtensions => new[] { "Compute" };
-
     private const string ResourceGroup = "bench-rg";
 
     [Benchmark(Description = "CLI: List VM")]

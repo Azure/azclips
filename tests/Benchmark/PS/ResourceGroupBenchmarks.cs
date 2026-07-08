@@ -15,8 +15,6 @@ namespace Benchmark.PS;
 [BenchmarkExtension("Resources")]
 public class ResourceGroupBenchmarks : PSBenchmarkBase
 {
-    protected override string ModuleName => "Resources";
-
     [Benchmark(Description = "PS: List RG")]
     public object? ListResourceGroups()
     {
