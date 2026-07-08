@@ -61,13 +61,15 @@ internal class DiscoverySession : ISession
             {
                 try
                 {
-                    var resolvedVersion = GetExtensionVersion(info.Name);
-                    var versionToLoad = string.IsNullOrWhiteSpace(resolvedVersion)
-                        ? info.Version
-                        : resolvedVersion;
+                    var discoveredVersion = info.Version;
+                    var configuredVersion = GetExtensionVersion(info.Name);
+                    var versionToLoad = string.IsNullOrWhiteSpace(configuredVersion)
+                        ? discoveredVersion
+                        : configuredVersion;
 
                     var loaded = LoadDiscoveredIndex(info.Name, versionToLoad);
                     IExtensionIndex index = loaded.Index;
+                    var reportedVersion = ResolveReportedVersion(discoveredVersion, versionToLoad, loaded.EffectiveVersion);
 
                     var commands = index.GetAllCommands(clientType)
                         .ToDictionary(c => c.InvocationName);
@@ -75,7 +77,7 @@ internal class DiscoverySession : ISession
 
                     extensionInfos.Add(new DiscoveredExtensionInfo(
                         PackageId: packageId,
-                        ResolvedVersion: loaded.EffectiveVersion,
+                        ResolvedVersion: reportedVersion,
                         Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
                         Commands: commands));
                 }
@@ -196,6 +198,21 @@ internal class DiscoverySession : ISession
     private static bool IsVersionedLoadMiss(InvalidOperationException ex)
     {
         return ex.Message.Contains("could not be found by any extension loader", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveReportedVersion(string discoveredVersion, string requestedVersion, string effectiveVersion)
+    {
+        if (!string.IsNullOrWhiteSpace(effectiveVersion))
+        {
+            return effectiveVersion;
+        }
+
+        if (!string.IsNullOrWhiteSpace(discoveredVersion))
+        {
+            return discoveredVersion;
+        }
+
+        return requestedVersion;
     }
 
     private sealed record LoadedAssembly(Assembly Assembly, string EffectiveVersion);
