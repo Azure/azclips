@@ -50,7 +50,7 @@ namespace Core.Engine
                 }).GetAwaiter().GetResult();
 
             // TODO(Yabo): get extension version from config service in the future
-            session.GetExtensionVersion = () => string.Empty;
+            session.GetExtensionVersion = () => invocation.ModuleVersion ?? string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
             session.Option = GetOption();

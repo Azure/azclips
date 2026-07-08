@@ -323,8 +323,5 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         {
             return GetCommandTable(clientType).Values;
         }
-
-        private static readonly IReadOnlyList<string> s_verbs = ["group", "deployment", "rest"];
-        public IReadOnlyList<string> GetVerbs() => s_verbs;
     }
 }

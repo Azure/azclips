@@ -21,7 +21,7 @@ namespace Core.Abstractions
     /// </param>
     /// <param name="Verbs">
     /// Top-level CLI verbs contributed by this extension (e.g. <c>["vm", "disk"]</c>).
-    /// Sourced from <see cref="IExtensionIndex.GetVerbs"/>.
+    /// Sourced from <see cref="ExtensionVerbAttribute"/> declarations on the index type.
     /// </param>
     /// <param name="Commands">
     /// All commands for the requested client type, keyed by

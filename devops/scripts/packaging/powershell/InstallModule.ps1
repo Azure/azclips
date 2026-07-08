@@ -12,6 +12,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$minimumPowerShellVersion = [version]'7.6'
+$currentPowerShellVersion = [version]::new($PSVersionTable.PSVersion.Major, $PSVersionTable.PSVersion.Minor)
+if ($currentPowerShellVersion -lt $minimumPowerShellVersion)
+{
+    throw "Azclips PowerShell modules require PowerShell $minimumPowerShellVersion or later. Current PowerShell version is $($PSVersionTable.PSVersion). Install or update PowerShell from https://aka.ms/powershell."
+}
+
 $repositoryRoot = $PSScriptRoot
 if (-not $RequiredVersion)
 {

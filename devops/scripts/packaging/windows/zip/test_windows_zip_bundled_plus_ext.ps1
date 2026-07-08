@@ -139,6 +139,14 @@ foreach ($legalFile in @('NOTICE', 'LICENSE')) {
     Write-Host "PASS: $legalFile file present"
 }
 
+foreach ($completionFile in @('az.completions.ps1', 'az.completions.bash', 'az.completions.zsh')) {
+    $completionPath = Join-Path (Join-Path (Join-Path $SimRoot 'install') 'completions') $completionFile
+    if (-not (Test-Path -Path $completionPath -PathType Leaf)) {
+        throw "FAIL: completions/$completionFile missing from extracted zip."
+    }
+    Write-Host "PASS: completions/$completionFile present"
+}
+
 $builtins = @(
     'Microsoft.Azure.Azclips.Extensions.Extension',
     'Microsoft.Azure.Azclips.Extensions.Login',
