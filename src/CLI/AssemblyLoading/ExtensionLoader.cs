@@ -189,7 +189,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                     continue;
                 }
 
-                var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId);
+                var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId, _loggingService);
 
                 seen.Add(shortName);
                 yield return (shortName, discoveredVersion);
@@ -197,11 +197,11 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
         }
     }
 
-    private static string ResolvePackageVersionFromNupkg(string packageDir, string packageId)
+    private static string ResolvePackageVersionFromNupkg(string packageDir, string packageId, ILoggingService? loggingService)
     {
         var prefix = packageId + ".";
         var versions = Directory.EnumerateFiles(packageDir, "*.nupkg", SearchOption.TopDirectoryOnly)
-            .Select(nupkgPath => ParseVersionFromNupkg(nupkgPath, packageId, prefix))
+            .Select(nupkgPath => ParseVersionFromNupkg(nupkgPath, packageId, prefix, loggingService))
             .Where(parsed => parsed is not null)
             .Cast<NuGetVersion>()
             .OrderByDescending(parsed => parsed)
@@ -210,13 +210,15 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
         return versions.Count == 0 ? string.Empty : versions[0].ToString();
     }
 
-    private static NuGetVersion? ParseVersionFromNupkg(string nupkgPath, string packageId, string packagePrefix)
+    private static NuGetVersion? ParseVersionFromNupkg(string nupkgPath, string packageId, string packagePrefix, ILoggingService? loggingService)
     {
         var identityVersion = TryReadPackageIdentityVersion(nupkgPath, packageId);
         if (identityVersion is not null)
         {
             return identityVersion;
         }
+
+        loggingService?.Debug($"Failed to read package metadata from '{nupkgPath}', falling back to filename parsing.");
 
         var fileName = Path.GetFileName(nupkgPath);
         if (string.IsNullOrWhiteSpace(fileName))
