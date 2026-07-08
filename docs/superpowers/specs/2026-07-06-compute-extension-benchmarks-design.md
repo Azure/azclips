@@ -388,7 +388,11 @@ flowchart TD
 filters: |
   shared:
     - 'src/Core/**'
-    - 'tests/Benchmark/*.cs'          # runner, base, chart gen, stub listener
+    - 'tests/Benchmark/*.cs'          # root runner, base, chart gen
+    - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'                      # shared CLI infra
+    - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs' # shared CLI infra
+    - 'tests/Benchmark/PS/PSBenchmarkBase.cs'                        # shared PS infra
+    - 'tests/Benchmark/PS/PSManifestStager.cs'                       # shared PS infra
     - 'tests/Common/**'               # stubs, utilities
     - 'global.json'
     - 'azclips.slnx'

@@ -1016,6 +1016,10 @@ jobs:
             shared:
               - 'src/Core/**'
               - 'tests/Benchmark/*.cs'
+              - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'
+              - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs'
+              - 'tests/Benchmark/PS/PSBenchmarkBase.cs'
+              - 'tests/Benchmark/PS/PSManifestStager.cs'
               - 'tests/Common/**'
               - 'global.json'
               - 'azclips.slnx'
