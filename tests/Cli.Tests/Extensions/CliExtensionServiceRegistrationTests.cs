@@ -94,4 +94,61 @@ public sealed class CliExtensionServiceRegistrationTests
         Assert.Equal(string.Empty, single.Path);
         Assert.Equal(new[] { "foo" }, projection.Namespaces);
     }
+
+    [Fact]
+    public void DiscoveryProjection_ShouldHardFail_WhenDifferentPackagesOwnSameLeaf()
+    {
+        var metadata = new CommandMetadata(
+            Name: "create",
+            InvocationName: "vm create",
+            Aliases: [],
+            FullName: "vm create",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(object),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>());
+
+        var discovered = new[]
+        {
+            new DiscoveredExtensionInfo(
+                PackageId: "Microsoft.Azure.Azclips.Extensions.Compute",
+                ResolvedVersion: "0.1.2",
+                Verbs: ["vm"],
+                Commands: new Dictionary<string, CommandMetadata>
+                {
+                    ["vm create"] = metadata,
+                }),
+            new DiscoveredExtensionInfo(
+                PackageId: "Contoso.Azure.Azclips.Extensions.ComputeFork",
+                ResolvedVersion: "1.0.0",
+                Verbs: ["vm"],
+                Commands: new Dictionary<string, CommandMetadata>
+                {
+                    ["vm create"] = metadata with
+                    {
+                        AssemblyName = "Contoso.Azure.Azclips.Extensions.ComputeFork",
+                        FullName = "Contoso vm create",
+                    },
+                }),
+        };
+
+        var registry = new ExtensionRegistry();
+        foreach (var info in discovered)
+        {
+            var projection = CliExtensionServiceRegistration.BuildContributionProjection(info);
+            registry.Extensions[info.PackageId] = new ExtensionRegistryEntry
+            {
+                Version = info.ResolvedVersion,
+                InstalledAt = DateTimeOffset.UtcNow,
+                Contributions = projection.Contributions,
+                Namespaces = projection.Namespaces,
+            };
+        }
+
+        var ex = Assert.Throws<InvalidOperationException>(() => LeafIndex.Build(BuiltInExtensions.Map, registry));
+        Assert.Contains("vm", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("create", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Microsoft.Azure.Azclips.Extensions.Compute", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Contoso.Azure.Azclips.Extensions.ComputeFork", ex.Message, StringComparison.Ordinal);
+    }
 }

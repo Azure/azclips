@@ -19,7 +19,7 @@ namespace Core.Extensions
     /// <see cref="BuiltInExtensions.IsBuiltInVerb"/> returns true for <c>Verb</c> and <c>Path</c>
     /// is empty. No live code path branches on the distinction.
     /// </remarks>
-    public sealed record LeafEntry(string Verb, string Path, string PackageId);
+    public sealed record LeafEntry(string Verb, string Path, string PackageId, string? Version);
 
     /// <summary>
     /// Read-only <c>(verb, path) -&gt; <see cref="LeafEntry"/></c> index built from the merged
@@ -76,10 +76,10 @@ namespace Core.Extensions
 
             foreach (var builtIn in builtIns.Values)
             {
-                AddLeaf(entries, builtIn.Verb, string.Empty, builtIn.PackageId);
+                AddLeaf(entries, builtIn.Verb, string.Empty, builtIn.PackageId, version: null);
                 foreach (var path in builtIn.Leaves)
                 {
-                    AddLeaf(entries, builtIn.Verb, path, builtIn.PackageId);
+                    AddLeaf(entries, builtIn.Verb, path, builtIn.PackageId, version: null);
                 }
             }
 
@@ -87,7 +87,7 @@ namespace Core.Extensions
             {
                 foreach (var contribution in entry.Contributions)
                 {
-                    AddLeaf(entries, contribution.Verb, contribution.Path, packageId);
+                    AddLeaf(entries, contribution.Verb, contribution.Path, packageId, entry.Version);
                 }
             }
 
@@ -98,7 +98,8 @@ namespace Core.Extensions
             Dictionary<(string Verb, string Path), LeafEntry> entries,
             string verb,
             string path,
-            string packageId)
+            string packageId,
+            string? version)
         {
             var key = (verb, path);
             if (entries.TryGetValue(key, out var existing))
@@ -108,7 +109,7 @@ namespace Core.Extensions
                     "The host fails to start when two extensions claim the same (verb, path).");
             }
 
-            entries[key] = new LeafEntry(verb, path, packageId);
+            entries[key] = new LeafEntry(verb, path, packageId, version);
         }
 
         private sealed class VerbPathComparer : IEqualityComparer<(string Verb, string Path)>

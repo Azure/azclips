@@ -215,7 +215,4 @@ public class ExtensionIndex : IExtensionIndex
     {
         return GetCommandTable(clientType).Values;
     }
-
-    private static readonly IReadOnlyList<string> s_verbs = ["config"];
-    public IReadOnlyList<string> GetVerbs() => s_verbs;
 }

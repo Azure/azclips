@@ -6,6 +6,8 @@ using System.Runtime.Loader;
 using Core.Abstractions;
 using Core.Configuration.Options;
 using Core.Extensions;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
 namespace Core.Cli;
@@ -187,10 +189,77 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                     continue;
                 }
 
+                var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId, _loggingService);
+
                 seen.Add(shortName);
-                yield return (shortName, string.Empty);
+                yield return (shortName, discoveredVersion);
             }
         }
+    }
+
+    private static string ResolvePackageVersionFromNupkg(string packageDir, string packageId, ILoggingService? loggingService)
+    {
+        var prefix = packageId + ".";
+        var versions = Directory.EnumerateFiles(packageDir, "*.nupkg", SearchOption.TopDirectoryOnly)
+            .Select(nupkgPath => ParseVersionFromNupkg(nupkgPath, packageId, prefix, loggingService))
+            .Where(parsed => parsed is not null)
+            .Cast<NuGetVersion>()
+            .OrderByDescending(parsed => parsed)
+            .ToList();
+
+        return versions.Count == 0 ? string.Empty : versions[0].ToString();
+    }
+
+    private static NuGetVersion? ParseVersionFromNupkg(string nupkgPath, string packageId, string packagePrefix, ILoggingService? loggingService)
+    {
+        var identityVersion = TryReadPackageIdentityVersion(nupkgPath, packageId);
+        if (identityVersion is not null)
+        {
+            return identityVersion;
+        }
+
+        loggingService?.Debug($"Failed to read package metadata from '{nupkgPath}', falling back to filename parsing.");
+
+        var fileName = Path.GetFileName(nupkgPath);
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        return ParseVersionFromNupkgFileName(fileName, packagePrefix);
+    }
+
+    private static NuGetVersion? TryReadPackageIdentityVersion(string nupkgPath, string packageId)
+    {
+        try
+        {
+            using var stream = File.OpenRead(nupkgPath);
+            using var reader = new PackageArchiveReader(stream);
+            PackageIdentity identity = reader.GetIdentity();
+
+            if (!string.Equals(identity.Id, packageId, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return identity.Version;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static NuGetVersion? ParseVersionFromNupkgFileName(string fileName, string packagePrefix)
+    {
+        if (!fileName.StartsWith(packagePrefix, StringComparison.OrdinalIgnoreCase) ||
+            !fileName.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var versionText = fileName[packagePrefix.Length..^".nupkg".Length];
+        return NuGetVersion.TryParse(versionText, out var parsed) ? parsed : null;
     }
 }
 
@@ -296,6 +365,24 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
         }
 
         return null;
+    }
+
+    internal bool HasInstalledVersion(string extensionName, string version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return false;
+        }
+
+        var extensionDir = ResolveExtensionDirectory(extensionName, version);
+        if (string.IsNullOrWhiteSpace(extensionDir))
+        {
+            return false;
+        }
+
+        return GetCandidateAssemblyNames(extensionName)
+            .Select(assemblyName => Path.Combine(extensionDir, $"{assemblyName}.dll"))
+            .Any(File.Exists);
     }
 
     public Assembly? LoadExtension(string extensionName, string? version = null)

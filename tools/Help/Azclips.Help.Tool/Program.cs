@@ -68,7 +68,7 @@ if (extensionDlls.Count == 0)
 if (scaffoldExtension is not null)
 {
     // --scaffold takes a verb (the user-facing CLI noun, e.g. "disk", "vm", "group").
-    // Find the extension assembly whose IExtensionIndex.GetVerbs() contains that verb,
+    // Find the extension assembly whose [ExtensionVerb] declarations contain that verb,
     // then scaffold just that verb's slice of the routed command table.
     var scaffoldVerb = scaffoldExtension.ToLowerInvariant();
 
@@ -98,7 +98,7 @@ if (scaffoldExtension is not null)
             continue;
         }
 
-        if (candidateIndex.GetVerbs().Contains(scaffoldVerb, StringComparer.OrdinalIgnoreCase))
+        if (ExtensionVerbDeclarations.GetDeclaredVerbs(candidateIndex).Contains(scaffoldVerb, StringComparer.OrdinalIgnoreCase))
         {
             scaffoldIndex = candidateIndex;
             break;
@@ -152,7 +152,7 @@ foreach (var dllPath in extensionDlls)
     {
         // Verb-scoped: a multi-verb extension yields one report per verb (Compute → vm + disk).
         var completenessHasErrors = false;
-        foreach (var verb in extensionIndex.GetVerbs())
+        foreach (var verb in ExtensionVerbDeclarations.GetDeclaredVerbs(extensionIndex))
         {
             var verbReport = completenessValidator.Validate(repoRoot, verb, extensionIndex);
             aggregateReport.Merge(verbReport);

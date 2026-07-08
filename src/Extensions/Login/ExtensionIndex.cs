@@ -240,9 +240,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
         {
             return GetCommandTable(clientType).Values;
         }
-
-        private static readonly IReadOnlyList<string> Verbs = ["login", "logout", "profile"];
-        public IReadOnlyList<string> GetVerbs() => Verbs;
     }
 #endregion
 }

@@ -69,6 +69,35 @@ public class BuiltinExtensionLoaderTests
         }
     }
 
+    [Fact]
+    public void GetInstalledExtensions_ShouldUseHighestNupkgVersion_WhenAvailableInInstallRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        var packageDir = Path.Combine(root, packageId);
+        Directory.CreateDirectory(packageDir);
+
+        try
+        {
+            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
+            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.0.1.1.nupkg"), string.Empty);
+            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.0.1.2.nupkg"), string.Empty);
+
+            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+
+            var installed = loader.GetInstalledExtensions().ToArray();
+
+            Assert.Contains(installed, x => x.Name == "Compute" && x.Version == "0.1.2");
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private sealed class TestConfigurationService(string installationRoot) : IConfigurationService
     {
         private readonly AssemblyLoadingOptions _options = new()
