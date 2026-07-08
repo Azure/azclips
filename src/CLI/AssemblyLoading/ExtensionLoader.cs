@@ -327,6 +327,24 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
         return null;
     }
 
+    internal bool HasInstalledVersion(string extensionName, string version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return false;
+        }
+
+        var extensionDir = ResolveExtensionDirectory(extensionName, version);
+        if (string.IsNullOrWhiteSpace(extensionDir))
+        {
+            return false;
+        }
+
+        return GetCandidateAssemblyNames(extensionName)
+            .Select(assemblyName => Path.Combine(extensionDir, $"{assemblyName}.dll"))
+            .Any(File.Exists);
+    }
+
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
         var extensionDir = ResolveExtensionDirectory(extensionName, version);

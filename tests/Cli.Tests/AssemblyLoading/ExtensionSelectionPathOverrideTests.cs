@@ -76,6 +76,55 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
     }
 
+    [Fact]
+    public void StalePinnedVersion_ShouldNotOverrideDiscoveredVersion_WhenPinnedPayloadMissing()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"selection-stale-pin-{Guid.NewGuid():N}");
+        var builtinRoot = Path.Combine(root, "builtin");
+        var versionedRoot = Path.Combine(root, "versioned");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+
+        Directory.CreateDirectory(builtinRoot);
+        Directory.CreateDirectory(versionedRoot);
+
+        try
+        {
+            var versionedPackageDir = Path.Combine(versionedRoot, packageId, "1.3.0");
+            Directory.CreateDirectory(versionedPackageDir);
+            File.WriteAllText(Path.Combine(versionedPackageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
+
+            var configuration = new TestConfigurationService(builtinRoot, versionedRoot);
+            var logging = new NullLoggingService();
+            var versionedLoader = new MultiVersionExtensionLoader(logging, configuration);
+
+            var registry = new ExtensionRegistry();
+            registry.Extensions[packageId] = new ExtensionRegistryEntry
+            {
+                Version = "1.2.0",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            var provider = new CLIAssemblyLoadingProvider(
+                [versionedLoader],
+                logging,
+                new InMemoryRegistryStore(registry));
+
+            var installed = provider.GetAllInstalledExtensions();
+
+            var single = Assert.Single(installed!);
+            Assert.Equal("Compute", single.Name);
+            Assert.Equal("1.3.0", single.Version);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static DiscoveredExtensionInfo CreateInfo(string packageId, string version, IEnumerable<string> commandNames)
     {
         var commands = commandNames.ToDictionary(

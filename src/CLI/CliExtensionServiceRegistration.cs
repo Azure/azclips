@@ -135,9 +135,10 @@ public static class CliExtensionServiceRegistration
 
             return discovered;
         }
-        catch
+        catch (Exception ex)
         {
             // Best-effort fallback for degraded environments where discovery cannot run.
+            loggingService.Debug($"DiscoverInstalledExtensions fallback to current registry: {ex.Message}");
             return currentRegistry;
         }
     }

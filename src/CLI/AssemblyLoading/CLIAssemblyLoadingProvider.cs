@@ -76,6 +76,12 @@ public class CLIAssemblyLoadingProvider(
             return false;
         }
 
+        if (loader is MultiVersionExtensionLoader multiVersionLoader &&
+            !multiVersionLoader.HasInstalledVersion(extensionName, match.Value.Version))
+        {
+            return false;
+        }
+
         pinnedVersion = match.Value.Version;
         return true;
     }
