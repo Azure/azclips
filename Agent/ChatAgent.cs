@@ -56,10 +56,12 @@ public sealed class ChatAgent : IAsyncDisposable
     // sole terminator, so the host no longer exits on this.
     public bool PlanShown => _state?.PlanShown ?? false;
 
+    // True once submit_response has rendered its outcome for this session.
+    public bool SubmitRendered => _state?.SubmitRendered ?? false;
+
     // The plan the agent proposed but that submit_response never rendered (because
     // the agent stopped after propose_plan without submitting). The one-shot host
     // reads these on exit to render it as a fallback, so the plan is never lost.
-    public bool SubmitRendered => _state?.SubmitRendered ?? false;
     public bool HasPendingPlan => _state?.LastIssues is { Count: > 0 } || _state?.LastPlanSteps is { Count: > 0 };
     public IReadOnlyList<string>? PendingIssues => _state?.LastIssues;
     public IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? PendingPlanSteps => _state?.LastPlanSteps;

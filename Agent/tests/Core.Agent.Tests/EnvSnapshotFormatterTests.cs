@@ -88,4 +88,14 @@ public class EnvSnapshotFormatterTests
         var block = EnvSnapshotFormatter.Format("not json at all");
         Assert.Equal(string.Empty, block);
     }
+
+    [Fact]
+    public void ValidJsonButNotObject_ProducesEmptyBlock()
+    {
+        // Valid JSON that parses fine but isn't a JSON object hits the
+        // ValueKind != Object guard (a different branch than the parse-failure
+        // catch above). A JSON array must still yield an empty block.
+        var block = EnvSnapshotFormatter.Format("[1, 2, 3]");
+        Assert.Equal(string.Empty, block);
+    }
 }

@@ -116,7 +116,7 @@ try {
     Write-Host "Publishing CLI (Release, $Rid)"
     dotnet publish $CliProject -c Release -r $Rid --self-contained true -o $cliWinScDir
 
-    # Publish the Agent daemon into a scratch dir; repackage_agent_hybrid then
+    # Publish the Agent daemon into a scratch dir; stage_agent.ps1 then
     # splits the output: launcher files move to the CLI publish root (sibling
     # to az.exe so they share the runtime pack), and agent-only NuGet
     # dependencies + prompts + copilot native binary move under

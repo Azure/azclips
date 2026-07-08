@@ -88,7 +88,6 @@ public sealed class ResourceCache
     private Dictionary<string, CachedSubscription> _subById = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, List<CachedResource>> _resByNameLower = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, List<CachedResourceGroup>> _rgByNameLower = new(StringComparer.OrdinalIgnoreCase);
-    private Dictionary<string, List<CachedResource>> _resByTypeLower = new(StringComparer.OrdinalIgnoreCase);
     private SortedSet<string> _resIdsSorted = new(StringComparer.OrdinalIgnoreCase);
 
     public ResourceCache(
@@ -184,10 +183,6 @@ public sealed class ResourceCache
 
         _resByNameLower = Resources
             .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
-
-        _resByTypeLower = Resources
-            .GroupBy(r => r.Type, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         _resIdsSorted = new SortedSet<string>(Resources.Select(r => r.Id), StringComparer.OrdinalIgnoreCase);
@@ -427,18 +422,6 @@ public sealed class ResourceCache
     }
 
     // ── helpers ──
-
-    private IEnumerable<CachedResource> ResolveTypeBuckets(string type)
-    {
-        if (_resByTypeLower.TryGetValue(type, out var exact)) return exact;
-
-        // Try short form: "virtualMachines" → "microsoft.compute/virtualmachines"
-        var typeLower = type.ToLowerInvariant().TrimStart('/');
-        return _resByTypeLower
-            .Where(kv => kv.Key.EndsWith("/" + typeLower, StringComparison.OrdinalIgnoreCase)
-                      || kv.Key.Contains(typeLower, StringComparison.OrdinalIgnoreCase))
-            .SelectMany(kv => kv.Value);
-    }
 
     private IEnumerable<CachedResource> ApplyScope(IEnumerable<CachedResource> src, ScopeFilter scope)
     {

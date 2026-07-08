@@ -255,12 +255,14 @@ foreach ($file in Get-ChildItem -Path $AgentExtensionDir -File) {
     }
 }
 
-# Also drop the netstandard fallback runtimes/ subdir if the same file exists
-# under deps's corresponding NuGet path.
+# Drop the netstandard fallback runtimes/ subdir wholesale: every native it
+# carries is already staged under deps/<pkg>/.../runtimes/ (the NuGet-style
+# path additionalProbingPaths resolves), so the extension-top copy is dead
+# weight. Count the files removed so the [6/6] tally is accurate.
 $extRuntimes = Join-Path $AgentExtensionDir 'runtimes'
 if (Test-Path -Path $extRuntimes -PathType Container) {
+    $extCleaned += @(Get-ChildItem -Path $extRuntimes -Recurse -File).Count
     Remove-Item -Path $extRuntimes -Recurse -Force
-    $extCleaned++
 }
 
 Write-Host "  [6/6] extension top-level: removed $extCleaned redundant files"

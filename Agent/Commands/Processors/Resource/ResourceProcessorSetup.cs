@@ -25,7 +25,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
             var auth = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
 
-            var refresher = new ArmCacheRefresher(auth, profileService);
+            // Reuse the DI-registered process-wide HttpClient (Core.Engine
+            // registers it as a singleton) rather than letting ArmCacheRefresher
+            // construct its own. Initialize() runs once per `az agent tool
+            // resource ...` invocation and the refresher it builds may be
+            // discarded by ConfigureSingleton's first-writer-wins wiring, so a
+            // self-owned HttpClient here would be an undisposed leak; the shared
+            // singleton is owned by the container and never leaks.
+            var httpClient = AzclipsServiceProvider.GetRequiredService<HttpClient>();
+            var refresher = new ArmCacheRefresher(auth, profileService, httpClient);
             // The tools push the active profile's tenant into ResourceCache on
             // every invocation (CachedResourceTools.SyncTenantAsync), so there's
             // nothing to pin here; wire only the background refresher.

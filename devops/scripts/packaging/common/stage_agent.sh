@@ -242,12 +242,13 @@ for name in os.listdir(agent_ext := os.path.dirname(deps_dir)):
         os.remove(p)
         ext_cleaned += 1
 
-# Also drop the netstandard fallback runtimes/ subdir at extension top: it
-# duplicates the file already staged under deps/<pkg>/.../runtimes/.
+# Drop the netstandard fallback runtimes/ subdir wholesale: every native it
+# carries is already staged under deps/<pkg>/.../runtimes/. Count the files
+# removed so the [6/6] tally is accurate.
 ext_runtimes = os.path.join(agent_ext, 'runtimes')
 if os.path.isdir(ext_runtimes):
+    ext_cleaned += sum(len(files) for _, _, files in os.walk(ext_runtimes))
     shutil.rmtree(ext_runtimes)
-    ext_cleaned += 1
 
 print(f'  [6/6] extension top-level: removed {ext_cleaned} redundant files')
 

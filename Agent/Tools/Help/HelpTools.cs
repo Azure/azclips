@@ -40,7 +40,7 @@ public sealed class HelpTools
         GetCommand = AIFunctionFactory.Create(GetCommandAsync, new AIFunctionFactoryOptions
         {
             Name = "get_command",
-            Description = "Return the full HelpCommand for one azclips command: parameters (cliName/psName, type, required, description), " +
+            Description = "Return the full HelpCommand for one azclips command: parameters (name/psName, type, required, description), " +
                 "examples (cli[] and powerShell[]), description, summary. " +
                 "Pass 'name' as the cliName (e.g. 'vm create') OR the psName (e.g. 'New-VM') — " +
                 "lookup is case-insensitive and searches both surfaces. " +
@@ -75,7 +75,7 @@ public sealed class HelpTools
 
     [Description("Return one command's full HelpCommand (parameters + examples + description).")]
     private async Task<string> GetCommandAsync(
-        [Description("Command name. Pass cliName (e.g. 'vm create', 'group list') OR psName (e.g. 'New-VM', 'Get-ResourceGroup_Get'). Case-insensitive.")]
+        [Description("Command name. Pass cliName (e.g. 'vm create', 'group list') OR psName (e.g. 'New-VM', 'Get-ResourceGroup'). Case-insensitive.")]
         string name,
         CancellationToken ct = default)
     {

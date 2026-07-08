@@ -8,19 +8,20 @@ namespace Core.Agent.Tests;
 /// <summary>
 /// Contract tests for <see cref="ShellOutHelper.InvokeAzAsync"/>. Uses a
 /// tiny cross-platform shell (cmd.exe on Windows, /bin/sh elsewhere) to
-/// exercise the three surfaces callers depend on:
-/// stdout passthrough on success, structured JSON on failure spawn,
-/// and structured JSON on non-zero exit.
+/// exercise the caller-facing surfaces: stdout on success, and the four
+/// structured-JSON error shapes — spawn-failed, non-zero exit, timeout,
+/// and caller cancellation.
 /// </summary>
 public class ShellOutHelperTests
 {
     [Fact]
-    public async Task SuccessfulExit_ReturnsStdoutVerbatim()
+    public async Task SuccessfulExit_ReturnsStdout()
     {
-        // A real subprocess with stdout that must round-trip byte-for-byte to
-        // the caller — this is how LLM tool results reach the model, so any
-        // regression that mangles stdout (encoding, trimming, buffering) shows
-        // up here first.
+        // A real subprocess whose stdout must reach the caller — this is how
+        // LLM tool results flow to the model, so a regression that drops output
+        // entirely (spawn/redirect/buffer break) shows up here. Note stdout is
+        // line-collected (OutputDataReceived + AppendLine), so it is not a
+        // byte-for-byte copy of the child's stream; the content is what matters.
         var (exe, args) = OperatingSystem.IsWindows()
             ? (Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe", new[] { "/c", "echo", "hello-shellout" })
             : ("/bin/sh", new[] { "-c", "echo hello-shellout" });
@@ -60,5 +61,27 @@ public class ShellOutHelperTests
         using var doc = JsonDocument.Parse(result);
         Assert.Equal("shell_out_nonzero_exit", doc.RootElement.GetProperty("error").GetString());
         Assert.Equal(3, doc.RootElement.GetProperty("exitCode").GetInt32());
+    }
+
+    [Fact]
+    public async Task CallerCancellation_ReturnsCancelledJson()
+    {
+        // A child that would run far longer than the caller wants; the caller's
+        // token is already cancelled, so InvokeAzAsync must kill the child and
+        // return the shell_out_cancelled shape rather than throwing.
+        var (exe, args) = OperatingSystem.IsWindows()
+            ? (Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe", new[] { "/c", "ping", "-n", "30", "127.0.0.1" })
+            : ("/bin/sh", new[] { "-c", "sleep 30" });
+
+        if (!File.Exists(exe))
+            return; // env doesn't provide a shell we can reach — skip
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var result = await ShellOutHelper.InvokeAzAsync(exe, args, cts.Token);
+
+        using var doc = JsonDocument.Parse(result);
+        Assert.Equal("shell_out_cancelled", doc.RootElement.GetProperty("error").GetString());
     }
 }
