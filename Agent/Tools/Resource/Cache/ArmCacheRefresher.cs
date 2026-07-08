@@ -94,13 +94,13 @@ public sealed class ArmCacheRefresher
     /// via <see cref="LastError"/> for troubleshooting — a failing refresh
     /// must not crash the caller.
     /// </summary>
-    public void KickAsync(CancellationToken ct = default)
+    public void KickAsync()
     {
         // Fire-and-forget: the whole point is to leave a fresh cache behind for
-        // the NEXT query, so it must outlive the caller. Using the caller's ct
-        // to schedule/await would mean a caller that cancels quickly (or passes
-        // an already-cancelled token) never starts — or aborts — the refresh.
-        // Detach with CancellationToken.None; failures surface via LastError.
+        // the NEXT query, so it must outlive the caller. It deliberately takes
+        // no CancellationToken — a caller can't (and shouldn't) cancel a
+        // detached background refresh. Runs on CancellationToken.None; failures
+        // surface via LastError.
         _ = Task.Run(async () =>
         {
             try

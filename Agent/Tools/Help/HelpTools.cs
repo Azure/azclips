@@ -44,7 +44,7 @@ public sealed class HelpTools
                 "examples (cli[] and powerShell[]), description, summary. " +
                 "Pass 'name' as the cliName (e.g. 'vm create') OR the psName (e.g. 'New-VM') — " +
                 "lookup is case-insensitive and searches both surfaces. " +
-                "Returns error=not_found when the command doesn't exist. " +
+                "Returns error=not_found (with a suggestions list of near-matching commands) when the command doesn't exist. " +
                 "Call AFTER list_commands has confirmed the command exists.",
         });
 

@@ -24,6 +24,10 @@ namespace Core.Cli;
 public class Program
 {
     private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
+    // Forwards the user's real cwd to the agent (whose working dir we override to
+    // the install dir for probing). Read by EnvironmentProber on the agent side by
+    // the same literal name — rename both together.
+    private const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ILoggingService? _logger;
@@ -346,8 +350,12 @@ public class Program
                 FileName = agentExe,
                 // Set the working directory to the agent exe's own directory so
                 // relative additionalProbingPaths in azclips-agent.runtimeconfig.json
-                // resolve correctly. .NET treats additionalProbingPaths as relative
-                // to the current working directory, not the exe location.
+                // resolve correctly. .NET resolves those paths at CLR startup
+                // (before any managed code runs), relative to the working
+                // directory, not the exe location — so this must be set here and
+                // can't be corrected later from inside the agent. The user's real
+                // cwd is forwarded via AZCLIPS_CALLER_CWD below so environment
+                // probing still reports the directory `az` was invoked from.
                 WorkingDirectory = Path.GetDirectoryName(agentExe)!,
                 // Inherit stdio so streaming tokens, y/n prompt, device-code links
                 // all show live in the user's terminal.
@@ -357,6 +365,10 @@ public class Program
                 RedirectStandardInput = false,
             };
             psi.Environment[AgentModeEnvVar] = "1";
+            // Forward the directory the user actually ran `az` from. WorkingDirectory
+            // above is the agent install dir (needed for probing paths), which would
+            // otherwise make the agent's environment snapshot report the wrong cwd.
+            psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory();
             psi.ArgumentList.Add("--agent-mode");
             psi.ArgumentList.Add("--failed-command");
             psi.ArgumentList.Add(JoinShellQuoted(args));

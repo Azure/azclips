@@ -23,7 +23,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
 
             var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
-            var tool = new AvailableLocationsTool(authService, profileService);
+            // Reuse the DI-registered process-wide HttpClient instead of letting
+            // AvailableLocationsTool construct (and leak) its own on every
+            // `az agent tool resource sku` invocation. Matches ResourceProcessorSetup.
+            var httpClient = AzclipsServiceProvider.GetRequiredService<HttpClient>();
+            var tool = new AvailableLocationsTool(authService, profileService, httpClient);
 
             var args = new AIFunctionArguments
             {
