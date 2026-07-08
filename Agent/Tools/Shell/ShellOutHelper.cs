@@ -79,6 +79,19 @@ public static class ShellOutHelper
                 argv = args,
             }, Json);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Caller-driven cancellation (user Ctrl+C, host shutdown, tool
+            // budget exhausted, ...). Same contract as the timeout path: kill
+            // the still-running child and return a structured JSON error so
+            // "always return a JSON string" holds regardless of who cancels.
+            try { if (!proc.HasExited) proc.Kill(entireProcessTree: true); } catch { /* best effort */ }
+            return JsonSerializer.Serialize(new
+            {
+                error = "shell_out_cancelled",
+                argv = args,
+            }, Json);
+        }
 
         // WaitForExitAsync can return before OutputDataReceived / ErrorDataReceived
         // have delivered the last lines — Process on .NET signals exit as soon as
