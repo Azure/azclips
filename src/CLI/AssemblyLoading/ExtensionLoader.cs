@@ -6,6 +6,8 @@ using System.Runtime.Loader;
 using Core.Abstractions;
 using Core.Configuration.Options;
 using Core.Extensions;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
 namespace Core.Cli;
@@ -199,15 +201,51 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
     {
         var prefix = packageId + ".";
         var versions = Directory.EnumerateFiles(packageDir, "*.nupkg", SearchOption.TopDirectoryOnly)
-            .Select(Path.GetFileName)
-            .Where(fileName => !string.IsNullOrWhiteSpace(fileName))
-            .Select(fileName => ParseVersionFromNupkgFileName(fileName!, prefix))
+            .Select(nupkgPath => ParseVersionFromNupkg(nupkgPath, packageId, prefix))
             .Where(parsed => parsed is not null)
             .Cast<NuGetVersion>()
             .OrderByDescending(parsed => parsed)
             .ToList();
 
         return versions.Count == 0 ? string.Empty : versions[0].ToString();
+    }
+
+    private static NuGetVersion? ParseVersionFromNupkg(string nupkgPath, string packageId, string packagePrefix)
+    {
+        var identityVersion = TryReadPackageIdentityVersion(nupkgPath, packageId);
+        if (identityVersion is not null)
+        {
+            return identityVersion;
+        }
+
+        var fileName = Path.GetFileName(nupkgPath);
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        return ParseVersionFromNupkgFileName(fileName, packagePrefix);
+    }
+
+    private static NuGetVersion? TryReadPackageIdentityVersion(string nupkgPath, string packageId)
+    {
+        try
+        {
+            using var stream = File.OpenRead(nupkgPath);
+            using var reader = new PackageArchiveReader(stream);
+            PackageIdentity identity = reader.GetIdentity();
+
+            if (!string.Equals(identity.Id, packageId, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return identity.Version;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static NuGetVersion? ParseVersionFromNupkgFileName(string fileName, string packagePrefix)
