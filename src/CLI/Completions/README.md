@@ -33,6 +33,9 @@ Build the solution first:
 # Set env var to enable azclips detection (skip system Azure CLI)
 $env:AZCLIPS_BINARY = '1'
 
+# Optional: alias az so you can test without full path
+Set-Alias az <path-to>\az.exe
+
 # Test completions
 az <Tab>                              # top-level groups
 <path-to>\az.exe <Tab>                # path-qualified also works
@@ -44,6 +47,9 @@ az vm create --<Tab>                  # parameters
 ```bash
 export AZCLIPS_BINARY=1
 source <path-to>/az.completions.bash
+
+# Optional: add az to PATH so you can test without full path
+export PATH="<path-to-az-directory>:$PATH"
 
 az <Tab>              # top-level groups
 az vm <Tab>           # subcommands
@@ -57,6 +63,9 @@ export AZCLIPS_BINARY=1
 autoload -U compinit && compinit
 source <path-to>/az.completions.zsh
 
+# Optional: add az to PATH so you can test without full path
+export PATH="<path-to-az-directory>:$PATH"
+
 az <Tab>              # top-level groups
 az vm <Tab>           # subcommands
 az vm create --<Tab>  # parameters
@@ -67,7 +76,6 @@ az vm create --<Tab>  # parameters
 - `$AZCLIPS_BINARY=1` tells the scripts this is azclips, not system Azure CLI. Without it, bare `az` completions are skipped.
 - Completion results are cached per session. Run `_azClearCache` (PS) or `_az_clear_cache` (bash/zsh) to refresh.
 - Requires `jq` for bash/zsh.
-- If `az` is not on `PATH`, add it or create an alias: `alias az=/path/to/az`.
 
 ## Toggling Completion
 
