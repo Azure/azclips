@@ -19,28 +19,27 @@ Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShel
 
 ## Install with the bundled script
 
-Get the bundle from the latest release. The quickest way is your authenticated GitHub CLI (`gh`) — the same session the azcli installer uses, which works on the private repo:
+All steps below run in **PowerShell 7.6+**.
 
-```bash
+Download the bundle from the latest release using your authenticated GitHub CLI (`gh`) — the same session the azcli installer uses, which works on the private repo. (Or download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.)
+
+```powershell
 gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber
 ```
 
-Alternatively, download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.
-
-Then extract it:
-
-```bash
-mkdir -p azps-cmdlets
-tar -xzf ./azps-cmdlets-*.tar.gz -C azps-cmdlets
-```
-
-Then from PowerShell 7.6+:
+Extract it:
 
 ```powershell
-pwsh -File ./azps-cmdlets/InstallModule.ps1
+New-Item -ItemType Directory -Force -Path azps-cmdlets | Out-Null
+$bundle = (Get-ChildItem azps-cmdlets-*.tar.gz | Select-Object -First 1).Name
+tar -xzf $bundle -C azps-cmdlets
 ```
 
-This registers the extracted folder as a temporary local repository and installs the `Az` roll-up (and all `Az.*` dependencies) for the current user.
+Install it (registers the extracted folder as a temporary local repository and installs the `Az` roll-up and all `Az.*` dependencies for the current user):
+
+```powershell
+./azps-cmdlets/InstallModule.ps1
+```
 
 ### Script options
 
