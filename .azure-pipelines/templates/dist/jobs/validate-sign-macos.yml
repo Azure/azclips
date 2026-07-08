@@ -25,8 +25,8 @@ jobs:
     displayName: Download Signed macOS Artifacts
     inputs:
       buildType: current
-      artifact: signed-macos-$(MacOSArchitecture)
-      path: $(Pipeline.Workspace)/signed-macos
+      artifactName: signed-macos-$(MacOSArchitecture)
+      targetPath: $(Pipeline.Workspace)/signed-macos
   - bash: |
       set -euo pipefail
       root="$(Pipeline.Workspace)/signed-macos"
@@ -41,6 +41,71 @@ jobs:
 
       errors=0
       total_macho=0
+      host_arch="$(uname -m)"
+
+      verify_macho_signature() {
+        local candidate="$1"
+        local signature_details
+        local failed=0
+
+        if ! codesign -v "$candidate" 2>/dev/null; then
+          echo "ERROR: Basic codesign verification failed: $candidate"
+          failed=1
+        fi
+        if ! codesign --verify --deep --strict "$candidate" 2>/dev/null; then
+          echo "ERROR: Strict codesign verification failed: $candidate"
+          failed=1
+        fi
+
+        signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+        if ! printf '%s\n' "$signature_details" | grep -q 'TeamIdentifier=UBF8T346G9'; then
+          echo "ERROR: Microsoft TeamIdentifier missing: $candidate"
+          printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
+          failed=1
+        fi
+        if ! printf '%s\n' "$signature_details" | grep -q 'flags=.*runtime'; then
+          echo "ERROR: Hardened runtime flag missing: $candidate"
+          printf '%s\n' "$signature_details" | grep -E '^(CodeDirectory|Runtime Version) ' || true
+          failed=1
+        fi
+        if ! printf '%s\n' "$signature_details" | grep -q '^Timestamp='; then
+          echo "ERROR: Signing timestamp missing: $candidate"
+          failed=1
+        fi
+
+        return "$failed"
+      }
+
+      verify_dotnet_entitlements() {
+        local candidate="$1"
+        local entitlements
+        local failed=0
+
+        entitlements=$(codesign -d --entitlements - "$candidate" 2>&1 || true)
+        for entitlement in \
+          'com.apple.security.cs.allow-jit' \
+          'com.apple.security.cs.allow-unsigned-executable-memory' \
+          'com.apple.security.cs.disable-library-validation'; do
+          if ! printf '%s\n' "$entitlements" | grep -q "$entitlement"; then
+            echo "ERROR: Required .NET entitlement '$entitlement' missing: $candidate"
+            failed=1
+          fi
+        done
+
+        return "$failed"
+      }
+
+      find_az_entrypoint() {
+        local verify_dir="$1"
+        if [[ -f "$verify_dir/az" ]]; then
+          printf '%s\n' "$verify_dir/az"
+        elif [[ -f "$verify_dir/libexec/bin/az" ]]; then
+          printf '%s\n' "$verify_dir/libexec/bin/az"
+        elif [[ -e "$verify_dir/bin/az" ]]; then
+          printf '%s\n' "$verify_dir/bin/az"
+        fi
+      }
+
       for tarball in "${tarballs[@]}"; do
         verify_dir="$(Pipeline.Workspace)/verify-macos/$(basename "${tarball%.tar.gz}")"
         mkdir -p "$verify_dir"
@@ -54,18 +119,7 @@ jobs:
 
           tarball_macho=$((tarball_macho + 1))
           total_macho=$((total_macho + 1))
-          if ! codesign -v "$candidate" 2>/dev/null; then
-            echo "ERROR: Basic codesign verification failed: $candidate"
-            errors=1
-          fi
-          if ! codesign --verify --deep --strict "$candidate" 2>/dev/null; then
-            echo "ERROR: Strict codesign verification failed: $candidate"
-            errors=1
-          fi
-          signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
-          if ! printf '%s\n' "$signature_details" | grep -Eq 'Authority=.*Developer ID|TeamIdentifier=UBF8T346G9'; then
-            echo "ERROR: Developer ID certificate missing: $candidate"
-            printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
+          if ! verify_macho_signature "$candidate"; then
             errors=1
           fi
         done < <(find "$verify_dir" -type f -print0)
@@ -75,46 +129,42 @@ jobs:
           errors=1
         fi
 
-        entrypoint=""
-        if [[ -f "$verify_dir/az" ]]; then
-          entrypoint="$verify_dir/az"
-        elif [[ -f "$verify_dir/libexec/bin/az" ]]; then
-          entrypoint="$verify_dir/libexec/bin/az"
-        elif [[ -e "$verify_dir/bin/az" ]]; then
-          entrypoint="$verify_dir/bin/az"
+        az_binary="$(find_az_entrypoint "$verify_dir")"
+        if [[ ! -f "$az_binary" ]]; then
+          echo "ERROR: az binary not found in signed macOS tarball: $tarball"
+          errors=1
+          continue
         fi
 
-        if [[ -z "$entrypoint" ]]; then
-          echo "ERROR: No az entrypoint found in $tarball"
+        if ! verify_dotnet_entitlements "$az_binary"; then
           errors=1
-        else
-          host_arch="$(uname -m)"
-          entrypoint_info="$(file "$entrypoint" 2>/dev/null || true)"
-          runnable=true
-          if [[ "$host_arch" == "arm64" ]]; then
-            if [[ "$entrypoint_info" != *"arm64"* && "$entrypoint_info" != *"universal"* ]]; then
-              runnable=false
-            fi
-          elif [[ "$host_arch" == "x86_64" ]]; then
-            if [[ "$entrypoint_info" != *"x86_64"* && "$entrypoint_info" != *"universal"* ]]; then
-              runnable=false
-            fi
-          fi
+        fi
 
-          if [[ "$runnable" == "true" ]]; then
-            smoke_home="$verify_dir/.azclips-smoke-home"
-            mkdir -p "$smoke_home"
-            if ! HOME="$smoke_home" "$entrypoint" --version >/tmp/azclips-signed-version.txt 2>&1; then
-              echo "ERROR: Signed macOS tarball failed to launch: $tarball"
-              cat /tmp/azclips-signed-version.txt
-              errors=1
-            else
-              echo "Signed macOS tarball launch check passed: $tarball"
-            fi
-            rm -rf "$smoke_home"
-          else
-            echo "Skipping signed tarball launch check for $tarball; host architecture '$host_arch' is not compatible with: $entrypoint_info"
+        chmod +x "$az_binary" || true
+        binary_info="$(file "$az_binary" 2>/dev/null || true)"
+        echo "Signed az binary info: $binary_info"
+
+        is_runnable=true
+        if [[ "$host_arch" == "arm64" ]]; then
+          if [[ "$binary_info" != *"arm64"* && "$binary_info" != *"universal"* ]]; then
+            is_runnable=false
           fi
+        elif [[ "$host_arch" == "x86_64" ]]; then
+          if [[ "$binary_info" != *"x86_64"* && "$binary_info" != *"universal"* ]]; then
+            is_runnable=false
+          fi
+        fi
+
+        if [[ "$is_runnable" == "true" ]]; then
+          if ! HOME="$verify_dir/home" "$az_binary" --help >/tmp/azclips-signed-help.txt 2>&1; then
+            echo "ERROR: Signed az runtime smoke test failed: $tarball"
+            cat /tmp/azclips-signed-help.txt
+            errors=1
+          else
+            echo "PASS: Signed az runtime smoke test completed."
+          fi
+        else
+          echo "NOTE: Host architecture '$host_arch' is not compatible with signed binary; skipping runtime smoke test."
         fi
       done
 
