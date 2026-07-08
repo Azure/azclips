@@ -24,6 +24,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache
 
             var auth = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+            var httpClient = AzclipsServiceProvider.GetRequiredService<HttpClient>();
             var profile = await profileService.GetActiveProfileAsync(Token);
 
             var startedAt = DateTime.UtcNow;
@@ -41,7 +42,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache
             }
             else
             {
-                var refresher = new ArmCacheRefresher(auth, profileService,
+                // Reuse the DI-registered singleton HttpClient (matches
+                // ResourceProcessorSetup / ResourceSkuProcessor) rather than
+                // letting ArmCacheRefresher construct its own per invocation.
+                var refresher = new ArmCacheRefresher(auth, profileService, httpClient,
                     progress: msg => Console.Error.WriteLine(msg));
                 try
                 {
