@@ -102,11 +102,13 @@ public static class ChartGenerator
     }
 
     // "CLI: List VM" -> "List VM"; "PS: Create RG" -> "Create RG"; falls back to the
-    // whole trimmed name when there is no "<product>: " prefix.
+    // whole trimmed name when there is no "<product>: " prefix. BenchmarkDotNet wraps
+    // the display name in single quotes (e.g. 'CLI: List VM'), so strip those first.
     private static string OperationLabel(string method)
     {
-        var colon = method.IndexOf(':');
-        return colon >= 0 ? method[(colon + 1)..].Trim() : method.Trim();
+        var label = method.Trim().Trim('\'');
+        var colon = label.IndexOf(':');
+        return colon >= 0 ? label[(colon + 1)..].Trim() : label.Trim();
     }
 
     private static string GenerateGroupedBarChart(List<OverheadData> timings, string timestamp)
