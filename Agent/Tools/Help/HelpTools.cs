@@ -75,6 +75,11 @@ public sealed class HelpTools
         CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("get_command", $"name={name}");
-        return ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name ?? string.Empty }, ct);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            scope.SetResult("error=missing_name");
+            return Task.FromResult("{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}");
+        }
+        return ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct);
     }
 }
