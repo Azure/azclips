@@ -28,8 +28,8 @@ public sealed class HelpTools
         {
             Name = "list_commands",
             Description = "Return the full catalog of azclips commands across all extensions. " +
-                "Each entry has cliName (e.g. 'vm create-combined', empty string when no CLI verb), " +
-                "psName (e.g. 'New-VMCombined', empty string when no PS cmdlet), extension, group, summary. " +
+                "Each entry has cliName (e.g. 'vm create', empty string when no CLI verb), " +
+                "psName (e.g. 'New-VM', empty string when no PS cmdlet), verb, summary. " +
                 "Use FIRST when you don't already know whether a command exists or what its exact name is. " +
                 "After picking a candidate, call get_command for its parameters and examples. " +
                 "Shells out to `az agent tool help` which enumerates every installed extension's command " +
@@ -42,7 +42,7 @@ public sealed class HelpTools
             Name = "get_command",
             Description = "Return the full HelpCommand for one azclips verb: parameters (cliName/psName, type, required, description), " +
                 "examples (cli[] and powerShell[]), description, summary. " +
-                "Pass 'name' as the cliName (e.g. 'vm create-combined') OR the psName (e.g. 'New-VMCombined') — " +
+                "Pass 'name' as the cliName (e.g. 'vm create') OR the psName (e.g. 'New-VM') — " +
                 "lookup is case-insensitive and searches both surfaces. " +
                 "Returns error=not_found when the verb doesn't exist. " +
                 "Call AFTER list_commands has confirmed the verb exists.",
@@ -75,7 +75,7 @@ public sealed class HelpTools
 
     [Description("Return one command's full HelpCommand (parameters + examples + description).")]
     private async Task<string> GetCommandAsync(
-        [Description("Command name. Pass cliName (e.g. 'vm create-combined', 'group list') OR psName (e.g. 'New-VMCombined', 'Get-ResourceGroup_Get'). Case-insensitive.")]
+        [Description("Command name. Pass cliName (e.g. 'vm create', 'group list') OR psName (e.g. 'New-VM', 'Get-ResourceGroup_Get'). Case-insensitive.")]
         string name,
         CancellationToken ct = default)
     {

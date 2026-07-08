@@ -97,7 +97,7 @@ internal static class FailedCommandHelp
     }
 
     // A command-name token is lowercase ascii letters/digits/hyphens (e.g. "vm",
-    // "create", "create-combined"). Anything else (uppercase value, path, CJK,
+    // "create", "create-basic"). Anything else (uppercase value, path, CJK,
     // quotes) means the input isn't a clean command invocation.
     private static bool IsCommandToken(string token) =>
         token.Length > 0 && token.All(c => (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-');
