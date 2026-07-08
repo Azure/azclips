@@ -1,24 +1,24 @@
 ---
-title: Get started with AzCLIPS (Private preview)
-description: Learn the core concepts, supported environments, authentication model, current limitations, and coexistence guidance for AzCLIPS during the private preview.
+title: Get started with Azure CLI (Private preview)
+description: Learn the core concepts, supported environments, authentication model, current limitations, and coexistence guidance for Azure CLI during the private preview.
 ---
 
-# Get started with AzCLIPS (Private preview)
+# Get started with Azure CLI (Private preview)
 
-This article introduces the core concepts of AzCLIPS and explains what you need to know before you
+This article introduces the core concepts of Azure CLI and explains what you need to know before you
 begin using the private preview.
 
-## What is AzCLIPS?
+## What is Azure CLI?
 
-AzCLIPS is an AI-enhanced command-line experience for Azure that helps you work more efficiently by
-reducing the complexity of Azure CLI and Azure PowerShell commands.
+Azure CLI is an AI-enhanced command-line experience for Azure that helps you work more efficiently
+by reducing the complexity of Azure CLI and Azure PowerShell commands.
 
-Rather than replacing existing tools, AzCLIPS builds on them by providing intelligent assistance
+Rather than replacing existing tools, Azure CLI builds on them by providing intelligent assistance
 while continuing to use the same Azure management APIs and authentication model.
 
 ## Core concepts
 
-AzCLIPS is designed around a few key concepts:
+Azure CLI is designed around a few key concepts:
 
 - **Shared authentication** - Azure CLI and Azure PowerShell share a common sign-in experience.
 - **AI-assisted workflows** - AI helps explain errors, recommend next steps, and improve
@@ -29,7 +29,7 @@ AzCLIPS is designed around a few key concepts:
 
 ## Authentication
 
-AzCLIPS uses a shared authentication experience across Azure CLI and Azure PowerShell.
+Azure CLI uses a shared authentication experience across Azure CLI and Azure PowerShell.
 
 After you sign in, your authenticated session is available to both products. You don't need to sign
 in separately when switching between Azure CLI and Azure PowerShell.
@@ -51,21 +51,23 @@ Additional authentication scenarios may be added in future releases.
 
 ## Coexistence with Azure CLI and Azure PowerShell
 
-AzCLIPS is designed to coexist with existing Azure CLI and Azure PowerShell installations.
+Azure CLI private preview is designed to coexist with existing Azure CLI and Azure PowerShell
+installations.
 
-Installing AzCLIPS doesn't replace your existing installation. You can continue using Azure CLI and
-Azure PowerShell exactly as you do today while evaluating AzCLIPS.
+Installing Azure CLI private preview doesn't replace your existing installation. You can continue
+using Azure CLI and Azure PowerShell exactly as you do today while evaluating Azure CLI private
+preview.
 
 This allows you to:
 
-- Gradually evaluate AzCLIPS
+- Gradually evaluate Azure CLI private preview
 - Compare workflows
 - Continue using existing scripts and automation
 - Roll back to your existing workflow at any time
 
 ## Supported environments
 
-AzCLIPS supports modern, cross-platform environments.
+Azure CLI private preview supports modern, cross-platform environments.
 
 ### Supported operating systems
 
@@ -102,13 +104,13 @@ If you encounter an issue:
 1. Verify that you're using a supported operating system and shell.
 1. Reproduce the issue, if possible.
 1. Collect any relevant error messages or command output.
-1. Open an issue in the AzCLIPS GitHub repository.
+1. Open an issue in [the AzCLIPS GitHub repository][01].
 
 When reporting an issue, include:
 
 - Operating system
 - Shell (PowerShell, Bash, or Zsh)
-- AzCLIPS version
+- Azure CLI private preview version
 - Azure CLI or Azure PowerShell version, if applicable
 - Steps to reproduce the problem
 - Expected behavior
@@ -123,3 +125,7 @@ During the private preview, you should expect some limitations:
 - Some AI-generated responses may be incomplete or inaccurate.
 - Authentication support is currently limited to interactive user sign-in.
 - Feature availability may change between preview releases.
+
+<!-- link references -->
+
+[01]: https://github.com/Azure/azclips/issues
