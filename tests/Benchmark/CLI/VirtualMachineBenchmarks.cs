@@ -19,21 +19,14 @@ public class VirtualMachineBenchmarks : CLIBenchmarkBase
     private const string ResourceGroup = "bench-rg";
 
     [Benchmark(Description = "CLI: List VM")]
-    public int ListVirtualMachines()
-    {
-        var exitCode = Core.Cli.Program.Main(
-            ["vm", "list", "--subscription-id", SubscriptionId, "--resource-group", ResourceGroup])
-            .GetAwaiter().GetResult();
-        if (exitCode != 0) throw new InvalidOperationException($"CLI exited with code {exitCode}");
-        return exitCode;
-    }
+    public int ListVirtualMachines() =>
+        RunCli("vm", "list", "--subscription-id", SubscriptionId, "--resource-group", ResourceGroup);
 
     [Benchmark(Description = "CLI: Create VM")]
     public int CreateVirtualMachine()
     {
         var n = Interlocked.Increment(ref VmCounter);
-        var exitCode = Core.Cli.Program.Main(
-        [
+        return RunCli(
             "vm", "create",
             "--subscription-id", SubscriptionId,
             "--name", $"bench-vm-{n}",
@@ -44,19 +37,10 @@ public class VirtualMachineBenchmarks : CLIBenchmarkBase
             "--admin-password", "Benchmark!Pass123",
             "--network-interface-name", $"bench-nic-{n}",
             "--virtual-network-name", $"bench-vnet-{n}",
-            "--network-security-group-name", $"bench-nsg-{n}"
-        ]).GetAwaiter().GetResult();
-        if (exitCode != 0) throw new InvalidOperationException($"CLI exited with code {exitCode}");
-        return exitCode;
+            "--network-security-group-name", $"bench-nsg-{n}");
     }
 
     [Benchmark(Description = "CLI: Get VM")]
-    public int GetVirtualMachine()
-    {
-        var exitCode = Core.Cli.Program.Main(
-            ["vm", "show", "--subscription-id", SubscriptionId, "--name", "bench-vm-get", "--resource-group", ResourceGroup])
-            .GetAwaiter().GetResult();
-        if (exitCode != 0) throw new InvalidOperationException($"CLI exited with code {exitCode}");
-        return exitCode;
-    }
+    public int GetVirtualMachine() =>
+        RunCli("vm", "show", "--subscription-id", SubscriptionId, "--name", "bench-vm-get", "--resource-group", ResourceGroup);
 }

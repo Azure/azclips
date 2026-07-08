@@ -77,6 +77,20 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         TryDeleteDirectory(Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
     }
 
+    /// <summary>
+    /// Runs the CLI in-process with <paramref name="args"/> and throws if it returns a
+    /// non-zero exit code. Returns the (zero) exit code so a benchmark method can return it.
+    /// </summary>
+    protected static int RunCli(params string[] args)
+    {
+        var exitCode = Core.Cli.Program.Main(args).GetAwaiter().GetResult();
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException($"CLI exited with code {exitCode}");
+        }
+        return exitCode;
+    }
+
     private void RegisterExtensionResolution()
     {
         var extensionsRoot = _extensionsRoot;
