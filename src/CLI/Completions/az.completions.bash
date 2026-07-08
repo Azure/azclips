@@ -110,28 +110,37 @@ _az_query() {
     [[ -n "$exe" ]] || return 1
     local config_stamp
     config_stamp="$(_az_get_config_stamp)"
-    
+
     # Check cache validity: invalidate on exe/config stamp changes.
     if [[ -n "$_az_completions_cache_root" && "$_az_completions_cache_exe" == "$exe" && "$_az_completions_cache_stamp" == "$config_stamp" ]]; then
-        # Use cached tree if no context args
+        # Navigate cached tree by context args using jq
         if [[ $# -eq 0 ]]; then
             echo "$_az_completions_cache_root"
             return 0
         fi
+        local subtree
+        subtree="$(echo "$_az_completions_cache_root" | jq -e --arg k "$1" '.[$k]' 2>/dev/null)"
+        if [[ $? -eq 0 && -n "$subtree" && "$subtree" != "null" ]]; then
+            echo "$subtree"
+            return 0
+        fi
     fi
-    
-    # Cache miss or exe changed: query fresh
-    local json
-    json="$("$exe" --completions "$@" 2>/dev/null)"
-    
-    # Only cache root-level query (no arguments) to minimize memory
-    if [[ $# -eq 0 && -n "$json" ]]; then
-        _az_completions_cache_root="$json"
+
+    # Cache miss: query fresh root tree and cache it
+    local root_json
+    root_json="$("$exe" --completions 2>/dev/null)"
+    if [[ -n "$root_json" ]]; then
+        _az_completions_cache_root="$root_json"
         _az_completions_cache_exe="$exe"
         _az_completions_cache_stamp="$config_stamp"
     fi
-    
-    echo "$json"
+
+    # Return the requested subtree (or root if no args)
+    if [[ $# -eq 0 ]]; then
+        echo "$root_json"
+    else
+        echo "$root_json" | jq -e --arg k "$1" '.[$k]' 2>/dev/null
+    fi
 }
 
 # Session cache for completions tree (persists until exe path changes)
@@ -172,7 +181,7 @@ _az_completions() {
             COMPREPLY=($(compgen -W "$groups" -- "$cur"))
             ;;
         2)
-            # Level 1: subcommands + group-level params (dynamic)
+            # Level 1: subcommands + group-level params
             local group="${words[1]}"
             local json
             json="$(_az_query "$group")"
@@ -184,16 +193,11 @@ _az_completions() {
             fi
             ;;
         *)
-            # Level 2+: parameters (dynamic)
+            # Level 2+: parameters
             local group="${words[1]}"
             local sub="${words[2]}"
             local json
-            # If sub is a flag, query group-level params only
-            if [[ "$sub" == --* ]]; then
-                json="$(_az_query "$group")"
-            else
-                json="$(_az_query "$group" "$sub")"
-            fi
+            json="$(_az_query "$group")"
             local params=""
             if [[ -n "$json" ]]; then
                 # Try subcommand-specific params first, then group-level
