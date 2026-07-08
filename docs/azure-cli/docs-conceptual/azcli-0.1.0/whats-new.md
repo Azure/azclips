@@ -44,7 +44,7 @@ features, such as history-based suggestions, continue to work as expected.
 During the private preview:
 
 - Tab completion isn't enabled by default
-- Enable the feature by following the post-installation setup instructions
+- Enable the feature by following the [post-installation setup instructions](../../../../src/CLI/Completions/README.md#quick-start)
 - AzCLIPS doesn't update your shell profile automatically
 - The feature is available only in interactive terminal sessions
 - Scripts, pipelines, and other non-interactive scenarios aren't affected
