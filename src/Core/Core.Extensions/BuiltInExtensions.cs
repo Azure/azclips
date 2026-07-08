@@ -59,6 +59,10 @@ namespace Core.Extensions
                 {
                     Leaves = new[] { "get", "set", "delete", "list", "info" },
                 },
+                ["agent"] = new("agent", "Microsoft.Azure.Azclips.Extensions.Agent")
+                {
+                    Leaves = new[] { "tool env", "tool help", "tool resource find", "tool resource sku" },
+                },
             };
 
         /// <summary>

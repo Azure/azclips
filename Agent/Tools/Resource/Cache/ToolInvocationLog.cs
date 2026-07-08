@@ -1,0 +1,76 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+
+namespace Core.Agent.Tools.Resource.Cache;
+
+/// <summary>
+/// Process-wide collector for per-tool invocation timing. Tools push a
+/// <see cref="ToolInvocation"/> entry on completion; <c>DiagnosisEngine</c>
+/// (or any other consumer) reads them after the agent round-trip to break
+/// down "LLM thinking" vs "tool work" portions of the wall time.
+///
+/// Thread-safe; meant to be drained per-DiagnoseAsync call. Call
+/// <see cref="DrainAndReset"/> right before invoking the agent to clear
+/// stale entries from a previous call.
+/// </summary>
+public static class ToolInvocationLog
+{
+    private static readonly ConcurrentQueue<ToolInvocation> _entries = new();
+
+    public static Scope Start(string toolName, string? args = null)
+    {
+        return new Scope(toolName, args);
+    }
+
+    public static IReadOnlyList<ToolInvocation> DrainAndReset()
+    {
+        var list = new List<ToolInvocation>();
+        while (_entries.TryDequeue(out var e)) list.Add(e);
+        return list;
+    }
+
+    public static IReadOnlyList<ToolInvocation> Snapshot()
+    {
+        return _entries.ToArray();
+    }
+
+    /// <summary>
+    /// Per-call scope. <see cref="SetResult"/> is optional — when set,
+    /// the result string is captured on <see cref="Dispose"/> alongside
+    /// timing. Tools that return small structured payloads should call
+    /// it; tools that return large blobs may skip it (the consumer can
+    /// always read <see cref="Args"/> for context).
+    /// </summary>
+    public sealed class Scope : IDisposable
+    {
+        private readonly string _name;
+        private readonly string? _args;
+        private readonly Stopwatch _sw;
+        private readonly Activity? _activity;
+        private string? _result;
+
+        public Scope(string name, string? args)
+        {
+            _name = name;
+            _args = args;
+            _sw = Stopwatch.StartNew();
+            _activity = AgentTracing.Source.StartActivity($"tool.{name}");
+        }
+
+        public void SetResult(string result) => _result = result;
+
+        public void Dispose()
+        {
+            _sw.Stop();
+            _activity?.Dispose();
+            _entries.Enqueue(new ToolInvocation(_name, _args, _result, _sw.Elapsed, DateTime.UtcNow));
+        }
+    }
+}
+
+public sealed record ToolInvocation(
+    string Name,
+    string? Args,
+    string? Result,
+    TimeSpan Elapsed,
+    DateTime CompletedAtUtc);

@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
-using Core.Agent.Tools.Sku;
+using Core.Agent.Tools.Resource.Sku;
 using Microsoft.Extensions.AI;
 using Xunit;
 
@@ -193,7 +193,7 @@ public class AvailableLocationsToolTests
             throw new NotImplementedException();
         public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException();
-        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default) =>
+        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
             Task.FromResult(new AuthResult
             {
                 AccessToken = "fake-token",

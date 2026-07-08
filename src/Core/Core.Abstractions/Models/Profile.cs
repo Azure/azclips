@@ -36,6 +36,9 @@ public record Profile
     /// <summary>Optional client ID associated with the profile.</summary>
     public string? ClientId { get; init; }
 
+    /// <summary>Persisted managed identity key used for token refresh.</summary>
+    public string? ManagedIdentityId { get; init; }
+
     public override string ToString() =>
         $"Name: {Name}{Environment.NewLine}" +
         $"Subscription: {SubscriptionId}{Environment.NewLine}" +

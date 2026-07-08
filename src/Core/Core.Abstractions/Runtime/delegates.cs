@@ -25,7 +25,7 @@ namespace Core.Abstractions.Runtime
     /// Delegate for acquiring an access token silently.
     /// Matches <see cref="IAuthService.AcquireTokenSilentlyAsync"/> signature.
     /// </summary>
-    public delegate Task<AuthResult> AcquireTokenAsyncDelegate(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default);
+    public delegate Task<AuthResult> AcquireTokenAsyncDelegate(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null);
 
     /// <summary>
     /// Delegate for stream output processing.

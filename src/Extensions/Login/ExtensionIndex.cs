@@ -30,8 +30,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
                 ["UseDeviceCode"]  = new("UseDeviceCode", "UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["OutProfile"]     = new("OutProfile", "OutProfile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with -Profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Profile"]        = new("Profile", "Profile", typeof(string), "Re-authenticate the named existing profile (mutually exclusive with -OutProfile).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Identity"]       = new("Identity", "Identity", typeof(bool), "Login using managed identity in the current environment.", IsRequired: false, Aliases: ["MSI", "ManagedIdentity"], AllowedValues: []),
+                ["ClientId"]       = new("ClientId", "ClientId", typeof(string), "Client ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ObjectId"]       = new("ObjectId", "ObjectId", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceId"]     = new("ResourceId", "ResourceId", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["MSI"] = "Identity",
+                ["ManagedIdentity"] = "Identity",
+            }
         );
         private static readonly CommandMetadata psLogout = new(
             Name: nameof(Processors.LogoutProcessor),
@@ -110,6 +118,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
                 ["use-device-code"] = new("UseDeviceCode", "use-device-code", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["out-profile"]     = new("OutProfile", "out-profile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with --profile).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["profile"]         = new("Profile", "profile", typeof(string), "Re-authenticate the named existing profile (mutually exclusive with --out-profile).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["identity"]        = new("Identity", "identity", typeof(bool), "Login using managed identity in the current environment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-id"]       = new("ClientId", "client-id", typeof(string), "Client ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["object-id"]       = new("ObjectId", "object-id", typeof(string), "Object ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-id"]     = new("ResourceId", "resource-id", typeof(string), "Resource ID of the user-assigned managed identity.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

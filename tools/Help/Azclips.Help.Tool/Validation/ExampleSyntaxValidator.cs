@@ -126,6 +126,16 @@ namespace Azclips.Help.Tool.Validation
             var groupName = tokens[1];
             if (!indexesByCliGroup.TryGetValue(groupName, out var index))
             {
+                // Intrinsic host verbs (e.g. `version`) are implemented by the CLI host itself, not
+                // by any installed extension, so they never appear in indexesByCliGroup. Their
+                // examples are still valid `az` invocations — help comes from the markdown corpus —
+                // so accept them rather than flagging an unknown group. Mirrors the runtime's
+                // intrinsic-verb handling in RuntimeHelpDispatcher.
+                if (IntrinsicVerbs.All.Contains(groupName))
+                {
+                    return;
+                }
+
                 report.AddError(
                     ProblemIds.CLI_L1_UnknownGroup,
                     $"Unknown CLI group '{groupName}' in example. No extension registers this group.",

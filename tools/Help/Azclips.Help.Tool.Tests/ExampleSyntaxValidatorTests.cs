@@ -88,6 +88,18 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Fact]
+        public void Validate_ShouldPass_WhenGroupIsIntrinsicVerb()
+        {
+            // `version` is an intrinsic host verb (owned by the CLI host, not by any extension), so
+            // it never appears in the extension index. `az version` must still validate cleanly.
+            var content = Fence("az version");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
         public void Validate_ShouldError_WhenSubcommandDoesNotResolve()
         {
             var content = Fence("az group bogus --name foo");

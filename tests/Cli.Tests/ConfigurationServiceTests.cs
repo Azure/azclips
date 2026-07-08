@@ -140,7 +140,7 @@ public class ConfigurationServiceTests
         // PP ships agent off; the user opts in via `agent.enabled=true`. If this
         // flips, a fresh install would auto-spawn the agent on any failed command.
         Assert.False(options.Enabled);
-        Assert.Equal("oneShot", options.SessionStyle);
+        Assert.Equal("oneshot", options.SessionStyle);
     }
 
     [Fact]

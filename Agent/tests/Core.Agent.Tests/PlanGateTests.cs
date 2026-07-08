@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Core.Agent;
+using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using GitHub.Copilot;
 using Xunit;
@@ -7,7 +8,7 @@ using Xunit;
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Unit tests for <see cref="ChatAgent.HandlePreToolUseAsync"/> — the OnPreToolUse
+/// Unit tests for <see cref="PreToolUseHook.HandleAsync"/> — the OnPreToolUse
 /// gate. Drives it with a real <see cref="SessionState"/> and asserts the
 /// unified-mind contract: bash/powershell are denied without an approved plan;
 /// submit_response renders and allows (the sole terminator); an approved plan
@@ -43,7 +44,7 @@ public class PlanGateTests
         Console.SetOut(TextWriter.Null);
         try
         {
-            return await ChatAgent.HandlePreToolUseAsync(input, az, approval, state, CancellationToken.None);
+            return await PreToolUseHook.HandleAsync(input, az, approval, state, CancellationToken.None);
         }
         finally
         {
@@ -62,7 +63,7 @@ public class PlanGateTests
         Console.SetOut(TextWriter.Null);
         try
         {
-            var hookTask = ChatAgent.HandlePreToolUseAsync(
+            var hookTask = PreToolUseHook.HandleAsync(
                 Input("propose_plan", ValidPlan()), az, approval, state, CancellationToken.None);
             // The hook posts the plan to the approval channel; pump it to read y/n.
             await approval.PumpOneAsync(CancellationToken.None);
