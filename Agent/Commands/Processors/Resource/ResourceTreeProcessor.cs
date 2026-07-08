@@ -24,6 +24,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         [ArgumentInfo(Required = false, Description = @"Max depth from the root node. Defaults to 2 (sub→RG, RG→resource).", SerializedName = @"max-depth")]
         public int MaxDepth { get; set; } = 2;
 
+        [ArgumentInfo(Required = false, Description = @"Optional subscription scope when kind=resourceGroup and the RG name repeats across subscriptions.", SerializedName = @"subscription-id")]
+        public string? Subscription { get; set; }
+
         public override async Task ProcessAsync()
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
@@ -35,6 +38,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
                 ["kind"] = Kind,
                 ["maxDepth"] = MaxDepth,
             };
+            if (!string.IsNullOrWhiteSpace(Subscription))
+            {
+                args["subscription"] = Subscription;
+            }
 
             var result = await tools.GetResourceTree.InvokeAsync(args, Token);
             await WriteOutput(result?.ToString() ?? "{}");

@@ -53,6 +53,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             {
                 ["name"] = new("Name", "name", typeof(string), "Name pattern to match against cached Azure resource names.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["kind"] = new("Kind", "kind", typeof(string), "Optional kind filter (tenant | subscription | resourceGroup | resource). Defaults to all kinds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("Subscription", "subscription-id", typeof(string), "Optional subscription id or display name to narrow the search.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Optional resource group name to narrow the search (only meaningful for kind=resource).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["top"] = new("Top", "top", typeof(int), "Max candidates to return. Default 10.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -84,6 +87,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
                 ["name"]      = new("Name", "name", typeof(string), "Name, full ARM id, subscription id/name, or tenant id.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["kind"]      = new("Kind", "kind", typeof(string), "Kind of node to root the tree at: tenant | subscription | resourceGroup | resource.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["max-depth"] = new("MaxDepth", "max-depth", typeof(int), "Max depth from the root node. Defaults to 2.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("Subscription", "subscription-id", typeof(string), "Optional subscription scope when kind=resourceGroup and the RG name repeats across subscriptions.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -99,6 +103,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             {
                 ["name"] = new("Name", "name", typeof(string), "Name or full ARM id.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["kind"] = new("Kind", "kind", typeof(string), "Optional kind filter: tenant | subscription | resourceGroup | resource.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("Subscription", "subscription-id", typeof(string), "Optional subscription id or display name to scope the lookup.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Optional resource group to scope the lookup (only meaningful for kind=resource).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["live"] = new("Live", "live", typeof(bool), "Fetch live ARM body (properties, provisioningState, endpoints). Adds ~200-500ms. Default false.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()

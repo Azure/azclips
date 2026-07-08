@@ -15,6 +15,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         [ArgumentInfo(Required = false, Description = @"Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched.", SerializedName = @"kind")]
         public string? Kind { get; set; }
 
+        [ArgumentInfo(Required = false, Description = @"Optional subscription id or display name to narrow the search.", SerializedName = @"subscription-id")]
+        public string? Subscription { get; set; }
+
+        [ArgumentInfo(Required = false, Description = @"Optional resource group name to narrow the search (only meaningful for kind=resource).", SerializedName = @"resource-group")]
+        public string? ResourceGroup { get; set; }
+
+        [ArgumentInfo(Required = false, Description = @"Max candidates to return. Default 10.", SerializedName = @"top")]
+        public int Top { get; set; } = 10;
+
         public override async Task ProcessAsync()
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
@@ -23,10 +32,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
             var args = new AIFunctionArguments
             {
                 ["namePattern"] = Name,
+                ["top"] = Top,
             };
             if (!string.IsNullOrWhiteSpace(Kind))
             {
                 args["kind"] = Kind;
+            }
+            if (!string.IsNullOrWhiteSpace(Subscription))
+            {
+                args["subscription"] = Subscription;
+            }
+            if (!string.IsNullOrWhiteSpace(ResourceGroup))
+            {
+                args["resourceGroup"] = ResourceGroup;
             }
 
             var result = await tools.FindResources.InvokeAsync(args, Token);
