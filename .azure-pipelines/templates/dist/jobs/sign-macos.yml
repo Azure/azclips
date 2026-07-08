@@ -76,6 +76,7 @@ jobs:
         tarball_dir="$work_root/tarballs"
         contents_dir="$work_root/contents"
         mapping_tsv="$work_root/file-mapping.tsv"
+        entitlements_source="$(Build.SourcesDirectory)/devops/scripts/packaging/macos/signing/azclips-runtime.entitlements.plist"
         current_arch="$(MacOSArchitecture)"
         current_rid="$(MacOSRid)"
         asset_arch_label="macos-$current_arch"
@@ -84,6 +85,11 @@ jobs:
         fi
         mkdir -p "$tarball_dir" "$contents_dir"
         : > "$mapping_tsv"
+        if [[ ! -f "$entitlements_source" ]]; then
+          echo "ERROR: macOS signing entitlements file was not found: $entitlements_source"
+          exit 1
+        fi
+        cp "$entitlements_source" "$work_root/azclips-runtime.entitlements.plist"
 
         raw_mac_assets=()
         while IFS= read -r asset; do
@@ -229,6 +235,7 @@ jobs:
               "OperationCode": "MacAppDeveloperSign",
               "Parameters": {
                 "Hardening": "--options=runtime",
+                "Entitlements": "$(Pipeline.Workspace)/macos-signing-inputs/azclips-runtime.entitlements.plist",
                 "OpusInfo": "http://Microsoft.com"
               },
               "ToolName": "sign",
@@ -554,6 +561,48 @@ jobs:
           if [[ "$mach_o_count" -eq 0 ]]; then
             echo "ERROR: No Mach-O binaries found in signed payload: $base_name"
             verification_errors=1
+          fi
+
+          entrypoint=""
+          if [[ -f "$content_dir/az" ]]; then
+            entrypoint="$content_dir/az"
+          elif [[ -f "$content_dir/libexec/bin/az" ]]; then
+            entrypoint="$content_dir/libexec/bin/az"
+          elif [[ -e "$content_dir/bin/az" ]]; then
+            entrypoint="$content_dir/bin/az"
+          fi
+
+          if [[ -z "$entrypoint" ]]; then
+            echo "ERROR: Signed payload does not contain an az entrypoint: $base_name"
+            verification_errors=1
+          else
+            host_arch="$(uname -m)"
+            entrypoint_info="$(file "$entrypoint" 2>/dev/null || true)"
+            runnable=true
+            if [[ "$host_arch" == "arm64" ]]; then
+              if [[ "$entrypoint_info" != *"arm64"* && "$entrypoint_info" != *"universal"* ]]; then
+                runnable=false
+              fi
+            elif [[ "$host_arch" == "x86_64" ]]; then
+              if [[ "$entrypoint_info" != *"x86_64"* && "$entrypoint_info" != *"universal"* ]]; then
+                runnable=false
+              fi
+            fi
+
+            if [[ "$runnable" == "true" ]]; then
+              smoke_home="$content_dir/.azclips-smoke-home"
+              mkdir -p "$smoke_home"
+              if ! HOME="$smoke_home" "$entrypoint" --version >/tmp/azclips-signed-version.txt 2>&1; then
+                echo "ERROR: Signed macOS payload failed to launch: $base_name"
+                cat /tmp/azclips-signed-version.txt
+                verification_errors=1
+              else
+                echo "Signed macOS payload launch check passed: $base_name"
+              fi
+              rm -rf "$smoke_home"
+            else
+              echo "Skipping signed payload launch check for $base_name; host architecture '$host_arch' is not compatible with: $entrypoint_info"
+            fi
           fi
 
           tar -czf "$output_root/$base_name.tar.gz" --preserve-permissions -C "$content_dir" .

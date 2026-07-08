@@ -74,6 +74,48 @@ jobs:
           echo "ERROR: No Mach-O binaries found in $tarball"
           errors=1
         fi
+
+        entrypoint=""
+        if [[ -f "$verify_dir/az" ]]; then
+          entrypoint="$verify_dir/az"
+        elif [[ -f "$verify_dir/libexec/bin/az" ]]; then
+          entrypoint="$verify_dir/libexec/bin/az"
+        elif [[ -e "$verify_dir/bin/az" ]]; then
+          entrypoint="$verify_dir/bin/az"
+        fi
+
+        if [[ -z "$entrypoint" ]]; then
+          echo "ERROR: No az entrypoint found in $tarball"
+          errors=1
+        else
+          host_arch="$(uname -m)"
+          entrypoint_info="$(file "$entrypoint" 2>/dev/null || true)"
+          runnable=true
+          if [[ "$host_arch" == "arm64" ]]; then
+            if [[ "$entrypoint_info" != *"arm64"* && "$entrypoint_info" != *"universal"* ]]; then
+              runnable=false
+            fi
+          elif [[ "$host_arch" == "x86_64" ]]; then
+            if [[ "$entrypoint_info" != *"x86_64"* && "$entrypoint_info" != *"universal"* ]]; then
+              runnable=false
+            fi
+          fi
+
+          if [[ "$runnable" == "true" ]]; then
+            smoke_home="$verify_dir/.azclips-smoke-home"
+            mkdir -p "$smoke_home"
+            if ! HOME="$smoke_home" "$entrypoint" --version >/tmp/azclips-signed-version.txt 2>&1; then
+              echo "ERROR: Signed macOS tarball failed to launch: $tarball"
+              cat /tmp/azclips-signed-version.txt
+              errors=1
+            else
+              echo "Signed macOS tarball launch check passed: $tarball"
+            fi
+            rm -rf "$smoke_home"
+          else
+            echo "Skipping signed tarball launch check for $tarball; host architecture '$host_arch' is not compatible with: $entrypoint_info"
+          fi
+        fi
       done
 
       echo "Validated $total_macho signed macOS Mach-O binaries."
