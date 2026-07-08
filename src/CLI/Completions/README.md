@@ -30,9 +30,6 @@ Build the solution first:
 ```powershell
 . <path-to>/az.completions.ps1
 
-# Set env var to enable azclips detection (skip system Azure CLI)
-$env:AZCLIPS_BINARY = '1'
-
 # Optional: alias az so you can test without full path
 Set-Alias az <path-to>\az.exe
 
@@ -45,7 +42,6 @@ az vm create --<Tab>                  # parameters
 ### bash
 
 ```bash
-export AZCLIPS_BINARY=1
 source <path-to>/az.completions.bash
 
 # Optional: add az to PATH so you can test without full path
@@ -59,7 +55,6 @@ az vm create --<Tab>  # parameters
 ### zsh
 
 ```zsh
-export AZCLIPS_BINARY=1
 autoload -U compinit && compinit
 source <path-to>/az.completions.zsh
 
@@ -73,7 +68,7 @@ az vm create --<Tab>  # parameters
 
 ### Notes
 
-- `$AZCLIPS_BINARY=1` tells the scripts this is azclips, not system Azure CLI. Without it, bare `az` completions are skipped.
+- The scripts auto-detect azclips by calling `az --completions` and checking if the output is valid JSON. Old Azure CLI returns error text (not JSON) and is silently skipped. The detection result is cached per session.
 - Completion results are cached per session. Run `_azClearCache` (PS) or `_az_clear_cache` (bash/zsh) to refresh.
 - Requires `jq` for bash/zsh.
 

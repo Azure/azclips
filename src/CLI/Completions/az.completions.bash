@@ -6,55 +6,12 @@
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
-# Set $AZCLIPS_BINARY=1 to ensure we are using autocompletion for azclips (not azure-cli).
+# Detection: The script auto-detects azclips by calling `az --completions`.
+# If the binary returns valid JSON, it is treated as azclips; otherwise completions are skipped.
+# The result is cached per session so detection only runs once.
 # Completions are cached for the current shell session and invalidated if the resolved exe path changes (e.g., after an update)
 # or if the completion.enabled setting changes in user config.
 # To refresh manually, run: _az_clear_cache
-
-_az_resolve_exe() {
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # 1. Same directory as this script
-    if [[ -x "$script_dir/az" ]]; then
-        echo "$script_dir/az"
-        return
-    fi
-    if [[ -x "$script_dir/az.exe" ]]; then
-        echo "$script_dir/az.exe"
-        return
-    fi
-    # 2. Walk up to find repo root (look for global.json), then check artifacts/
-    local dir="$script_dir"
-    while [[ -n "$dir" && "$dir" != "/" ]]; do
-        if [[ -f "$dir/global.json" ]]; then
-            local cfg
-            for cfg in Release Debug; do
-                if [[ -x "$dir/artifacts/$cfg/Core.Cli/az" ]]; then
-                    echo "$dir/artifacts/$cfg/Core.Cli/az"
-                    return
-                fi
-                if [[ -x "$dir/artifacts/$cfg/Core.Cli/az.exe" ]]; then
-                    echo "$dir/artifacts/$cfg/Core.Cli/az.exe"
-                    return
-                fi
-            done
-            break
-        fi
-        dir="$(dirname "$dir")"
-    done
-    # 3. Fall back to PATH
-    if command -v az &>/dev/null; then
-        command -v az
-    fi
-}
-
-_az_is_azclips() {
-    # Environment variable override: set AZCLIPS_BINARY=1 for azclips, 0 for old az
-    if [[ "$AZCLIPS_BINARY" == "1" ]]; then return 0; fi
-    if [[ "$AZCLIPS_BINARY" == "0" ]]; then return 1; fi
-    # Default: assume old az (unset env var means old az completions)
-    return 1
-}
 
 _az_get_config_stamp() {
     local config_path="$HOME/.azclips/config.json"
@@ -108,11 +65,13 @@ _az_get_config_stamp() {
 }
 
 # Sets _az_query_result (avoids subshell so cache persists).
+# Usage: _az_query <exe> [group]
 _az_query() {
     _az_query_result=""
-    local exe
-    exe="$(_az_resolve_exe)"
+    local exe="$1"; shift
     [[ -n "$exe" ]] || return 1
+    # Already determined not azclips for this specific exe; skip.
+    if [[ "$_az_not_azclips" == "$exe" ]]; then return 1; fi
     local config_stamp
     config_stamp="$(_az_get_config_stamp)"
 
@@ -133,13 +92,19 @@ _az_query() {
     fi
 
     # Cache miss: query fresh root tree and cache it
+    local raw_output
+    raw_output="$("$exe" --completions 2>/dev/null)"
+    # Validate output is JSON (old Azure CLI returns error text, not JSON)
     local root_json
-    root_json="$("$exe" --completions 2>/dev/null)"
-    if [[ -n "$root_json" ]]; then
-        _az_completions_cache_root="$root_json"
-        _az_completions_cache_exe="$exe"
-        _az_completions_cache_stamp="$config_stamp"
+    root_json="$(echo "$raw_output" | jq -e 'type == "object"' >/dev/null 2>&1 && echo "$raw_output")"
+    if [[ -z "$root_json" ]]; then
+        # Not valid JSON → not azclips; remember to skip future attempts for this exe
+        _az_not_azclips="$exe"
+        return 1
     fi
+    _az_completions_cache_root="$root_json"
+    _az_completions_cache_exe="$exe"
+    _az_completions_cache_stamp="$config_stamp"
 
     # Return the requested subtree (or root if no args)
     if [[ $# -eq 0 ]]; then
@@ -154,13 +119,27 @@ _az_completions_cache_root=""
 _az_completions_cache_exe=""
 _az_completions_cache_stamp=""
 _az_query_result=""
+_az_not_azclips=""
 
 _az_completions() {
-    # Path-qualified invocation → always complete.
-    # Bare "az" → check PATH to ensure it's azclips, not system azure-cli.
-    if [[ "${COMP_WORDS[0]}" != */* && "${COMP_WORDS[0]}" != *\\* ]]; then
-        _az_is_azclips || return
+    # Resolve the actual exe from what the user typed
+    local exe=""
+    local typed_cmd="${COMP_WORDS[0]}"
+    if [[ "$typed_cmd" == */* || "$typed_cmd" == *\\* ]]; then
+        # Path-qualified: normalize backslashes to forward slashes (WSL compat)
+        exe="${typed_cmd//\\//}"
+    else
+        # Bare command: resolve via PATH
+        exe="$(type -P "$typed_cmd" 2>/dev/null)"
+        # If not in PATH, check current directory (Windows users expect this)
+        if [[ -z "$exe" && -x "./$typed_cmd" ]]; then
+            exe="./$typed_cmd"
+        fi
     fi
+    [[ -n "$exe" ]] || return
+
+    # If we already determined this specific exe is not azclips, skip.
+    if [[ "$_az_not_azclips" == "$exe" ]]; then return; fi
 
     local cur prev words cword
     _init_completion 2>/dev/null || {
@@ -174,7 +153,7 @@ _az_completions() {
     case $cword in
         1)
             # Level 0: command groups
-            _az_query
+            _az_query "$exe"
             local groups=""
             if [[ -n "$_az_query_result" ]]; then
                 groups="$(echo "$_az_query_result" | jq -r 'keys[]' 2>/dev/null)"
@@ -185,7 +164,7 @@ _az_completions() {
             # Level 1: subcommands + group-level params
             local group="${words[1]}"
             local json
-            _az_query "$group"
+            _az_query "$exe" "$group"
             json="$_az_query_result"
             if [[ -n "$json" ]]; then
                 local subs params
@@ -199,7 +178,7 @@ _az_completions() {
             local group="${words[1]}"
             local sub="${words[2]}"
             local json
-            _az_query "$group"
+            _az_query "$exe" "$group"
             json="$_az_query_result"
             local params=""
             if [[ -n "$json" ]]; then
@@ -239,13 +218,31 @@ _az_completions() {
     esac
 }
 
-complete -F _az_completions az az.exe
+complete -F _az_completions -o default az az.exe
+
+# Dynamic completion for path-qualified az invocations (./az, ../bin/az.exe, etc.).
+# When bash encounters a command with no registered completion, _az_default_completer
+# checks if the basename is az/az.exe and, if so, registers and triggers _az_completions.
+_az_default_completer() {
+    local cmd="${COMP_WORDS[0]}"
+    # Extract basename handling both / and \ separators
+    local base="${cmd##*/}"
+    base="${base##*\\}"
+    if [[ "$base" == "az" || "$base" == "az.exe" ]]; then
+        complete -F _az_completions -o default "$cmd"
+        return 124  # retry with the newly registered spec
+    fi
+    # Not an az command — return 124 to let bash use default completion
+    return 124
+}
+complete -D -F _az_default_completer
 
 # Manual cache refresh function
 _az_clear_cache() {
     _az_completions_cache_root=""
     _az_completions_cache_exe=""
     _az_completions_cache_stamp=""
+    _az_not_azclips=""
     echo "az completions cache cleared."
 }
 
