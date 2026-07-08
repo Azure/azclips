@@ -31,8 +31,8 @@ Extract it:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path azps-cmdlets | Out-Null
-$bundle = (Get-ChildItem azps-cmdlets-*.tar.gz | Select-Object -First 1).Name
-tar -xzf $bundle -C azps-cmdlets
+$bundle = Get-ChildItem azps-cmdlets-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+tar -xzf $bundle.FullName -C azps-cmdlets
 ```
 
 Install it (registers the extracted folder as a temporary local repository and installs the `Az` roll-up and all `Az.*` dependencies for the current user):
@@ -53,7 +53,7 @@ Install it (registers the extracted folder as a temporary local repository and i
 Example — install just the Compute module for all users:
 
 ```powershell
-pwsh -File ./azps-cmdlets/InstallModule.ps1 -ModuleName Az.Compute -Scope AllUsers
+./azps-cmdlets/InstallModule.ps1 -ModuleName Az.Compute -Scope AllUsers
 ```
 
 ## Verify
