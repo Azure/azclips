@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783495063341,
+  "lastUpdate": 1783502947774,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -2982,6 +2982,48 @@ window.BENCHMARK_DATA = {
             "value": 965470.8209104552,
             "unit": "ns",
             "range": "± 313010.0800028695"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b08c328a8e35b4b7773ad80bbe129db84a1ba606",
+          "message": "Updated autocompletion scripts to reference env variable and caching for perf tuning  (#394)\n\nreplacing #390 to pass CI\n\n---------\n\nCo-authored-by: Teresa Ritorto <tritorto@microsoft.com>\nCo-authored-by: Teresa Ritorto <tritorto@gmail.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-08T19:26:56+10:00",
+          "tree_id": "b140e12dc578c46e54c5c197d9b87d6cc9cf5a07",
+          "url": "https://github.com/Azure/azclips/commit/b08c328a8e35b4b7773ad80bbe129db84a1ba606"
+        },
+        "date": 1783502947341,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1013117.4143314651,
+            "unit": "ns",
+            "range": "± 308724.60513253626"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 991976.3580290145,
+            "unit": "ns",
+            "range": "± 304879.1649970919"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 969758.4368184092,
+            "unit": "ns",
+            "range": "± 300720.0464951309"
           }
         ]
       }
