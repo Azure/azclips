@@ -20,20 +20,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         /// Wires the ResourceCache singleton for a CLI-side processor call.
         /// Returns the caller-scoped tools instance ready to invoke.
         /// </summary>
-        public static async Task<(CachedResourceTools tools, ArmCacheRefresher refresher)> InitializeAsync(CancellationToken ct)
+        public static (CachedResourceTools tools, ArmCacheRefresher refresher) Initialize()
         {
             var auth = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
 
             var refresher = new ArmCacheRefresher(auth, profileService);
-            var profile = await profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
-            var pinnedTenantId = profile?.TenantId;
+            // The tools push the active profile's tenant into ResourceCache on
+            // every invocation (CachedResourceTools.SyncTenantAsync), so there's
+            // nothing to pin here; wire only the background refresher.
             ResourceCache.ConfigureSingleton(
-                currentTenantId: () => pinnedTenantId,
+                currentTenantId: null,
                 refresher: refresher);
 
             var armDetails = new ArmDetailsClient(auth);
-            return (new CachedResourceTools(armDetails), refresher);
+            return (new CachedResourceTools(armDetails, profileService), refresher);
         }
     }
 }

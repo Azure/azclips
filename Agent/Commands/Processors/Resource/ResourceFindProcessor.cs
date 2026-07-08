@@ -19,7 +19,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-            var (tools, _) = await ResourceProcessorSetup.InitializeAsync(Token);
+            var (tools, _) = ResourceProcessorSetup.Initialize();
             var args = new AIFunctionArguments
             {
                 ["namePattern"] = Name,

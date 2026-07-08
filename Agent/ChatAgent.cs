@@ -148,16 +148,14 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
         var armDetails = new ArmDetailsClient(auth);
-        var cacheTools = new CachedResourceTools(armDetails);
+        var cacheTools = new CachedResourceTools(armDetails, profileService);
         var refresher = new ArmCacheRefresher(auth, profileService);
-        // Cache the current tenant id once at startup; ResourceCache reads it
-        // synchronously on every EnsureLoaded and IProfileService is async, so
-        // pinning it here avoids a sync-over-async deadlock in the read path.
-        // Re-run on the next agent session if the user re-logs into a different tenant.
-        var activeProfile = await profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
-        var pinnedTenantId = activeProfile?.TenantId;
+        // The resource-reading tools push the active profile's tenant into
+        // ResourceCache on every invocation (see CachedResourceTools.SyncTenantAsync),
+        // so a mid-session `az account set` is reflected on the next query.
+        // Nothing to pin at startup; wire only the background refresher here.
         ResourceCache.ConfigureSingleton(
-            currentTenantId: () => pinnedTenantId,
+            currentTenantId: null,
             refresher: refresher);
         var helpTools = new HelpTools(azExePath);
         var skuTools = new AvailableLocationsTool(auth, profileService);

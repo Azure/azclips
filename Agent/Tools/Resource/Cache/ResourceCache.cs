@@ -40,6 +40,27 @@ public sealed class ResourceCache
         }
     }
 
+    /// <summary>
+    /// Sets the tenant the cache reads from, overwriting any previous value.
+    /// Cheap: just swaps an in-memory provider — no file I/O, no TTL change,
+    /// no network. The next EnsureLoaded notices the tenant differs from the
+    /// one it last loaded and re-points at that tenant's cache subdirectory
+    /// (and kicks a background refresh if it's cold).
+    ///
+    /// Called by the resource-reading tools on every invocation so a mid-session
+    /// tenant switch (e.g. the user runs `az account set` while an interactive
+    /// agent is open) is reflected on the next resource query, instead of being
+    /// pinned to whatever tenant was active when the daemon started.
+    /// </summary>
+    public static void SetCurrentTenantId(string? tenantId)
+    {
+        var c = Current;
+        lock (c._lock)
+        {
+            c._currentTenantId = () => tenantId;
+        }
+    }
+
     public static string DefaultCacheDir => HomePaths.GetDefaultArmCacheDirectory();
 
     private static readonly JsonSerializerOptions Json = new()
