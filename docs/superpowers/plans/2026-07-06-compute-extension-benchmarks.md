@@ -1246,6 +1246,25 @@ Make these edits:
 | `--list` | Print the discovered benchmark classes (extension / product / name) and exit | `-- --list` |
 ```
 
+- Add a "Charts: run all products for the comparison" note in the "Run Benchmarks" section (right after the existing run examples), so the CLI-vs-PS comparison is the documented default:
+
+```markdown
+> **Charts — run all products for the comparison.** The local grouped-bar chart
+> (`benchmark-comparison-*.html`) plots CLI vs PowerShell side by side, so populate
+> both series by running all products (the default):
+>
+> ```bash
+> # Both series populated (recommended for the comparison chart):
+> dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL
+>
+> # Scope to one extension while keeping the CLI-vs-PS comparison:
+> dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL --extension Compute
+> ```
+>
+> Running a single product (`--product CLI` or `--product PS`) leaves the other series
+> as zero-height bars — handy for a quick single-product check, not for comparison.
+```
+
 - In "Current Test Scenarios", add a Compute section after the Resource Group table:
 
 ```markdown
