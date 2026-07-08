@@ -66,10 +66,14 @@ internal static class FailedCommandHelp
         }
         catch
         {
-            // Not parseable as the expected JSON — treat as "not an error
-            // payload" (a real help payload is always valid JSON; if it's
-            // malformed, don't suppress it on a guess).
-            return false;
+            // Unparseable stdout — the shell-out crashed, emitted a log line,
+            // truncated mid-JSON, or wrote something else weird. A real help
+            // payload is always valid JSON, so if we can't parse it, we can't
+            // trust it as help either. Treat as error payload = skip injection;
+            // the agent will fall back to calling get_command itself. Never
+            // worse than not pre-fetching, and stops garbage from leaking into
+            // the model's context.
+            return true;
         }
     }
 

@@ -24,26 +24,42 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache
 
             var auth = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
-            var refresher = new ArmCacheRefresher(auth, profileService,
-                progress: msg => Console.Error.WriteLine(msg));
+            var profile = await profileService.GetActiveProfileAsync(Token);
 
             var startedAt = DateTime.UtcNow;
             string status;
             string? errorMessage = null;
-            try
+
+            if (profile is null || string.IsNullOrEmpty(profile.TenantId))
             {
-                await refresher.RefreshOnceAsync(Token);
-                status = refresher.LastError is null ? "ok" : "partial";
-                errorMessage = refresher.LastError?.Message;
+                // Same fast-path as ArmCacheRefresher.RefreshOnceAsync — no
+                // tenant means nothing to refresh. Surface it explicitly instead
+                // of returning "ok" (which would tell the user the refresh
+                // succeeded when it never ran).
+                status = "not_signed_in";
+                errorMessage = "No active profile — run `az login` first.";
             }
-            catch (Exception ex)
+            else
             {
-                status = "failed";
-                errorMessage = ex.Message;
+                var refresher = new ArmCacheRefresher(auth, profileService,
+                    progress: msg => Console.Error.WriteLine(msg));
+                try
+                {
+                    // RefreshOnceAsync throws on failure — LastError is only
+                    // populated by KickAsync (the fire-and-forget entry point).
+                    // So this direct-await path only ever ends up in "ok" or
+                    // the catch block below, never in a "partial" state.
+                    await refresher.RefreshOnceAsync(Token);
+                    status = "ok";
+                }
+                catch (Exception ex)
+                {
+                    status = "failed";
+                    errorMessage = ex.Message;
+                }
             }
 
             var elapsed = DateTime.UtcNow - startedAt;
-            var profile = await profileService.GetActiveProfileAsync(Token);
             var json = JsonSerializer.Serialize(new
             {
                 status,

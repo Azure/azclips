@@ -125,7 +125,7 @@ try {
     Write-Host "Publishing Agent exe (Release, $Rid) into scratch"
     $agentScratch = Join-Path $CommonOutRoot "agent-publish/$Rid"
     if (Test-Path $agentScratch) { Remove-Item -Path $agentScratch -Recurse -Force }
-    dotnet publish (Join-Path $repoRoot 'Agent/Core.Agent.csproj') -c Release -r $Rid --self-contained true -o $agentScratch
+    dotnet publish (Join-Path $repoRoot 'Agent/Core.Agent.csproj') -c Release -r $Rid --self-contained true -o $agentScratch -p:IsPackagedBuild=true
 
     # Publish the Agent.Commands extension into builtin-publish/ so the inject
     # script picks it up in the same pass as Login/Config.

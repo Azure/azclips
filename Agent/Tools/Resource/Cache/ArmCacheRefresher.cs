@@ -131,10 +131,17 @@ public sealed class ArmCacheRefresher
 
         // Coalesce concurrent kicks for the same tenant. The GetOrAdd factory
         // runs synchronously, so it returns the same Task everyone can await.
-        var task = _inFlight.GetOrAdd(tenantId, tid => RefreshTenantAsync(tid, ct));
+        //
+        // The shared background task uses CancellationToken.None so a single
+        // caller cancelling their await does NOT cancel the refresh for every
+        // other caller that coalesced onto the same task. Each caller applies
+        // their own ct only to their own await via WaitAsync — they see
+        // OperationCanceledException locally while the shared work continues.
+        var task = _inFlight.GetOrAdd(tenantId,
+            tid => Task.Run(() => RefreshTenantAsync(tid, CancellationToken.None)));
         try
         {
-            await task.ConfigureAwait(false);
+            await task.WaitAsync(ct).ConfigureAwait(false);
         }
         finally
         {
@@ -171,7 +178,8 @@ public sealed class ArmCacheRefresher
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Report("→ subscriptions (ARG)");
             await RefreshArgFileAsync(
-                subsPath, SubQuery, SubscriptionTtl, tenantId, subscriptionIds: null, ct).ConfigureAwait(false);
+                subsPath, SubQuery, SubscriptionTtl, tenantId,
+                subscriptionIds: null, skipPersistIfEmpty: true, ct).ConfigureAwait(false);
             Report($"  subscriptions done in {sw.Elapsed.TotalSeconds:F1}s");
         }
 
@@ -195,7 +203,8 @@ public sealed class ArmCacheRefresher
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Report("→ resource-groups (ARG)");
             await RefreshArgFileAsync(
-                rgsPath, RgQuery, ResourceGroupTtl, tenantId, subIds, ct).ConfigureAwait(false);
+                rgsPath, RgQuery, ResourceGroupTtl, tenantId, subIds,
+                skipPersistIfEmpty: false, ct).ConfigureAwait(false);
             Report($"  resource-groups done in {sw.Elapsed.TotalSeconds:F1}s");
         }
 
@@ -206,7 +215,8 @@ public sealed class ArmCacheRefresher
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Report("→ resources (ARG, paged)");
             await RefreshArgFileAsync(
-                resPath, ResourceQuery, ResourceTtl, tenantId, subIds, ct).ConfigureAwait(false);
+                resPath, ResourceQuery, ResourceTtl, tenantId, subIds,
+                skipPersistIfEmpty: false, ct).ConfigureAwait(false);
             Report($"  resources done in {sw.Elapsed.TotalSeconds:F1}s");
         }
     }
@@ -293,6 +303,17 @@ public sealed class ArmCacheRefresher
             }
         }
 
+        // Presence-check semantics: an empty tenants list would mean "0
+        // tenants forever" on next run (File.Exists → skip refresh). If the
+        // ARM call really returned zero items (transient permission drop,
+        // API glitch, brand-new tenant), refuse to persist — next call will
+        // re-fetch. Real success writes a real list.
+        if (items.Count == 0)
+        {
+            Report("  tenants API returned 0 items; not persisting so next call retries.");
+            return;
+        }
+
         await WriteCacheFileAsync(path, TenantTtl, items, ct).ConfigureAwait(false);
     }
 
@@ -302,6 +323,7 @@ public sealed class ArmCacheRefresher
         TimeSpan ttl,
         string tenantId,
         IReadOnlyList<string>? subscriptionIds,
+        bool skipPersistIfEmpty,
         CancellationToken ct)
     {
         var lockPath = Path.Combine(Path.GetDirectoryName(path)!, ".lock", $"{Path.GetFileNameWithoutExtension(path)}.lock");
@@ -325,6 +347,19 @@ public sealed class ArmCacheRefresher
         // refreshers; the marker was double-protection at the cost of
         // correctness under failure.
         var items = await QueryArgAsync(query, tenantId, subscriptionIds, ct).ConfigureAwait(false);
+
+        // Presence-check caches (subscriptions) must not persist an empty
+        // result — the next run would see the file exist, skip refresh, load
+        // 0 subs, and pin every downstream query in a half-broken state
+        // until the user manually deletes the file. TTL caches (rgs,
+        // resources) may legitimately be empty (tenant with no resources),
+        // so writing empty is correct for them.
+        if (skipPersistIfEmpty && items.Count == 0)
+        {
+            Report($"  {Path.GetFileName(path)}: ARG returned 0 items; not persisting so next call retries.");
+            return;
+        }
+
         await WriteCacheFileRawAsync(path, ttl, items, ct).ConfigureAwait(false);
     }
 

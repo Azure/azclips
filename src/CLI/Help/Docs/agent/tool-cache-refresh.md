@@ -30,5 +30,5 @@ az agent tool resource find --name my-new-rg --kind resourceGroup
 ### Notes
 
 - Auth: requires `az login`; the refresh reads the active profile's tenant.
-- TTLs: tenants and subscriptions refresh only when missing; resource groups have a 1-day TTL; resources have an 8-hour TTL. This command forces a check for all four.
+- TTLs: tenants and subscriptions refresh only when missing; resource groups have a 1-day TTL; resources have an 8-hour TTL. This command triggers a refresh for each cache file whose TTL has expired (or that is missing).
 - Cross-process safe: if another `az agent tool cache refresh` is running for the same tenant, this call waits briefly for the file lock (up to 10 seconds per cache file) before bowing out. Concurrent invocations therefore add tens of seconds in the worst case, not a full refresh's runtime.

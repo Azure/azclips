@@ -13,8 +13,10 @@ internal static class BundledDaemonResolver
     public static string Resolve() =>
         FindBundledExe()
             ?? throw new InvalidOperationException(
-                "Bundled Copilot CLI not found under runtimes/<rid>/native — " +
-                "NuGet restore likely incomplete.");
+                "Bundled Copilot CLI not found. " +
+                (AgentInstallLayout.IsPackaged
+                    ? "Packaging bug — stage_agent should have staged the native binary under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/github.copilot.sdk/<ver>/runtimes/<rid>/native/."
+                    : "Dev build bug — NuGet restore should place copilot under runtimes/<rid>/native/."));
 
     private static string? FindBundledExe()
     {
@@ -22,32 +24,12 @@ internal static class BundledDaemonResolver
         var rid = GetPortableRid()
             ?? Path.GetFileName(RuntimeInformation.RuntimeIdentifier);
 
-        // Packaged layout: copilot lives inside the Agent extension's
-        // deps tree under a NuGet-style path so all agent-only
-        // assets stay under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/.
-        //   <baseDir>/Extensions/Microsoft.Azure.Azclips.Extensions.Agent/
-        //     deps/github.copilot.sdk/<version>/runtimes/<rid>/native/copilot[.exe]
-        // Version is discovered at runtime — there is only one; SDK upgrades
-        // create a new version dir and we pick whichever is present.
-        var sdkRoot = Path.Combine(AppContext.BaseDirectory,
-            "Extensions", "Microsoft.Azure.Azclips.Extensions.Agent",
-            "deps", "github.copilot.sdk");
-        if (Directory.Exists(sdkRoot))
-        {
-            foreach (var versionDir in Directory.EnumerateDirectories(sdkRoot))
-            {
-                var packaged = Path.Combine(versionDir, "runtimes", rid, "native", binaryName);
-                if (File.Exists(packaged)) return packaged;
-            }
-        }
-
-        // Dev-loop layout: copilot.exe is copied to the agent's own build dir
-        // as part of NuGet restore, matching the traditional
-        //   <baseDir>/runtimes/<rid>/native/copilot[.exe]
-        // location. Kept so `dotnet build` + `dotnet run` still finds it
-        // without packaging.
-        var devPath = Path.Combine(AppContext.BaseDirectory, "runtimes", rid, "native", binaryName);
-        return File.Exists(devPath) ? devPath : null;
+        // Path derived from AgentInstallLayout (packaged reads deps.json for the
+        // referenced SDK version — a rolled-back build stays on its own version,
+        // not whatever is lexicographically newest). Dev uses NuGet's default
+        // runtimes/<rid>/native/ next to the exe.
+        var path = Path.Combine(AgentInstallLayout.SdkNativeDir(rid), binaryName);
+        return File.Exists(path) ? path : null;
     }
 
     private static string? GetPortableRid()

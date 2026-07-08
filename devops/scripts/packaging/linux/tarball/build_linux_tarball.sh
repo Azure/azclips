@@ -116,7 +116,8 @@ dotnet publish "$REPO_ROOT/Agent/Core.Agent.csproj" \
   -c Release \
   -r "$RID" \
   --self-contained true \
-  -o "$AGENT_SCRATCH"
+  -o "$AGENT_SCRATCH" \
+  -p:IsPackagedBuild=true
 
 # Publish the Agent.Commands extension into builtin-publish/ so the inject
 # script picks it up in the same pass as Login/Config.

@@ -80,6 +80,13 @@ public static class ShellOutHelper
             }, Json);
         }
 
+        // WaitForExitAsync can return before OutputDataReceived / ErrorDataReceived
+        // have delivered the last lines — Process on .NET signals exit as soon as
+        // the child ends, but the async event pumps run separately and may still
+        // be draining the pipes. A trailing sync WaitForExit() joins those pumps,
+        // guaranteeing stdout/stderr are fully populated before we serialize.
+        proc.WaitForExit();
+
         if (proc.ExitCode != 0)
         {
             return JsonSerializer.Serialize(new
