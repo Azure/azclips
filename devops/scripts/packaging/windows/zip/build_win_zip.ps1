@@ -109,21 +109,23 @@ $CliWinZipPath = [System.IO.Path]::GetFullPath($CliWinZipPath)
 $cliWinScDir = Join-Path $OutRoot "publish/cli/$Rid"
 $builtinPublishRoot = Join-Path $CommonOutRoot 'builtin-publish'
 $injectScriptPath = Join-Path $packagingRoot 'common/inject_builtin_extensions.ps1'
+$stageAgentPath = Join-Path $packagingRoot 'common/stage_agent.ps1'
 
 Push-Location $repoRoot
 try {
     Write-Host "Publishing CLI (Release, $Rid)"
     dotnet publish $CliProject -c Release -r $Rid --self-contained true -o $cliWinScDir
 
-    # Publish the Agent executable directly into the CLI publish dir so it
-    # shares az.exe's runtime pack + dependency closure. Previously agent lived
-    # in a dedicated agent/ subdir with its own --self-contained runtime pack,
-    # bloating the zip by ~80 MB of byte-identical duplicates. Every shared dll
-    # is verified identical across the two publishes (same repo, same NuGet
-    # graph, same build); if a future dependency-version drift is introduced
-    # the later publish's copy wins and the agent uses the CLI's version.
-    Write-Host "Publishing Agent exe (Release, $Rid) into CLI publish dir"
-    dotnet publish (Join-Path $repoRoot 'Agent/Core.Agent.csproj') -c Release -r $Rid --self-contained true -o $cliWinScDir
+    # Publish the Agent daemon into a scratch dir; repackage_agent_hybrid then
+    # splits the output: launcher files move to the CLI publish root (sibling
+    # to az.exe so they share the runtime pack), and agent-only NuGet
+    # dependencies + prompts + copilot native binary move under
+    # Extensions/Microsoft.Azure.Azclips.Extensions.Agent/. Runtime-pack
+    # duplicates that are byte-identical to the CLI copy are deleted.
+    Write-Host "Publishing Agent exe (Release, $Rid) into scratch"
+    $agentScratch = Join-Path $CommonOutRoot "agent-publish/$Rid"
+    if (Test-Path $agentScratch) { Remove-Item -Path $agentScratch -Recurse -Force }
+    dotnet publish (Join-Path $repoRoot 'Agent/Core.Agent.csproj') -c Release -r $Rid --self-contained true -o $agentScratch
 
     # Publish the Agent.Commands extension into builtin-publish/ so the inject
     # script picks it up in the same pass as Login/Config.
@@ -144,6 +146,19 @@ try {
     }
 
     & $injectScriptPath -PublishDir $cliWinScDir -BuiltinRoot $builtinPublishRoot
+
+    # Repackage agent daemon into the hybrid layout: launcher files land next
+    # to az.exe, everything else lands under the freshly-injected agent
+    # extension directory (prompts, sdk-runtime NuGet layout, native copilot).
+    $agentExtInPublish = Join-Path $cliWinScDir 'Extensions/Microsoft.Azure.Azclips.Extensions.Agent'
+    if (-not (Test-Path -Path $agentExtInPublish -PathType Container)) {
+        throw "Agent extension dir not present in publish after inject: $agentExtInPublish"
+    }
+    & $stageAgentPath `
+        -AgentPublishDir $agentScratch `
+        -CliPublishDir $cliWinScDir `
+        -AgentExtensionDir $agentExtInPublish
+
     Copy-Item -Path $noticeFile -Destination (Join-Path $cliWinScDir 'NOTICE') -Force
     Copy-Item -Path $licenseFile -Destination (Join-Path $cliWinScDir 'LICENSE') -Force
 

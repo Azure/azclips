@@ -29,12 +29,14 @@ internal static class FailedCommandHelp
         try
         {
             // Same JSON the LLM's get_command returns. On a hit it's the parameter
-            // table — inject it. On a miss it's not_found: the verb we extracted
-            // wasn't a real command (e.g. a multi-word command whose trailing
-            // positional arg got swept in), so injecting "not_found" would just
-            // mislead. Skip injection and let the agent look it up with its tools.
+            // table — inject it. On any error payload (not_found, shell_out_timeout,
+            // shell_out_spawn_failed, missing_name, ...) skip injection: the verb
+            // we extracted wasn't a real command, or the shell-out to
+            // `az agent tool help` itself failed. Injecting an error blob as
+            // pre-fetched help would mislead the agent; let it use its tools
+            // instead — never worse than not pre-fetching.
             var help = await helpTools.LookupCommandAsync(name, ct).ConfigureAwait(false);
-            if (IsNotFound(help))
+            if (IsErrorPayload(help))
                 return null;
             return $"Help for the command you were triggered by (`{name}`), pre-fetched so you don't need to call get_command for it:\n{help}";
         }
@@ -47,10 +49,12 @@ internal static class FailedCommandHelp
         }
     }
 
-    // True when the get_command JSON is a not_found result. Parses the JSON and
-    // checks the "error" field, instead of a raw substring match — so a reformatted
-    // payload or the literal "not_found" appearing inside help text can't fool it.
-    private static bool IsNotFound(string helpJson)
+    // True when the get_command JSON carries any "error" field — whether the
+    // lookup returned not_found, or the underlying shell-out reported a
+    // spawn/timeout/exit failure. Parses the JSON and checks the "error"
+    // property directly so a reformatted payload or the literal "error" text
+    // appearing inside legitimate help content can't fool it.
+    private static bool IsErrorPayload(string helpJson)
     {
         try
         {
@@ -58,13 +62,13 @@ internal static class FailedCommandHelp
             return doc.RootElement.ValueKind == JsonValueKind.Object
                 && doc.RootElement.TryGetProperty("error", out var err)
                 && err.ValueKind == JsonValueKind.String
-                && string.Equals(err.GetString(), "not_found", StringComparison.OrdinalIgnoreCase);
+                && !string.IsNullOrEmpty(err.GetString());
         }
         catch
         {
-            // Not parseable as the expected JSON — treat as "not a not_found result"
-            // (a real help payload is always valid JSON; if it's malformed, don't
-            // suppress it on a guess).
+            // Not parseable as the expected JSON — treat as "not an error
+            // payload" (a real help payload is always valid JSON; if it's
+            // malformed, don't suppress it on a guess).
             return false;
         }
     }

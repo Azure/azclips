@@ -342,7 +342,18 @@ public sealed class ChatAgent : IAsyncDisposable
                 $"entrypoint must be one of {string.Join(" | ", ValidEntrypoints)} — refusing to guess which system prompt to load. Got: '{entrypoint}'.",
                 nameof(entrypoint));
 
-        var path = Path.Combine(AppContext.BaseDirectory, "prompts", $"{entrypoint.ToLowerInvariant()}.md");
+        // Prompts live under the packaged Agent extension directory, next to
+        // the extension's own dll. Packaging places them at
+        //   <baseDir>/Extensions/Microsoft.Azure.Azclips.Extensions.Agent/prompts/
+        // where <baseDir> is the CLI/daemon root (the daemon runs there so it
+        // can share the CLI's runtime pack). Dev-loop layout puts them next to
+        // the built agent exe in <artifacts>/Core.Agent/prompts/.
+        var packagedPath = Path.Combine(AppContext.BaseDirectory,
+            "Extensions", "Microsoft.Azure.Azclips.Extensions.Agent",
+            "prompts", $"{entrypoint.ToLowerInvariant()}.md");
+        var devPath = Path.Combine(AppContext.BaseDirectory,
+            "prompts", $"{entrypoint.ToLowerInvariant()}.md");
+        var path = File.Exists(packagedPath) ? packagedPath : devPath;
         var content = File.ReadAllText(path);
         return content.Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase);
     }

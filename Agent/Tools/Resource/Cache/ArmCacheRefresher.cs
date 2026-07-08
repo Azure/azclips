@@ -179,6 +179,15 @@ public sealed class ArmCacheRefresher
         var subIds = LoadSubscriptionIds(subsPath);
         Report($"  scoping subsequent queries to {subIds.Count} subscriptions");
 
+        // Zero subs = nothing to enumerate. Falling through would send an
+        // unscoped ARG query (payload has no subscriptions field) and
+        // reintroduce the cross-tenant runaway this file guards against.
+        if (subIds.Count == 0)
+        {
+            Report("  no subscriptions to scope over; skipping rg/resource refresh");
+            return;
+        }
+
         // Resource groups: TTL 1 day.
         var rgsPath = Path.Combine(tenantDir, "resource-groups.json");
         if (NeedsTtlRefresh(rgsPath, ResourceGroupTtl))
@@ -202,12 +211,21 @@ public sealed class ArmCacheRefresher
         }
     }
 
+    // Open a cache file for reading while allowing the refresher's atomic
+    // File.Move(overwrite:true) to replace it out from under us. FileShare.Read
+    // (File.OpenRead's default) blocks the writer on Windows and produces
+    // "access denied" during a concurrent refresh; ReadWrite + Delete restores
+    // POSIX-like replace-while-open semantics.
+    private static FileStream OpenForSharedRead(string path) =>
+        new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+
     private static IReadOnlyList<string> LoadSubscriptionIds(string subsPath)
     {
         if (!File.Exists(subsPath)) return Array.Empty<string>();
         try
         {
-            using var fs = File.OpenRead(subsPath);
+            using var fs = OpenForSharedRead(subsPath);
             using var doc = JsonDocument.Parse(fs);
             if (!doc.RootElement.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
                 return Array.Empty<string>();
@@ -233,7 +251,7 @@ public sealed class ArmCacheRefresher
         if (!File.Exists(path)) return true;
         try
         {
-            using var fs = File.OpenRead(path);
+            using var fs = OpenForSharedRead(path);
             using var doc = JsonDocument.Parse(fs);
             if (!doc.RootElement.TryGetProperty("cachedAt", out var el)) return true;
             if (!el.TryGetDateTime(out var cachedAt)) return true;
@@ -402,7 +420,7 @@ public sealed class ArmCacheRefresher
             List<JsonElement> existing = new();
             if (File.Exists(path))
             {
-                using var fs = File.OpenRead(path);
+                using var fs = OpenForSharedRead(path);
                 using var doc = await JsonDocument.ParseAsync(fs, cancellationToken: ct).ConfigureAwait(false);
                 if (doc.RootElement.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array)
                 {

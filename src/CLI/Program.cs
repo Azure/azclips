@@ -344,6 +344,11 @@ public class Program
             var psi = new ProcessStartInfo
             {
                 FileName = agentExe,
+                // Set the working directory to the agent exe's own directory so
+                // relative additionalProbingPaths in azclips-agent.runtimeconfig.json
+                // resolve correctly. .NET treats additionalProbingPaths as relative
+                // to the current working directory, not the exe location.
+                WorkingDirectory = Path.GetDirectoryName(agentExe)!,
                 // Inherit stdio so streaming tokens, y/n prompt, device-code links
                 // all show live in the user's terminal.
                 UseShellExecute = false,

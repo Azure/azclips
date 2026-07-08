@@ -134,7 +134,12 @@ public sealed class ResourceCache
         if (!File.Exists(path)) return new List<T>();
         try
         {
-            using var fs = File.OpenRead(path);
+            // FileShare.ReadWrite | Delete lets ArmCacheRefresher's atomic
+            // tmp+rename replace this file while a reader still has it open;
+            // without Delete-sharing, File.Move(overwrite:true) fails on
+            // Windows with "access denied" during a concurrent refresh.
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
             var env = JsonSerializer.Deserialize<CacheFile<T>>(fs, Json);
             return env?.Items ?? new List<T>();
         }

@@ -103,19 +103,20 @@ dotnet publish "$CLI_PROJECT" \
   --self-contained true \
   -o "$CLI_SC_DIR"
 
-# Publish the Agent executable directly into the CLI publish dir so it
-# shares az.exe's runtime pack + dependency closure. Previously agent lived
-# in a dedicated agent/ subdir with its own --self-contained runtime pack,
-# bloating the archive by ~80 MB of byte-identical duplicates. Every shared
-# dll is verified identical across the two publishes; a future dependency
-# drift would cause the later publish's copy to win and the agent to use
-# the CLI's version.
-echo "Publishing Agent exe (Release, $RID) into CLI publish dir"
+# Publish the Agent daemon into a scratch dir; stage_agent then splits the
+# output: launcher files move to the CLI publish root (sibling to az so
+# they share the runtime pack), and agent-only NuGet dependencies + prompts
+# + copilot native binary move under
+# Extensions/Microsoft.Azure.Azclips.Extensions.Agent/. Runtime-pack
+# duplicates that are byte-identical to the CLI copy are deleted.
+echo "Publishing Agent exe (Release, $RID) into scratch"
+AGENT_SCRATCH="$COMMON_OUT_ROOT/agent-publish/$RID"
+[[ -d "$AGENT_SCRATCH" ]] && rm -rf "$AGENT_SCRATCH"
 dotnet publish "$REPO_ROOT/Agent/Core.Agent.csproj" \
   -c Release \
   -r "$RID" \
   --self-contained true \
-  -o "$CLI_SC_DIR"
+  -o "$AGENT_SCRATCH"
 
 # Publish the Agent.Commands extension into builtin-publish/ so the inject
 # script picks it up in the same pass as Login/Config.
@@ -127,6 +128,21 @@ dotnet publish "$REPO_ROOT/Agent/Commands/Agent.Commands.csproj" \
 
 chmod +x "$INJECTOR_SCRIPT"
 OUT_ROOT="$OUT_ROOT" "$INJECTOR_SCRIPT" --publish-dir "$CLI_SC_DIR" --builtin-root "$COMMON_OUT_ROOT/builtin-publish"
+
+# Stage agent daemon into the hybrid layout: launcher files land next to az,
+# everything else lands under the freshly-injected agent extension directory
+# (prompts, deps/ NuGet layout, native copilot).
+STAGE_AGENT_SCRIPT="$PACKAGING_ROOT/common/stage_agent.sh"
+AGENT_EXT_IN_PUBLISH="$CLI_SC_DIR/Extensions/Microsoft.Azure.Azclips.Extensions.Agent"
+if [[ ! -d "$AGENT_EXT_IN_PUBLISH" ]]; then
+    echo "Agent extension dir not present in publish after inject: $AGENT_EXT_IN_PUBLISH" >&2
+    exit 1
+fi
+chmod +x "$STAGE_AGENT_SCRIPT"
+"$STAGE_AGENT_SCRIPT" \
+    --agent-publish-dir "$AGENT_SCRATCH" \
+    --cli-publish-dir "$CLI_SC_DIR" \
+    --agent-extension-dir "$AGENT_EXT_IN_PUBLISH"
 cp "$NOTICE_FILE" "$CLI_SC_DIR/NOTICE"
 cp "$LICENSE_FILE" "$CLI_SC_DIR/LICENSE"
 

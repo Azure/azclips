@@ -70,9 +70,11 @@ public class ArmCacheRefresherTests
             {
                 // Any URL that isn't ARG (tenants list, subs, rgs) is returned
                 // empty so the flow reaches the resources query which is what
-                // we care about pinning here.
+                // we care about pinning here. subs returns a single stub id
+                // because the refresher now short-circuits on empty sub lists
+                // to avoid an unscoped ARG runaway.
                 """{"value":[]}""",                                                    // GET /tenants
-                """{"data":[],"$skipToken":null}""",                                   // subs
+                """{"data":[{"subscriptionId":"sub-stub"}],"$skipToken":null}""",      // subs
                 """{"data":[],"$skipToken":null}""",                                   // rgs
                 """{"data":[{"id":"r1","name":"one"},{"id":"r2","name":"two"}],"$skipToken":"PAGE2"}""",
                 """{"data":[{"id":"r3","name":"three"}]}""",
@@ -116,7 +118,7 @@ public class ArmCacheRefresherTests
         public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
             throw new NotImplementedException();
         public Task LogoutAsync(string? clientId = null, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default) =>
+        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
             throw new NotImplementedException("no token expected — refresher must return early");
     }
 
@@ -125,7 +127,7 @@ public class ArmCacheRefresherTests
         public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
             throw new NotImplementedException();
         public Task LogoutAsync(string? clientId = null, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default) =>
+        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
             Task.FromResult(new AuthResult
             {
                 AccessToken = "fake-token",
