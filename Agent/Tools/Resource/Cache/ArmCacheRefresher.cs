@@ -122,8 +122,10 @@ public sealed class ArmCacheRefresher
         var profile = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
         if (profile is null || string.IsNullOrEmpty(profile.TenantId))
         {
-            // Not signed in — nothing to refresh. Query paths will surface
-            // "cache_unavailable" from the reader side.
+            // Not signed in — nothing to refresh. Reader-side tools handle the
+            // missing tenant directory by returning empty lists (LoadFile
+            // returns [] when the file doesn't exist), so the user sees "no
+            // resources found" rather than an explicit error until they log in.
             return;
         }
 
@@ -424,7 +426,7 @@ public sealed class ArmCacheRefresher
             resp.EnsureSuccessStatusCode();
 
             using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
             int pageRows = 0;
             if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
             {
@@ -438,7 +440,6 @@ public sealed class ArmCacheRefresher
             skipToken = doc.RootElement.TryGetProperty("$skipToken", out var st) && st.ValueKind == JsonValueKind.String
                 ? st.GetString()
                 : null;
-            doc.Dispose();
             Report($"    page {page}: {pageRows} rows in {pageSw.Elapsed.TotalSeconds:F1}s (total {results.Count}){(skipToken is null ? " [end]" : "")}");
             if (string.IsNullOrEmpty(skipToken)) break;
         }

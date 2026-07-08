@@ -32,7 +32,9 @@ public sealed class HelpTools
                 "psName (e.g. 'New-VMCombined', empty string when no PS cmdlet), extension, group, summary. " +
                 "Use FIRST when you don't already know whether a command exists or what its exact name is. " +
                 "After picking a candidate, call get_command for its parameters and examples. " +
-                "Cheap (~1 KB), no network call.",
+                "Shells out to `az agent tool help` which enumerates every installed extension's command " +
+                "manifests at runtime — expect ~100 ms and a few dozen KB depending on how many extensions " +
+                "you have installed. No network call.",
         });
 
         GetCommand = AIFunctionFactory.Create(GetCommandAsync, new AIFunctionFactoryOptions
