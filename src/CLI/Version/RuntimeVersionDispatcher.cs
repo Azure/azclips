@@ -41,7 +41,7 @@ internal sealed class RuntimeVersionDispatcher
             ? FormatText(info)
             : CliOutputFormatter.FormatValue(info);
 
-        _output.WriteLine(rendered);
+       _output.WriteLine(rendered.TrimEnd('\r', '\n'));
         return 0;
     }
 

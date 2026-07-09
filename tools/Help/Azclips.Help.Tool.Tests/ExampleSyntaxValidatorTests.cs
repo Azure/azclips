@@ -100,6 +100,18 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Fact]
+        public void Validate_ShouldPass_WhenIntrinsicVerbUsesTopLevelFlagForm()
+        {
+            // Intrinsic verbs also have a top-level flag form (`az --version`), handled by the runtime.
+            // It must validate cleanly even though `--version` is not an extension-registered group.
+            var content = Fence("az --version");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
         public void Validate_ShouldError_WhenSubcommandDoesNotResolve()
         {
             var content = Fence("az group bogus --name foo");
