@@ -371,7 +371,10 @@ public class Program
             // Forward the directory the user actually ran `az` from. WorkingDirectory
             // above is the agent install dir (needed for probing paths), which would
             // otherwise make the agent's environment snapshot report the wrong cwd.
-            psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory();
+            // Best-effort: GetCurrentDirectory can throw (e.g. the cwd was deleted),
+            // and forwarding it is only a hint — skip it rather than fail the launch.
+            try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
+            catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
             psi.ArgumentList.Add("--agent-mode");
             psi.ArgumentList.Add("--failed-command");
             psi.ArgumentList.Add(JoinShellQuoted(args));

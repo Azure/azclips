@@ -59,9 +59,10 @@ internal static class EnvSnapshotFormatter
         }
     }
 
-    // True only when the snapshot clearly reports signed-out. A parse failure or
-    // an error payload returns false, so the login-help pre-fetch never fires on
-    // an unknown state — it's an optimization, not a correctness gate.
+    // True when the snapshot does not clearly report signed-in: a missing/false
+    // signedIn field counts as signed-out so the login-help pre-fetch still fires.
+    // Only a parse failure or an explicit error payload returns false (skip the
+    // pre-fetch) — it's an optimization, not a correctness gate.
     public static bool IsSignedOut(string envJson)
     {
         try

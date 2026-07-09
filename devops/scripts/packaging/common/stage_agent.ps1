@@ -83,7 +83,7 @@ if (Test-Path -Path $promptsSrc -PathType Container) {
 }
 
 # 3. Parse the (now-moved) deps.json to build the dll_name -> (pkg, ver, rel_path) map
-#    and to find runtime pack members + Copilot SDK version.
+#    and to find runtime pack members.
 $depsPath = Join-Path $CliPublishDir 'azclips-agent.deps.json'
 if (-not (Test-Path -Path $depsPath -PathType Leaf)) {
     throw "azclips-agent.deps.json not at $depsPath after launcher move"
