@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 using Core.Agent.Tools.Shell;
 using Xunit;
@@ -8,9 +7,10 @@ namespace Core.Agent.Tests;
 /// <summary>
 /// Contract tests for <see cref="ShellOutHelper.InvokeAzAsync"/>. Uses a
 /// tiny cross-platform shell (cmd.exe on Windows, /bin/sh elsewhere) to
-/// exercise the caller-facing surfaces: stdout on success, and the four
-/// structured-JSON error shapes — spawn-failed, non-zero exit, timeout,
-/// and caller cancellation.
+/// exercise the caller-facing surfaces: stdout on success, and three of the
+/// structured-JSON error shapes — spawn-failed, non-zero exit, and caller
+/// cancellation. (The timeout shape isn't covered here; it would need the
+/// timeout to be configurable to exercise deterministically.)
 /// </summary>
 public class ShellOutHelperTests
 {
