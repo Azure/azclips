@@ -16,7 +16,7 @@ az agent tool resource show --name my-vm --kind resource
 ### Get live ARM state (needed for provisioningState / properties)
 
 ```bash
-az agent tool resource show --name my-vm --kind resource --live true
+az agent tool resource show --name my-vm --kind resource --live
 ```
 
 ### Look up by ARM id
