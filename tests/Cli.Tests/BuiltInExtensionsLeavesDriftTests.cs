@@ -24,6 +24,7 @@ public class BuiltInExtensionsLeavesDriftTests
             { "logout",     new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
             { "profile",   new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
             { "config",    new Microsoft.Azure.Azclips.Extensions.Config.ExtensionIndex()    },
+            { "agent",     new Microsoft.Azure.Azclips.Extensions.Agent.ExtensionIndex()     },
         };
 
     [Theory]

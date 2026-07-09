@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Core.Abstractions;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Tools.Resource.Cache;
@@ -22,10 +23,12 @@ public sealed class CachedResourceTools
     };
 
     private readonly ArmDetailsClient _armDetails;
+    private readonly IProfileService _profileService;
 
-    public CachedResourceTools(ArmDetailsClient armDetails)
+    public CachedResourceTools(ArmDetailsClient armDetails, IProfileService profileService)
     {
         _armDetails = armDetails;
+        _profileService = profileService;
 
         FindResources = AIFunctionFactory.Create(FindResourcesAsync, new AIFunctionFactoryOptions
         {
@@ -80,8 +83,29 @@ public sealed class CachedResourceTools
 
     // ── tool implementations ──
 
+    // Point the cache at the caller's current tenant before every read. The
+    // active profile is the source of truth; reading it here (rather than
+    // pinning once at daemon startup) means a mid-session `az account set`
+    // to another tenant is picked up on the next resource query. Cheap: a
+    // profile read (small local file) plus an in-memory provider swap.
+    private async Task SyncTenantAsync(CancellationToken ct)
+    {
+        // Best-effort: a corrupt/unreadable profiles.json must not break the read
+        // tools' "always return JSON" contract. On failure, leave the tenant unset
+        // (cache falls back to root-level lookup) rather than letting the tool throw.
+        try
+        {
+            var profile = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
+            ResourceCache.SetCurrentTenantId(profile?.TenantId);
+        }
+        catch
+        {
+            ResourceCache.SetCurrentTenantId(null);
+        }
+    }
+
     [Description("Search local cache for resources by name with fuzzy fallback.")]
-    private Task<string> FindResourcesAsync(
+    private async Task<string> FindResourcesAsync(
         [Description("Name pattern. Exact > substring > Levenshtein typo correction.")]
         string namePattern,
         [Description("Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched and results merged by score.")]
@@ -91,10 +115,13 @@ public sealed class CachedResourceTools
         [Description("Optional resource group name to narrow (only meaningful for kind=resource).")]
         string? resourceGroup = null,
         [Description("Max candidates to return. Default 10.")]
-        int top = 10)
+        int top = 10,
+        CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("find_resources",
             $"pattern={namePattern} kind={kind} sub={subscription} rg={resourceGroup} top={top}");
+
+        await SyncTenantAsync(ct).ConfigureAwait(false);
 
         // Validate kind early so the model gets a clear error instead of empty hits.
         if (!string.IsNullOrWhiteSpace(kind) && !CacheKinds.TryResolve(kind, out _))
@@ -106,7 +133,7 @@ public sealed class CachedResourceTools
                 validKinds = CacheKinds.AllKinds,
             }, Json);
             scope.SetResult($"error=unknown_kind provided={kind}");
-            return Task.FromResult(err);
+            return err;
         }
 
         var filter = (subscription is { Length: > 0 } || resourceGroup is { Length: > 0 })
@@ -138,11 +165,11 @@ public sealed class CachedResourceTools
             ? "matchCount=0"
             : $"matchCount={matches.Count} — top: {matches[0].Resource.Name} ({matches[0].Match}, score={Math.Round(matches[0].Score, 3)})";
         scope.SetResult(summary);
-        return Task.FromResult(json);
+        return json;
     }
 
     [Description("Return cached subtree from a node.")]
-    private Task<string> GetResourceTreeAsync(
+    private async Task<string> GetResourceTreeAsync(
         [Description("Name, full ARM id, subscription id/name, or tenant id. Use kind to disambiguate.")]
         string nameOrId,
         [Description("Required kind: tenant | subscription | resourceGroup | resource. Identifies what type of node to root the tree at.")]
@@ -150,10 +177,13 @@ public sealed class CachedResourceTools
         [Description("Max depth from this node. Defaults to 2 (sub→RG, RG→resource). Set higher to drill further.")]
         int maxDepth = 2,
         [Description("Optional subscription scope when kind=resourceGroup and the RG name repeats across subs.")]
-        string? subscription = null)
+        string? subscription = null,
+        CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("get_resource_tree",
             $"id={nameOrId} kind={kind} depth={maxDepth}");
+
+        await SyncTenantAsync(ct).ConfigureAwait(false);
 
         if (!CacheKinds.TryResolve(kind, out _))
         {
@@ -164,7 +194,7 @@ public sealed class CachedResourceTools
                 validKinds = CacheKinds.AllKinds,
             }, Json);
             scope.SetResult($"error=unknown_kind provided={kind}");
-            return Task.FromResult(err);
+            return err;
         }
 
         string json;
@@ -197,7 +227,7 @@ public sealed class CachedResourceTools
             summary = $"error={ex.GetType().Name}";
         }
         scope.SetResult(summary);
-        return Task.FromResult(json);
+        return json;
     }
 
     [Description("Return cache row + optionally one live ARM GET for one item.")]
@@ -216,6 +246,8 @@ public sealed class CachedResourceTools
     {
         using var scope = ToolInvocationLog.Start("get_resource_details",
             $"id={nameOrId} kind={kind} sub={subscription} rg={resourceGroup} live={live}");
+
+        await SyncTenantAsync(ct).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(kind) && !CacheKinds.TryResolve(kind, out _))
         {
