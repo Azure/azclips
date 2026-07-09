@@ -227,15 +227,15 @@ public sealed class RuntimeHelpDispatcher
 
         // Intrinsic host verbs (cold-path commands like `version`) aren't discovered as extensions,
         // so surface them from the markdown corpus to keep them listed in `az --help`.
-        foreach (var verb in IntrinsicVerbs.All)
+        foreach (var intrinsic in IntrinsicVerbs.All)
         {
-            if (!seenVerbs.Add(verb))
+            if (!seenVerbs.Add(intrinsic.Name))
             {
                 continue;
             }
 
-            var summary = MarkdownCommandHelpProvider.Get(verb, string.Empty).Summary;
-            yield return new RuntimeHelpGroup(verb, summary, [], []);
+            var summary = MarkdownCommandHelpProvider.Get(intrinsic.Name, string.Empty).Summary;
+            yield return new RuntimeHelpGroup(intrinsic.Name, summary, [], []);
         }
     }
 
