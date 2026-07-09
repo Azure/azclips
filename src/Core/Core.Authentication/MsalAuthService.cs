@@ -77,7 +77,10 @@ public class MsalAuthService(
 
         var result = await app.AcquireTokenWithDeviceCode(scopes ?? [ArmDefaultScope], deviceCodeResult =>
         {
-            Logger.Log(deviceCodeResult.Message);
+            //TODO: This output always needs to be shown to the user,
+            //but we should consider a better way to do this output + stlying than just writing to the console here.
+            Console.WriteLine(deviceCodeResult.Message);
+            Console.WriteLine("Press Ctrl+C to cancel.");
             return Task.CompletedTask;
         }).ExecuteAsync(cancellationToken);
 
