@@ -116,7 +116,7 @@ _az_query() {
 
     # Cache miss: query fresh root tree and cache it
     local raw_output
-    raw_output="$("$exe" --completions 2>/dev/null)"
+    raw_output="$("$exe" --completions 2>/dev/null | tr -d '\r')"
     # Validate output is JSON (old Azure CLI returns error text, not JSON)
     local root_json
     root_json="$(echo "$raw_output" | jq -e 'type == "object"' >/dev/null 2>&1 && echo "$raw_output")"
