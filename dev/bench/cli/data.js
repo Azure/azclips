@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783580296280,
+  "lastUpdate": 1783589833544,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -3150,6 +3150,48 @@ window.BENCHMARK_DATA = {
             "value": 964051.1027013507,
             "unit": "ns",
             "range": "± 301439.0180100221"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d41a3bd033af9e68a0b465be7391c0da3e6aa010",
+          "message": "feat(agent): cache refresh command, resource tree/show, ARG pagination fixes, packaging size reduction (#395)\n\n## Summary\n\n- Add `az agent tool cache refresh` — synchronously refreshes the\non-disk ARM cache used by resource commands. Prior to this, the other\nresource commands only kicked a background refresh and returned empty on\ncold-start machines.\n- Add `az agent tool resource tree` — returns the resource hierarchy\nunder a node (tenant / subscription / resource group / resource).\n- Add `az agent tool resource show` — returns details for one resource\nfrom the cache, with optional `--live` flag for a real-time ARM GET.\n- Add background ARM cache refresher, triggered by resource commands.\nPer-tenant cache layout under `~/.azclips/arm-cache/<tenantId>/` with\nTTL (1 day for resource groups, 8 hours for resources).\n- Agent-side help and env tools now shell out to `az agent tool help` /\n`az agent tool env` subprocesses; the CLI-side processors are the single\nsource of truth. Removes duplicate JSON fixtures previously baked into\nthe agent build.\n- `az agent tool help` walks all installed extensions (built-in +\nuser-added via `az extension add`) via `IAssemblyLoadingService` and\naggregates their command tables at runtime; no cached catalog to\ninvalidate.\n- Inject a classic-Azure-CLI boundary reminder into the agent's\nsession-start context (mirrors the existing prompt-level guidance so it\nlands in a spot the model doesn't skim).\n\n## Bug fixes\n\n- ARG runaway pagination: request body was missing the `subscriptions`\narray. Without it, ARG returned cross-tenant data with an unbounded\n`$skipToken` chain (observed 692k+ rows for a 15k-resource tenant, hung\nfor 12 min). Now loads the subscription list first and scopes every\nsubsequent query to it — full refresh completes in ~22s.\n- Silent request-body corruption in the ARG client: body was built with\nanonymous types assigned to `object`-typed locals. `System.Text.Json`\nserializes those by static type, dropping every property. The pagination\ncursor was never actually sent to the server. Fixed by switching to\n`Dictionary<string, object>`.\n- `CachedSubscription.IsDefault` deserialization: ARG returns\n`isDefault=0` as an integer; `System.Text.Json` won't coerce int to\nbool, so the entire subscriptions array failed to load. Cache was\nsilently empty, and any `resource tree/show` against a cached\nsubscription returned \"not found\". Removed the field.\n- ARG refresh marker vs failure: the refresher used to stamp a fresh\n`cachedAt` before the ARG query. If the query threw (network / auth /\nAPI drift), the caller would see the stale payload but future\n`NeedsTtlRefresh()` checks would treat the file as fresh and skip\nrefresh for another full TTL window (up to 8 h for resources).\nQuery-then-write now; the per-file `.lock` still coalesces peer\nrefreshers.\n- Cache readers on Windows opened files with default `FileShare.Read`,\nwhich blocked the refresher's atomic `File.Move(overwrite:true)` with\n\"access denied\". Now use `FileShare.ReadWrite | FileShare.Delete` to\nrestore POSIX-like replace-while-open semantics.\n- `ArmCacheRefresher` no longer sends an unscoped ARG query when the\nsubscription list is empty — that would re-trigger the same cross-tenant\nrunaway the `subscriptions` array is meant to prevent.\n- `FailedCommandHelp` now inspects the `error` field of the\n`get_command` JSON payload instead of substring-matching `\"not_found\"`,\nso any error variant (spawn failure, timeout, missing name) skips help\ninjection uniformly.\n\n## Packaging\n\nWindows zip size drops from ~175 MB to ~127 MB (compressed).\n\nHybrid layout instead of a plain flatten — the launcher files sit next\nto `az.exe` (so `azclips-agent.exe` shares the .NET runtime pack and\n`hostpolicy.dll` during native bootstrap), and every agent-only asset\nmoves under the Agent extension directory:\n\n```\n<publish root>/\n  az.exe                                              CLI\n  azclips-agent.exe / .dll / .deps.json / .runtimeconfig.json     launcher siblings\n  System.*.dll, hostpolicy.dll, coreclr.dll, ...      shared runtime pack (one copy)\n  Extensions/\n    Microsoft.Azure.Azclips.Extensions.Agent/\n      Microsoft.Azure.Azclips.Extensions.Agent.dll    extension code\n      prompts/                                        agent-only assets\n      deps/                                           NuGet-style probe layout\n        github.copilot.sdk/<ver>/lib/net10.0/*.dll\n        github.copilot.sdk/<ver>/runtimes/<rid>/native/copilot[.exe]\n        <other agent-only nugets>/<ver>/lib/<tfm>/*.dll\n```\n\n- Agent daemon (`azclips-agent.exe`) still publishes `--self-contained`,\nbut the post-publish `stage_agent` step\n(`devops/scripts/packaging/common/stage_agent.ps1` + `.sh`) splits the\noutput: launcher goes to the CLI root, prompts + agent-only NuGet dlls +\ncopilot native go under the Agent extension dir in NuGet-style layout.\nRuntime pack files byte-identical to the CLI root are deleted; anything\nunclassified fails packaging loudly rather than silently.\n- `Agent/runtimeconfig.template.json` adds `additionalProbingPaths:\n[\"Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps\"]` so the\nmanaged loader finds the NuGet-style dep tree. The CLI spawns the agent\nwith `WorkingDirectory = <agent dir>` so the relative path resolves\nagainst the install root.\n- Remove 4 orphan `PackageReference` entries —\n`Microsoft.Identity.Client` (x2) and `Azure.Identity` (x2). Neither is\nused in production agent code; the agent goes through `IAuthService` in\n`Core.Authentication`. The only file referencing them was already\nexcluded from compilation.\n\n## Agent latency & prompt optimization\n\nTrimmed the agent's effective system prompt ~75% and restructured the\nerror-recovery prompts, cutting time-to-plan substantially with no loss\nin plan quality.\n\n**System prompt trimmed via SDK section customization.** The agent\npreviously *appended* our prompt to the Copilot SDK's default system\nmessage, so every turn paid for ~8k tokens of generic coding-assistant\ninstructions (tone, code-change rules, per-tool guides for tools this\nagent never calls, repo custom-instructions). We now use\n`SystemMessageMode.Customize`: our prompt *replaces* the `identity`\nsection (so it leads), and sections azclips doesn't use are removed.\nRemoved for all modes: `tone`, `code_change_rules`,\n`custom_instructions`. Removed for one-shot only: `tool_instructions`,\n`runtime_instructions` (a single-shot plan needs neither the per-tool\nguides nor the multi-turn runtime scaffolding; interactive keeps them\nsince it runs tools across turns). Kept: `tool_efficiency`,\n`environment_context`, `guidelines`, `safety`. Net: 42.8k → ~10.7k\nchars.\n\n**Prompt restructure (oneshot.md / inline.md).** Rewrote both to a\ntag-wrapped structure (`<identity>` / `<hard_rules>` / `<scope>` /\n`<error_recovery_workflow>` with `<assess>` / `<propose_plan>` /\n`<submit_plan>`) so cross-references like \"go straight to\n`<propose_plan>`\" are precise jump targets. Added a Fast-path /\nGather-path split: a self-explanatory argument fix skips lookups and\nproposes a plan directly, while the multi-command case does a single\nparallel batch of `get_command` / `find_resources` /\n`find_available_locations` instead of probing one command per turn.\nEmphasis trimmed to the speed-critical Fast/Gather distinction.\n\n**Login-help pre-fetch.** When the env snapshot reports signed-out, the\nsession-start context also pre-fetches `login` help, so a plan needing\n`az login` doesn't burn a turn looking it up (mirrors the existing\nfailed-command pre-fetch).\n\n**Interactive execution + close fixes.** After the user approves a plan,\nthe host now tells the model to carry it out (an `allow` alone didn't\nsignal approval, so it often stopped instead of executing).\n`submit_response` no longer re-renders the plan in interactive mode (the\ncommands already ran and their output is on screen); it shows a terse \"✓\nDone\". The disclaimer moved to the end of `RenderPlan` so it travels\nwith the plan in both modes.\n\nMeasured locally (Debug): `vm create` 78s → 35s, `profile show` 38s →\n26s; plan quality unchanged across sampled runs.",
+          "timestamp": "2026-07-09T19:35:11+10:00",
+          "tree_id": "1c401ca77723bf018dad44619a0321c7a323aad3",
+          "url": "https://github.com/Azure/azclips/commit/d41a3bd033af9e68a0b465be7391c0da3e6aa010"
+        },
+        "date": 1783589832598,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 992921.9380504404,
+            "unit": "ns",
+            "range": "± 303659.1402514619"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 973485.377063119,
+            "unit": "ns",
+            "range": "± 321936.4736864149"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 970729.1007503752,
+            "unit": "ns",
+            "range": "± 308352.329085768"
           }
         ]
       }
