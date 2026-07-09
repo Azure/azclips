@@ -207,7 +207,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
         var sessionConfig = BuildBaseSessionConfig(
             systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, ct);
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct);
 
         string resolvedModel;
         switch (options.Provider?.ToLowerInvariant())
@@ -260,14 +260,44 @@ public sealed class ChatAgent : IAsyncDisposable
         EventRenderer eventRenderer,
         SessionState state,
         string? failedHelp,
+        string entrypoint,
         CancellationToken ct)
     {
+        // Customize the SDK's default system message. Our oneshot/inline prompt
+        // REPLACES the identity section so it leads the message (the agent knows
+        // it's the azclips error-recovery agent up front, not after the SDK's
+        // generic preamble). All modes strip: tone (we don't want the generic
+        // code-assistant voice), code_change_rules (azclips doesn't edit code),
+        // and custom_instructions (repo CLAUDE.md / commit / notify rules leak
+        // in here). oneshot additionally strips tool_instructions and
+        // runtime_instructions — a single-shot plan needs neither the per-tool
+        // usage guides nor the multi-turn runtime scaffolding; interactive
+        // (inline/tui) keeps them because it actually runs tools across turns.
+        // Kept in all modes: tool_efficiency, environment_context, guidelines,
+        // safety.
+        var sections = new Dictionary<SystemMessageSection, SectionOverride>
+        {
+            [SystemMessageSection.Identity] = new() { Action = SectionOverrideAction.Replace, Content = systemPrompt },
+            [SystemMessageSection.Tone] = new() { Action = SectionOverrideAction.Remove },
+            [SystemMessageSection.CodeChangeRules] = new() { Action = SectionOverrideAction.Remove },
+            [SystemMessageSection.CustomInstructions] = new() { Action = SectionOverrideAction.Remove },
+        };
+        if (string.Equals(entrypoint, "oneshot", StringComparison.OrdinalIgnoreCase))
+        {
+            sections[SystemMessageSection.ToolInstructions] = new() { Action = SectionOverrideAction.Remove };
+            sections[SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove };
+        }
+
         return new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
             Streaming = true,
-            SystemMessage = new SystemMessageConfig { Content = systemPrompt },
+            SystemMessage = new SystemMessageConfig
+            {
+                Mode = SystemMessageMode.Customize,
+                Sections = sections,
+            },
             Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
                 .Concat(submitTool.All).Concat(planTool.All).Cast<AIFunctionDeclaration>().ToList(),
             // All built-in tools available (bash, view, edit, grep, glob,
@@ -285,6 +315,16 @@ public sealed class ChatAgent : IAsyncDisposable
                     // the agent starts with it instead of spending a turn on get_command.
                     if (!string.IsNullOrEmpty(failedHelp))
                         ctx = $"{ctx}\n\n{failedHelp}";
+                    // When the snapshot reports signed-out, the fix will need `az login`,
+                    // so pre-fetch its help too — the agent won't burn a turn looking it
+                    // up. Mirrors the failed-command pre-fetch; best-effort (a failed
+                    // lookup just means the agent falls back to get_command).
+                    if (EnvSnapshotFormatter.IsSignedOut(envJson))
+                    {
+                        var loginHelp = await FailedCommandHelp.BuildContextAsync(helpTools, "login", ct).ConfigureAwait(false);
+                        if (!string.IsNullOrEmpty(loginHelp))
+                            ctx = $"{ctx}\n\n{loginHelp}";
+                    }
                     return new SessionStartHookOutput { AdditionalContext = ctx };
                 },
                 OnUserPromptSubmitted = async (_, _) =>

@@ -59,6 +59,25 @@ internal static class EnvSnapshotFormatter
         }
     }
 
+    // True only when the snapshot clearly reports signed-out. A parse failure or
+    // an error payload returns false, so the login-help pre-fetch never fires on
+    // an unknown state — it's an optimization, not a correctness gate.
+    public static bool IsSignedOut(string envJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(envJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return false;
+            var root = doc.RootElement;
+            if (root.TryGetProperty("error", out _)) return false;
+            return !GetBool(root, "signedIn");
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static string GetString(JsonElement root, string name, string fallback)
     {
         if (!root.TryGetProperty(name, out var el)) return fallback;
