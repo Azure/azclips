@@ -48,10 +48,12 @@
     <Project Path="tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj" />
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
+  <Folder Name="/src/Extensions/Graph/" />
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
     <Project Path="src/PS/Login/Cmdlets.Login.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
+    <Project Path="src/PS/Graph/Cmdlets.Graph.csproj" />
   </Folder>
 </Solution>

@@ -8,8 +8,8 @@ using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Graph;
 
-[Cmdlet(VerbsCommon.Get, "AzADUser")]
-public class GetAzADUserCmdlet : PSCmdlet
+[Cmdlet(VerbsCommon.Get, "AzMsGraphUser")]
+public class GetAzMsGraphUserCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -36,7 +36,7 @@ public class GetAzADUserCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Graph", "Get-AzADUser", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Graph", "Get-AzMsGraphUser", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
