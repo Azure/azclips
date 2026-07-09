@@ -90,8 +90,18 @@ public sealed class CachedResourceTools
     // profile read (small local file) plus an in-memory provider swap.
     private async Task SyncTenantAsync(CancellationToken ct)
     {
-        var profile = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
-        ResourceCache.SetCurrentTenantId(profile?.TenantId);
+        // Best-effort: a corrupt/unreadable profiles.json must not break the read
+        // tools' "always return JSON" contract. On failure, leave the tenant unset
+        // (cache falls back to root-level lookup) rather than letting the tool throw.
+        try
+        {
+            var profile = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
+            ResourceCache.SetCurrentTenantId(profile?.TenantId);
+        }
+        catch
+        {
+            ResourceCache.SetCurrentTenantId(null);
+        }
     }
 
     [Description("Search local cache for resources by name with fuzzy fallback.")]
