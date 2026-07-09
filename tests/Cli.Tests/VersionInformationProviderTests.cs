@@ -109,6 +109,28 @@ public class VersionInformationProviderTests
         Assert.Contains("Paths", output);
     }
 
+    /// <summary>
+    /// FormatText ends with a trailing newline (AppendLine on its last line), so Render must trim
+    /// trailing line breaks before WriteLine to avoid a blank line at the end of the output.
+    /// </summary>
+    [Fact]
+    public void Render_Text_ShouldEndWithExactlyOneTrailingNewline()
+    {
+        using var writer = new StringWriter();
+        var dispatcher = new RuntimeVersionDispatcher(new FakeConfigurationService(ConfigFilePath), writer);
+
+        dispatcher.Render(VersionOutputFormat.Text);
+
+        var output = writer.ToString();
+        Assert.EndsWith(Environment.NewLine, output);
+
+        // After the single terminating newline, the content must not end with another line break.
+        var withoutFinalNewline = output[..^Environment.NewLine.Length];
+        Assert.False(
+            withoutFinalNewline.EndsWith('\n') || withoutFinalNewline.EndsWith('\r'),
+            "Version text output should end with exactly one newline, not a trailing blank line.");
+    }
+
     // Minimal IConfigurationService whose only meaningful behavior is returning a fixed config file
     // path; the provider only calls GetConfigFilePath().
     private sealed class FakeConfigurationService(string configFilePath, AssemblyLoadingOptions? assemblyLoadingOptions = null) : IConfigurationService
