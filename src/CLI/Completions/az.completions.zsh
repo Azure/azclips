@@ -4,16 +4,15 @@
 #   autoload -U compinit && compinit
 #   source <path-to>/az.completions.zsh
 # Or add to your ~/.zshrc to auto-load on every session.
-# Requires: jq
 #
-# Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
+# Completions are resolved dynamically by invoking `az --completion-candidates [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
-# Detection: The script auto-detects azclips by calling `az --completions`.
-# If the binary returns valid JSON, it is treated as azclips; otherwise completions are skipped.
-# The result is cached per session so detection only runs once.
-# Completions are cached for the current shell session and invalidated if the resolved exe path changes (e.g., after an update)
-# or if the completion.enabled setting changes in user config.
+# Detection: Old Azure CLI outputs error text (with uppercase letters) to stderr for unknown
+# flags like --completion-candidates; azclips returns lowercase candidates or empty (disabled).
+# Uppercase in stdout marks the binary as non-azclips. The result is cached per exe.
+# Completions are cached for the current shell session and invalidated if the resolved exe path
+# changes (e.g., after an update) or if the config file changes.
 # To refresh manually, run: _az_clear_cache
 #
 # Opt-in debug logging:
@@ -42,32 +41,11 @@ _az_get_config_stamp() {
 
     # Missing config means defaults apply (completion.enabled=true).
     if [[ ! -f "$config_path" ]]; then
-        echo "$config_path|enabled:true|missing"
+        echo "$config_path|missing"
         return
     fi
 
-    # Prefer semantic invalidation by reading completion.enabled.
-    if (( $+commands[jq] )); then
-        local enabled
-        enabled="$(jq -r '
-            if has("completion") and (.completion|type=="object") and (.completion|has("enabled")) then
-                .completion.enabled
-            elif has("completion.enabled") then
-                ."completion.enabled"
-            else
-                true
-            end
-        ' "$config_path" 2>/dev/null)"
-
-        if [[ -n "$enabled" && "$enabled" != "null" ]]; then
-            if [[ "$enabled" == "true" || "$enabled" == "false" ]]; then
-                echo "$config_path|enabled:$enabled"
-                return
-            fi
-        fi
-    fi
-
-    # Fallback to metadata stamp when semantic read is unavailable/invalid.
+    # Use metadata only; the CLI remains the source of truth for completion.enabled.
     local size mtime
 
     # GNU stat first, then BSD/macOS stat.
@@ -81,15 +59,15 @@ _az_get_config_stamp() {
     fi
 
     if [[ -n "$size" || -n "$mtime" ]]; then
-        echo "$config_path|fallback-meta|$size|$mtime"
+        echo "$config_path|$size|$mtime"
     else
         echo "$config_path|error"
     fi
 }
 
 # Sets _az_query_result (avoids subshell so cache persists).
-# Usage: _az_query <exe> [group]
-_az_query() {
+# Usage: _az_query_candidates <exe> [group] [subcommand]
+_az_query_candidates() {
     _az_query_result=""
     local exe="$1"; shift
     [[ -n "$exe" ]] || return 1
@@ -97,50 +75,39 @@ _az_query() {
     if [[ "${_az_not_azclips:-}" == "$exe" ]]; then return 1; fi
     local config_stamp
     config_stamp="$(_az_get_config_stamp)"
-    
+    local cache_key="$*"
+
     # Check cache validity: invalidate on exe/config stamp changes.
-    if [[ -n "${_az_completions_cache_root:-}" && "$_az_completions_cache_exe" == "$exe" && "$_az_completions_cache_stamp" == "$config_stamp" ]]; then
-        # Navigate cached tree by context args using jq
-        if [[ $# -eq 0 ]]; then
-            _az_query_result="$_az_completions_cache_root"
-            return 0
-        fi
-        local subtree
-        subtree="$(echo "$_az_completions_cache_root" | jq -e --arg k "$1" '.[$k]' 2>/dev/null)"
-        if [[ $? -eq 0 && -n "$subtree" && "$subtree" != "null" ]]; then
-            _az_query_result="$subtree"
-        fi
-        # Cache is valid; don't re-query even if key was missing
+    if [[ "$_az_cache_exe" == "$exe" && "$_az_cache_stamp" == "$config_stamp" && "$_az_cache_key" == "$cache_key" ]]; then
+        _az_query_result="$_az_cache_candidates"
         return 0
     fi
 
-    # Cache miss: query fresh root tree and cache it
-    local raw_output
-    raw_output="$("$exe" --completions 2>/dev/null | tr -d '\r')"
-    # Validate output is JSON (old Azure CLI returns error text, not JSON)
-    local root_json
-    root_json="$(echo "$raw_output" | jq -e 'type == "object"' >/dev/null 2>&1 && echo "$raw_output")"
-    if [[ -z "$root_json" ]]; then
-        # Not valid JSON → not azclips; remember to skip future attempts for this exe
+    local raw
+    raw="$("$exe" --completion-candidates "$@" 2>/dev/null)"
+    raw="${raw//$'\r'/}"
+
+    # Detection: old Azure CLI outputs error text with uppercase letters to stderr
+    # (suppressed by 2>/dev/null -> empty stdout) or to stdout. azclips outputs
+    # lowercase candidates or empty (disabled). Uppercase in output -> not azclips.
+    if [[ -n "$raw" && "$raw" =~ [A-Z] ]]; then
         _az_not_azclips="$exe"
+        _az_query_result=""
         return 1
     fi
-    _az_completions_cache_root="$root_json"
-    _az_completions_cache_exe="$exe"
-    _az_completions_cache_stamp="$config_stamp"
 
-    # Return the requested subtree (or root if no args)
-    if [[ $# -eq 0 ]]; then
-        _az_query_result="$root_json"
-    else
-        _az_query_result="$(echo "$root_json" | jq -e --arg k "$1" '.[$k]' 2>/dev/null)"
-    fi
+    _az_query_result="$raw"
+    _az_cache_candidates="$_az_query_result"
+    _az_cache_exe="$exe"
+    _az_cache_stamp="$config_stamp"
+    _az_cache_key="$cache_key"
 }
 
-# Session cache for completions tree (persists until exe path changes).
-typeset -g _az_completions_cache_root=""
-typeset -g _az_completions_cache_exe=""
-typeset -g _az_completions_cache_stamp=""
+# Session cache (persists until exe path/config stamp/context changes).
+typeset -g _az_cache_candidates=""
+typeset -g _az_cache_exe=""
+typeset -g _az_cache_stamp=""
+typeset -g _az_cache_key=""
 typeset -g _az_query_result=""
 typeset -g _az_not_azclips=""
 
@@ -168,43 +135,24 @@ _az() {
 
     _az_debug "enter _az CURRENT=$CURRENT words=(${words[*]})"
 
-    local -a candidates prefix_words subcommands params used_params available
-    local group json
+    local -a candidates params used_params available
+    local group
 
     case $CURRENT in
         2)
             # Level 0: complete top-level command groups
-            _az_query "$exe"
-            json="$_az_query_result"
-            _az_debug "json=$json"
-            if [[ -n "$json" ]]; then
-                candidates=("${(@f)$(echo "$json" | jq -r 'keys[]' 2>/dev/null)}")
+            _az_query_candidates "$exe"
+            if [[ -n "$_az_query_result" ]]; then
+                candidates=( ${=_az_query_result} )
             fi
             _az_debug "level=0 candidates=(${candidates[*]})"
             ;;
         3)
             # Level 1: subcommands + group params
             group="${words[2]:l}"
-            _az_query "$exe" "$group"
-            json="$_az_query_result"
-            _az_debug "json=$json"
-            if [[ -n "$json" ]]; then
-                local subs_output params_output
-                local -a arr
-
-                subs_output="$(echo "$json" | jq -r '._subcommands[]? // empty' 2>/dev/null)"
-                if [[ -n "$subs_output" ]]; then
-                    arr=("${(f)subs_output}")
-                    candidates+=("${arr[@]}")
-                fi
-
-                params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
-                if [[ -n "$params_output" ]]; then
-                    arr=("${(f)params_output}")
-                    candidates+=("${arr[@]}")
-                fi
-
-                _az_debug "candidates=(${candidates[*]})"
+            _az_query_candidates "$exe" "$group"
+            if [[ -n "$_az_query_result" ]]; then
+                candidates=( ${=_az_query_result} )
             fi
             _az_debug "level=1 group=$group candidates=(${candidates[*]})"
             ;;
@@ -212,24 +160,13 @@ _az() {
             # Level 2+: parameters for the command
             group="${words[2]:l}"
             local sub="${words[3]:l}"
-            _az_query "$exe" "$group"
-            json="$_az_query_result"
-            _az_debug "json=$json"
-            if [[ -n "$json" ]]; then
-                local params_output
-                # Try subcommand-specific params, then group-level
-                if [[ "$sub" != --* ]]; then
-                    params_output="$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)"
-                fi
-                if [[ -z "$params_output" ]]; then
-                    params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
-                fi
-
-                if [[ -n "$params_output" ]]; then
-                    local -a arr
-                    arr=("${(f)params_output}")
-                    params=("${arr[@]}")
-                fi
+            if [[ "$sub" != --* ]]; then
+                _az_query_candidates "$exe" "$group" "$sub"
+            else
+                _az_query_candidates "$exe" "$group"
+            fi
+            if [[ -n "$_az_query_result" ]]; then
+                params=( ${=_az_query_result} )
             fi
 
             # Filter out already-used flags
@@ -273,9 +210,10 @@ _az_path_completer() {
 
 # Manual cache refresh function
 _az_clear_cache() {
-    _az_completions_cache_root=""
-    _az_completions_cache_exe=""
-    _az_completions_cache_stamp=""
+    _az_cache_candidates=""
+    _az_cache_exe=""
+    _az_cache_stamp=""
+    _az_cache_key=""
     _az_not_azclips=""
     echo "az completions cache cleared."
 }

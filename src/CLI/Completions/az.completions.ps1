@@ -18,7 +18,8 @@
 
 # Session cache for completions tree (persists until exe path/config stamp changes)
 # isAzclips: $null = unknown, $true = azclips detected, $false = not azclips
-$global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null; isAzclips = $null }
+# notAzclips: hashtable of exe paths confirmed not to be azclips (per-exe detection)
+$global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null; isAzclips = $null; notAzclips = @{} }
 
 function global:_azGetConfigStamp {
     # Prefer semantic invalidation based on completion.enabled.
@@ -66,6 +67,8 @@ function global:_azGetConfigStamp {
 function global:_azQueryCompletions {
     param([string]$exePath, [string[]]$context)
     if (-not $exePath) { return $null }
+    # Skip exes already known to not be azclips
+    if ($global:_azCompletionsCache.notAzclips.ContainsKey($exePath)) { return $null }
     $configStamp = _azGetConfigStamp
     
     # Check cache validity: invalidate on exe path or config stamp change
@@ -107,8 +110,8 @@ function global:_azQueryCompletions {
             }
         }
     } catch {}
-    # Output was not valid JSON → not azclips
-    $global:_azCompletionsCache.isAzclips = $false
+    # Output was not valid JSON → not azclips; remember per exe so other binaries aren't blocked
+    $global:_azCompletionsCache.notAzclips[$exePath] = $true
     return $null
 }
 
@@ -132,7 +135,7 @@ function global:_azGetGroupDef {
 
 # Manual cache refresh function (use if needed)
 function global:_azClearCache {
-    $global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null; isAzclips = $null }
+    $global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null; isAzclips = $null; notAzclips = @{} }
     Write-Host "az completions cache cleared. Completions will be refreshed on next Tab press." -ForegroundColor Green
 }
 
@@ -274,24 +277,20 @@ function global:TabExpansion2 {
                 # Can't find the binary → fall through to default
             }
             # Check cached detection for this exe
-            elseif ($global:_azCompletionsCache.isAzclips -eq $false -and $global:_azCompletionsCache.exe -eq $resolvedExe) {
-                # Already determined not azclips for this exe → fall through
+            elseif ($global:_azCompletionsCache.notAzclips.ContainsKey($resolvedExe)) {
+                # Already determined not azclips for this specific exe → fall through
             } else {
                 $results = @(_azGetCompletions -exePath $resolvedExe -inputText $line -cursorPos $cursor)
-                if ($global:_azCompletionsCache.isAzclips -eq $true) {
-                    # Confirmed azclips — return results (or empty if disabled/no matches)
-                    if ($results.Count -gt 0) {
-                        $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
-                        $lastSpace = $textUpToCursor.LastIndexOf(' ')
-                        $replIndex = $lastSpace + 1
-                        $replLength = $cursor - $replIndex
+                if ($global:_azCompletionsCache.isAzclips -eq $true -and $results.Count -gt 0) {
+                    # Confirmed azclips with results — return them
+                    $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
+                    $lastSpace = $textUpToCursor.LastIndexOf(' ')
+                    $replIndex = $lastSpace + 1
+                    $replLength = $cursor - $replIndex
 
-                        $matches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
-                        foreach ($r in $results) { $matches.Add($r) }
-                        return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
-                    }
-                    $emptyMatches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
-                    return [System.Management.Automation.CommandCompletion]::new($emptyMatches, 0, $cursor, 0)
+                    $matches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
+                    foreach ($r in $results) { $matches.Add($r) }
+                    return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
                 }
                 # isAzclips is $false after query → not azclips, fall through
             }
