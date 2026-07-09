@@ -266,8 +266,16 @@ function global:TabExpansion2 {
             # Resolve the actual exe path from what the user typed
             $resolvedExe = $null
             if ($azCmd -match '[\\/]') {
-                # Path-qualified: resolve directly
-                if (Test-Path $azCmd) { $resolvedExe = (Resolve-Path $azCmd).Path }
+                # Path-qualified: resolve directly, ensure .exe suffix for invocability
+                foreach ($candidate in $azCmd, "$azCmd.exe") {
+                    if (Test-Path $candidate) {
+                        $resolvedExe = (Resolve-Path $candidate).Path
+                        if ($resolvedExe -and -not $resolvedExe.EndsWith('.exe', [System.StringComparison]::OrdinalIgnoreCase)) {
+                            if (Test-Path "$resolvedExe.exe") { $resolvedExe = "$resolvedExe.exe" }
+                        }
+                        break
+                    }
+                }
             } else {
                 # Bare command: resolve via PATH (same binary the shell would execute)
                 $cmd = Get-Command $azCmd -ErrorAction SilentlyContinue
