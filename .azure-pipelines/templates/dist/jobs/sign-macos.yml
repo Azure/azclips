@@ -67,8 +67,8 @@ jobs:
           definition: ${{ parameters.source_pipeline_name }}
           buildVersionToDownload: specific
           pipelineId: ${{ parameters.source_build_id }}
-          artifact: ${{ parameters.source_artifact_name }}
-          path: $(Pipeline.Workspace)/unsigned-all
+          artifactName: ${{ parameters.source_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/unsigned-all
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"
@@ -90,6 +90,21 @@ jobs:
           exit 1
         fi
         cp "$entitlements_source" "$work_root/azclips-runtime.entitlements.plist"
+
+        verify_dotnet_entitlements() {
+          local candidate="$1"
+          local entitlements
+          entitlements=$(codesign -d --entitlements - "$candidate" 2>&1 || true)
+          for entitlement in \
+            'com.apple.security.cs.allow-jit' \
+            'com.apple.security.cs.allow-unsigned-executable-memory' \
+            'com.apple.security.cs.disable-library-validation'; do
+            if ! printf '%s\n' "$entitlements" | grep -q "$entitlement"; then
+              echo "ERROR: Required .NET entitlement '$entitlement' missing after pre-sign: $candidate"
+              return 1
+            fi
+          done
+        }
 
         raw_mac_assets=()
         while IFS= read -r asset; do
@@ -129,6 +144,12 @@ jobs:
             fi
 
             relative_path="${binary#$content_root/}"
+            if [[ "$(basename "$binary")" == "az" ]]; then
+              chmod +x "$binary"
+              codesign --force --sign - --options runtime --entitlements "$entitlements_source" "$binary"
+              verify_dotnet_entitlements "$binary"
+            fi
+
             safe_relative=$(printf '%s' "$relative_path" | sed 's#[/\\]#__#g; s#[^A-Za-z0-9._-]#_#g')
             zip_name="${base_name}__${safe_relative}.zip"
 
@@ -170,8 +191,18 @@ jobs:
       displayName: Download macOS Signing Inputs
       inputs:
         buildType: current
-        artifact: macos-signing-inputs-$(MacOSArchitecture)
-        path: $(Pipeline.Workspace)/macos-signing-inputs
+        artifactName: macos-signing-inputs-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $entitlementsPath = "$(Pipeline.Workspace)/macos-signing-inputs/azclips-runtime.entitlements.plist"
+        if (-not (Test-Path $entitlementsPath)) {
+          throw "macOS signing entitlements file was not found: $entitlementsPath"
+        }
+
+        $jsonSafeEntitlementsPath = $entitlementsPath.Replace('\', '/')
+        Write-Host "##vso[task.setvariable variable=MacOSEntitlementsPath]$jsonSafeEntitlementsPath"
+      displayName: Resolve macOS Entitlements Path For ESRP
     - pwsh: |
         $ErrorActionPreference = 'Stop'
         $inputRoot = "$(Pipeline.Workspace)/macos-signing-inputs"
@@ -235,7 +266,7 @@ jobs:
               "OperationCode": "MacAppDeveloperSign",
               "Parameters": {
                 "Hardening": "--options=runtime",
-                "Entitlements": "$(Pipeline.Workspace)/macos-signing-inputs/azclips-runtime.entitlements.plist",
+                "Entitlements": "$(MacOSEntitlementsPath)",
                 "OpusInfo": "http://Microsoft.com"
               },
               "ToolName": "sign",
@@ -346,14 +377,14 @@ jobs:
       displayName: Download macOS Signing Inputs
       inputs:
         buildType: current
-        artifact: macos-signing-inputs-$(MacOSArchitecture)
-        path: $(Pipeline.Workspace)/macos-signing-inputs
+        artifactName: macos-signing-inputs-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed macOS Binaries
       inputs:
         buildType: current
-        artifact: macos-signed-binaries-$(MacOSArchitecture)
-        path: $(Pipeline.Workspace)/macos-signed-binaries
+        artifactName: macos-signed-binaries-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signed-binaries
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
@@ -417,8 +448,8 @@ jobs:
       displayName: Download macOS Notarization Bundles
       inputs:
         buildType: current
-        artifact: macos-notarization-bundles-$(MacOSArchitecture)
-        path: $(Pipeline.Workspace)/toNotarize
+        artifactName: macos-notarization-bundles-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/toNotarize
     - task: EsrpCodeSigning@6
       displayName: Notarize macOS Bundles [MacAppNotarize]
       inputs:
@@ -482,14 +513,14 @@ jobs:
       displayName: Download macOS Signing Inputs
       inputs:
         buildType: current
-        artifact: macos-signing-inputs-$(MacOSArchitecture)
-        path: $(Pipeline.Workspace)/macos-signing-inputs
+        artifactName: macos-signing-inputs-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
       displayName: Download Notarized macOS Bundles
       inputs:
         buildType: current
-        artifact: macos-notarized-bundles-$(MacOSArchitecture)
-        path: $(Pipeline.Workspace)/macos-notarized-bundles
+        artifactName: macos-notarized-bundles-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-notarized-bundles
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
@@ -497,6 +528,69 @@ jobs:
         final_contents_root="$(Build.ArtifactStagingDirectory)/final-contents"
         output_root="$(Build.ArtifactStagingDirectory)/signed-macos"
         mkdir -p "$final_contents_root" "$output_root"
+
+        verify_macho_signature() {
+          local candidate="$1"
+          local signature_details
+          local failed=0
+
+          if ! codesign -v "$candidate" 2>/dev/null; then
+            echo "ERROR: Basic codesign verification failed: $candidate"
+            failed=1
+          fi
+          if ! codesign --verify --deep --strict "$candidate" 2>/dev/null; then
+            echo "ERROR: Strict codesign verification failed: $candidate"
+            failed=1
+          fi
+
+          signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+          if ! printf '%s\n' "$signature_details" | grep -q 'TeamIdentifier=UBF8T346G9'; then
+            echo "ERROR: Microsoft TeamIdentifier missing: $candidate"
+            printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q 'flags=.*runtime'; then
+            echo "ERROR: Hardened runtime flag missing: $candidate"
+            printf '%s\n' "$signature_details" | grep -E '^(CodeDirectory|Runtime Version) ' || true
+            failed=1
+          fi
+          if ! printf '%s\n' "$signature_details" | grep -q '^Timestamp='; then
+            echo "ERROR: Signing timestamp missing: $candidate"
+            failed=1
+          fi
+
+          return "$failed"
+        }
+
+        verify_dotnet_entitlements() {
+          local candidate="$1"
+          local entitlements
+          local failed=0
+
+          entitlements=$(codesign -d --entitlements - "$candidate" 2>&1 || true)
+          for entitlement in \
+            'com.apple.security.cs.allow-jit' \
+            'com.apple.security.cs.allow-unsigned-executable-memory' \
+            'com.apple.security.cs.disable-library-validation'; do
+            if ! printf '%s\n' "$entitlements" | grep -q "$entitlement"; then
+              echo "ERROR: Required .NET entitlement '$entitlement' missing: $candidate"
+              failed=1
+            fi
+          done
+
+          return "$failed"
+        }
+
+        find_az_entrypoint() {
+          local content_dir="$1"
+          if [[ -f "$content_dir/az" ]]; then
+            printf '%s\n' "$content_dir/az"
+          elif [[ -f "$content_dir/libexec/bin/az" ]]; then
+            printf '%s\n' "$content_dir/libexec/bin/az"
+          elif [[ -e "$content_dir/bin/az" ]]; then
+            printf '%s\n' "$content_dir/bin/az"
+          fi
+        }
 
         verification_errors=0
         for tarball in "$input_root"/tarballs/*.tar.gz; do
@@ -512,6 +606,12 @@ jobs:
 
           if [[ ! -f "$notarized_zip" ]]; then
             echo "ERROR: Notarized macOS bundle not found: $notarized_zip"
+            verification_errors=1
+            continue
+          fi
+
+          if ! unzip -tq "$notarized_zip" >/dev/null; then
+            echo "ERROR: Notarized macOS bundle failed ZIP integrity test: $notarized_zip"
             verification_errors=1
             continue
           fi
@@ -537,23 +637,13 @@ jobs:
           chmod +x "$content_dir/libexec/bin/az" 2>/dev/null || true
 
           while IFS= read -r -d '' candidate; do
-            if ! file "$candidate" | grep -q 'Mach-O'; then
+            candidate_info="$(file "$candidate")"
+            if [[ "$candidate_info" != *"Mach-O"* ]]; then
               continue
             fi
 
             mach_o_count=$((mach_o_count + 1))
-            if ! codesign -v "$candidate" 2>/dev/null; then
-              echo "ERROR: Basic codesign verification failed: $candidate"
-              verification_errors=1
-            fi
-            if ! codesign --verify --deep --strict "$candidate" 2>/dev/null; then
-              echo "ERROR: Strict codesign verification failed: $candidate"
-              verification_errors=1
-            fi
-            signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
-            if ! printf '%s\n' "$signature_details" | grep -Eq 'Authority=.*Developer ID|TeamIdentifier=UBF8T346G9'; then
-              echo "ERROR: Developer ID certificate missing: $candidate"
-              printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
+            if ! verify_macho_signature "$candidate"; then
               verification_errors=1
             fi
           done < <(find "$content_dir" -type f -print0)
@@ -563,19 +653,15 @@ jobs:
             verification_errors=1
           fi
 
-          entrypoint=""
-          if [[ -f "$content_dir/az" ]]; then
-            entrypoint="$content_dir/az"
-          elif [[ -f "$content_dir/libexec/bin/az" ]]; then
-            entrypoint="$content_dir/libexec/bin/az"
-          elif [[ -e "$content_dir/bin/az" ]]; then
-            entrypoint="$content_dir/bin/az"
-          fi
-
+          entrypoint="$(find_az_entrypoint "$content_dir")"
           if [[ -z "$entrypoint" ]]; then
             echo "ERROR: Signed payload does not contain an az entrypoint: $base_name"
             verification_errors=1
           else
+            if ! verify_dotnet_entitlements "$entrypoint"; then
+              verification_errors=1
+            fi
+
             host_arch="$(uname -m)"
             entrypoint_info="$(file "$entrypoint" 2>/dev/null || true)"
             runnable=true
@@ -592,9 +678,9 @@ jobs:
             if [[ "$runnable" == "true" ]]; then
               smoke_home="$content_dir/.azclips-smoke-home"
               mkdir -p "$smoke_home"
-              if ! HOME="$smoke_home" "$entrypoint" --version >/tmp/azclips-signed-version.txt 2>&1; then
+              if ! HOME="$smoke_home" "$entrypoint" --help >/tmp/azclips-signed-help.txt 2>&1; then
                 echo "ERROR: Signed macOS payload failed to launch: $base_name"
-                cat /tmp/azclips-signed-version.txt
+                cat /tmp/azclips-signed-help.txt
                 verification_errors=1
               else
                 echo "Signed macOS payload launch check passed: $base_name"
