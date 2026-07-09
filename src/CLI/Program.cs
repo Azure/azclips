@@ -61,6 +61,10 @@ public class Program
         if (completionExit.HasValue)
             return completionExit.Value;
 
+        int? candidatesExit = await CompletionGenerator.TryHandleCandidatesAsync(args, _clientType);
+        if (candidatesExit.HasValue)
+            return candidatesExit.Value;
+
         _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
 

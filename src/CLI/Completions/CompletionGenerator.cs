@@ -44,6 +44,34 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
+    /// Handles <c>--completion-candidates</c> when it is the first argument and returns the exit code.
+    /// Returns <see langword="null"/> when candidate generation should not run.
+    /// Outputs a space-separated list of completion candidates (plain text, no JSON)
+    /// for the given command context. Used by bash/zsh completion scripts to avoid
+    /// requiring a JSON parser (jq).
+    /// Usage: az --completion-candidates [command-group] [subcommand]
+    /// Examples:
+    ///   az --completion-candidates              (top-level groups: vm storage ...)
+    ///   az --completion-candidates vm           (subcommands + params: create list --verbose ...)
+    ///   az --completion-candidates vm create    (params: --name --location ...)
+    /// </summary>
+    public static async Task<int?> TryHandleCandidatesAsync(string[] args, ClientType clientType)
+    {
+        if (args.Length == 0 || args[0] != "--completion-candidates")
+        {
+            return null;
+        }
+
+        if (!IsCompletionEnabled())
+        {
+            return 0;
+        }
+
+        var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
+        return await GenerateCandidatesAsync(clientType, commandContext);
+    }
+
+    /// <summary>
     /// Resolves the configuration service and reports whether shell tab-completion
     /// is enabled. Isolated so the DI lookup can fail independently of the config read.
     /// </summary>
@@ -151,6 +179,75 @@ internal static class CompletionGenerator
         var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
+        return 0;
+    }
+
+    /// <summary>
+    /// Generates a space-separated list of completion candidates for the given context.
+    /// Reuses the same discovery and tree-building logic as <see cref="GenerateAsync"/>,
+    /// but outputs plain text instead of JSON so bash/zsh scripts need no JSON parser.
+    /// </summary>
+    private static async Task<int> GenerateCandidatesAsync(ClientType clientType, List<string> commandContext)
+    {
+        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        var registryStore = new FileExtensionRegistryStore();
+        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
+
+        if (commandContext.Count == 0)
+        {
+            // Level 0: full discovery for top-level group names
+            var extensionNames = leafIndex.Entries.Values
+                .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            foreach (var name in ScanLocalExtensionNames())
+            {
+                if (!extensionNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    extensionNames.Add(name);
+            }
+
+            var allCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
+            var fullTree = BuildCompletionTree(allCommands, scopedToVerb: false);
+            Console.WriteLine(string.Join(' ', fullTree.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase)));
+            return 0;
+        }
+
+        // Level 1+: group-specific discovery
+        var commandGroupName = commandContext[0].ToLowerInvariant();
+        var discoveryExtensionNames = leafIndex.Entries.Values
+            .Where(v => v.Verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
+            .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
+        var filteredCommands = discoveredCommands
+            .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
+                || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
+
+        var groupTree = BuildCompletionTree(filteredCommands, scopedToVerb: true);
+        var candidates = new List<string>();
+
+        if (commandContext.Count == 1)
+        {
+            // Level 1: subcommands + group-level params
+            if (groupTree.TryGetValue("_subcommands", out var subsObj) && subsObj is List<string> subs)
+                candidates.AddRange(subs);
+            if (groupTree.TryGetValue("_params", out var paramsObj) && paramsObj is List<string> parms)
+                candidates.AddRange(parms);
+        }
+        else
+        {
+            // Level 2+: subcommand-specific params, fallback to group params
+            var sub = commandContext[1].ToLowerInvariant();
+            if (groupTree.TryGetValue(sub, out var subParamsObj) && subParamsObj is List<string> subParams)
+                candidates.AddRange(subParams);
+            else if (groupTree.TryGetValue("_params", out var fallbackObj) && fallbackObj is List<string> fallback)
+                candidates.AddRange(fallback);
+        }
+
+        Console.WriteLine(string.Join(' ', candidates));
         return 0;
     }
 
