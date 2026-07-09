@@ -65,7 +65,7 @@ _az_query_candidates() {
     config_stamp="$(_az_get_config_stamp)"
     local cache_key="$*"
 
-    # Check cache validity: invalidate on exe/config stamp changes.
+    # Check cache validity: invalidate on exe/config stamp/context changes.
     if [[ "$_az_cache_exe" == "$exe" && "$_az_cache_stamp" == "$config_stamp" && "$_az_cache_key" == "$cache_key" ]]; then
         _az_query_result="$_az_cache_candidates"
         return 0
@@ -126,18 +126,22 @@ _az_completions() {
 
     case $cword in
         1)
-            # Level 0: command groups
+            # Level 0: complete top-level command groups
             _az_query_candidates "$exe"
-            COMPREPLY=($(compgen -W "$_az_query_result" -- "$cur"))
+            if [[ -n "$_az_query_result" ]]; then
+                COMPREPLY=($(compgen -W "$_az_query_result" -- "$cur"))
+            fi
             ;;
         2)
-            # Level 1: subcommands + group-level params
+            # Level 1: subcommands + group params
             local group="${words[1]}"
             _az_query_candidates "$exe" "$group"
-            COMPREPLY=($(compgen -W "$_az_query_result" -- "$cur"))
+            if [[ -n "$_az_query_result" ]]; then
+                COMPREPLY=($(compgen -W "$_az_query_result" -- "$cur"))
+            fi
             ;;
         *)
-            # Level 2+: parameters
+            # Level 2+: parameters for the command
             local group="${words[1]}"
             local sub="${words[2]}"
             if [[ "$sub" != --* ]]; then
@@ -145,7 +149,6 @@ _az_completions() {
             else
                 _az_query_candidates "$exe" "$group"
             fi
-            local params="$_az_query_result"
 
             # Filter out already-used params
             local used_params=()
@@ -156,7 +159,7 @@ _az_completions() {
             done
 
             local available=""
-            for p in $params; do
+            for p in $_az_query_result; do
                 local already_used=false
                 for u in "${used_params[@]}"; do
                     if [[ "$p" == "$u" ]]; then
