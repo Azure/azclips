@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783557458960,
+  "lastUpdate": 1783580120807,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -3066,6 +3066,48 @@ window.BENCHMARK_DATA = {
             "value": 1020146.408244947,
             "unit": "ns",
             "range": "± 317904.5788398728"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f7a52cc5e0eef8fd0290a15c46d8511ec60a47c",
+          "message": "fix: auto-detect azclips binary via JSON validation, remove AZCLIPS_B… (#411)\n\n…INARY env var\n\n- Remove _az_resolve_exe / _az_is_azclips in all shells\n- Detect azclips by validating az --completions output as JSON\n- Cache detection result per exe path (not global flag)\n- Resolve exe from user-typed command (words[1] / COMP_WORDS[0])\n- Add CWD fallback for bare az.exe (Windows user expectation)\n- Normalize backslashes to forward slashes (WSL compat)\n- Bash: complete -D handler for path-qualified commands\n- Zsh: compdef -p pattern for path-qualified commands\n- Update README: remove AZCLIPS_BINARY references",
+          "timestamp": "2026-07-09T16:53:12+10:00",
+          "tree_id": "2818e47bca44889b3ce749c76077e6372c91df69",
+          "url": "https://github.com/Azure/azclips/commit/4f7a52cc5e0eef8fd0290a15c46d8511ec60a47c"
+        },
+        "date": 1783580120383,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1085105.1970985492,
+            "unit": "ns",
+            "range": "± 313811.85855891893"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1049258.7905743446,
+            "unit": "ns",
+            "range": "± 313815.5348695541"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1033845.61096658,
+            "unit": "ns",
+            "range": "± 328231.13068269345"
           }
         ]
       }
