@@ -1,5 +1,9 @@
 ## Upcoming Release
 
+## v0.0.3 - 2026-07-09 00:15 UTC
+
+- No user-facing PowerShell module changes were listed for this release.
+
 ## v0.0.2 - 2026-07-07 23:44 UTC
 
 - No user-facing PowerShell module changes were listed for this release.
