@@ -137,16 +137,12 @@ _az_completions() {
     # Resolve the actual exe from what the user typed
     local exe=""
     local typed_cmd="${COMP_WORDS[0]}"
-    if [[ "$typed_cmd" == */* || "$typed_cmd" == *\\* ]]; then
-        # Path-qualified: normalize backslashes to forward slashes (WSL compat)
-        exe="${typed_cmd//\\//}"
-    else
-        # Bare command: resolve via PATH
-        exe="$(type -P "$typed_cmd" 2>/dev/null)"
-        # If not in PATH, check current directory (Windows users expect this)
-        if [[ -z "$exe" && -x "./$typed_cmd" ]]; then
-            exe="./$typed_cmd"
-        fi
+    if type -P "$typed_cmd" >/dev/null 2>&1; then
+        exe="$(type -P "$typed_cmd")"
+    elif [[ -x "$typed_cmd" ]]; then
+        exe="$typed_cmd"
+    elif [[ -x "./$typed_cmd" ]]; then
+        exe="./$typed_cmd"
     fi
     [[ -n "$exe" ]] || return
 
