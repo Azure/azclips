@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783557855027,
+  "lastUpdate": 1783580659729,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -2856,6 +2856,48 @@ window.BENCHMARK_DATA = {
             "value": 6324535.231544384,
             "unit": "ns",
             "range": "± 170842.92133124688"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bad2693f3b8c3c7853ecab600b9aed1f69608569",
+          "message": "fixed console output of device code flow (#424)\n\nFixed issue where MSAL Device code output was no longer showing as we\nwere calling Log() which is tied to the LogLevel configured. This output\nalways needs to be shown to this user.\n\n### Testing\n<img width=\"1872\" height=\"416\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/4af7f351-a2cc-40fa-aa79-a741c7d2d391\"\n/>",
+          "timestamp": "2026-07-09T14:56:18+08:00",
+          "tree_id": "a636abb6442b3fd685d0d00a76ce4f589bcd96dc",
+          "url": "https://github.com/Azure/azclips/commit/bad2693f3b8c3c7853ecab600b9aed1f69608569"
+        },
+        "date": 1783580659687,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5812482.015090888,
+            "unit": "ns",
+            "range": "± 96695.64352795418"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5773267.059126258,
+            "unit": "ns",
+            "range": "± 95180.7983672934"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5796569.7112,
+            "unit": "ns",
+            "range": "± 96842.57891781119"
           }
         ]
       }
