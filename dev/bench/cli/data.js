@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783589833544,
+  "lastUpdate": 1783639232193,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -3192,6 +3192,48 @@ window.BENCHMARK_DATA = {
             "value": 970729.1007503752,
             "unit": "ns",
             "range": "± 308352.329085768"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bc736172fff18ad88bef91230de5104ce721cfbb",
+          "message": "Trigger stable release 0.0.4 (#431)\n\nUpdates src/CLI/Core.Cli.csproj to 0.0.4 and aggregates module\nChangeLog.md entries into CHANGELOG.md and PowerShell module manifests.\nAfter this PR merges to main, azclips-trigger-stable-release will run\nagain from the main version change, tag the merged commit as v0.0.4.<UTC\nyyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-07-10T09:18:05+10:00",
+          "tree_id": "552dca97dcca43be7a84c1859890a091672d565f",
+          "url": "https://github.com/Azure/azclips/commit/bc736172fff18ad88bef91230de5104ce721cfbb"
+        },
+        "date": 1783639231354,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1062895.4603722605,
+            "unit": "ns",
+            "range": "± 339056.3004238054"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1031126.4764858915,
+            "unit": "ns",
+            "range": "± 311108.4132312102"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1027718.1431715857,
+            "unit": "ns",
+            "range": "± 319380.7456557981"
           }
         ]
       }
