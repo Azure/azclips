@@ -5,13 +5,13 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Graph
 {
-    [ExtensionVerb("graph")]
+    [ExtensionVerb("msgraph")]
     public class ExtensionIndex : IExtensionIndex
     {
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_getUser_PS = new(
             Name: "GetUserProcessor",
-            InvocationName: "Get-AzGraphUser",
+            InvocationName: "Get-AzMsGraphUser",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Graph.Processors.GetUserProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Graph",
@@ -25,7 +25,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Graph
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_getUser_CLI = new(
             Name: "GetUserProcessor",
-            InvocationName: "graph user show",
+            InvocationName: "msgraph user show",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Graph.Processors.GetUserProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Graph",
@@ -39,14 +39,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Graph
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
-            ["Get-AzGraphUser"] = s_getUser_PS,
+            ["Get-AzMsGraphUser"] = s_getUser_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches an [ExtensionVerb]
         // declaration on this class; the dispatcher does longest-prefix match on the (verb, path)
-        // tuple via Core.Extensions.LeafIndex. Graph contributes the "graph" verb.
+        // tuple via Core.Extensions.LeafIndex. Graph contributes the "msgraph" verb.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["graph user show"] = s_getUser_CLI,
+            ["msgraph user show"] = s_getUser_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -85,7 +85,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Graph
             return GetCommandTable(clientType).Values;
         }
 
-        private static readonly IReadOnlyList<string> s_verbs = ["graph"];
+        private static readonly IReadOnlyList<string> s_verbs = ["msgraph"];
         public IReadOnlyList<string> GetVerbs() => s_verbs;
     }
 }
