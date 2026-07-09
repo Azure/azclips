@@ -35,6 +35,10 @@ Pass installer options after `--` (bash) or as parameters (PowerShell) — for e
 gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' | bash -s -- --package lean
 ```
 
+```powershell
+gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1 && ./azcli-install.ps1 -Package lean
+```
+
 ### Installer options
 
 | Option (bash) | Option (PowerShell) | Default | Purpose |
