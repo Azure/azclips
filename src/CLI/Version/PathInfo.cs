@@ -10,4 +10,5 @@ internal sealed class PathInfo
 {
     public string InstallLocation { get; set; } = string.Empty;
     public string ConfigLocation { get; set; } = string.Empty;
+    public string ExtensionsLocation { get; set; } = string.Empty;
 }

@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Cli.Version;
+using Core.Configuration.Options;
 using Xunit;
 
 namespace Cli.Tests;
@@ -46,6 +47,21 @@ public class VersionInformationProviderTests
         var info = VersionInformationProvider.Gather(new FakeConfigurationService(ConfigFilePath));
 
         Assert.Equal(Path.GetDirectoryName(ConfigFilePath), info.Paths.ConfigLocation);
+    }
+
+    /// <summary>
+    /// The reported extensions path is the versioned installation directory the extension loaders use,
+    /// read from <see cref="AssemblyLoadingOptions"/> so it honors user config overrides.
+    /// </summary>
+    [Fact]
+    public void Gather_ShouldReportExtensionsDirectory_FromAssemblyLoadingOptions()
+    {
+        var extensionsDir = Path.Combine(Path.GetTempPath(), "azclips-extensions", Guid.NewGuid().ToString("N"));
+        var options = new AssemblyLoadingOptions { VersionedInstallationDir = extensionsDir };
+
+        var info = VersionInformationProvider.Gather(new FakeConfigurationService(ConfigFilePath, options));
+
+        Assert.Equal(extensionsDir, info.Paths.ExtensionsLocation);
     }
 
     /// <summary>Gathering without a configuration service surfaces the error instead of masking it.</summary>
@@ -95,12 +111,19 @@ public class VersionInformationProviderTests
 
     // Minimal IConfigurationService whose only meaningful behavior is returning a fixed config file
     // path; the provider only calls GetConfigFilePath().
-    private sealed class FakeConfigurationService(string configFilePath) : IConfigurationService
+    private sealed class FakeConfigurationService(string configFilePath, AssemblyLoadingOptions? assemblyLoadingOptions = null) : IConfigurationService
     {
         public string GetConfigFilePath() => configFilePath;
 
         public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
-            => throw new NotImplementedException();
+        {
+            if (typeof(T) == typeof(AssemblyLoadingOptions) && assemblyLoadingOptions is not null)
+            {
+                return (T)(object)assemblyLoadingOptions;
+            }
+
+            return defaultValue ?? new T();
+        }
 
         public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();

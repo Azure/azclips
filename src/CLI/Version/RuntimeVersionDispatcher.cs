@@ -64,6 +64,7 @@ internal sealed class RuntimeVersionDispatcher
         builder.AppendLine("Paths");
         builder.AppendLine($"{Indent}{"Install:".PadRight(maxLabelWidth)}{info.Paths.InstallLocation}");
         builder.AppendLine($"{Indent}{"Config:".PadRight(maxLabelWidth)}{info.Paths.ConfigLocation}");
+        builder.AppendLine($"{Indent}{"Extensions:".PadRight(maxLabelWidth)}{info.Paths.ExtensionsLocation}");
 
         return builder.ToString();
     }

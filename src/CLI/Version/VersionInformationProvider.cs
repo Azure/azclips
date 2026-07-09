@@ -4,6 +4,7 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Core.Abstractions;
+using Core.Configuration.Options;
 
 namespace Core.Cli.Version;
 
@@ -77,7 +78,8 @@ internal static class VersionInformationProvider
         var info = new PathInfo
         {
             InstallLocation = GetInstallLocation(),
-            ConfigLocation = Path.GetDirectoryName(configFilePath) ?? configFilePath
+            ConfigLocation = Path.GetDirectoryName(configFilePath) ?? configFilePath,
+            ExtensionsLocation = configurationService.GetConfiguration<AssemblyLoadingOptions>().VersionedInstallationDir
         };
 
         return info;
