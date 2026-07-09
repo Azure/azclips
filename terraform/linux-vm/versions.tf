@@ -13,13 +13,12 @@ terraform {
   }
 
   # Remote state so local runs and CI (mi-e2e.yml) share the same state.
-  # Auth uses Azure AD (no account keys); CI passes ARM_USE_OIDC=true.
+  # change.sh creates the backend when needed and supplies ARM_ACCESS_KEY.
   backend "azurerm" {
-    resource_group_name  = "ming-test"
-    storage_account_name = "cirrustfstate0c302431"
+    resource_group_name  = "ManagedIdentityLiveTest"
+    storage_account_name = "cirrustfstatef758ac53"
     container_name       = "tfstate"
     key                  = "linux-vm.tfstate"
-    use_azuread_auth     = true
   }
 }
 
@@ -27,4 +26,5 @@ provider "azurerm" {
   features {}
 
   subscription_id = var.subscription_id
+  tenant_id       = var.tenant_id
 }

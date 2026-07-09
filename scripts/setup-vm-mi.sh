@@ -19,7 +19,9 @@
 #                   identity via any of the selectors below that are supplied.
 #   --vm-name NAME  VM name for the --test-mi smoke test (default: test-vm-mi)
 #   --resource-group RG
-#                   Resource group for the --test-mi smoke test (default: ming-test)
+#                   Resource group for the --test-mi smoke test (default: ManagedIdentityLiveTest)
+#   --subscription-id ID
+#                   Subscription containing the VM under test
 #   --uami-client-id ID
 #                   Verify `login --identity --client-id ID` + vm show (user-assigned)
 #   --uami-resource-id ID
@@ -40,7 +42,8 @@ DEST=""
 BUNDLE=""
 RUN_TEST=0
 VM_NAME="test-vm-mi"
-RESOURCE_GROUP="ming-test"
+RESOURCE_GROUP="ManagedIdentityLiveTest"
+SUBSCRIPTION_ID=""
 UAMI_CLIENT_ID=""
 UAMI_RESOURCE_ID=""
 UAMI_OBJECT_ID=""
@@ -53,6 +56,7 @@ while [[ $# -gt 0 ]]; do
     --test-mi) RUN_TEST=1; shift ;;
     --vm-name) VM_NAME="$2"; shift 2 ;;
     --resource-group) RESOURCE_GROUP="$2"; shift 2 ;;
+    --subscription-id) SUBSCRIPTION_ID="$2"; shift 2 ;;
     --uami-client-id)   UAMI_CLIENT_ID="$2"; shift 2 ;;
     --uami-resource-id) UAMI_RESOURCE_ID="$2"; shift 2 ;;
     --uami-object-id)   UAMI_OBJECT_ID="$2"; shift 2 ;;
@@ -137,6 +141,11 @@ fi
 
 echo
 if [[ "$RUN_TEST" -eq 1 ]]; then
+  if [[ -z "$SUBSCRIPTION_ID" ]]; then
+    echo "!! --subscription-id is required with --test-mi." >&2
+    exit 1
+  fi
+
   echo "==> --test-mi: verifying managed-identity auth on this VM"
 
   # Verify one MI login style end-to-end: clear context, `login --identity` with
@@ -146,16 +155,22 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
     local label="$1"; shift
     echo "    [$label] login --identity ${*:-(system-assigned)}"
     "$AZ" login logout >/dev/null 2>&1 || true
-    if ! "$AZ" login --identity "$@" >/dev/null 2>&1; then
+    if ! "$AZ" login --identity --subscription-id "$SUBSCRIPTION_ID" "$@" >/dev/null 2>&1; then
       echo "    !! [$label] 'login --identity $*' failed" >&2
       return 1
     fi
-    local out
-    if ! out="$("$AZ" vm show --name "${VM_NAME}" --resource-group "${RESOURCE_GROUP}" 2>&1)"; then
-      echo "    !! [$label] vm show failed:" >&2
-      echo "$out" | sed 's/^/       /' >&2
-      return 1
-    fi
+    local attempt out
+    for attempt in {1..12}; do
+      if out="$("$AZ" vm show --name "${VM_NAME}" --resource-group "${RESOURCE_GROUP}" 2>&1)"; then
+        break
+      fi
+      if [[ "$attempt" -eq 12 ]]; then
+        echo "    !! [$label] vm show failed:" >&2
+        echo "$out" | sed 's/^/       /' >&2
+        return 1
+      fi
+      sleep 10
+    done
     if ! grep -q "\"name\": \"${VM_NAME}\"" <<<"$out"; then
       echo "    !! [$label] vm show did not return '${VM_NAME}':" >&2
       echo "$out" | sed 's/^/       /' >&2

@@ -93,6 +93,9 @@ Start here, then follow the pointers into `./docs`.
 **Azure PowerShell**
 - [Overview](docs/azure-powershell/docs-conceptual/README.md) — getting-started guide in progress
 
+**Development**
+- [Run the managed identity live E2E test locally](terraform/linux-vm/README.md)
+
 > Documentation is being consolidated during the preview, so paths may change.
 
 ## Known limitations

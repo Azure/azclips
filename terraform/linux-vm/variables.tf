@@ -1,7 +1,13 @@
+variable "tenant_id" {
+  type        = string
+  description = "Microsoft Entra tenant ID used for the managed identity E2E environment."
+  default     = "4f00b3b6-2940-4f2c-b037-94637c180d30"
+}
+
 variable "subscription_id" {
   type        = string
-  description = "Azure subscription ID to deploy into. Defaults to a fixed subscription; override to target another."
-  default     = "0c302431-1ad0-4187-87c9-d4cebcf7edc2"
+  description = "Azure subscription ID used for the managed identity E2E environment."
+  default     = "f758ac53-3e63-4317-a956-0997793808d7"
 }
 
 variable "resource_group_name" {
@@ -13,18 +19,24 @@ variable "resource_group_name" {
 variable "vm_name" {
   type        = string
   description = "Name of the Linux virtual machine (also used as a prefix for its network resources)."
-  default     = "ming-test-vm"
+  default     = "cirrus-mi-e2e-vm"
 }
 
 variable "user_assigned_identity_name" {
   type        = string
   description = "Name of the user-assigned managed identity to create and attach to the VM."
-  default     = "user-assigned-mi"
+  default     = "cirrus-mi-e2e-uami"
 }
 
 variable "uami_role" {
   type        = string
   description = "RBAC role granted to the user-assigned identity at the resource-group scope."
+  default     = "Reader"
+}
+
+variable "system_assigned_identity_role" {
+  type        = string
+  description = "RBAC role granted to the VM's system-assigned identity at the resource-group scope."
   default     = "Reader"
 }
 
@@ -37,7 +49,7 @@ variable "resource_lock_name" {
 variable "vm_size" {
   type        = string
   description = "Azure VM size/SKU."
-  default     = "Standard_D2als_v6"
+  default     = "Standard_D2s_v4"
 }
 
 variable "admin_username" {
@@ -50,6 +62,25 @@ variable "os_disk_type" {
   type        = string
   description = "Managed OS disk storage account type."
   default     = "Standard_LRS"
+}
+
+variable "ssh_public_key" {
+  type        = string
+  description = "Optional SSH public key (OpenSSH format) for admin login. When set, it replaces the generated throwaway keypair so you can SSH in with the matching private key. Leave empty to keep the generated key (CI drives the VM via `az vm run-command`, no SSH needed)."
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = var.ssh_public_key == "" || can(regex("^ssh-(rsa|ed25519|ecdsa) ", var.ssh_public_key))
+    error_message = "ssh_public_key must be empty or an OpenSSH public key starting with 'ssh-rsa', 'ssh-ed25519', or 'ssh-ecdsa'."
+  }
+}
+
+variable "allowed_ssh_source_cidr" {
+  type        = string
+  description = "Source CIDR allowed to reach SSH (port 22). Leave empty to keep port 22 closed (the default). Set to your IP (e.g. 1.2.3.4/32) to lock inbound SSH down, or '*' to allow any."
+  default     = ""
+  nullable    = false
 }
 
 variable "image" {

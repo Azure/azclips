@@ -31,7 +31,7 @@
 #   --config CONFIG        Debug|Release (default: Release)
 #   --vm-name NAME         VM name to verify (default: terraform output vm_name)
 #   --resource-group RG    Resource group for ALL operations (default: terraform
-#                          output resource_group, else ming-test)
+#                          output resource_group, else ManagedIdentityLiveTest)
 #   --storage-account NAME Storage account for the bundle blob (default: derived
 #                          deterministically from subscription+RG; created if absent)
 #   --container NAME       Blob container name (default: mie2e-bundles)
@@ -146,7 +146,7 @@ UAMI_OBJECT_ID="$(tf_output user_assigned_identity_principal_id)"
 
 # Sensible fallbacks if Terraform outputs were unavailable.
 [[ -z "$VM_NAME"        ]] && VM_NAME="test-vm-mi"
-[[ -z "$RESOURCE_GROUP" ]] && RESOURCE_GROUP="ming-test"
+[[ -z "$RESOURCE_GROUP" ]] && RESOURCE_GROUP="ManagedIdentityLiveTest"
 
 if [[ -z "$VM_NAME" || -z "$RESOURCE_GROUP" ]]; then
   echo "!! Could not determine VM name / resource group. Run with --provision, or" >&2
@@ -285,7 +285,8 @@ BUNDLE="${BUNDLE_NAME}"
 chmod +x "\$BUNDLE/setup-vm-mi.sh" 2>/dev/null || true
 
 if "\$BUNDLE/setup-vm-mi.sh" --bundle "\$BUNDLE" --test-mi \
-     --vm-name '${VM_NAME}' --resource-group '${RESOURCE_GROUP}'${UAMI_ARGS}; then
+     --vm-name '${VM_NAME}' --resource-group '${RESOURCE_GROUP}' \
+     --subscription-id '${SUBSCRIPTION_ID}'${UAMI_ARGS}; then
   echo "MI_E2E_RESULT:PASS"
 else
   echo "MI_E2E_RESULT:FAIL"
