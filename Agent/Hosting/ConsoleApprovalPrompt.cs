@@ -163,7 +163,7 @@ public sealed class ConsoleApprovalPrompt
             {
                 Console.WriteLine();
                 RenderFinalOutcome(status, message,
-                    new PlanContent(issues, planSteps, placeholders, defaults));
+                    new PlanContent(issues, planSteps, placeholders, defaults), isOneShot);
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
             else                       body();
@@ -175,11 +175,23 @@ public sealed class ConsoleApprovalPrompt
         }
     }
 
-    private static void RenderFinalOutcome(string status, string? message, PlanContent plan)
+    private static void RenderFinalOutcome(string status, string? message, PlanContent plan, bool isOneShot)
     {
         if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
         {
-            RenderPlan(plan);
+            if (isOneShot)
+            {
+                // one-shot: the plan IS the deliverable (the user runs it), so
+                // render it as the summary. RenderPlan ends with the disclaimer.
+                RenderPlan(plan);
+            }
+            else
+            {
+                // interactive: the agent already executed the commands and their
+                // output (plus the plan + its disclaimer, shown before approval)
+                // is on screen. Just a terse completion marker.
+                WriteColor(ConsoleColor.Green, "✓ Done");
+            }
 
             // A completed message carries info NOT already in the plan (e.g. "the
             // storage account was renamed to foo3a7 because the name was taken").
@@ -187,10 +199,6 @@ public sealed class ConsoleApprovalPrompt
             // just repeat the plan.
             if (!string.IsNullOrWhiteSpace(message))
                 Console.WriteLine(message);
-
-            // Disclaimer is always the last line (U4). RenderPlan already left a
-            // trailing blank. Default foreground — readable on any theme.
-            Console.WriteLine(Disclaimer);
         }
         else if (string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase))
         {
@@ -203,7 +211,6 @@ public sealed class ConsoleApprovalPrompt
             if (!string.IsNullOrWhiteSpace(message))
                 Console.WriteLine($"  {message}");
         }
-        Console.WriteLine();
     }
 
     internal const string Disclaimer = "AI-generated content may be incorrect";
@@ -424,6 +431,12 @@ public sealed class ConsoleApprovalPrompt
         }
 
         RenderReviewValues(plan.Defaults, plan.Placeholders);
+        // Blank line between the review-values block and the disclaimer, then the
+        // disclaimer as the last line of every rendered plan — so it travels with
+        // the plan wherever it's shown (one-shot at submit, interactive before
+        // approval) via this single path.
+        Console.WriteLine();
+        Console.WriteLine(Disclaimer);
         Console.WriteLine();
     }
 

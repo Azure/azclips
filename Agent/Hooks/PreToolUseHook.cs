@@ -129,7 +129,17 @@ internal static class PreToolUseHook
                 // unblocked for the rest of the session (stage-2 per-command
                 // approval still applies).
                 state.PlanApproved = true;
-                return new PreToolUseHookOutput { PermissionDecision = "allow" };
+                // Tell the model what to do next. propose_plan returns a terse
+                // "submitted for review" string, and an "allow" alone doesn't
+                // signal that approval happened — so without this the model often
+                // stops instead of executing. Mirrors the reject branch, which
+                // also steers the next turn via AdditionalContext. one-shot never
+                // reaches here (it returned above); this only drives interactive.
+                return new PreToolUseHookOutput
+                {
+                    PermissionDecision = "allow",
+                    AdditionalContext = "The user approved the plan. Now carry it out: run its steps in order with bash/powershell (each command is confirmed once more before it runs), adapt if a command fails, and call submit_response when the task is done.",
+                };
             }
 
             // Rejected plan = the user wants a different plan, not a bare-prose
