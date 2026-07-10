@@ -105,7 +105,23 @@ def sha(p):
 
 deps = json.load(open(deps_json))
 
-dll_map = {}                # dll basename -> (pkg, ver, rel_path)
+# hostfxr composes the probe subfolder differently per library type:
+#   - package (NuGet): from libraries[id].path, which the SDK already lowercases
+#     (e.g. "azure.core/1.54.0"); hostfxr probes that exact lowercased path.
+#   - project ref: libraries[id].path is null, so hostfxr falls back to the
+#     library id in its ORIGINAL case (e.g. "Azclips.Agent.Tools/1.0.0").
+# We must lay the dll under the folder hostfxr will actually probe, otherwise a
+# case-sensitive FS (Linux/macOS) can't find it. Blindly lowercasing everything
+# breaks project refs (they need original case).
+libraries = deps.get('libraries', {})
+def probe_subdir(lib_id, pkg, ver):
+    lib = libraries.get(lib_id) or {}
+    path = lib.get('path')
+    if path:                      # NuGet package: SDK-provided (lowercased) path
+        return path.replace('\\', '/')
+    return f'{pkg}/{ver}'         # project ref: original-case id/version
+
+dll_map = {}                # dll basename -> (probe_subdir, rel_path)
 runtimepack_names = set()   # dll basenames that come from the .NET runtime pack
 
 for tfm, tge in deps['targets'].items():
@@ -126,7 +142,7 @@ for tfm, tge in deps['targets'].items():
             continue
         if 'runtime' in lib:
             for fp in lib['runtime']:
-                dll_map[os.path.basename(fp)] = (pkg, ver, fp)
+                dll_map[os.path.basename(fp)] = (probe_subdir(lib_id, pkg, ver), fp)
 
 # 4-5. Remaining top-level files in agent publish:
 runtimepack_deduped = 0
@@ -153,8 +169,10 @@ for name in os.listdir(agent_publish):
         continue
 
     if name in dll_map:
-        pkg, ver, rel = dll_map[name]
-        dst_dir = os.path.join(deps_dir, pkg.lower(), ver, os.path.dirname(rel))
+        subdir, rel = dll_map[name]
+        # subdir already carries the correctly-cased <pkg>/<ver> hostfxr probes;
+        # rel's directory part is the lib-relative path (e.g. lib/<tfm>).
+        dst_dir = os.path.join(deps_dir, subdir, os.path.dirname(rel))
         os.makedirs(dst_dir, exist_ok=True)
         shutil.move(src, os.path.join(dst_dir, name))
         nuget_moved += 1

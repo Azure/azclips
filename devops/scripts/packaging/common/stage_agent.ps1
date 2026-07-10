@@ -119,7 +119,17 @@ foreach ($tfmProp in $deps.targets.PSObject.Properties) {
             foreach ($fileProp in $lib.runtime.PSObject.Properties) {
                 $relPath = $fileProp.Name
                 $fileName = [System.IO.Path]::GetFileName($relPath)
-                $dllMap[$fileName] = @{ pkg = $pkg; ver = $ver; rel = $relPath }
+                # hostfxr composes the probe subfolder per library type:
+                #   package (NuGet): from libraries[id].path, which the SDK already
+                #     lowercases (e.g. "azure.core/1.54.0") — probe that exact path.
+                #   project ref: libraries[id].path is null → hostfxr falls back to
+                #     the library id in its ORIGINAL case ("Azclips.Agent.Tools/1.0.0").
+                # Lay the dll under the folder hostfxr actually probes; blindly
+                # lowercasing breaks project refs on case-sensitive filesystems.
+                $libEntry = $deps.libraries.PSObject.Properties.Match($libId)
+                $libPath = if ($libEntry.Count -gt 0) { $libEntry[0].Value.path } else { $null }
+                $subdir = if ($libPath) { $libPath.Replace('\', '/') } else { "$pkg/$ver" }
+                $dllMap[$fileName] = @{ subdir = $subdir; rel = $relPath }
             }
         }
     }
@@ -127,7 +137,7 @@ foreach ($tfmProp in $deps.targets.PSObject.Properties) {
 
 # 5. Remaining files in AgentPublishDir:
 #    - runtime pack member with SHA identical to CLI root: delete
-#    - other NuGet dll present in dll_map: move to deps/<pkg-lower>/<ver>/<rel>
+#    - other NuGet dll present in dll_map: move to deps/<probe-subdir>/<rel>
 #    - .pdb / .env / *.dll.config: delete (never shipped)
 #    - unclassified: warn (packaging break)
 $runtimePackDeduped = 0
@@ -158,7 +168,8 @@ foreach ($file in Get-ChildItem -Path $AgentPublishDir -File) {
 
     if ($dllMap.ContainsKey($name)) {
         $entry = $dllMap[$name]
-        $dstDir = Join-Path $depsDir "$($entry.pkg.ToLowerInvariant())/$($entry.ver)"
+        # subdir already carries the correctly-cased <pkg>/<ver> hostfxr probes.
+        $dstDir = Join-Path $depsDir $entry.subdir
         $relDir = [System.IO.Path]::GetDirectoryName($entry.rel)
         if ($relDir) { $dstDir = Join-Path $dstDir $relDir }
         $null = New-Item -Path $dstDir -ItemType Directory -Force
