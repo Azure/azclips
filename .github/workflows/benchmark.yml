@@ -90,7 +90,7 @@ jobs:
   run-ps:
     name: Run PS benchmarks
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, benchmark]
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -127,7 +127,7 @@ jobs:
   run-startup:
     name: Run STARTUP benchmarks
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, benchmark]
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
