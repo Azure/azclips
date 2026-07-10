@@ -22,11 +22,11 @@ on:
 permissions:
   contents: read
 
-#TODO: Parallelize benchmark runs and run filtering based on files changed
+#TODO: run filtering based on files changed
 jobs:
   build:
     name: Build benchmark artifacts once
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: ubuntu-latest
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -46,8 +46,8 @@ jobs:
         with:
           name: benchmark-build-outputs
           path: |
-            artifacts/Release/**
-            tests/Benchmark/bin/Release/**
+            artifacts/Release
+            tests/Benchmark/bin/Release
           retention-days: 1
 
   run-cli:
@@ -77,20 +77,20 @@ jobs:
           timeout_minutes: 15
           max_attempts: 2
           retry_wait_seconds: 30
-          command: dotnet ./tests/Benchmark/bin/Release/net10.0/Benchmark.dll --ci --product CLI
+          command: dotnet artifacts/Release/Benchmark/Benchmark.dll --ci --product CLI
 
       - name: Upload CLI benchmark outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-cli-results
-          path: artifacts/Benchmark/ci/CLI/**
+          path: artifacts/Benchmark/ci/CLI
           retention-days: 14
 
   run-ps:
     name: Run PS benchmarks
     needs: build
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: ubuntu-latest
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -114,20 +114,20 @@ jobs:
           timeout_minutes: 15
           max_attempts: 2
           retry_wait_seconds: 30
-          command: dotnet ./tests/Benchmark/bin/Release/net10.0/Benchmark.dll --ci --product PS
+          command: dotnet artifacts/Release/Benchmark/Benchmark.dll --ci --product PS
 
       - name: Upload PS benchmark outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-ps-results
-          path: artifacts/Benchmark/ci/PS/**
+          path: artifacts/Benchmark/ci/PS
           retention-days: 14
 
   run-startup:
     name: Run STARTUP benchmarks
     needs: build
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: ubuntu-latest
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -151,20 +151,20 @@ jobs:
           timeout_minutes: 20
           max_attempts: 2
           retry_wait_seconds: 30
-          command: dotnet ./tests/Benchmark/bin/Release/net10.0/Benchmark.dll --ci --product STARTUP
+          command: dotnet artifacts/Release/Benchmark/Benchmark.dll --ci --product STARTUP
 
       - name: Upload STARTUP benchmark outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-startup-results
-          path: artifacts/Benchmark/ci/STARTUP/**
+          path: artifacts/Benchmark/ci/STARTUP
           retention-days: 14
 
   publish:
     name: Publish dashboards and gate regressions
     needs: [run-cli, run-ps, run-startup]
-    runs-on: [self-hosted, Linux, X64, benchmark]
+    runs-on: ubuntu-latest
     permissions:
       contents: write          # gh-pages auto-push (main only)
       pull-requests: write     # PR comments on regression
@@ -183,27 +183,28 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: benchmark-cli-results
-          path: .
+          path: downloaded/cli
 
       - name: Download PS benchmark outputs
         uses: actions/download-artifact@v4
         with:
           name: benchmark-ps-results
-          path: .
+          path: downloaded/ps
 
       - name: Download STARTUP benchmark outputs
         uses: actions/download-artifact@v4
         with:
           name: benchmark-startup-results
-          path: .
+          path: downloaded/startup
 
       # ─────────────── CLI ───────────────
       - name: Publish CLI dashboard / gate regression
+        if: ${{ hashFiles('downloaded/cli/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Azclips CLI Benchmarks'
           tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
+          output-file-path: downloaded/cli/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
@@ -216,11 +217,12 @@ jobs:
 
       # ─────────────── PS ────────────────
       - name: Publish PS dashboard / gate regression
+        if: ${{ hashFiles('downloaded/ps/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Azclips PS Benchmarks'
           tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
+          output-file-path: downloaded/ps/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
@@ -234,11 +236,12 @@ jobs:
 
       # ─────────────── STARTUP ───────────────
       - name: Publish CLI startup dashboard (warm, tracked)
+        if: ${{ hashFiles('downloaded/startup/results/Benchmark.Startup.CliWarmStartupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Azclips CLI Startup (warm)'
           tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliWarmStartupBenchmarks-report-full-compressed.json
+          output-file-path: downloaded/startup/results/Benchmark.Startup.CliWarmStartupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
@@ -250,11 +253,12 @@ jobs:
           skip-fetch-gh-pages: true
 
       - name: Publish PS startup dashboard (warm, tracked)
+        if: ${{ hashFiles('downloaded/startup/results/Benchmark.Startup.PsWarmStartupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Azclips PS Startup (warm)'
           tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsWarmStartupBenchmarks-report-full-compressed.json
+          output-file-path: downloaded/startup/results/Benchmark.Startup.PsWarmStartupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
@@ -266,12 +270,12 @@ jobs:
           skip-fetch-gh-pages: true
 
       - name: Publish CLI startup dashboard (cold, informational)
-        if: ${{ hashFiles('artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json') != '' }}
+        if: ${{ hashFiles('downloaded/startup/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Azclips CLI Startup (cold)'
           tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json
+          output-file-path: downloaded/startup/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           fail-on-alert: false
@@ -282,12 +286,12 @@ jobs:
           skip-fetch-gh-pages: true
 
       - name: Publish PS startup dashboard (cold, informational)
-        if: ${{ hashFiles('artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json') != '' }}
+        if: ${{ hashFiles('downloaded/startup/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Azclips PS Startup (cold)'
           tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json
+          output-file-path: downloaded/startup/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           fail-on-alert: false
@@ -304,9 +308,10 @@ jobs:
         with:
           name: benchmark-results
           path: |
-            artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
-            artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
+            downloaded/cli/**/results/*ResourceGroupBenchmarks-report-full-compressed.json
+            downloaded/ps/**/results/*ResourceGroupBenchmarks-report-full-compressed.json
           retention-days: 1
+          if-no-files-found: warn
 
       # ─────────────── Always ────────────
       - name: Upload BDN logs (always)
@@ -314,5 +319,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-ci-${{ github.run_id }}
-          path: artifacts/Benchmark/ci/**
+          path: |
+            downloaded/cli/**
+            downloaded/ps/**
+            downloaded/startup/**
           retention-days: 14
+          if-no-files-found: warn
