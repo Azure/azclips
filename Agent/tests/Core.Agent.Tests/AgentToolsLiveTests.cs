@@ -6,18 +6,27 @@ using Xunit;
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Live smoke test for the seven <c>az agent tool</c> commands against a REAL
-/// installed azclips binary. It is NOT a CI test — it needs an installed package
-/// and an Azure login, so it self-skips unless a binary is resolvable. Run it by
-/// hand after installing a fresh package to confirm all seven tools load and run
-/// (this is exactly the class of failure — an agent dll left unloadable by a
-/// packaging-layout change — that unit tests can't see).
+/// Live smoke test for the <c>az agent tool</c> commands against a REAL installed
+/// azclips binary, exercising BOTH assembly-load paths that packaging can break
+/// independently: the CLI extension AssemblyLoadContext (the <c>agent tool</c>
+/// commands) and the agent subprocess spawned by a one-shot fallback. It is NOT
+/// a CI test — it needs an installed package and an Azure login, so it is
+/// Skip-by-default. Run it by hand after installing a fresh package to confirm
+/// every tool loads and runs (the class of failure — an agent dll left
+/// unloadable by a packaging-layout change — that unit tests can't see).
+///
+/// Coverage: the seven distinct tools (env, help, cache refresh, resource
+/// find/show/sku/tree); <c>ToolInvocations</c> has eight entries because
+/// <c>help</c> is exercised both with and without <c>--name</c>.
 ///
 /// Binary resolution: env var <c>AZCLIPS_LIVE_AZ</c> first, else the first <c>az</c>
-/// on PATH. Skips (does not fail) when none is found.
+/// on PATH.
 ///
-/// Read-only by design: it never logs out, removes profiles, or mutates user
-/// state — only the query/help tools are exercised.
+/// Side effects: the tool invocations are read-only, but the one-shot subprocess
+/// test flips <c>agent.enabled</c>/<c>agent.sessionStyle</c> to spawn the agent —
+/// it snapshots and restores those config values in a finally block so a run
+/// leaves the installed azclips config unchanged. It never logs out or touches
+/// profiles.
 /// </summary>
 public class AgentToolsLiveTests
 {
@@ -83,29 +92,69 @@ public class AgentToolsLiveTests
         Assert.True(az is not null,
             "No azclips binary found. Set AZCLIPS_LIVE_AZ to an installed az(.exe), or put one on PATH, then re-run this live test.");
 
-        // The agent subprocess only spawns when agent.enabled=true and the
-        // session style is oneshot (interactive needs a TTY we don't have here).
-        await RunAsync(az!, "config", "set", "--key", "agent.enabled", "--value", "true");
-        await RunAsync(az!, "config", "set", "--key", "agent.sessionStyle", "--value", "oneshot");
+        // Snapshot the two config keys we must flip, so we can restore the user's
+        // installed config exactly — a post-install smoke test must not leave the
+        // machine mutated. Restore happens in finally regardless of outcome.
+        var savedEnabled = await SnapshotConfigAsync(az!, "agent.enabled");
+        var savedStyle = await SnapshotConfigAsync(az!, "agent.sessionStyle");
+        try
+        {
+            // The agent subprocess only spawns when agent.enabled=true and the
+            // session style is oneshot (interactive needs a TTY we don't have here).
+            await RunAsync(az!, "config", "set", "--key", "agent.enabled", "--value", "true");
+            await RunAsync(az!, "config", "set", "--key", "agent.sessionStyle", "--value", "oneshot");
 
-        var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env")).stdout);
-        Assert.True(signedIn == true,
-            "Not signed in. Run `az login --subscription-id <sub>` against this binary, then re-run this live test.");
+            var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env")).stdout);
+            Assert.True(signedIn == true,
+                "Not signed in. Run `az login --subscription-id <sub>` against this binary, then re-run this live test.");
 
-        // `profile show` (no args) fails with a structured error, which the CLI
-        // funnels into the agent fallback — spawning azclips-agent. The bar is the
-        // same: the subprocess LOADS (no 'assembly not found in
-        // azclips-agent.deps.json') and produces agent output, not a load crash.
-        var (_, stdout, stderr) = await RunAsync(az!, "profile", "show");
-        var combined = stdout + "\n" + stderr;
+            // `profile show` (no args) fails with a structured error, which the CLI
+            // funnels into the agent fallback — spawning azclips-agent. The bar is the
+            // same: the subprocess LOADS (no 'assembly not found in
+            // azclips-agent.deps.json') and produces agent output, not a load crash.
+            var (_, stdout, stderr) = await RunAsync(az!, "profile", "show");
+            var combined = stdout + "\n" + stderr;
 
-        AssertNoAssemblyLoadError("az profile show (one-shot agent subprocess)", stdout, stderr);
-        // Positive signal that the agent actually ran (rendered its help/plan),
-        // rather than the CLI just printing the raw error and never spawning.
-        Assert.True(combined.Contains("AI", StringComparison.OrdinalIgnoreCase) ||
-                    combined.Contains("agent", StringComparison.OrdinalIgnoreCase) ||
-                    combined.Contains("login", StringComparison.OrdinalIgnoreCase),
-            $"The one-shot agent subprocess did not appear to run. Output:\n{combined}");
+            AssertNoAssemblyLoadError("az profile show (one-shot agent subprocess)", stdout, stderr);
+            // Positive signal that the agent actually ran (rendered its help/plan),
+            // rather than the CLI just printing the raw error and never spawning.
+            Assert.True(combined.Contains("AI", StringComparison.OrdinalIgnoreCase) ||
+                        combined.Contains("agent", StringComparison.OrdinalIgnoreCase) ||
+                        combined.Contains("login", StringComparison.OrdinalIgnoreCase),
+                $"The one-shot agent subprocess did not appear to run. Output:\n{combined}");
+        }
+        finally
+        {
+            await RestoreConfigAsync(az!, "agent.enabled", savedEnabled);
+            await RestoreConfigAsync(az!, "agent.sessionStyle", savedStyle);
+        }
+    }
+
+    // (value, wasDefault) for a config key. wasDefault=true means the user hadn't
+    // set it explicitly, so restoring means DELETE rather than set-back.
+    private static async Task<(string? value, bool wasDefault)> SnapshotConfigAsync(string az, string key)
+    {
+        var (_, stdout, _) = await RunAsync(az, "config", "get", "--key", key, "--json");
+        try
+        {
+            using var doc = JsonDocument.Parse(stdout);
+            var root = doc.RootElement;
+            var value = root.TryGetProperty("Value", out var v) ? v.ToString() : null;
+            var source = root.TryGetProperty("Source", out var s) ? s.GetString() : null;
+            // "global config" / "local config" = explicitly set; anything else
+            // (e.g. "default") means the user never set it.
+            var wasDefault = source is null || !source.Contains("config", StringComparison.OrdinalIgnoreCase);
+            return (value, wasDefault);
+        }
+        catch { return (null, true); }
+    }
+
+    private static async Task RestoreConfigAsync(string az, string key, (string? value, bool wasDefault) saved)
+    {
+        if (saved.wasDefault || saved.value is null)
+            await RunAsync(az, "config", "delete", "--key", key);   // was never set → remove our override
+        else
+            await RunAsync(az, "config", "set", "--key", key, "--value", saved.value);
     }
 
     // env var override, else first `az` on PATH (the default install lands there).

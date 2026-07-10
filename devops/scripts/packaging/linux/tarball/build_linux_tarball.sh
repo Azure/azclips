@@ -150,17 +150,5 @@ cp "$LICENSE_FILE" "$CLI_SC_DIR/LICENSE"
 mkdir -p "$(dirname "$CLI_TAR_PATH")"
 rm -f "$CLI_TAR_PATH"
 
-# Restore the Unix executable bit on every ELF binary before tarring. A
-# cross-published tree (esp. when built on Windows/NTFS) loses the +x bit, so
-# az / azclips-agent / copilot and the .NET runtime .so files ship as 0644 and
-# the CLI can't launch the agent on a case/permission-sensitive OS. Detect by
-# ELF magic (0x7f 'E' 'L' 'F') rather than a hardcoded name list so new/renamed
-# binaries and every runtime .so are covered without maintenance.
-find "$CLI_SC_DIR" -type f | while IFS= read -r f; do
-    if [ "$(head -c 4 "$f" 2>/dev/null | od -An -tx1 | tr -d ' \n')" = "7f454c46" ]; then
-        chmod +x "$f"
-    fi
-done
-
 tar -czf "$CLI_TAR_PATH" -C "$CLI_SC_DIR" .
 echo "Created $CLI_TAR_PATH"
