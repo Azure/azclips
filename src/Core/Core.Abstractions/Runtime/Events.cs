@@ -25,6 +25,7 @@ namespace Core.Abstractions.Runtime
 
         // processor
         public const string ProcessorInitiated = nameof(ProcessorInitiated);
+        public const string ProcessorAcquired = nameof(ProcessorAcquired);
         public const string ProcessorProcessAsyncStart = nameof(ProcessorProcessAsyncStart);
         public const string ProcessorProcessAsyncEnd = nameof(ProcessorProcessAsyncEnd);
         public const string ProcessorException = nameof(ProcessorException);

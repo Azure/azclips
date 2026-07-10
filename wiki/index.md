@@ -44,23 +44,24 @@ features:
 
 ## Quick Navigation
 
-| Section | Description |
-| --- | --- |
-| [🚀 Principal-Level Guide](/onboarding-guide) | Dense architectural deep-dive for senior engineers |
-| [📚 Zero to Hero](/zero-to-hero-guide) | Progressive learning path from foundations to contributing |
-| [📖 Overview](/01-getting-started/overview) | Project architecture and key concepts |
-| [⚙️ Environment Setup](/01-getting-started/environment-setup) | Development environment and tooling |
-| [💻 CLI Usage](/01-getting-started/cli-usage) | Command-line interface guide |
-| [🐚 PowerShell](/01-getting-started/powershell-usage) | PowerShell module usage |
-| [🔬 Core Engine](/02-deep-dive/core-engine-orchestration) | Composition root, engine, and session-based fallback |
-| [🌐 HTTP Pipeline](/02-deep-dive/http-pipeline) | Delegating-handler chain and runtime |
-| [🔐 Authentication](/02-deep-dive/authentication) | MSAL auth and token management |
-| [🧩 Extensions](/02-deep-dive/extension-system) | Dynamic extension loading system |
-| [⚙️ Configuration & Profiles](/02-deep-dive/configuration-profiles) | `az config` and named connection profiles |
-| [🤖 AI Agent](/02-deep-dive/ai-agent) | GitHub Copilot SDK agent and tools |
-| [🖥️ Terminal UI](/02-deep-dive/terminal-ui) | Interactive TUI and agent-mode |
-| [📊 Telemetry](/02-deep-dive/telemetry) | Activity capture and observability |
-| [🧪 Testing](/02-deep-dive/testing-benchmarking) | Test framework and benchmarks |
-| [🏗️ Build & CI/CD](/02-deep-dive/build-cicd) | Build system and deployment |
-| [📈 Benchmark Dashboard (CLI)](/dev/bench/cli/index.html) | Continuous benchmark results for the CLI |
-| [📈 Benchmark Dashboard (PS)](/dev/bench/ps/index.html) | Continuous benchmark results for the PowerShell modules |
+| Section                                                           | Description                                                |
+|-------------------------------------------------------------------|------------------------------------------------------------|
+| [🚀 Principal-Level Guide](/onboarding-guide)                     | Dense architectural deep-dive for senior engineers         |
+| [📚 Zero to Hero](/zero-to-hero-guide)                            | Progressive learning path from foundations to contributing |
+| [📖 Overview](/01-getting-started/overview)                       | Project architecture and key concepts                      |
+| [⚙️ Environment Setup](/01-getting-started/environment-setup)     | Development environment and tooling                        |
+| [💻 CLI Usage](/01-getting-started/cli-usage)                     | Command-line interface guide                               |
+| [🐚 PowerShell](/01-getting-started/powershell-usage)             | PowerShell module usage                                    |
+| [🔬 Core Engine](/02-deep-dive/core-engine-orchestration)         | Orchestrator and engine hierarchy                          |
+| [🧩 Extensions](/02-deep-dive/extension-system)                   | Dynamic extension loading system                           |
+| [🔐 Authentication](/02-deep-dive/authentication)                 | MSAL auth and token management                             |
+| [🤖 AI Agent](/02-deep-dive/ai-agent)                             | Azure OpenAI integration                                   |
+| [🌐 HTTP Pipeline](/02-deep-dive/http-pipeline)                   | Request pipeline and middleware                            |
+| [📊 Telemetry](/02-deep-dive/telemetry)                           | OpenTelemetry observability                                |
+| [🧪 Testing](/02-deep-dive/testing-benchmarking)                  | Test framework and benchmarks                              |
+| [🏗️ Build & CI/CD](/02-deep-dive/build-cicd)                     | Build system and deployment                                |
+| [📈 Benchmark Dashboard (CLI)](/dev/bench/cli/index.html)                 | Continuous benchmark results for the CLI                   |
+| [📈 Benchmark Dashboard (PS)](/dev/bench/ps/index.html)                  | Continuous benchmark results for the PowerShell modules    |
+| [📈 Startup Benchmark Dashboard (CLI)](/dev/bench/startup-cli/index.html) | Continuous startup benchmark results for the CLI           |
+| [📈 Startup Benchmark Dashboard (PS)](/dev/bench/startup-ps/index.html)   | Continuous startup benchmark results for PowerShell        |
+

@@ -36,7 +36,8 @@ public sealed class ConfigurationService(
         [typeof(CompletionOptions)] = "completion",
         [typeof(ExtensionsOptions)] = "extensions",
         [typeof(ClientsOptions)] = "clients",
-        [typeof(DefaultsOptions)] = "defaults"
+        [typeof(DefaultsOptions)] = "defaults",
+        [typeof(BenchmarkOptions)] = "benchmark"
     };
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
