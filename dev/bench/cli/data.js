@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783639232193,
+  "lastUpdate": 1783653540169,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -3234,6 +3234,48 @@ window.BENCHMARK_DATA = {
             "value": 1027718.1431715857,
             "unit": "ns",
             "range": "± 319380.7456557981"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yangan@microsoft.com",
+            "name": "YangAn-microsoft",
+            "username": "YangAn-microsoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a908745199336a41b4c39d9b40711d8b9fed1f47",
+          "message": "fix(cli): use relaxed JSON escaping for console output (#434)\n\n## Summary\n\nCLI JSON output was rendered with System.Text.Json's default (HTML-safe)\nencoder, which escapes double quotes and non-ASCII characters as\n`\\uXXXX`. This made the `rest` command's raw `content` body nearly\nunreadable — every quote in the returned JSON showed as `\\u0022`.\n\nThis switches the CLI output formatter to\n`JavaScriptEncoder.UnsafeRelaxedJsonEscaping` so embedded JSON strings\nand non-ASCII text render verbatim in the terminal.\n\n## Root cause\n\n`CliOutputFormatter.s_jsonOptions` did not set an `Encoder`, so it used\nthe default HTML-safe encoder. The `rest` response surfaces the raw HTTP\nbody as a string property (`RestResponse.Content`); when that object is\nserialized for console display, every `\"` inside the body is emitted as\n`\\u0022`.\n\n## Fix\n\nSet `Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping` on the CLI\noutput serializer. This is the standard choice for terminal output —\n\"unsafe\" only means HTML-sensitive characters (`<`, `>`, `&`, `'`) are\nnot escaped, which is irrelevant for a console (the output is not\nembedded in HTML).\n\nOnly the CLI is affected. The PowerShell cmdlets emit the live\n`RestResponse` object via `WriteObject`, so they never pass through this\nserializer and were never affected.\n\n## Before / after\n\n`az rest --method GET --uri\n\"/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01\"`\n\nBefore:\n```\n\"content\": \"{\\u0022value\\u0022:[{\\u0022id\\u0022:\\u0022/subscriptions/...\n```\n\nAfter:\n```\n\"content\": \"{\\\"value\\\":[{\\\"id\\\":\\\"/subscriptions/...\n```\n\n## Testing\n\n- Added two regression tests to `CliOutputFormatterTests`: one asserting\nembedded JSON quotes are not `\\u0022`-escaped, one asserting non-ASCII\ntext is emitted verbatim.\n- All 18 `CliOutputFormatterTests` pass.\n\n## Notes\n\nRequires rebuilding/reinstalling the CLI package for end users to pick\nup the change.",
+          "timestamp": "2026-07-10T13:16:44+10:00",
+          "tree_id": "1881f74d6e902bb44844895c148f10e2fe80ff8d",
+          "url": "https://github.com/Azure/azclips/commit/a908745199336a41b4c39d9b40711d8b9fed1f47"
+        },
+        "date": 1783653539767,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1068802.2958887666,
+            "unit": "ns",
+            "range": "± 333973.65135891485"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1024362.8424212106,
+            "unit": "ns",
+            "range": "± 326292.90966212255"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1020505.319227691,
+            "unit": "ns",
+            "range": "± 324582.748200413"
           }
         ]
       }
