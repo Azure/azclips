@@ -54,7 +54,7 @@ public static class AgentModeEntry
 
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var az     = FindAzExe() ?? "az";
-            var consoleRenderer = new ConsoleAgentRenderer(quiet);
+            var consoleRenderer = new ConsoleAgentRenderer(quiet, agentOpts.Interactive.Verbose);
             // When agent.trace.enabled, wrap the console renderer to record a JSONL
             // trace under agent.trace.path. Prose suppression after submit_response
             // lives on ConsoleAgentRenderer itself (always-on), independent of trace.
