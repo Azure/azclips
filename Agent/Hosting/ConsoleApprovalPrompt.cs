@@ -442,8 +442,9 @@ public sealed class ConsoleApprovalPrompt
 
     // Soft-wrap long args across terminal width. Never truncates — the user
     // needs to see the FULL command (passwords, unusual flags hide at the
-    // tail). Continuation lines are indented to align under the first arg
-    // char so the visual block reads as one value.
+    // tail). Wraps at whitespace so tokens (flags, quoted values) stay intact
+    // instead of being cut mid-word; a single token longer than the line is
+    // hard-split as a last resort. Continuation lines align under the first arg.
     private const string ArgsLabel    = "   args: ";
     private const string ArgsContinue = "         ";
     private static void WriteArgs(string args)
@@ -456,12 +457,53 @@ public sealed class ConsoleApprovalPrompt
         int width = TryGetWindowWidth();
         int budget = Math.Max(20, width - ArgsLabel.Length);
         bool first = true;
-        for (int i = 0; i < args.Length; i += budget)
+        foreach (var line in WrapAtWhitespace(args, budget))
         {
-            int take = Math.Min(budget, args.Length - i);
             Console.Write(first ? ArgsLabel : ArgsContinue);
-            Console.WriteLine(args.AsSpan(i, take));
+            Console.WriteLine(line);
             first = false;
+        }
+    }
+
+    // Greedy word-wrap: packs whitespace-delimited tokens onto lines up to
+    // budget, breaking a token across lines only when it alone exceeds budget.
+    private static IEnumerable<string> WrapAtWhitespace(string text, int budget)
+    {
+        var line = new System.Text.StringBuilder();
+        foreach (var token in SplitKeepingWidth(text, budget))
+        {
+            if (line.Length == 0)
+            {
+                line.Append(token);
+            }
+            else if (line.Length + 1 + token.Length <= budget)
+            {
+                line.Append(' ').Append(token);
+            }
+            else
+            {
+                yield return line.ToString();
+                line.Clear();
+                line.Append(token);
+            }
+        }
+        if (line.Length > 0)
+            yield return line.ToString();
+    }
+
+    // Splits on whitespace; any token longer than budget is chunked so the
+    // greedy packer above never receives a token it can't place.
+    private static IEnumerable<string> SplitKeepingWidth(string text, int budget)
+    {
+        foreach (var token in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.Length <= budget)
+            {
+                yield return token;
+                continue;
+            }
+            for (int i = 0; i < token.Length; i += budget)
+                yield return token.Substring(i, Math.Min(budget, token.Length - i));
         }
     }
 
