@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Graph.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Graph.Models;
 
 public class User
 {

@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Graph
+namespace Microsoft.Azure.Azclips.Extensions.Graph
 {
     [ExtensionVerb("msgraph")]
     public class ExtensionIndex : IExtensionIndex
@@ -13,8 +13,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Graph
             Name: "GetUserProcessor",
             InvocationName: "Get-AzMsGraphUser",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Graph.Processors.GetUserProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Graph",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.GetUserProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
             ProcessorType: typeof(Processors.GetUserProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -27,8 +27,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Graph
             Name: "GetUserProcessor",
             InvocationName: "msgraph user show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Graph.Processors.GetUserProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Graph",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.GetUserProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
             ProcessorType: typeof(Processors.GetUserProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {

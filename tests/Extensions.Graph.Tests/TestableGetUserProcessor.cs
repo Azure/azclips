@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Cirrus.Extensions.Graph.Processors;
+using Microsoft.Azure.Azclips.Extensions.Graph.Processors;
 
 namespace Extensions.Graph.Tests;
 

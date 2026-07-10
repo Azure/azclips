@@ -49,7 +49,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
                         '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
                         '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Graph/Microsoft.Azure.Cirrus.Extensions.Graph.dll'
+                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Graph/Microsoft.Azure.Azclips.Extensions.Graph.dll'
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()

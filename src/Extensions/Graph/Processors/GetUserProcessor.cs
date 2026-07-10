@@ -3,9 +3,9 @@
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Graph.Models;
+using Microsoft.Azure.Azclips.Extensions.Graph.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Graph.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
 {
     public class GetUserProcessor : GraphProcessorBase<User>
     {

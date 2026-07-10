@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Microsoft.Azure.Cirrus.Extensions.Graph;
-using Microsoft.Azure.Cirrus.Extensions.Graph.Processors;
+using Microsoft.Azure.Azclips.Extensions.Graph;
+using Microsoft.Azure.Azclips.Extensions.Graph.Processors;
 
 namespace Extensions.Graph.Tests;
 

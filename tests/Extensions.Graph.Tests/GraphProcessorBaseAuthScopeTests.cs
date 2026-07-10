@@ -4,7 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime.Handler;
-using Microsoft.Azure.Cirrus.Extensions.Graph.Processors;
+using Microsoft.Azure.Azclips.Extensions.Graph.Processors;
 using Moq;
 
 namespace Extensions.Graph.Tests;

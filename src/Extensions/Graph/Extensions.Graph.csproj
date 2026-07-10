@@ -1,15 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Microsoft.Azure.Cirrus.Extensions.Graph</AssemblyName>
+        <AssemblyName>Microsoft.Azure.Azclips.Extensions.Graph</AssemblyName>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-        <RootNamespace>Microsoft.Azure.Cirrus.Extensions.Graph</RootNamespace>
-        <ExtName>Microsoft.Azure.Cirrus.Extensions.Graph</ExtName>
+        <RootNamespace>Microsoft.Azure.Azclips.Extensions.Graph</RootNamespace>
+        <ExtName>Microsoft.Azure.Azclips.Extensions.Graph</ExtName>
 
-        <Description>Microsoft Graph Extension for Cirrus CLI</Description>
+        <Description>Microsoft Graph Extension for Azclips CLI</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
-        <PackageId>Microsoft.Azure.Cirrus.Extensions.Graph</PackageId>
+        <PackageId>Microsoft.Azure.Azclips.Extensions.Graph</PackageId>
         <Version>0.1.0</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
