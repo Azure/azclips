@@ -5,6 +5,7 @@ using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Moq;
 using Tests.Common.Stubs;
 using Xunit;
 
@@ -54,6 +55,40 @@ public sealed class ProfileCliTests
 
         Assert.Equal("temp", await fixture.Profiles.GetActiveProfileNameAsync());
         Assert.NotNull(await fixture.Profiles.GetProfileAsync("temp"));
+    }
+
+    [Fact]
+    public async Task Login_CrossTenantSubscription_ShouldPersistOwningTenant()
+    {
+        using var fixture = new ProfileCliFixture();
+        const string owningTenant = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+        // The signed-in (home) tenant does not own the subscription; ARM reveals the real tenant.
+        fixture.Subscriptions
+            .Setup(s => s.ResolveSubscriptionTenantAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(owningTenant);
+
+        fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]);
+
+        var prod = await fixture.Profiles.GetProfileAsync("prod");
+        Assert.NotNull(prod);
+        Assert.Equal(owningTenant, prod!.TenantId);
+    }
+
+    [Fact]
+    public async Task Login_WhenOwningTenantLookupFails_ShouldFail_WithoutWritingProfile()
+    {
+        using var fixture = new ProfileCliFixture();
+        // The owning-tenant lookup fails (e.g., transient ARM error). Login must not persist a guessed
+        // (home) tenant that may be wrong for the subscription.
+        fixture.Subscriptions
+            .Setup(s => s.ResolveSubscriptionTenantAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("boom"));
+
+        Assert.ThrowsAny<Exception>(() =>
+            fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]));
+
+        Assert.Null(await fixture.Profiles.GetProfileAsync("prod"));
+        Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
     }
 
     [Fact]
@@ -334,6 +369,8 @@ public sealed class ProfileCliTests
 
         public StubAuthService Auth { get; } = new();
 
+        public Mock<ISubscriptionService> Subscriptions { get; } = new();
+
         /// <summary>Raw values passed to <c>WriteOutput</c> by the most recent <see cref="ExecuteCli"/> call.</summary>
         public IReadOnlyList<object?> RawOutputs => _rawOutputs;
 
@@ -346,6 +383,7 @@ public sealed class ProfileCliTests
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
                 services.AddSingleton<IProfileService>(Profiles);
                 services.AddSingleton<IAuthService>(Auth);
+                services.AddSingleton<ISubscriptionService>(Subscriptions.Object);
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             });

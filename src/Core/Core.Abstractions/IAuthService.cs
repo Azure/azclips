@@ -39,4 +39,16 @@ public interface IAuthService
     /// </param>
     /// <returns>The result of the token acquisition attempt.</returns>
     Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null);
+
+    /// <summary>
+    /// Probes whether an access token can be acquired silently for <paramref name="tenantId"/> using the
+    /// cached account, without prompting the user. Returns <see langword="true"/> when a token is obtained
+    /// and <see langword="false"/> when interactive sign-in is required (for example, multifactor
+    /// authentication or a conditional access policy). Failures unrelated to interaction (such as network
+    /// errors) are propagated to the caller.
+    /// </summary>
+    /// <param name="tenantId">The tenant to acquire the token for.</param>
+    /// <param name="profile">The profile whose authentication method drives token acquisition.</param>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default);
 }

@@ -202,6 +202,8 @@ public class AvailableLocationsToolTests
                 TenantId = "fake-tenant",
                 CorrelationId = Guid.NewGuid(),
             });
+        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
     }
 
     private sealed class FakeProfileService : IProfileService

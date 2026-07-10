@@ -45,12 +45,18 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         return $"{header}.{payload}.{signature}";
     }
 
-    // same profile location used by the CLI subprocess
-    private static readonly string DefaultProfileDirectory =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
+    // temp profile store so tests don't touch the real ~/.azclips
+    private string _localAppDataDir = string.Empty;
+    private string _profileDirectory = string.Empty;
 
     public async Task InitializeAsync()
     {
+        // must exist before use: on Unix GetFolderPath(LocalApplicationData) returns
+        // empty if the dir isn't there
+        _localAppDataDir = Path.Combine(Path.GetTempPath(), "azclips-mi-e2e", Guid.NewGuid().ToString("N"));
+        _profileDirectory = Path.Combine(_localAppDataDir, HomePaths.DefaultHomeDirectoryName);
+        Directory.CreateDirectory(_profileDirectory);
+
         var artifactsDir = ResolveArtifactsDirectory();
 
         var loginExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Login");
@@ -78,6 +84,19 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         {
             await _imds.DisposeAsync();
         }
+
+        // drop the temp store
+        try
+        {
+            if (!string.IsNullOrEmpty(_localAppDataDir) && Directory.Exists(_localAppDataDir))
+            {
+                Directory.Delete(_localAppDataDir, recursive: true);
+            }
+        }
+        catch
+        {
+            // ignore; OS cleans up temp eventually
+        }
     }
 
     /// <summary>Runs the CLI subprocess against the mock IMDS endpoint.</summary>
@@ -94,6 +113,11 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
         // route MI calls to the mock server
         psi.Environment["AZURE_POD_IDENTITY_AUTHORITY_HOST"] = _imds!.Url;
+
+        // point the subprocess at the temp store too (LOCALAPPDATA on Windows,
+        // XDG_DATA_HOME on Mac/Linux) so login/logout stay off the real ~/.azclips
+        psi.Environment["LOCALAPPDATA"] = _localAppDataDir;
+        psi.Environment["XDG_DATA_HOME"] = _localAppDataDir;
 
         foreach (var arg in args)
         {
@@ -162,7 +186,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         Assert.Equal("MSI@", savedProfile.ManagedIdentityId); // System-assigned
 
         // profile is written to the CLI's default location
-        var profilesFile = Path.Combine(DefaultProfileDirectory, "profiles.json");
+        var profilesFile = Path.Combine(_profileDirectory, "profiles.json");
         Assert.True(File.Exists(profilesFile), $"Profiles file should exist at: {profilesFile}");
         var profilesJson = await File.ReadAllTextAsync(profilesFile);
         Assert.DoesNotContain(MockTenantId, profilesJson);
@@ -330,18 +354,19 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
             $"Run `dotnet build azclips.slnx` to produce it.");
     }
 
-    private static ProfileService CreateProfileService()
+    private ProfileService CreateProfileService()
     {
-        // same profile location as the CLI subprocess
-        return new ProfileService(Logger);
+        // same temp store the subprocess writes to
+        return new ProfileService(Logger, _profileDirectory);
     }
 
-    private static void ResetProfiles()
+    private void ResetProfiles()
     {
         // clean profile state between tests
+        // Do not need to clean AT since MI do not store it in disk
         foreach (var fileName in new[] { "profiles.json", "active-profile" })
         {
-            var path = Path.Combine(DefaultProfileDirectory, fileName);
+            var path = Path.Combine(_profileDirectory, fileName);
             if (File.Exists(path))
             {
                 File.Delete(path);
