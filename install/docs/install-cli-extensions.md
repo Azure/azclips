@@ -22,15 +22,15 @@ Add-on extensions ship as NuGet packages named `azcli.extensions.<name>.<version
 
 Each release includes a single `azcli-extensions-<version>.tar.gz` containing every extension package plus `NOTICE`/`LICENSE`. This bundle is how add-on extensions are distributed.
 
-Get the bundle from the latest release. The quickest way is your authenticated GitHub CLI (`gh`) — the same session the installer uses, which works on the private repo:
+Download the bundle from the latest release using your authenticated GitHub CLI (`gh`) — the same session the installer uses, which works on the private repo. (Or download `azcli-extensions-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page, the same release you installed azcli from.)
 
 ```bash
 gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
 ```
 
-Alternatively, download `azcli-extensions-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page (the same release you installed azcli from).
+The bundle unpacks as loose `.nupkg` files, so extract it into a folder and install from there. Extension package versions are independent of the release version, so the commands below don't hardcode a version — follow the set for your shell.
 
-Then extract and install from it. The bundle unpacks as loose `.nupkg` files, so create a folder to extract into. (Extension package versions are independent of the release version, so the globs below avoid hardcoding a version.)
+### Linux / macOS (bash)
 
 ```bash
 mkdir -p azcli-extensions
@@ -47,7 +47,24 @@ done
 az extension list
 ```
 
-On Windows, `tar` ships in-box and handles `.tar.gz` directly — use the same `mkdir`/`tar -xzf` commands.
+### Windows (PowerShell)
+
+PowerShell doesn't expand `*` for external commands, so resolve the paths explicitly with `Get-ChildItem`:
+
+```powershell
+New-Item -ItemType Directory -Force -Path azcli-extensions | Out-Null
+$bundle = Get-ChildItem azcli-extensions-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+tar -xzf $bundle.FullName -C azcli-extensions
+
+# Install one extension (e.g. compute)
+$compute = Get-ChildItem azcli-extensions/azcli.extensions.compute.*.nupkg | Select-Object -First 1
+az extension add --path $compute.FullName
+
+# Or install every bundled extension
+Get-ChildItem azcli-extensions/azcli.extensions.*.nupkg | ForEach-Object { az extension add --path $_.FullName }
+
+az extension list
+```
 
 ## Verify
 
