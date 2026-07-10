@@ -41,7 +41,7 @@ internal sealed class RuntimeVersionDispatcher
             ? FormatText(info)
             : CliOutputFormatter.FormatValue(info);
 
-       _output.WriteLine(rendered.TrimEnd('\r', '\n'));
+       _output.WriteLine(rendered);
         return 0;
     }
 
@@ -66,6 +66,6 @@ internal sealed class RuntimeVersionDispatcher
         builder.AppendLine($"{Indent}{"Config:".PadRight(maxLabelWidth)}{info.Paths.ConfigLocation}");
         builder.AppendLine($"{Indent}{"Extensions:".PadRight(maxLabelWidth)}{info.Paths.ExtensionsLocation}");
 
-        return builder.ToString().TrimEnd('\r', '\n');
+        return builder.ToString().TrimEnd();
     }
 }
