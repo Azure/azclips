@@ -185,6 +185,32 @@ public class CliOutputFormatterTests
         Assert.Equal(2, doc.RootElement.GetArrayLength());
     }
 
+    // ── Relaxed escaping: raw JSON strings stay human-readable ──────
+
+    [Fact]
+    public void FormatValue_ShouldNotUnicodeEscapeQuotes_WhenValueContainsRawJsonString()
+    {
+        // Mirrors the `rest` command's RestResponse.Content: a property whose value is itself a raw
+        // JSON body. The inner quotes must render as `"` (not `\u0022`) for readable console output.
+        var value = new { Content = "{\"name\":\"rg1\"}" };
+
+        var result = Core.Cli.CliOutputFormatter.FormatValue(value);
+
+        Assert.DoesNotContain("\\u0022", result);
+        Assert.Contains("{\\\"name\\\":\\\"rg1\\\"}", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotUnicodeEscapeNonAscii_WhenValueContainsNonAsciiText()
+    {
+        var value = new { Name = "café-café" };
+
+        var result = Core.Cli.CliOutputFormatter.FormatValue(value);
+
+        Assert.Contains("café-café", result);
+        Assert.DoesNotContain("\\u00e9", result);
+    }
+
     /// <summary>
     /// A type that intentionally fails JSON serialization by containing a self-reference.
     /// </summary>
