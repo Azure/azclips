@@ -110,8 +110,8 @@ public class VersionInformationProviderTests
     }
 
     /// <summary>
-    /// FormatText ends with a trailing newline (AppendLine on its last line), so Render must trim
-    /// trailing line breaks before WriteLine to avoid a blank line at the end of the output.
+    /// Render writes the formatted payload with exactly one trailing newline. To avoid a trailing blank
+    /// line, it trims any trailing '\r'/'\n' from the rendered text before calling WriteLine.
     /// </summary>
     [Fact]
     public void Render_Text_ShouldEndWithExactlyOneTrailingNewline()
