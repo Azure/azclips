@@ -18,12 +18,13 @@ public static class StartupEviction
     /// <summary>True if this machine can evict the OS page cache for cold runs.</summary>
     public static bool IsAvailable() => TryEvict(probe: true);
 
-    /// <summary>Evict the OS page cache. Logs and continues if eviction is unavailable.</summary>
+    /// <summary>Evict the OS page cache. Throws if eviction fails to avoid reporting warm launches as cold.</summary>
     public static void Evict()
     {
         if (!TryEvict(probe: false))
         {
-            Console.WriteLine("[Startup] cold eviction unavailable at runtime — launch was NOT cold");
+            throw new InvalidOperationException(
+                 "[Startup] cold eviction unavailable at runtime — aborting cold run to avoid mislabelled results");
         }
     }
 

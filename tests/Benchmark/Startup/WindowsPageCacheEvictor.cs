@@ -19,6 +19,9 @@ internal static class WindowsPageCacheEvictor
     // SYSTEM_MEMORY_LIST_COMMAND.MemoryPurgeStandbyList
     private const int MemoryPurgeStandbyList = 4;
 
+    // AdjustTokenPrivileges reports this when the token does not have the requested privilege.
+    private const int ERROR_NOT_ALL_ASSIGNED = 1300;
+
     private const int STATUS_SUCCESS = 0;
 
     private const uint SE_PRIVILEGE_ENABLED = 0x0002;
@@ -82,7 +85,9 @@ internal static class WindowsPageCacheEvictor
                 return false;
             }
 
-            return Marshal.GetLastWin32Error() == 0; // ERROR_SUCCESS
+            // A successful call can leave a non-zero last error that is not meaningful. Only the
+            // documented failure signal means the privilege was not granted.
+            return Marshal.GetLastWin32Error() != ERROR_NOT_ALL_ASSIGNED;
         }
         finally
         {
