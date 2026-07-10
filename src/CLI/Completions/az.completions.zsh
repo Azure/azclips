@@ -4,11 +4,17 @@
 #   autoload -U compinit && compinit
 #   source <path-to>/az.completions.zsh
 # Or add to your ~/.zshrc to auto-load on every session.
-# Requires: jq
 #
-# Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
+# Completions are resolved dynamically by invoking `az --completion-candidates [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
-
+#
+# Detection: Old Azure CLI outputs error text (with uppercase letters) to stderr for unknown
+# flags like --completion-candidates; azclips returns lowercase candidates or empty (disabled).
+# Uppercase in stdout marks the binary as non-azclips. The result is cached per exe.
+# Completions are cached for the current shell session and invalidated if the resolved exe path
+# changes (e.g., after an update) or if the config file changes.
+# To refresh manually, run: _az_clear_cache
+#
 # Opt-in debug logging:
 #   export AZ_COMPLETION_DEBUG=1
 #   export AZ_COMPLETION_DEBUG_LOG=/tmp/az_completion_debug.log
@@ -18,126 +24,135 @@ _az_debug() {
     print -r -- "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$log_file"
 }
 
-_az_resolve_exe() {
-    local script_dir="${${(%):-%x}:A:h}"
-    # 1. Same directory as this script
-    if [[ -x "$script_dir/az" ]]; then
-        echo "$script_dir/az"
+# Resolve config path once at source time.
+# In WSL, Windows exe writes config to the Windows user profile, not $HOME.
+typeset -g _az_config_path="$HOME/.azclips/config.json"
+if [[ -f /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+    _az_wsl_profile="$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r\n')"
+    if [[ -n "$_az_wsl_profile" ]] && command -v wslpath >/dev/null 2>&1; then
+        _az_wsl_home="$(wslpath "$_az_wsl_profile" 2>/dev/null)"
+        [[ -n "$_az_wsl_home" ]] && _az_config_path="$_az_wsl_home/.azclips/config.json"
+    fi
+    unset _az_wsl_profile _az_wsl_home
+fi
+
+_az_get_config_stamp() {
+    local config_path="$_az_config_path"
+
+    # Missing config means defaults apply (completion.enabled=true).
+    if [[ ! -f "$config_path" ]]; then
+        echo "$config_path|missing"
         return
     fi
-    if [[ -x "$script_dir/az.exe" ]]; then
-        echo "$script_dir/az.exe"
-        return
+
+    # Use metadata only; the CLI remains the source of truth for completion.enabled.
+    local size mtime
+
+    # GNU stat first, then BSD/macOS stat.
+    size="$(stat -c %s "$config_path" 2>/dev/null)"
+    if [[ -z "$size" ]]; then
+        size="$(stat -f %z "$config_path" 2>/dev/null)"
     fi
-    # 2. Walk up to find repo root (look for global.json), then check artifacts/
-    local dir="$script_dir"
-    while [[ -n "$dir" && "$dir" != "/" ]]; do
-        if [[ -f "$dir/global.json" ]]; then
-            local cfg
-            for cfg in Release Debug; do
-                if [[ -x "$dir/artifacts/$cfg/Core.Cli/az" ]]; then
-                    echo "$dir/artifacts/$cfg/Core.Cli/az"
-                    return
-                fi
-                if [[ -x "$dir/artifacts/$cfg/Core.Cli/az.exe" ]]; then
-                    echo "$dir/artifacts/$cfg/Core.Cli/az.exe"
-                    return
-                fi
-            done
-            break
-        fi
-        dir="${dir:h}"
-    done
-    # 3. Fall back to PATH
-    if (( $+commands[az] )); then
-        echo "${commands[az]}"
+    mtime="$(stat -c %Y "$config_path" 2>/dev/null)"
+    if [[ -z "$mtime" ]]; then
+        mtime="$(stat -f %m "$config_path" 2>/dev/null)"
+    fi
+
+    if [[ -n "$size" || -n "$mtime" ]]; then
+        echo "$config_path|$size|$mtime"
+    else
+        echo "$config_path|error"
     fi
 }
 
-# Cached result: empty = not checked, 1 = azclips, 0 = not azclips
-_az_is_azclips_cached=""
+# Sets _az_query_result (avoids subshell so cache persists).
+# Usage: _az_query_candidates <exe> [group] [subcommand]
+_az_query_candidates() {
+    _az_query_result=""
+    local exe="$1"; shift
+    [[ -n "$exe" ]] || return 1
+    # Already determined not azclips for this specific exe; skip.
+    if [[ "${_az_not_azclips:-}" == "$exe" ]]; then return 1; fi
+    local config_stamp
+    config_stamp="$(_az_get_config_stamp)"
+    local cache_key="$*"
 
-_az_is_azclips() {
-    if [[ -n "$_az_is_azclips_cached" ]]; then
-        return $(( 1 - _az_is_azclips_cached ))
-    fi
-    # $commands[az] returns the filesystem path (zsh command hash table)
-    local exe
-    if (( $+commands[az] )); then
-        exe="${commands[az]}"
-    else
-        _az_is_azclips_cached=0
-        return 1
-    fi
-    local ver
-    if ! ver="$("$exe" --version 2>&1)" || [[ -z "$ver" ]]; then
-        # --version failed or empty output → not azclips
-        _az_is_azclips_cached=0
-        return 1
-    fi
-    if echo "$ver" | grep -q 'azure-cli'; then
-        _az_is_azclips_cached=0
-        return 1
-    else
-        _az_is_azclips_cached=1
+    # Check cache validity: invalidate on exe/config stamp changes.
+    if [[ "$_az_cache_exe" == "$exe" && "$_az_cache_stamp" == "$config_stamp" && "$_az_cache_key" == "$cache_key" ]]; then
+        _az_query_result="$_az_cache_candidates"
         return 0
     fi
+
+    local raw
+    raw="$("$exe" --completion-candidates "$@" 2>/dev/null)"
+    raw="${raw//$'\r'/}"
+
+    # Detection: old Azure CLI outputs error text with uppercase letters to stderr
+    # (suppressed by 2>/dev/null -> empty stdout) or to stdout. azclips outputs
+    # lowercase candidates or empty (disabled). Uppercase in output -> not azclips.
+    if [[ -n "$raw" && "$raw" =~ [A-Z] ]]; then
+        _az_not_azclips="$exe"
+        _az_query_result=""
+        return 1
+    fi
+
+    _az_query_result="$raw"
+    _az_cache_candidates="$_az_query_result"
+    _az_cache_exe="$exe"
+    _az_cache_stamp="$config_stamp"
+    _az_cache_key="$cache_key"
 }
 
-_az_query() {
-    local exe
-    exe="$(_az_resolve_exe)"
-    [[ -n "$exe" ]] || return 1
-    "$exe" --completions "$@" 2>/dev/null
-}
+# Session cache (persists until exe path/config stamp/context changes).
+typeset -g _az_cache_candidates=""
+typeset -g _az_cache_exe=""
+typeset -g _az_cache_stamp=""
+typeset -g _az_cache_key=""
+typeset -g _az_query_result=""
+typeset -g _az_not_azclips=""
 
 _az() {
-    # Path-qualified invocation → always complete.
-    # Bare "az" → check PATH to ensure it's azclips, not system azure-cli.
-    if [[ "${words[1]}" != */* && "${words[1]}" != *\\* ]]; then
-        if ! _az_is_azclips; then
-            _default
-            return
-        fi
+    # Resolve the actual exe from what the user typed
+    local exe=""
+    local typed_cmd="${words[1]}"
+    if (( $+commands[$typed_cmd] )); then
+        exe="${commands[$typed_cmd]}"
+    elif [[ -x "$typed_cmd" ]]; then
+        exe="$typed_cmd"
+    elif [[ -x "./$typed_cmd" ]]; then
+        exe="./$typed_cmd"
+    fi
+    if [[ -z "$exe" ]]; then
+        _default
+        return
+    fi
+
+    # If we already determined this specific exe is not azclips, fall back to default.
+    if [[ "${_az_not_azclips:-}" == "$exe" ]]; then
+        _default
+        return
     fi
 
     _az_debug "enter _az CURRENT=$CURRENT words=(${words[*]})"
 
-    local -a candidates prefix_words subcommands params used_params available
-    local group json
+    local -a candidates params used_params available
+    local group
 
     case $CURRENT in
         2)
             # Level 0: complete top-level command groups
-            json="$(_az_query)"
-            _az_debug "json=$json"
-            if [[ -n "$json" ]]; then
-                candidates=("${(@f)$(echo "$json" | jq -r 'keys[]' 2>/dev/null)}")
+            _az_query_candidates "$exe"
+            if [[ -n "$_az_query_result" ]]; then
+                candidates=( ${=_az_query_result} )
             fi
             _az_debug "level=0 candidates=(${candidates[*]})"
             ;;
         3)
             # Level 1: subcommands + group params
             group="${words[2]:l}"
-            json="$(_az_query "$group")"
-            _az_debug "json=$json"
-            if [[ -n "$json" ]]; then
-                local subs_output params_output
-                local -a arr
-
-                subs_output="$(echo "$json" | jq -r '._subcommands[]? // empty' 2>/dev/null)"
-                if [[ -n "$subs_output" ]]; then
-                    arr=("${(f)subs_output}")
-                    candidates+=("${arr[@]}")
-                fi
-
-                params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
-                if [[ -n "$params_output" ]]; then
-                    arr=("${(f)params_output}")
-                    candidates+=("${arr[@]}")
-                fi
-
-                _az_debug "candidates=(${candidates[*]})"
+            _az_query_candidates "$exe" "$group"
+            if [[ -n "$_az_query_result" ]]; then
+                candidates=( ${=_az_query_result} )
             fi
             _az_debug "level=1 group=$group candidates=(${candidates[*]})"
             ;;
@@ -145,28 +160,13 @@ _az() {
             # Level 2+: parameters for the command
             group="${words[2]:l}"
             local sub="${words[3]:l}"
-            # If sub is a flag, query group-level params only
-            if [[ "$sub" == --* ]]; then
-                json="$(_az_query "$group")"
+            if [[ "$sub" != --* ]]; then
+                _az_query_candidates "$exe" "$group" "$sub"
             else
-                json="$(_az_query "$group" "$sub")"
+                _az_query_candidates "$exe" "$group"
             fi
-            _az_debug "json=$json"
-            if [[ -n "$json" ]]; then
-                local params_output
-                # Try subcommand-specific params, then group-level
-                if [[ "$sub" != --* ]]; then
-                    params_output="$(echo "$json" | jq -r --arg s "$sub" '.[$s][]? // empty' 2>/dev/null)"
-                fi
-                if [[ -z "$params_output" ]]; then
-                    params_output="$(echo "$json" | jq -r '._params[]? // empty' 2>/dev/null)"
-                fi
-
-                if [[ -n "$params_output" ]]; then
-                    local -a arr
-                    arr=("${(f)params_output}")
-                    params=("${arr[@]}")
-                fi
+            if [[ -n "$_az_query_result" ]]; then
+                params=( ${=_az_query_result} )
             fi
 
             # Filter out already-used flags
@@ -198,5 +198,24 @@ _az() {
     return 0
 }
 compdef _az az az.exe
+
+# Also handle path-qualified az invocations (./az, ../bin/az.exe, etc.)
+# compdef -p registers a pattern-based completion that matches commands by path suffix.
+compdef '_az_path_completer' -p '*/az'
+compdef '_az_path_completer' -p '*/az.exe'
+
+_az_path_completer() {
+    _az "$@"
+}
+
+# Manual cache refresh function
+_az_clear_cache() {
+    _az_cache_candidates=""
+    _az_cache_exe=""
+    _az_cache_stamp=""
+    _az_cache_key=""
+    _az_not_azclips=""
+    echo "az completions cache cleared."
+}
 
 echo "az tab completion registered (zsh, dynamic)."

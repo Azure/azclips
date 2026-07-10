@@ -212,8 +212,9 @@ public sealed class RuntimeHelpDispatcher
                 {
                     root = new ExtensionIndexHelpAdapter(info.Commands, verb).GetRootGroup();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    TryWriteDebug($"RuntimeHelpDispatcher: failed to build root help for '{info.PackageId}' verb '{verb}': {ex.Message}");
                     continue;
                 }
 
@@ -264,14 +265,85 @@ public sealed class RuntimeHelpDispatcher
 
             session.RunAsync().GetAwaiter().GetResult();
         }
-        catch
+        catch (Exception ex)
         {
+            TryWriteDebug($"RuntimeHelpDispatcher: discovery session failed: {ex.Message}");
             return [];
         }
 
-        return discoveredInfos
+        var discovered = discoveredInfos
             .Where(static info => !string.IsNullOrWhiteSpace(info.PackageId))
             .ToList();
+
+        return SelectPreferredCandidates(discovered);
+    }
+
+    private IReadOnlyList<DiscoveredExtensionInfo> SelectPreferredCandidates(IReadOnlyList<DiscoveredExtensionInfo> discovered)
+    {
+        if (discovered.Count == 0)
+        {
+            return discovered;
+        }
+
+        ExtensionRegistry? registry = null;
+        try
+        {
+            registry = new FileExtensionRegistryStore().Load();
+        }
+        catch (Exception ex)
+        {
+            // Help discovery should remain resilient in degraded environments.
+            TryWriteDebug($"RuntimeHelpDispatcher: failed to load registry preferences: {ex.Message}");
+        }
+
+        var selected = new List<DiscoveredExtensionInfo>();
+        foreach (var group in discovered.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
+        {
+            ExtensionRegistryEntry? persisted = null;
+            if (registry is not null && registry.Extensions.TryGetValue(group.Key, out var entry))
+            {
+                persisted = entry;
+            }
+
+            var selection = ExtensionCandidateSelector.Select(group.ToList(), persisted);
+            EmitSelectionDebug(
+                context: "RuntimeHelpDispatcher.SelectPreferredCandidates",
+                selection: selection,
+                persistedPreference: persisted);
+            selected.Add(selection.Selected);
+        }
+
+        return selected;
+    }
+
+    private void EmitSelectionDebug(
+        string context,
+        SelectedExtensionCandidate selection,
+        ExtensionRegistryEntry? persistedPreference)
+    {
+        try
+        {
+            _streams.WriteDebug(
+                ExtensionCandidateSelector.BuildDiagnostics(context, selection, persistedPreference),
+                CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            // Help rendering must remain resilient even if debug sink fails.
+            TryWriteDebug($"RuntimeHelpDispatcher: failed to write selection diagnostics: {ex.Message}");
+        }
+    }
+
+    private void TryWriteDebug(string message)
+    {
+        try
+        {
+            _streams.WriteDebug(message, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Keep help paths resilient even if debug output is unavailable.
+        }
     }
 
     private bool TryResolveExtension(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)

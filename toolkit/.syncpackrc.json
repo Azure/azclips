@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/syncpack@15/dist/schema.json",
+  "versionGroups": [
+    {
+      "label": "Local peer dependencies must also be installed as devDependencies for development (versions must satisfy the peer range).",
+      "dependencies": ["**"],
+      "dependencyTypes": ["dev", "peer"],
+      "policy": "sameRange"
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "peerDependencies should use range syntax (>=, <), not pinned/caret/tilde.",
+      "dependencyTypes": ["peer"],
+      "range": ""
+    }
+  ]
+}

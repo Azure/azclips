@@ -44,8 +44,10 @@ public class Program
             Console.WriteLine($"[Benchmark] Discovered {discovered.Length} class(es):");
             foreach (var t in discovered)
             {
-                var ext = t.GetCustomAttribute<BenchmarkExtensionAttribute>()!.Name;
-                Console.WriteLine($"  - {ext} / {ProductOf(t)} / {t.Name}");
+                var ext = t.GetCustomAttribute<BenchmarkExtensionAttribute>()?.Name;
+                Console.WriteLine(ext is null
+                    ? $"  - Startup / {t.Name}"
+                    : $"  - {ext} / {ProductOf(t)} / {t.Name}");
             }
             return 0;
         }
@@ -198,6 +200,14 @@ public class Program
     /// </summary>
     private static Type[] GetBenchmarkTypes(string? product, string? extension)
     {
+        // Startup benchmarks are a separate family (process-level, own base class, no
+        // [BenchmarkExtension]); select them only via an explicit --product STARTUP. They are
+        // never part of reflection-based extension discovery or the ALL set.
+        if (string.Equals(product, "STARTUP", StringComparison.OrdinalIgnoreCase))
+        {
+            return GetStartupBenchmarkTypes();
+        }
+
         var allTypes = typeof(Program).Assembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract)
             .Where(t => typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t)
@@ -222,7 +232,7 @@ public class Program
             {
                 "CLI" => filtered.Where(t => typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t)),
                 "PS" => filtered.Where(t => typeof(PS.PSBenchmarkBase).IsAssignableFrom(t)),
-                _ => throw new ArgumentException($"Unknown product: {product}. Use: CLI, PS, or ALL")
+                _ => throw new ArgumentException($"Unknown product: {product}. Use: CLI, PS, STARTUP, or ALL")
             };
         }
 
@@ -243,6 +253,33 @@ public class Program
 
     private static string ProductOf(Type t) =>
         typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t) ? "CLI" : "PS";
+
+    /// <summary>
+    /// Startup benchmark classes. Warm always runs; cold runs only when OS page-cache eviction
+    /// is available on this machine (otherwise it is skipped with a log — never reported as
+    /// cold-but-actually-warm).
+    /// </summary>
+    private static Type[] GetStartupBenchmarkTypes()
+    {
+        var types = new List<Type>
+        {
+            typeof(Startup.CliWarmStartupBenchmarks),
+            typeof(Startup.PsWarmStartupBenchmarks),
+        };
+
+        if (Startup.StartupEviction.IsAvailable())
+        {
+            types.Add(typeof(Startup.CliColdStartupBenchmarks));
+            types.Add(typeof(Startup.PsColdStartupBenchmarks));
+        }
+        else
+        {
+            Console.WriteLine(
+                $"[Startup] cold eviction unavailable ({Startup.StartupEviction.DescribeUnavailable()}) — skipping cold startup benchmarks");
+        }
+
+        return types.ToArray();
+    }
 
     private static string? ParseProductFilter(string[] args)
     {

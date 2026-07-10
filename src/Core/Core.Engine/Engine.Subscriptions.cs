@@ -17,6 +17,16 @@ namespace Core.Engine
             SubscribeMessages(subscriber);
             SubscribeActivity(subscriber);
             SubscribeMetric(subscriber);
+            SubscribeBenchmark(subscriber);
+            return subscriber;
+        }
+
+        private IEventSubscriber SubscribeBenchmark(IEventSubscriber subscriber)
+        {
+            if (configurationService.GetConfiguration<BenchmarkOptions>().ResolveOnly)
+            {
+                subscriber.Subscribe(Events.ProcessorAcquired, (object _) => Environment.Exit(0));
+            }
             return subscriber;
         }
 

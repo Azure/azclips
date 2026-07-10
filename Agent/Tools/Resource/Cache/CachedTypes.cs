@@ -36,8 +36,7 @@ public sealed record CachedSubscription(
     [property: JsonPropertyName("subscriptionId")] string SubscriptionId,
     [property: JsonPropertyName("displayName")]    string? DisplayName,
     [property: JsonPropertyName("tenantId")]       string? TenantId,
-    [property: JsonPropertyName("state")]          string? State,
-    [property: JsonPropertyName("isDefault")]      bool IsDefault);
+    [property: JsonPropertyName("state")]          string? State);
 
 public sealed record CachedResourceGroup(
     [property: JsonPropertyName("id")]             string Id,

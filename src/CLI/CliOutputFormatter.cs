@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Globalization;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace Core.Cli;
@@ -20,7 +21,12 @@ internal static class CliOutputFormatter
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        // Use relaxed escaping so console output stays human-readable: characters like the double
+        // quotes inside a raw JSON body (e.g. the `rest` command's `content` string) render as `"`
+        // instead of `\u0022`, and non-ASCII text is emitted verbatim rather than as `\uXXXX`. This
+        // targets terminal display only (not HTML embedding), matching az-style CLI output.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     /// <summary>

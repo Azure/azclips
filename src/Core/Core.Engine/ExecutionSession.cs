@@ -15,7 +15,7 @@ internal class ExecutionSession : ISession
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
-    
+
     private readonly OutputStreamAdapter outputStreamAdapter;
 
     internal Channel<object> OutputChannel = null!;
@@ -59,7 +59,9 @@ internal class ExecutionSession : ISession
         ObjectDisposedException.ThrowIf(_disposed, this);
         EventBus.Token.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
-        await (await GetProcessor()).ProcessAsync();
+        var processor = await GetProcessor();
+        await EventBus.Publish(Events.ProcessorAcquired);
+        await processor.ProcessAsync();
     }
 
     //TODO(Yabo): Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
@@ -100,7 +102,9 @@ internal class ExecutionSession : ISession
             try
             {
                 EventBus.Token.ThrowIfCancellationRequested();
-                await (await GetProcessor()).ProcessAsync();
+                var processor = await GetProcessor();
+                await EventBus.Publish(Events.ProcessorAcquired);
+                await processor.ProcessAsync();
             }
             finally
             {

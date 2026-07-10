@@ -61,6 +61,8 @@ public class AppInsightsExporter : IDisposable
             metric.Properties["Method"] = result.Method;             // Full method name
             metric.Properties["Timestamp"] = timestamp;
             metric.Properties["Machine"] = Environment.MachineName;
+            if (!string.IsNullOrEmpty(result.Mode)) metric.Properties["Mode"] = result.Mode;
+            if (!string.IsNullOrEmpty(result.Extension)) metric.Properties["Extension"] = result.Extension;
 
             _telemetryClient.TrackMetric(metric);
 
@@ -71,6 +73,8 @@ public class AppInsightsExporter : IDisposable
             eventTelemetry.Properties["Resource"] = resource;
             eventTelemetry.Properties["Method"] = result.Method;
             eventTelemetry.Properties["Timestamp"] = timestamp;
+            if (!string.IsNullOrEmpty(result.Mode)) eventTelemetry.Properties["Mode"] = result.Mode;
+            if (!string.IsNullOrEmpty(result.Extension)) eventTelemetry.Properties["Extension"] = result.Extension;
             eventTelemetry.Metrics["DurationSeconds"] = result.MeanSeconds;
             eventTelemetry.Metrics["DurationMs"] = result.MeanSeconds * 1000;
 

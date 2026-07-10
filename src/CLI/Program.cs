@@ -24,6 +24,10 @@ namespace Core.Cli;
 public class Program
 {
     private const string AgentModeEnvVar = "AZCLIPS_IN_AGENT_MODE";
+    // Forwards the user's real cwd to the agent (whose working dir we override to
+    // the install dir for probing). Read by EnvironmentProber on the agent side by
+    // the same literal name — rename both together.
+    private const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ILoggingService? _logger;
@@ -60,6 +64,10 @@ public class Program
         int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
         if (completionExit.HasValue)
             return completionExit.Value;
+
+        int? candidatesExit = await CompletionGenerator.TryHandleCandidatesAsync(args, _clientType);
+        if (candidatesExit.HasValue)
+            return candidatesExit.Value;
 
         _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
@@ -299,10 +307,12 @@ public class Program
         // The user opts in with `az config set --key agent.enabled --value true`.
         // Fail-safe: if config can't be read, treat as disabled and surface the
         // original error rather than spawning the agent on an unknown state.
+        AgentOptions agentOptions;
         try
         {
             var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-            if (!config.GetConfiguration<AgentOptions>().Enabled)
+            agentOptions = config.GetConfiguration<AgentOptions>();
+            if (!agentOptions.Enabled)
             {
                 return 1;
             }
@@ -313,14 +323,15 @@ public class Program
             return 1;
         }
 
-        // Non-interactive guard: the agent reads y/n approvals and prompts from
-        // the terminal. When this isn't an interactive TTY (CI, a pipe, an
-        // unattended script) it can't interact and would hang or spew, so surface
-        // the original error instead of spawning it. Replaces the removed
-        // legacy agent-disabled env guard for unattended runs. Inlined (not the
-        // agent's ConsoleEnvironment helper) so Core.Cli stays decoupled from
-        // Core.Agent — same semantics: a TTY on both stdin and stdout.
-        if (Console.IsInputRedirected || Console.IsOutputRedirected)
+        // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
+        // = interactive keeps a chat loop that reads y/n approvals and prompts from
+        // the terminal, so a non-TTY (CI, a pipe, an unattended script) would hang or
+        // spew; surface the original error instead. oneshot proposes a plan and exits
+        // without any approval turn, so it's safe (and useful) even when stdio is
+        // redirected — don't gate it. Inlined (not the agent's ConsoleEnvironment
+        // helper) so Core.Cli stays decoupled from Core.Agent — same TTY semantics.
+        if (agentOptions.IsInteractive &&
+            (Console.IsInputRedirected || Console.IsOutputRedirected))
         {
             return 1;
         }
@@ -344,6 +355,15 @@ public class Program
             var psi = new ProcessStartInfo
             {
                 FileName = agentExe,
+                // Set the working directory to the agent exe's own directory so
+                // relative additionalProbingPaths in azclips-agent.runtimeconfig.json
+                // resolve correctly. .NET resolves those paths at CLR startup
+                // (before any managed code runs), relative to the working
+                // directory, not the exe location — so this must be set here and
+                // can't be corrected later from inside the agent. The user's real
+                // cwd is forwarded via AZCLIPS_CALLER_CWD below so environment
+                // probing still reports the directory `az` was invoked from.
+                WorkingDirectory = Path.GetDirectoryName(agentExe)!,
                 // Inherit stdio so streaming tokens, y/n prompt, device-code links
                 // all show live in the user's terminal.
                 UseShellExecute = false,
@@ -352,6 +372,13 @@ public class Program
                 RedirectStandardInput = false,
             };
             psi.Environment[AgentModeEnvVar] = "1";
+            // Forward the directory the user actually ran `az` from. WorkingDirectory
+            // above is the agent install dir (needed for probing paths), which would
+            // otherwise make the agent's environment snapshot report the wrong cwd.
+            // Best-effort: GetCurrentDirectory can throw (e.g. the cwd was deleted),
+            // and forwarding it is only a hint — skip it rather than fail the launch.
+            try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
+            catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
             psi.ArgumentList.Add("--agent-mode");
             psi.ArgumentList.Add("--failed-command");
             psi.ArgumentList.Add(JoinShellQuoted(args));
@@ -407,11 +434,12 @@ public class Program
         var baseDir = AppContext.BaseDirectory;
         foreach (var candidate in new[]
         {
-            // Packaged layout: azclips-agent.exe + its dependency closure live
-            // in a dedicated agent/ subdir next to az.exe, published by
-            // build_win_zip.ps1 to avoid dll collisions with the CLI host.
-            Path.Combine(baseDir, "agent", "azclips-agent.exe"),
-            Path.Combine(baseDir, "agent", "azclips-agent"),
+            // Packaged layout: azclips-agent.exe lives next to az.exe (hybrid
+            // layout — see stage_agent). The two share the runtime pack + all
+            // shared NuGet dlls; agent-only deps + prompts + copilot native
+            // live under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/.
+            Path.Combine(baseDir, "azclips-agent.exe"),
+            Path.Combine(baseDir, "azclips-agent"),
             // Local dev layout: `dotnet build` publishes each project to its
             // own artifacts/Debug/<ExtName>/ directory.
             Path.Combine(baseDir, "..", "Core.Agent", "azclips-agent.exe"),

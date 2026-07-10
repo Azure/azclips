@@ -1,0 +1,29 @@
+{
+  "name": "azure-client-engine-toolkit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "build:all": "npm run build --workspaces --if-present",
+    "clean": "tsc -b --clean",
+    "clean:all": "npm run clean --workspaces --if-present",
+    "rebuild": "npm run clean && npm run build",
+    "test": "npm run test --workspaces --if-present",
+    "lint:deps": "syncpack lint",
+    "fix:deps": "syncpack fix-mismatches"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Azure Client Engine toolkit monorepo",
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "syncpack": "^15.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

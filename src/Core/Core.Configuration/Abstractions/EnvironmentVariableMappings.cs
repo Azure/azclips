@@ -23,6 +23,8 @@ public static class EnvironmentVariableMappings
         ("PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
         ("AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
         ("AZCLIPS_NO_EXTENSION_CACHE", "assemblyLoading.bypassExtensionCache"),
+        // Internal-only startup-benchmark seam → BenchmarkOptions.ResolveOnly.
+        ("AZCLIPS_BENCH_RESOLVE_ONLY", "benchmark.resolveOnly"),
     ];
 
     /// <summary>

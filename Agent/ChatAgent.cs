@@ -5,11 +5,11 @@ using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
 using Core.Agent.Providers;
-using Core.Agent.Tools.Env;
 using Core.Agent.Tools;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Sku;
+using Core.Agent.Tools.Shell;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.AI;
@@ -56,10 +56,12 @@ public sealed class ChatAgent : IAsyncDisposable
     // sole terminator, so the host no longer exits on this.
     public bool PlanShown => _state?.PlanShown ?? false;
 
+    // True once submit_response has rendered its outcome for this session.
+    public bool SubmitRendered => _state?.SubmitRendered ?? false;
+
     // The plan the agent proposed but that submit_response never rendered (because
     // the agent stopped after propose_plan without submitting). The one-shot host
     // reads these on exit to render it as a fallback, so the plan is never lost.
-    public bool SubmitRendered => _state?.SubmitRendered ?? false;
     public bool HasPendingPlan => _state?.LastIssues is { Count: > 0 } || _state?.LastPlanSteps is { Count: > 0 };
     public IReadOnlyList<string>? PendingIssues => _state?.LastIssues;
     public IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? PendingPlanSteps => _state?.LastPlanSteps;
@@ -148,12 +150,19 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
         var armDetails = new ArmDetailsClient(auth);
-        var cacheTools = new CachedResourceTools(armDetails);
-        var helpTools = new HelpTools();
+        var cacheTools = new CachedResourceTools(armDetails, profileService);
+        var refresher = new ArmCacheRefresher(auth, profileService);
+        // The resource-reading tools push the active profile's tenant into
+        // ResourceCache on every invocation (see CachedResourceTools.SyncTenantAsync),
+        // so a mid-session `az account set` is reflected on the next query.
+        // Nothing to pin at startup; wire only the background refresher here.
+        ResourceCache.ConfigureSingleton(
+            currentTenantId: null,
+            refresher: refresher);
+        var helpTools = new HelpTools(azExePath);
         var skuTools = new AvailableLocationsTool(auth, profileService);
         var submitTool = new SubmitResponseTool();
         var planTool = new ProposePlanTool();
-        var prober = new EnvironmentProber(profileService, flavor);
 
         ChatAgent? self = null;
         SessionErrored? earlyError = null;
@@ -192,12 +201,13 @@ public sealed class ChatAgent : IAsyncDisposable
         };
         // Pre-fetch the failed command's help so the agent doesn't burn a turn
         // looking up the command it was triggered by. Same lookup the LLM's
-        // get_command uses — on a hit it's the parameter table; on a miss it's the
-        // not_found JSON with suggestions, which is still useful context.
-        var failedHelp = FailedCommandHelp.BuildContext(helpTools, failedCommand);
+        // get_command uses — on a hit it's the parameter table. On a miss (any
+        // error payload, including not_found) FailedCommandHelp skips injection
+        // entirely rather than seeding the session with an error blob.
+        var failedHelp = await FailedCommandHelp.BuildContextAsync(helpTools, failedCommand, ct).ConfigureAwait(false);
         var sessionConfig = BuildBaseSessionConfig(
-            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool, prober,
-            azExePath, approvalSink, eventRenderer, state, failedHelp, ct);
+            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
+            azExePath, approvalSink, eventRenderer, state, failedHelp, entrypoint, ct);
 
         string resolvedModel;
         switch (options.Provider?.ToLowerInvariant())
@@ -226,6 +236,18 @@ public sealed class ChatAgent : IAsyncDisposable
         return agent;
     }
 
+    // Duplicates the classic-CLI-boundary line already present in every
+    // prompts/*.md (added in RN2 layer 1). The prompt version lives in a
+    // long system message that models sometimes skim; injecting the same
+    // reminder via SessionStart's AdditionalContext puts it in a spot the
+    // model reads at every session boot. Wording deliberately mirrors the
+    // prompt copy (Azclips — NOT classic Azure CLI / training data may be
+    // wrong / verify with get_command) so the two channels reinforce each
+    // other instead of introducing wording drift.
+    private const string AzclipsBoundary =
+        "Reminder: this `az` is Azclips — NOT classic Azure CLI. " +
+        "Your training data about classic `az` may be wrong; verify every command with get_command().";
+
     private static SessionConfig BuildBaseSessionConfig(
         string systemPrompt,
         CachedResourceTools cacheTools,
@@ -233,20 +255,49 @@ public sealed class ChatAgent : IAsyncDisposable
         AvailableLocationsTool skuTools,
         SubmitResponseTool submitTool,
         ProposePlanTool planTool,
-        EnvironmentProber prober,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         EventRenderer eventRenderer,
         SessionState state,
         string? failedHelp,
+        string entrypoint,
         CancellationToken ct)
     {
+        // Customize the SDK's default system message. Our oneshot/inline prompt
+        // REPLACES the identity section so it leads the message (the agent knows
+        // it's the azclips error-recovery agent up front, not after the SDK's
+        // generic preamble). All modes strip: tone (we don't want the generic
+        // code-assistant voice), code_change_rules (azclips doesn't edit code),
+        // and custom_instructions (repo CLAUDE.md / commit / notify rules leak
+        // in here). oneshot additionally strips tool_instructions and
+        // runtime_instructions — a single-shot plan needs neither the per-tool
+        // usage guides nor the multi-turn runtime scaffolding; interactive
+        // (inline/tui) keeps them because it actually runs tools across turns.
+        // Kept in all modes: tool_efficiency, environment_context, guidelines,
+        // safety.
+        var sections = new Dictionary<SystemMessageSection, SectionOverride>
+        {
+            [SystemMessageSection.Identity] = new() { Action = SectionOverrideAction.Replace, Content = systemPrompt },
+            [SystemMessageSection.Tone] = new() { Action = SectionOverrideAction.Remove },
+            [SystemMessageSection.CodeChangeRules] = new() { Action = SectionOverrideAction.Remove },
+            [SystemMessageSection.CustomInstructions] = new() { Action = SectionOverrideAction.Remove },
+        };
+        if (string.Equals(entrypoint, "oneshot", StringComparison.OrdinalIgnoreCase))
+        {
+            sections[SystemMessageSection.ToolInstructions] = new() { Action = SectionOverrideAction.Remove };
+            sections[SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove };
+        }
+
         return new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = HomePaths.GetDefaultHomeRoot(),
             Streaming = true,
-            SystemMessage = new SystemMessageConfig { Content = systemPrompt },
+            SystemMessage = new SystemMessageConfig
+            {
+                Mode = SystemMessageMode.Customize,
+                Sections = sections,
+            },
             Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
                 .Concat(submitTool.All).Concat(planTool.All).Cast<AIFunctionDeclaration>().ToList(),
             // All built-in tools available (bash, view, edit, grep, glob,
@@ -257,18 +308,29 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnPreToolUse = (input, _) => PreToolUseHook.HandleAsync(input, azExePath, approvalSink, state, ct),
                 OnSessionStart = async (_, _) =>
                 {
-                    var snap = await prober.ProbeAsync(ct).ConfigureAwait(false);
-                    var ctx = snap.FormatForSystemPrompt();
+                    var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
+                    var ctx = EnvSnapshotFormatter.Format(envJson);
+                    ctx = string.IsNullOrEmpty(ctx) ? AzclipsBoundary : $"{ctx}\n\n{AzclipsBoundary}";
                     // Append the pre-fetched help for the failed command (if any) so
                     // the agent starts with it instead of spending a turn on get_command.
                     if (!string.IsNullOrEmpty(failedHelp))
-                        ctx = string.IsNullOrEmpty(ctx) ? failedHelp : $"{ctx}\n\n{failedHelp}";
+                        ctx = $"{ctx}\n\n{failedHelp}";
+                    // When the snapshot reports signed-out, the fix will need `az login`,
+                    // so pre-fetch its help too — the agent won't burn a turn looking it
+                    // up. Mirrors the failed-command pre-fetch; best-effort (a failed
+                    // lookup just means the agent falls back to get_command).
+                    if (EnvSnapshotFormatter.IsSignedOut(envJson))
+                    {
+                        var loginHelp = await FailedCommandHelp.BuildContextAsync(helpTools, "login", ct).ConfigureAwait(false);
+                        if (!string.IsNullOrEmpty(loginHelp))
+                            ctx = $"{ctx}\n\n{loginHelp}";
+                    }
                     return new SessionStartHookOutput { AdditionalContext = ctx };
                 },
                 OnUserPromptSubmitted = async (_, _) =>
                 {
-                    var snap = await prober.ProbeAsync(ct).ConfigureAwait(false);
-                    return new UserPromptSubmittedHookOutput { AdditionalContext = snap.FormatForSystemPrompt() };
+                    var envJson = await ShellOutHelper.InvokeAzAsync(azExePath, new[] { "agent", "tool", "env" }, ct).ConfigureAwait(false);
+                    return new UserPromptSubmittedHookOutput { AdditionalContext = EnvSnapshotFormatter.Format(envJson) };
                 },
             },
             OnPermissionRequest = async (req, invocation) =>
@@ -321,7 +383,20 @@ public sealed class ChatAgent : IAsyncDisposable
                 $"entrypoint must be one of {string.Join(" | ", ValidEntrypoints)} — refusing to guess which system prompt to load. Got: '{entrypoint}'.",
                 nameof(entrypoint));
 
-        var path = Path.Combine(AppContext.BaseDirectory, "prompts", $"{entrypoint.ToLowerInvariant()}.md");
+        // Prompts live at a layout-specific location resolved by
+        // AgentInstallLayout. The layout flavor (packaged vs dev) is baked
+        // into the dll at compile time, so this dll can only look at the
+        // path it was built to look at — no cross-install ambiguity even
+        // when an MSI-installed daemon and a dev-built one coexist.
+        var path = Path.Combine(AgentInstallLayout.PromptsDir,
+            $"{entrypoint.ToLowerInvariant()}.md");
+        if (!File.Exists(path))
+            throw new FileNotFoundException(
+                $"Agent system prompt not found: {path}. " +
+                (AgentInstallLayout.IsPackaged
+                    ? "Packaging bug — stage_agent should have staged prompts under Extensions/Microsoft.Azure.Azclips.Extensions.Agent/prompts/."
+                    : "Dev build bug — csproj should copy prompts/ to the build output."),
+                path);
         var content = File.ReadAllText(path);
         return content.Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase);
     }

@@ -1,0 +1,72 @@
+/**
+ * Structured identity for every named IR entity (models, enums, properties,
+ * operations, parameters). Identities are computed at emit time from the
+ * declaration site's *original* names and are invariant under renaming
+ * transforms; renames produce a new display `name` but leave the `id` untouched.
+ *
+ * Format:
+ *   module     The originating TypeSpec module. `<root>` for the user's spec,
+ *              `@scope/pkg-name` for library types, or a custom source id.
+ *   namespace  The dotted namespace path, split into segments.
+ *   name       The terminal name. May contain `#` for synthesized inline names
+ *              (e.g. `create#request.body` for an inline anonymous body type).
+ *   typeArgs   For template instantiations (`Page<User>` => name: "Page",
+ *              typeArgs: [<User's id>]). Recurses for nested instantiations.
+ */
+
+import { z } from "zod";
+
+export type IRId = {
+  module: string;
+  namespace: string[];
+  name: string;
+  typeArgs?: IRId[] | undefined;
+};
+
+export const IRIdSchema: z.ZodType<IRId> = z.lazy(() =>
+  z
+    .object({
+      module: z.string().min(1),
+      namespace: z.array(z.string().min(1)),
+      name: z.string().min(1),
+      typeArgs: z.array(IRIdSchema).optional(),
+    })
+    .strict(),
+);
+
+/**
+ * Canonical string form, suitable for display and equality comparison.
+ * NOT safe to use as a filesystem path; the `<`, `>`, `,`, `[`, `]`
+ * characters appear for template instantiations and module brackets.
+ */
+export function serializeId(id: IRId): string {
+  const path = id.namespace.length ? [...id.namespace, id.name].join(".") : id.name;
+  const args =
+    id.typeArgs && id.typeArgs.length
+      ? "<" + id.typeArgs.map(serializeId).join(", ") + ">"
+      : "";
+  return `[${id.module}] ${path}${args}`;
+}
+
+/**
+ * Structural equality. Avoids the string allocations of `serializeId`
+ * and short-circuits on the cheap module/name checks first, since most
+ * non-matching ids differ in one of these.
+ */
+export function idEquals(a: IRId, b: IRId): boolean {
+  if (a.module !== b.module || a.name !== b.name) return false;
+  if (a.namespace.length !== b.namespace.length) return false;
+  for (let i = 0; i < a.namespace.length; i++) {
+    if (a.namespace[i] !== b.namespace[i]) return false;
+  }
+  const at = a.typeArgs;
+  const bt = b.typeArgs;
+  if (at === undefined && bt === undefined) return true;
+  if (at === undefined || bt === undefined) return false;
+  if (at.length !== bt.length) return false;
+  for (let i = 0; i < at.length; i++) {
+    // safe: bounds checked
+    if (!idEquals(at[i]!, bt[i]!)) return false;
+  }
+  return true;
+}

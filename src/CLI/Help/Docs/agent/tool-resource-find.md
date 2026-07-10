@@ -18,3 +18,17 @@ az agent tool resource find --name prod
 ```bash
 az agent tool resource find --name prod --kind resourceGroup
 ```
+
+### Disambiguate a name that repeats across subscriptions
+
+```bash
+az agent tool resource find --name prod --subscription-id 00000000-0000-0000-0000-000000000000
+```
+
+### Narrow to a resource group and cap the result count
+
+```bash
+az agent tool resource find --name prod --kind resource --resource-group my-rg --top 25
+```
+
+Optional flags: `--kind` (tenant | subscription | resourceGroup | resource; defaults to all), `--subscription-id` (subscription id or display name), `--resource-group` (only meaningful for `--kind resource`), `--top` (max candidates, default 10).
