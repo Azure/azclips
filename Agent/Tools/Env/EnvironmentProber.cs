@@ -20,7 +20,19 @@ public sealed class EnvironmentProber
     {
         var os = Safe(() => RuntimeInformation.OSDescription, "unknown");
         var shell = Safe(EnvironmentProbes.DetectShell, "unknown");
-        var cwd = Safe(Directory.GetCurrentDirectory, "(unknown)");
+        // The CLI launches this agent process with its working directory set to
+        // the agent install dir (so relative additionalProbingPaths resolve), and
+        // forwards the directory the user actually ran `az` from via
+        // AZCLIPS_CALLER_CWD. Prefer that; fall back to the process cwd for the
+        // dev-loop / direct-launch case where the env var isn't set.
+        var cwd = Safe(() =>
+        {
+            // Name must match Program.CallerCwdEnvVar on the CLI side (kept as a
+            // literal here rather than a reference, since the agent must not take
+            // a dependency on the CLI project). If one side is renamed, rename both.
+            var callerCwd = Environment.GetEnvironmentVariable("AZCLIPS_CALLER_CWD");
+            return !string.IsNullOrEmpty(callerCwd) ? callerCwd : Directory.GetCurrentDirectory();
+        }, "(unknown)");
         var sshSession = Safe(EnvironmentProbes.IsSshSession, false);
         var stdinInteractive = Safe(() => !Console.IsInputRedirected, false);
         var browserAvailable = Safe(() => EnvironmentProbes.IsBrowserAvailable(sshSession), false);

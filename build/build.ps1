@@ -213,21 +213,8 @@ function Publish-AzclipsHelpArtifacts
 
 Invoke-AzclipsBuild -Configuration $Configuration
 
-# Ensure bin/ output directory exists before writing any artifacts
-New-Item -ItemType Directory -Force -Path "$PSScriptRoot/../bin" | Out-Null
-
-# Copy shell completion scripts from source to bin/
+# Copy shell completion scripts to artifacts/<Configuration>/Core.Cli/ for packaging
 $_completionsDir = "$PSScriptRoot/../src/CLI/Completions"
-foreach ($_script in @('az.completions.ps1', 'az.completions.bash', 'az.completions.zsh')) {
-    $_src = Join-Path $_completionsDir $_script
-    if (Test-Path $_src) {
-        # Ensure shell scripts are emitted without BOM and with LF line endings.
-        Write-Utf8NoBomFile -Path "$PSScriptRoot/../bin/$_script" -Content (Get-Content -Path $_src -Raw) -NormalizeLf
-    }
-}
-Write-Host "Copied completion scripts to bin/" -ForegroundColor Green
-
-# Also emit completion artifacts into artifacts/<Configuration>/Core.Cli/ for packaging
 $_cliArtifactDir = "$PSScriptRoot/../artifacts/$Configuration/Core.Cli"
 if (Test-Path $_cliArtifactDir) {
     foreach ($_script in @('az.completions.ps1', 'az.completions.bash', 'az.completions.zsh')) {

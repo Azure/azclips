@@ -7,88 +7,117 @@
 #
 # Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
+#
+# Detection: The script auto-detects azclips by calling `az --completions`.
+# If the binary returns valid JSON, it is treated as azclips; otherwise completions are skipped.
+# The result is cached per session so detection only runs once.
+# Completions are cached for the current PowerShell session and invalidated if the resolved exe path changes (e.g., after an update)
+# or if the completion.enabled setting changes in user config.
+# To refresh manually, run:
+#   _azClearCache
 
-# Per-binary cache: path -> $true/$false
-$global:_azIsAzclipsCache = @{}
+# Session cache for completions tree (persists until exe path/config stamp changes)
+# isAzclips: $null = unknown, $true = azclips detected, $false = not azclips
+# notAzclips: hashtable of exe paths confirmed not to be azclips (per-exe detection)
+$global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null; isAzclips = $null; notAzclips = @{} }
 
-function global:_azIsAzclips {
-    param([string]$exePath)
-    # Resolve which binary to check
-    if (-not $exePath) { return $false }
-    $resolved = Get-Command $exePath -ErrorAction SilentlyContinue
-    if ($resolved) {
-        $exePath = $resolved.Source
-    } elseif (Test-Path $exePath) {
-        # Bare name in current directory (e.g. user typed "az.exe" while in the binary's folder)
-        $exePath = (Resolve-Path $exePath).Path
-    } else {
-        return $false
+function global:_azGetConfigStamp {
+    # Prefer semantic invalidation based on completion.enabled.
+    # Fall back to file metadata if the config cannot be parsed.
+    $configPath = Join-Path $HOME '.azclips/config.json'
+    if (-not (Test-Path $configPath)) {
+        # Missing config means defaults apply (completion.enabled=true).
+        return "$configPath|enabled:true|missing"
     }
-    $key = $exePath.ToLower()
-    if ($global:_azIsAzclipsCache.ContainsKey($key)) { return $global:_azIsAzclipsCache[$key] }
-    $result = $false
+
     try {
-        $ver = & $exePath --version 2>&1 | Out-String
-        # System Azure CLI outputs 'azure-cli X.Y.Z'; azclips does not.
-        # If --version failed or returned empty, treat as not azclips.
-        if ($ver) {
-            $result = ($ver -notmatch 'azure-cli')
+        $raw = Get-Content -LiteralPath $configPath -Raw -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            return "$configPath|enabled:true|empty"
         }
-    } catch {
-        # --version threw → not azclips
-    }
-    $global:_azIsAzclipsCache[$key] = $result
-    return $result
-}
 
-function global:_azResolveExe {
-    # 1. Same directory as this script (e.g. artifacts/Release/Core.Cli/)
-    $local = Join-Path $PSScriptRoot 'az.exe'
-    if (Test-Path $local) { return $local }
-    $local = Join-Path $PSScriptRoot 'az'
-    if (Test-Path $local) { return $local }
+        $doc = $raw | ConvertFrom-Json -AsHashtable -ErrorAction Stop
+        $enabled = $true
 
-    # 2. Walk up to find repo root (look for global.json), then check artifacts/
-    $dir = $PSScriptRoot
-    while ($dir) {
-        if (Test-Path (Join-Path $dir 'global.json')) {
-            foreach ($cfg in 'Release', 'Debug') {
-                $candidate = Join-Path $dir "artifacts/$cfg/Core.Cli/az.exe"
-                if (Test-Path $candidate) { return $candidate }
-                $candidate = Join-Path $dir "artifacts/$cfg/Core.Cli/az"
-                if (Test-Path $candidate) { return $candidate }
+        if ($doc -is [System.Collections.Hashtable]) {
+            if ($doc.ContainsKey('completion')) {
+                $completionNode = $doc['completion']
+                if ($completionNode -is [System.Collections.Hashtable] -and $completionNode.ContainsKey('enabled')) {
+                    $enabled = [System.Convert]::ToBoolean($completionNode['enabled'])
+                } elseif ($completionNode -and $completionNode.PSObject.Properties['enabled']) {
+                    $enabled = [System.Convert]::ToBoolean($completionNode.enabled)
+                }
+            } elseif ($doc.ContainsKey('completion.enabled')) {
+                # Legacy flat key support.
+                $enabled = [System.Convert]::ToBoolean($doc['completion.enabled'])
             }
-            break
         }
-        $parent = Split-Path $dir -Parent
-        if ($parent -eq $dir) { break }
-        $dir = $parent
-    }
 
-    # 3. Fall back to PATH
-    $cmd = Get-Command az -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    return $null
+        return "$configPath|enabled:$enabled"
+    } catch {
+        try {
+            $item = Get-Item -LiteralPath $configPath -ErrorAction Stop
+            return "$configPath|fallback-meta|$($item.Length)|$($item.LastWriteTimeUtc.Ticks)"
+        } catch {
+            return "$configPath|error"
+        }
+    }
 }
 
 function global:_azQueryCompletions {
-    param([string[]]$context)
-    $exe = _azResolveExe
-    if (-not $exe) { return $null }
+    param([string]$exePath, [string[]]$context)
+    if (-not $exePath) { return $null }
+    # Skip exes already known to not be azclips
+    if ($global:_azCompletionsCache.notAzclips.ContainsKey($exePath)) { return $null }
+    $configStamp = _azGetConfigStamp
+    
+    # Check cache validity: invalidate on exe path or config stamp change
+    $isCacheValid = ($null -ne $global:_azCompletionsCache.tree) -and 
+                    ($global:_azCompletionsCache.exe -eq $exePath) -and
+                    ($global:_azCompletionsCache.configStamp -eq $configStamp)
+    
+    if ($isCacheValid) {
+        # Use cached tree, navigate to requested context
+        $tree = $global:_azCompletionsCache.tree
+        foreach ($part in $context) {
+            if ($tree -is [System.Collections.Hashtable] -and $tree.ContainsKey($part)) {
+                $tree = $tree[$part]
+            } else {
+                $isCacheValid = $false
+                break
+            }
+        }
+        if ($isCacheValid) { return $tree }
+    }
+    
+    # Cache miss or exe changed: query fresh
     $args_ = @('--completions') + $context
     try {
-        $json = & $exe @args_ 2>$null
+        $json = & $exePath @args_ 2>$null
         if ($json) {
             $joined = ($json | Where-Object { $_ -match '^\s*[\{\[]' }) -join ''
-            if ($joined) { return $joined | ConvertFrom-Json -AsHashtable }
+            if ($joined) {
+                $result = $joined | ConvertFrom-Json -AsHashtable
+                $global:_azCompletionsCache.isAzclips = $true
+                
+                # Only cache root-level query (no context) to minimize memory
+                if ($context.Count -eq 0) {
+                    $global:_azCompletionsCache.tree = $result
+                    $global:_azCompletionsCache.exe = $exePath
+                    $global:_azCompletionsCache.configStamp = $configStamp
+                }
+                return $result
+            }
         }
     } catch {}
+    # Output was not valid JSON → not azclips; remember per exe so other binaries aren't blocked
+    $global:_azCompletionsCache.notAzclips[$exePath] = $true
     return $null
 }
 
 function global:_azGetTopLevelGroups {
-    # Always query `az --completions` at tab time (no caching).
-    $tree = _azQueryCompletions
+    param([string]$exePath)
+    $tree = _azQueryCompletions -exePath $exePath
     if ($tree -and $tree.Count -gt 0) {
         return @($tree.Keys | Sort-Object)
     }
@@ -96,25 +125,30 @@ function global:_azGetTopLevelGroups {
 }
 
 function global:_azGetGroupDef {
-    param([string]$group)
-    # Always query `az --completions <group>` at tab time (no caching).
-    $tree = _azQueryCompletions @($group)
+    param([string]$exePath, [string]$group)
+    $tree = _azQueryCompletions -exePath $exePath -context @($group)
     if ($tree -and $tree.Count -gt 0) {
         return $tree
     }
     return $null
 }
 
+# Manual cache refresh function (use if needed)
+function global:_azClearCache {
+    $global:_azCompletionsCache = @{ tree = $null; exe = $null; configStamp = $null; isAzclips = $null; notAzclips = @{} }
+    Write-Host "az completions cache cleared. Completions will be refreshed on next Tab press." -ForegroundColor Green
+}
+
 # Core completion logic — returns CompletionResult[] for a given input line and cursor
 function global:_azGetCompletions {
-    param([string]$inputText, [int]$cursorPos)
+    param([string]$exePath, [string]$inputText, [int]$cursorPos)
 
     $textUpToCursor = $inputText.Substring(0, $cursorPos)
     $allTokens = @($textUpToCursor -split '\s+' | Where-Object { $_ -ne '' })
     $completedArgs = @($allTokens | Select-Object -Skip 1)
     $isCompletingNewToken = $textUpToCursor.EndsWith(' ')
 
-    $topLevelGroups = _azGetTopLevelGroups
+    $topLevelGroups = _azGetTopLevelGroups -exePath $exePath
     if (-not $topLevelGroups -or $topLevelGroups.Count -eq 0) { return @() }
 
     # --- Level 0: completing command group ---
@@ -126,7 +160,7 @@ function global:_azGetCompletions {
     }
 
     $group = $completedArgs[0].ToLower()
-    $groupDef = _azGetGroupDef $group
+    $groupDef = _azGetGroupDef -exePath $exePath -group $group
     if (-not $groupDef) { return @() }
 
     $subcommands = if ($groupDef.ContainsKey('_subcommands')) { $groupDef['_subcommands'] } else { @() }
@@ -188,7 +222,9 @@ foreach ($_cmd in @('az', 'az.exe')) {
     Register-ArgumentCompleter -Native -CommandName $_cmd -ScriptBlock {
         param($wordToComplete, $commandAst, $cursorPosition)
         $line = $commandAst.ToString()
-        _azGetCompletions $line $cursorPosition
+        $cmd = Get-Command ($commandAst.GetCommandName()) -ErrorAction SilentlyContinue
+        $exe = if ($cmd) { $cmd.Source } else { $null }
+        if ($exe) { _azGetCompletions -exePath $exe -inputText $line -cursorPos $cursorPosition }
     }
 }
 
@@ -224,15 +260,37 @@ function global:TabExpansion2 {
         $line = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $inputScript } else { $ast.Extent.Text }
         $cursor = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $cursorColumn } else { $positionOfCursor.Offset }
 
-        if ($line -match '^\s*((\S*[\\/])?(az(\.exe)?))\s') {
-            $azCmd = $Matches[1]   # full command: e.g. "artifacts\...\az.exe" or "az"
-            $azPath = $Matches[2]  # path prefix: e.g. "artifacts\...\" or $null
+        if ($line -match '^\s*((\S*[\\/])?(az(\.exe)?))(\s|$)') {
+            $azCmd = $Matches[1]   # e.g. "artifacts\...\az.exe" or "az"
 
-            # Check the actual binary is azclips, not system azure-cli
-            $isAzclips = _azIsAzclips $azCmd
-            if ($isAzclips) {
-                $results = @(_azGetCompletions $line $cursor)
-                if ($results.Count -gt 0) {
+            # Resolve the actual exe path from what the user typed
+            $resolvedExe = $null
+            if ($azCmd -match '[\\/]') {
+                # Path-qualified: resolve directly, ensure .exe suffix for invocability
+                foreach ($candidate in $azCmd, "$azCmd.exe") {
+                    if (Test-Path $candidate) {
+                        $resolvedExe = (Resolve-Path $candidate).Path
+                        if ($resolvedExe -and -not $resolvedExe.EndsWith('.exe', [System.StringComparison]::OrdinalIgnoreCase)) {
+                            if (Test-Path "$resolvedExe.exe") { $resolvedExe = "$resolvedExe.exe" }
+                        }
+                        break
+                    }
+                }
+            } else {
+                # Bare command: resolve via PATH (same binary the shell would execute)
+                $cmd = Get-Command $azCmd -ErrorAction SilentlyContinue
+                if ($cmd) { $resolvedExe = $cmd.Source }
+            }
+            if (-not $resolvedExe) {
+                # Can't find the binary → fall through to default
+            }
+            # Check cached detection for this exe
+            elseif ($global:_azCompletionsCache.notAzclips.ContainsKey($resolvedExe)) {
+                # Already determined not azclips for this specific exe → fall through
+            } else {
+                $results = @(_azGetCompletions -exePath $resolvedExe -inputText $line -cursorPos $cursor)
+                if ($global:_azCompletionsCache.isAzclips -eq $true -and $results.Count -gt 0) {
+                    # Confirmed azclips with results — return them
                     $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
                     $lastSpace = $textUpToCursor.LastIndexOf(' ')
                     $replIndex = $lastSpace + 1
@@ -242,6 +300,7 @@ function global:TabExpansion2 {
                     foreach ($r in $results) { $matches.Add($r) }
                     return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
                 }
+                # isAzclips is $false after query → not azclips, fall through
             }
         }
 

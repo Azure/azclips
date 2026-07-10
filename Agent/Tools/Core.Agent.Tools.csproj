@@ -17,24 +17,12 @@
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
 
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="Azure.ResourceManager" Version="1.13.1" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- HelpTools reads these JSON corpus files from the assembly's own
-         directory at runtime. Link them into a Help/ subdir at output so
-         both the standalone azclips-agent.exe host and the az agent tool
-         extension host find them next to Core.Agent.Tools.dll. -->
-    <None Include="Help\*.json">
-      <Link>Help\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">

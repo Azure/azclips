@@ -5,23 +5,61 @@ using Core.Abstractions;
 namespace Core.Agent.Tools.Resource.Cache;
 
 /// <summary>
-/// Process-wide singleton over the on-disk ARM cache under
-/// <c>%USERPROFILE%/.azclips/arm-cache/</c>.
+/// Process-wide reader over the on-disk ARM cache under
+/// <c>%USERPROFILE%/.azclips/arm-cache/&lt;tenantId&gt;/</c>. Tenants live at
+/// the cache root because they span tenants; subs / rgs / resources live in
+/// a per-tenant subdirectory so switching tenant just switches directory.
 ///
-/// Designed for the three agent tools (find_resources / get_resource_tree
-/// / get_resource_details). The cache itself (build / refresh / TTL
-/// enforcement) is owned by another component (Nori's side); we only
-/// READ. If any of the four expected files is missing, the corresponding
-/// list is empty and queries gracefully degrade.
+/// The cache itself (build / refresh) is owned by <see cref="ArmCacheRefresher"/>,
+/// which every read path kicks in a fire-and-forget background task so the
+/// NEXT query sees fresh data. Missing files degrade to empty lists.
 ///
-/// Indexes built lazily on first access and rebuilt when any cache file's
-/// mtime changes (cheap stat call, no inotify needed — invocations are
-/// short-lived, the model session is the longest-living consumer).
+/// Indexes rebuild when any cache file's mtime changes (cheap stat call);
+/// invocations are short-lived, the model session is the longest consumer.
 /// </summary>
 public sealed class ResourceCache
 {
     private static readonly Lazy<ResourceCache> _instance = new(() => new ResourceCache());
     public static ResourceCache Current => _instance.Value;
+
+    /// <summary>
+    /// Wires the singleton's background refresher and current-tenant provider.
+    /// Idempotent; only the first non-null argument on each slot sticks so a
+    /// second call from a test host can't tear down live wiring. Call from
+    /// agent startup after auth is available.
+    /// </summary>
+    public static void ConfigureSingleton(Func<string?>? currentTenantId, ArmCacheRefresher? refresher)
+    {
+        var c = Current;
+        lock (c._lock)
+        {
+            c._currentTenantId ??= currentTenantId;
+            c._refresher ??= refresher;
+            // Force reload so the next EnsureLoaded picks up the new tenant.
+            c._loadedAt = DateTime.MinValue;
+        }
+    }
+
+    /// <summary>
+    /// Sets the tenant the cache reads from, overwriting any previous value.
+    /// Cheap: just swaps an in-memory provider — no file I/O, no TTL change,
+    /// no network. The next EnsureLoaded notices the tenant differs from the
+    /// one it last loaded and re-points at that tenant's cache subdirectory
+    /// (and kicks a background refresh if it's cold).
+    ///
+    /// Called by the resource-reading tools on every invocation so a mid-session
+    /// tenant switch (e.g. the user runs `az account set` while an interactive
+    /// agent is open) is reflected on the next resource query, instead of being
+    /// pinned to whatever tenant was active when the daemon started.
+    /// </summary>
+    public static void SetCurrentTenantId(string? tenantId)
+    {
+        var c = Current;
+        lock (c._lock)
+        {
+            c._currentTenantId = () => tenantId;
+        }
+    }
 
     public static string DefaultCacheDir => HomePaths.GetDefaultArmCacheDirectory();
 
@@ -30,9 +68,12 @@ public sealed class ResourceCache
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    private readonly string _dir;
+    private readonly string _root;
+    private Func<string?>? _currentTenantId;
+    private ArmCacheRefresher? _refresher;
     private readonly object _lock = new();
 
+    private string? _loadedTenantId;
     private DateTime _loadedAt = DateTime.MinValue;
     private Dictionary<string, DateTime> _fileMtimes = new();
 
@@ -47,12 +88,16 @@ public sealed class ResourceCache
     private Dictionary<string, CachedSubscription> _subById = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, List<CachedResource>> _resByNameLower = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, List<CachedResourceGroup>> _rgByNameLower = new(StringComparer.OrdinalIgnoreCase);
-    private Dictionary<string, List<CachedResource>> _resByTypeLower = new(StringComparer.OrdinalIgnoreCase);
     private SortedSet<string> _resIdsSorted = new(StringComparer.OrdinalIgnoreCase);
 
-    public ResourceCache(string? cacheDir = null)
+    public ResourceCache(
+        string? cacheDir = null,
+        Func<string?>? currentTenantId = null,
+        ArmCacheRefresher? refresher = null)
     {
-        _dir = cacheDir ?? DefaultCacheDir;
+        _root = cacheDir ?? DefaultCacheDir;
+        _currentTenantId = currentTenantId;
+        _refresher = refresher;
     }
 
     /// <summary>Forces a reload on next query.</summary>
@@ -63,40 +108,58 @@ public sealed class ResourceCache
 
     private void EnsureLoaded()
     {
+        // Kick the background refresh outside the lock. Fire-and-forget; the
+        // next call sees fresh data. Failing refreshes are swallowed inside
+        // the refresher — never a reason to fail a read.
+        _refresher?.KickAsync();
+
         lock (_lock)
         {
-            if (!Directory.Exists(_dir))
+            var tenantId = _currentTenantId?.Invoke();
+            var tenantDir = string.IsNullOrEmpty(tenantId) ? _root : Path.Combine(_root, tenantId!);
+
+            // Tenants file lives at the cache root (shared across tenants);
+            // the per-tenant subdirectory owns everything else.
+            var probe = new[]
             {
-                return;
-            }
+                Path.Combine(_root,     "tenants.json"),
+                Path.Combine(tenantDir, "subscriptions.json"),
+                Path.Combine(tenantDir, "resource-groups.json"),
+                Path.Combine(tenantDir, "resources.json"),
+            };
+            var current = probe.ToDictionary(
+                p => p,
+                p => File.Exists(p) ? File.GetLastWriteTimeUtc(p) : DateTime.MinValue);
 
-            var files = new[] { "tenants.json", "subscriptions.json", "resource-groups.json", "resources.json" };
-            var current = files.ToDictionary(
-                f => f,
-                f => File.Exists(Path.Combine(_dir, f)) ? File.GetLastWriteTimeUtc(Path.Combine(_dir, f)) : DateTime.MinValue);
-
-            bool changed = current.Count != _fileMtimes.Count
+            var tenantChanged = !string.Equals(_loadedTenantId, tenantId, StringComparison.OrdinalIgnoreCase);
+            bool changed = tenantChanged
+                || current.Count != _fileMtimes.Count
                 || current.Any(kv => !_fileMtimes.TryGetValue(kv.Key, out var t) || t != kv.Value);
             if (!changed && _loadedAt != DateTime.MinValue) return;
 
-            Tenants        = LoadFile<CachedTenant>("tenants.json");
-            Subscriptions  = LoadFile<CachedSubscription>("subscriptions.json");
-            ResourceGroups = LoadFile<CachedResourceGroup>("resource-groups.json");
-            Resources      = LoadFile<CachedResource>("resources.json");
+            Tenants        = LoadFile<CachedTenant>(Path.Combine(_root,     "tenants.json"));
+            Subscriptions  = LoadFile<CachedSubscription>(Path.Combine(tenantDir, "subscriptions.json"));
+            ResourceGroups = LoadFile<CachedResourceGroup>(Path.Combine(tenantDir, "resource-groups.json"));
+            Resources      = LoadFile<CachedResource>(Path.Combine(tenantDir, "resources.json"));
             BuildIndexes();
 
             _fileMtimes = current;
+            _loadedTenantId = tenantId;
             _loadedAt = DateTime.UtcNow;
         }
     }
 
-    private List<T> LoadFile<T>(string fileName)
+    private List<T> LoadFile<T>(string path)
     {
-        var path = Path.Combine(_dir, fileName);
         if (!File.Exists(path)) return new List<T>();
         try
         {
-            using var fs = File.OpenRead(path);
+            // FileShare.ReadWrite | Delete lets ArmCacheRefresher's atomic
+            // tmp+rename replace this file while a reader still has it open;
+            // without Delete-sharing, File.Move(overwrite:true) fails on
+            // Windows with "access denied" during a concurrent refresh.
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
             var env = JsonSerializer.Deserialize<CacheFile<T>>(fs, Json);
             return env?.Items ?? new List<T>();
         }
@@ -120,10 +183,6 @@ public sealed class ResourceCache
 
         _resByNameLower = Resources
             .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
-
-        _resByTypeLower = Resources
-            .GroupBy(r => r.Type, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         _resIdsSorted = new SortedSet<string>(Resources.Select(r => r.Id), StringComparer.OrdinalIgnoreCase);
@@ -363,18 +422,6 @@ public sealed class ResourceCache
     }
 
     // ── helpers ──
-
-    private IEnumerable<CachedResource> ResolveTypeBuckets(string type)
-    {
-        if (_resByTypeLower.TryGetValue(type, out var exact)) return exact;
-
-        // Try short form: "virtualMachines" → "microsoft.compute/virtualmachines"
-        var typeLower = type.ToLowerInvariant().TrimStart('/');
-        return _resByTypeLower
-            .Where(kv => kv.Key.EndsWith("/" + typeLower, StringComparison.OrdinalIgnoreCase)
-                      || kv.Key.Contains(typeLower, StringComparison.OrdinalIgnoreCase))
-            .SelectMany(kv => kv.Value);
-    }
 
     private IEnumerable<CachedResource> ApplyScope(IEnumerable<CachedResource> src, ScopeFilter scope)
     {

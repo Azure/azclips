@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
+using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent
@@ -52,6 +53,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             {
                 ["name"] = new("Name", "name", typeof(string), "Name pattern to match against cached Azure resource names.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["kind"] = new("Kind", "kind", typeof(string), "Optional kind filter (tenant | subscription | resourceGroup | resource). Defaults to all kinds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("Subscription", "subscription-id", typeof(string), "Optional subscription id or display name to narrow the search.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Optional resource group name to narrow the search (only meaningful for kind=resource).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["top"] = new("Top", "top", typeof(int), "Max candidates to return. Default 10.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -71,6 +75,52 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata s_resourceTree_CLI = new(
+            Name: "ResourceTreeProcessor",
+            InvocationName: "agent tool resource tree",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource.ResourceTreeProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(ResourceTreeProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["name"]      = new("Name", "name", typeof(string), "Name, full ARM id, subscription id/name, or tenant id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["kind"]      = new("Kind", "kind", typeof(string), "Kind of node to root the tree at: tenant | subscription | resourceGroup | resource.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["max-depth"] = new("MaxDepth", "max-depth", typeof(int), "Max depth from the root node. Defaults to 2.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("Subscription", "subscription-id", typeof(string), "Optional subscription scope when kind=resourceGroup and the RG name repeats across subscriptions.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_resourceShow_CLI = new(
+            Name: "ResourceShowProcessor",
+            InvocationName: "agent tool resource show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource.ResourceShowProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(ResourceShowProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["name"] = new("Name", "name", typeof(string), "Name or full ARM id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["kind"] = new("Kind", "kind", typeof(string), "Optional kind filter: tenant | subscription | resourceGroup | resource.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("Subscription", "subscription-id", typeof(string), "Optional subscription id or display name to scope the lookup.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Optional resource group to scope the lookup (only meaningful for kind=resource).", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["live"] = new("Live", "live", typeof(bool), "Fetch live ARM body (properties, provisioningState, endpoints). Adds ~200-500ms. Default false.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_cacheRefresh_CLI = new(
+            Name: "CacheRefreshProcessor",
+            InvocationName: "agent tool cache refresh",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache.CacheRefreshProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(CacheRefreshProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         // ── Dispatch Tables ──
         // Full-path keys keyed on the space-joined invocation path. The root
         // verb ("agent") isn't a runnable leaf — dispatcher treats it as a group.
@@ -83,6 +133,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["agent tool help"]           = s_help_CLI,
             ["agent tool resource find"]  = s_resourceFind_CLI,
             ["agent tool resource sku"]   = s_resourceSku_CLI,
+            ["agent tool resource tree"]  = s_resourceTree_CLI,
+            ["agent tool resource show"]  = s_resourceShow_CLI,
+            ["agent tool cache refresh"]  = s_cacheRefresh_CLI,
         };
 
         // ── Lookup ──

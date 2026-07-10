@@ -29,7 +29,7 @@ public class ExtractCommandNameTests
     [Fact]
     public void Keeps_hyphenated_verb_token()
     {
-        Assert.Equal("vm create-combined", FailedCommandHelp.ExtractCommandName("vm create-combined --name x"));
+        Assert.Equal("vm create-basic", FailedCommandHelp.ExtractCommandName("vm create-basic --name x"));
     }
 
     [Fact]

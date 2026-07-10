@@ -1,0 +1,54 @@
+/**
+ * Enums.
+ *
+ * TypeSpec enums map cleanly: a name, a value type (string or numeric),
+ * and a closed list of members. We don't model open enums here — the
+ * project's polymorphism story is closed, and open enums would need
+ * their own "unknown value" fallback design.
+ */
+
+import { z } from "zod";
+import { IRIdSchema, type IRId } from "./id.js";
+import { EnumHintsSchema, type EnumHints } from "./hints.js";
+
+export type IREnumMember = {
+  name: string;
+  /** Wire value. Strings carry strings; numeric enums use number. */
+  value: string | number;
+  docs?: string | undefined;
+};
+
+export const IREnumMemberSchema: z.ZodType<IREnumMember> = z
+  .object({
+    name: z.string().min(1),
+    value: z.union([z.string(), z.number()]),
+    docs: z.string().optional(),
+  })
+  .strict();
+
+export type IREnum = {
+  id: IRId;
+  name: string;
+  valueType: "string" | "number";
+  members: IREnumMember[];
+  /**
+   * The source (IRSource.id) this enum was declared in. Library-shared
+   * enums use the library's module string here so they aren't tagged
+   * to any single source.
+   */
+  source: string;
+  docs?: string | undefined;
+  rendering?: EnumHints | undefined;
+};
+
+export const IREnumSchema: z.ZodType<IREnum> = z
+  .object({
+    id: IRIdSchema,
+    name: z.string().min(1),
+    valueType: z.enum(["string", "number"]),
+    members: z.array(IREnumMemberSchema).min(1),
+    source: z.string().min(1),
+    docs: z.string().optional(),
+    rendering: EnumHintsSchema.optional(),
+  })
+  .strict();
