@@ -203,7 +203,7 @@ public class AgentToolsLiveTests
     private static string FirstLine(string s) =>
         s.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "(no output)";
 
-    private static Task<(int exit, string stdout, string stderr)> RunAsync(string az, params string[] args)
+    private static async Task<(int exit, string stdout, string stderr)> RunAsync(string az, params string[] args)
     {
         var psi = new ProcessStartInfo
         {
@@ -215,23 +215,21 @@ public class AgentToolsLiveTests
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
 
-        var proc = new Process { StartInfo = psi };
+        using var proc = new Process { StartInfo = psi };
         var outBuf = new StringBuilder();
         var errBuf = new StringBuilder();
         proc.OutputDataReceived += (_, e) => { if (e.Data is not null) outBuf.AppendLine(e.Data); };
         proc.ErrorDataReceived += (_, e) => { if (e.Data is not null) errBuf.AppendLine(e.Data); };
 
-        var tcs = new TaskCompletionSource<(int, string, string)>();
-        proc.EnableRaisingEvents = true;
-        proc.Exited += (_, _) =>
-        {
-            proc.WaitForExit(); // flush async buffers
-            tcs.TrySetResult((proc.ExitCode, outBuf.ToString(), errBuf.ToString()));
-            proc.Dispose();
-        };
+        // Start, then attach the async readers, then await exit. Order matters:
+        // BeginOutput/ErrorReadLine must be wired before the process can finish,
+        // and awaiting WaitForExitAsync (rather than an Exited-callback that
+        // disposes mid-read) avoids racing a fast-exiting child against the
+        // reader setup. WaitForExitAsync also drains the async output streams.
         proc.Start();
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
-        return tcs.Task;
+        await proc.WaitForExitAsync();
+        return (proc.ExitCode, outBuf.ToString(), errBuf.ToString());
     }
 }
