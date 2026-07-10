@@ -35,6 +35,10 @@ Pass installer options after `--` (bash) or as parameters (PowerShell) — for e
 gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' | bash -s -- --package lean
 ```
 
+```powershell
+gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1 && ./azcli-install.ps1 -Package lean
+```
+
 ### Installer options
 
 | Option (bash) | Option (PowerShell) | Default | Purpose |
@@ -85,6 +89,7 @@ Removes the install directory. Pass `--force` / `-Force` to remove a folder that
 | --- | --- |
 | Install azcli manually / offline (no `gh`, or you already have the archive) | [docs/install-cli-manual.md](docs/install-cli-manual.md) |
 | Add an add-on azcli extension (lean installs, or a specific version) | [docs/install-cli-extensions.md](docs/install-cli-extensions.md) |
+| Enable `az` tab completion (bash / zsh / PowerShell) | [docs/install-cli-completions.md](docs/install-cli-completions.md) |
 | Install azps (Az PowerShell modules) | [docs/install-powershell-modules.md](docs/install-powershell-modules.md) |
 
 ## What's in a release
