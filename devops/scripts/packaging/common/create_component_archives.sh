@@ -184,14 +184,17 @@ create_archive() {
   local archive_path="$3"
   local description="$4"
   local exclude_builtin_cli_extensions="${5:-false}"
+  local -a discovered_package_paths=()
+  local -a package_paths=()
+  local -a package_names=()
+  local package_path package_name package_name_lower builtin_package
 
   if [[ ! -d "$source_root" ]]; then
     echo "ERROR: $description source root not found: $source_root"
     exit 1
   fi
-
   mapfile -t discovered_package_paths < <(find "$source_root" -maxdepth 1 -type f -name "$package_glob" | sort)
-  package_paths=()
+  mapfile -t discovered_package_paths < <(find "$source_root" -maxdepth 1 -type f -name "$package_glob" | sort)
   for package_path in "${discovered_package_paths[@]}"; do
     if [[ "$exclude_builtin_cli_extensions" == "true" ]]; then
       package_name="$(basename "$package_path")"
@@ -212,7 +215,6 @@ create_archive() {
     exit 1
   fi
 
-  package_names=()
   for package_path in "${package_paths[@]}"; do
     package_names+=("$(basename "$package_path")")
   done
