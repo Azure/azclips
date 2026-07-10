@@ -442,14 +442,17 @@ public sealed class ConsoleApprovalPrompt
 
     // Soft-wrap long args across terminal width. Never truncates — the user
     // needs to see the FULL command (passwords, unusual flags hide at the
-    // tail). Wraps at whitespace so tokens (flags, quoted values) stay intact
-    // instead of being cut mid-word; a single token longer than the line is
-    // hard-split as a last resort. Continuation lines align under the first arg.
+    // tail). Wraps at whitespace so a whitespace-delimited token isn't cut
+    // mid-word; a single token longer than the line is hard-split as a last
+    // resort. Note: this is not shell-quote-aware — spaces inside a quoted
+    // value (e.g. --query "foo bar") are still treated as wrap points, since
+    // faithfully parsing quotes/escapes across bash+powershell isn't worth it
+    // for a display-only wrap. Continuation lines align under the first arg.
     private const string ArgsLabel    = "   args: ";
     private const string ArgsContinue = "         ";
     private static void WriteArgs(string args)
     {
-        if (string.IsNullOrEmpty(args))
+        if (string.IsNullOrWhiteSpace(args))
         {
             Console.WriteLine(ArgsLabel);
             return;

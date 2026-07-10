@@ -162,6 +162,14 @@ public sealed class ConsoleAgentRenderer : IAgentRenderer
                 }
                 return;
             }
+            // Some tools pass a bare string as their args (SDK emits "..." for a
+            // string-typed argument). Render the decoded value, not the raw
+            // quoted/escaped JSON literal.
+            if (doc.RootElement.ValueKind == JsonValueKind.String)
+            {
+                WriteOutputIndented(doc.RootElement.GetString() ?? string.Empty);
+                return;
+            }
         }
         catch (JsonException) { /* not JSON — fall through to raw */ }
         WriteOutputIndented(argsJson);
