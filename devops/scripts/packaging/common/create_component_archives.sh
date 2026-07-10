@@ -193,7 +193,7 @@ create_archive() {
     echo "ERROR: $description source root not found: $source_root"
     exit 1
   fi
-  mapfile -t discovered_package_paths < <(find "$source_root" -maxdepth 1 -type f -name "$package_glob" | sort)
+
   mapfile -t discovered_package_paths < <(find "$source_root" -maxdepth 1 -type f -name "$package_glob" | sort)
   for package_path in "${discovered_package_paths[@]}"; do
     if [[ "$exclude_builtin_cli_extensions" == "true" ]]; then
