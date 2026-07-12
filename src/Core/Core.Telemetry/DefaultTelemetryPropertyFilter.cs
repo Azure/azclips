@@ -28,6 +28,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.Parameter,
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
+        TelemetryTags.AuthType,
         TelemetryTags.Mode,
 
         // HTTP standard attributes — method/status/host are safe; URL/path are NOT allowed

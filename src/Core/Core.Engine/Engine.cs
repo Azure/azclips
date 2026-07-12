@@ -99,6 +99,15 @@ namespace Core.Engine
         private async Task<ProcessorContext> CreateProcessorContext(ExecutionSession session, string? profileNameOverride)
         {
             Profile? profile = await ResolveProfileAsync(profileNameOverride);
+
+            // Enrich telemetry with profile context
+            if (profile is not null)
+            {
+                telemetryService.AddTag(TelemetryTags.SubscriptionId, profile.SubscriptionId);
+                telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
+                telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
+            }
+
             IAuthHandler authHandler = new AuthHandler
             {
                 Profile = profile,
