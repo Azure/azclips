@@ -14,7 +14,7 @@ public class TelemetryPropertyFilterTests
 
     public static TheoryData<string> AllowedTelemetryTags() => new()
     {
-        TelemetryTags.IsMicrosoftInternal,
+        TelemetryTags.InstallationId,
         TelemetryTags.ProductName,
         TelemetryTags.ProductVersion,
         TelemetryTags.SchemaVersion,
