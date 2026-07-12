@@ -8,10 +8,18 @@ public interface ISubscriptionService
 
     /// <summary>
     /// Resolves the tenant that owns the specified subscription. When the supplied token belongs to a
-    /// different tenant than the subscription, ARM answers with a 401 challenge whose
+    /// different tenant than the subscription, ARM answers with a 401/403 challenge whose
     /// <c>WWW-Authenticate</c> header advertises the subscription's real tenant via <c>authorization_uri</c>;
-    /// otherwise the tenant is read from the subscription payload. Returns <see langword="null"/> when the
-    /// owning tenant cannot be determined.
+    /// otherwise the tenant is read from the subscription payload.
     /// </summary>
+    /// <returns>
+    /// The owning tenant id; or <see langword="null"/> when <paramref name="subscriptionId"/> is empty or the
+    /// subscription payload carries no tenant id.
+    /// </returns>
+    /// <exception cref="System.Net.Http.HttpRequestException">
+    /// Thrown when the request fails with a non-success status that is not a usable cross-tenant challenge
+    /// (i.e. the owning tenant genuinely could not be determined). Callers should treat this as a hard failure
+    /// rather than "the signed-in tenant owns it", so an unverified tenant is never persisted.
+    /// </exception>
     Task<string?> ResolveSubscriptionTenantAsync(string accessToken, string subscriptionId, CancellationToken cancellationToken = default);
 }

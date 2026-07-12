@@ -173,7 +173,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             // could not access the subscription.
             if (tenantResolvedFromSubscription)
             {
-                await EnsureCrossTenantAccessibleOrThrowAsync(resultProfile, effectiveSubscriptionId);
+                await EnsureCrossTenantAccessible(resultProfile, effectiveSubscriptionId);
             }
 
             await profileService.SaveAndActivateProfileAsync(resultProfile);
@@ -257,7 +257,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         /// conditional access policy) or the tenant cannot be probed, this throws so the login fails WITHOUT
         /// saving, rather than persisting a profile whose subsequent commands cannot access the subscription.
         /// </summary>
-        private async Task EnsureCrossTenantAccessibleOrThrowAsync(Profile profile, string subscriptionId)
+        private async Task EnsureCrossTenantAccessible(Profile profile, string subscriptionId)
         {
             var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             bool canAcquire;
