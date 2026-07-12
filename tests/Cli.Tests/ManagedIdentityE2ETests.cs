@@ -12,7 +12,21 @@ using Xunit;
 
 namespace Cli.Tests;
 
-/// <summary>Managed identity login E2E tests with a mock IMDS endpoint.</summary>
+/// <summary>
+/// Managed identity login E2E tests with a mock IMDS endpoint.
+/// <para>
+/// These tests isolate the profile store by pointing <c>LOCALAPPDATA</c> / <c>XDG_DATA_HOME</c> at a
+/// throwaway temp directory so the CLI subprocess never touches the real <c>~/.azclips</c>. That redirection
+/// only works on <b>Linux and macOS</b>: there .NET's
+/// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> for
+/// <see cref="System.Environment.SpecialFolder.LocalApplicationData"/> reads the <c>$XDG_DATA_HOME</c>
+/// environment variable. On <b>Windows</b> the same call resolves via the Win32 known-folder API
+/// (registry <c>User Shell Folders</c>) and <b>ignores a process-set <c>%LOCALAPPDATA%</c></b>, so the
+/// subprocess would write to the developer's real profile store instead of the temp directory — breaking the
+/// assertions and polluting <c>%LOCALAPPDATA%\.azclips</c>. The profile-dependent cases are therefore skipped
+/// on Windows via <see cref="SkipOnWindowsFactAttribute"/>.
+/// </para>
+/// </summary>
 [Collection("Azclips Service Provider Tests")]
 public class ManagedIdentityE2ETests : IAsyncLifetime
 {
@@ -155,7 +169,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         return process.ExitCode;
     }
 
-    [Fact]
+    [SkipOnWindowsFact]
     public async Task ManagedIdentity_E2E_SystemAssigned_ShouldLoginAndSaveProfile()
     {
         // Arrange
@@ -194,7 +208,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         Assert.Contains("MSI@", profilesJson);
     }
 
-    [Fact]
+    [SkipOnWindowsFact]
     public async Task ManagedIdentity_E2E_UserAssignedClientId_ShouldLoginAndSaveProfile()
     {
         // Arrange
@@ -221,7 +235,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
 
 
-    [Fact]
+    [SkipOnWindowsFact]
     public async Task ManagedIdentity_E2E_CommandWithToken_ShouldUseTokenFromProfile()
     {
         // Exercise AuthHandler and verify it stamps the saved MI token on requests.
@@ -370,6 +384,28 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
             if (File.Exists(path))
             {
                 File.Delete(path);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A <see cref="FactAttribute"/> that skips on Windows. The profile-store isolation these tests rely on
+    /// works by redirecting <c>LOCALAPPDATA</c> / <c>XDG_DATA_HOME</c> to a temp directory, which only affects
+    /// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> on Linux/macOS. On
+    /// Windows that call resolves via the Win32 known-folder API (registry <c>User Shell Folders</c>) and
+    /// ignores a process-set <c>%LOCALAPPDATA%</c>, so the CLI subprocess would write to the real
+    /// <c>%LOCALAPPDATA%\.azclips</c> instead of the temp store — failing the assertions and polluting the
+    /// developer's profile. Skip until the CLI honors an explicit cross-platform override.
+    /// </summary>
+    private sealed class SkipOnWindowsFactAttribute : FactAttribute
+    {
+        public SkipOnWindowsFactAttribute()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Skip = "Profile-store isolation redirects LOCALAPPDATA/XDG_DATA_HOME, which only affects "
+                    + "GetFolderPath on Linux/macOS. On Windows .NET resolves LocalApplicationData via the "
+                    + "Win32 known-folder API and ignores the env override, so the store cannot be isolated.";
             }
         }
     }
