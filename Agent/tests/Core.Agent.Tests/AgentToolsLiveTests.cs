@@ -38,10 +38,10 @@ public class AgentToolsLiveTests
         ["agent", "tool", "help"],
         ["agent", "tool", "help", "--name", "profile show"],
         ["agent", "tool", "resource", "refresh"],
-        ["agent", "tool", "resource", "find", "--name-pattern", "zzz-nonexistent"],
+        ["agent", "tool", "resource", "find", "--name", "zzz-nonexistent"],
         ["agent", "tool", "resource", "show", "--name", "zzz-nonexistent", "--kind", "resource"],
         ["agent", "tool", "resource", "sku", "--vm-size", "Standard_D2s_v5"],
-        ["agent", "tool", "resource", "tree", "--name-or-id", "zzz-nonexistent", "--kind", "subscription"],
+        ["agent", "tool", "resource", "tree", "--name", "zzz-nonexistent", "--kind", "subscription"],
     ];
 
     [Fact(Skip = "Live smoke test — needs an installed azclips package + Azure login. Run by hand after installing a fresh package: remove the Skip (or run with a filter) and set AZCLIPS_LIVE_AZ or have az on PATH.")]
