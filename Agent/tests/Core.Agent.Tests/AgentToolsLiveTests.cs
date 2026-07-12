@@ -15,8 +15,8 @@ namespace Core.Agent.Tests;
 /// every tool loads and runs (the class of failure — an agent dll left
 /// unloadable by a packaging-layout change — that unit tests can't see).
 ///
-/// Coverage: the seven distinct tools (env, help, cache refresh, resource
-/// find/show/sku/tree); <c>ToolInvocations</c> has eight entries because
+/// Coverage: the seven distinct tools (env, help, resource
+/// find/show/sku/tree/refresh); <c>ToolInvocations</c> has eight entries because
 /// <c>help</c> is exercised both with and without <c>--name</c>.
 ///
 /// Binary resolution: env var <c>AZCLIPS_LIVE_AZ</c> first, else the first <c>az</c>
@@ -37,7 +37,7 @@ public class AgentToolsLiveTests
         ["agent", "tool", "env"],
         ["agent", "tool", "help"],
         ["agent", "tool", "help", "--name", "profile show"],
-        ["agent", "tool", "cache", "refresh"],
+        ["agent", "tool", "resource", "refresh"],
         ["agent", "tool", "resource", "find", "--name-pattern", "zzz-nonexistent"],
         ["agent", "tool", "resource", "show", "--name", "zzz-nonexistent", "--kind", "resource"],
         ["agent", "tool", "resource", "sku", "--vm-size", "Standard_D2s_v5"],

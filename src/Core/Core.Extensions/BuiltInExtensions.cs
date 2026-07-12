@@ -61,7 +61,7 @@ namespace Core.Extensions
                 },
                 ["agent"] = new("agent", "Microsoft.Azure.Azclips.Extensions.Agent")
                 {
-                    Leaves = new[] { "tool env", "tool help", "tool resource find", "tool resource sku", "tool resource tree", "tool resource show", "tool cache refresh" },
+                    Leaves = new[] { "tool env", "tool help", "tool resource find", "tool resource sku", "tool resource tree", "tool resource show", "tool resource refresh" },
                 },
             };
 
