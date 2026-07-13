@@ -68,15 +68,16 @@ stages:
         except urllib.error.HTTPError as error:
             if error.code == 404:
                 print(
-                    f'Warning: GitHub returned 404 for {repository} pull request #{pr_number}. '
-                    f'Token available: {has_token}. Skipping PR title validation for this run.',
+              f'Failed to fetch pull request metadata from GitHub: HTTP 404 Not Found for '
+              f'{repository} pull request #{pr_number}. Token available: {has_token}.',
                     file=sys.stderr
                 )
                 print(
-                    'This usually means the repository is private and GH_TOKEN/GITHUB_TOKEN is missing or lacks access.',
+              'Private repositories require GH_TOKEN/GITHUB_TOKEN with access to read pull request metadata. '
+              'Configure the GitHubToken secret pipeline variable, or update that token to include access to this repository.',
                     file=sys.stderr
                 )
-                sys.exit(0)
+            sys.exit(1)
             print(f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}', file=sys.stderr)
             sys.exit(1)
         except urllib.error.URLError as error:
