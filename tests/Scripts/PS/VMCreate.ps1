@@ -6,7 +6,7 @@
 # $nic=New-AzNetworkInterface -SubscriptionId 0c302431-1ad0-4187-87c9-d4cebcf7edc2 -ResourceGroupName yabo-test-group -Name yabo-test-nic-2 -Location eastus -SubnetIds /subscriptions/0c302431-1ad0-4187-87c9-d4cebcf7edc2/resourceGroups/yabo-test-group/providers/Microsoft.Network/virtualNetworks/yabo-test-vnet-2/subnets/yabo-test-subnet1 -NetworkSecurityGroupId /subscriptions/0c302431-1ad0-4187-87c9-d4cebcf7edc2/resourceGroups/yabo-test-group/providers/Microsoft.Network/networkSecurityGroups/yabo-test-nsg-2
 # $vm2=New-AzVM -SubscriptionId 0c302431-1ad0-4187-87c9-d4cebcf7edc2 -ResourceGroupName yabo-test-group -Name yabo-test-vm-2 -Location eastus -VmSize Standard_D2s_v3 -AdminUsername Artemis -AdminPassword $env:AZCLIPS_VM_ADMIN_PASSWORD -NetworkInterfaceId /subscriptions/0c302431-1ad0-4187-87c9-d4cebcf7edc2/resourceGroups/yabo-test-group/providers/Microsoft.Network/networkInterfaces/yabo-test-nic-2
 
-New-AzVM \
+New-AzVM `
     -SubscriptionId 0c302431-1ad0-4187-87c9-d4cebcf7edc2 `
     -ResourceGroupName yabo-test-group-1 `
     -Name yabo-test-vm-1 `
