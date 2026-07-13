@@ -482,7 +482,7 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 **Contains:**
 
 - PowerShell cmdlets: `New-AzResourceGroup`, `Get-AzResourceGroup`, etc.
-- Note: No "Az" prefix in current implementation
+- Note: Cmdlets use the `Az` noun prefix to match Azure PowerShell naming
 
 ## Help System
 
