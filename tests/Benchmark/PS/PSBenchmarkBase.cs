@@ -14,7 +14,8 @@ namespace Benchmark.PS;
 
 [MemoryDiagnoser]
 [InvocationCount(invocationCount: 1, unrollFactor: 1)]
-[IterationCount(10000)]
+[WarmupCount(5000)]
+[IterationCount(5000)]
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class PSBenchmarkBase : BenchmarkBase
 {
@@ -25,6 +26,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     protected abstract string ModuleName { get; }
 
     private string _psModuleManifestPath = null!;
+    private Runspace _runspace = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -40,48 +42,47 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     public void IterationSetup()
     {
         RegisterBenchmarkStubs();
+
+        // Create and open a fresh runspace here in setup so the cost of standing up the
+        // PowerShell environment is NOT included in the measured region.
+        _runspace = RunspaceFactory.CreateRunspace();
+        _runspace.Open();
     }
 
     [IterationCleanup]
     public void IterationCleanup()
     {
         CleanupCommon();
+
+        _runspace?.Close();
+        _runspace?.Dispose();
+        _runspace = null!;
     }
 
     protected object? RunPowerShellCommand(
         string command,
         params (string Name, object Value)[] parameters)
     {
-        // Create and open a fresh runspace per invocation (cold start)
-        var runspace = RunspaceFactory.CreateRunspace();
-        runspace.Open();
+        // The runspace is created in [IterationSetup] (unmeasured). The measured region
+        // below covers only the module import and the cmdlet invocation.
 
-        try
+        // Import module — triggers AzclipsServiceProvider.Initialize(PowerShell) in .psm1
+        using (var import = PowerShell.Create())
         {
-            // Import module — triggers AzclipsServiceProvider.Initialize(PowerShell) in .psm1
-            using (var import = PowerShell.Create())
-            {
-                import.Runspace = runspace;
-                import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
-                import.Invoke();
-            }
+            import.Runspace = _runspace;
+            import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
+            import.Invoke();
+        }
 
-            // Run the cmdlet
-            using var ps = PowerShell.Create();
-            ps.Runspace = runspace;
-            ps.AddCommand(command);
-            foreach (var (name, value) in parameters)
-            {
-                ps.AddParameter(name, value);
-            }
-            var results = ps.Invoke();
-            return results.Count > 0 ? results[0] : null;
-        }
-        finally
+        // Run the cmdlet
+        using var ps = PowerShell.Create();
+        ps.Runspace = _runspace;
+        ps.AddCommand(command);
+        foreach (var (name, value) in parameters)
         {
-            AzclipsServiceProvider.Dispose();
-            runspace.Close();
-            runspace.Dispose();
+            ps.AddParameter(name, value);
         }
+        var results = ps.Invoke();
+        return results.Count > 0 ? results[0] : null;
     }
 }
