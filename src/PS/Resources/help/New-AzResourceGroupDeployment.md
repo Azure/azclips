@@ -1,33 +1,30 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
 Locale: en-US
-Module Name: Compute
+Module Name: Resources
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: New-NetworkInterface
+title: New-AzResourceGroupDeployment
 ---
 
-# New-NetworkInterface
+# New-AzResourceGroupDeployment
 
 ## SYNOPSIS
 
-Create a network interface attached to a virtual network and network security group.
+Deploy an ARM or Bicep template into an existing resource group.
 
 ## SYNTAX
 
 ### \_\_AllParameterSets
 
 ```
-New-NetworkInterface -SubscriptionId <string> -Name <string> -Location <string>
- -ResourceGroupName <string> -VirtualNetworkName <string> -NetworkSecurityGroupName <string>
- [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
- [-RuleNames <string[]>] [-RuleDirections <string[]>] [-RuleProtocols <string[]>]
- [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
- [-RuleSourcePortRanges <string[]>] [-RuleDestinationPortRanges <string[]>]
- [-RuleDestinationAddressPrefixes <string[]>] [-RuleAccesses <string[]>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+New-AzResourceGroupDeployment -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
+ [-TemplateUri <string>] [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
+ [-ParametersUri <string>] [-ParametersFile <string>] [-Mode <string>] [-Parameter <string[]>]
+ [-RollbackOnError] [-RollbackToDeploymentName <string>] [-ValidationLevel <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -37,41 +34,20 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Provisions a new network interface (NIC) in the specified resource group, wiring it to the named virtual network and network security group.
-Optional parameters let you customize subnets, address prefixes, and NSG rules.
+Submits a deployment to the specified resource group using an ARM/Bicep template supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+Use `-Mode Complete` for full reconciliation, or `-Mode Incremental` (default) to add and update without removing untracked resources.
 
 ## EXAMPLES
 
-### Create a network interface
+### Deploy a Bicep file into an existing resource group
 
-Provision the network interface `mynic` in `myrg` (East US), wired to virtual network `myvnet` and network security group `mynsg`.
+Submit `main.bicep` along with parameter file `main.parameters.json` as deployment `infra-prod-2026-06-16` into resource group `myrg`.
 
 ```powershell
-New-NetworkInterface -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name mynic -Location eastus -ResourceGroupName myrg -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
+New-AzResourceGroupDeployment -ResourceGroupName myrg -Name infra-prod-2026-06-16 -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json -Mode Incremental
 ```
 
 ## PARAMETERS
-
-### -AddressPrefixes
-
-Address prefixes for the virtual network in CIDR notation (for example, `10.0.0.0/16`).
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
 
 ### -Confirm
 
@@ -95,9 +71,9 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -Location
+### -Mode
 
-The Azure region in which to create the network interface (for example, `eastus`).
+Deployment mode. Use `Incremental` (default) to add and update resources, or `Complete` to delete resources in the resource group that aren't declared in the template.
 
 ```yaml
 Type: System.String
@@ -107,7 +83,7 @@ Aliases: []
 ParameterSets:
     - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
@@ -118,7 +94,7 @@ HelpMessage: ""
 
 ### -Name
 
-The name of the network interface to create.
+The name of the deployment. Used to track and reference the deployment in deployment history.
 
 ```yaml
 Type: System.String
@@ -137,9 +113,30 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -NetworkSecurityGroupName
+### -Parameter
 
-The name of the network security group to associate with the new network interface.
+Template parameters supplied as inline `Name=Value` pairs. Use this when you don't have a parameters file. Repeat the flag or pass an array for multiple values.
+
+```yaml
+Type: System.String[]
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -ParametersFile
+
+Path to a local ARM/Bicep parameters file (`*.parameters.json`).
 
 ```yaml
 Type: System.String
@@ -149,7 +146,49 @@ Aliases: []
 ParameterSets:
     - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -ParametersUri
+
+URI of a remote ARM/Bicep parameters file (for example, a blob URL).
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -QueryString
+
+Optional SAS or query string appended to `-TemplateUri` / `-ParametersUri` when those URIs require authentication.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
@@ -160,7 +199,7 @@ HelpMessage: ""
 
 ### -ResourceGroupName
 
-The name of the resource group that will hold the network interface.
+The name of the resource group that will receive the deployment. The resource group must already exist.
 
 ```yaml
 Type: System.String
@@ -179,12 +218,12 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -RuleAccesses
+### -RollbackOnError
 
-Access types (`Allow` or `Deny`) for the security rules. Aligned positionally with the other `-Rule*` arrays.
+If the deployment fails, automatically roll back to the last successful deployment in this resource group.
 
 ```yaml
-Type: System.String[]
+Type: System.Management.Automation.SwitchParameter
 DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
@@ -200,201 +239,12 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -RuleDestinationAddressPrefixes
+### -RollbackToDeploymentName
 
-Destination address prefixes for the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -RuleDestinationPortRanges
-
-Destination port ranges for the security rules (for example, `80`, `443`, `8000-8080`).
+Name of an explicit prior deployment to roll back to on failure. Implies the rollback behaviour of `-RollbackOnError`.
 
 ```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -RuleDirections
-
-Directions (`Inbound` or `Outbound`) for the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -RuleNames
-
-Names of the security rules to create on the NSG.
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -RulePriorities
-
-Priorities for the security rules. Lower numbers are evaluated first.
-
-```yaml
-Type: System.Int32[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -RuleProtocols
-
-Protocols (`Tcp`, `Udp`, `Icmp`, `*`) for the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -RuleSourceAddressPrefixes
-
-Source address prefixes for the security rules (for example, `Internet`, `VirtualNetwork`, or a CIDR block).
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -RuleSourcePortRanges
-
-Source port ranges for the security rules.
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -SubnetAddressPrefixes
-
-Address prefixes for each subnet, supplied as a jagged array aligned with `-SubnetNames`.
-
-```yaml
-Type: System.String[][]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -SubnetNames
-
-Names of the subnets to create within the virtual network.
-
-```yaml
-Type: System.String[]
+Type: System.String
 DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
@@ -412,7 +262,7 @@ HelpMessage: ""
 
 ### -SubscriptionId
 
-The Azure subscription ID that owns the resource group.
+The Azure subscription ID that owns the target resource group. Defaults to the current account context when omitted.
 
 ```yaml
 Type: System.String
@@ -422,7 +272,7 @@ Aliases: []
 ParameterSets:
     - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
@@ -431,9 +281,9 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -VirtualNetworkName
+### -TemplateFile
 
-The name of the virtual network to attach the new network interface to.
+Path to a local ARM JSON or Bicep template file.
 
 ```yaml
 Type: System.String
@@ -443,7 +293,70 @@ Aliases: []
 ParameterSets:
     - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -TemplateSpecId
+
+Resource ID of an existing template spec to deploy (for example, `/subscriptions/.../providers/Microsoft.Resources/templateSpecs/<spec>/versions/<version>`).
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -TemplateUri
+
+URI of a remote ARM/Bicep template (for example, a blob URL).
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -ValidationLevel
+
+Deployment validation strictness. Common values are `Provider` (default) and `Template`. Use a stricter level to catch schema or parameter issues earlier.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
@@ -454,8 +367,7 @@ HelpMessage: ""
 
 ### -WhatIf
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -488,10 +400,13 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.Object
 
-Returns the provisioned network interface object including its IP configuration and resource id.
+Returns the deployment object describing the deployment name, provisioning state, and any output values declared by the template.
 
 ## NOTES
 
+The target resource group must already exist. Use `New-AzResourceGroup` to create it first when bootstrapping a new environment.
+
 ## RELATED LINKS
 
-- [Online Version]()
+- [New-AzResourceGroup]()
+- [Get-AzResourceGroup]()

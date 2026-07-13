@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 06/18/2026
 PlatyPS schema version: 2024-05-01
-title: New-ResourceGroupDeploymentWhatIf
+title: New-AzResourceGroupDeploymentWhatIf
 ---
 
-# New-ResourceGroupDeploymentWhatIf
+# New-AzResourceGroupDeploymentWhatIf
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Preview the changes an ARM or Bicep deployment would make to a resource group wi
 ### \_\_AllParameterSets
 
 ```
-New-ResourceGroupDeploymentWhatIf -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
+New-AzResourceGroupDeploymentWhatIf -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
  [-TemplateUri <string>] [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
  [-ParametersUri <string>] [-ParametersFile <string>] [-Mode <string>] [-Parameter <string[]>]
  [-ValidationLevel <string>] [-ResultFormat <string>] [<CommonParameters>]
@@ -43,7 +43,7 @@ Use `-ResultFormat ResourceIdOnly` for a compact summary, or `-ResultFormat Full
 Run a what-if for `main.bicep` with parameter file `main.parameters.json` as deployment `infra-prod-2026-06-18` against resource group `myrg`.
 
 ```powershell
-New-ResourceGroupDeploymentWhatIf -ResourceGroupName myrg -Name infra-prod-2026-06-18 -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json -Mode Incremental
+New-AzResourceGroupDeploymentWhatIf -ResourceGroupName myrg -Name infra-prod-2026-06-18 -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json -Mode Incremental
 ```
 
 ## PARAMETERS
@@ -340,10 +340,10 @@ Returns the what-if result describing the predicted resource changes (create, mo
 
 ## NOTES
 
-What-if is a read-only preview: it never creates or modifies resources. Use `New-ResourceGroupDeployment` to apply the changes once the preview looks correct.
+What-if is a read-only preview: it never creates or modifies resources. Use `New-AzResourceGroupDeployment` to apply the changes once the preview looks correct.
 
 ## RELATED LINKS
 
-- [New-ResourceGroupDeployment]()
-- [New-ResourceGroup]()
-- [Get-ResourceGroup]()
+- [New-AzResourceGroupDeployment]()
+- [New-AzResourceGroup]()
+- [Get-AzResourceGroup]()

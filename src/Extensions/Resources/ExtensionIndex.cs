@@ -16,7 +16,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_PS = new(
             Name: "NewResourceGroupProcessor",
-            InvocationName: "New-ResourceGroup",
+            InvocationName: "New-AzResourceGroup",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -31,7 +31,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_getResourceGroup_PS = new(
             Name: "GetResourceGroupProcessor",
-            InvocationName: "Get-ResourceGroup_Get",
+            InvocationName: "Get-AzResourceGroup_Get",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -45,7 +45,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_listResourceGroup_PS = new(
             Name: "ListResourceGroupProcessor",
-            InvocationName: "Get-ResourceGroup_List",
+            InvocationName: "Get-AzResourceGroup_List",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -58,7 +58,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_newResourceGroupDeployment_PS = new(
             Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
-            InvocationName: "New-ResourceGroupDeployment",
+            InvocationName: "New-AzResourceGroupDeployment",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -84,7 +84,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_rest_PS = new(
             Name: "RestProcessor_Orchestrator",
-            InvocationName: "Invoke-AzclipsRestMethod",
+            InvocationName: "Invoke-AzRestMethod",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RestProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -107,7 +107,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_newResourceGroupDeploymentWhatIf_PS = new(
             Name: "NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
-            InvocationName: "New-ResourceGroupDeploymentWhatIf",
+            InvocationName: "New-AzResourceGroupDeploymentWhatIf",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentWhatIfProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -250,12 +250,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
-            ["New-ResourceGroup"]      = s_newResourceGroup_PS,
-            ["Get-ResourceGroup_Get"]  = s_getResourceGroup_PS,
-            ["Get-ResourceGroup_List"] = s_listResourceGroup_PS,
-            ["New-ResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
-            ["New-ResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
-            ["Invoke-AzclipsRestMethod"] = s_rest_PS,
+            ["New-AzResourceGroup"]      = s_newResourceGroup_PS,
+            ["Get-AzResourceGroup_Get"]  = s_getResourceGroup_PS,
+            ["Get-AzResourceGroup_List"] = s_listResourceGroup_PS,
+            ["New-AzResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
+            ["New-AzResourceGroupDeploymentWhatIf"] = s_newResourceGroupDeploymentWhatIf_PS,
+            ["Invoke-AzRestMethod"] = s_rest_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the

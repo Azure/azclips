@@ -31,7 +31,7 @@ All four surfaces converge on one composition root, `AzclipsServiceProvider`, an
 graph TB
     subgraph clients["Client Surfaces"]
         CLI["az CLI<br>Program.Main"]
-        PS["PowerShell Cmdlets<br>New-VM, Connect-AzAccount"]
+        PS["PowerShell Cmdlets<br>New-AzVM, Connect-AzAccount"]
         TUI["Interactive TUI<br>Core.Tui"]
         AGENT["Agent Mode<br>--agent-mode"]
     end

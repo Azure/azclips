@@ -1,32 +1,27 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
 Locale: en-US
-Module Name: Compute
-ms.date: 06/16/2026
+Module Name: Resources
+ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01
-title: Get-VM
+title: New-AzResourceGroup
 ---
 
-# Get-VM
+# New-AzResourceGroup
 
 ## SYNOPSIS
 
-Show details for a virtual machine.
+Create a new resource group.
 
 ## SYNTAX
 
-### List (Default)
+### \_\_AllParameterSets
 
 ```
-Get-VM -SubscriptionId <string> -ResourceGroupName <string> [<CommonParameters>]
-```
-
-### Get
-
-```
-Get-VM -SubscriptionId <string> -ResourceGroupName <string> -Name <string> [<CommonParameters>]
+New-AzResourceGroup -Name <string> -Location <string> [-SubscriptionId <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -36,31 +31,48 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Retrieves the properties of a single virtual machine identified by name within the specified resource group and subscription.
+Provision a new resource group in your Azure subscription.
+Specify the resource group name, location (region), and subscription ID.
+An optional resource ID can be provided for advanced scenarios.
+The resource group will be created immediately and can be used to organize your Azure resources.
 
 ## EXAMPLES
 
-### Get details of a specific VM
+### Create a resource group
 
-Retrieve metadata for the virtual machine `myvm` in resource group `myrg`.
-
-```powershell
-Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm
-```
-
-### List all VMs in a resource group
-
-Return every virtual machine that lives in `myrg`.
+Provision a new resource group named `myrg` in the East US region.
 
 ```powershell
-Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg
+New-AzResourceGroup -Name myrg -Location eastus
 ```
 
 ## PARAMETERS
 
-### -Name
+### -Confirm
 
-The name of the virtual machine.
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ""
+SupportsWildcards: false
+Aliases:
+    - cf
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -Location
+
+Location for resource group.
 
 ```yaml
 Type: System.String
@@ -68,7 +80,7 @@ DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: Get
+    - Name: (All)
       Position: Named
       IsRequired: true
       ValueFromPipeline: false
@@ -79,9 +91,9 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -ResourceGroupName
+### -Name
 
-The resource group name.
+The name of the resource group.
 
 ```yaml
 Type: System.String
@@ -89,13 +101,7 @@ DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: Get
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-    - Name: List
+    - Name: (All)
       Position: Named
       IsRequired: true
       ValueFromPipeline: false
@@ -116,15 +122,32 @@ DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: Get
+    - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
-    - Name: List
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -WhatIf
+
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ""
+SupportsWildcards: false
+Aliases:
+    - wi
+ParameterSets:
+    - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
@@ -146,7 +169,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## NOTES
 
-Generated help for compute.
+Generated help for resources.
 
 ## RELATED LINKS
 

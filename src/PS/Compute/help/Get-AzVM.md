@@ -6,22 +6,27 @@ Locale: en-US
 Module Name: Compute
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: Remove-VM
+title: Get-AzVM
 ---
 
-# Remove-VM
+# Get-AzVM
 
 ## SYNOPSIS
 
-Delete a virtual machine.
+Show details for a virtual machine.
 
 ## SYNTAX
 
-### \_\_AllParameterSets
+### List (Default)
 
 ```
-Remove-VM -SubscriptionId <string> -Name <string> -ResourceGroupName <string> [-WhatIf] [-Confirm]
- [<CommonParameters>]
+Get-AzVM -SubscriptionId <string> -ResourceGroupName <string> [<CommonParameters>]
+```
+
+### Get
+
+```
+Get-AzVM -SubscriptionId <string> -ResourceGroupName <string> -Name <string> [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -31,42 +36,27 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Deletes the named virtual machine from the specified resource group and subscription.
-This operation removes only the VM resource itself; associated disks, network interfaces, and other dependent resources are not deleted.
+Retrieves the properties of a single virtual machine identified by name within the specified resource group and subscription.
 
 ## EXAMPLES
 
-### Remove a VM
+### Get details of a specific VM
 
-Delete the virtual machine `myvm` from resource group `myrg`. The associated disks and NICs are not removed.
+Retrieve metadata for the virtual machine `myvm` in resource group `myrg`.
 
 ```powershell
-Remove-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -ResourceGroupName myrg
+Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm
+```
+
+### List all VMs in a resource group
+
+Return every virtual machine that lives in `myrg`.
+
+```powershell
+Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg
 ```
 
 ## PARAMETERS
-
-### -Confirm
-
-Prompts you for confirmation before running the cmdlet.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
-SupportsWildcards: false
-Aliases:
-    - cf
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
 
 ### -Name
 
@@ -78,7 +68,7 @@ DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: (All)
+    - Name: Get
       Position: Named
       IsRequired: true
       ValueFromPipeline: false
@@ -99,7 +89,13 @@ DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: (All)
+    - Name: Get
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+    - Name: List
       Position: Named
       IsRequired: true
       ValueFromPipeline: false
@@ -120,32 +116,15 @@ DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: (All)
+    - Name: Get
       Position: Named
       IsRequired: true
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -WhatIf
-
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
-SupportsWildcards: false
-Aliases:
-    - wi
-ParameterSets:
-    - Name: (All)
+    - Name: List
       Position: Named
-      IsRequired: false
+      IsRequired: true
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false

@@ -20,11 +20,11 @@ public sealed class HelpLookupTests
     private static IReadOnlyList<HelpManifest> Manifests() => new[]
     {
         Manifest("vm",
-            Cmd("vm create", "New-VM"),
-            Cmd("vm delete", "Remove-VM"),
-            Cmd("vm list", "Get-VM")),
+            Cmd("vm create", "New-AzVM"),
+            Cmd("vm delete", "Remove-AzVM"),
+            Cmd("vm list", "Get-AzVM")),
         Manifest("group",
-            Cmd("group create", "New-ResourceGroup")),
+            Cmd("group create", "New-AzResourceGroup")),
     };
 
     // ── FindCommand ──
@@ -43,7 +43,7 @@ public sealed class HelpLookupTests
     {
         var m = Manifests();
 
-        var hit = HelpLookup.FindCommand(m, "Remove-VM");
+        var hit = HelpLookup.FindCommand(m, "Remove-AzVM");
 
         Assert.NotNull(hit);
         Assert.Equal("vm delete", hit!.CliName);
@@ -56,7 +56,7 @@ public sealed class HelpLookupTests
         var hit = HelpLookup.FindCommand(Manifests(), "group create");
 
         Assert.NotNull(hit);
-        Assert.Equal("New-ResourceGroup", hit!.PsName);
+        Assert.Equal("New-AzResourceGroup", hit!.PsName);
     }
 
     [Fact]
@@ -90,9 +90,9 @@ public sealed class HelpLookupTests
     [Fact]
     public void FindSuggestions_MatchesPsNameToo()
     {
-        var hits = HelpLookup.FindSuggestions(Manifests(), "New-VM");
+        var hits = HelpLookup.FindSuggestions(Manifests(), "New-AzVM");
 
-        Assert.Contains("New-VM", hits);
+        Assert.Contains("New-AzVM", hits);
     }
 
     [Fact]

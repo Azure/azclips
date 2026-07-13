@@ -544,7 +544,7 @@ namespace Azclips.Help.Tool.Tests
                 "",
                 "### From PowerShell",
                 "```powershell",
-                "Get-VM -Name <vmname>",
+                "Get-AzVM -Name <vmname>",
                 "```",
                 "",
                 "### From bash",

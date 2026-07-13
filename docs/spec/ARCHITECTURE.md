@@ -65,7 +65,7 @@ $ az I would like to logni
 ```powershell
 # Direct cmdlet and function execution
 Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
-New-ResourceGroup -Name mygroup -Location eastus
+New-AzResourceGroup -Name mygroup -Location eastus
 ```
 
 **Note:** PowerShell modules provide direct cmdlet/function execution without AI agent integration.
@@ -481,8 +481,8 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 
 **Contains:**
 
-- PowerShell cmdlets: `New-ResourceGroup`, `Get-ResourceGroup`, etc.
-- Note: No "Az" prefix in current implementation
+- PowerShell cmdlets: `New-AzResourceGroup`, `Get-AzResourceGroup`, etc.
+- Note: Cmdlets use the `Az` noun prefix to match Azure PowerShell naming
 
 ## Help System
 
@@ -905,7 +905,7 @@ Import-Module ./src/PS/Resources/Resources.psd1
 
 # Use cmdlets and functions
 Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
-New-ResourceGroup -Name test -Location eastus
+New-AzResourceGroup -Name test -Location eastus
 ```
 
 **Note:** The Login module requires the solution to be built first so that `Login.dll` is available in the artifacts directory.

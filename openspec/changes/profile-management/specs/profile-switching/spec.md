@@ -18,7 +18,7 @@ The system SHALL provide a `profile set <name>` command that changes the active 
 Resource and Compute processors SHALL accept a `--profile <name>` parameter (CLI) or `-Profile <name>` parameter (PowerShell) that overrides the active profile for that single execution without changing the active profile pointer. (The `login` command also accepts `--profile`, but with re-authentication semantics defined in the login-profile-integration capability.) Other extension modules will be updated via code generation in a follow-up change.
 
 #### Scenario: Override with --profile flag
-- **WHEN** user runs `az group list --profile staging` (CLI) or `Get-ResourceGroup -Profile staging` (PowerShell)
+- **WHEN** user runs `az group list --profile staging` (CLI) or `Get-AzResourceGroup -Profile staging` (PowerShell)
 - **THEN** the command SHALL execute using the "staging" profile's connection state
 - **AND** the active profile pointer SHALL NOT change
 - **AND** subsequent commands without `--profile` / `-Profile` SHALL use the original active profile
