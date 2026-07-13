@@ -53,7 +53,7 @@ def is_markdown_link(line):
 
 
 def check_pull_request(title, body):
-    if not title.startswith(("[", "{")):
+    if not re.findall(r"^(\[[^\[\]]+\]|\{[^{}]+\})\s+\S", title):
         error("Pull request title should start with [Component Name] or {Component Name}.")
         return True
 
