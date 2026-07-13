@@ -3,7 +3,6 @@
 
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
-using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent
@@ -110,13 +109,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ParameterAliases: new Dictionary<string, string>()
         );
 
-        private static readonly CommandMetadata s_cacheRefresh_CLI = new(
-            Name: "CacheRefreshProcessor",
-            InvocationName: "agent tool cache refresh",
+        private static readonly CommandMetadata s_resourceRefresh_CLI = new(
+            Name: "ResourceRefreshProcessor",
+            InvocationName: "agent tool resource refresh",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache.CacheRefreshProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource.ResourceRefreshProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
-            ProcessorType: typeof(CacheRefreshProcessor),
+            ProcessorType: typeof(ResourceRefreshProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -135,7 +134,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["agent tool resource sku"]   = s_resourceSku_CLI,
             ["agent tool resource tree"]  = s_resourceTree_CLI,
             ["agent tool resource show"]  = s_resourceShow_CLI,
-            ["agent tool cache refresh"]  = s_cacheRefresh_CLI,
+            ["agent tool resource refresh"]  = s_resourceRefresh_CLI,
         };
 
         // ── Lookup ──
