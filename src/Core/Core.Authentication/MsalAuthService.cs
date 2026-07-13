@@ -43,7 +43,7 @@ public class MsalAuthService(
         var app = PublicClientApplicationBuilder.Create(ClientId)
             .Build();
 
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await RegisterTokenCacheAsync(app, plaintextUnsafe: false);
 
         var accounts = (await app.GetAccountsAsync()).ToList();
         var matching = accounts
@@ -62,7 +62,7 @@ public class MsalAuthService(
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await RegisterTokenCacheAsync(app, plaintextUnsafe: false);
 
         var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
         LogTokenMetadataDebug(result);
@@ -73,7 +73,7 @@ public class MsalAuthService(
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await RegisterTokenCacheAsync(app, plaintextUnsafe: false);
 
         var result = await app.AcquireTokenWithDeviceCode(scopes ?? [ArmDefaultScope], deviceCodeResult =>
         {
@@ -146,7 +146,7 @@ public class MsalAuthService(
 
         // otherwise use the usual MSAL flow
         var app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await RegisterTokenCacheAsync(app, plaintextUnsafe: false);
 
         var accounts = await app.GetAccountsAsync();
         var account = accounts.FirstOrDefault();
