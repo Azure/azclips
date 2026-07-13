@@ -51,11 +51,21 @@ stages:
             print('BUILD_REPOSITORY_NAME is not set.', file=sys.stderr)
             sys.exit(1)
 
-        headers = {'User-Agent': 'azclips-pr-title-check'}
+        headers = {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'azclips-pr-title-check',
+            'X-GitHub-Api-Version': '2022-11-28'
+        }
         token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
         has_token = bool(token and not token.startswith('$('))
         if has_token:
             headers['Authorization'] = f'Bearer {token}'
+
+        def get_error_body(error):
+            try:
+                return error.read().decode('utf-8', errors='replace').strip()
+            except Exception:
+                return ''
 
         request = urllib.request.Request(
             f'https://api.github.com/repos/{repository}/pulls/{pr_number}',
@@ -63,23 +73,38 @@ stages:
         )
 
         try:
-          with urllib.request.urlopen(request) as response:
-            pull_request = json.load(response)
+            with urllib.request.urlopen(request) as response:
+                pull_request = json.load(response)
         except urllib.error.HTTPError as error:
-          if error.code == 404:
+            error_body = get_error_body(error)
+            error_message = ''
+            try:
+                error_message = json.loads(error_body).get('message', '')
+            except json.JSONDecodeError:
+                error_message = error_body.strip()
             print(
-              f'Failed to fetch pull request metadata from GitHub: HTTP 404 Not Found for '
-              f'{repository} pull request #{pr_number}. Token available: {has_token}.',
-              file=sys.stderr
+                f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}. '
+                f'Repository: {repository}. Pull request: #{pr_number}. Token available: {has_token}.',
+                file=sys.stderr
             )
-            print(
-              'Private repositories require GH_TOKEN/GITHUB_TOKEN with access to read pull request metadata. '
-              'Configure the GitHubToken secret pipeline variable, or update that token to include access to this repository.',
-              file=sys.stderr
-            )
+            if error_body:
+                print(f'GitHub response body: {error_body}', file=sys.stderr)
+            oauth_scopes = error.headers.get('X-OAuth-Scopes')
+            accepted_scopes = error.headers.get('X-Accepted-OAuth-Scopes')
+            if oauth_scopes:
+                print(f'GitHub token scopes: {oauth_scopes}', file=sys.stderr)
+            if accepted_scopes:
+                print(f'GitHub accepted scopes: {accepted_scopes}', file=sys.stderr)
+            if error.code in (403, 404):
+                print(
+                    'Private repositories require GH_TOKEN/GITHUB_TOKEN with access to read pull request metadata. '
+                    'For a fine-grained PAT, grant repository access to Azure/azclips and Pull requests: Read-only. '
+                    'If the Azure organization enforces SAML SSO, authorize the token for the organization.',
+                    file=sys.stderr
+                )
+            if error_message:
+                print(f'GitHub API message: {error_message}', file=sys.stderr)
             sys.exit(1)
-          print(f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}', file=sys.stderr)
-          sys.exit(1)
         except urllib.error.URLError as error:
             print(f'Failed to fetch pull request metadata from GitHub: {error.reason}', file=sys.stderr)
             sys.exit(1)
