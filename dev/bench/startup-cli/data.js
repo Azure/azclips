@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783922100937,
+  "lastUpdate": 1783923405238,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -294,6 +294,48 @@ window.BENCHMARK_DATA = {
             "value": 216216764.62,
             "unit": "ns",
             "range": "± 3055528.869974422"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0520c13a51f790f98853c2931495b2d1eab24b79",
+          "message": "Feature/telemetry tags (#438)\n\nApplied several fixes to telemetry tagging\n- Included missing instalationId in allowlist\n- Re-added TenantId, SubscriptionId and authType (removed from\nAuthContextService as part of the profile management work).",
+          "timestamp": "2026-07-13T16:05:19+10:00",
+          "tree_id": "e555a57ba0545160db476ad6c58d8f6f4cb233ff",
+          "url": "https://github.com/Azure/azclips/commit/0520c13a51f790f98853c2931495b2d1eab24b79"
+        },
+        "date": 1783923405150,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 211940144.7,
+            "unit": "ns",
+            "range": "± 4125825.5759269143"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 212252499.41,
+            "unit": "ns",
+            "range": "± 4478033.709675354"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 211148867.34,
+            "unit": "ns",
+            "range": "± 2162818.9410918383"
           }
         ]
       }
