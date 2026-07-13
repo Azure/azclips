@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783904302569,
+  "lastUpdate": 1783917238049,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -3486,6 +3486,48 @@ window.BENCHMARK_DATA = {
             "value": 1013307.9496798719,
             "unit": "ns",
             "range": "± 330456.8699792223"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d93ef16042c9bbafaff05e7058c1022f26c4ac9d",
+          "message": "{Core} extensions Dir added in version output (#421)\n\n**Description**\n\n- extensions Dir added in version output\n- version intrinsic verb handling improved for future use\n\n---------\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-13T14:23:45+10:00",
+          "tree_id": "1db298bd21f5edc5d784030ace14e3839c450cfe",
+          "url": "https://github.com/Azure/azclips/commit/d93ef16042c9bbafaff05e7058c1022f26c4ac9d"
+        },
+        "date": 1783917235638,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1083423.9522975273,
+            "unit": "ns",
+            "range": "± 349537.36086543556"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1055346.099839856,
+            "unit": "ns",
+            "range": "± 346314.2357507668"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1053316.9408112168,
+            "unit": "ns",
+            "range": "± 373111.8136853345"
           }
         ]
       }
