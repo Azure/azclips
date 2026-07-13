@@ -14,7 +14,7 @@ namespace Benchmark.PS;
 
 [MemoryDiagnoser]
 [InvocationCount(invocationCount: 1, unrollFactor: 1)]
-[IterationCount(10000)]
+[IterationCount(10)]
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class PSBenchmarkBase : BenchmarkBase
 {
