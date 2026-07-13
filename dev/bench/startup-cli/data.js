@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783904090446,
+  "lastUpdate": 1783904093763,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -296,6 +296,48 @@ window.BENCHMARK_DATA = {
             "value": 289247383.54,
             "unit": "ns",
             "range": "± 5124480.361602166"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xumingk1@gmail.com",
+            "name": "xuming-ms",
+            "username": "xuming-ms"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "da6a74ad8be4ef88d67a284a335f15371241d538",
+          "message": "Tenant resolution logic for auth flow (#437)\n\n## Summary\nResolves the tenant that actually owns the requested subscription during\n`login --subscription-id` (without `--tenant`), instead of persisting\nthe signed-in home tenant.\n\nAlso use the temp directory for MI e2e test instead of the developer's\nreal profile storage\n\n## Behavior\n- On a fresh interactive/device-code login with `--subscription-id` and\nno `--tenant`, the owning tenant is resolved from the subscription (via\nthe ARM 401 challenge) and persisted to the profile.\n- If the owning tenant cannot be determined, the login fails **without**\nsaving a profile (avoids persisting an unverified tenant).\n- For a cross-tenant subscription, the owning tenant's access is\nverified with a read-only silent-token probe **before** saving. If\ninteractive sign-in is required (e.g. MFA / conditional access) or the\nprobe fails, the login errors and the profile is **not** saved.\n\n## Tests\n- New `SubscriptionServiceTenantResolutionTests` covering the ARM\nchallenge parsing paths.\n\n---------\n\nCo-authored-by: Ming Xu <xumi@microsoft.com>",
+          "timestamp": "2026-07-13T10:43:49+10:00",
+          "tree_id": "ee181fbeba9410a5730810edab5d579e18477555",
+          "url": "https://github.com/Azure/azclips/commit/da6a74ad8be4ef88d67a284a335f15371241d538"
+        },
+        "date": 1783904093690,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 290322130.53,
+            "unit": "ns",
+            "range": "± 4908572.5101958895"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 290736956.35,
+            "unit": "ns",
+            "range": "± 5599775.977344366"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 441075145.11,
+            "unit": "ns",
+            "range": "± 190738162.29886958"
           }
         ]
       }
