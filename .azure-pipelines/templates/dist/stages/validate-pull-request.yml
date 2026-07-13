@@ -1,0 +1,66 @@
+parameters:
+- name: stage_name
+  type: string
+  default: ValidatePullRequest
+- name: display_name
+  type: string
+  default: Validate Pull Request
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: depends_on
+  type: object
+  default: []
+
+stages:
+- stage: ${{ parameters.stage_name }}
+  displayName: ${{ parameters.display_name }}
+  dependsOn: ${{ parameters.depends_on }}
+  condition: succeeded()
+  jobs:
+  - job: CheckPullRequest
+    displayName: Check Pull Request Title and History Notes
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: self
+    - bash: |
+        set -euo pipefail
+
+        python3 - <<'PY'
+        import json
+        import os
+        import subprocess
+        import sys
+        import urllib.request
+
+        pr_number = os.environ.get('SYSTEM_PULLREQUEST_PULLREQUESTNUMBER')
+        repository = os.environ.get('BUILD_REPOSITORY_NAME')
+
+        if not pr_number:
+            print('No pull request number found; skipping pull request metadata validation.')
+            sys.exit(0)
+        if not repository:
+            print('BUILD_REPOSITORY_NAME is not set.', file=sys.stderr)
+            sys.exit(1)
+
+        request = urllib.request.Request(
+            f'https://api.github.com/repos/{repository}/pulls/{pr_number}',
+            headers={'User-Agent': 'azclips-pr-title-check'}
+        )
+
+        with urllib.request.urlopen(request) as response:
+            pull_request = json.load(response)
+
+        title = pull_request.get('title') or ''
+        body = pull_request.get('body') or ''
+
+        print(f'Check pull request title and history notes: #{pr_number}')
+        print(title)
+
+        subprocess.run(
+            ['python3', 'devops/scripts/ci/check_pull_request.py', title, body],
+            check=True
+        )
+        PY
+      displayName: Check PR title and history notes
