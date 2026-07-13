@@ -63,23 +63,23 @@ stages:
         )
 
         try:
-            with urllib.request.urlopen(request) as response:
-                pull_request = json.load(response)
+          with urllib.request.urlopen(request) as response:
+            pull_request = json.load(response)
         except urllib.error.HTTPError as error:
-            if error.code == 404:
-                print(
+          if error.code == 404:
+            print(
               f'Failed to fetch pull request metadata from GitHub: HTTP 404 Not Found for '
               f'{repository} pull request #{pr_number}. Token available: {has_token}.',
-                    file=sys.stderr
-                )
-                print(
+              file=sys.stderr
+            )
+            print(
               'Private repositories require GH_TOKEN/GITHUB_TOKEN with access to read pull request metadata. '
               'Configure the GitHubToken secret pipeline variable, or update that token to include access to this repository.',
-                    file=sys.stderr
-                )
+              file=sys.stderr
+            )
             sys.exit(1)
-            print(f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}', file=sys.stderr)
-            sys.exit(1)
+          print(f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}', file=sys.stderr)
+          sys.exit(1)
         except urllib.error.URLError as error:
             print(f'Failed to fetch pull request metadata from GitHub: {error.reason}', file=sys.stderr)
             sys.exit(1)
