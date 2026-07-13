@@ -222,6 +222,51 @@ function Set-RollupRequiredModuleVersions {
     Write-Utf8NoBomFile -Path $ManifestPath -Lines $lines
 }
 
+function Get-LatestStableTag {
+    param([string] $Root)
+
+    $tagPattern = '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$'
+    $tags = @(& git --no-pager -C $Root for-each-ref --merged HEAD --sort=-creatordate --format='%(refname:short)' refs/tags 2>$null |
+        Where-Object { $_ -match $tagPattern })
+    if ($LASTEXITCODE -ne 0) {
+        throw "git for-each-ref failed while resolving the latest stable tag."
+    }
+
+    if ($tags.Count -eq 0) {
+        return $null
+    }
+
+    return $tags[0]
+}
+
+function Get-MergedPullRequestLines {
+    param([string] $Root)
+
+    $latestStableTag = Get-LatestStableTag -Root $Root
+    $range = if ([string]::IsNullOrWhiteSpace($latestStableTag)) { 'HEAD' } else { "$latestStableTag..HEAD" }
+    $subjects = @(& git --no-pager -C $Root log --first-parent --pretty=format:%s $range 2>$null)
+    if ($LASTEXITCODE -ne 0) {
+        throw "git log failed while collecting merged pull requests for changelog generation."
+    }
+
+    $pullRequests = New-Object System.Collections.Generic.List[string]
+    foreach ($subject in $subjects) {
+        if ($subject -notmatch '\(#(?<number>[0-9]+)\)\s*$') {
+            continue
+        }
+
+        $number = $Matches.number
+        $title = ($subject -replace '\s*\(#[0-9]+\)\s*$', '').Trim()
+        if ([string]::IsNullOrWhiteSpace($title)) {
+            $title = "Pull request #$number"
+        }
+
+        $pullRequests.Add("- #$number $title")
+    }
+
+    return $pullRequests
+}
+
 if (-not (Test-Path -Path $moduleRoot -PathType Container)) {
     throw "PowerShell module root was not found: $moduleRoot"
 }
@@ -273,6 +318,15 @@ foreach ($moduleRelease in $moduleReleases) {
 $rootSection = New-Object System.Collections.Generic.List[string]
 $rootSection.Add("## v$Version - $ReleaseTimestamp")
 $rootSection.Add('')
+
+$mergedPullRequestLines = @(Get-MergedPullRequestLines -Root $RepoRoot)
+if ($mergedPullRequestLines.Count -gt 0) {
+    $rootSection.Add('#### Merged Pull Requests')
+    foreach ($line in $mergedPullRequestLines) {
+        $rootSection.Add($line)
+    }
+    $rootSection.Add('')
+}
 
 foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
     $rootSection.Add("#### Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
