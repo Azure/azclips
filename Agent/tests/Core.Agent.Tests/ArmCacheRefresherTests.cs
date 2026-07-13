@@ -120,6 +120,8 @@ public class ArmCacheRefresherTests
         public Task LogoutAsync(string? clientId = null, CancellationToken ct = default) => Task.CompletedTask;
         public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
             throw new NotImplementedException("no token expected — refresher must return early");
+        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException("no probe expected — refresher must return early");
     }
 
     private sealed class StaticTokenAuth : IAuthService
@@ -136,6 +138,8 @@ public class ArmCacheRefresherTests
                 TenantId = tenantId ?? "fake-tenant",
                 CorrelationId = Guid.NewGuid(),
             });
+        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
     }
 
     private sealed class NoActiveProfile : IProfileService
