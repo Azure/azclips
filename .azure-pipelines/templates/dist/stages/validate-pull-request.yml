@@ -53,7 +53,8 @@ stages:
 
         headers = {'User-Agent': 'azclips-pr-title-check'}
         token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
-        if token and not token.startswith('$('):
+        has_token = bool(token and not token.startswith('$('))
+        if has_token:
             headers['Authorization'] = f'Bearer {token}'
 
         request = urllib.request.Request(
@@ -65,6 +66,17 @@ stages:
             with urllib.request.urlopen(request) as response:
                 pull_request = json.load(response)
         except urllib.error.HTTPError as error:
+            if error.code == 404:
+                print(
+                    f'Warning: GitHub returned 404 for {repository} pull request #{pr_number}. '
+                    f'Token available: {has_token}. Skipping PR title validation for this run.',
+                    file=sys.stderr
+                )
+                print(
+                    'This usually means the repository is private and GH_TOKEN/GITHUB_TOKEN is missing or lacks access.',
+                    file=sys.stderr
+                )
+                sys.exit(0)
             print(f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}', file=sys.stderr)
             sys.exit(1)
         except urllib.error.URLError as error:
