@@ -4,27 +4,26 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Resources
-ms.date: 06/16/2026
+ms.date: 06/18/2026
 PlatyPS schema version: 2024-05-01
-title: New-ResourceGroupDeployment
+title: New-AzResourceGroupDeploymentWhatIf
 ---
 
-# New-ResourceGroupDeployment
+# New-AzResourceGroupDeploymentWhatIf
 
 ## SYNOPSIS
 
-Deploy an ARM or Bicep template into an existing resource group.
+Preview the changes an ARM or Bicep deployment would make to a resource group without applying them.
 
 ## SYNTAX
 
 ### \_\_AllParameterSets
 
 ```
-New-ResourceGroupDeployment -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
+New-AzResourceGroupDeploymentWhatIf -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
  [-TemplateUri <string>] [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
  [-ParametersUri <string>] [-ParametersFile <string>] [-Mode <string>] [-Parameter <string[]>]
- [-RollbackOnError] [-RollbackToDeploymentName <string>] [-ValidationLevel <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+ [-ValidationLevel <string>] [-ResultFormat <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -34,46 +33,24 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Submits a deployment to the specified resource group using an ARM/Bicep template supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
-Use `-Mode Complete` for full reconciliation, or `-Mode Incremental` (default) to add and update without removing untracked resources.
+Runs an ARM/Bicep what-if operation against an existing resource group and returns the set of resource changes the deployment would produce — additions, modifications, deletions, and no-ops — without creating or modifying any resources. The template is supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+Use `-ResultFormat ResourceIdOnly` for a compact summary, or `-ResultFormat FullResourcePayloads` (default) to include the full predicted resource bodies.
 
 ## EXAMPLES
 
-### Deploy a Bicep file into an existing resource group
+### Preview a Bicep deployment before applying it
 
-Submit `main.bicep` along with parameter file `main.parameters.json` as deployment `infra-prod-2026-06-16` into resource group `myrg`.
+Run a what-if for `main.bicep` with parameter file `main.parameters.json` as deployment `infra-prod-2026-06-18` against resource group `myrg`.
 
 ```powershell
-New-ResourceGroupDeployment -ResourceGroupName myrg -Name infra-prod-2026-06-16 -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json -Mode Incremental
+New-AzResourceGroupDeploymentWhatIf -ResourceGroupName myrg -Name infra-prod-2026-06-18 -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json -Mode Incremental
 ```
 
 ## PARAMETERS
 
-### -Confirm
-
-Prompts you for confirmation before running the cmdlet.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
-SupportsWildcards: false
-Aliases:
-    - cf
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
 ### -Mode
 
-Deployment mode. Use `Incremental` (default) to add and update resources, or `Complete` to delete resources in the resource group that aren't declared in the template.
+Deployment mode used to evaluate the change set. Use `Incremental` (default) to add and update resources, or `Complete` to also report resources in the resource group that aren't declared in the template.
 
 ```yaml
 Type: System.String
@@ -94,7 +71,7 @@ HelpMessage: ""
 
 ### -Name
 
-The name of the deployment. Used to track and reference the deployment in deployment history.
+The name of the deployment. Used to track and reference the what-if operation in deployment history.
 
 ```yaml
 Type: System.String
@@ -199,7 +176,7 @@ HelpMessage: ""
 
 ### -ResourceGroupName
 
-The name of the resource group that will receive the deployment. The resource group must already exist.
+The name of the resource group to run the what-if against. The resource group must already exist.
 
 ```yaml
 Type: System.String
@@ -218,30 +195,9 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -RollbackOnError
+### -ResultFormat
 
-If the deployment fails, automatically roll back to the last successful deployment in this resource group.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -RollbackToDeploymentName
-
-Name of an explicit prior deployment to roll back to on failure. Implies the rollback behaviour of `-RollbackOnError`.
+The format of the what-if results. Use `FullResourcePayloads` (default) to include the full predicted resource bodies, or `ResourceIdOnly` for a compact list of affected resource IDs.
 
 ```yaml
 Type: System.String
@@ -256,7 +212,9 @@ ParameterSets:
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+    - FullResourcePayloads
+    - ResourceIdOnly
 HelpMessage: ""
 ```
 
@@ -304,7 +262,7 @@ HelpMessage: ""
 
 ### -TemplateSpecId
 
-Resource ID of an existing template spec to deploy (for example, `/subscriptions/.../providers/Microsoft.Resources/templateSpecs/<spec>/versions/<version>`).
+Resource ID of an existing template spec to evaluate (for example, `/subscriptions/.../providers/Microsoft.Resources/templateSpecs/<spec>/versions/<version>`).
 
 ```yaml
 Type: System.String
@@ -346,35 +304,13 @@ HelpMessage: ""
 
 ### -ValidationLevel
 
-Deployment validation strictness. Common values are `Provider` (default) and `Template`. Use a stricter level to catch schema or parameter issues earlier.
+What-if validation strictness. Common values are `Provider` (default) and `Template`. Use a stricter level to catch schema or parameter issues earlier.
 
 ```yaml
 Type: System.String
 DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -WhatIf
-
-Runs the command in a mode that only reports what would happen without performing the actions.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
-SupportsWildcards: false
-Aliases:
-    - wi
 ParameterSets:
     - Name: (All)
       Position: Named
@@ -400,13 +336,14 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.Object
 
-Returns the deployment object describing the deployment name, provisioning state, and any output values declared by the template.
+Returns the what-if result describing the predicted resource changes (create, modify, delete, ignore, no-change) for the deployment.
 
 ## NOTES
 
-The target resource group must already exist. Use `New-ResourceGroup` to create it first when bootstrapping a new environment.
+What-if is a read-only preview: it never creates or modifies resources. Use `New-AzResourceGroupDeployment` to apply the changes once the preview looks correct.
 
 ## RELATED LINKS
 
-- [New-ResourceGroup]()
-- [Get-ResourceGroup]()
+- [New-AzResourceGroupDeployment]()
+- [New-AzResourceGroup]()
+- [Get-AzResourceGroup]()

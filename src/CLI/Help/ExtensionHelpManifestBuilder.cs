@@ -346,8 +346,8 @@ namespace Core.Cli.Help
         }
 
         /// <summary>
-        /// Collapses an internal dispatch key like <c>"Get-VM_Get"</c> down to the
-        /// user-facing cmdlet name <c>"Get-VM"</c>. Some extensions use a
+        /// Collapses an internal dispatch key like <c>"Get-AzVM_Get"</c> down to the
+        /// user-facing cmdlet name <c>"Get-AzVM"</c>. Some extensions use a
         /// <c>Verb-Noun_ParameterSet</c> convention in <c>s_psTable</c> to dispatch by
         /// parameter set; the manifest/index surface exposes only the cmdlet name.
         /// </summary>

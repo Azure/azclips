@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.Get, "VM", DefaultParameterSetName = "List")]
+[Cmdlet(VerbsCommon.Get, "AzVM", DefaultParameterSetName = "List")]
 public class GetVMCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -55,7 +55,7 @@ public class GetVMCmdlet : PSCmdlet
         }
 
         var parameterSetName = ParameterSetName;
-        var commandName = $"Get-VM_{parameterSetName}";
+        var commandName = $"Get-AzVM_{parameterSetName}";
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
             parameters.Add("Profile", Profile!);

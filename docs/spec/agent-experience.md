@@ -211,10 +211,10 @@ PS> ask how do I create a resource group
 ⠋ Thinking...
 
 Azure PowerShell:
-New-ResourceGroup -Name <resource-group-name> -Location <location>
+New-AzResourceGroup -Name <resource-group-name> -Location <location>
 
 # Example:
-New-ResourceGroup -Name myResourceGroup -Location eastus
+New-AzResourceGroup -Name myResourceGroup -Location eastus
 ```
 
 **Behavioral Note:** Both interfaces display guidance only - user must manually execute commands with their own values.
@@ -271,7 +271,7 @@ PS> ask create a resource group called mygroup in westus
 I'll create a resource group named "mygroup" in the westus region.
 
 Command:
-New-ResourceGroup -Name mygroup -Location westus
+New-AzResourceGroup -Name mygroup -Location westus
 
 Name     Location ProvisioningState
 ----     -------- -----------------
@@ -666,7 +666,7 @@ PS> ask create a resource group called mygroup in westus
 I'll create a resource group named "mygroup" in the westus region.
 
 Command:
-New-ResourceGroup -Name mygroup -Location westus
+New-AzResourceGroup -Name mygroup -Location westus
 
 Shall I proceed?
 
@@ -692,7 +692,7 @@ PS> pls show me all resource groups in westus
 I'll retrieve all resource groups in the westus region.
 
 Command:
-Get-ResourceGroup | Where-Object Location -eq 'westus'
+Get-AzResourceGroup | Where-Object Location -eq 'westus'
 
 Shall I proceed?
 

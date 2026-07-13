@@ -6,25 +6,23 @@ Locale: en-US
 Module Name: Compute
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: New-NetworkInterface
+title: New-AzNetworkSecurityGroup
 ---
 
-# New-NetworkInterface
+# New-AzNetworkSecurityGroup
 
 ## SYNOPSIS
 
-Create a network interface attached to a virtual network and network security group.
+Create a network security group with optional inbound/outbound rules.
 
 ## SYNTAX
 
 ### \_\_AllParameterSets
 
 ```
-New-NetworkInterface -SubscriptionId <string> -Name <string> -Location <string>
- -ResourceGroupName <string> -VirtualNetworkName <string> -NetworkSecurityGroupName <string>
- [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>]
- [-RuleNames <string[]>] [-RuleDirections <string[]>] [-RuleProtocols <string[]>]
- [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
+New-AzNetworkSecurityGroup -SubscriptionId <string> -Name <string> -Location <string>
+ -ResourceGroupName <string> [-RuleNames <string[]>] [-RuleDirections <string[]>]
+ [-RuleProtocols <string[]>] [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
  [-RuleSourcePortRanges <string[]>] [-RuleDestinationPortRanges <string[]>]
  [-RuleDestinationAddressPrefixes <string[]>] [-RuleAccesses <string[]>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
@@ -37,41 +35,21 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Provisions a new network interface (NIC) in the specified resource group, wiring it to the named virtual network and network security group.
-Optional parameters let you customize subnets, address prefixes, and NSG rules.
+Provisions a new network security group (NSG) in the specified resource group.
+Optional parallel arrays (RuleNames, RuleDirections, RuleProtocols, ...) let you define security rules at creation time.
 
 ## EXAMPLES
 
-### Create a network interface
+### Create an empty network security group
 
-Provision the network interface `mynic` in `myrg` (East US), wired to virtual network `myvnet` and network security group `mynsg`.
+Provision the network security group `mynsg` in `myrg` (East US) with no inline rules.
+Rules can be added later by passing the parallel `-Rule*` arrays.
 
 ```powershell
-New-NetworkInterface -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name mynic -Location eastus -ResourceGroupName myrg -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
+New-AzNetworkSecurityGroup -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name mynsg -Location eastus -ResourceGroupName myrg
 ```
 
 ## PARAMETERS
-
-### -AddressPrefixes
-
-Address prefixes for the virtual network in CIDR notation (for example, `10.0.0.0/16`).
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
 
 ### -Confirm
 
@@ -97,7 +75,7 @@ HelpMessage: ""
 
 ### -Location
 
-The Azure region in which to create the network interface (for example, `eastus`).
+The Azure region in which to create the network security group (for example, `eastus`).
 
 ```yaml
 Type: System.String
@@ -118,28 +96,7 @@ HelpMessage: ""
 
 ### -Name
 
-The name of the network interface to create.
-
-```yaml
-Type: System.String
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -NetworkSecurityGroupName
-
-The name of the network security group to associate with the new network interface.
+The name of the network security group to create.
 
 ```yaml
 Type: System.String
@@ -160,7 +117,7 @@ HelpMessage: ""
 
 ### -ResourceGroupName
 
-The name of the resource group that will hold the network interface.
+The name of the resource group that will hold the network security group.
 
 ```yaml
 Type: System.String
@@ -368,72 +325,9 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -SubnetAddressPrefixes
-
-Address prefixes for each subnet, supplied as a jagged array aligned with `-SubnetNames`.
-
-```yaml
-Type: System.String[][]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -SubnetNames
-
-Names of the subnets to create within the virtual network.
-
-```yaml
-Type: System.String[]
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
 ### -SubscriptionId
 
 The Azure subscription ID that owns the resource group.
-
-```yaml
-Type: System.String
-DefaultValue: ""
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ""
-```
-
-### -VirtualNetworkName
-
-The name of the virtual network to attach the new network interface to.
 
 ```yaml
 Type: System.String
@@ -488,7 +382,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.Object
 
-Returns the provisioned network interface object including its IP configuration and resource id.
+Returns the provisioned network security group object including its security rules and resource id.
 
 ## NOTES
 

@@ -17,11 +17,11 @@ The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `C
 | Module | Representative cmdlets | Source |
 | --- | --- | --- |
 | **Login** | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzProfile`, `Set-AzProfile`, `Remove-AzProfile` | `src/PS/Login/Cmdlets/ConnectAccountCmdlet.cs:11` |
-| **Resources** | `New-ResourceGroup`, `Get-ResourceGroup`, `New-ResourceGroupDeployment`, `Invoke-AzclipsRestMethod` | `src/PS/Resources/Cmdlets/NewResourceGroupCmdlet.cs` |
-| **Compute** | `New-VM`, `Get-VM`, `Remove-VM`, `New-VirtualNetwork`, `New-NetworkInterface`, `New-NetworkSecurityGroup` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
+| **Resources** | `New-AzResourceGroup`, `Get-AzResourceGroup`, `New-AzResourceGroupDeployment`, `Invoke-AzRestMethod` | `src/PS/Resources/Cmdlets/NewResourceGroupCmdlet.cs` |
+| **Compute** | `New-AzVM`, `Get-AzVM`, `Remove-AzVM`, `New-AzVirtualNetwork`, `New-AzNetworkInterface`, `New-AzNetworkSecurityGroup` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
 | **Config** | `Get-AzConfig`, `Set-AzConfig`, `Get-AzConfigList`, `Get-AzConfigInfo`, `Remove-AzConfig` | `src/PS/Config/Cmdlets/SetAzConfigCmdlet.cs` |
 
-> **Naming note:** Login and Config cmdlets carry the `Az` noun prefix (`Constants.CommandPrefix = "Az"`, `src/PS/Login/Constants.cs:11`), so you get `Connect-AzAccount` and `Set-AzConfig`. Compute and Resources cmdlets currently use unprefixed nouns like `New-VM` and `New-ResourceGroup`.
+> **Naming note:** All modules carry the `Az` noun prefix so cmdlet names match Azure PowerShell. Login and Config define the prefix via `Constants.CommandPrefix = "Az"` (`src/PS/Login/Constants.cs:11`), giving `Connect-AzAccount` and `Set-AzConfig`; Compute and Resources use `Az`-prefixed nouns like `New-AzVM` and `New-AzResourceGroup`.
 
 ### Importing and Using
 
@@ -32,11 +32,11 @@ Import-Module ./src/PS/Compute/Compute.psd1
 
 # Authenticate, then create a resource group and a VM
 Connect-AzAccount -SubscriptionId <sub-id>
-New-ResourceGroup -Name myrg -Location eastus -SubscriptionId <sub-id>
-New-VM -Name myvm -ResourceGroupName myrg -Location eastus -SubscriptionId <sub-id> `
+New-AzResourceGroup -Name myrg -Location eastus -SubscriptionId <sub-id>
+New-AzVM -Name myvm -ResourceGroupName myrg -Location eastus -SubscriptionId <sub-id> `
        -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword <pwd> `
        -NetworkInterfaceName nic1 -VirtualNetworkName vnet1 -NetworkSecurityGroupName nsg1
-Get-VM -ResourceGroupName myrg -SubscriptionId <sub-id>
+Get-AzVM -ResourceGroupName myrg -SubscriptionId <sub-id>
 
 # Opt out of telemetry via config
 Set-AzConfig -Key telemetry.enabled -Value false
@@ -80,7 +80,7 @@ sequenceDiagram
     participant Chan as Per-invocation Channel
     participant PSOut as $PSCmdlet.WriteObject
 
-    User->>Cmd: New-VM -Name myvm ...
+    User->>Cmd: New-AzVM -Name myvm ...
     Cmd->>Factory: Create(this, "VMError", ...)  [BeginProcessing]
     Factory-->>Cmd: OutputStreams (delegates -> PS streams)
     Cmd->>DI: GetRequiredService(IEngine)
@@ -94,7 +94,7 @@ sequenceDiagram
 ```mermaid
 graph LR
     subgraph psh["PowerShell Host"]
-        CMD["Cmdlet<br>New-VM / Set-AzConfig"]
+        CMD["Cmdlet<br>New-AzVM / Set-AzConfig"]
         WO["$PSCmdlet.WriteObject /<br>WriteError / WriteVerbose"]
     end
     subgraph shared["Shared Core (same as CLI)"]
@@ -119,7 +119,7 @@ graph LR
 
 ## Manifests and Help
 
-Each module ships a `.psd1` manifest (e.g. `src/PS/Compute/Compute.psd1`) declaring `ModuleVersion`, required modules, and the artifact DLLs it loads, plus `help/*.md` files (e.g. `src/PS/Compute/help/New-VM.md`) generated for `Get-Help`. Because manifests reference DLLs under `artifacts/<Config>/...` (`src/PS/Compute/Compute.psd1:59`), you must build the solution before importing a module.
+Each module ships a `.psd1` manifest (e.g. `src/PS/Compute/Compute.psd1`) declaring `ModuleVersion`, required modules, and the artifact DLLs it loads, plus `help/*.md` files (e.g. `src/PS/Compute/help/New-AzVM.md`) generated for `Get-Help`. Because manifests reference DLLs under `artifacts/<Config>/...` (`src/PS/Compute/Compute.psd1:59`), you must build the solution before importing a module.
 
 ## References
 

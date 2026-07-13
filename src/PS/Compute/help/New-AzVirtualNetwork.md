@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Compute
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: New-VirtualNetwork
+title: New-AzVirtualNetwork
 ---
 
-# New-VirtualNetwork
+# New-AzVirtualNetwork
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Create a virtual network with optional subnets and address prefixes.
 ### \_\_AllParameterSets
 
 ```
-New-VirtualNetwork -SubscriptionId <string> -Name <string> -Location <string>
+New-AzVirtualNetwork -SubscriptionId <string> -Name <string> -Location <string>
  -ResourceGroupName <string> [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>]
  [-AddressPrefixes <string[]>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
@@ -43,7 +43,7 @@ Provision the virtual network `myvnet` in `myrg` (East US).
 Use `-AddressPrefixes`, `-SubnetNames`, and `-SubnetAddressPrefixes` to override defaults.
 
 ```powershell
-New-VirtualNetwork -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvnet -Location eastus -ResourceGroupName myrg
+New-AzVirtualNetwork -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvnet -Location eastus -ResourceGroupName myrg
 ```
 
 ## PARAMETERS

@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.New, "VirtualNetwork", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsCommon.New, "AzVirtualNetwork", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class NewVirtualNetworkCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -76,7 +76,7 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Compute", "New-VirtualNetwork", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Compute", "New-AzVirtualNetwork", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

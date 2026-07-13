@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsCommon.New, "ResourceGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsCommon.New, "AzResourceGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class NewResourceGroupDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -129,7 +129,7 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Resources", "New-ResourceGroupDeployment", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "New-AzResourceGroupDeployment", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

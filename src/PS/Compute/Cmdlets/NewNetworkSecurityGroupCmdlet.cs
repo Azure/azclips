@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.New, "NetworkSecurityGroup", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsCommon.New, "AzNetworkSecurityGroup", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class NewNetworkSecurityGroupCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -91,7 +91,7 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Compute", "New-NetworkSecurityGroup", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Compute", "New-AzNetworkSecurityGroup", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

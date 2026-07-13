@@ -15,7 +15,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_PS = new(
             Name: "NewVirtualNetworkProcessor",
-            InvocationName: "New-VirtualNetwork",
+            InvocationName: "New-AzVirtualNetwork",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVirtualNetworkProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -34,7 +34,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         );
         private static readonly CommandMetadata s_newNetworkSecurityGroup_PS = new(
             Name: "NewNetworkSecurityGroupProcessor",
-            InvocationName: "New-NetworkSecurityGroup",
+            InvocationName: "New-AzNetworkSecurityGroup",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkSecurityGroupProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -59,7 +59,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         );
         private static readonly CommandMetadata s_newNetworkInterface_PS = new(
             Name: "NewNetworkInterfaceProcessor",
-            InvocationName: "New-NetworkInterface",
+            InvocationName: "New-AzNetworkInterface",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -78,7 +78,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         );
         private static readonly CommandMetadata s_newVM_PS = new(
             Name: "NewVMProcessor",
-            InvocationName: "New-VM",
+            InvocationName: "New-AzVM",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -107,7 +107,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         );
         private static readonly CommandMetadata s_getVM_PS = new(
             Name: "GetVMProcessor",
-            InvocationName: "Get-VM_Get",
+            InvocationName: "Get-AzVM_Get",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -122,7 +122,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         );
         private static readonly CommandMetadata s_listVM_PS = new(
             Name: "ListVMProcessor",
-            InvocationName: "Get-VM_List",
+            InvocationName: "Get-AzVM_List",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.ListVMProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -136,7 +136,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         );
         private static readonly CommandMetadata s_deleteVM_PS = new(
             Name: "DeleteVMProcessor",
-            InvocationName: "Remove-VM",
+            InvocationName: "Remove-AzVM",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.DeleteVMProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -151,7 +151,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         );
         private static readonly CommandMetadata s_newNetworkInterfaceOrchestrator_PS = new(
             Name: "NewNetworkInterfaceProcessor_Orchestrator",
-            InvocationName: "New-NetworkInterfaceOrchestrator",
+            InvocationName: "New-AzNetworkInterfaceOrchestrator",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -181,7 +181,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         );
         private static readonly CommandMetadata s_newVMOrchestrator_PS = new(
             Name: "NewVMOrchestrator",
-            InvocationName: "New-VM",
+            InvocationName: "New-AzVM",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -433,15 +433,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
-            // ["New-VirtualNetwork"]               = s_newVirtualNetwork_PS,
-            // ["New-NetworkSecurityGroup"]         = s_newNetworkSecurityGroup_PS,
-            // ["New-NetworkInterface"]             = s_newNetworkInterface_PS,
-            // ["New-VM"]                           = s_newVM_PS,
-            // ["New-NetworkInterfaceOrchestrator"]     = s_newNetworkInterfaceOrchestrator_PS,
-            ["New-VM"]                   = s_newVMOrchestrator_PS,
-            ["Get-VM_Get"]                   = s_getVM_PS,
-            ["Get-VM_List"]               = s_listVM_PS,
-            ["Remove-VM"]                = s_deleteVM_PS,
+            // ["New-AzVirtualNetwork"]               = s_newVirtualNetwork_PS,
+            // ["New-AzNetworkSecurityGroup"]         = s_newNetworkSecurityGroup_PS,
+            // ["New-AzNetworkInterface"]             = s_newNetworkInterface_PS,
+            // ["New-AzVM"]                           = s_newVM_PS,
+            // ["New-AzNetworkInterfaceOrchestrator"]     = s_newNetworkInterfaceOrchestrator_PS,
+            ["New-AzVM"]                   = s_newVMOrchestrator_PS,
+            ["Get-AzVM_Get"]                   = s_getVM_PS,
+            ["Get-AzVM_List"]               = s_listVM_PS,
+            ["Remove-AzVM"]                = s_deleteVM_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the

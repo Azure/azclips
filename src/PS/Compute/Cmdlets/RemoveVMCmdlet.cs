@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.Remove, "VM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
+[Cmdlet(VerbsCommon.Remove, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 public class RemoveVMCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -57,7 +57,7 @@ public class RemoveVMCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Compute", "Remove-VM", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Compute", "Remove-AzVM", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

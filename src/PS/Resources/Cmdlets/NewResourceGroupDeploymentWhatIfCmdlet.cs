@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 // What-if is a read-only preview: it never creates or modifies resources, so it intentionally
 // does NOT declare SupportsShouldProcess/ConfirmImpact (there is nothing to confirm).
-[Cmdlet(VerbsCommon.New, "ResourceGroupDeploymentWhatIf")]
+[Cmdlet(VerbsCommon.New, "AzResourceGroupDeploymentWhatIf")]
 public class NewResourceGroupDeploymentWhatIfCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -116,7 +116,7 @@ public class NewResourceGroupDeploymentWhatIfCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Resources", "New-ResourceGroupDeploymentWhatIf", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "New-AzResourceGroupDeploymentWhatIf", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

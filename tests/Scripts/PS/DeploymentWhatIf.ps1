@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# Resource group scope deployment what-if - PowerShell (New-ResourceGroupDeploymentWhatIf)
+# Resource group scope deployment what-if - PowerShell (New-AzResourceGroupDeploymentWhatIf)
 # Equivalent of: Get-AzResourceGroupDeploymentWhatIfResult / New-AzResourceGroupDeployment -WhatIf
 #
 # What-if is READ-ONLY: it predicts the changes a template would make and never
@@ -22,7 +22,7 @@ $BicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
 $DebugPreference = 'Continue'
 
 # Happy path (TemplateUri): preview a public quickstart template in Incremental mode.
-New-ResourceGroupDeploymentWhatIf `
+New-AzResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name azclips-test-whatif-1 `
@@ -31,7 +31,7 @@ New-ResourceGroupDeploymentWhatIf `
 
 # Bicep happy path (TemplateFile): compile a local .bicep template via the Bicep CLI and
 # preview it. Requires the Bicep CLI on PATH or the az-bundled bicep (~/.azure/bin/bicep).
-New-ResourceGroupDeploymentWhatIf `
+New-AzResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name azclips-test-whatif-bicep `
@@ -41,7 +41,7 @@ New-ResourceGroupDeploymentWhatIf `
 
 # Inline-parameter precedence: the .bicepparam supplies storageAccountName=azclipsbicep0001
 # (the base); the repeatable -Parameter (KEY=VALUE) overrides it, proving inline overlays the file.
-New-ResourceGroupDeploymentWhatIf `
+New-AzResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name azclips-test-whatif-inline `
@@ -52,7 +52,7 @@ New-ResourceGroupDeploymentWhatIf `
 
 # -ResultFormat ResourceIdOnly: the predicted changes carry resource ids only
 # (no full before/after payloads).
-New-ResourceGroupDeploymentWhatIf `
+New-AzResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name azclips-test-whatif-idonly `
@@ -65,7 +65,7 @@ New-ResourceGroupDeploymentWhatIf `
 # diagnostics (non-zero exit -> InvalidOperationException). No what-if is run.
 # Expected to throw; catch so the rest of the script still runs unattended.
 try {
-    New-ResourceGroupDeploymentWhatIf `
+    New-AzResourceGroupDeploymentWhatIf `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
         -ResourceGroupName azclips-test-group-1 `
         -Name azclips-test-whatif-bicep-negative `
@@ -87,7 +87,7 @@ try {
 # Expected result: the command fails fast with a clear validation message listing the
 # allowed values (FullResourcePayloads, ResourceIdOnly) and does NOT run a what-if.
 try {
-    New-ResourceGroupDeploymentWhatIf `
+    New-AzResourceGroupDeploymentWhatIf `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
         -ResourceGroupName azclips-test-group-1 `
         -Name azclips-test-whatif-rf-negative `
@@ -115,7 +115,7 @@ try {
 # surface as a thrown error and MUST NOT be silently reported as a successful no-change result.
 $TemplateDir = Join-Path $PSScriptRoot '..' 'Bicep'
 try {
-    New-ResourceGroupDeploymentWhatIf `
+    New-AzResourceGroupDeploymentWhatIf `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
         -ResourceGroupName azclips-test-group-1 `
         -Name azclips-test-whatif-apierror `
