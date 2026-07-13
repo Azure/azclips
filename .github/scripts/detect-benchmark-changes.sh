@@ -58,13 +58,10 @@ else
     # (a) a benchmark class file changed (its filename may differ from the ext name)
     if [ -n "${FILE_EXT[$cf]:-}" ]; then HIT["${FILE_EXT[$cf]}"]=1; fi
     # (b) product source-path convention: src/Extensions/<Ext>/** or src/PS/<Ext>/**
-    case "$cf" in
-      src/Extensions/*/*|src/PS/*/*)
-        e="$(printf '%s' "$cf" | cut -d/ -f3)"
-        e="${e,,}"
-        [ -n "${IS_EXT[$e]:-}" ] && HIT["$e"]=1
-        ;;
-    esac
+    if [[ "$cf" =~ ^src/(Extensions|PS)/([^/]+)/ ]]; then
+      e="${BASH_REMATCH[2],,}"
+      [ -n "${IS_EXT[$e]:-}" ] && HIT["$e"]=1
+    fi
   done < <(printf '%s' "$CHANGED_FILES" | jq -r '.[]?' 2>/dev/null || true)
 
   RUN=()
