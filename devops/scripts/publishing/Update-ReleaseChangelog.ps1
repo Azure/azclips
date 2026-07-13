@@ -285,6 +285,7 @@ function Invoke-GitHubApi {
     $headers = @{
         Accept = 'application/vnd.github+json'
         'User-Agent' = 'azclips-release-changelog'
+        'X-GitHub-Api-Version' = '2022-11-28'
     }
 
     $token = if (-not [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { $env:GH_TOKEN } else { $env:GITHUB_TOKEN }

@@ -49,7 +49,8 @@ stages:
         if not repository:
             print('GitHub repository name is not set. Configure github_repository or BUILD_REPOSITORY_NAME.', file=sys.stderr)
             sys.exit(1)
-        if '/' not in repository.strip('/'):
+        repository = repository.strip().strip('/')
+        if len(repository.split('/')) != 2 or not all(repository.split('/')):
             print(f'GitHub repository must be in owner/repo form. Received: {repository}', file=sys.stderr)
             sys.exit(1)
 
