@@ -24,6 +24,7 @@ namespace Core.Abstractions.Runtime
         public const string Progress = nameof(Progress);
 
         // processor
+        public const string ProcessorContextCreated = nameof(ProcessorContextCreated);
         public const string ProcessorInitiated = nameof(ProcessorInitiated);
         public const string ProcessorAcquired = nameof(ProcessorAcquired);
         public const string ProcessorProcessAsyncStart = nameof(ProcessorProcessAsyncStart);

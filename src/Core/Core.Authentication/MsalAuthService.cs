@@ -175,6 +175,21 @@ public class MsalAuthService(
         return result.ToAuthResult();
     }
 
+    public async Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default)
+    {
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(CanAcquireTokenSilentlyAsync)}");
+        try
+        {
+            await AcquireTokenSilentlyAsync(scopes: null, tenantId: tenantId, promptOnError: false, cancellationToken: cancellationToken, profile: profile);
+            return true;
+        }
+        catch (MsalUiRequiredException ex)
+        {
+            Logger.Debug($"[{nameof(MsalAuthService)}] Silent token acquisition for tenant '{tenantId}' requires interaction: {ex.Message}");
+            return false;
+        }
+    }
+
     private void LogTokenMetadataDebug(AuthenticationResult result)
     {
         Logger.Debug($"[{nameof(MsalAuthService)}] Token acquired silently: "

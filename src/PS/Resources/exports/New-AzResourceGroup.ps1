@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-function New-ResourceGroup {
+function New-AzResourceGroup {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     param (
         [Parameter(Mandatory = $false)]
@@ -16,7 +16,7 @@ function New-ResourceGroup {
 
     begin {
         # Start telemetry activity
-        $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
+        $script:activity = Start-CmdletActivity -CmdletName "New-AzResourceGroup" -Parameters $PSBoundParameters
 
         $engine = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
@@ -29,7 +29,7 @@ function New-ResourceGroup {
     process {
         try {
             $extensionName = "Resources";
-            $commandName = "New-ResourceGroup";
+            $commandName = "New-AzResourceGroup";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
             if ($PSBoundParameters.ContainsKey('SubscriptionId')) {

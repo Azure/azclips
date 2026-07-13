@@ -1,26 +1,26 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
 Locale: en-US
-Module Name: Resources
-ms.date: 06/03/2026
+Module Name: Compute
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: New-ResourceGroup
+title: Remove-AzVM
 ---
 
-# New-ResourceGroup
+# Remove-AzVM
 
 ## SYNOPSIS
 
-Create a new resource group.
+Delete a virtual machine.
 
 ## SYNTAX
 
 ### \_\_AllParameterSets
 
 ```
-New-ResourceGroup -Name <string> -Location <string> [-SubscriptionId <string>] [-WhatIf] [-Confirm]
+Remove-AzVM -SubscriptionId <string> -Name <string> -ResourceGroupName <string> [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
@@ -31,19 +31,17 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Provision a new resource group in your Azure subscription.
-Specify the resource group name, location (region), and subscription ID.
-An optional resource ID can be provided for advanced scenarios.
-The resource group will be created immediately and can be used to organize your Azure resources.
+Deletes the named virtual machine from the specified resource group and subscription.
+This operation removes only the VM resource itself; associated disks, network interfaces, and other dependent resources are not deleted.
 
 ## EXAMPLES
 
-### Create a resource group
+### Remove a VM
 
-Provision a new resource group named `myrg` in the East US region.
+Delete the virtual machine `myvm` from resource group `myrg`. The associated disks and NICs are not removed.
 
 ```powershell
-New-ResourceGroup -Name myrg -Location eastus
+Remove-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -ResourceGroupName myrg
 ```
 
 ## PARAMETERS
@@ -70,9 +68,9 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -Location
+### -Name
 
-Location for resource group.
+The name of the virtual machine.
 
 ```yaml
 Type: System.String
@@ -91,9 +89,9 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
-### -Name
+### -ResourceGroupName
 
-The name of the resource group.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -124,7 +122,7 @@ Aliases: []
 ParameterSets:
     - Name: (All)
       Position: Named
-      IsRequired: false
+      IsRequired: true
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
@@ -169,7 +167,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## NOTES
 
-Generated help for resources.
+Generated help for compute.
 
 ## RELATED LINKS
 

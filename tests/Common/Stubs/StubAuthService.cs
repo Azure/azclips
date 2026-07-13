@@ -41,4 +41,9 @@ public class StubAuthService : IAuthService
     {
         return Task.FromResult(CreateFakeResult());
     }
+
+    public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
 }

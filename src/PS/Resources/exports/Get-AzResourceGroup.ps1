@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-function Get-ResourceGroup {
+function Get-AzResourceGroup {
     [CmdletBinding()]
     param (
         [Parameter(ParameterSetName='Get', Mandatory)]
@@ -14,7 +14,7 @@ function Get-ResourceGroup {
 
     begin {
         # Start telemetry activity
-        $script:activity = Start-CmdletActivity -CmdletName "Get-ResourceGroup" -Parameters $PSBoundParameters
+        $script:activity = Start-CmdletActivity -CmdletName "Get-AzResourceGroup" -Parameters $PSBoundParameters
 
         $engine = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
@@ -31,7 +31,7 @@ function Get-ResourceGroup {
     process {
         try {
             $extensionName = "Resources";
-            $commandName = "Get-ResourceGroup_$($PSCmdlet.ParameterSetName)";
+            $commandName = "Get-AzResourceGroup_$($PSCmdlet.ParameterSetName)";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
             if ($PSBoundParameters.ContainsKey('SubscriptionId')) {

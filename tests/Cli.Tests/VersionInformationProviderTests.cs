@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Cli.Version;
+using Core.Configuration.Options;
 using Xunit;
 
 namespace Cli.Tests;
@@ -46,6 +47,21 @@ public class VersionInformationProviderTests
         var info = VersionInformationProvider.Gather(new FakeConfigurationService(ConfigFilePath));
 
         Assert.Equal(Path.GetDirectoryName(ConfigFilePath), info.Paths.ConfigLocation);
+    }
+
+    /// <summary>
+    /// The reported extensions path is the versioned installation directory the extension loaders use,
+    /// read from <see cref="AssemblyLoadingOptions"/> so it honors user config overrides.
+    /// </summary>
+    [Fact]
+    public void Gather_ShouldReportExtensionsDirectory_FromAssemblyLoadingOptions()
+    {
+        var extensionsDir = Path.Combine(Path.GetTempPath(), "azclips-extensions", Guid.NewGuid().ToString("N"));
+        var options = new AssemblyLoadingOptions { VersionedInstallationDir = extensionsDir };
+
+        var info = VersionInformationProvider.Gather(new FakeConfigurationService(ConfigFilePath, options));
+
+        Assert.Equal(extensionsDir, info.Paths.ExtensionsLocation);
     }
 
     /// <summary>Gathering without a configuration service surfaces the error instead of masking it.</summary>
@@ -93,14 +109,42 @@ public class VersionInformationProviderTests
         Assert.Contains("Paths", output);
     }
 
+    /// <summary>
+    /// Render writes the formatted payload with exactly one trailing newline.
+    /// </summary>
+    [Fact]
+    public void Render_Text_ShouldEndWithExactlyOneTrailingNewline()
+    {
+        using var writer = new StringWriter();
+        var dispatcher = new RuntimeVersionDispatcher(new FakeConfigurationService(ConfigFilePath), writer);
+
+        dispatcher.Render(VersionOutputFormat.Text);
+
+        var output = writer.ToString();
+        Assert.EndsWith(Environment.NewLine, output);
+
+        // After the single terminating newline, the content must not end with another line break.
+        var withoutFinalNewline = output[..^Environment.NewLine.Length];
+        Assert.False(
+            withoutFinalNewline.EndsWith('\n') || withoutFinalNewline.EndsWith('\r'),
+            "Version text output should end with exactly one newline, not a trailing blank line.");
+    }
+
     // Minimal IConfigurationService whose only meaningful behavior is returning a fixed config file
     // path; the provider only calls GetConfigFilePath().
-    private sealed class FakeConfigurationService(string configFilePath) : IConfigurationService
+    private sealed class FakeConfigurationService(string configFilePath, AssemblyLoadingOptions? assemblyLoadingOptions = null) : IConfigurationService
     {
         public string GetConfigFilePath() => configFilePath;
 
         public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
-            => throw new NotImplementedException();
+        {
+            if (typeof(T) == typeof(AssemblyLoadingOptions) && assemblyLoadingOptions is not null)
+            {
+                return (T)(object)assemblyLoadingOptions;
+            }
+
+            return defaultValue ?? new T();
+        }
 
         public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();

@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# Resource group scope deployment - PowerShell (New-ResourceGroupDeployment)
+# Resource group scope deployment - PowerShell (New-AzResourceGroupDeployment)
 # Equivalent of: New-AzResourceGroupDeployment
 #
 # Shared test context:
@@ -19,7 +19,7 @@ $BicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
 $DebugPreference = 'Continue'
 
 # Happy path: deploy a public quickstart template in Incremental mode.
-New-ResourceGroupDeployment `
+New-AzResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name azclips-test-deployment-1 `
@@ -27,7 +27,7 @@ New-ResourceGroupDeployment `
     -Mode Incremental
 
 # Inline local template file variant:
-# New-ResourceGroupDeployment `
+# New-AzResourceGroupDeployment `
 #     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
 #     -ResourceGroupName azclips-test-group-1 `
 #     -Name azclips-test-deployment-2 `
@@ -39,7 +39,7 @@ New-ResourceGroupDeployment `
 # Requires the Bicep CLI on PATH or the az-bundled bicep (~/.azure/bin/bicep).
 # Uses a timestamped storage account name (3-24 lowercase alphanumerics) to avoid collisions.
 $stamp = (Get-Date -Format 'yyMMddHHmmss')
-New-ResourceGroupDeployment `
+New-AzResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name "azclips-test-bicep-$stamp" `
@@ -51,7 +51,7 @@ New-ResourceGroupDeployment `
 # diagnostics (non-zero exit -> InvalidOperationException). No deployment is created.
 # Expected to throw; catch so the rest of the script still runs unattended.
 try {
-    New-ResourceGroupDeployment `
+    New-AzResourceGroupDeployment `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
         -ResourceGroupName azclips-test-group-1 `
         -Name azclips-test-bicep-negative `
@@ -73,7 +73,7 @@ try {
 # Expected result: the command fails fast with a clear validation message
 # listing the allowed values (Incremental, Complete) and does NOT create a deployment.
 try {
-    New-ResourceGroupDeployment `
+    New-AzResourceGroupDeployment `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
         -ResourceGroupName azclips-test-group-1 `
         -Name azclips-test-deployment-negative `
@@ -96,7 +96,7 @@ try {
 # -Parameter (KEY=VALUE) overrides it with a unique, timestamped value, proving inline
 # overlays the file. -ValidationLevel Provider runs full provider validation during deploy.
 $stamp = (Get-Date -Format 'yyMMddHHmmss')
-New-ResourceGroupDeployment `
+New-AzResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name "azclips-test-inline-$stamp" `
@@ -107,7 +107,7 @@ New-ResourceGroupDeployment `
     -Mode Incremental
 
 # Standalone -ValidationLevel Provider case (no parameters file).
-New-ResourceGroupDeployment `
+New-AzResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name "azclips-test-vlevel-$stamp" `
@@ -117,7 +117,7 @@ New-ResourceGroupDeployment `
     -Mode Incremental
 
 # -RollbackOnError case: roll back to the last successful deployment if this one fails.
-New-ResourceGroupDeployment `
+New-AzResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name "azclips-test-rollback-$stamp" `
@@ -130,7 +130,7 @@ New-ResourceGroupDeployment `
 # Expected result: ArgumentException stating inline parameters cannot be combined with a
 # parameters link; no deployment is created.
 try {
-    New-ResourceGroupDeployment `
+    New-AzResourceGroupDeployment `
         -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
         -ResourceGroupName azclips-test-group-1 `
         -Name azclips-test-inline-conflict-negative `
@@ -155,7 +155,7 @@ try {
 # terminal provisioningState. The final emitted DeploymentExtended has provisioningState =
 # Succeeded (matches `az deployment group create`).
 $stamp = (Get-Date -Format 'yyMMddHHmmss')
-New-ResourceGroupDeployment `
+New-AzResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName azclips-test-group-1 `
     -Name "azclips-test-wait-$stamp" `

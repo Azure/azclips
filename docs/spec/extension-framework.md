@@ -36,7 +36,7 @@ An extension is a .NET class library that implements a set of commands for one A
 
 - **`ExtensionIndex`** — implements `IExtensionIndex`, returns `ICommandMetadata` for a given command name and client type
 - **Processor classes** — implement `IProcessor` with `Init(context)` and `ProcessAsync()`
-- **Dual command tables** — the index maps CLI command names (e.g., `create`) and PowerShell command names (e.g., `New-ResourceGroup`) to the same `IProcessor` types
+- **Dual command tables** — the index maps CLI command names (e.g., `create`) and PowerShell command names (e.g., `New-AzResourceGroup`) to the same `IProcessor` types
 
 ### 2.2 How to Build an Extension
 

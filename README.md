@@ -126,7 +126,7 @@ Import-Module ./src/PS/Resources/Resources.psd1
 Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 
 # Use resource management functions
-New-ResourceGroup -Name mygroup -Location eastus
+New-AzResourceGroup -Name mygroup -Location eastus
 
 ```
 

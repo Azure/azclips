@@ -37,7 +37,7 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // in tags, which the property filter scrubs independently.
         "MsalAuthService.",
         "ManagedIdentityAuthenticator.",
-        "AuthContextService.",
+        "ProfileService.",
 
         // Extension processors (Add/Remove/Update/Show/List).
         "AddExtensionProcessor.",
@@ -45,6 +45,14 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "UpdateExtensionProcessor.",
         "ShowExtensionProcessor.",
         "ListExtensionsProcessor.",
+
+        //Auth
+        "LoginProcessor.",
+        "LogoutProcessor.",
+        "ProfileListProcessor.",
+        "ProfileShowProcessor.",
+        "ProfileSetProcessor.",
+        "ProfileRemoveProcessor.",
 
         // Config commands (Set/Get/List/Delete/Info).
         "SetConfigCommand.",

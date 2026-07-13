@@ -23,7 +23,7 @@ namespace Core.Abstractions
     /// (for example, the discovery session emits a <c>Dictionary&lt;InvocationName, CommandMetadata&gt;</c>),
     /// so it must be unique within an extension.
     /// Kept as an explicit field so an <c>ExtensionIndex</c> can be serialized without relying on the CLR type.
-    /// Example: <c>"New-ResourceGroup"</c> (PowerShell verb-noun) or <c>"Get-ResourceGroup_List"</c>.
+    /// Example: <c>"New-AzResourceGroup"</c> (PowerShell verb-noun) or <c>"Get-AzResourceGroup_List"</c>.
     /// </param>
     /// <param name="Aliases">
     /// Alternate invocation names that also resolve to this command. Use an empty list when there are

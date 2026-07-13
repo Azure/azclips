@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsLifecycle.Invoke, "AzclipsRestMethod")]
+[Cmdlet(VerbsLifecycle.Invoke, "AzRestMethod")]
 public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -124,7 +124,7 @@ public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Resources", "Invoke-AzclipsRestMethod", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "Invoke-AzRestMethod", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

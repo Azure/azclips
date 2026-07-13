@@ -293,7 +293,7 @@ Azclips is an **extension-based Azure CLI** (the `az` binary) with three compani
 flowchart LR
     subgraph you["You type"]
         A["az group list"]
-        B["Import-Module + New-VM"]
+        B["Import-Module + New-AzVM"]
         C["az (interactive TUI)"]
     end
     subgraph engine["Shared engine (one DI container)"]
@@ -706,7 +706,7 @@ az group --help
 Import-Module ./src/PS/Login/Login.psd1
 Connect-AzAccount -SubscriptionId <sub> -TenantId <tenant>
 Import-Module ./src/PS/Resources/Resources.psd1
-New-ResourceGroup -Name demo -Location eastus
+New-AzResourceGroup -Name demo -Location eastus
 ```
 
 **Try the TUI / agent (optional):**

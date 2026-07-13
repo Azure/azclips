@@ -138,9 +138,9 @@ Azure Resource Group operations, run against stubbed HTTP (no real Azure calls):
 
 | Operation | CLI command | PowerShell cmdlet | Conceptual REST call |
 |-----------|-------------|-------------------|----------------------|
-| List | `group list` | `Get-ResourceGroup` | `GET /subscriptions/{id}/resourcegroups` |
-| Create | `group create` | `New-ResourceGroup` | `PUT /subscriptions/{id}/resourcegroups/{name}` |
-| Get | `group show` | `Get-ResourceGroup -Name` | `GET /subscriptions/{id}/resourcegroups/{name}` |
+| List | `group list` | `Get-AzResourceGroup` | `GET /subscriptions/{id}/resourcegroups` |
+| Create | `group create` | `New-AzResourceGroup` | `PUT /subscriptions/{id}/resourcegroups/{name}` |
+| Get | `group show` | `Get-AzResourceGroup -Name` | `GET /subscriptions/{id}/resourcegroups/{name}` |
 
 ### Compute (Virtual Machine)
 

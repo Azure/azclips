@@ -18,7 +18,7 @@ public class ResourceGroupBenchmarks : PSBenchmarkBase
     [Benchmark(Description = "PS: List RG")]
     public object? ListResourceGroups()
     {
-        return RunPowerShellCommand("Get-ResourceGroup",
+        return RunPowerShellCommand("Get-AzResourceGroup",
             ("SubscriptionId", SubscriptionId));
     }
 
@@ -26,7 +26,7 @@ public class ResourceGroupBenchmarks : PSBenchmarkBase
     public object? CreateResourceGroup()
     {
         var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
-        return RunPowerShellCommand("New-ResourceGroup",
+        return RunPowerShellCommand("New-AzResourceGroup",
             ("SubscriptionId", SubscriptionId),
             ("Name", rgName),
             ("Location", "eastus"));
@@ -35,7 +35,7 @@ public class ResourceGroupBenchmarks : PSBenchmarkBase
     [Benchmark(Description = "PS: Get RG")]
     public object? GetResourceGroup()
     {
-        return RunPowerShellCommand("Get-ResourceGroup",
+        return RunPowerShellCommand("Get-AzResourceGroup",
             ("SubscriptionId", SubscriptionId),
             ("Name", "bench-rg-get"));
     }

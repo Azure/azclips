@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01
-title: Get-ResourceGroup
+title: Get-AzResourceGroup
 ---
 
-# Get-ResourceGroup
+# Get-AzResourceGroup
 
 ## SYNOPSIS
 
@@ -20,13 +20,13 @@ Show details of a specific resource group.
 ### List (Default)
 
 ```
-Get-ResourceGroup -SubscriptionId <string> [<CommonParameters>]
+Get-AzResourceGroup -SubscriptionId <string> [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-ResourceGroup -SubscriptionId <string> -Name <string> [<CommonParameters>]
+Get-AzResourceGroup -SubscriptionId <string> -Name <string> [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -46,7 +46,7 @@ Specify the resource group name and optionally the subscription ID (defaults to 
 Return the properties of the resource group `myrg` in the specified subscription.
 
 ```powershell
-Get-ResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myrg
+Get-AzResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myrg
 ```
 
 ### List all resource groups in a subscription
@@ -54,7 +54,7 @@ Get-ResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myr
 List every resource group in the specified subscription. Omit `-Name` to list rather than fetch.
 
 ```powershell
-Get-ResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000
+Get-AzResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS

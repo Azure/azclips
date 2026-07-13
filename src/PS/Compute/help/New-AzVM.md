@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Compute
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: New-VM
+title: New-AzVM
 ---
 
-# New-VM
+# New-AzVM
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Create a virtual machine together with its network interface, virtual network, a
 ### \_\_AllParameterSets
 
 ```
-New-VM -SubscriptionId <string> -Name <string> -Location <string> -ResourceGroupName <string>
+New-AzVM -SubscriptionId <string> -Name <string> -Location <string> -ResourceGroupName <string>
  -VmSize <string> -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  -VirtualNetworkName <string> -NetworkSecurityGroupName <string> [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-RuleNames <string[]>]
@@ -50,7 +50,7 @@ Assign `$adminPassword` from a secure source in your own pipeline before invokin
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
+New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
 ```
 
 ## PARAMETERS
