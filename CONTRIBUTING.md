@@ -38,6 +38,16 @@ Use the repository conventions in [AGENTS.md](AGENTS.md) for coding style, proje
 - Update documentation when behavior, setup, support, or security guidance changes.
 - Prefer Conventional Commit style in commit messages when practical, such as `feat(auth): add token cache` or `fix(cli): handle empty command input`.
 
+### Release Note Guidance
+
+Stable release notes are generated from pull request metadata during release preparation.
+
+- Start customer-facing PR titles with `[Component Name]`, for example `[CLI] Add resource group list output`.
+- Start non-customer-facing PR titles with `{Component Name}`, for example `{DevOps} Update release pipeline validation`.
+- Use the `History Notes` section in the PR description when one PR needs multiple release-note entries or when the PR title is only a summary.
+- Write history notes as `[Component Name] message`, optionally including a command name such as `[CLI] az group list: Add table output`.
+- Mark breaking changes with `BREAKING CHANGE:` so they are visible during release review.
+
 ## Reviews and Maintainer Expectations
 
 Maintainers may ask for design changes, additional tests, dependency updates, or security review before merging. Changes that affect public command behavior, authentication, telemetry, AI behavior, packaging, licensing, or release process require extra care and may need broader review.
