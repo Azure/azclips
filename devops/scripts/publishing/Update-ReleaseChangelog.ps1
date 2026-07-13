@@ -228,11 +228,12 @@ function Get-LatestStableTag {
     param([string] $Root)
 
     $tagPattern = '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$'
-    $tags = @(& git --no-pager -C $Root tag --merged HEAD --sort=-version:refname --list 'v*' 2>$null |
-        Where-Object { $_ -match $tagPattern })
+    $tagOutput = @(& git --no-pager -C $Root tag --merged HEAD --sort=-version:refname --list 'v*' 2>&1)
     if ($LASTEXITCODE -ne 0) {
-        throw "git tag failed while resolving the latest stable tag."
+        throw "git tag failed while resolving the latest stable tag. $($tagOutput -join "`n")"
     }
+
+    $tags = @($tagOutput | Where-Object { $_ -match $tagPattern })
 
     if ($tags.Count -eq 0) {
         return $null
@@ -241,17 +242,38 @@ function Get-LatestStableTag {
     return $tags[0]
 }
 
+function Test-GitHubRepositoryName {
+    param([string] $Name)
+
+    -not [string]::IsNullOrWhiteSpace($Name) -and $Name.Trim() -match '^[^/\s]+/[^/\s]+$'
+}
+
 function Get-GitHubRepositoryName {
     param([string] $ConfiguredRepository)
 
     if (-not [string]::IsNullOrWhiteSpace($ConfiguredRepository)) {
-        return $ConfiguredRepository.Trim()
+        $configured = $ConfiguredRepository.Trim()
+        if (Test-GitHubRepositoryName -Name $configured) {
+            return $configured
+        }
+
+        throw "GitHub repository must be in owner/repo form. Received: $configured"
     }
-    if (-not [string]::IsNullOrWhiteSpace($env:BUILD_REPOSITORY_NAME)) {
-        return $env:BUILD_REPOSITORY_NAME.Trim()
-    }
-    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_REPOSITORY)) {
-        return $env:GITHUB_REPOSITORY.Trim()
+
+    foreach ($candidate in @(
+            @{ Name = 'BUILD_REPOSITORY_NAME'; Value = $env:BUILD_REPOSITORY_NAME },
+            @{ Name = 'GITHUB_REPOSITORY'; Value = $env:GITHUB_REPOSITORY }
+        )) {
+        if ([string]::IsNullOrWhiteSpace($candidate.Value)) {
+            continue
+        }
+
+        $repository = $candidate.Value.Trim()
+        if (Test-GitHubRepositoryName -Name $repository) {
+            return $repository
+        }
+
+        Write-Warning "Ignoring $($candidate.Name) because it is not in owner/repo form: $repository"
     }
 
     return 'Azure/azclips'
@@ -266,7 +288,7 @@ function Invoke-GitHubApi {
     }
 
     $token = if (-not [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { $env:GH_TOKEN } else { $env:GITHUB_TOKEN }
-    if (-not [string]::IsNullOrWhiteSpace($token)) {
+    if (-not [string]::IsNullOrWhiteSpace($token) -and -not $token.StartsWith('$(')) {
         $headers.Authorization = "Bearer $token"
     }
 
@@ -316,7 +338,7 @@ function ConvertTo-ReleaseNote {
     if ($Message -match '^\[Component Name') {
         return $null
     }
-    if ($Message -match '^\[.*?\]\(.*\)') {
+    if ($Message -match '^\[[^\]]+\]\([^)]+\)\s*$') {
         return $null
     }
     if ($Message -notmatch '^\[(?<component>.+?)\](?<note>.+)$') {
@@ -328,6 +350,8 @@ function ConvertTo-ReleaseNote {
     if ([string]::IsNullOrWhiteSpace($component) -or [string]::IsNullOrWhiteSpace($note)) {
         return $null
     }
+
+    $note = $note.TrimEnd('.', ',', ' ')
 
     if ($note -notmatch ' \(#[0-9]+\)$') {
         $note = "$note (#$PullRequestNumber)"
@@ -385,19 +409,25 @@ function Get-MergedPullRequestReleaseNoteLines {
 
     $latestStableTag = Get-LatestStableTag -Root $Root
     $range = if ([string]::IsNullOrWhiteSpace($latestStableTag)) { 'HEAD' } else { "$latestStableTag..HEAD" }
-    $subjects = @(& git --no-pager -C $Root log --first-parent --pretty=format:%s $range 2>$null)
+    $subjects = @(& git --no-pager -C $Root log --first-parent --pretty=format:%s $range 2>&1)
     if ($LASTEXITCODE -ne 0) {
-        throw "git log failed while collecting merged pull requests for changelog generation."
+        throw "git log failed while collecting merged pull requests for changelog generation. $($subjects -join "`n")"
     }
 
     $notesByComponent = [ordered]@{}
     foreach ($subject in $subjects) {
-        if ($subject -notmatch '\(#(?<number>[0-9]+)\)\s*$') {
+        if ($subject -match '\(#(?<number>[0-9]+)\)\s*$') {
+            $number = $Matches.number
+            $fallbackTitle = ($subject -replace '\s*\(#[0-9]+\)\s*$', '').Trim()
+        }
+        elseif ($subject -match '^Merge pull request #(?<number>[0-9]+)\s+from\s+.+$') {
+            $number = $Matches.number
+            $fallbackTitle = ''
+        }
+        else {
             continue
         }
 
-        $number = $Matches.number
-        $fallbackTitle = ($subject -replace '\s*\(#[0-9]+\)\s*$', '').Trim()
         $pullRequest = Get-PullRequestMetadata -Repository $Repository -Number $number
         $title = if ($null -ne $pullRequest -and -not [string]::IsNullOrWhiteSpace($pullRequest.title)) { [string]$pullRequest.title } else { $fallbackTitle }
         $body = if ($null -ne $pullRequest) { [string]$pullRequest.body } else { '' }

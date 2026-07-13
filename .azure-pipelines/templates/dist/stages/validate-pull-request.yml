@@ -47,7 +47,10 @@ stages:
             print('No pull request number found; skipping pull request metadata validation.')
             sys.exit(0)
         if not repository:
-            print('BUILD_REPOSITORY_NAME is not set.', file=sys.stderr)
+            print('GitHub repository name is not set. Configure github_repository or BUILD_REPOSITORY_NAME.', file=sys.stderr)
+            sys.exit(1)
+        if '/' not in repository.strip('/'):
+            print(f'GitHub repository must be in owner/repo form. Received: {repository}', file=sys.stderr)
             sys.exit(1)
 
         headers = {
@@ -145,7 +148,9 @@ stages:
         print(title)
 
         subprocess.run(
-            ['python3', 'devops/scripts/ci/check_pull_request.py', title, body],
+            ['python3', 'devops/scripts/ci/check_pull_request.py', title],
+            input=body,
+            text=True,
             check=True
         )
         PY
