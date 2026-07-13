@@ -36,14 +36,16 @@ def warning(message):
 
 
 def is_python_list(line):
-    refs = re.findall(r"(\[.*\])", line)
-    if not refs:
-        return False
+    line_without_component = re.sub(r"^\[[^\]]+\]\s*", "", line, count=1)
 
-    try:
-        return isinstance(ast.literal_eval(refs[0]), list)
-    except (SyntaxError, ValueError):
-        return False
+    for ref in re.findall(r"(\[[^\[\]]*\])", line_without_component):
+        try:
+            if isinstance(ast.literal_eval(ref), list):
+                return True
+        except (SyntaxError, ValueError):
+            continue
+
+    return False
 
 
 def is_markdown_link(line):
@@ -55,9 +57,7 @@ def check_pull_request(title, body):
         error("Pull request title should start with [Component Name] or {Component Name}.")
         return True
 
-    has_error = False
-    if title.startswith("["):
-        has_error = check_line(title)
+    has_error = check_line(title)
 
     body_lines = body.replace("\r\n", "\n").split("\n")
     if "**History Notes**" in body_lines:
@@ -80,7 +80,7 @@ def check_pull_request(title, body):
             history_note_has_error = check_line(line) or history_note_has_error
 
         if history_note_edited:
-            has_error = history_note_has_error
+            has_error = has_error or history_note_has_error
 
     return has_error
 
@@ -131,7 +131,7 @@ def check_line(line):
                 error(f"Missing backticks around parameter '{parameter}' in: {line}")
                 has_error = True
 
-        if character in ["]", ":"]:
+        if character in ["]", "}", ":"]:
             word_start = index + 2 if index + 1 < len(line) and line[index + 1] == " " else index + 1
             word_end = word_start
             while word_end < len(line) and line[word_end] != " ":

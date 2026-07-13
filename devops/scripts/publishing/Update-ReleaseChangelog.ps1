@@ -228,10 +228,10 @@ function Get-LatestStableTag {
     param([string] $Root)
 
     $tagPattern = '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$'
-    $tags = @(& git --no-pager -C $Root for-each-ref --merged HEAD --sort=-creatordate --format='%(refname:short)' refs/tags 2>$null |
+    $tags = @(& git --no-pager -C $Root tag --merged HEAD --sort=-version:refname --list 'v*' 2>$null |
         Where-Object { $_ -match $tagPattern })
     if ($LASTEXITCODE -ne 0) {
-        throw "git for-each-ref failed while resolving the latest stable tag."
+        throw "git tag failed while resolving the latest stable tag."
     }
 
     if ($tags.Count -eq 0) {

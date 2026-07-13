@@ -16,6 +16,7 @@ stages:
 - template: templates/dist/stages/validate-pull-request.yml
   parameters:
     ubuntu_pool: ${{ variables.ubuntu_pool }}
+    github_token: $(GitHubToken)
 
 - template: templates/dist/stages/build-unsigned-distribution.yml
   parameters:

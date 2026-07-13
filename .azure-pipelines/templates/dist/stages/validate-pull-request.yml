@@ -11,6 +11,9 @@ parameters:
 - name: depends_on
   type: object
   default: []
+- name: github_token
+  type: string
+  default: ''
 
 stages:
 - stage: ${{ parameters.stage_name }}
@@ -32,6 +35,7 @@ stages:
         import os
         import subprocess
         import sys
+        import urllib.error
         import urllib.request
 
         pr_number = os.environ.get('SYSTEM_PULLREQUEST_PULLREQUESTNUMBER')
@@ -44,13 +48,25 @@ stages:
             print('BUILD_REPOSITORY_NAME is not set.', file=sys.stderr)
             sys.exit(1)
 
+        headers = {'User-Agent': 'azclips-pr-title-check'}
+        token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
+        if token and not token.startswith('$('):
+            headers['Authorization'] = f'Bearer {token}'
+
         request = urllib.request.Request(
             f'https://api.github.com/repos/{repository}/pulls/{pr_number}',
-            headers={'User-Agent': 'azclips-pr-title-check'}
+            headers=headers
         )
 
-        with urllib.request.urlopen(request) as response:
-            pull_request = json.load(response)
+        try:
+            with urllib.request.urlopen(request) as response:
+                pull_request = json.load(response)
+        except urllib.error.HTTPError as error:
+            print(f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}', file=sys.stderr)
+            sys.exit(1)
+        except urllib.error.URLError as error:
+            print(f'Failed to fetch pull request metadata from GitHub: {error.reason}', file=sys.stderr)
+            sys.exit(1)
 
         title = pull_request.get('title') or ''
         body = pull_request.get('body') or ''
@@ -64,3 +80,5 @@ stages:
         )
         PY
       displayName: Check PR title and history notes
+      env:
+        GH_TOKEN: ${{ parameters.github_token }}

@@ -45,7 +45,7 @@ Stable release notes are generated from pull request metadata during release pre
 - Start customer-facing PR titles with `[Component Name]`, for example `[CLI] Add resource group list output`.
 - Start non-customer-facing PR titles with `{Component Name}`, for example `{DevOps} Update release pipeline validation`.
 - Use the `History Notes` section in the PR description when one PR needs multiple release-note entries or when the PR title is only a summary.
-- Write history notes as `[Component Name] message`, optionally including a command name such as `[CLI] az group list: Add table output`.
+- Write history notes as `[Component Name] message`; for example, [CLI] `az group list`: Add table output.
 - Mark breaking changes with `BREAKING CHANGE:` so they are visible during release review.
 
 ## Reviews and Maintainer Expectations
