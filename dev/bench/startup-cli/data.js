@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783922097579,
+  "lastUpdate": 1783922100937,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -548,6 +548,48 @@ window.BENCHMARK_DATA = {
             "value": 271165252.92,
             "unit": "ns",
             "range": "± 4533165.64973166"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yangan@microsoft.com",
+            "name": "YangAn-microsoft",
+            "username": "YangAn-microsoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d7c72ee31fdde25b8b15c2f3442d292ab8262b3",
+          "message": "Rename Compute/Resources PowerShell cmdlets to Az-prefixed Azure Powe… (#446)\n\nAlign extension PowerShell command names with Azure PowerShell.\n\n## Renamed cmdlets\n- **Compute:** `Get-VM`/`New-VM`/`Remove-VM` →\n`Get-AzVM`/`New-AzVM`/`Remove-AzVM`\n- **Resources:** `New-ResourceGroup`/`Get-ResourceGroup` →\n`New-AzResourceGroup`/`Get-AzResourceGroup`;\n`New-ResourceGroupDeployment`/`New-ResourceGroupDeploymentWhatIf` →\nAz-prefixed; `Invoke-AzclipsRestMethod` → `Invoke-AzRestMethod`\n\n## Compute network cmdlets — removed, not renamed\n`New-VirtualNetwork` / `New-NetworkInterface` /\n`New-NetworkSecurityGroup` are **not** part of the Compute PowerShell\nsurface. Their dispatch was never wired up (the `s_psTable` keys were\ncommented out), so they were removed rather than renamed/exported:\n- Deleted the cmdlet classes, their PS `CommandMetadata`/commented\ndispatch entries, and their help files\n- Dropped them from `Compute.psd1` `CmdletsToExport`\n\nThey will live in a future **Network** extension (mirroring\n`Az.Network`). Networking is still created internally by the `New-AzVM`\norchestrator, so the underlying network **processors** are retained.\n\n## Scope of edits\nCmdlet `[Cmdlet]` nouns + invocation strings, `ExtensionIndex`\nInvocationNames + dispatch-table keys, `.psd1` `CmdletsToExport`,\n`exports/*.ps1` proxy functions (renamed), `help/*.md` (renamed +\ncontent), tests, benchmarks, example scripts, and docs.",
+          "timestamp": "2026-07-13T15:44:30+10:00",
+          "tree_id": "e1db67c70e25c7ae47c2ed7d30ca7468ddfdd8f8",
+          "url": "https://github.com/Azure/azclips/commit/3d7c72ee31fdde25b8b15c2f3442d292ab8262b3"
+        },
+        "date": 1783922100859,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 274761443.64,
+            "unit": "ns",
+            "range": "± 5732210.16200573"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 274984158.87,
+            "unit": "ns",
+            "range": "± 4542642.837241023"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 435516853.52,
+            "unit": "ns",
+            "range": "± 187047808.5809441"
           }
         ]
       }
