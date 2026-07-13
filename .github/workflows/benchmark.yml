@@ -244,9 +244,7 @@ jobs:
 
   # ─────────────── Publish extension dashboards (generic matrix) ───────────────
   # One leg per {extension × product}. The matrix comes straight from
-  # detect-changes (derived from the [BenchmarkExtension] attribute), so adding a
-  # new benchmarked extension needs no edits here. gh-pages writes are serialised
-  # with max-parallel: 1; each leg fetches fresh gh-pages so appends never clobber.
+  # detect-changes (derived from the [BenchmarkExtension] attribute).
   publish-extensions:
     name: Publish ${{ matrix.extension }} ${{ matrix.product }} dashboard
     needs: [detect-changes, run-cli, run-ps]

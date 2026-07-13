@@ -3,11 +3,7 @@
 #
 # Derives the full extension "universe" from the [BenchmarkExtension("<Name>")]
 # attribute (the single source of truth) and computes which extensions to run
-# from path conventions + the attribute->file map. Adding a new benchmarked
-# extension therefore requires NO edits to this script or the workflow: just tag
-# a benchmark class with [BenchmarkExtension("<Name>")] and follow the
-# src/Extensions/<Name>/ (and src/PS/<Name>/) source-folder convention.
-#
+# from path conventions + the attribute->file map.
 # Inputs (environment):
 #   EVENT          github.event_name (e.g. pull_request, push, workflow_dispatch)
 #   SHARED         "true" if a shared/cross-cutting path changed (forces all)
@@ -27,9 +23,6 @@ STARTUP="${STARTUP:-false}"
 CHANGED_FILES="${CHANGED_FILES:-[]}"
 OUT="${GITHUB_OUTPUT:-/dev/stdout}"
 
-# --- Universe + file->ext map from the [BenchmarkExtension] attribute ---
-# Anchor on '^\s*\[BenchmarkExtension("' so doc-comment examples in base classes
-# (e.g. "<c>[BenchmarkExtension(\"Name\")]</c>") do not pollute the universe.
 declare -A FILE_EXT
 declare -A IS_EXT
 while IFS= read -r line; do
