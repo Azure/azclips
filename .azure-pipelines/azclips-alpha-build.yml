@@ -17,7 +17,6 @@ stages:
   parameters:
     ubuntu_pool: ${{ variables.ubuntu_pool }}
     github_repository: ${{ variables.github_target_repo }}
-    github_token: $(GitHubToken)
 
 - template: templates/dist/stages/build-unsigned-distribution.yml
   parameters:

@@ -11,9 +11,6 @@ parameters:
 - name: depends_on
   type: object
   default: []
-- name: github_token
-  type: string
-  default: ''
 - name: github_repository
   type: string
   default: ''
@@ -30,10 +27,12 @@ stages:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: self
+      persistCredentials: true
     - bash: |
         set -euo pipefail
 
         python3 - <<'PY'
+        import base64
         import json
         import os
         import subprocess
@@ -56,7 +55,52 @@ stages:
             'User-Agent': 'azclips-pr-title-check',
             'X-GitHub-Api-Version': '2022-11-28'
         }
+
+        def get_token_from_extraheader(extraheader):
+            name, separator, value = extraheader.partition(':')
+            if not separator or name.strip().lower() != 'authorization':
+                return ''
+
+            authorization = value.strip()
+            if authorization.lower().startswith('bearer '):
+                return authorization[7:].strip()
+            if authorization.lower().startswith('basic '):
+                encoded_credentials = authorization[6:].strip()
+                try:
+                    decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8', errors='replace')
+                except Exception:
+                    return ''
+                _, credential_separator, password = decoded_credentials.partition(':')
+                if credential_separator:
+                    return password.strip()
+            return ''
+
+        def get_checkout_token():
+            try:
+                result = subprocess.run(
+                    ['git', 'config', '--get-regexp', r'^http\..*\.extraheader$'],
+                    capture_output=True,
+                    check=False,
+                    text=True
+                )
+            except Exception:
+                return ''
+
+            if result.returncode not in (0, 1):
+                return ''
+
+            for line in result.stdout.splitlines():
+                _, _, extraheader = line.partition(' ')
+                token = get_token_from_extraheader(extraheader)
+                if token:
+                    return token
+            return ''
+
         token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
+        token_source = 'environment'
+        if not token or token.startswith('$('):
+            token = get_checkout_token()
+            token_source = 'checkout credential'
         has_token = bool(token and not token.startswith('$('))
         if has_token:
             headers['Authorization'] = f'Bearer {token}'
@@ -84,7 +128,8 @@ stages:
                 error_message = error_body.strip()
             print(
                 f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}. '
-                f'Repository: {repository}. Pull request: #{pr_number}. Token available: {has_token}.',
+                f'Repository: {repository}. Pull request: #{pr_number}. Token available: {has_token}. '
+                f'Token source: {token_source}.',
                 file=sys.stderr
             )
             if error_body:
@@ -97,9 +142,9 @@ stages:
                 print(f'GitHub accepted scopes: {accepted_scopes}', file=sys.stderr)
             if error.code in (403, 404):
                 print(
-                    'Private repositories require GH_TOKEN/GITHUB_TOKEN with access to read pull request metadata. '
-                    'For a fine-grained PAT, grant repository access to Azure/azclips and Pull requests: Read-only. '
-                    'If the Azure organization enforces SAML SSO, authorize the token for the organization.',
+                    'Private repositories require a checkout credential or GH_TOKEN/GITHUB_TOKEN with access to read pull request metadata. '
+                    'For service-connection auth, ensure checkout uses persistCredentials: true and the GitHub service connection can access Azure/azclips. '
+                    'If the Azure organization enforces SAML SSO, authorize the credential for the organization.',
                     file=sys.stderr
                 )
             if error_message:
@@ -122,5 +167,4 @@ stages:
         PY
       displayName: Check PR title and history notes
       env:
-        GH_TOKEN: ${{ parameters.github_token }}
         GITHUB_REPOSITORY_NAME: ${{ parameters.github_repository }}
