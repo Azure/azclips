@@ -15,17 +15,15 @@ public static class TelemetryPropertyResolver
 {
     public static readonly string ProductName = ResolveProductName();
 
-    private static readonly Lazy<string> _id = new(ComputeId);
-    private static readonly Lazy<bool> _isMicrosoftInternal = new(ResolveIsMicrosoftInternal);
+    private static readonly Lazy<string> _installationId = new(ComputeInstallationId);    
     private static readonly Lazy<string> _productVersion = new(ResolveProductVersion);
     private static readonly Lazy<string> _telemetryVersion = new(ResolveTelemetryVersion);
 
-    public static string Id => _id.Value;
-    public static bool IsMicrosoftInternal => _isMicrosoftInternal.Value;
+    public static string InstallationId => _installationId.Value;    
     public static string ProductVersion => _productVersion.Value;
     public static string TelemetryVersion => _telemetryVersion.Value;
 
-    private static string ComputeId()
+    private static string ComputeInstallationId()
     {
         var mac = GetPrimaryMacAddress();
         var seed = $"{mac}|{Environment.MachineName}";
@@ -57,10 +55,7 @@ public static class TelemetryPropertyResolver
         }
         return string.Empty;
     }
-
-    // TODO(jayson): determine internal-vs-external from access token claims or config. may not be needed if moving to Satori
-    private static bool ResolveIsMicrosoftInternal() => false;
-
+        
     private static string ResolveProductVersion()
     {
         var assembly = Assembly.GetEntryAssembly() ?? typeof(TelemetryPropertyResolver).Assembly;

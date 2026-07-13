@@ -51,6 +51,12 @@ namespace Core.Abstractions
         public string ExtendedData = string.Empty;
 
         /// <summary>
+        /// Optional strongly-typed payload carried by the event. Subscribers cast it to the type
+        /// expected for the specific event.
+        /// </summary>
+        public object? Payload;
+
+        /// <summary>
         /// If the event triggers after the request message has been created, this will contain the Request Message (which in HTTP calls would be HttpRequestMessage)
         ///
         /// Typically you'd cast this to the expected type to use it:

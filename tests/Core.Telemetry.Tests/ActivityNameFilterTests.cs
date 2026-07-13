@@ -26,12 +26,15 @@ public class ActivityNameFilterTests
     }
 
     [Theory]
-    [InlineData("AuthContextService.SaveContextAsync")]
+    [InlineData("ProfileService.GetActiveProfileAsync")]
     [InlineData("AddExtensionProcessor.Process")]
     [InlineData("RemoveExtensionProcessor.Process")]
     [InlineData("UpdateExtensionProcessor.Process")]
     [InlineData("ShowExtensionProcessor.Process")]
     [InlineData("ListExtensionsProcessor.Process")]
+    [InlineData("LoginProcessor.Process")]
+    [InlineData("LogoutProcessor.Process")]
+    [InlineData("ProfileListProcessor.Process")]
     [InlineData("SetConfigCommand.ProcessAsync")]
     [InlineData("GetConfigCommand.ProcessAsync")]
     [InlineData("ListConfigCommand.ProcessAsync")]
