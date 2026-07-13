@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783904310228,
+  "lastUpdate": 1783917243747,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -210,6 +210,48 @@ window.BENCHMARK_DATA = {
             "value": 213691299.48,
             "unit": "ns",
             "range": "± 4605606.162082393"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d93ef16042c9bbafaff05e7058c1022f26c4ac9d",
+          "message": "{Core} extensions Dir added in version output (#421)\n\n**Description**\n\n- extensions Dir added in version output\n- version intrinsic verb handling improved for future use\n\n---------\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-13T14:23:45+10:00",
+          "tree_id": "1db298bd21f5edc5d784030ace14e3839c450cfe",
+          "url": "https://github.com/Azure/azclips/commit/d93ef16042c9bbafaff05e7058c1022f26c4ac9d"
+        },
+        "date": 1783917243691,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 213564612.86,
+            "unit": "ns",
+            "range": "± 2702403.6229167455"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 214633207.92,
+            "unit": "ns",
+            "range": "± 2419668.760209762"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 212435470.06,
+            "unit": "ns",
+            "range": "± 2638977.9141988535"
           }
         ]
       }
