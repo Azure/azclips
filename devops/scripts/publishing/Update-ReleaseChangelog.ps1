@@ -308,25 +308,28 @@ else {
     Write-Utf8NoBomFile -Path $rootChangeLogPath -Lines ([string[]]($rootSection + $existingRootChangeLog))
 }
 
-if ($moduleReleases.Count -gt 0 -and (Test-Path -Path $rollupManifestPath -PathType Leaf)) {
-    $rollupReleaseNotes = New-Object System.Collections.Generic.List[string]
-    $rollupReleaseNotes.Add("$Version - $ReleaseTimestamp")
-    foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
-        $rollupReleaseNotes.Add("Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
-        foreach ($line in $moduleRelease.ReleaseNotes) {
-            $rollupReleaseNotes.Add($line)
-        }
-        $rollupReleaseNotes.Add('')
-    }
-
-    $requiredModuleVersions = @{}
-    foreach ($moduleRelease in $moduleReleases) {
-        $requiredModuleVersions[$moduleRelease.ModuleName] = $moduleRelease.ModuleVersion
-    }
-
+if (Test-Path -Path $rollupManifestPath -PathType Leaf) {
     Set-ManifestModuleVersion -ManifestPath $rollupManifestPath -ModuleVersion $Version
-    Set-RollupRequiredModuleVersions -ManifestPath $rollupManifestPath -ModuleVersions $requiredModuleVersions
-    Set-ManifestReleaseNotes -ManifestPath $rollupManifestPath -ReleaseNotes $rollupReleaseNotes
+
+    if ($moduleReleases.Count -gt 0) {
+        $rollupReleaseNotes = New-Object System.Collections.Generic.List[string]
+        $rollupReleaseNotes.Add("$Version - $ReleaseTimestamp")
+        foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
+            $rollupReleaseNotes.Add("Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
+            foreach ($line in $moduleRelease.ReleaseNotes) {
+                $rollupReleaseNotes.Add($line)
+            }
+            $rollupReleaseNotes.Add('')
+        }
+
+        $requiredModuleVersions = @{}
+        foreach ($moduleRelease in $moduleReleases) {
+            $requiredModuleVersions[$moduleRelease.ModuleName] = $moduleRelease.ModuleVersion
+        }
+
+        Set-RollupRequiredModuleVersions -ManifestPath $rollupManifestPath -ModuleVersions $requiredModuleVersions
+        Set-ManifestReleaseNotes -ManifestPath $rollupManifestPath -ReleaseNotes $rollupReleaseNotes
+    }
 }
 
 Write-Host "Aggregated release notes for $($moduleReleases.Count) module(s)."
