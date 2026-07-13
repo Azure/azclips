@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783922102619,
+  "lastUpdate": 1783923407131,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -252,6 +252,42 @@ window.BENCHMARK_DATA = {
             "value": 270979942.32,
             "unit": "ns",
             "range": "± 4744760.892750998"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0520c13a51f790f98853c2931495b2d1eab24b79",
+          "message": "Feature/telemetry tags (#438)\n\nApplied several fixes to telemetry tagging\n- Included missing instalationId in allowlist\n- Re-added TenantId, SubscriptionId and authType (removed from\nAuthContextService as part of the profile management work).",
+          "timestamp": "2026-07-13T16:05:19+10:00",
+          "tree_id": "e555a57ba0545160db476ad6c58d8f6f4cb233ff",
+          "url": "https://github.com/Azure/azclips/commit/0520c13a51f790f98853c2931495b2d1eab24b79"
+        },
+        "date": 1783923407050,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 270164086.57,
+            "unit": "ns",
+            "range": "± 3628465.444017754"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 260752441.2,
+            "unit": "ns",
+            "range": "± 3171669.3413408934"
           }
         ]
       }
