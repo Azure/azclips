@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783904306729,
+  "lastUpdate": 1783904310228,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -380,6 +380,48 @@ window.BENCHMARK_DATA = {
             "value": 441075145.11,
             "unit": "ns",
             "range": "± 190738162.29886958"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8ebd7f0968a39d333b19bc9d4cf74588c72c31b5",
+          "message": "Trigger stable release 0.0.5 (#441)\n\nUpdates src/CLI/Core.Cli.csproj to 0.0.5 and aggregates module\nChangeLog.md entries into CHANGELOG.md and PowerShell module manifests.\nAfter this PR merges to main, azclips-trigger-stable-release will run\nagain from the main version change, tag the merged commit as v0.0.5.<UTC\nyyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-07-13T10:47:53+10:00",
+          "tree_id": "120893bf33fcd12bcd32e164f0d9dbfc1a42fb91",
+          "url": "https://github.com/Azure/azclips/commit/8ebd7f0968a39d333b19bc9d4cf74588c72c31b5"
+        },
+        "date": 1783904310133,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 379454806.82,
+            "unit": "ns",
+            "range": "± 101969584.83697681"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 278698058.88,
+            "unit": "ns",
+            "range": "± 43041545.56392908"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 270732108.33,
+            "unit": "ns",
+            "range": "± 4424540.336078188"
           }
         ]
       }
