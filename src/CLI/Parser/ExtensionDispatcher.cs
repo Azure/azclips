@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Cli.Exceptions;
+using Core.Cli.Help;
 using Core.Cli.Version;
 using Core.Extensions;
 
@@ -211,22 +212,29 @@ public class ExtensionDispatcher //: IParser
     // here `az --version` is ["--version"] and `az version` is ["version"].
     private static bool TryCreateVersionRequest(string[] args, out VersionOutputFormat format)
     {
-        // `az --version` is a top-level flag (peer of `az --help`) → human-readable text.
-        if (args.Length == 1 && args[0].Equals("--version", StringComparison.OrdinalIgnoreCase))
-        {
-            format = VersionOutputFormat.Text;
-            return true;
-        }
-
-        // Bare `az version` verb → structured JSON, preserving the output shape of the command it
-        // replaces. Trailing tokens fall through to normal resolution (there is no `version` subcommand).
-        if (args.Length == 1 && args[0].Equals("version", StringComparison.OrdinalIgnoreCase))
-        {
-            format = VersionOutputFormat.Json;
-            return true;
-        }
-
         format = VersionOutputFormat.Json;
-        return false;
+
+        // Only the exact single-token shapes dispatch here; trailing tokens fall through to normal
+        // resolution (there is no `version` subcommand).
+        if (args.Length != 1)
+        {
+            return false;
+        }
+
+        // IntrinsicVerbs is the single source of truth for valid invocation shapes, so the `--version`
+        // flag form is honored only because `version` opts into it (AllowFlagForm) — keeping dispatch
+        // and help in agreement about which shapes exist.
+        if (!IntrinsicVerbs.TryResolve(args[0], out var resolved)
+            || !resolved.Equals(IntrinsicVerbs.Version, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Bare `az version` → structured JSON, preserving the output shape of the command it replaces;
+        // the `az --version` global flag (peer of `az --help`) → human-readable text.
+        format = args[0].StartsWith("--", StringComparison.Ordinal)
+            ? VersionOutputFormat.Text
+            : VersionOutputFormat.Json;
+        return true;
     }
 }

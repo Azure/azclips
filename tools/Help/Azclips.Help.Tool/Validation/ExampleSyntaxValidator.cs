@@ -127,11 +127,11 @@ namespace Azclips.Help.Tool.Validation
             if (!indexesByCliGroup.TryGetValue(groupName, out var index))
             {
                 // Intrinsic host verbs (e.g. `version`) are implemented by the CLI host itself, not
-                // by any installed extension, so they never appear in indexesByCliGroup. Their
-                // examples are still valid `az` invocations — help comes from the markdown corpus —
-                // so accept them rather than flagging an unknown group. Mirrors the runtime's
-                // intrinsic-verb handling in RuntimeHelpDispatcher.
-                if (IntrinsicVerbs.All.Contains(groupName))
+                // by any installed extension, so they never appear in indexesByCliGroup. They accept
+                // both the bare verb (`az version`) and the equivalent top-level flag (`az --version`);
+                // accept either shape rather than flagging an unknown group. Mirrors the runtime's
+                // intrinsic-verb handling in RuntimeHelpDispatcher / ExtensionDispatcher.
+                if (IsIntrinsicVerbInvocation(groupName))
                 {
                     return;
                 }
@@ -501,6 +501,14 @@ namespace Azclips.Help.Tool.Validation
             || token.Equals("-?", StringComparison.Ordinal)
             || token.Equals("?", StringComparison.Ordinal)
             || token.Equals("help", StringComparison.Ordinal);
+
+        /// <summary>
+        /// Intrinsic host verbs can be written as the bare verb (<c>az version</c>) or the equivalent
+        /// top-level flag (<c>az --version</c>). Returns true when the group token is either shape of a
+        /// known intrinsic verb. Delegates to the runtime's single source of truth.
+        /// </summary>
+        private static bool IsIntrinsicVerbInvocation(string groupToken)
+            => IntrinsicVerbs.TryResolve(groupToken, out _);
 
         /// <summary>
         /// Shell-style tokenizer: splits on whitespace, honoring single/double quotes so values
