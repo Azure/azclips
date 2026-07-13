@@ -18,7 +18,7 @@ The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `C
 | --- | --- | --- |
 | **Login** | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzProfile`, `Set-AzProfile`, `Remove-AzProfile` | `src/PS/Login/Cmdlets/ConnectAccountCmdlet.cs:11` |
 | **Resources** | `New-AzResourceGroup`, `Get-AzResourceGroup`, `New-AzResourceGroupDeployment`, `Invoke-AzRestMethod` | `src/PS/Resources/Cmdlets/NewResourceGroupCmdlet.cs` |
-| **Compute** | `New-AzVM`, `Get-AzVM`, `Remove-AzVM`, `New-AzVirtualNetwork`, `New-AzNetworkInterface`, `New-AzNetworkSecurityGroup` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
+| **Compute** | `New-AzVM`, `Get-AzVM`, `Remove-AzVM` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
 | **Config** | `Get-AzConfig`, `Set-AzConfig`, `Get-AzConfigList`, `Get-AzConfigInfo`, `Remove-AzConfig` | `src/PS/Config/Cmdlets/SetAzConfigCmdlet.cs` |
 
 > **Naming note:** All modules carry the `Az` noun prefix so cmdlet names match Azure PowerShell. Login and Config define the prefix via `Constants.CommandPrefix = "Az"` (`src/PS/Login/Constants.cs:11`), giving `Connect-AzAccount` and `Set-AzConfig`; Compute and Resources use `Az`-prefixed nouns like `New-AzVM` and `New-AzResourceGroup`.

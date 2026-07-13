@@ -182,7 +182,8 @@ namespace Azclips.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldSkip_PowerShellFences()
         {
-            // PowerShell example uses a fake cmdlet — must not be validated against CLI metadata.
+            // PowerShell fences are skipped entirely — never validated against CLI metadata —
+            // so the bogus flag on this cmdlet must not raise an error.
             var content = "```powershell\nNew-AzResourceGroup -Name myrg -BogusFlag 1\n```";
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
