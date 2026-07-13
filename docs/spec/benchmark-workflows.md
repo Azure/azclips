@@ -15,13 +15,21 @@ During each PR and push to `main`, performance benchmarks are run and compared a
 
 Runs CLI and PS benchmarks and uploads results as artifacts to be consumed by `benchmark-comment.yml`. The pipeline will fail if any benchmark exceeds **115%** of the baseline, preventing merges that degrade performance. For same-repo PRs, it also directly posts a warning comment on the PR.
 
-A `detect-changes` job uses `dorny/paths-filter` to determine which extensions changed
-and emits a matrix. Changes to shared code (`src/Core/**`, the benchmark runner/stubs,
-`global.json`, `azclips.slnx`) run **all** extensions; changes scoped to a single
-extension (`src/Extensions/<Ext>/**`, `src/PS/<Ext>/**`, or its benchmark classes) run
-only that extension. `workflow_dispatch` runs all. The matrix `benchmark` job builds,
-runs `--ci --extension <ext> --product CLI|PS`, and publishes each report to
-`dev/bench/cli` / `dev/bench/ps` under its own chart name.
+The pipeline is **fully generic across extensions** — the set of benchmarked extensions
+is derived at runtime from the `[BenchmarkExtension("<Name>")]` attribute on the benchmark
+classes, so adding a new extension needs no workflow edits. A `detect-changes` job runs
+`.github/scripts/detect-benchmark-changes.sh`: `dorny/paths-filter` supplies a `shared`
+flag, a `startup` flag, and the changed-file list, and the script greps the attribute to
+build the extension universe and map each change to an extension. Changes to shared code
+(`src/Core/**`, `src/CLI/**`, the benchmark base classes/stubs, `global.json`,
+`azclips.slnx`, the workflow, or the detection script) run **all** extensions; changes
+scoped to a single extension (`src/Extensions/<Ext>/**`, `src/PS/<Ext>/**`, or its
+benchmark classes) run only that extension; `workflow_dispatch` runs all. The solution is
+built once, `run-cli`/`run-ps` execute `--ci --extension <ext> --product CLI|PS` over the
+extension matrix, and a generic `publish-extensions` matrix (extension × product) derives
+each chart name and publishes its report to `dev/bench/cli` / `dev/bench/ps`. Whole-process
+startup benchmarks are cross-cutting and published separately to
+`dev/bench/startup-cli` / `dev/bench/startup-ps`.
 
 ### `benchmark-comment.yml` — Post Benchmark Comment
 

@@ -126,7 +126,7 @@ tests/Benchmark/
 |--------|-------------|---------|
 | `--local`, `-l` | Skip App Insights upload | `-- --local` |
 | `--product <name>` | Run a specific product only (`CLI`, `PS`, or `ALL`) | `-- --product CLI` |
-| `--ci` | CI mode: implies `--local` and writes to a stable `artifacts/Benchmark/ci/<PRODUCT>/` path | `-- --ci --product CLI` |
+| `--ci` | CI mode: implies `--local` and writes to a stable `artifacts/Benchmark/ci/<EXTENSION>/<PRODUCT>/` path | `-- --ci --product CLI` |
 | `--extension <name>` | Run a specific extension only (`Compute`, `Resources`, or `ALL`) | `-- --extension Compute` |
 | `--list` | Print the discovered benchmark classes (extension / product / name) and exit | `-- --list` |
 
@@ -177,13 +177,22 @@ Command-level telemetry is stubbed out during benchmarks (`StubTelemetryService`
 ## Adding a New Extension
 
 1. Add `CLI/<Resource>Benchmarks.cs` and `PS/<Resource>Benchmarks.cs`, each tagged
-   `[BenchmarkExtension("<Name>")]` and overriding `RequiredExtensions` / `ModuleName`.
-2. If the extension makes orchestrated/LRO calls that read response fields, add the
+   `[BenchmarkExtension("<Name>")]`. Use a single, title-cased `<Name>` (e.g. `Compute`,
+   `Login`) — it becomes the dashboard title (`Azclips <Name> CLI Benchmarks`).
+   `RequiredExtensions` (CLI) and `ModuleName` (PS) are derived from the attribute, so
+   there is nothing else to wire up on the class.
+2. Keep the product source under `src/Extensions/<Name>/` (and/or `src/PS/<Name>/`) —
+   the standard folder convention CI uses to detect which extension changed.
+3. If the extension makes orchestrated/LRO calls that read response fields, add the
    minimal shape to `tests/Common/Stubs/StubResponseMappings.cs` + a fixture file.
-3. Add a `<name>:` filter block (and its files) in `.github/workflows/benchmark.yml`.
 
-Discovery (reflection), the CI matrix, the report glob, and the comment workflow pick
-it up automatically — no `Program.cs` or matrix-list edits required.
+That's it — **no workflow or `Program.cs` edits are required.** The extension universe,
+the CI run matrix, per-extension change detection, the publish dashboards, and the
+fork-PR comment are all derived at runtime from the `[BenchmarkExtension]` attribute
+(see `.github/scripts/detect-benchmark-changes.sh`). Changes to shared code
+(`src/Core`, benchmark base classes, the workflow, the detection script, …) re-run
+every extension; a change confined to one extension's source or benchmark class runs
+only that extension.
 
 ---
 

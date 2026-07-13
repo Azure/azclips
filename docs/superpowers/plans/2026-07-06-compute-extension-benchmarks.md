@@ -953,6 +953,16 @@ No commit for this task (validation only; no intended file changes remain).
 
 ## Task 10: CI workflow — path-filter matrix + per-extension charts
 
+> **Superseded by the final, fully-generic implementation.** The steps below record the
+> original per-extension-filter design. As shipped, `benchmark.yml` derives the whole
+> extension universe and the per-extension change subset from the `[BenchmarkExtension]`
+> attribute via `.github/scripts/detect-benchmark-changes.sh` (dorny only supplies
+> `shared`/`startup` booleans + the changed-file list), and publishing is a generic
+> `publish-extensions` matrix (extension×product) that derives chart name/data-dir/report
+> at runtime — plus separate `build`, `run-startup`, `publish-startup`, and `collect`
+> jobs. Adding an extension needs **no workflow edits**. See design spec §7 for the
+> current structure.
+
 Rework `benchmark.yml` into a `detect-changes` job (computes which extensions changed) plus a matrix `benchmark` job that runs and publishes one extension at a time. Standardize the Resources chart names.
 
 **Files:**
@@ -1196,6 +1206,12 @@ git commit -m "ci(benchmark): path-filter matrix over extensions + per-extension
 
 ## Task 11: Fork-PR comment workflow — consume all per-extension artifacts
 
+> **Superseded.** In the final implementation the per-extension result artifacts are
+> merged by the `collect` job into a single `benchmark-results` artifact (preserving the
+> `<EXT>/<PRODUCT>/results/` layout), so `benchmark-comment.yml` needs no per-extension
+> changes — it already pattern-downloads that one artifact and classifies JSONs by the
+> `/CLI/` or `/PS/` path segment.
+
 The matrix now uploads one `benchmark-results-<ext>` artifact per extension. Update the comment workflow to download all of them.
 
 **Files:**
@@ -1309,13 +1325,16 @@ real polling. See "Project Structure" and `tests/Common/Stubs/`.
 ## Adding a New Extension
 
 1. Add `CLI/<Resource>Benchmarks.cs` and `PS/<Resource>Benchmarks.cs`, each tagged
-   `[BenchmarkExtension("<Name>")]` and overriding `RequiredExtensions` / `ModuleName`.
-2. If the extension makes orchestrated/LRO calls that read response fields, add the
+   `[BenchmarkExtension("<Name>")]` (`RequiredExtensions` / `ModuleName` are derived
+   from the attribute).
+2. Keep the product source under `src/Extensions/<Name>/` (and/or `src/PS/<Name>/`).
+3. If the extension makes orchestrated/LRO calls that read response fields, add the
    minimal shape to `tests/Common/Stubs/StubResponseMappings.cs` + a fixture file.
-3. Add a `<name>:` filter block (and its files) in `.github/workflows/benchmark.yml`.
 
-Discovery (reflection), the CI matrix, the report glob, and the comment workflow pick
-it up automatically — no `Program.cs` or matrix-list edits required.
+That's it — no workflow or `Program.cs` edits. The extension universe, run matrix,
+per-extension change detection, publish dashboards, and comment workflow are all derived
+at runtime from the `[BenchmarkExtension]` attribute
+(`.github/scripts/detect-benchmark-changes.sh`).
 ```
 
 - [ ] **Step 2: Update `docs/spec/benchmark-workflows.md`**

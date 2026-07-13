@@ -10,6 +10,7 @@ on:
       - 'global.json'
       - 'azclips.slnx'
       - '.github/workflows/benchmark.yml'
+      - '.github/scripts/detect-benchmark-changes.sh'
   pull_request:
     branches: [main]
     paths:
@@ -19,6 +20,7 @@ on:
       - 'global.json'
       - 'azclips.slnx'
       - '.github/workflows/benchmark.yml'
+      - '.github/scripts/detect-benchmark-changes.sh'
   workflow_dispatch:
 
 permissions:
@@ -30,6 +32,9 @@ concurrency:
 
 jobs:
   # ─────────────── Detect which extensions / families changed ───────────────
+  # Fully generic: the extension universe is derived from the [BenchmarkExtension]
+  # attribute by .github/scripts/detect-benchmark-changes.sh — adding a new
+  # benchmarked extension needs no edits here (only a shared/startup path list).
   detect-changes:
     name: Detect changed extensions
     runs-on: ubuntu-latest
@@ -38,6 +43,7 @@ jobs:
       pull-requests: read      # dorny/paths-filter lists PR files via the GitHub API
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      publish_matrix: ${{ steps.set-matrix.outputs.publish_matrix }}
       has_ext_work: ${{ steps.set-matrix.outputs.has_ext_work }}
       run_startup: ${{ steps.set-matrix.outputs.run_startup }}
     steps:
@@ -51,6 +57,7 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          list-files: json          # expose the changed-file list for generic detection
           filters: |
             shared:
               - 'src/Core/**'
@@ -65,56 +72,20 @@ jobs:
               - 'azclips.slnx'
               - 'Shared.props'
               - '.github/workflows/benchmark.yml'
+              - '.github/scripts/detect-benchmark-changes.sh'
             startup:
               - 'tests/Benchmark/Startup/**'
-            compute:
-              - 'src/Extensions/Compute/**'
-              - 'src/PS/Compute/**'
-              - 'tests/Benchmark/CLI/VirtualMachineBenchmarks.cs'
-              - 'tests/Benchmark/PS/VirtualMachineBenchmarks.cs'
-            resources:
-              - 'src/Extensions/Resources/**'
-              - 'src/PS/Resources/**'
-              - 'tests/Benchmark/CLI/ResourceGroupBenchmarks.cs'
-              - 'tests/Benchmark/PS/ResourceGroupBenchmarks.cs'
+            all:
+              - '**'
 
       - name: Build extension matrix
         id: set-matrix
         env:
+          EVENT: ${{ github.event_name }}
           SHARED: ${{ steps.filter.outputs.shared }}
           STARTUP: ${{ steps.filter.outputs.startup }}
-          COMPUTE: ${{ steps.filter.outputs.compute }}
-          RESOURCES: ${{ steps.filter.outputs.resources }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          ALL='["compute","resources"]'
-          if [ "$EVENT" = "workflow_dispatch" ] || [ "$SHARED" = "true" ]; then
-            MATRIX="$ALL"
-          else
-            exts=()
-            [ "$COMPUTE" = "true" ] && exts+=("compute")
-            [ "$RESOURCES" = "true" ] && exts+=("resources")
-            if [ ${#exts[@]} -eq 0 ]; then
-              MATRIX='[]'
-            else
-              MATRIX=$(printf '"%s",' "${exts[@]}")
-              MATRIX="[${MATRIX%,}]"
-            fi
-          fi
-          echo "matrix={\"extension\":$MATRIX}" >> "$GITHUB_OUTPUT"
-          if [ "$MATRIX" = "[]" ]; then
-            echo "has_ext_work=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_ext_work=true" >> "$GITHUB_OUTPUT"
-          fi
-          # Startup is cross-cutting (whole-CLI process startup): run it on shared changes,
-          # on startup-specific changes, or on manual dispatch — not on extension-only changes.
-          if [ "$EVENT" = "workflow_dispatch" ] || [ "$SHARED" = "true" ] || [ "$STARTUP" = "true" ]; then
-            echo "run_startup=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_startup=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "Resolved matrix: {\"extension\":$MATRIX}; run_startup handled above"
+          CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
+        run: bash .github/scripts/detect-benchmark-changes.sh
 
   # ─────────────── Build the solution once ───────────────
   build:
@@ -271,16 +242,23 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-  # ─────────────── Publish dashboards + gate regressions (single gh-pages writer) ───────────────
-  publish:
-    name: Publish dashboards and gate regressions
-    needs: [detect-changes, run-cli, run-ps, run-startup]
-    # Run whenever any producer was in scope (matrix jobs are skipped, not failed, when out of scope).
-    if: always() && (needs.detect-changes.outputs.has_ext_work == 'true' || needs.detect-changes.outputs.run_startup == 'true')
+  # ─────────────── Publish extension dashboards (generic matrix) ───────────────
+  # One leg per {extension × product}. The matrix comes straight from
+  # detect-changes (derived from the [BenchmarkExtension] attribute), so adding a
+  # new benchmarked extension needs no edits here. gh-pages writes are serialised
+  # with max-parallel: 1; each leg fetches fresh gh-pages so appends never clobber.
+  publish-extensions:
+    name: Publish ${{ matrix.extension }} ${{ matrix.product }} dashboard
+    needs: [detect-changes, run-cli, run-ps]
+    if: always() && needs.detect-changes.outputs.has_ext_work == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write          # gh-pages auto-push (main only)
       pull-requests: write     # PR comments on regression
+    strategy:
+      fail-fast: false
+      max-parallel: 1          # serialise gh-pages writes across legs
+      matrix: ${{ fromJSON(needs.detect-changes.outputs.publish_matrix) }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -296,14 +274,31 @@ jobs:
           path: downloaded
           merge-multiple: true
 
-      # ─────────────── Compute ───────────────
-      - name: Publish Compute CLI dashboard / gate regression
-        if: ${{ hashFiles('downloaded/COMPUTE/CLI/results/Benchmark.CLI.VirtualMachineBenchmarks-report-full-compressed.json') != '' }}
+      - name: Resolve dashboard parameters
+        id: p
+        env:
+          EXT: ${{ matrix.extension }}
+          PRODUCT: ${{ matrix.product }}
+        run: |
+          ext_upper="${EXT^^}"
+          title="${EXT^}"
+          product_lower="${PRODUCT,,}"
+          report=$(ls "downloaded/${ext_upper}/${PRODUCT}/results/"*-report-full-compressed.json 2>/dev/null | head -1 || true)
+          {
+            echo "report=$report"
+            echo "name=Azclips ${title} ${PRODUCT} Benchmarks"
+            echo "data_dir=dev/bench/${product_lower}"
+            if [ -n "$report" ]; then echo "found=true"; else echo "found=false"; fi
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved: name='Azclips ${title} ${PRODUCT} Benchmarks' data_dir='dev/bench/${product_lower}' report='${report:-<none>}'"
+
+      - name: Publish dashboard / gate regression
+        if: steps.p.outputs.found == 'true'
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'Azclips Compute CLI Benchmarks'
+          name: ${{ steps.p.outputs.name }}
           tool: 'benchmarkdotnet'
-          output-file-path: downloaded/COMPUTE/CLI/results/Benchmark.CLI.VirtualMachineBenchmarks-report-full-compressed.json
+          output-file-path: ${{ steps.p.outputs.report }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
@@ -311,65 +306,35 @@ jobs:
           comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
           summary-always: true
           gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/cli
+          benchmark-data-dir-path: ${{ steps.p.outputs.data_dir }}
           comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
 
-      - name: Publish Compute PS dashboard / gate regression
-        if: ${{ hashFiles('downloaded/COMPUTE/PS/results/Benchmark.PS.VirtualMachineBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+  # ─────────────── Publish startup dashboards (fixed, cross-cutting) ───────────────
+  # Startup dashboards are special (warm tracked, cold informational) and are not
+  # per-extension. Serialised after publish-extensions so gh-pages pushes don't race.
+  publish-startup:
+    name: Publish startup dashboards
+    needs: [detect-changes, run-startup, publish-extensions]
+    if: always() && needs.detect-changes.outputs.run_startup == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # gh-pages auto-push (main only)
+      pull-requests: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2
         with:
-          name: 'Azclips Compute PS Benchmarks'
-          tool: 'benchmarkdotnet'
-          output-file-path: downloaded/COMPUTE/PS/results/Benchmark.PS.VirtualMachineBenchmarks-report-full-compressed.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: ${{ github.event_name == 'push' }}
-          alert-threshold: '115%'
-          fail-on-alert: false
-          comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
-          summary-always: true
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/ps
-          comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
-          skip-fetch-gh-pages: true
+          egress-policy: audit
 
-      # ─────────────── Resources ───────────────
-      - name: Publish Resources CLI dashboard / gate regression
-        if: ${{ hashFiles('downloaded/RESOURCES/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
+      - uses: actions/checkout@v4
+
+      - name: Download all benchmark results
+        uses: actions/download-artifact@v4
         with:
-          name: 'Azclips Resources CLI Benchmarks'
-          tool: 'benchmarkdotnet'
-          output-file-path: downloaded/RESOURCES/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: ${{ github.event_name == 'push' }}
-          alert-threshold: '115%'
-          fail-on-alert: false
-          comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
-          summary-always: true
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/cli
-          comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
-          skip-fetch-gh-pages: true
+          pattern: benchmark-*-results*
+          path: downloaded
+          merge-multiple: true
 
-      - name: Publish Resources PS dashboard / gate regression
-        if: ${{ hashFiles('downloaded/RESOURCES/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json') != '' }}
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: 'Azclips Resources PS Benchmarks'
-          tool: 'benchmarkdotnet'
-          output-file-path: downloaded/RESOURCES/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: ${{ github.event_name == 'push' }}
-          alert-threshold: '115%'
-          fail-on-alert: false
-          comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
-          summary-always: true
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench/ps
-          comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
-          skip-fetch-gh-pages: true
-
-      # ─────────────── Startup ───────────────
       - name: Publish CLI startup dashboard (warm, tracked)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.CliWarmStartupBenchmarks-report-full-compressed.json') != '' }}
         uses: benchmark-action/github-action-benchmark@v1
@@ -385,7 +350,6 @@ jobs:
           summary-always: true
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench/startup-cli
-          skip-fetch-gh-pages: true
 
       - name: Publish PS startup dashboard (warm, tracked)
         if: ${{ hashFiles('downloaded/ALL/STARTUP/results/Benchmark.Startup.PsWarmStartupBenchmarks-report-full-compressed.json') != '' }}
@@ -436,6 +400,27 @@ jobs:
           benchmark-data-dir-path: dev/bench/startup-ps
           skip-fetch-gh-pages: true
 
+  # ─────────────── Collect artifacts (fork PR comment + debugging) ───────────────
+  # Single writer of the `benchmark-results` artifact consumed by benchmark-comment.yml,
+  # decoupled from the (matrix) publish jobs so the artifact name stays unique.
+  collect:
+    name: Collect benchmark artifacts
+    needs: [detect-changes, run-cli, run-ps, run-startup]
+    if: always() && (needs.detect-changes.outputs.has_ext_work == 'true' || needs.detect-changes.outputs.run_startup == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Download all benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*-results*
+          path: downloaded
+          merge-multiple: true
+
       # Upload benchmark result JSONs for the fork-PR comment workflow
       - name: Upload benchmark results for fork PR
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
@@ -446,7 +431,6 @@ jobs:
           retention-days: 1
           if-no-files-found: warn
 
-      # ─────────────── Always ────────────
       - name: Upload BDN logs (always)
         if: always()
         uses: actions/upload-artifact@v4

@@ -360,94 +360,96 @@ orphaned entry — acceptable.)
 
 ## 7. CI Workflow (`.github/workflows/benchmark.yml`)
 
-**Decision:** single workflow, `dorny/paths-filter` computes which extensions changed,
-a **matrix** runs each. Shared changes run all extensions.
+**Decision:** single workflow, **fully generic** — the extension universe and the
+per-extension change detection are derived at runtime from the `[BenchmarkExtension]`
+attribute (via `.github/scripts/detect-benchmark-changes.sh`), so adding a benchmarked
+extension needs **no workflow edits**. Shared changes run all extensions.
 
 ### 7.1 Structure
 
 ```mermaid
 flowchart TD
-    A[PR / push to main / dispatch] --> B[detect-changes job<br/>dorny/paths-filter]
-    B --> C{compute matrix}
-    C -->|shared changed| D["[compute, resources] (all)"]
-    C -->|only Compute paths| E["[compute]"]
-    C -->|only Resources paths| F["[resources]"]
-    C -->|nothing relevant| G[skip]
-    D & E & F --> H[benchmark job — matrix over extensions<br/>max-parallel: 1]
-    H --> I[build Release]
-    I --> J[run --ci --extension X --product CLI, then PS]
-    J --> K[publish each report → dev/bench/cli & dev/bench/ps<br/>gate at 115%]
-    J --> L[fork PRs: upload benchmark-results-X artifact]
+    A[PR / push to main / dispatch] --> B[detect-changes<br/>dorny + detect-benchmark-changes.sh]
+    B -->|shared changed / dispatch| D["matrix = all extensions"]
+    B -->|only one extension's paths| E["matrix = that extension"]
+    B -->|nothing relevant| G[skip]
+    D & E --> H[build once → Release artifact]
+    H --> I[run-cli / run-ps<br/>matrix over extensions]
+    H --> S[run-startup<br/>if cross-cutting/startup change]
+    I --> J[publish-extensions<br/>matrix over extension×product, max-parallel 1]
+    S --> P[publish-startup]
+    J --> P
+    I & S --> Z[collect → fork-PR benchmark-results + logs]
 ```
 
-### 7.2 `detect-changes` job
+### 7.2 `detect-changes` job (generic)
 
-`dorny/paths-filter` with one `shared` filter plus one filter **per extension**:
+`dorny/paths-filter` provides only three things — it is **not** extended per extension:
 
 ```yaml
+list-files: json          # exposes the changed-file list (all_files)
 filters: |
-  shared:
+  shared:                 # cross-cutting → run every extension
     - 'src/Core/**'
+    - 'src/CLI/**'
     - 'tests/Benchmark/*.cs'          # root runner, base, chart gen
-    - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'                      # shared CLI infra
-    - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs' # shared CLI infra
-    - 'tests/Benchmark/PS/PSBenchmarkBase.cs'                        # shared PS infra
-    - 'tests/Benchmark/PS/PSManifestStager.cs'                       # shared PS infra
-    - 'tests/Common/**'               # stubs, utilities
+    - 'tests/Benchmark/CLI/CLIBenchmarkBase.cs'
+    - 'tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs'
+    - 'tests/Benchmark/PS/PSBenchmarkBase.cs'
+    - 'tests/Benchmark/PS/PSManifestStager.cs'
+    - 'tests/Common/**'
     - 'global.json'
     - 'azclips.slnx'
     - 'Shared.props'
     - '.github/workflows/benchmark.yml'
-  compute:
-    - 'src/Extensions/Compute/**'
-    - 'src/PS/Compute/**'
-    - 'tests/Benchmark/CLI/VirtualMachineBenchmarks.cs'
-    - 'tests/Benchmark/PS/VirtualMachineBenchmarks.cs'
-  resources:
-    - 'src/Extensions/Resources/**'
-    - 'src/PS/Resources/**'
-    - 'tests/Benchmark/CLI/ResourceGroupBenchmarks.cs'
-    - 'tests/Benchmark/PS/ResourceGroupBenchmarks.cs'
+    - '.github/scripts/detect-benchmark-changes.sh'
+  startup:
+    - 'tests/Benchmark/Startup/**'
+  all:                    # catch-all → full changed-file list
+    - '**'
 ```
 
-A small script converts the filter outputs into the matrix:
+`.github/scripts/detect-benchmark-changes.sh` then:
 
-- The **extension set** = every filter key except `shared`.
-- If `shared` matched → matrix = all extension keys.
-- Else → matrix = the extension keys that matched.
-- If the resulting set is empty → the benchmark job is skipped.
-- Output as JSON (`matrix={"extension":[...]}`) consumed by the benchmark job.
+- Derives the **extension universe** by grepping `^\s*\[BenchmarkExtension("` across
+  `tests/Benchmark/**/*.cs` (the single source of truth; anchored so doc-comment
+  examples don't pollute it), building both the set of extensions and a
+  benchmark-file → extension map.
+- Computes the **run set**:
+  - `workflow_dispatch` or `shared` matched → all extensions.
+  - Otherwise, for each changed file: map it to an extension via (a) the
+    benchmark-file→extension map, or (b) the source-path convention
+    `src/Extensions/<Ext>/**` / `src/PS/<Ext>/**` (case-insensitive folder match).
+- Emits `matrix={"extension":[...]}`, `publish_matrix={"extension":[...],"product":["CLI","PS"]}`,
+  `has_ext_work`, and `run_startup` (true on shared/startup/dispatch — startup is
+  cross-cutting and never runs for extension-only changes).
 
-`workflow_dispatch` runs all extensions.
+### 7.3 Run + publish jobs
 
-### 7.3 `benchmark` job (matrix)
-
-- `strategy: { matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }},
-  max-parallel: 1 }` — serialized to avoid concurrent `gh-pages` pushes racing.
-- Steps per extension `X`:
-  1. harden-runner, checkout, setup-dotnet, `dotnet build … -c Release`.
-  2. Run CLI: `dotnet run … -- --ci --extension X --product CLI` (with retry).
-  3. Publish CLI: `github-action-benchmark` with
-     - `name: 'Azclips <X> CLI Benchmarks'`
-     - `output-file-path`: the single JSON located by globbing
-       `artifacts/Benchmark/ci/<X>/CLI/results/*-report-full-compressed.json`
-       (a shell step resolves the path → no class names in YAML)
-     - `benchmark-data-dir-path: dev/bench/cli`, `gh-pages-branch: gh-pages`
-     - `auto-push: ${{ github.event_name == 'push' }}`, `alert-threshold: '115%'`,
-       `fail-on-alert: false`, comment/summary flags as today.
-  4. Run PS + Publish PS symmetrically → `dev/bench/ps`, `name: 'Azclips <X> PS Benchmarks'`,
-     `skip-fetch-gh-pages: true` (the CLI publish in the same job already fetched).
-  5. Fork PRs: upload `benchmark-results-<X>` artifact with that extension's CLI+PS
-     report JSONs.
-- Recommended: add a top-level `concurrency` group (e.g.
-  `benchmark-${{ github.ref }}`) to avoid overlapping runs pushing to `gh-pages`.
+- **build** (ubuntu): `dotnet build … -c Release` once, uploads the build artifact.
+- **run-cli / run-ps** (self-hosted, `matrix` over extensions, `fail-fast: false`):
+  download the build, run `--ci --extension X --product CLI|PS` (with retry), upload
+  `benchmark-{cli,ps}-results-X`.
+- **run-startup** (self-hosted, single): runs `--ci --product STARTUP` when `run_startup`.
+- **publish-extensions** (ubuntu, generic `matrix` over `publish_matrix` = extension×product,
+  `max-parallel: 1` to serialize `gh-pages` pushes): a shell step derives per-leg
+  `name` (`Azclips <Title> <Product> Benchmarks`), `benchmark-data-dir-path`
+  (`dev/bench/<product-lower>`), and globs the one report at
+  `downloaded/<EXT_UPPER>/<PRODUCT>/results/*-report-full-compressed.json`; the
+  `github-action-benchmark` step publishes/gates (115%, `fail-on-alert: false`,
+  `auto-push` on push). Each leg fetches fresh `gh-pages` so appends never clobber.
+- **publish-startup** (ubuntu, serialized after publish-extensions): the fixed startup
+  dashboards (warm tracked, cold informational) → `dev/bench/startup-cli|ps`.
+- **collect** (ubuntu): single writer of the `benchmark-results` artifact (fork-PR
+  comment) plus the debugging log bundle — decoupled from the matrix publish jobs so
+  the artifact name stays unique.
 
 ### 7.4 Trigger-level `paths` unchanged
 
 Keep the existing broad `on.push`/`on.pull_request` `paths` (`src/**`,
-`tests/Benchmark/**`, `global.json`, `azclips.slnx`, the workflow file). `src/**`
-already covers any new extension, so the trigger list rarely changes; `detect-changes`
-does the per-extension breakdown.
+`tests/Benchmark/**`, `global.json`, `azclips.slnx`, the workflow file, and the
+detection script). `src/**` already covers any new extension, so the trigger list
+rarely changes; `detect-changes` does the per-extension breakdown.
 
 ---
 
@@ -496,14 +498,16 @@ does the per-extension breakdown.
 To benchmark a future extension `Foo`:
 
 1. Add `tests/Benchmark/CLI/<FooResource>Benchmarks.cs` and the PS counterpart, each
-   tagged `[BenchmarkExtension("Foo")]`, overriding `RequiredExtensions` /
-   `ModuleName`.
-2. Add a `foo:` filter block in `benchmark.yml`'s `dorny/paths-filter` listing
-   `src/Extensions/Foo/**`, `src/PS/Foo/**`, and the two new benchmark files.
+   tagged `[BenchmarkExtension("Foo")]` (`RequiredExtensions` / `ModuleName` are derived
+   from the attribute — nothing else to wire on the class).
+2. Keep the product source under `src/Extensions/Foo/**` / `src/PS/Foo/**` (the folder
+   convention the detection script uses).
 
-That's it — discovery (reflection), the matrix (derived from filter keys), the
-publish step (globs the report), and the comment workflow all pick it up
-automatically. No `Program.cs`, matrix list, or comment-script edits required.
+That's it — **no workflow edits.** The extension universe, the run matrix, per-extension
+change detection, the publish dashboards, and the comment workflow are all derived at
+runtime from the `[BenchmarkExtension]` attribute (see
+`.github/scripts/detect-benchmark-changes.sh`). No `Program.cs`, workflow, matrix list,
+or comment-script edits required.
 
 ---
 
