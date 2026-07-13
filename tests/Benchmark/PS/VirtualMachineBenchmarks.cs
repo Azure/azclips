@@ -22,7 +22,7 @@ public class VirtualMachineBenchmarks : PSBenchmarkBase
     [Benchmark(Description = "PS: List VM")]
     public object? ListVirtualMachines()
     {
-        return RunPowerShellCommand("Get-VM",
+        return RunPowerShellCommand("Get-AzVM",
             ("SubscriptionId", SubscriptionId),
             ("ResourceGroupName", ResourceGroup));
     }
@@ -31,7 +31,7 @@ public class VirtualMachineBenchmarks : PSBenchmarkBase
     public object? CreateVirtualMachine()
     {
         var n = Interlocked.Increment(ref VmCounter);
-        return RunPowerShellCommand("New-VM",
+        return RunPowerShellCommand("New-AzVM",
             ("SubscriptionId", SubscriptionId),
             ("Name", $"bench-vm-{n}"),
             ("Location", "eastus"),
@@ -47,7 +47,7 @@ public class VirtualMachineBenchmarks : PSBenchmarkBase
     [Benchmark(Description = "PS: Get VM")]
     public object? GetVirtualMachine()
     {
-        return RunPowerShellCommand("Get-VM",
+        return RunPowerShellCommand("Get-AzVM",
             ("SubscriptionId", SubscriptionId),
             ("ResourceGroupName", ResourceGroup),
             ("Name", "bench-vm-get"));
