@@ -100,14 +100,6 @@ namespace Core.Engine
         {
             Profile? profile = await ResolveProfileAsync(profileNameOverride);
 
-            // Enrich telemetry with profile context
-            if (profile is not null)
-            {
-                telemetryService.AddTag(TelemetryTags.SubscriptionId, profile.SubscriptionId);
-                telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
-                telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
-            }
-
             IAuthHandler authHandler = new AuthHandler
             {
                 Profile = profile,
@@ -143,6 +135,11 @@ namespace Core.Engine
             httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep);
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
+
+            // Announce the created context; the ProcessorContextCreated subscriber enriches the
+            // telemetry root span with profile-derived tags (subscription, tenant, auth type).
+            await session.EventBus.Publish(Events.ProcessorContextCreated, new EventData { Payload = profile });
+
             return context;
         }
 
