@@ -6,8 +6,9 @@ namespace Core.Agent.Tests;
 /// <summary>
 /// Unit tests for <see cref="AgentEventStyle.SanitizeToolResult"/> — the pure
 /// string cleaner that strips terminal noise (ANSI colour codes, \r/\b overwrite
-/// runs), de-dupes adjacent lines, and truncates very long output. Pure in/out,
-/// so it's cheap to pin against the spinner-noise scenarios it was written for.
+/// runs) and de-dupes adjacent lines. It does NOT length-cap: output is display
+/// only and the terminal has scrollback. Pure in/out, so it's cheap to pin
+/// against the spinner-noise scenarios it was written for.
 /// </summary>
 public class SanitizeToolResultTests
 {
@@ -49,17 +50,17 @@ public class SanitizeToolResultTests
     }
 
     [Fact]
-    public void Truncates_long_output_to_tail_with_marker()
+    public void Does_not_truncate_long_output()
     {
-        // > 4000 chars → keep only the last 20 lines, prefixed with a marker.
+        // Display-only + terminal scrollback → the cleaner never caps length,
+        // so both the head and tail of a long result survive intact.
         var raw = string.Join('\n', Enumerable.Range(1, 5000).Select(i => $"line{i}"));
         var cleaned = AgentEventStyle.SanitizeToolResult(raw);
 
-        Assert.StartsWith("[output truncated", cleaned);
-        Assert.Contains("line5000", cleaned);       // tail kept
-        Assert.DoesNotContain("line1\n", cleaned);  // head dropped
-        // marker line + 20 tail lines
-        Assert.Equal(21, cleaned.Split('\n').Length);
+        Assert.DoesNotContain("[output truncated", cleaned);
+        Assert.Contains("line1", cleaned);       // head kept
+        Assert.Contains("line5000", cleaned);     // tail kept
+        Assert.Equal(5000, cleaned.Split('\n').Length);
     }
 
     [Fact]

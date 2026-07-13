@@ -16,6 +16,10 @@ public sealed class AgentOptions
     // stays in a chat loop until the user exits or the escape valve trips.
     public string SessionStyle { get; set; } = "oneshot";
 
+    // Interactive-only display settings. Meaningless in oneshot (which prints no
+    // tool events at all), hence namespaced under interactive.
+    public InteractiveOptions Interactive { get; set; } = new();
+
     // Diagnostic JSONL trace of agent sessions (events, tool I/O, rendered output).
     // Two separate knobs so the path can have a usable default while recording stays
     // off until explicitly enabled (you can't express "off" with a defaulted path
@@ -26,6 +30,14 @@ public sealed class AgentOptions
     // "interactive" literal doesn't drift across call sites.
     public bool IsInteractive =>
         string.Equals(SessionStyle, "interactive", System.StringComparison.OrdinalIgnoreCase);
+}
+
+public sealed class InteractiveOptions
+{
+    // Off by default — internal tool details (get_command / find_* args and
+    // output) stay hidden so the interactive session shows only the shell
+    // commands the user cares about. Turn on to debug what the agent is doing.
+    public bool Verbose { get; set; } = false;
 }
 
 public sealed class TraceOptions

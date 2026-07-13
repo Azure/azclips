@@ -145,9 +145,9 @@ public static class AgentEventStyle
     //   1. Drop ANSI escape sequences.
     //   2. Drop \r-runs and \b-runs (they were meant to overwrite, not stack).
     //   3. Collapse consecutive identical lines (spinner frames repeat).
-    //   4. Cap total length so a chatty tool can't blow out one screen.
-    private const int MaxResultChars = 4000;
-    private const int MaxTailLines = 20;
+    // Output is NOT length-capped: this is display-only (never fed to the model —
+    // that path uses the SDK's raw tool result), and the terminal has scrollback,
+    // so truncating here only risked dropping the head of a long result.
     private static readonly Regex AnsiEscape = new("\x1b\\[[0-9;]*[A-Za-z]", RegexOptions.Compiled);
     private static readonly Regex OverwriteRuns = new("[\r\b]+[^\r\b\n]*", RegexOptions.Compiled);
 
@@ -168,14 +168,6 @@ public static class AgentEventStyle
             dedup.Add(trimmed);
             prev = trimmed;
         }
-        cleaned = string.Join('\n', dedup);
-
-        if (cleaned.Length > MaxResultChars)
-        {
-            var tail = dedup.Skip(Math.Max(0, dedup.Count - MaxTailLines));
-            cleaned = $"[output truncated — last {MaxTailLines} lines]\n" + string.Join('\n', tail);
-        }
-
-        return cleaned;
+        return string.Join('\n', dedup);
     }
 }

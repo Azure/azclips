@@ -119,7 +119,27 @@ foreach ($tfmProp in $deps.targets.PSObject.Properties) {
             foreach ($fileProp in $lib.runtime.PSObject.Properties) {
                 $relPath = $fileProp.Name
                 $fileName = [System.IO.Path]::GetFileName($relPath)
-                $dllMap[$fileName] = @{ pkg = $pkg; ver = $ver; rel = $relPath }
+                # hostfxr resolves the agent subprocess's deps two ways:
+                #   package (NuGet): probed under deps/ using the SDK-lowercased
+                #     libraries[id].path (e.g. "azure.core/1.54.0").
+                #   project ref (libraries[id].path == null): resolves from the APP
+                #     BASE (CLI publish root, next to azclips-agent). Every project
+                #     ref except agent-only Azclips.Agent.Tools already has a copy
+                #     in the CLI root — which is why only that one goes missing.
+                # So: still lay project refs under deps/ (correct-cased, harmless),
+                # AND copy any the CLI root lacks into the CLI root (done below).
+                $libEntry = $deps.libraries.PSObject.Properties.Match($libId)
+                $libPath = $null
+                $isProject = $false
+                if ($libEntry.Count -gt 0) {
+                    $libVal = $libEntry[0].Value
+                    # 'path'/'type' exist per lib; accessing a missing property
+                    # throws in strict PowerShell, so probe before reading.
+                    if ($libVal.PSObject.Properties.Match('path').Count -gt 0) { $libPath = $libVal.path }
+                    if ($libVal.PSObject.Properties.Match('type').Count -gt 0) { $isProject = ($libVal.type -eq 'project') }
+                }
+                $subdir = if ($libPath) { $libPath.Replace('\', '/') } else { "$pkg/$ver" }
+                $dllMap[$fileName] = @{ subdir = $subdir; rel = $relPath; isProject = $isProject }
             }
         }
     }
@@ -127,13 +147,14 @@ foreach ($tfmProp in $deps.targets.PSObject.Properties) {
 
 # 5. Remaining files in AgentPublishDir:
 #    - runtime pack member with SHA identical to CLI root: delete
-#    - other NuGet dll present in dll_map: move to deps/<pkg-lower>/<ver>/<rel>
+#    - other NuGet dll present in dll_map: move to deps/<probe-subdir>/<rel>
 #    - .pdb / .env / *.dll.config: delete (never shipped)
 #    - unclassified: warn (packaging break)
 $runtimePackDeduped = 0
 $nugetMoved = 0
 $purged = 0
 $unclassified = @()
+$flatKeptAtExtTop = @{}   # agent-only project dlls we copy flat to ext top
 
 foreach ($file in Get-ChildItem -Path $AgentPublishDir -File) {
     $name = $file.Name
@@ -158,7 +179,24 @@ foreach ($file in Get-ChildItem -Path $AgentPublishDir -File) {
 
     if ($dllMap.ContainsKey($name)) {
         $entry = $dllMap[$name]
-        $dstDir = Join-Path $depsDir "$($entry.pkg.ToLowerInvariant())/$($entry.ver)"
+        # An agent-only project ref (only Azclips.Agent.Tools today) must satisfy
+        # BOTH loaders, which look in different flat dirs:
+        #   - agent subprocess: app base = CLI root (flat)
+        #   - `az agent tool ...` CLI extension ALC: extension top level (flat)
+        # Copy to whichever lacks it (from the publish src), then move the src
+        # into deps/. Refs the CLI root already carries skip the copy.
+        if ($entry.isProject) {
+            foreach ($flatDir in @($CliPublishDir, $AgentExtensionDir)) {
+                $twin = Join-Path $flatDir $name
+                if (-not (Test-Path -Path $twin -PathType Leaf)) {
+                    Copy-Item -Path $file.FullName -Destination $twin -Force
+                }
+            }
+            # Remember ones placed flat at ext top so step-6 cleanup keeps them.
+            $flatKeptAtExtTop[$name] = $true
+        }
+        # subdir already carries the correctly-cased <pkg>/<ver> hostfxr probes.
+        $dstDir = Join-Path $depsDir $entry.subdir
         $relDir = [System.IO.Path]::GetDirectoryName($entry.rel)
         if ($relDir) { $dstDir = Join-Path $dstDir $relDir }
         $null = New-Item -Path $dstDir -ItemType Directory -Force
@@ -218,6 +256,9 @@ $extCleaned = 0
 foreach ($file in Get-ChildItem -Path $AgentExtensionDir -File) {
     $name = $file.Name
     if ($extKeep.ContainsKey($name)) { continue }
+    # Agent-only project dlls we deliberately placed flat here (for the CLI
+    # extension loader) must NOT be cleaned up, even though deps/ has a twin.
+    if ($flatKeptAtExtTop.ContainsKey($name)) { continue }
     # Any dll that's byte-identical to a copy at the CLI root or under
     # deps is redundant; the extension loader falls back to the host
     # anyway. .pdb / .dll.config / extension .runtimeconfig.json aren't

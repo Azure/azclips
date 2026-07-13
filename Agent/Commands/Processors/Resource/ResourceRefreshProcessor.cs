@@ -7,16 +7,16 @@ using Core.Abstractions.Runtime;
 using Core.Agent.Tools.Resource.Cache;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Cache
+namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
 {
     /// <summary>
-    /// `az agent tool cache refresh` — synchronously rebuilds the on-disk
+    /// `az agent tool resource refresh` — synchronously rebuilds the on-disk
     /// ARM cache used by resource find/tree/show. The other resource commands
     /// kick a fire-and-forget refresh but return immediately with whatever is
     /// on disk (often empty on a cold start). This command exists so users
     /// and CI can wait for the cache to actually settle before querying.
     /// </summary>
-    public class CacheRefreshProcessor : AgentProcessorBase
+    public class ResourceRefreshProcessor : AgentProcessorBase
     {
         public override async Task ProcessAsync()
         {

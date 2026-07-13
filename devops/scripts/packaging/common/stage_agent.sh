@@ -95,6 +95,7 @@ python3 - "$AGENT_PUBLISH_DIR" "$CLI_PUBLISH_DIR" "$DEPS_DIR" "$DEPS_JSON" <<'PY
 import hashlib, json, os, shutil, sys
 
 agent_publish, cli_publish, deps_dir, deps_json = sys.argv[1:5]
+agent_ext_dir = os.path.dirname(deps_dir)   # extension top level (deps/ is under it)
 
 def sha(p):
     h = hashlib.sha256()
@@ -105,7 +106,30 @@ def sha(p):
 
 deps = json.load(open(deps_json))
 
-dll_map = {}                # dll basename -> (pkg, ver, rel_path)
+# hostfxr resolves the agent subprocess's deps two ways:
+#   - NuGet packages: probed under deps/ (from additionalProbingPaths) using the
+#     SDK-lowercased libraries[].path — deps/<path>/ is the only home they need.
+#   - project refs (libraries[].path == null): the deps/ probing path does NOT
+#     actually help these (hostfxr appends <id>/<ver>/ there, but more to the
+#     point the CLI already carries them). They resolve from the APP BASE dir —
+#     which after staging is the CLI publish root, right next to azclips-agent.
+#     Every project ref EXCEPT the agent-only Azclips.Agent.Tools already has a
+#     byte-identical copy in the CLI root, which is why only that one dll goes
+#     missing. So: still lay project refs under deps/ (correct-cased, harmless),
+#     AND copy any project ref that the CLI root lacks INTO the CLI root, so the
+#     app-base probe finds it just like the other project dlls.
+libraries = deps.get('libraries', {})
+def probe_subdir(lib_id, pkg, ver):
+    lib = libraries.get(lib_id) or {}
+    path = lib.get('path')
+    if path:                      # NuGet package: SDK-provided (lowercased) path
+        return path.replace('\\', '/')
+    return f'{pkg}/{ver}'         # project ref: original-case id/version
+
+def is_project_ref(lib_id):
+    return (libraries.get(lib_id) or {}).get('type') == 'project'
+
+dll_map = {}                # dll basename -> (probe_subdir, rel_path, is_project)
 runtimepack_names = set()   # dll basenames that come from the .NET runtime pack
 
 for tfm, tge in deps['targets'].items():
@@ -126,13 +150,14 @@ for tfm, tge in deps['targets'].items():
             continue
         if 'runtime' in lib:
             for fp in lib['runtime']:
-                dll_map[os.path.basename(fp)] = (pkg, ver, fp)
+                dll_map[os.path.basename(fp)] = (probe_subdir(lib_id, pkg, ver), fp, is_project_ref(lib_id))
 
 # 4-5. Remaining top-level files in agent publish:
 runtimepack_deduped = 0
 nuget_moved = 0
 purged = 0
 unclassified = []
+flat_kept_at_ext_top = set()   # agent-only project dlls we copy flat to ext top
 
 for name in os.listdir(agent_publish):
     src = os.path.join(agent_publish, name)
@@ -153,8 +178,27 @@ for name in os.listdir(agent_publish):
         continue
 
     if name in dll_map:
-        pkg, ver, rel = dll_map[name]
-        dst_dir = os.path.join(deps_dir, pkg.lower(), ver, os.path.dirname(rel))
+        subdir, rel, is_proj = dll_map[name]
+        # An agent-only project ref (only Azclips.Agent.Tools today) must satisfy
+        # BOTH loaders, which look in different flat dirs:
+        #   - agent subprocess: app base = CLI root (flat) → copy there.
+        #   - `az agent tool ...` CLI extension ALC: extension top level (flat)
+        #     → copy there too.
+        # Copy to whichever of those two lacks the dll (from the publish src),
+        # THEN move the src down into deps/ (correct-cased; harmless, keeps the
+        # NuGet-style tree complete). Project refs the CLI root already carries
+        # need neither copy — the copy is skipped when the twin exists.
+        if is_proj:
+            for flat_dir in (cli_publish, agent_ext_dir):
+                twin = os.path.join(flat_dir, name)
+                if not os.path.isfile(twin):
+                    shutil.copy2(src, twin)
+            # Remember the ones we placed flat at the extension top level so the
+            # step-6 cleanup below doesn't delete them as "redundant with deps/".
+            flat_kept_at_ext_top.add(name)
+        # subdir already carries the correctly-cased <pkg>/<ver> hostfxr probes;
+        # rel's directory part is the lib-relative path (e.g. lib/<tfm>).
+        dst_dir = os.path.join(deps_dir, subdir, os.path.dirname(rel))
         os.makedirs(dst_dir, exist_ok=True)
         shutil.move(src, os.path.join(dst_dir, name))
         nuget_moved += 1
@@ -193,6 +237,10 @@ for name in os.listdir(agent_ext := os.path.dirname(deps_dir)):
     if not os.path.isfile(p):
         continue
     if name in keep_names:
+        continue
+    # Agent-only project dlls we deliberately placed flat here (for the CLI
+    # extension loader) must NOT be cleaned up, even though deps/ has a twin.
+    if name in flat_kept_at_ext_top:
         continue
 
     deletable = False
