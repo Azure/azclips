@@ -357,7 +357,7 @@ function ConvertTo-ReleaseNote {
 
     $note = $note.TrimEnd('.', ',', ' ')
 
-    if ($note -notmatch '\s*\(#[0-9]+\)$') {
+    if ($note -notmatch "\s*\(#$([regex]::Escape($PullRequestNumber))\)$") {
         $note = "$note (#$PullRequestNumber)"
     }
 
