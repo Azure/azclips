@@ -20,8 +20,8 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 }
 
 /// <summary>
-/// Reads and parses help markdown from <c>src/CLI/Help/Docs/&lt;ext&gt;/*.md</c> at runtime.
-/// Nested layout: <c>&lt;ext&gt;/&lt;seg1&gt;/.../&lt;segN&gt;.md</c> for leaves,
+/// Reads and parses help markdown from the nested corpus at <c>src/CLI/Help/Docs/&lt;ext&gt;/</c>.
+/// Layout: <c>&lt;ext&gt;/&lt;seg1&gt;/.../&lt;segN&gt;.md</c> for leaves,
 /// <c>&lt;ext&gt;/&lt;seg1&gt;/.../&lt;segN&gt;/index.md</c> for groups. Lenient: malformed/missing
 /// input returns <see cref="MarkdownCommandHelp.Empty"/> rather than throwing.
 /// </summary>

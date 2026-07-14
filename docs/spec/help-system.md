@@ -159,7 +159,7 @@ The CLI host project copies the markdown corpus to its build output as content:
 </ItemGroup>
 ```
 
-At runtime the provider resolves `<AppContext.BaseDirectory>/help/<ext>/…/<key>.md` (or `<key>/index.md`) first, with a dev-loop fallback that walks up to `azclips.slnx` and reads `src/CLI/Help/Docs/<ext>/…/<key>.md` directly. There is no embedded-resource path today.
+At runtime the provider first tries the repo source markdown when `azclips.slnx` is reachable from `AppContext.BaseDirectory` — the dev-loop path, so authors editing `src/CLI/Help/Docs/<ext>/…/<key>.md` see results without rebuilding. When no repo root is reachable (shipped installs), it falls back to the packaged copy at `<AppContext.BaseDirectory>/help/<ext>/…/<key>.md` (or `<key>/index.md` for group nodes). There is no embedded-resource path today.
 
 Markdown is hand-authored today. Codegen may interject at this layer in the future (e.g. emitting templates from `IExtensionIndex`); the on-disk contract downstream stays the same.
 
