@@ -405,4 +405,19 @@ public class MarkdownCommandHelpProviderTests
 
         Assert.Equal(MarkdownCommandHelp.Empty, result);
     }
+
+    [Theory]
+    [InlineData("..")]
+    [InlineData("group ..")]
+    [InlineData(".. .. etc passwd")]
+    [InlineData("group/create")]
+    [InlineData("group\\create")]
+    public void Get_ShouldRejectPathTraversalSegments(string commandKey)
+    {
+        // User-supplied CLI tokens flow through GetGroupHelp -> Get unfiltered, so the
+        // resolver must refuse traversal, separator-bearing, or rooted segments.
+        var result = MarkdownCommandHelpProvider.Get("deployment", commandKey);
+
+        Assert.Equal(MarkdownCommandHelp.Empty, result);
+    }
 }

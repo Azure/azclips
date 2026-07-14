@@ -81,6 +81,14 @@ public static class MarkdownCommandHelpProvider
             ? []
             : commandKey.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
+        // Reject path-traversal / rooted / separator-bearing segments. Callers (GetGroupHelp)
+        // pass user-supplied CLI tokens straight through, so the resolver must not let one
+        // like ".." or "C:\\..." escape the help corpus root.
+        if (!IsSafeSegment(folder) || segments.Any(static s => !IsSafeSegment(s)))
+        {
+            return null;
+        }
+
         // Dev-loop: prefer source markdown when running against a repo checkout.
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
@@ -94,6 +102,14 @@ public static class MarkdownCommandHelpProvider
 
         return ProbeCandidates(Path.Combine(AppContext.BaseDirectory, "help"), folder, segments);
     }
+
+    private static bool IsSafeSegment(string segment)
+        => !string.IsNullOrEmpty(segment)
+        && segment != "."
+        && segment != ".."
+        && !segment.Contains('/')
+        && !segment.Contains('\\')
+        && !Path.IsPathRooted(segment);
 
     // Tries leaf form (<segments>.md) first, then group form (<segments>/index.md).
     private static string? ProbeCandidates(string root, string folder, string[] segments)
