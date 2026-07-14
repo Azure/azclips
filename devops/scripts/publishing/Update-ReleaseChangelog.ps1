@@ -370,9 +370,6 @@ function ConvertTo-ReleaseNote {
     if ($note -notmatch ':' -and -not $note.StartsWith('az') -and $note.Length -gt 0) {
         $note = $note.Substring(0, 1).ToUpperInvariant() + $note.Substring(1)
     }
-    if ($note.EndsWith('.')) {
-        $note = $note.Substring(0, $note.Length - 1)
-    }
 
     [pscustomobject]@{
         Component = $component

@@ -113,6 +113,7 @@ def check_pull_request(title, body):
 def check_line(line):
     has_error = False
     scan_line = re.sub(r"\[[^\[\]]+\]\(.+?\)", "link", line)
+    scan_line = re.sub(r"https?://\S+", "url", scan_line)
 
     if not line:
         error("History note or title line cannot be empty.")

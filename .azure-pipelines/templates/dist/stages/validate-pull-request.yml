@@ -116,7 +116,7 @@ stages:
         )
 
         try:
-            with urllib.request.urlopen(request) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:
                 pull_request = json.load(response)
         except urllib.error.HTTPError as error:
             error_body = get_error_body(error)
