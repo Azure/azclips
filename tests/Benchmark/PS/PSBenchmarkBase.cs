@@ -43,15 +43,29 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     {
         RegisterBenchmarkStubs();
 
-        // Prime the runspace and import the module. Module import execution is excluded from the measured region, so that the benchmark measures only the cmdlet invocation.   
+        // Prime the runspace and import the module. Module import execution is excluded from the measured region, so that the benchmark measures only the cmdlet invocation.
         _runspace = RunspaceFactory.CreateRunspace();
-        _runspace.Open();
+        try
+        {
+            _runspace.Open();
 
-        using var import = PowerShell.Create();
-        import.Runspace = _runspace;
-        import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
-        import.Invoke();
-    }
+            using var import = PowerShell.Create();
+            import.Runspace = _runspace;
+            import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
+            import.Invoke();
+
+            if (import.HadErrors)
+            {
+                var message = string.Join(Environment.NewLine, import.Streams.Error);
+                throw new InvalidOperationException($"Import-Module failed for '{_psModuleManifestPath}':{Environment.NewLine}{message}");
+            }
+        }
+        catch
+        {
+            _runspace.Dispose();
+            _runspace = null!;
+            throw;
+        }
 
     [IterationCleanup]
     public void IterationCleanup()
