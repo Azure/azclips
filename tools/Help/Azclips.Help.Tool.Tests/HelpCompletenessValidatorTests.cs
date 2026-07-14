@@ -167,7 +167,7 @@ namespace Azclips.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldFail_WhenIntermediateGroupIndexIsMissing()
         {
-            // CLIPS#504 regression guard: nested leaf without intermediate index.md must fail.
+            // Regression guard: nested leaf without intermediate index.md must fail.
             using var temp = new TempDirectory();
             var helpDir = temp.Path;
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");

@@ -392,7 +392,7 @@ public class MarkdownCommandHelpProviderTests
     [Fact]
     public void Get_ShouldResolveIntermediateGroupIndex_ForNonLeafPath()
     {
-        // CLIPS#504: deployment/group/index.md must resolve.
+        // Intermediate group falls back to <path>/index.md.
         var result = MarkdownCommandHelpProvider.Get("deployment", "group");
 
         Assert.False(string.IsNullOrWhiteSpace(result.Summary));

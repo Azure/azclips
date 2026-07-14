@@ -390,7 +390,7 @@ public class ExtensionDispatcherTests
         Assert.Equal("create", createCommand.Name);
     }
 
-    // -------- Intermediate-group summary population (CLIPS#504) --------
+    // -------- Intermediate-group summary population --------
 
     [Fact]
     public void ExtensionIndexHelpAdapter_ShouldPopulateIntermediateGroupSummary_FromMarkdown()
