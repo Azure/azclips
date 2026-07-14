@@ -339,10 +339,10 @@ function ConvertTo-ReleaseNote {
     if ($Message -match '^\[Component Name') {
         return $null
     }
-    if ($Message -match '^\[[^\]]+\]\([^)]+\)\s*$') {
+    if ($Message -match '^\[[^\]]+\]\(.+\)\s*$') {
         return $null
     }
-    if ($Message -notmatch '^\[(?<component>.+?)\](?<note>.+)$') {
+    if ($Message -notmatch '^\[(?<component>[^\]]+)\]\s+(?<note>\S.*)$') {
         return $null
     }
 
@@ -351,10 +351,13 @@ function ConvertTo-ReleaseNote {
     if ([string]::IsNullOrWhiteSpace($component) -or [string]::IsNullOrWhiteSpace($note)) {
         return $null
     }
+    if ($note -match '^\[[^\]]+\]\(.+\)\s*$') {
+        return $null
+    }
 
     $note = $note.TrimEnd('.', ',', ' ')
 
-    if ($note -notmatch ' \(#[0-9]+\)$') {
+    if ($note -notmatch '\s*\(#[0-9]+\)$') {
         $note = "$note (#$PullRequestNumber)"
     }
 

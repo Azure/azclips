@@ -50,7 +50,7 @@ def is_python_list(line):
 
 def is_markdown_link(line):
     line_without_component = re.sub(r"^(\[[^\]]+\]|\{[^{}]+\})\s*", "", line, count=1)
-    return bool(re.findall(r"^\[[^\[\]]+\]\([^()]+\)\s*$", line_without_component))
+    return bool(re.findall(r"^\[[^\[\]]+\]\(.+\)\s*$", line_without_component))
 
 
 def has_component_prefix(line):
@@ -112,7 +112,7 @@ def check_pull_request(title, body):
 
 def check_line(line):
     has_error = False
-    scan_line = re.sub(r"\[[^\[\]]+\]\([^()]+\)", "link", line)
+    scan_line = re.sub(r"\[[^\[\]]+\]\(.+?\)", "link", line)
 
     if not line:
         error("History note or title line cannot be empty.")
