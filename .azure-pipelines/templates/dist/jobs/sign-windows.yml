@@ -22,13 +22,13 @@ parameters:
   default: ''
 - name: esrp_authenticode_keycode
   type: string
-  default: 'CP-230012'
+  default: ''
 - name: esrp_third_party_keycode
   type: string
-  default: 'CP-231522'
+  default: ''
 - name: esrp_strong_name_keycode
   type: string
-  default: 'CP-233863-SN'
+  default: ''
 - name: esrp_enable_windows_verify
   type: boolean
   default: true
