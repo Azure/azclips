@@ -22,7 +22,7 @@ parameters:
   default: ''
 - name: esrp_nuget_keycode
   type: string
-  default: 'CP-401405'
+  default: ''
 - name: esrp_enable_nuget_verify
   type: boolean
   default: true
