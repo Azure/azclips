@@ -86,9 +86,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
         }
         var results = ps.Invoke();
 
-        // Invoke() doesn't throw on non-terminating errors — fail loudly if the cmdlet wrote to the error stream.
-        // Fail loudly on errors written to the error stream (Invoke() only throws on terminating errors).
-        // Non-terminating errors don't throw; surface them by inspecting the error stream.
+        // Invoke() only throws on terminating errors; fail loudly if the cmdlet wrote non-terminating errors to the error stream.
         ThrowOnPowerShellErrors(ps, command);
 
         return results.Count > 0 ? results[0] : null;
