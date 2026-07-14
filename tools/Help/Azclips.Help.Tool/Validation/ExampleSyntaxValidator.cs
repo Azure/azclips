@@ -492,17 +492,19 @@ namespace Azclips.Help.Tool.Validation
             return char.IsLetter(token[1]);
         }
 
-        /// <summary>Recognised CLI help-flag forms.</summary>
+        /// <summary>Recognised CLI help-flag forms; kept in sync with <c>ExtensionDispatcher.s_helpFlags</c>.</summary>
         /// <remarks>
-        /// Bare <c>help</c> and <c>?</c> are intentionally excluded — the intrinsic
-        /// <c>az help</c> verb is handled upstream by <see cref="IsIntrinsicVerbInvocation"/>,
-        /// and treating bare <c>help</c> as a help-flag would mask real errors on routed
-        /// commands whose sub-name happens to be <c>help</c> (e.g. <c>az agent tool help</c>).
+        /// Bare <c>help</c> is intentionally excluded even though the runtime accepts <c>az help</c>
+        /// at the top level — the intrinsic <c>az help</c> shape is handled upstream by
+        /// <see cref="IsIntrinsicVerbInvocation"/>, and treating bare <c>help</c> as a help-flag
+        /// mid-invocation would mask real errors on routed commands whose sub-name is <c>help</c>
+        /// (e.g. <c>az agent tool help</c>).
         /// </remarks>
         private static bool IsHelpFlag(string token)
             => token.Equals("--help", StringComparison.Ordinal)
             || token.Equals("-h", StringComparison.Ordinal)
-            || token.Equals("-?", StringComparison.Ordinal);
+            || token.Equals("-?", StringComparison.Ordinal)
+            || token.Equals("?", StringComparison.Ordinal);
 
         /// <summary>
         /// Intrinsic host verbs can be written as the bare verb (<c>az version</c>) or the equivalent

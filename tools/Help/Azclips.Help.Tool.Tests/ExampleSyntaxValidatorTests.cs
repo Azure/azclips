@@ -510,6 +510,20 @@ namespace Azclips.Help.Tool.Tests
                 e.Message.Contains("'--command'", StringComparison.Ordinal));
         }
 
+        [Theory]
+        [InlineData("az group create ?")]
+        [InlineData("az group create -?")]
+        public void Validate_ShouldNotFireL4_OnBareQuestionMarkHelpInvocations(string invocation)
+        {
+            // Parity with ExtensionDispatcher.s_helpFlags: `?` and `-?` are accepted as help
+            // flags anywhere in the arg list, so required-flag policing must not apply.
+            var content = Fence(invocation);
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.CLI_L4_MissingRequiredFlag);
+        }
+
         [Fact]
         public void Validate_ShouldNotFireL4_WhenCommandHasNoRequiredFlags()
         {
