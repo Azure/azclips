@@ -148,9 +148,9 @@ Azure Virtual Machine operations, run against the resource-aware stubbed HTTP (n
 
 | Operation | CLI command | PowerShell cmdlet | Notes |
 |-----------|-------------|-------------------|-------|
-| List | `vm list` | `Get-VM` (by resource group) | GET, non-LRO |
-| Create | `vm create` | `New-VM` | Orchestrated: VNet -> NSG -> NIC -> VM (LRO) |
-| Get | `vm show` | `Get-VM -Name` | GET, non-LRO |
+| List | `vm list` | `Get-AzVM` (by resource group) | GET, non-LRO |
+| Create | `vm create` | `New-AzVM` | Orchestrated: VNet -> NSG -> NIC -> VM (LRO) |
+| Get | `vm show` | `Get-AzVM -Name` | GET, non-LRO |
 
 Create is a long-running operation; the benchmark stub returns `Retry-After: 0` and a
 minimally-shaped virtual-network body so the orchestrated create completes without
