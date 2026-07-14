@@ -53,12 +53,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
             import.Runspace = _runspace;
             import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
             import.Invoke();
-
-            if (import.HadErrors)
-            {
-                var message = string.Join(Environment.NewLine, import.Streams.Error);
-                throw new InvalidOperationException($"Import-Module failed for '{_psModuleManifestPath}':{Environment.NewLine}{message}");
-            }
+            ThrowOnPowerShellErrors(import, "Import-Module");
         }
         catch
         {
@@ -90,6 +85,24 @@ public abstract class PSBenchmarkBase : BenchmarkBase
             ps.AddParameter(name, value);
         }
         var results = ps.Invoke();
+
+        // Invoke() doesn't throw on non-terminating errors — fail loudly if the cmdlet wrote to the error stream.
+        // Fail loudly on errors written to the error stream (Invoke() only throws on terminating errors).
+        // Non-terminating errors don't throw; surface them by inspecting the error stream.
+        ThrowOnPowerShellErrors(ps, command);
+
         return results.Count > 0 ? results[0] : null;
+    }
+
+    private static void ThrowOnPowerShellErrors(PowerShell ps, string context)
+    {
+        if (!ps.HadErrors)
+        {
+            return;
+        }
+
+        var errors = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
+        throw new InvalidOperationException(
+            $"PowerShell '{context}' wrote {ps.Streams.Error.Count} non-terminating error(s): {errors}");
     }
 }
