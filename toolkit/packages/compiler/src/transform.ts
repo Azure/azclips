@@ -1,16 +1,15 @@
 /**
- * Transform stage: an ordered IR -> IR pipeline.
+ * Transform stage: an ordered sequence of named IR -> IR steps.
  *
- * The backbone runs exactly one `TransformPipeline` (defaulting to the
- * identity pipeline). Front ends compose the passes they want with
- * `createTransformPipeline` and inject the result via `CompileOptions.transform`.
- * This keeps the backbone stable while future rename/flatten/normalize passes
- * are added purely on the caller side.
+ * The backbone owns the loop over `TransformPipeline.steps` (defaulting to the
+ * empty identity pipeline), so it can label and capture the IR at each step
+ * boundary. Front ends compose steps with `createTransformPipeline` (injected
+ * via `CompileOptions.transform`) or declare them as data in
+ * `CompileConfig.pipeline`, resolved against a `CompilerRegistry`.
  */
 
 import type { IR } from "@azure-client-engine/ir";
 import type { CompilerDiagnostic } from "./types.js";
-import { throwIfAborted } from "./abort.js";
 
 /** Per-run services handed to every step. */
 export interface TransformContext {
@@ -22,35 +21,34 @@ export interface TransformContext {
   readonly extensions: Record<string, unknown>;
 }
 
-/** A single IR -> IR transformation. The building block of a pipeline. */
-export type TransformStep = (ir: IR, context: TransformContext) => IR | Promise<IR>;
-
-/** An ordered, named sequence of IR -> IR steps. */
-export interface TransformPipeline {
+/**
+ * A single named IR -> IR transformation. The `name` labels the step's captured
+ * IR snapshot (`ir/<index>-<name>.json`), so it should be filename-safe.
+ */
+export interface TransformStep {
   readonly name: string;
   run(ir: IR, context: TransformContext): IR | Promise<IR>;
 }
 
-/** Compose ordered steps into a pipeline, threading the IR through each. */
+/**
+ * An ordered, named sequence of steps. The backbone iterates `steps` itself
+ * (running each, then capturing a snapshot), so step boundaries stay observable.
+ */
+export interface TransformPipeline {
+  readonly name: string;
+  readonly steps: readonly TransformStep[];
+}
+
+/** Compose ordered steps into a pipeline. */
 export function createTransformPipeline(
   name: string,
   steps: readonly TransformStep[],
 ): TransformPipeline {
-  return {
-    name,
-    async run(ir, context) {
-      let current = ir;
-      for (const step of steps) {
-        throwIfAborted(context.signal);
-        current = await step(current, context);
-      }
-      return current;
-    },
-  };
+  return { name, steps: [...steps] };
 }
 
-/** Default pipeline: returns the IR untouched. */
+/** Default pipeline: no steps, so the IR passes through untouched. */
 export const identityPipeline: TransformPipeline = {
   name: "identity",
-  run: (ir) => ir,
+  steps: [],
 };
