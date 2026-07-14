@@ -182,7 +182,8 @@ namespace Azclips.Help.Tool.Tests
             Assert.True(report.HasErrors);
             Assert.Contains(report.Errors, e =>
                 e.FilePath!.EndsWith(Path.Combine("group", "index.md"), StringComparison.Ordinal) &&
-                e.Message.Contains("'deployment group'", StringComparison.Ordinal));
+                e.Message.Contains("'group'", StringComparison.Ordinal) &&
+                e.Message.Contains("in verb 'deployment'", StringComparison.Ordinal));
         }
 
         [Fact]

@@ -38,7 +38,7 @@ namespace Azclips.Help.Tool.Validation
             foreach (var key in routedCommandKeys)
             {
                 expectedFiles.Add(HelpCommandKey.ToHelpFileName(key));
-                foreach (var prefix in EnumerateGroupPrefixes(key))
+                foreach (var prefix in HelpCommandKey.EnumerateGroupPrefixes(key))
                 {
                     expectedFiles.Add(HelpCommandKey.ToGroupIndexFileName(prefix));
                 }
@@ -62,12 +62,10 @@ namespace Azclips.Help.Tool.Validation
             {
                 var platformFile = file.Replace('/', Path.DirectorySeparatorChar);
                 var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{platformFile}";
-                // Render verb-root and intermediate index.md as the group path, not an empty command name.
+                // Verb root and intermediate groups render as the verb-relative group path (or verb itself for the root).
                 var commandPath = file.Equals("index.md", StringComparison.OrdinalIgnoreCase)
                     ? verb
-                    : file.EndsWith("/index.md", StringComparison.OrdinalIgnoreCase)
-                        ? verb + " " + HelpCommandKey.FromHelpFileName(file)
-                        : HelpCommandKey.FromHelpFileName(file);
+                    : HelpCommandKey.FromHelpFileName(file);
                 report.AddError(
                     ProblemIds.Completeness_MissingHelpFile,
                     $"Missing help file for routed command '{commandPath}' in verb '{verb}'.",
@@ -90,21 +88,6 @@ namespace Azclips.Help.Tool.Validation
             }
 
             return report;
-        }
-
-        /// <summary>Yields every proper prefix of a routed command key (each corresponds to a required intermediate group <c>index.md</c>).</summary>
-        private static IEnumerable<string> EnumerateGroupPrefixes(string commandKey)
-        {
-            if (string.IsNullOrWhiteSpace(commandKey))
-            {
-                yield break;
-            }
-
-            var segments = commandKey.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            for (var i = 1; i < segments.Length; i++)
-            {
-                yield return string.Join(' ', segments, 0, i);
-            }
         }
 
         /// <summary>

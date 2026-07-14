@@ -40,7 +40,7 @@ namespace Azclips.Help.Tool
 
             // Emit intermediate group index.md files before leaves so directories exist.
             var groupPrefixes = scopedKeys
-                .SelectMany(kv => EnumerateGroupPrefixes(kv.Key))
+                .SelectMany(kv => HelpCommandKey.EnumerateGroupPrefixes(kv.Key))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(static prefix => prefix, StringComparer.OrdinalIgnoreCase);
             foreach (var prefix in groupPrefixes)
@@ -81,21 +81,6 @@ namespace Azclips.Help.Tool
 
             Console.WriteLine($"Scaffold verb '{verb}': {created} created, {skipped} skipped (already existed) in {Path.GetRelativePath(repoRoot, helpDir)}");
             return 0;
-        }
-
-        /// <summary>Yields every proper prefix of a scoped command key (mirrors <see cref="HelpCompletenessValidator"/>).</summary>
-        private static IEnumerable<string> EnumerateGroupPrefixes(string commandKey)
-        {
-            if (string.IsNullOrWhiteSpace(commandKey))
-            {
-                yield break;
-            }
-
-            var segments = commandKey.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            for (var i = 1; i < segments.Length; i++)
-            {
-                yield return string.Join(' ', segments, 0, i);
-            }
         }
 
         /// <summary>

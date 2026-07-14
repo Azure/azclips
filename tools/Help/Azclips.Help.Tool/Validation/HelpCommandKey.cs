@@ -67,5 +67,20 @@ namespace Azclips.Help.Tool.Validation
                 ? extensionName
                 : extensionName.ToLowerInvariant();
         }
+
+        /// <summary>Yields every proper prefix of a routed command key. Each prefix corresponds to a group node whose <c>index.md</c> is required.</summary>
+        public static IEnumerable<string> EnumerateGroupPrefixes(string commandKey)
+        {
+            if (string.IsNullOrWhiteSpace(commandKey))
+            {
+                yield break;
+            }
+
+            var segments = commandKey.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 1; i < segments.Length; i++)
+            {
+                yield return string.Join(' ', segments, 0, i);
+            }
+        }
     }
 }

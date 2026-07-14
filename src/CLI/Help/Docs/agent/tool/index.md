@@ -16,7 +16,7 @@ az agent tool env
 ### Look up help for a specific command
 
 ```bash
-az agent tool help --command "vm create"
+az agent tool help --name "vm create"
 ```
 
 ### Find a resource by name
