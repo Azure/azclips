@@ -145,6 +145,87 @@ namespace Azclips.Help.Tool.Tests
             Assert.Contains(report.Errors, e => e.FilePath!.EndsWith("index.md", StringComparison.Ordinal));
         }
 
+        [Fact]
+        public void Validate_ShouldPass_WhenNestedLeafAndIntermediateIndexExist()
+        {
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+            Directory.CreateDirectory(Path.Combine(helpDir, "group"));
+            File.WriteAllText(Path.Combine(helpDir, "group", "index.md"), "x");
+            File.WriteAllText(Path.Combine(helpDir, "group", "create.md"), "x");
+
+            var index = new StubExtensionIndex(new[] { "deployment", "deployment group create" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("deployment", "deployment", helpDir, index);
+
+            Assert.False(report.HasErrors);
+            Assert.Empty(report.Warnings);
+        }
+
+        [Fact]
+        public void Validate_ShouldFail_WhenIntermediateGroupIndexIsMissing()
+        {
+            // The nested leaf exists, but no group/index.md — this is exactly the
+            // blank-summary regression the nested layout is meant to prevent.
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+            Directory.CreateDirectory(Path.Combine(helpDir, "group"));
+            File.WriteAllText(Path.Combine(helpDir, "group", "create.md"), "x");
+
+            var index = new StubExtensionIndex(new[] { "deployment", "deployment group create" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("deployment", "deployment", helpDir, index);
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.FilePath!.EndsWith(Path.Combine("group", "index.md"), StringComparison.Ordinal) &&
+                e.Message.Contains("'deployment group'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldFail_WhenNestedLeafIsMissing()
+        {
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+            Directory.CreateDirectory(Path.Combine(helpDir, "group"));
+            File.WriteAllText(Path.Combine(helpDir, "group", "index.md"), "x");
+            // group/create.md missing
+
+            var index = new StubExtensionIndex(new[] { "deployment", "deployment group create" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("deployment", "deployment", helpDir, index);
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.FilePath!.EndsWith(Path.Combine("group", "create.md"), StringComparison.Ordinal) &&
+                e.Message.Contains("'group create'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldWarn_WhenNestedOrphanExists()
+        {
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+            Directory.CreateDirectory(Path.Combine(helpDir, "ghost"));
+            File.WriteAllText(Path.Combine(helpDir, "ghost", "leaf.md"), "x"); // orphan under an unknown sub-tree
+
+            var index = new StubExtensionIndex(new[] { "login" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("login", "login", helpDir, index);
+
+            Assert.False(report.HasErrors);
+            Assert.Contains(report.Warnings, w =>
+                w.FilePath!.EndsWith(Path.Combine("ghost", "leaf.md"), StringComparison.Ordinal));
+        }
+
         private sealed class StubExtensionIndex : IExtensionIndex
         {
             private readonly Dictionary<string, CommandMetadata> _cliTable;

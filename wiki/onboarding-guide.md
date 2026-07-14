@@ -762,7 +762,7 @@ Using `Config` as the template (the smallest complete extension):
 
 1. **Write the processor.** Create a class implementing `IProcessor` (or extend the extension's base, e.g. `ConfigCommandBase`). Declare parameters with `[ArgumentInfo(...)]` — the binder reads these attributes (`SetConfigCommand.cs:11-18`). Implement `ProcessAsync()`; start a telemetry activity (`StartActivity(...)`) and write results through `context.OutputHandler.WriteOutput`, **never** `Console` directly (that would bypass the per-invocation channel).
 2. **Register it in the extension index.** Add the verb → processor mapping in the extension's `ExtensionIndex.cs`. This is what `Engine.CacheGetOrAdd` will hand back.
-3. **Add help.** Drop a markdown page under `src/CLI/Help/Docs/<group>/<verb>.md`; it is parsed by `MarkdownCommandHelpProvider`/`FrontmatterParser` and surfaced by `RuntimeHelpDispatcher`.
+3. **Add help.** Drop a markdown page under `src/CLI/Help/Docs/<verb>/…/<command>.md` (nested — filesystem mirrors the command tree, with `index.md` at each group level); it is parsed by `MarkdownCommandHelpProvider`/`FrontmatterParser` and surfaced by `RuntimeHelpDispatcher`.
 4. **Mirror in PowerShell (if user-facing).** Add a cmdlet under `src/PS/<Module>/Cmdlets/` that opens a session for the same verb; add its help markdown under `src/PS/<Module>/help/`.
 5. **Test both surfaces.** A `Cli.Tests` fact for the CLI path and a `Cmdlets.Tests` fact for PowerShell. Use the pipeline's terminating/tracing steps to mock ARM (see §5.2 and the Testing deep-dive page).
 

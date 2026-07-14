@@ -21,8 +21,11 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 
 /// <summary>
 /// Reads and parses help markdown from <c>src/CLI/Help/Docs/&lt;ext&gt;/*.md</c> at runtime.
-/// Lenient: malformed/missing input returns <see cref="MarkdownCommandHelp.Empty"/> rather
-/// than throwing — strict checks live in the build-time help tool.
+/// Path resolution mirrors the command tree: <c>&lt;ext&gt;/&lt;seg1&gt;/.../&lt;segN&gt;.md</c>
+/// for a leaf command and <c>&lt;ext&gt;/&lt;seg1&gt;/.../&lt;segN&gt;/index.md</c> for a
+/// group (verb root uses <c>&lt;ext&gt;/index.md</c>). Lenient: malformed/missing input
+/// returns <see cref="MarkdownCommandHelp.Empty"/> rather than throwing — strict checks
+/// live in the build-time help tool.
 /// </summary>
 public static class MarkdownCommandHelpProvider
 {
@@ -76,9 +79,17 @@ public static class MarkdownCommandHelpProvider
     private static string? ResolveHelpFilePath(string extensionName, string commandKey)
     {
         var folder = (extensionName ?? string.Empty).ToLowerInvariant();
-        var fileName = string.IsNullOrWhiteSpace(commandKey)
-            ? "index.md"
-            : commandKey.Replace(' ', '-').ToLowerInvariant() + ".md";
+
+        // Nested layout: the filesystem mirrors the command tree.
+        //   ""              → <folder>/index.md                (verb root)
+        //   "create"        → <folder>/create.md               (leaf) OR <folder>/create/index.md (group)
+        //   "group create"  → <folder>/group/create.md         (leaf) OR <folder>/group/create/index.md (group)
+        // Groups and leaves are disambiguated by which file exists on disk; we try the
+        // leaf form first so a group node that is also a runnable command (theoretical —
+        // no such case ships today) would resolve to the leaf file. See docs/spec/help-system.md §4.
+        var segments = string.IsNullOrWhiteSpace(commandKey)
+            ? []
+            : commandKey.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
         // Repo-aware preference: if we can locate `azclips.slnx` from BaseDirectory we're
         // running against a developer build, so prefer the source markdown — authors
@@ -88,20 +99,48 @@ public static class MarkdownCommandHelpProvider
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
-            var source = Path.Combine(HelpPaths.CliHelpDocsRoot(repoRoot), folder, fileName);
-            if (File.Exists(source))
+            var source = ProbeCandidates(HelpPaths.CliHelpDocsRoot(repoRoot), folder, segments);
+            if (source != null)
             {
                 return source;
             }
         }
 
-        var packaged = Path.Combine(AppContext.BaseDirectory, "help", folder, fileName);
-        if (File.Exists(packaged))
+        return ProbeCandidates(Path.Combine(AppContext.BaseDirectory, "help"), folder, segments);
+    }
+
+    private static string? ProbeCandidates(string root, string folder, string[] segments)
+    {
+        if (segments.Length == 0)
         {
-            return packaged;
+            var indexPath = Path.Combine(root, folder, "index.md");
+            return File.Exists(indexPath) ? indexPath : null;
         }
 
-        return null;
+        // Leaf: <root>/<folder>/<seg1>/<seg2>/<segN>.md
+        var leafSegments = new string[segments.Length + 1];
+        leafSegments[0] = folder;
+        for (var i = 0; i < segments.Length - 1; i++)
+        {
+            leafSegments[i + 1] = segments[i];
+        }
+        leafSegments[^1] = segments[^1] + ".md";
+        var leafPath = Path.Combine(root, Path.Combine(leafSegments));
+        if (File.Exists(leafPath))
+        {
+            return leafPath;
+        }
+
+        // Group: <root>/<folder>/<seg1>/<seg2>/<segN>/index.md
+        var groupSegments = new string[segments.Length + 2];
+        groupSegments[0] = folder;
+        for (var i = 0; i < segments.Length; i++)
+        {
+            groupSegments[i + 1] = segments[i];
+        }
+        groupSegments[^1] = "index.md";
+        var groupPath = Path.Combine(root, Path.Combine(groupSegments));
+        return File.Exists(groupPath) ? groupPath : null;
     }
 
     private static string? FindRepoRoot()

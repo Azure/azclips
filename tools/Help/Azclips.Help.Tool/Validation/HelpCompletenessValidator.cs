@@ -36,10 +36,18 @@ namespace Azclips.Help.Tool.Validation
                 extensionIndex.GetCommandTable(ClientType.CLI).Keys,
                 verb);
 
-            var expectedFiles = routedCommandKeys
-                .Select(static key => HelpCommandKey.ToHelpFileName(key))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            expectedFiles.Add("index.md");
+            // Every routed command contributes a leaf .md and, for multi-segment paths,
+            // an index.md at every intermediate group node. The verb-root index.md is
+            // always required. Paths use forward slashes to match enumeration output.
+            var expectedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "index.md" };
+            foreach (var key in routedCommandKeys)
+            {
+                expectedFiles.Add(HelpCommandKey.ToHelpFileName(key));
+                foreach (var prefix in EnumerateGroupPrefixes(key))
+                {
+                    expectedFiles.Add(HelpCommandKey.ToGroupIndexFileName(prefix));
+                }
+            }
 
             var actualFiles = Directory.Exists(helpDirectory)
                 ? Directory
@@ -57,12 +65,18 @@ namespace Azclips.Help.Tool.Validation
 
             foreach (var file in missing)
             {
-                var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{file}";
-                // index.md backs the verb root itself, so render as the verb name rather than
-                // an empty-quoted command path (which reads as "routed command ''").
+                // Normalize the reported path back to the platform separator so error
+                // output reads naturally on both Windows and Linux CI.
+                var platformFile = file.Replace('/', Path.DirectorySeparatorChar);
+                var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{platformFile}";
+                // index.md backs the verb root itself; a nested <path>/index.md backs an
+                // intermediate group. Both render as the group path rather than an empty
+                // quoted command name.
                 var commandPath = file.Equals("index.md", StringComparison.OrdinalIgnoreCase)
                     ? verb
-                    : HelpCommandKey.FromHelpFileName(file);
+                    : file.EndsWith("/index.md", StringComparison.OrdinalIgnoreCase)
+                        ? verb + " " + HelpCommandKey.FromHelpFileName(file)
+                        : HelpCommandKey.FromHelpFileName(file);
                 report.AddError(
                     ProblemIds.Completeness_MissingHelpFile,
                     $"Missing help file for routed command '{commandPath}' in verb '{verb}'.",
@@ -76,7 +90,8 @@ namespace Azclips.Help.Tool.Validation
 
             foreach (var orphan in orphaned)
             {
-                var orphanPath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{orphan}";
+                var platformOrphan = orphan.Replace('/', Path.DirectorySeparatorChar);
+                var orphanPath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{platformOrphan}";
                 report.AddWarning(
                     ProblemIds.Completeness_OrphanedHelpFile,
                     $"Help file is not referenced by any routed CLI command in verb '{verb}'.",
@@ -84,6 +99,26 @@ namespace Azclips.Help.Tool.Validation
             }
 
             return report;
+        }
+
+        /// <summary>
+        /// Enumerates every proper prefix of a routed command key. <c>"group create"</c>
+        /// yields <c>"group"</c>; <c>"deployment group create"</c> yields <c>"deployment"</c>
+        /// and <c>"deployment group"</c>. Each prefix corresponds to an intermediate
+        /// group node whose <c>index.md</c> must exist.
+        /// </summary>
+        private static IEnumerable<string> EnumerateGroupPrefixes(string commandKey)
+        {
+            if (string.IsNullOrWhiteSpace(commandKey))
+            {
+                yield break;
+            }
+
+            var segments = commandKey.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 1; i < segments.Length; i++)
+            {
+                yield return string.Join(' ', segments, 0, i);
+            }
         }
 
         /// <summary>

@@ -57,9 +57,13 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             return null;
         }
 
-        var summary = groupPath.Count == 1
-            ? MarkdownCommandHelpProvider.Get(Verb, string.Empty).Summary
-            : string.Empty;
+        // Every level of the group tree — verb root and intermediate sub-groups alike —
+        // sources its summary from the corresponding markdown file. The verb root reads
+        // <verb>/index.md; an intermediate sub-group like ["deployment","group"] reads
+        // deployment/group/index.md. Missing files degrade gracefully to an empty summary
+        // (the renderer handles that).
+        var relativeKey = GetRelativeKey(groupPath);
+        var summary = MarkdownCommandHelpProvider.Get(Verb, relativeKey).Summary;
 
         return BuildGroup(groupPath, summary, returnNullWhenEmpty: groupPath.Count > 1);
     }
@@ -151,7 +155,14 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             var subgroupName = segments[0];
             if (!subgroupSummaries.ContainsKey(subgroupName))
             {
-                subgroupSummaries[subgroupName] = new RuntimeHelpGroupSummary(subgroupName, string.Empty);
+                // Sub-group summary comes from the intermediate group's index.md
+                // (e.g. deployment/group/index.md). Absolute key is the sub-group's
+                // full path under the verb: relativePrefix + " " + subgroupName.
+                var subgroupKey = string.IsNullOrEmpty(relativePrefix)
+                    ? subgroupName
+                    : relativePrefix + " " + subgroupName;
+                var subgroupSummary = MarkdownCommandHelpProvider.Get(Verb, subgroupKey).Summary;
+                subgroupSummaries[subgroupName] = new RuntimeHelpGroupSummary(subgroupName, subgroupSummary);
             }
         }
 

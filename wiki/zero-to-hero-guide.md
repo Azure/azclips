@@ -807,7 +807,7 @@ Note: `HomePaths.GetDefaultConfigFilePath()` (`src/Core/Core.Abstractions/HomePa
 
 **Step 2 — Register the verb.** In `src/Extensions/Config/ExtensionIndex.cs`, add a mapping from the verb `path` to `PathConfigCommand` (follow the pattern the existing `get`/`set`/`list` entries use).
 
-**Step 3 — Add help.** Create `src/CLI/Help/Docs/config/path.md` mirroring `get.md`'s frontmatter + body.
+**Step 3 — Add help.** Create `src/CLI/Help/Docs/config/path.md` mirroring `get.md`'s frontmatter + body. (Single-segment leaf under `config`; nested sub-groups use `config/<sub>/<leaf>.md` with `config/<sub>/index.md` at the sub-group.)
 
 **Step 4 — Test it.** Add a `[Fact]` in `tests/Cli.Tests` that runs `config path` and asserts the output ends with `config.json`. Name it `ConfigPath_ShouldPrintConfigFilePath_WhenInvoked`.
 

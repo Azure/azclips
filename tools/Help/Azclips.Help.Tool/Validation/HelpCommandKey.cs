@@ -5,7 +5,10 @@ namespace Azclips.Help.Tool.Validation
 {
     /// <summary>
     /// Helpers for converting between routed command keys (e.g. "config get") and
-    /// the markdown help filenames that back them (e.g. "config-get.md").
+    /// the markdown help filenames that back them (e.g. "config/get.md"). The path
+    /// layout is nested — one directory segment per command-tree level — with
+    /// <c>index.md</c> at every group node (verb root and intermediate sub-groups).
+    /// See docs/spec/help-system.md §4.
     /// </summary>
     public static class HelpCommandKey
     {
@@ -19,31 +22,53 @@ namespace Azclips.Help.Tool.Validation
                 : commandKey.Trim().ToLowerInvariant();
 
         /// <summary>
-        /// Maps a normalized command key to its help filename.
-        /// Empty key → "index.md". "config get" → "config-get.md".
+        /// Maps a normalized command key to its leaf help filename (forward-slash relative path).
+        /// Empty key → <c>"index.md"</c>. <c>"config get"</c> → <c>"config/get.md"</c>.
+        /// <c>"deployment group create"</c> → <c>"deployment/group/create.md"</c>.
         /// </summary>
+        /// <remarks>
+        /// Intermediate group index files (e.g. <c>"config/index.md"</c>) are derived
+        /// separately by <see cref="ToGroupIndexFileName"/> — call sites that need to
+        /// enumerate every expected file for a routed key should call both.
+        /// </remarks>
         public static string ToHelpFileName(string commandKey) =>
             string.IsNullOrWhiteSpace(commandKey)
                 ? "index.md"
-                : commandKey.Replace(' ', '-').ToLowerInvariant() + ".md";
+                : commandKey.Trim().ToLowerInvariant().Replace(' ', '/') + ".md";
 
         /// <summary>
-        /// Inverse of <see cref="ToHelpFileName"/>. "index.md" → "", "config-get.md" → "config get".
+        /// Maps a normalized command key to its group-index filename (forward-slash relative path).
+        /// Empty key → <c>"index.md"</c>. <c>"deployment group"</c> → <c>"deployment/group/index.md"</c>.
+        /// </summary>
+        public static string ToGroupIndexFileName(string commandKey) =>
+            string.IsNullOrWhiteSpace(commandKey)
+                ? "index.md"
+                : commandKey.Trim().ToLowerInvariant().Replace(' ', '/') + "/index.md";
+
+        /// <summary>
+        /// Inverse of <see cref="ToHelpFileName"/> / <see cref="ToGroupIndexFileName"/>.
+        /// <c>"index.md"</c> → <c>""</c>; <c>"config/get.md"</c> → <c>"config get"</c>;
+        /// <c>"deployment/group/index.md"</c> → <c>"deployment group"</c>.
         /// </summary>
         public static string FromHelpFileName(string fileName)
         {
-            if (fileName.Equals("index.md", StringComparison.OrdinalIgnoreCase))
+            var normalized = fileName.Replace('\\', '/');
+
+            if (normalized.Equals("index.md", StringComparison.OrdinalIgnoreCase))
             {
                 return string.Empty;
             }
 
-            var normalized = fileName.Replace('\\', '/');
-            if (normalized.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+            if (normalized.EndsWith("/index.md", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = normalized[..^"/index.md".Length];
+            }
+            else if (normalized.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
             {
                 normalized = normalized[..^3];
             }
 
-            return normalized.Replace('-', ' ');
+            return normalized.Replace('/', ' ');
         }
 
         /// <summary>
