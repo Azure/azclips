@@ -370,11 +370,7 @@ public class MarkdownCommandHelpProviderTests
         Assert.Equal("Third", result.Examples[2].Title);
     }
 
-    // -------- Nested-layout path resolution --------
-    //
-    // These are integration-flavored: they walk from the test binary's BaseDirectory
-    // up to azclips.slnx and read real markdown from src/CLI/Help/Docs/. See
-    // MarkdownCommandHelpProvider.ResolveHelpFilePath for the resolution rules.
+    // Path-resolution tests: walk from BaseDirectory up to azclips.slnx and read real markdown.
 
     [Fact]
     public void Get_ShouldResolveVerbRoot_FromExtensionIndexMd()
@@ -387,7 +383,6 @@ public class MarkdownCommandHelpProviderTests
     [Fact]
     public void Get_ShouldResolveNestedLeaf_FromExtensionSubfolder()
     {
-        // deployment/group/create.md
         var result = MarkdownCommandHelpProvider.Get("deployment", "group create");
 
         Assert.False(string.IsNullOrWhiteSpace(result.Summary));
@@ -397,7 +392,7 @@ public class MarkdownCommandHelpProviderTests
     [Fact]
     public void Get_ShouldResolveIntermediateGroupIndex_ForNonLeafPath()
     {
-        // deployment/group/index.md — this is exactly the case that fixes CLIPS#504.
+        // CLIPS#504: deployment/group/index.md must resolve.
         var result = MarkdownCommandHelpProvider.Get("deployment", "group");
 
         Assert.False(string.IsNullOrWhiteSpace(result.Summary));

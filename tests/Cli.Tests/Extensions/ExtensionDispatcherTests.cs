@@ -395,9 +395,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void ExtensionIndexHelpAdapter_ShouldPopulateIntermediateGroupSummary_FromMarkdown()
     {
-        // The bug fix: an intermediate-group help page must carry the summary from
-        // deployment/group/index.md, not an empty string. Relies on the real markdown
-        // corpus under src/CLI/Help/Docs/deployment/group/index.md.
+        // Relies on real corpus at src/CLI/Help/Docs/deployment/group/index.md.
         var index = new StubExtensionIndex(cliLeaf: "deployment group create");
         var adapter = new ExtensionIndexHelpAdapter(index.GetCommandTable(ClientType.CLI), "deployment");
 
@@ -412,8 +410,6 @@ public class ExtensionDispatcherTests
     [Fact]
     public void ExtensionIndexHelpAdapter_ShouldPopulateSubgroupRowSummary_FromMarkdown()
     {
-        // Parent listing (`az deployment --help`) must render each sub-group row with the
-        // sub-group's own summary — not a bare name — so the tree stays discoverable.
         var index = new StubExtensionIndex(cliLeaf: "deployment group create");
         var adapter = new ExtensionIndexHelpAdapter(index.GetCommandTable(ClientType.CLI), "deployment");
 

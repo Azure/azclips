@@ -29,16 +29,11 @@ namespace Azclips.Help.Tool.Validation
         {
             var report = new ValidationReport();
 
-            // Scope the routed command table to the verb. Keys arrive as "verb",
-            // "verb path"; emit the relative form ("", "path") that matches the
-            // help file lookup convention (index.md, path.md).
             var routedCommandKeys = ScopeKeysToVerb(
                 extensionIndex.GetCommandTable(ClientType.CLI).Keys,
                 verb);
 
-            // Every routed command contributes a leaf .md and, for multi-segment paths,
-            // an index.md at every intermediate group node. The verb-root index.md is
-            // always required. Paths use forward slashes to match enumeration output.
+            // Expected: verb-root index.md, one leaf per routed key, plus index.md at every intermediate prefix.
             var expectedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "index.md" };
             foreach (var key in routedCommandKeys)
             {
@@ -65,13 +60,9 @@ namespace Azclips.Help.Tool.Validation
 
             foreach (var file in missing)
             {
-                // Normalize the reported path back to the platform separator so error
-                // output reads naturally on both Windows and Linux CI.
                 var platformFile = file.Replace('/', Path.DirectorySeparatorChar);
                 var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{platformFile}";
-                // index.md backs the verb root itself; a nested <path>/index.md backs an
-                // intermediate group. Both render as the group path rather than an empty
-                // quoted command name.
+                // Render verb-root and intermediate index.md as the group path, not an empty command name.
                 var commandPath = file.Equals("index.md", StringComparison.OrdinalIgnoreCase)
                     ? verb
                     : file.EndsWith("/index.md", StringComparison.OrdinalIgnoreCase)
@@ -101,12 +92,7 @@ namespace Azclips.Help.Tool.Validation
             return report;
         }
 
-        /// <summary>
-        /// Enumerates every proper prefix of a routed command key. <c>"group create"</c>
-        /// yields <c>"group"</c>; <c>"deployment group create"</c> yields <c>"deployment"</c>
-        /// and <c>"deployment group"</c>. Each prefix corresponds to an intermediate
-        /// group node whose <c>index.md</c> must exist.
-        /// </summary>
+        /// <summary>Yields every proper prefix of a routed command key (each corresponds to a required intermediate group <c>index.md</c>).</summary>
         private static IEnumerable<string> EnumerateGroupPrefixes(string commandKey)
         {
             if (string.IsNullOrWhiteSpace(commandKey))

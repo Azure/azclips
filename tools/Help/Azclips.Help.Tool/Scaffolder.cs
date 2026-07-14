@@ -8,10 +8,9 @@ using Core.Abstractions;
 namespace Azclips.Help.Tool
 {
     /// <summary>
-    /// Emits <c>src/CLI/Help/Docs/&lt;verb&gt;/&lt;seg1&gt;/&lt;seg2&gt;.md</c> stubs (nested layout)
-    /// plus <c>index.md</c> at the verb root and every intermediate group node. Naming
-    /// mirrors <see cref="HelpCompletenessValidator"/>; existing files are left untouched
-    /// so authors can re-run safely.
+    /// Emits nested help markdown stubs for a verb: <c>index.md</c> at the verb root and
+    /// every intermediate group, plus one <c>&lt;path&gt;.md</c> per routed leaf. Existing
+    /// files are left untouched so authors can re-run safely.
     /// </summary>
     public static class Scaffolder
     {
@@ -22,8 +21,6 @@ namespace Azclips.Help.Tool
             var helpDir = Core.Cli.Help.HelpPaths.CliVerbHelpDir(repoRoot, verbFolder);
             Directory.CreateDirectory(helpDir);
 
-            // Scope the routed table to this verb and strip the verb prefix; keys arrive as
-            // "verb" / "verb sub" and emit as "" / "sub" / "sub sub" for the nested layout.
             var scopedKeys = ScopeKeysToVerb(extensionIndex.GetCommandTable(ClientType.CLI), verb)
                 .OrderBy(static kv => kv.Key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -41,8 +38,7 @@ namespace Azclips.Help.Tool
                 skipped++;
             }
 
-            // Emit intermediate group index.md files (e.g. "group" → deployment/group/index.md)
-            // before leaf .md files so directories exist and authors see the whole tree.
+            // Emit intermediate group index.md files before leaves so directories exist.
             var groupPrefixes = scopedKeys
                 .SelectMany(kv => EnumerateGroupPrefixes(kv.Key))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -66,11 +62,10 @@ namespace Azclips.Help.Tool
             {
                 if (subKey.Length == 0)
                 {
-                    // Root command (key == verb) is rendered by index.md above.
+                    // Verb root is handled by index.md above.
                     continue;
                 }
 
-                // Multi-word sub-keys (e.g. "group create" → "group/create.md") are normalized by ToHelpFileName.
                 var relative = HelpCommandKey.ToHelpFileName(subKey);
                 var path = Path.Combine(helpDir, relative.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -88,11 +83,7 @@ namespace Azclips.Help.Tool
             return 0;
         }
 
-        /// <summary>
-        /// Enumerates every proper prefix of a scoped command key. <c>"group create"</c>
-        /// yields <c>"group"</c>; <c>"deployment group create"</c> yields <c>"deployment"</c>
-        /// and <c>"deployment group"</c>. Mirrors <see cref="HelpCompletenessValidator"/>.
-        /// </summary>
+        /// <summary>Yields every proper prefix of a scoped command key (mirrors <see cref="HelpCompletenessValidator"/>).</summary>
         private static IEnumerable<string> EnumerateGroupPrefixes(string commandKey)
         {
             if (string.IsNullOrWhiteSpace(commandKey))
@@ -153,9 +144,6 @@ namespace Azclips.Help.Tool
 
         private static string BuildGroupIndexTemplate(string verb, string groupKey)
         {
-            // When groupKey is empty the file is the verb root (Docs/<verb>/index.md);
-            // otherwise it is an intermediate group (Docs/<verb>/<groupKey>/index.md,
-            // rendered as `az <verb> <groupKey>`).
             var displayPath = string.IsNullOrEmpty(groupKey) ? verb : verb + " " + groupKey;
 
             var sb = new StringBuilder();

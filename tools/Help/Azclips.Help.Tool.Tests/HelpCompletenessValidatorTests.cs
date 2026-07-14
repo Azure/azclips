@@ -167,8 +167,7 @@ namespace Azclips.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldFail_WhenIntermediateGroupIndexIsMissing()
         {
-            // The nested leaf exists, but no group/index.md — this is exactly the
-            // blank-summary regression the nested layout is meant to prevent.
+            // CLIPS#504 regression guard: nested leaf without intermediate index.md must fail.
             using var temp = new TempDirectory();
             var helpDir = temp.Path;
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
@@ -194,7 +193,6 @@ namespace Azclips.Help.Tool.Tests
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
             Directory.CreateDirectory(Path.Combine(helpDir, "group"));
             File.WriteAllText(Path.Combine(helpDir, "group", "index.md"), "x");
-            // group/create.md missing
 
             var index = new StubExtensionIndex(new[] { "deployment", "deployment group create" });
 
@@ -214,7 +212,7 @@ namespace Azclips.Help.Tool.Tests
             var helpDir = temp.Path;
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
             Directory.CreateDirectory(Path.Combine(helpDir, "ghost"));
-            File.WriteAllText(Path.Combine(helpDir, "ghost", "leaf.md"), "x"); // orphan under an unknown sub-tree
+            File.WriteAllText(Path.Combine(helpDir, "ghost", "leaf.md"), "x");
 
             var index = new StubExtensionIndex(new[] { "login" });
 

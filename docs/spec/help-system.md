@@ -108,12 +108,12 @@ If a user requests help for a verb that **no discovered extension owns**:
 
 CLI help lives under `src/CLI/Help/Docs/<ext>/`; PowerShell help under `src/PS/<Module>/help/`. The CLI layout is **nested** — the filesystem mirrors the command tree:
 
-| Path role | File |
-| --- | --- |
-| Verb root (`az <verb>`) | `<ext>/index.md` |
-| Leaf command (`az <verb> <cmd>`) | `<ext>/<cmd>.md` |
-| Intermediate sub-group (`az <verb> <sub>`) | `<ext>/<sub>/index.md` |
-| Nested leaf (`az <verb> <sub> <cmd>`) | `<ext>/<sub>/<cmd>.md` |
+| Path role                                     | File                           |
+| --------------------------------------------- | ------------------------------ |
+| Verb root (`az <verb>`)                       | `<ext>/index.md`               |
+| Leaf command (`az <verb> <cmd>`)              | `<ext>/<cmd>.md`               |
+| Intermediate sub-group (`az <verb> <sub>`)    | `<ext>/<sub>/index.md`         |
+| Nested leaf (`az <verb> <sub> <cmd>`)         | `<ext>/<sub>/<cmd>.md`         |
 | Deeper leaf (`az <verb> <sub1> <sub2> <cmd>`) | `<ext>/<sub1>/<sub2>/<cmd>.md` |
 
 Groups and leaves are disambiguated by which file exists on disk — `MarkdownCommandHelpProvider.ResolveHelpFilePath` tries the leaf form first, then falls back to `<path>/index.md`. Intermediate `index.md` files are required by `HelpCompletenessValidator` for every prefix of every routed command key, so the tree cannot ship with blank summaries at any depth.

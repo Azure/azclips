@@ -26,13 +26,13 @@ Structural fix, not a bandage: **migrate CLI help markdown from flat kebab (`dep
 
 ## Convention (new)
 
-| Path role | Old (kebab) | New (nested) |
-| --- | --- | --- |
-| Verb root | `Docs/deployment/index.md` | `Docs/deployment/index.md` (unchanged) |
-| Leaf command under verb | `Docs/deployment/create.md` | `Docs/deployment/create.md` (unchanged for single-segment leaves) |
-| Leaf command under sub-group | `Docs/deployment/group-create.md` | `Docs/deployment/group/create.md` |
-| Intermediate sub-group | *(no home — the bug)* | `Docs/deployment/group/index.md` |
-| Verb that is also runnable (e.g. `az login`) | `Docs/login/index.md` | `Docs/login/index.md` (unchanged) |
+| Path role                                    | Old (kebab)                       | New (nested)                                                      |
+| -------------------------------------------- | --------------------------------- | ----------------------------------------------------------------- |
+| Verb root                                    | `Docs/deployment/index.md`        | `Docs/deployment/index.md` (unchanged)                            |
+| Leaf command under verb                      | `Docs/deployment/create.md`       | `Docs/deployment/create.md` (unchanged for single-segment leaves) |
+| Leaf command under sub-group                 | `Docs/deployment/group-create.md` | `Docs/deployment/group/create.md`                                 |
+| Intermediate sub-group                       | _(no home — the bug)_             | `Docs/deployment/group/index.md`                                  |
+| Verb that is also runnable (e.g. `az login`) | `Docs/login/index.md`             | `Docs/login/index.md` (unchanged)                                 |
 
 Rule: filesystem mirrors command tree 1:1. `az a b c --help` → `Docs/a/b/c.md` (leaf) or `Docs/a/b/c/index.md` (group). Resolver looks for the leaf file first, then falls back to `<key>/index.md`, so we never need to know up-front whether a path is a group or a command.
 
@@ -76,8 +76,8 @@ All other verbs (`vm`, `disk`, `config`, `extension`, `group`, `login`, `logout`
 - [ ] `HelpCommandKey.ToHelpFileName` — return a relative path with `/` separators: `""` → `"index.md"`, `"config get"` → `"config/get.md"`. Break the kebab rule.
 - [ ] `HelpCommandKey.FromHelpFileName` — accept path-with-separators input; strip trailing `/index.md` for group entries.
 - [ ] `HelpCompletenessValidator` —
-  - `expectedFiles` set: add every proper prefix of each routed command key as `<prefix>/index.md`. So `deployment group create` contributes `deployment/group/create.md` **and** `deployment/group/index.md`. Verb-root `index.md` continues to be required.
-  - Directory enumeration and orphan detection already use recursive `SearchOption.AllDirectories` — normalize the enumerated relative paths to `/` separators for comparison.
+    - `expectedFiles` set: add every proper prefix of each routed command key as `<prefix>/index.md`. So `deployment group create` contributes `deployment/group/create.md` **and** `deployment/group/index.md`. Verb-root `index.md` continues to be required.
+    - Directory enumeration and orphan detection already use recursive `SearchOption.AllDirectories` — normalize the enumerated relative paths to `/` separators for comparison.
 - [ ] `Scaffolder` — emit `mkdir -p` for nested paths; write `index.md` stubs for every intermediate prefix.
 - [ ] `MarkdownStructureValidator` — group-page relaxation: `index.md` files that describe an intermediate group only require frontmatter `summary`; the `Description:` line and ≥1 example become optional. (Verb-root `index.md` files today already carry both; we don't need to loosen those.) Simplest heuristic: if the file's parent directory contains other `.md` files at the same level, treat it as a group page. Alternative: expose the "kind = group vs leaf" decision from the same key-vs-file walk used by completeness.
 - [ ] `ExampleSyntaxValidator`, `PowerShellExampleSyntaxValidator` — no logic change; they walk `SearchOption.AllDirectories` already. Sanity-check the error-message path formatting after the rename.
@@ -96,16 +96,16 @@ All other verbs (`vm`, `disk`, `config`, `extension`, `group`, `login`, `logout`
 ### Tests
 
 - [ ] `tests/Cli.Tests/Help/` — extend `MarkdownCommandHelpProviderTests` (or add if missing) with:
-  - Group leaf: `Get("deployment", "group create")` returns markdown from `Docs/deployment/group/create.md`.
-  - Intermediate group: `Get("deployment", "group")` returns markdown from `Docs/deployment/group/index.md`.
-  - Verb root still resolves from `Docs/<verb>/index.md`.
+    - Group leaf: `Get("deployment", "group create")` returns markdown from `Docs/deployment/group/create.md`.
+    - Intermediate group: `Get("deployment", "group")` returns markdown from `Docs/deployment/group/index.md`.
+    - Verb root still resolves from `Docs/<verb>/index.md`.
 - [ ] `tests/Cli.Tests/Help/` — `ExtensionIndexHelpAdapterTests`: `GetGroupHelp(["deployment","group"])` → non-empty `Summary`; sub-group rows in `GetGroupHelp(["deployment"])` carry summaries.
 - [ ] `tests/Cli.Tests/Help/HelpPathsCasingTests.cs` — verify the new nested `deployment/group/` folder passes the casing rule (Linux-CI-safe).
 - [ ] `tools/Help/Azclips.Help.Tool.Tests/HelpCommandKeyTests.cs` — update expected values: `"config get"` → `"config/get.md"`; add cases for nested (`"deployment group create"` → `"deployment/group/create.md"`).
 - [ ] `tools/Help/Azclips.Help.Tool.Tests/HelpCompletenessValidatorTests.cs` — add cases:
-  - Intermediate `index.md` present → no orphan warning.
-  - Intermediate `index.md` missing → `Completeness_MissingHelpFile` error.
-  - Nested leaf under intermediate group present/missing.
+    - Intermediate `index.md` present → no orphan warning.
+    - Intermediate `index.md` missing → `Completeness_MissingHelpFile` error.
+    - Nested leaf under intermediate group present/missing.
 
 ### Manual verification
 
