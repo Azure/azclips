@@ -145,6 +145,104 @@ namespace Azclips.Help.Tool.Tests
             Assert.Contains(report.Errors, e => e.FilePath!.EndsWith("index.md", StringComparison.Ordinal));
         }
 
+        [Fact]
+        public void Validate_ShouldPass_WhenNestedLeafAndIntermediateIndexExist()
+        {
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+            Directory.CreateDirectory(Path.Combine(helpDir, "group"));
+            File.WriteAllText(Path.Combine(helpDir, "group", "index.md"), "x");
+            File.WriteAllText(Path.Combine(helpDir, "group", "create.md"), "x");
+
+            var index = new StubExtensionIndex(new[] { "deployment", "deployment group create" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("deployment", "deployment", helpDir, index);
+
+            Assert.False(report.HasErrors);
+            Assert.Empty(report.Warnings);
+        }
+
+        [Fact]
+        public void Validate_ShouldFail_WhenIntermediateGroupIndexIsMissing()
+        {
+            // Regression guard: nested leaf without intermediate index.md must fail.
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+            Directory.CreateDirectory(Path.Combine(helpDir, "group"));
+            File.WriteAllText(Path.Combine(helpDir, "group", "create.md"), "x");
+
+            var index = new StubExtensionIndex(new[] { "deployment", "deployment group create" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("deployment", "deployment", helpDir, index);
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.FilePath!.EndsWith(Path.Combine("group", "index.md"), StringComparison.Ordinal) &&
+                e.Message.Contains("'group'", StringComparison.Ordinal) &&
+                e.Message.Contains("in verb 'deployment'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldFail_WhenNestedLeafIsMissing()
+        {
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+            Directory.CreateDirectory(Path.Combine(helpDir, "group"));
+            File.WriteAllText(Path.Combine(helpDir, "group", "index.md"), "x");
+
+            var index = new StubExtensionIndex(new[] { "deployment", "deployment group create" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("deployment", "deployment", helpDir, index);
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.FilePath!.EndsWith(Path.Combine("group", "create.md"), StringComparison.Ordinal) &&
+                e.Message.Contains("'group create'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldReportReservedSegment_WhenRoutedKeyContainsIndex()
+        {
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+
+            var index = new StubExtensionIndex(new[] { "deployment", "deployment index" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("deployment", "deployment", helpDir, index);
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.Completeness_ReservedSegment &&
+                e.Message.Contains("reserved segment 'index'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldWarn_WhenNestedOrphanExists()
+        {
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+            Directory.CreateDirectory(Path.Combine(helpDir, "ghost"));
+            File.WriteAllText(Path.Combine(helpDir, "ghost", "leaf.md"), "x");
+
+            var index = new StubExtensionIndex(new[] { "login" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("login", "login", helpDir, index);
+
+            Assert.False(report.HasErrors);
+            Assert.Contains(report.Warnings, w =>
+                w.FilePath!.EndsWith(Path.Combine("ghost", "leaf.md"), StringComparison.Ordinal));
+        }
+
         private sealed class StubExtensionIndex : IExtensionIndex
         {
             private readonly Dictionary<string, CommandMetadata> _cliTable;
