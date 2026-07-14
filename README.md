@@ -1,177 +1,177 @@
-# Project Azclips
+# Azure CLI & PS — one command surface for Azure CLI and Azure PowerShell
 
-A .NET 10.0 extension-based CLI framework with AI-powered natural language capabilities for Azure resource management.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Build and Test](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml)
+[![Needs review](https://img.shields.io/badge/status-needs%20review-orange.svg)](#)
+<!-- NEEDS ENG REVIEW: confirm the Build and Test badge/workflow before publishing (private-repo badge only renders for members with access). -->
 
-📚 **Documentation:** [https://azure.github.io/azclips/](https://azure.github.io/azclips/)
+> [!IMPORTANT]
+> **🔒 Private Preview — Microsoft Confidential, NDA only.**
+> This program is a closed, invitation-only preview shared under NDA with a small group. Access is provisioned through GitHub — you're here because your account was added to this **private** repository. **Do not share** builds, screenshots, benchmarks, command output, or any details publicly or with anyone outside the preview. The program runs through July to Sep 2026.
 
-Alternatively, clone the repository and run the `wiki:preview` task in VS Code to view a rendered version of the wiki locally.
+## What is Azure CLI & PS
 
-## Repository Structure
+A unified command-line foundation for Azure: author a command **once** and it runs consistently on both Azure CLI and Azure PowerShell — no maintaining it twice. It reuses the same Azure APIs and authentication you already know, and is faster, lighter, and usable in secure, constrained environments.
 
-```
-azclips/
-├── 📁 .github/                   # GH actions, code owners
-├── 📁 build/                     # Build scripts
-├── 📁 docs/                      # Documentation
-│   └── spec/                     # Technical specifications
-├── 📁 src/                       # Source code
-│   ├── Directory.Build.props     # Shared build properties (net9)
-│   ├── CLI/                      # CLI entry point
-│   │   ├── Core.Cli.csproj       # Main CLI project (produces 'az' binary)
-│   │   ├── Program.cs            # Entry point with AI fallback
-│   │   ├── Parser/               # Extension dispatcher and parsers
-│   │   └── Exceptions/           # CLI-specific exceptions
-│   ├── Core/                     # Core libraries
-│   │   ├── Core.Abstractions/    # Base abstractions & interfaces
-│   │   ├── Core.Authentication/  # Authentication framework
-│   │   ├── Core.Engine/          # Command engine and bootstrapper
-│   │   └── Core.Implementation/  # Core service implementations
-│   ├── Extensions/               # Extension modules
-│   │   └── Resources/            # Resource group management extension
-│   │       ├── ExtensionIndex.cs # Command registry
-│   │       ├── NewResourceGroup.cs # Command implementation
-│   │       ├── ResourcesClient.cs  # Azure REST API client
-│   │       └── ResourcegroupModel.cs # Data models
-│   ├── Agent/                    # Agent module with PowerShell cmdlets
-│   ├── Group/                    # Group module with Business/Cmdlets/Commands
-│   ├── Login/                    # Login module with Business/Cmdlets/Commands
-│   ├── PS/                       # PowerShell modules (source)
-│   │   └── Resources/            # Resource group PowerShell module
-│   │       ├── Resources.psd1    # Module manifest
-│   │       ├── Resources.psm1    # Module loader
-│   │       └── exports/          # Exported functions
-├── 📁 tests/                     # Test projects
-│   ├── Cli.Tests/                # CLI integration tests
-│   ├── PowerShell.Tests/         # PowerShell module tests
-│   └── Core/                     # Core library tests
-├── 📁 artifacts/                 # Build output (generated)
-│   └── Release/                  # Release builds
-│       ├── Core/                 # Core libraries
-│       ├── Core.Cli/             # CLI binary 'az' + dependencies + Resources module
-│       ├── Microsoft.Azure.Azclips.Extensions.Login/     # Login extension + PowerShell module
-│       └── Microsoft.Azure.Azclips.Extensions.Resources/  # Resources extension
-├── 📄 global.json               # .NET SDK version (10.0.203)
-├── 📄 azclips.slnx              # Main solution file
-├── 📄 Shared.props             # Shared build configuration
-├── 📄 AGENTS.md                # Repository guidelines for AI agents
-├── 📄 CHANGELOG.md             # Version history
-├── 📄 CONTRIBUTING.md          # Contribution guidelines
-└── 📄 LICENSE                  # License information
-```
+## Preview capabilities
 
-## Key Features
+- **Profile-based login** — sign in and manage which subscription and context your commands run against.
+- **Single sign-on (SSO)** — one `az login` is shared between Azure PowerShell and native `az` commands in the same session; no re-authentication when switching.
+- **Faster tab completion** — press `<Tab>` to complete command groups, subcommands, and parameters, resolved against the installed CLI.
+- **AI-powered error recovery** — when a command fails, an integrated AI model explains what went wrong and suggests a guided fix. See [AI-based error recovery](./docs/azure-cli/docs-conceptual/ai-based-error-recovery.md).
 
-- **Target Framework**: .NET 10.0
-- **Extension Architecture**: Dynamic extension loading from artifacts directory
-- **AI Integration**: Natural language command processing with automatic fallback
-- **Real Azure API**: HTTP client for Azure Resource Manager REST API
-- **PowerShell Support**: Full PowerShell module wrapping extension functionality
-- **Code Quality**: Analyzers enabled, warnings as errors
+Plus the basics: install, `az --help`, `az --version` and `az config`.
 
-## Quick Start
+## Getting started
 
-### Prerequisites
+1. **Install** — follow the [install guide](./install) for the single-command install across Windows, Linux, and macOS. Packages are published to [GitHub Releases](https://github.com/Azure/azclips/releases).
 
-- [.NET 10.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (version pinned in `global.json`)
-- PowerShell 7.0+ (for PowerShell modules)
-- Azure subscription (for actual API calls)
-- [`Microsoft.PowerShell.PlatyPS`](https://www.powershellgallery.com/packages/Microsoft.PowerShell.PlatyPS/1.0.1) **1.0.1** (only for `-GenerateHelpArtifacts`; auto-installed by `build/Install-BuildDependencies.ps1`)
+   Prerequisite — install the [GitHub CLI](https://cli.github.com/) and sign in once (the installer uses your authenticated `gh` session):
 
-### Build
+   ```bash
+   gh auth login    # verify with: gh auth status
+   ```
+
+   **Linux / macOS (Apple Silicon):**
+
+   ```bash
+   gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' | bash
+   ```
+
+   **Windows (PowerShell 7+):**
+
+   ```powershell
+   gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1 && ./azcli-install.ps1
+   ```
+
+2. **Verify** the install:
+
+   ```bash
+   az --version
+   ```
+
+3. **Sign in:**
+
+   ```bash
+   az login
+   ```
+
+> By default the installer does **not** modify your `PATH`, so `az` coexists with the classic `azure-cli`. See the [install guide](./install) for running by full path or adding it to `PATH`.
+
+## Try these scenarios
+
+**Profile-based login** — sign in, save a named profile, and switch between them:
 
 ```bash
-# Build the solution
-dotnet build -c Release azclips.slnx
-
-# The CLI binary is produced at artifacts/Release/Core.Cli/az
-# Add to PATH for convenient access
-export PATH="$PWD/artifacts/Release/Core.Cli:$PATH"
-
-# Or run directly
-./artifacts/Release/Core.Cli/az --help
+az login --subscription-id <id> --out-profile prod  # save a named profile
+az profile list                                     # list profiles
+az profile set prod                                 # switch the active profile
 ```
 
-### CLI Usage
-
-The `az` CLI supports both structured extension commands and natural language via AI. It uses an extension-based architecture where commands are dynamically loaded from extension modules.
-
-**Structured Commands (Extension-Based):**
+**PowerShell ↔ native SSO** — sign in once, then use both surfaces in the same session, no re-auth:
 
 ```bash
-az group create --ResourceGroupName mygroup --Location eastus --SubscriptionId <sub-id> --AccessToken <token>
-```
-
-**Natural Language (AI-Powered):**
-
-```bash
-az "create a resource group named test in eastus"
-az "how do I list all my resource groups?"
-az "show me everything in westus"
-```
-
-The CLI automatically tries extension-based parsing first. On parse or execution failures, it falls back to the AI agent which interprets your intent and can generate executable commands.
-
-### PowerShell Usage
-
-Azclips provides PowerShell modules in [`src/PS`](src/PS) that can be used directly without building.
-
-```powershell
-# Import the Login module (binary module with cmdlets)
-Import-Module ./src/PS/Login/Login.psd1
-
-# Import the Resources module (script module)
-Import-Module ./src/PS/Resources/Resources.psd1
-
-# Use authentication cmdlets
-Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
-
-# Use resource management functions
-New-AzResourceGroup -Name mygroup -Location eastus
-
-```
-
-**Available Modules:**
-
-- **Login** ([`src/PS/Login/Login.psd1`](src/PS/Login/Login.psd1)) - Binary module with `Connect-AzAccount` cmdlet for Azure authentication
-- **Resources** ([`src/PS/Resources/Resources.psd1`](src/PS/Resources/Resources.psd1)) - Script module with resource management functions
-
-**Note**: The Login module requires the solution to be built first (`dotnet build -c Release`) so that `Login.dll` is available in [`artifacts/Release/Microsoft.Azure.Azclips.Extensions.Login/`](artifacts/Release/Microsoft.Azure.Azclips.Extensions.Login/). The Resources module works directly from source.
-
-### Running Tests
-
-```bash
-# Run all tests
-dotnet test
-
-# Run individual test projects
-dotnet test tests/Cli.Tests/Cli.Tests.csproj
-
-# Run tests with coverage
-dotnet test --collect:"XPlat Code Coverage"
-```
-
-## Telemetry
-
-Azclips collects anonymous usage telemetry (command names, parameter *names* only, success/failure, and basic environment data) to help diagnose problems and improve the experience. Parameter values, URLs, and other personal content are never collected.
-
-Telemetry is **on by default**. To opt out, set `telemetry.enabled` to `false`:
-
-```bash
-# CLI
-az config set --key telemetry.enabled --value false
+az login            # sign in once
+az group list       # native az command — already authenticated
 ```
 
 ```powershell
-# PowerShell
-Set-AzConfig -Key telemetry.enabled -Value false
+Get-AzResourceGroup   # Azure PowerShell — same session, no re-login
 ```
 
-For details on telemetry and other settings, see [Configuration Management](docs/howto/config.md#valid-configuration-keys).
+**Tab completion** — type a partial command and press `<Tab>`:
+
+```bash
+az pro<Tab>         # completes to: az profile
+```
+
+Enable it for bash, zsh, or PowerShell — see [tab completion](./install/docs/install-cli-completions.md).
+
+**AI-powered error recovery** — when a command fails, the AI explains the cause and suggests a fix:
+
+```bash
+az profile set does-not-exist
+# → what went wrong, a suggested plan / next actions, and values to review.
+```
+
+## Documentation
+
+- [Getting started (Azure CLI, private preview)](./docs/azure-cli/docs-conceptual/getting-started.md)
+- [Documentation](./docs) — conceptual guides and command reference for Azure CLI and Azure PowerShell.
+- [Install guide](./install) — single-command install, manual/offline install, extensions, completions, and PowerShell modules.
+
+> Documentation is actively being consolidated during the preview, so paths and structure may change.
+
+## Known limitations
+
+This is an early private preview — expect rough edges and change between builds.
+
+- The preview focuses on **interactive user scenarios**. Non-interactive auth methods — Resource Owner Password Credentials (ROPC), service principals, and managed identities — aren't supported yet.
+- Supported shells are **PowerShell 7+, bash, and zsh**. Windows PowerShell 5.1 and the PowerShell ISE aren't supported.
+- Azure CLI & PS installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
+- Commands, behavior, and packaging may change without notice during the preview.
+
+For the current list, see [Getting started → Known preview limitations](./docs/azure-cli/docs-conceptual/getting-started.md).
+
+## Feedback
+
+Please share early and often.
+
+- **[GitHub Issues](https://github.com/Azure/azclips/issues)** — primary channel for bugs, install problems, doc gaps, command issues, and feature requests (templates provided).
+- **[GitHub Discussions](https://github.com/Azure/azclips/discussions)** — questions and ideas.
+- **Pulse survey** — short (~5 min) Microsoft Forms survey: [ADD SURVEY LINK]. <!-- TODO: confirm Microsoft Forms pulse survey link -->
+- **Moderated sessions** — group and 1:1; book here: [ADD BOOKING LINK]. <!-- TODO: confirm 1:1 booking link -->
+
+We review on a regular cadence. For sensitive issues, contact the team directly: [ADD CONTACT]. <!-- TODO: confirm direct contact (alias/email) -->
+
+> Never include secrets, tokens, customer data, tenant IDs, or subscription IDs in issues or discussions.
+
+## Governance
+
+- **License** — [MIT](LICENSE). *(Open-source review in progress.)*
+- **Support** — [SUPPORT.md](SUPPORT.md)
+- **Code of Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- **Security Policy** — [SECURITY.md](SECURITY.md)
+- **Privacy & telemetry** — the preview collects limited telemetry with your consent (command names, parameter *names* only, success/failure, and basic environment data — never parameter values, URLs, or personal content). Telemetry is on by default; opt out with `az config set --key telemetry.enabled --value false`. See [Configuration Management](docs/howto/config.md#valid-configuration-keys).
 
 ### Data Collection
 
 The software may collect information about you and your use of the software and send it to Microsoft. Microsoft may use this information to provide services and improve our products and services. You may turn off the telemetry as described in the repository. There are also some features in the software that may enable you and Microsoft to collect data from users of your applications. If you use these features, you must comply with applicable law, including providing appropriate notices to users of your applications together with a copy of Microsoft's privacy statement. Our privacy statement is located at [https://go.microsoft.com/fwlink/?LinkID=824704](https://go.microsoft.com/fwlink/?LinkID=824704). You can learn more about data collection and use in the help documentation and our privacy statement. Your use of the software operates as your consent to these practices.
 
-## Trademarks
+### Trademarks
 
 This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship. Any use of third-party trademarks or logos is subject to those third-party policies.
+
+## Repository structure
+
+```
+azclips/
+├── Agent/            # Agent host, chat/agent-mode entry, hooks, and tools
+├── assets/           # Shared static assets
+├── build/            # Build scripts (build.ps1, module staging, help gen)
+├── devops/           # DevOps helper scripts
+├── docs/             # Documentation (getting-started & reference), being consolidated
+│   ├── azure-cli/    # Azure CLI conceptual & reference docs
+│   ├── azure-powershell/ # Azure PowerShell conceptual & reference docs
+│   ├── howto/        # Task-focused guides (build, config, help, ...)
+│   └── spec/         # Technical specifications
+├── install/          # Single-command install for all platforms/architectures
+│   └── docs/         # Manual/offline install, extensions, completions, PS modules
+├── openspec/         # OpenSpec change proposals and specs
+├── src/              # Product source code
+│   ├── CLI/          # CLI entry point (produces the 'az' binary)
+│   ├── Core/         # Core framework libraries
+│   ├── Extensions/   # Extension modules
+│   └── PS/           # PowerShell modules and manifests
+├── tests/            # xUnit test projects and fixtures
+├── toolkit/          # TypeScript toolkit packages
+├── tools/            # Repository tooling (help generation, ...)
+├── TUI/              # Terminal UI app
+├── wiki/             # Rendered documentation site (npm run preview)
+├── azclips.slnx      # Main solution file
+├── global.json       # Pinned .NET SDK version
+├── AGENTS.md         # Repository guidelines
+├── CHANGELOG.md      # Version history
+├── CONTRIBUTING.md   # Contribution guidelines
+└── LICENSE           # MIT license
+```
