@@ -39,6 +39,11 @@ namespace Azclips.Help.Tool.Validation
         /// <c>"config/get.md"</c> → <c>"config get"</c>;
         /// <c>"deployment/group/index.md"</c> → <c>"deployment group"</c>.
         /// </summary>
+        /// <remarks>
+        /// Not a true bijection: a hypothetical leaf command named <c>index</c> would
+        /// map to the same file as its parent group's index. <see cref="HelpCompletenessValidator"/>
+        /// reserves <c>index</c> as a segment name so this ambiguity cannot arise in the corpus.
+        /// </remarks>
         public static string FromHelpFileName(string fileName)
         {
             var normalized = fileName.Replace('\\', '/');

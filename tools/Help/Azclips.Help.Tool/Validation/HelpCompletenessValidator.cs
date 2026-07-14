@@ -37,6 +37,11 @@ namespace Azclips.Help.Tool.Validation
             var expectedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "index.md" };
             foreach (var key in routedCommandKeys)
             {
+                if (TryReportReservedSegment(key, verb, verbFolder, report))
+                {
+                    continue;
+                }
+
                 expectedFiles.Add(HelpCommandKey.ToHelpFileName(key));
                 foreach (var prefix in HelpCommandKey.EnumerateGroupPrefixes(key))
                 {
@@ -88,6 +93,33 @@ namespace Azclips.Help.Tool.Validation
             }
 
             return report;
+        }
+
+        /// <summary>
+        /// Reports and consumes a routed key that contains a reserved segment (<c>index</c>).
+        /// Returns <c>true</c> when reported so callers can skip further processing of that key.
+        /// </summary>
+        private static bool TryReportReservedSegment(string scopedKey, string verb, string verbFolder, ValidationReport report)
+        {
+            if (string.IsNullOrEmpty(scopedKey))
+            {
+                return false;
+            }
+
+            foreach (var segment in scopedKey.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (segment.Equals("index", StringComparison.OrdinalIgnoreCase))
+                {
+                    var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}";
+                    report.AddError(
+                        ProblemIds.Completeness_ReservedSegment,
+                        $"Routed command '{scopedKey}' in verb '{verb}' contains reserved segment 'index'. `index.md` names group-summary files at every corpus level; rename the segment (e.g. 'show-index').",
+                        relativePath);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

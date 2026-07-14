@@ -207,6 +207,24 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Fact]
+        public void Validate_ShouldReportReservedSegment_WhenRoutedKeyContainsIndex()
+        {
+            using var temp = new TempDirectory();
+            var helpDir = temp.Path;
+            File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
+
+            var index = new StubExtensionIndex(new[] { "deployment", "deployment index" });
+
+            var report = new HelpCompletenessValidator()
+                .Validate("deployment", "deployment", helpDir, index);
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.Completeness_ReservedSegment &&
+                e.Message.Contains("reserved segment 'index'", StringComparison.Ordinal));
+        }
+
+        [Fact]
         public void Validate_ShouldWarn_WhenNestedOrphanExists()
         {
             using var temp = new TempDirectory();
