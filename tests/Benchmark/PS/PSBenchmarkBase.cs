@@ -66,6 +66,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
             _runspace = null!;
             throw;
         }
+    }
 
     [IterationCleanup]
     public void IterationCleanup()
