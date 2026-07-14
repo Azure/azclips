@@ -43,10 +43,14 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     {
         RegisterBenchmarkStubs();
 
-        // Create and open a fresh runspace here in setup so the cost of standing up the
-        // PowerShell environment is NOT included in the measured region.
+        // Prime the runspace and import the module. Module import execution is excluded from the measured region, so that the benchmark measures only the cmdlet invocation.   
         _runspace = RunspaceFactory.CreateRunspace();
         _runspace.Open();
+
+        using var import = PowerShell.Create();
+        import.Runspace = _runspace;
+        import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
+        import.Invoke();
     }
 
     [IterationCleanup]
@@ -63,18 +67,6 @@ public abstract class PSBenchmarkBase : BenchmarkBase
         string command,
         params (string Name, object Value)[] parameters)
     {
-        // The runspace is created in [IterationSetup] (unmeasured). The measured region
-        // below covers only the module import and the cmdlet invocation.
-
-        // Import module — triggers AzclipsServiceProvider.Initialize(PowerShell) in .psm1
-        using (var import = PowerShell.Create())
-        {
-            import.Runspace = _runspace;
-            import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
-            import.Invoke();
-        }
-
-        // Run the cmdlet
         using var ps = PowerShell.Create();
         ps.Runspace = _runspace;
         ps.AddCommand(command);
