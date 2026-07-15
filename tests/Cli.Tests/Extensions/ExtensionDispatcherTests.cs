@@ -21,15 +21,16 @@ public class ExtensionDispatcherTests
 {
 
     [Fact]
-    public void Parse_ShouldThrowArgumentException_WhenArgsEmpty()
+    public void Parse_ShouldThrowDispatchHelpException_WhenArgsEmpty()
     {
-        // Arrange
+        // Bare `az` (no args) is treated as a top-level help request — same signal as
+        // `az --help`. Program.Main adds a welcome banner on the empty-args path,
+        // but the dispatcher itself emits the uniform help-dispatch exception.
+        // Regression guard for Azure/CLIPS#503.
         var dispatcher = new ExtensionDispatcher();
         var emptyArgs = Array.Empty<string>();
-        
-        // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => dispatcher.Parse(emptyArgs));
-        Assert.Contains("Arguments cannot be empty", exception.Message);
+
+        Assert.Throws<DispatchHelpException>(() => dispatcher.Parse(emptyArgs));
     }
 
     [Theory]

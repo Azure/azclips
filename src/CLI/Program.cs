@@ -37,6 +37,11 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
+        // Track whether the user invoked bare `az` (no args at all) before any
+        // flag stripping mutates the array. The welcome banner is gated on this
+        // — `az --help` and `az --debug` should NOT trigger it.
+        bool isBareInvocation = args.Length == 0;
+
         // Background telemetry upload mode: send pending traces and exit.
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
@@ -104,6 +109,14 @@ public class Program
             {
                 var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+                // Welcome banner runs only for bare `az` (no args), not for
+                // `az --help` / `az -h` / `az help`. Keep it above the help
+                // block so scripts that grep the help output aren't affected
+                // by a leading blank line (Console.Out is line-buffered here).
+                if (isBareInvocation)
+                {
+                    WelcomeBanner.Write(Console.Out);
+                }
                 var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
