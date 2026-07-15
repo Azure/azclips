@@ -94,10 +94,7 @@ public class ExtensionDispatcher //: IParser
         {
             if (!_resolver.TryResolve(verb, out resolved) || resolved is null)
             {
-                // Discovery-authoritative check: if any leaf in the index claims this verb,
-                // the extension IS installed and the user typed a bad leaf — not a missing
-                // package. Surface a targeted CommandNotFound rather than the misleading
-                // "install this extension" hint from the hint table (issue #511).
+                // Verb is known to discovery → leaf typo, not a missing package.
                 if (_leafIndex.Value.HasVerb(verb))
                 {
                     throw new CommandNotFoundException(verb, nonFlagLeadingArgs);

@@ -312,11 +312,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldThrowCommandNotFound_WhenVerbKnown_ButLeafMissing_FlagVariant()
     {
-        // Repro from issue #511: `az vm --list`. In production, discovery-backed LeafIndex sees
-        // (vm, list)/(vm, create)/etc, but the resolver's file-registry view can miss Compute
-        // (e.g. bundled install without registry.json). Old behaviour: hint table matches "vm"
-        // → Compute → misleading ExtensionNotInstalledException. New behaviour: HasVerb("vm")
-        // short-circuits to CommandNotFoundException, pointing the user at `az vm --help`.
+        // Verb is discovered, leaf is not: `az vm --list` → CommandNotFound, not "install Compute".
         var dispatcher = CreateSplitDispatcher(
             leafIndexLeaves: [
                 ("vm", "list",   "Microsoft.Azure.Azclips.Extensions.Compute"),
@@ -336,8 +332,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldThrowCommandNotFound_WhenVerbKnown_ButLeafMissing_PositionalVariant()
     {
-        // Second repro shape from issue #511: `az group foobar`. Exercises the fallback with
-        // non-flag positional tokens.
+        // Same as flag variant but with a non-flag positional token: `az group foobar`.
         var dispatcher = CreateSplitDispatcher(
             leafIndexLeaves: [
                 ("group", "list",   "Microsoft.Azure.Azclips.Extensions.Resources"),
@@ -357,10 +352,8 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldStillThrowExtensionNotInstalled_WhenVerbAbsentFromLeafIndex_ButHinted()
     {
-        // Regression guard: the ExtensionNotFound / "install this" UX must still fire for
-        // verbs the host has never seen (neither built-in nor discovered) but that the
-        // embedded hint table knows. Relies on "vm" being present in the embedded
-        // extension-hints.json (see ExtensionHintTableEmbeddedTests).
+        // Regression guard: genuinely-uninstalled verbs still get the "install this" hint.
+        // Relies on "vm" being in the embedded extension-hints.json (see ExtensionHintTableEmbeddedTests).
         var dispatcher = CreateSplitDispatcher(
             leafIndexLeaves: [],
             resolverRegistry: new ExtensionRegistry());
