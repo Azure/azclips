@@ -253,20 +253,34 @@ jobs:
           chmod +x install/azcli-install.sh
           bash install/azcli-install.sh --package full
 
-      - name: Run the diagnostics script (as a PM would)
+      - name: Run the diagnostics script exactly as the PM will (no args, from a work dir)
         run: |
           set -uo pipefail
           chmod +x devops/diagnostics/agent-macos-diag.sh
-          bash devops/diagnostics/agent-macos-diag.sh "$HOME/.local/share/azcli"
+          # Mirror the PM: run with NO arguments from some working directory. The
+          # script auto-finds ~/.local/share/azcli and writes ONE report here.
+          mkdir -p "$HOME/pm-run" && cd "$HOME/pm-run"
+          bash "$GITHUB_WORKSPACE/devops/diagnostics/agent-macos-diag.sh"
 
-      - name: Dump everything the script collected
+      - name: Dump the single report the script produced (verify nothing is missing)
         run: |
           set -uo pipefail
-          echo "===== collected diagnostics files ====="
-          ls -la "${TMPDIR:-/tmp}"/azclips-agent-diag-* 2>/dev/null || true
+          echo "===== report file(s) in the PM work dir ====="
+          ls -la "$HOME/pm-run"/azclips-agent-diag-*.txt 2>/dev/null || { echo "::error::no report file produced"; exit 1; }
           echo
-          for f in "${TMPDIR:-/tmp}"/azclips-agent-diag-*; do
+          for f in "$HOME/pm-run"/azclips-agent-diag-*.txt; do
             echo "########## $f ##########"
             cat "$f"
             echo
           done
+          # Confirm the report is self-contained: the folded host trace must be present,
+          # and there must be NO leftover separate .corehost.log for the PM to also send.
+          echo "===== self-containment checks ====="
+          if ls "$HOME/pm-run"/*.corehost.log >/dev/null 2>&1; then
+            echo "::error::a separate .corehost.log exists — report is NOT self-contained"; exit 1
+          fi
+          F="$(ls "$HOME/pm-run"/azclips-agent-diag-*.txt | head -1)"
+          for marker in "1. environment" "2. install layout" "permissions on launcher" "COREHOST_TRACE=1" "host trace (folded in"; do
+            grep -qi "$marker" "$F" || { echo "::error::report is missing section: $marker"; exit 1; }
+          done
+          echo "OK — single self-contained report with all sections + folded host trace."

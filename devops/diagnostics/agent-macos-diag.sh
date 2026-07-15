@@ -5,10 +5,10 @@
 #       environment facts needed to explain WHY the agent subprocess can't start
 #       its runtime. Writes everything to one file you can paste back.
 #
-# HOW:  cd into your azclips install dir (where ./az lives) and run this script
-#       from there, OR pass the install dir as the first argument:
+# HOW:  just run it — no arguments, no login needed. It writes ONE report file
+#       to the directory you run it from and prints that path at the end; send
+#       that one file back. It auto-finds the install (~/.local/share/azcli).
 #         bash agent-macos-diag.sh
-#         bash agent-macos-diag.sh ~/.local/share/azcli
 #
 # It does NOT need an Azure login — the crash happens before any login step.
 
@@ -25,7 +25,10 @@ elif [ -x "$PWD/az" ]; then
 else
   INSTALL_DIR="$HOME/.local/share/azcli"      # best guess; steps below will report if empty
 fi
-OUT="${TMPDIR:-/tmp}/azclips-agent-diag-$(date +%Y%m%d-%H%M%S).txt"
+# One self-contained report, written to the CURRENT directory (where you ran the
+# script) so it's easy to find and send back — nothing else to collect.
+OUT="$PWD/azclips-agent-diag-$(date +%Y%m%d-%H%M%S).txt"
+COREHOST_LOG="${TMPDIR:-/tmp}/azclips-corehost-$$.log"   # scratch; folded into OUT below
 
 log() { echo "$@" | tee -a "$OUT"; }
 run() { echo "\$ $*" | tee -a "$OUT"; eval "$@" 2>&1 | tee -a "$OUT"; echo | tee -a "$OUT"; }
@@ -80,9 +83,15 @@ cd "$INSTALL_DIR" || { log "cannot cd into install dir"; exit 1; }
 run "./az config set --key agent.enabled --value true"
 run "./az config set --key agent.sessionStyle --value oneshot"
 log "--- triggering the agent via a failing command (host trace on) ---"
-run "COREHOST_TRACE=1 COREHOST_TRACEFILE='$OUT.corehost.log' ./az vm show --name test --subscription-id 00000000-0000-0000-0000-000000000000 --resource-group test"
-log "--- tail of the CoreCLR host trace (the lines just before the failure matter most) ---"
-run "tail -60 '$OUT.corehost.log' 2>/dev/null || echo '<no corehost trace file — the launcher may have died before hostfxr started>'"
+run "COREHOST_TRACE=1 COREHOST_TRACEFILE='$COREHOST_LOG' ./az vm show --name test --subscription-id 00000000-0000-0000-0000-000000000000 --resource-group test"
+# Fold the FULL host trace into this one report so there's a single file to send.
+log "--- full CoreCLR host trace (folded in — the lines just before any failure matter most) ---"
+if [ -f "$COREHOST_LOG" ]; then
+  cat "$COREHOST_LOG" >> "$OUT"
+  rm -f "$COREHOST_LOG"
+else
+  log "<no corehost trace produced — the launcher may have died before hostfxr started>"
+fi
 
 # 4) Run the agent launcher directly ----------------------------------------
 # Bypass the az wrapper to see the launcher's own raw error, again with tracing.
@@ -90,7 +99,7 @@ log "----- 4. run azclips-agent directly (bypass az) -----"
 run "COREHOST_TRACE=1 ./azclips-agent --agent-mode --failed-command 'vm show' --error 'diagnostic run' 2>&1 | head -40 || true"
 
 log ""
-log "===== done. Please send this whole file back: $OUT ====="
-log "(and, if it exists, the host trace: $OUT.corehost.log)"
+log "===== done ====="
 echo
-echo "Diagnostics written to: $OUT"
+echo "Diagnostics written to a single file — just send this back:"
+echo "  $OUT"
