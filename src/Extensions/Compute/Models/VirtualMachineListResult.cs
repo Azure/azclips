@@ -3,21 +3,19 @@
 
 using System.Text.Json.Serialization;
 
-namespace Microsoft.Azure.Azclips.Extensions.Compute.Models
-{
-    //
-    // Summary:
-    //     Result of the request to list virtual machines. ARM list endpoints return an
-    //     envelope { "value": [...], "nextLink": "..." }; this wraps that envelope.
-    public class VirtualMachineListResult
-    {
-        [JsonPropertyName("value")]
-        public VirtualMachine[]? Value { get; set; }
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
-        //
-        // Summary:
-        //     The URL to use for getting the next set of results.
-        [JsonPropertyName("nextLink")]
-        public string? NextLink { get; set; }
-    }
+/// <summary>
+/// Result of a request to list virtual machines. ARM list endpoints return an envelope
+/// <c>{ "value": [...], "nextLink": "..." }</c>; this wraps that envelope.
+/// </summary>
+public class VirtualMachineListResult
+{
+    /// <summary>The virtual machines returned in this page.</summary>
+    [JsonPropertyName("value")]
+    public VirtualMachine[]? Value { get; set; }
+
+    /// <summary>The URL to use for getting the next set of results.</summary>
+    [JsonPropertyName("nextLink")]
+    public string? NextLink { get; set; }
 }
