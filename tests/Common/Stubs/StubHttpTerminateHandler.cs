@@ -13,7 +13,7 @@ public class StubHttpTerminateHandler : IHttpTerminateHandler
 {
     public SendAsyncStep SendAsync { get; } = (request, callback, next) =>
     {
-        Thread.Sleep(1000);
+        Thread.Sleep(1);
         return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
         {
             Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
