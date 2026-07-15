@@ -1,4 +1,4 @@
-# Azure CLI & PS — one command surface for Azure CLI and Azure PowerShell
+# Azure CLI & Azure PowerShell — a unified command surface for Azure command line tools
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Build and Test](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml)
