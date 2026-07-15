@@ -29,7 +29,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
         protected IEventPublisher Publisher = null!;
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
-        protected AuthContext AuthContext = null!;
+        protected Profile Profile = null!;
 
         /// <summary>
         /// Base address for the Microsoft Graph v1.0 endpoint.
@@ -62,7 +62,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            AuthContext = context.AuthHandler.AuthContext;
+            Profile = context.AuthHandler.Profile!;
 
             ApplyGraphScope(context.AuthHandler);
 
@@ -80,8 +80,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
         {
             AcquireTokenAsyncDelegate acquireWithDefaultScope = authHandler.AcquireTokenAsyncDefault;
 
-            Task<AuthResult> AcquireWithGraphScope(string[]? _, string? tenantId, bool promptOnError, CancellationToken cancellationToken) =>
-                acquireWithDefaultScope(GraphScopes, tenantId, promptOnError, cancellationToken);
+            Task<AuthResult> AcquireWithGraphScope(string[]? _, string? tenantId, bool promptOnError, CancellationToken cancellationToken, Profile? profile) =>
+                acquireWithDefaultScope(GraphScopes, tenantId, promptOnError, cancellationToken, profile);
 
             authHandler.AcquireTokenAsyncOverride = AcquireWithGraphScope;
             authHandler.ApplyOverride = true;
@@ -93,7 +93,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
-        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, AuthContext)
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, Profile)
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
@@ -106,7 +106,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
                 JsonOptions = JsonOptions,
             };
             child.WriteOutput = WriteOutput;
-            child.AuthContext = AuthContext;
+            child.Profile = Profile;
             configure?.Invoke(child);
             return child;
         }

@@ -22,7 +22,7 @@ public class GraphProcessorBaseAuthScopeTests
     public void Init_ShouldRouteTokenAcquisitionToGraphScope()
     {
         string[]? capturedScopes = null;
-        AcquireTokenAsyncDelegate engineDefault = (scopes, tenantId, prompt, ct) =>
+        AcquireTokenAsyncDelegate engineDefault = (scopes, tenantId, prompt, ct, profile) =>
         {
             capturedScopes = scopes;
             return Task.FromResult(new AuthResult
@@ -37,7 +37,7 @@ public class GraphProcessorBaseAuthScopeTests
 
         var authHandler = new AuthHandler
         {
-            AuthContext = new AuthContext(TenantId: "tenant", SubscriptionId: "sub"),
+            Profile = new Profile { TenantId = "tenant", SubscriptionId = "sub" },
             AcquireTokenAsyncDefault = engineDefault,
             ApplyOverride = false
         };
@@ -49,7 +49,7 @@ public class GraphProcessorBaseAuthScopeTests
         Assert.NotNull(authHandler.AcquireTokenAsyncOverride);
 
         // Invoke the override the way the pipeline would (passing null scopes); it must force Graph scope.
-        authHandler.AcquireTokenAsyncOverride!(null, "tenant", false, CancellationToken.None);
+        authHandler.AcquireTokenAsyncOverride!(null, "tenant", false, CancellationToken.None, null);
 
         Assert.Equal(["https://graph.microsoft.com/.default"], capturedScopes);
     }
@@ -59,7 +59,7 @@ public class GraphProcessorBaseAuthScopeTests
     {
         string? capturedTenant = null;
         bool capturedPrompt = false;
-        AcquireTokenAsyncDelegate engineDefault = (scopes, tenantId, prompt, ct) =>
+        AcquireTokenAsyncDelegate engineDefault = (scopes, tenantId, prompt, ct, profile) =>
         {
             capturedTenant = tenantId;
             capturedPrompt = prompt;
@@ -75,12 +75,12 @@ public class GraphProcessorBaseAuthScopeTests
 
         var authHandler = new AuthHandler
         {
-            AuthContext = new AuthContext(TenantId: "tenant", SubscriptionId: "sub"),
+            Profile = new Profile { TenantId = "tenant", SubscriptionId = "sub" },
             AcquireTokenAsyncDefault = engineDefault
         };
 
         new GetUserProcessor().Init(CreateContext(authHandler));
-        authHandler.AcquireTokenAsyncOverride!(null, "contoso-tenant", true, CancellationToken.None);
+        authHandler.AcquireTokenAsyncOverride!(null, "contoso-tenant", true, CancellationToken.None, null);
 
         // Only the scope is forced; tenant and promptOnError pass through unchanged.
         Assert.Equal("contoso-tenant", capturedTenant);

@@ -8,8 +8,12 @@ namespace Extensions.Graph.Tests;
 
 public class GetUserProcessorTests
 {
-    private static TestableGetUserProcessor CreateProcessor(string id) =>
-        new TestableGetUserProcessor { Id = id }.WithPublisher(Mock.Of<IEventPublisher>());
+    private static TestableGetUserProcessor CreateProcessor(string id)
+    {
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        return new TestableGetUserProcessor { Id = id }.WithPublisher(publisher.Object);
+    }
 
     [Fact]
     public async Task CreateRequestMessage_ShouldTargetGraphV1UsersEndpoint()
