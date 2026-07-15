@@ -22,11 +22,7 @@ EXT_PACK_DIR="$OUT_ROOT/extensions-pack"
 BUILTIN_PUBLISH_ROOT="$OUT_ROOT/builtin-publish"
 CLI_FD_DIR="$OUT_ROOT/publish/cli/framework-dep"
 
-# POSIX-friendly read into an array (macOS ships bash 3.2, which has no `mapfile`).
-DISCOVERED_EXTENSIONS=()
-while IFS= read -r line; do
-  DISCOVERED_EXTENSIONS+=("$line")
-done < <(find src/Extensions -mindepth 2 -maxdepth 2 -name "Extensions.*.csproj" | sort)
+mapfile -t DISCOVERED_EXTENSIONS < <(find src/Extensions -mindepth 2 -maxdepth 2 -name "Extensions.*.csproj" | sort)
 if [[ ${#DISCOVERED_EXTENSIONS[@]} -eq 0 ]]; then
   echo "ERROR: No extension projects found under src/Extensions"
   exit 1
