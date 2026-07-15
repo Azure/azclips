@@ -26,6 +26,19 @@ discoverable. The error text (`ExtensionNotFound`, "not installed", "Install it 
 is therefore actively misleading — the real user error is a **typo / unknown leaf** inside
 an already-installed group (they meant `az vm list`, not `az vm --list`).
 
+The same misclassification fires for non-flag positional typos too — the args shape
+doesn't matter, only that no `(verb, path)` leaf matches:
+
+```
+$ az group foobar
+error: [ExtensionNotFound] Verb 'group' is provided by extension 'Microsoft.Azure.Azclips.Extensions.Resources',
+which is not installed.
+Install it with: az extension add --name Resources
+```
+
+`Resources` is installed (proven by any working `az group list`); `foobar` just isn't a
+leaf under `group`. Same bug, different surface.
+
 ## 2. Where the message comes from
 
 Thrown as `ExtensionNotInstalledException` (code `ExtensionNotFound`, exit 4):
@@ -54,6 +67,18 @@ Thrown as `ExtensionNotInstalledException` (code `ExtensionNotFound`, exit 4):
    [ExtensionDispatcher.cs L98-L104](src/CLI/Parser/ExtensionDispatcher.cs#L98-L104).
    Hint table's embedded map has `"vm" → Compute`, so it matches on the bare verb and
    throws `ExtensionNotInstalledException("vm", "…Compute")`.
+
+Trace of `az group foobar` (non-flag variant) — same failure path, exercises the loop
+more fully:
+
+1. `verb = "group"`, `nonFlagLeadingArgs = ["foobar"]`.
+2. Longest-prefix loop: `LeafIndex.TryGet("group", "foobar")` misses (no such leaf),
+   `LeafIndex.TryGet("group", "")` misses (no bare-verb leaf).
+3. `_resolver.TryResolve("group", …)` misses in `registry.json`.
+4. Hint-table fallback loop: `("group","foobar")` misses, then `("group","")` hits
+   `Resources` on the bare-verb key — throw. So even when the leaf-key check runs, the
+   final bare-verb probe still lands on the misleading "not installed" message whenever
+   the hint table knows the verb.
 
 The asymmetry that produces the bug:
 
@@ -207,6 +232,7 @@ Repro locally against a build where `Compute` is on disk:
 
 - `az vm --list` → new `CommandNotFound`, message points at `az vm --help`. Exit 4.
 - `az vm nope` → new `CommandNotFound`. Exit 4.
+- `az group foobar` → new `CommandNotFound` (non-flag positional variant from repro).
 - `az vm list` (valid leaf) → runs as today.
 - `az vm --help` (valid help) → renders group help as today.
 - `az vm list --help` (valid command help) → renders command help as today.

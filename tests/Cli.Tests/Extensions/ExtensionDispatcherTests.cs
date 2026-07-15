@@ -300,14 +300,107 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldThrow_WhenVerbIsUnknown()
     {
-        // Pins current behavior, not desired contract: today the dispatcher leaks the
-        // resolver's underlying KeyNotFoundException for an unknown verb. A future change
-        // could convert this to a typed AzclipsErrorException.CommandNotFound; if so, update
-        // this assertion at that time.
+        // Truly unknown verb: not in LeafIndex, not in the resolver's built-in map, not in the
+        // embedded hint table. Falls through to the trailing KeyNotFoundException, which the
+        // host's outer catch converts to an AI-agent fallback attempt in Program.Main.
         var dispatcher = CreateLeafDispatcher(
             ("vm", "create", "Pkg.A", false, "1.0.0"));
 
         Assert.Throws<KeyNotFoundException>(() => dispatcher.Parse(["nonexistentverb"]));
+    }
+
+    [Fact]
+    public void Parse_ShouldThrowCommandNotFound_WhenVerbKnown_ButLeafMissing_FlagVariant()
+    {
+        // Repro from issue #511: `az vm --list`. In production, discovery-backed LeafIndex sees
+        // (vm, list)/(vm, create)/etc, but the resolver's file-registry view can miss Compute
+        // (e.g. bundled install without registry.json). Old behaviour: hint table matches "vm"
+        // → Compute → misleading ExtensionNotInstalledException. New behaviour: HasVerb("vm")
+        // short-circuits to CommandNotFoundException, pointing the user at `az vm --help`.
+        var dispatcher = CreateSplitDispatcher(
+            leafIndexLeaves: [
+                ("vm", "list",   "Microsoft.Azure.Azclips.Extensions.Compute"),
+                ("vm", "create", "Microsoft.Azure.Azclips.Extensions.Compute"),
+            ],
+            resolverRegistry: new ExtensionRegistry());
+
+        var ex = Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(["vm", "--list"]));
+
+        Assert.Equal("CommandNotFound", ex.Code);
+        Assert.Equal(4, ex.ExitCode);
+        Assert.Equal("vm", ex.Verb);
+        Assert.Empty(ex.Path);
+        Assert.Contains("az vm --help", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_ShouldThrowCommandNotFound_WhenVerbKnown_ButLeafMissing_PositionalVariant()
+    {
+        // Second repro shape from issue #511: `az group foobar`. Exercises the fallback with
+        // non-flag positional tokens.
+        var dispatcher = CreateSplitDispatcher(
+            leafIndexLeaves: [
+                ("group", "list",   "Microsoft.Azure.Azclips.Extensions.Resources"),
+                ("group", "create", "Microsoft.Azure.Azclips.Extensions.Resources"),
+            ],
+            resolverRegistry: new ExtensionRegistry());
+
+        var ex = Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(["group", "foobar"]));
+
+        Assert.Equal("CommandNotFound", ex.Code);
+        Assert.Equal("group", ex.Verb);
+        Assert.Equal(["foobar"], ex.Path);
+        Assert.Contains("az group foobar", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("az group --help", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_ShouldStillThrowExtensionNotInstalled_WhenVerbAbsentFromLeafIndex_ButHinted()
+    {
+        // Regression guard: the ExtensionNotFound / "install this" UX must still fire for
+        // verbs the host has never seen (neither built-in nor discovered) but that the
+        // embedded hint table knows. Relies on "vm" being present in the embedded
+        // extension-hints.json (see ExtensionHintTableEmbeddedTests).
+        var dispatcher = CreateSplitDispatcher(
+            leafIndexLeaves: [],
+            resolverRegistry: new ExtensionRegistry());
+
+        var ex = Assert.Throws<ExtensionNotInstalledException>(() => dispatcher.Parse(["vm", "list"]));
+
+        Assert.Equal("ExtensionNotFound", ex.Code);
+        Assert.Equal("vm", ex.Verb);
+        Assert.Contains("Compute", ex.PackageId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Builds a dispatcher whose LeafIndex and resolver can be seeded independently — necessary
+    /// to reproduce the production divergence where discovery (LeafIndex) sees an installed
+    /// extension but the file-registry-backed resolver doesn't.
+    /// </summary>
+    private static ExtensionDispatcher CreateSplitDispatcher(
+        IReadOnlyList<(string Verb, string Path, string PackageId)> leafIndexLeaves,
+        ExtensionRegistry resolverRegistry)
+    {
+        var leafRegistry = new ExtensionRegistry();
+        foreach (var leaf in leafIndexLeaves)
+        {
+            if (!leafRegistry.Extensions.TryGetValue(leaf.PackageId, out var entry))
+            {
+                entry = new ExtensionRegistryEntry
+                {
+                    Version = "1.0.0",
+                    InstalledAt = DateTimeOffset.UtcNow,
+                };
+                leafRegistry.Extensions[leaf.PackageId] = entry;
+            }
+            entry.Contributions.Add(new Contribution { Verb = leaf.Verb, Path = leaf.Path });
+        }
+
+        var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), leafRegistry);
+        var resolver = new ExtensionResolver(
+            new InMemoryRegistryStore(resolverRegistry),
+            new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase));
+        return new ExtensionDispatcher(resolver, () => index);
     }
 
     [Fact]
