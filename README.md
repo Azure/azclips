@@ -11,7 +11,10 @@
 
 ## What is Azure CLI & Azure PowerShell?
 
-A unified command-line foundation for Azure: author a command **once** and it runs consistently on both Azure CLI and Azure PowerShell — no maintaining it twice. It reuses the same Azure APIs and authentication you already know, and is faster, lighter, and usable in secure, constrained environments.
+This new generation of command line tools provide a lightweight, efficient and intelligent set of commands to manage Azure resources.
+Depending on preferences, scripting environment or other requirements, you can use the native command or its PowerShell equivalent to obtain identical outcomes.
+
+The architecture used for these commands allows execution in secure, constrained environments and provide a faster execution or disk footprint.
 
 ## Preview capabilities
 
