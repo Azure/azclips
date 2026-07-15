@@ -16,7 +16,7 @@ This folder contains the conceptual articles for the preview version of Azure CL
 <!-- link references -->
 
 [01]: ./getting-started.md
-[02]: ../../../install/README.md
+[02]: ./install-overview.md
 [03]: ./whats-new.md
 [04]: ./ai-based-error-recovery.md
 [05]: ./troubleshooting.md
