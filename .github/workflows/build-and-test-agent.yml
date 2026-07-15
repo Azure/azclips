@@ -32,24 +32,32 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
-            platform: macos
-            build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh
-            out_glob: devops/out/macos
-            az_name: az
-            shell: bash
+          # --- Linux / Windows: lean smoke (agent-startup regression guard) ---
           - os: ubuntu-latest
             platform: linux
+            profile: lean
+            trigger: miss
             build: bash devops/scripts/packaging/linux/tarball/build_linux_tarball.sh
             out_glob: devops/out/linux
             az_name: az
             shell: bash
           - os: windows-latest
             platform: windows
+            profile: lean
+            trigger: miss
             build: pwsh -NoProfile -File devops/scripts/packaging/windows/zip/build_win_zip.ps1
             out_glob: devops/out/windows
             az_name: az.exe
             shell: pwsh
+          # --- macOS P0 repro matrix: {Intel macos-13, Apple Silicon macos-14}
+          #     x {lean, full}. The reported crash was on a full install where
+          #     `vm show` actually runs (vm/Compute present) and fails, spawning the
+          #     agent — so the `full` jobs trigger with a real `vm show` command;
+          #     `lean` jobs use a generic miss (vm would be a structured bypass).
+          - { os: macos-13, platform: macos13-intel-lean, profile: lean, trigger: miss, build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh, out_glob: devops/out/macos, az_name: az, shell: bash }
+          - { os: macos-13, platform: macos13-intel-full, profile: full, trigger: vm,   build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh, out_glob: devops/out/macos, az_name: az, shell: bash }
+          - { os: macos-14, platform: macos14-arm-lean,   profile: lean, trigger: miss, build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh, out_glob: devops/out/macos, az_name: az, shell: bash }
+          - { os: macos-14, platform: macos14-arm-full,   profile: full, trigger: vm,   build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh, out_glob: devops/out/macos, az_name: az, shell: bash }
 
     runs-on: ${{ matrix.os }}
     name: agent-smoke (${{ matrix.platform }})
@@ -72,7 +80,7 @@ jobs:
 
       - name: Build the platform package (CLI + agent hybrid layout)
         env:
-          PACKAGE_PROFILE: lean
+          PACKAGE_PROFILE: ${{ matrix.profile }}
         run: ${{ matrix.build }}
 
       # --- POSIX (macОС / Linux) ------------------------------------------------
@@ -94,11 +102,17 @@ jobs:
           "$AZ" config set --key agent.sessionStyle --value oneshot
 
           set +e
-          # A generic miss (an unknown verb) — NOT a known-but-uninstalled verb like
-          # `vm` in the lean package, which raises a structured ExtensionNotInstalled
-          # error that deliberately bypasses the agent. An unknown verb falls through
-          # to the top-level catch and fires the agent fallback.
-          OUT="$("$AZ" create a resource group named ci-smoke-test 2>&1)"
+          # Trigger the agent fallback. Two modes:
+          #  - miss: a generic unknown verb → falls through to the top-level catch
+          #    and fires the agent (used on lean, where `vm` would be a structured
+          #    ExtensionNotInstalled bypass).
+          #  - vm:   a real `vm show` that actually runs and fails (full package has
+          #    vm/Compute) → matches the reported P0's trigger exactly.
+          if [ "${{ matrix.trigger }}" = "vm" ]; then
+            OUT="$("$AZ" vm show --name test --subscription-id 00000000-0000-0000-0000-000000000000 --resource-group test 2>&1)"
+          else
+            OUT="$("$AZ" create a resource group named ci-smoke-test 2>&1)"
+          fi
           set -e
           echo "----- output -----"; echo "$OUT"; echo "------------------"
 
@@ -150,6 +164,7 @@ jobs:
           }
           if ($OUT -match 'requires an Azure login|No active Azure account') {
             Write-Host "PASS — agent chain alive (runtime started, ran to auth step; only login missing)."
+            exit 0   # az itself exits non-zero (no login); don't let that fail the step
           } else {
             Write-Host "::error::agent never reached the auth step — no 'requires an Azure login'. Fallback may not have fired, or agent died early."
             exit 1
