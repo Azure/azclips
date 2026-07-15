@@ -134,7 +134,14 @@ jobs:
 
           # Generic miss (unknown verb) fires the agent fallback; a known-but-
           # uninstalled verb like `vm` in lean would bypass it via a structured error.
-          $OUT = (& $AZ create a resource group named ci-smoke-test 2>&1 | Out-String)
+          # Capture stdout+stderr to a file: piping "2>&1" through Out-String turns
+          # stderr into ErrorRecord objects that -match reads unreliably, and with
+          # ErrorActionPreference=Stop a native stderr write can abort the step
+          # before we ever assert. A file redirect gives us the raw combined text.
+          $ErrorActionPreference = 'Continue'
+          $outFile = Join-Path $env:RUNNER_TEMP 'az_smoke_out.txt'
+          & $AZ create a resource group named ci-smoke-test *> $outFile
+          $OUT = Get-Content -Raw -Path $outFile
           Write-Host "----- output -----"; Write-Host $OUT; Write-Host "------------------"
 
           if ($OUT -match 'Failed to create CoreCLR') {

@@ -26,7 +26,9 @@ while IFS= read -r package_path; do
     exit 1
   fi
 
-  release_name="azcli.extensions.${extension_name,,}.$version.nupkg"
+  # POSIX lowercase (macOS ships bash 3.2, which lacks the ${var,,} operator).
+  extension_name_lc="$(printf '%s' "$extension_name" | tr '[:upper:]' '[:lower:]')"
+  release_name="azcli.extensions.${extension_name_lc}.$version.nupkg"
   release_path="$(dirname "$package_path")/$release_name"
 
   rm -f "$release_path"
