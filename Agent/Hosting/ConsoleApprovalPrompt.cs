@@ -400,6 +400,10 @@ public sealed class ConsoleApprovalPrompt
     // a light background). Headings are distinguished by structure, not color.
     private static void RenderPlan(PlanContent plan)
     {
+        // Deterministic post-processing before rendering (e.g. drop a redundant
+        // "true" on a boolean switch flag). See PlanSanitizer.
+        plan = Core.Agent.Plan.PlanSanitizer.Sanitize(plan);
+
         Console.WriteLine("AI help");
         Console.WriteLine("───────");
 
