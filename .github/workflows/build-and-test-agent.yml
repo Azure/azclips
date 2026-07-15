@@ -230,3 +230,43 @@ jobs:
           else
             echo "::warning::agent did not reach the auth step and did not crash on CoreCLR — inspect the output above (the released package may behave differently)."
           fi
+
+  # ===========================================================================
+  # TEMPORARY — self-check the diagnostics script before we hand it to a PM.
+  # Runs devops/diagnostics/agent-macos-diag.sh against a real signed-release
+  # install on an arm64 runner and dumps everything it collected, so we can
+  # confirm the script actually captures what we need (env facts + the
+  # COREHOST_TRACE host log) rather than shipping an unverified script.
+  # Remove this job once the script is validated.
+  # ===========================================================================
+  diag-script-selfcheck:
+    runs-on: macos-14
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install the signed release like a user
+        run: |
+          set -euo pipefail
+          chmod +x install/azcli-install.sh
+          bash install/azcli-install.sh --package full
+
+      - name: Run the diagnostics script (as a PM would)
+        run: |
+          set -uo pipefail
+          chmod +x devops/diagnostics/agent-macos-diag.sh
+          bash devops/diagnostics/agent-macos-diag.sh "$HOME/.local/share/azcli"
+
+      - name: Dump everything the script collected
+        run: |
+          set -uo pipefail
+          echo "===== collected diagnostics files ====="
+          ls -la "${TMPDIR:-/tmp}"/azclips-agent-diag-* 2>/dev/null || true
+          echo
+          for f in "${TMPDIR:-/tmp}"/azclips-agent-diag-*; do
+            echo "########## $f ##########"
+            cat "$f"
+            echo
+          done
