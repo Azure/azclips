@@ -6,7 +6,7 @@
 <!-- NEEDS ENG REVIEW: confirm the Build and Test badge/workflow before publishing (private-repo badge only renders for members with access). -->
 
 > [!IMPORTANT]
-> **🔒 Limited Preview — This content in confidential and should only be discussed under NDA .**
+> **🔒 Limited Preview — This content is confidential and should only be discussed under NDA.**
 > This program is a closed, invitation-only preview shared under NDA with a small group. Access is provisioned through GitHub — you're here because your account was added to this **private** repository. **Do not share** builds, screenshots, benchmarks, command output, or any details publicly or with anyone outside the preview. The program runs through July to Sep 2026.
 
 ## What is Azure CLI & PS
