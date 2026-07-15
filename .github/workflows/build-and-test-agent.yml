@@ -94,7 +94,11 @@ jobs:
           "$AZ" config set --key agent.sessionStyle --value oneshot
 
           set +e
-          OUT="$("$AZ" vm show --name nope --subscription-id 00000000-0000-0000-0000-000000000000 --resource-group nope 2>&1)"
+          # A generic miss (an unknown verb) — NOT a known-but-uninstalled verb like
+          # `vm` in the lean package, which raises a structured ExtensionNotInstalled
+          # error that deliberately bypasses the agent. An unknown verb falls through
+          # to the top-level catch and fires the agent fallback.
+          OUT="$("$AZ" create a resource group named ci-smoke-test 2>&1)"
           set -e
           echo "----- output -----"; echo "$OUT"; echo "------------------"
 
@@ -128,7 +132,9 @@ jobs:
           & $AZ config set --key agent.enabled --value true
           & $AZ config set --key agent.sessionStyle --value oneshot
 
-          $OUT = (& $AZ vm show --name nope --subscription-id 00000000-0000-0000-0000-000000000000 --resource-group nope 2>&1 | Out-String)
+          # Generic miss (unknown verb) fires the agent fallback; a known-but-
+          # uninstalled verb like `vm` in lean would bypass it via a structured error.
+          $OUT = (& $AZ create a resource group named ci-smoke-test 2>&1 | Out-String)
           Write-Host "----- output -----"; Write-Host $OUT; Write-Host "------------------"
 
           if ($OUT -match 'Failed to create CoreCLR') {
