@@ -10,15 +10,15 @@ namespace Core.Cli.Help;
 /// </summary>
 internal static class WelcomeBanner
 {
-    // Figlet "small" font for "AzCLIPS". Kept as a single literal so any future
-    // font tweak lands in one place. Do NOT normalize whitespace — the glyphs
-    // rely on trailing spaces for alignment when re-encoded.
+    // Figlet "small" font for "AzCLIPS" (generated with pyfiglet: `pyfiglet -f small AzCLIPS`).
+    // Kept as a single literal so any future font tweak lands in one place. Do NOT normalize
+    // whitespace or trim trailing spaces — the glyphs rely on that padding for alignment.
     private static readonly string[] s_bannerLines =
     [
-        @"   ___  ___ _    ___ ___  ___ ",
-        @"  /   \|_  ) |  |_ _| _ \/ __|",
-        @"  | - | / /| |__ | ||  _/\__ \",
-        @"  |_|_|/___|____|___|_|  |___/",
+        @"     _        ___ _    ___ ___  ___ ",
+        @"    /_\   ___/ __| |  |_ _| _ \/ __|",
+        @"   / _ \ |_ / (__| |__ | ||  _/\__ \",
+        @"  /_/ \_\/__|\___|____|___|_|  |___/",
     ];
 
     public static void Write(TextWriter output)

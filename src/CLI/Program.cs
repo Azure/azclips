@@ -37,9 +37,7 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
-        // Track whether the user invoked bare `az` (no args at all) before any
-        // flag stripping mutates the array. The welcome banner is gated on this
-        // — `az --help` and `az --debug` should NOT trigger it.
+        // Track whether the user invoked bare `az` (no args at all)
         bool isBareInvocation = args.Length == 0;
 
         // Background telemetry upload mode: send pending traces and exit.
@@ -47,6 +45,13 @@ public class Program
         {
             await FileTelemetrySender.SendPendingStatic();
             return 0;
+        }
+
+        // Hidden `--meow` easter egg. Cold-path; no DI, no dispatcher touch.
+        int? meowExit = MeowCommand.TryHandle(args, Console.Out);
+        if (meowExit.HasValue)
+        {
+            return meowExit.Value;
         }
 
         AzclipsServiceProvider.PrependRegistration(services =>
