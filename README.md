@@ -111,7 +111,7 @@ This is an early private preview — expect rough edges and change between build
 
 - The preview focuses on **interactive user scenarios**. Non-interactive auth methods — Resource Owner Password Credentials (ROPC), service principals, and managed identities — aren't supported yet.
 - Supported shells are **PowerShell 7+, bash, and zsh**. Windows PowerShell 5.1 and the PowerShell ISE aren't supported.
-- Azure CLI & PS installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
+- Azure CLI & Azure PowerShell installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
 - Commands, behavior, and packaging may change without notice during the preview.
 
 For the current list, see [Getting started → Known preview limitations](./docs/azure-cli/docs-conceptual/getting-started.md).
