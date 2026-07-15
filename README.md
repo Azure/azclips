@@ -9,7 +9,7 @@
 > **🔒 Limited Preview — This content is confidential and should only be discussed under NDA.**
 > This program is a closed, invitation-only preview shared under NDA with a small group. Access is provisioned through GitHub — you're here because your account was added to this **private** repository. **Do not share** builds, screenshots, benchmarks, command output, or any details publicly or with anyone outside the preview. The program runs through July to Sep 2026.
 
-## What is Azure CLI & PS
+## What is Azure CLI & Azure PowerShell?
 
 A unified command-line foundation for Azure: author a command **once** and it runs consistently on both Azure CLI and Azure PowerShell — no maintaining it twice. It reuses the same Azure APIs and authentication you already know, and is faster, lighter, and usable in secure, constrained environments.
 
