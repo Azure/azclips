@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
