@@ -14,7 +14,17 @@
 
 set -uo pipefail
 
-INSTALL_DIR="${1:-$PWD}"
+# Install dir: default to where install/azcli-install.sh puts it. Override by
+# passing a path as the first arg, or by running this script from inside it.
+if [ -n "${1:-}" ]; then
+  INSTALL_DIR="$1"
+elif [ -x "$HOME/.local/share/azcli/az" ]; then
+  INSTALL_DIR="$HOME/.local/share/azcli"     # the standard install location
+elif [ -x "$PWD/az" ]; then
+  INSTALL_DIR="$PWD"                          # running from inside the install dir
+else
+  INSTALL_DIR="$HOME/.local/share/azcli"      # best guess; steps below will report if empty
+fi
 OUT="${TMPDIR:-/tmp}/azclips-agent-diag-$(date +%Y%m%d-%H%M%S).txt"
 
 log() { echo "$@" | tee -a "$OUT"; }
@@ -49,6 +59,17 @@ run "ls '$INSTALL_DIR' | grep -iE 'coreclr|libhostfxr|System.Private.CoreLib' ||
 # Gatekeeper / quarantine: a signed dylib blocked by quarantine can fail CLR load.
 run "xattr -l '$INSTALL_DIR/azclips-agent' 2>/dev/null || echo '<no xattrs>'"
 run "codesign -dv '$INSTALL_DIR/azclips-agent' 2>&1 | head -8 || echo '<codesign check failed>'"
+
+# Permissions on the pieces CoreCLR needs. 0x80070008 can be a dylib the runtime
+# can't read/execute. Show the launcher + every runtime dylib + the deps tree.
+log "----- 2b. permissions on launcher + runtime dylibs -----"
+run "ls -l '$INSTALL_DIR/az' '$INSTALL_DIR/azclips-agent' 2>/dev/null"
+run "find '$INSTALL_DIR' -name '*.dylib' -exec ls -l {} \; 2>/dev/null | head -40"
+run "find '$INSTALL_DIR' -name 'libcoreclr.dylib' -o -name 'libhostfxr.dylib' -o -name 'libhostpolicy.dylib' 2>/dev/null"
+# Any runtime dylib that is NOT readable would break CLR startup — flag them.
+run "find '$INSTALL_DIR' -name '*.dylib' ! -perm -u+r 2>/dev/null | head || echo '<all dylibs are readable>'"
+# The agent's own deps live under Extensions/.../deps — check that tree's perms.
+run "find '$INSTALL_DIR/Extensions' -maxdepth 4 -name deps -type d 2>/dev/null -exec ls -ld {} \;"
 
 # 3) Reproduce with .NET host tracing ON -------------------------------------
 # COREHOST_TRACE=1 makes hostfxr/hostpolicy print the full probing + resolution
