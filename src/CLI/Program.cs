@@ -400,7 +400,21 @@ public class Program
                 using var proc = Process.Start(psi)
                     ?? throw new InvalidOperationException("Process.Start returned null");
                 await proc.WaitForExitAsync();
-                return proc.ExitCode;
+
+                // Exit code semantics:
+                //   one-shot — the agent only PROPOSED a fix; it never ran anything,
+                //     so the user's original command still failed. Report failure
+                //     (never let the agent's own 0 mask it), so `&&`, CI, and $?
+                //     see the command as failed. The agent normally exits 0 here,
+                //     so force a non-zero code.
+                //   interactive — the agent may have actually run commands and
+                //     resolved the task, so its real exit code is meaningful; pass
+                //     it through unchanged.
+                if (agentOptions.IsInteractive)
+                {
+                    return proc.ExitCode;
+                }
+                return proc.ExitCode != 0 ? proc.ExitCode : 1;
             }
             finally
             {
