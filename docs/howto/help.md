@@ -4,10 +4,10 @@ This guide explains how to author and test help for CLI commands and PowerShell 
 
 CLI help and PowerShell help are authored separately, in different folders, with different formats:
 
-| Surface    | Source                                  | Format                                                                    | Tool                                 |
-| ---------- | --------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
-| CLI        | `src/CLI/Help/Docs/<verb>/<command>.md` | Azclips markdown (frontmatter + bash fences)                               | `Azclips.Help.Tool` (validators)      |
-| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`      | PlatyPS schema 2024-05-01 (current `Microsoft.PowerShell.PlatyPS` schema) | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
+| Surface    | Source                                             | Format                                                                    | Tool                                 |
+| ---------- | -------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
+| CLI        | `src/CLI/Help/Docs/<verb>/…/<command>.md` (nested) | Azclips markdown (frontmatter + bash fences)                              | `Azclips.Help.Tool` (validators)     |
+| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`                 | PlatyPS schema 2024-05-01 (current `Microsoft.PowerShell.PlatyPS` schema) | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
 
 The CLI folder name is the **verb** — the first user-facing CLI token (`vm`, `disk`, `group`, `login`, `config`, `extension`, `deployment`). Verbs are declared by `[ExtensionVerb("...")]` attributes on the extension's `IExtensionIndex` class; one extension may contribute several verbs (e.g. `Compute` owns both `vm` and `disk`). The scaffolder and validators walk `IExtensionIndex.GetVerbs()` so the layout stays in sync with code automatically.
 

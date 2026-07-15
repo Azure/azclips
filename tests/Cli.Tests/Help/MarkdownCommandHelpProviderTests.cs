@@ -369,4 +369,55 @@ public class MarkdownCommandHelpProviderTests
         Assert.Equal("Second", result.Examples[1].Title);
         Assert.Equal("Third", result.Examples[2].Title);
     }
+
+    // Path-resolution tests: walk from BaseDirectory up to azclips.slnx and read real markdown.
+
+    [Fact]
+    public void Get_ShouldResolveVerbRoot_FromExtensionIndexMd()
+    {
+        var result = MarkdownCommandHelpProvider.Get("deployment", string.Empty);
+
+        Assert.False(string.IsNullOrWhiteSpace(result.Summary));
+    }
+
+    [Fact]
+    public void Get_ShouldResolveNestedLeaf_FromExtensionSubfolder()
+    {
+        var result = MarkdownCommandHelpProvider.Get("deployment", "group create");
+
+        Assert.False(string.IsNullOrWhiteSpace(result.Summary));
+        Assert.False(string.IsNullOrWhiteSpace(result.Description));
+    }
+
+    [Fact]
+    public void Get_ShouldResolveIntermediateGroupIndex_ForNonLeafPath()
+    {
+        // Intermediate group falls back to <path>/index.md.
+        var result = MarkdownCommandHelpProvider.Get("deployment", "group");
+
+        Assert.False(string.IsNullOrWhiteSpace(result.Summary));
+    }
+
+    [Fact]
+    public void Get_ShouldReturnEmpty_ForUnknownKey()
+    {
+        var result = MarkdownCommandHelpProvider.Get("deployment", "does-not-exist");
+
+        Assert.Equal(MarkdownCommandHelp.Empty, result);
+    }
+
+    [Theory]
+    [InlineData("..")]
+    [InlineData("group ..")]
+    [InlineData(".. .. etc passwd")]
+    [InlineData("group/create")]
+    [InlineData("group\\create")]
+    public void Get_ShouldRejectPathTraversalSegments(string commandKey)
+    {
+        // User-supplied CLI tokens flow through GetGroupHelp -> Get unfiltered, so the
+        // resolver must refuse traversal, separator-bearing, or rooted segments.
+        var result = MarkdownCommandHelpProvider.Get("deployment", commandKey);
+
+        Assert.Equal(MarkdownCommandHelp.Empty, result);
+    }
 }

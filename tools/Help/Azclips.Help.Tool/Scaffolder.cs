@@ -8,9 +8,9 @@ using Core.Abstractions;
 namespace Azclips.Help.Tool
 {
     /// <summary>
-    /// Emits <c>src/CLI/Help/Docs/&lt;verb&gt;/&lt;sub&gt;.md</c> stubs (and an <c>index.md</c>)
-    /// for every routed command under a CLI verb. Naming mirrors <see cref="HelpCompletenessValidator"/>;
-    /// existing files are left untouched so authors can re-run safely.
+    /// Emits nested help markdown stubs for a verb: <c>index.md</c> at the verb root and
+    /// every intermediate group, plus one <c>&lt;path&gt;.md</c> per routed leaf. Existing
+    /// files are left untouched so authors can re-run safely.
     /// </summary>
     public static class Scaffolder
     {
@@ -21,15 +21,15 @@ namespace Azclips.Help.Tool
             var helpDir = Core.Cli.Help.HelpPaths.CliVerbHelpDir(repoRoot, verbFolder);
             Directory.CreateDirectory(helpDir);
 
-            // Scope the routed table to this verb and strip the verb prefix; keys arrive as
-            // "verb" / "verb sub" and emit as "" / "sub" → index.md / sub.md.
-            var scopedKeys = ScopeKeysToVerb(extensionIndex.GetCommandTable(ClientType.CLI), verb);
+            var scopedKeys = ScopeKeysToVerb(extensionIndex.GetCommandTable(ClientType.CLI), verb)
+                .OrderBy(static kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             var created = 0;
             var skipped = 0;
 
             var indexPath = Path.Combine(helpDir, "index.md");
-            if (TryWrite(indexPath, BuildIndexTemplate(verb)))
+            if (TryWrite(indexPath, BuildGroupIndexTemplate(verb, groupKey: string.Empty)))
             {
                 created++;
             }
@@ -38,16 +38,37 @@ namespace Azclips.Help.Tool
                 skipped++;
             }
 
-            foreach (var (subKey, metadata) in scopedKeys.OrderBy(static kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+            // Emit intermediate group index.md files before leaves so directories exist.
+            var groupPrefixes = scopedKeys
+                .SelectMany(kv => HelpCommandKey.EnumerateGroupPrefixes(kv.Key))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(static prefix => prefix, StringComparer.OrdinalIgnoreCase);
+            foreach (var prefix in groupPrefixes)
+            {
+                var groupFile = HelpCommandKey.ToGroupIndexFileName(prefix);
+                var path = Path.Combine(helpDir, groupFile.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                if (TryWrite(path, BuildGroupIndexTemplate(verb, prefix)))
+                {
+                    created++;
+                }
+                else
+                {
+                    skipped++;
+                }
+            }
+
+            foreach (var (subKey, metadata) in scopedKeys)
             {
                 if (subKey.Length == 0)
                 {
-                    // Root command (key == verb) is rendered by index.md above.
+                    // Verb root is handled by index.md above.
                     continue;
                 }
 
-                // Multi-word sub-keys (e.g. "vm scale set" → "scale set") are normalized by ToHelpFileName.
-                var path = Path.Combine(helpDir, HelpCommandKey.ToHelpFileName(subKey));
+                var relative = HelpCommandKey.ToHelpFileName(subKey);
+                var path = Path.Combine(helpDir, relative.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 if (TryWrite(path, BuildCommandTemplate(verb, subKey, metadata)))
                 {
                     created++;
@@ -106,22 +127,24 @@ namespace Azclips.Help.Tool
             return true;
         }
 
-        private static string BuildIndexTemplate(string verb)
+        private static string BuildGroupIndexTemplate(string verb, string groupKey)
         {
+            var displayPath = string.IsNullOrEmpty(groupKey) ? verb : verb + " " + groupKey;
+
             var sb = new StringBuilder();
             sb.AppendLine("---");
-            sb.AppendLine($"summary: TODO \u2014 one-sentence description of the {verb} command group.");
+            sb.AppendLine($"summary: TODO \u2014 one-sentence description of the {displayPath} command group.");
             sb.AppendLine("status: ga");
             sb.AppendLine("schema: 1.0.0");
             sb.AppendLine("online version:");
             sb.AppendLine("---");
             sb.AppendLine();
-            sb.AppendLine($"Description: TODO \u2014 describe what the `az {verb}` command group does.");
+            sb.AppendLine($"Description: TODO \u2014 describe what the `az {displayPath}` command group does.");
             sb.AppendLine();
-            sb.AppendLine($"### Discover {verb} commands");
+            sb.AppendLine($"### Discover {displayPath} commands");
             sb.AppendLine();
             sb.AppendLine("```bash");
-            sb.AppendLine($"az {verb} --help");
+            sb.AppendLine($"az {displayPath} --help");
             sb.AppendLine("```");
             return sb.ToString();
         }

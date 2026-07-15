@@ -223,6 +223,17 @@ namespace Core.Engine
                     activity.Dispose();
             });
 
+            subscriber.Subscribe(Events.ProcessorContextCreated, (data) =>
+            {
+                var evt = (EventData)data;
+                if (evt.Payload is Profile profile)
+                {
+                    telemetryService.AddTag(TelemetryTags.SubscriptionId, profile.SubscriptionId);
+                    telemetryService.AddTag(TelemetryTags.TenantId, profile.TenantId);
+                    telemetryService.AddTag(TelemetryTags.AuthType, profile.AuthMethod.ToString());
+                }
+            });
+
             return subscriber;
         }
 

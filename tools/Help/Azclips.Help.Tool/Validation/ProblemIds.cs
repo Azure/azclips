@@ -31,6 +31,9 @@ namespace Azclips.Help.Tool.Validation
         // HelpCompletenessValidator
         public const string Completeness_MissingHelpFile = "Completeness_MissingHelpFile";
         public const string Completeness_OrphanedHelpFile = "Completeness_OrphanedHelpFile";
+        // `index` is reserved: it names group-summary files at every level of the nested corpus.
+        // Routed commands containing an `index` segment would collide with those files.
+        public const string Completeness_ReservedSegment = "Completeness_ReservedSegment";
 
         // ExampleSyntaxValidator (CLI)
         public const string CLI_L1_UnknownGroup = "CLI_L1_UnknownGroup";

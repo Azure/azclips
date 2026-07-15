@@ -41,7 +41,7 @@ internal sealed class RuntimeVersionDispatcher
             ? FormatText(info)
             : CliOutputFormatter.FormatValue(info);
 
-        _output.WriteLine(rendered);
+       _output.WriteLine(rendered);
         return 0;
     }
 
@@ -64,7 +64,8 @@ internal sealed class RuntimeVersionDispatcher
         builder.AppendLine("Paths");
         builder.AppendLine($"{Indent}{"Install:".PadRight(maxLabelWidth)}{info.Paths.InstallLocation}");
         builder.AppendLine($"{Indent}{"Config:".PadRight(maxLabelWidth)}{info.Paths.ConfigLocation}");
+        builder.AppendLine($"{Indent}{"Extensions:".PadRight(maxLabelWidth)}{info.Paths.ExtensionsLocation}");
 
-        return builder.ToString().TrimEnd('\r', '\n');
+        return builder.ToString().TrimEnd();
     }
 }

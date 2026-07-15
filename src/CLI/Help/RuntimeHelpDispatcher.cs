@@ -160,19 +160,22 @@ public sealed class RuntimeHelpDispatcher
     private bool TryRenderIntrinsicHelp(string verb, out int exitCode)
     {
         exitCode = 0;
-        if (!IntrinsicVerbs.All.Contains(verb))
+
+        // Accept both the bare verb (`az version --help`) and the top-level-flag form
+        // (`az --version --help`)
+        if (!IntrinsicVerbs.TryResolve(verb, out var canonicalVerb))
         {
             return false;
         }
 
-        var markdown = MarkdownCommandHelpProvider.Get(verb, string.Empty);
+        var markdown = MarkdownCommandHelpProvider.Get(canonicalVerb, string.Empty);
         var examples = markdown.Examples
             .Where(static example => !example.IsPowerShell)
             .Select(static example => new RuntimeHelpExample(example.Title, example.Command))
             .ToList();
 
         var command = new RuntimeHelpCommand(
-            CommandPath: verb,
+            CommandPath: canonicalVerb,
             Summary: markdown.Summary,
             Description: markdown.Description,
             Parameters: [],
@@ -224,15 +227,15 @@ public sealed class RuntimeHelpDispatcher
 
         // Intrinsic host verbs (cold-path commands like `version`) aren't discovered as extensions,
         // so surface them from the markdown corpus to keep them listed in `az --help`.
-        foreach (var verb in IntrinsicVerbs.All)
+        foreach (var intrinsic in IntrinsicVerbs.All)
         {
-            if (!seenVerbs.Add(verb))
+            if (!seenVerbs.Add(intrinsic.Name))
             {
                 continue;
             }
 
-            var summary = MarkdownCommandHelpProvider.Get(verb, string.Empty).Summary;
-            yield return new RuntimeHelpGroup(verb, summary, [], []);
+            var summary = MarkdownCommandHelpProvider.Get(intrinsic.Name, string.Empty).Summary;
+            yield return new RuntimeHelpGroup(intrinsic.Name, summary, [], []);
         }
     }
 

@@ -57,9 +57,8 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             return null;
         }
 
-        var summary = groupPath.Count == 1
-            ? MarkdownCommandHelpProvider.Get(Verb, string.Empty).Summary
-            : string.Empty;
+        var relativeKey = GetRelativeKey(groupPath);
+        var summary = MarkdownCommandHelpProvider.Get(Verb, relativeKey).Summary;
 
         return BuildGroup(groupPath, summary, returnNullWhenEmpty: groupPath.Count > 1);
     }
@@ -151,7 +150,11 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             var subgroupName = segments[0];
             if (!subgroupSummaries.ContainsKey(subgroupName))
             {
-                subgroupSummaries[subgroupName] = new RuntimeHelpGroupSummary(subgroupName, string.Empty);
+                var subgroupKey = string.IsNullOrEmpty(relativePrefix)
+                    ? subgroupName
+                    : relativePrefix + " " + subgroupName;
+                var subgroupSummary = MarkdownCommandHelpProvider.Get(Verb, subgroupKey).Summary;
+                subgroupSummaries[subgroupName] = new RuntimeHelpGroupSummary(subgroupName, subgroupSummary);
             }
         }
 

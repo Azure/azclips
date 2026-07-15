@@ -273,7 +273,9 @@ stages:
       inputs:
         pwsh: true
         filePath: devops/scripts/publishing/Update-ReleaseChangelog.ps1
-        arguments: -RepoRoot "$(Build.SourcesDirectory)" -Version "$(StableVersion)" -ReleaseTimestamp "$(StableReleaseTimestamp)" -AllowEmpty
+        arguments: -RepoRoot "$(Build.SourcesDirectory)" -Version "$(StableVersion)" -ReleaseTimestamp "$(StableReleaseTimestamp)" -GitHubRepository "$(GitHubTargetRepo)" -AllowEmpty
+      env:
+        GH_TOKEN: $(GitHubToken)
 
     - bash: |
         set -euo pipefail
@@ -299,7 +301,7 @@ stages:
         basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
         git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$release_branch"
 
-        pr_title="Trigger stable release $target_version"
+        pr_title="{DevOps} Trigger stable release $target_version"
         pr_body="Updates src/CLI/Core.Cli.csproj to $target_version and aggregates module ChangeLog.md entries into CHANGELOG.md and PowerShell module manifests. After this PR merges to $target_branch, azclips-trigger-stable-release will run again from the main version change, tag the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain."
 
         gh pr create \

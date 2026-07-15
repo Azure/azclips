@@ -9,6 +9,8 @@
 import type { IR } from "@azure-client-engine/ir";
 import type { TransformPipeline } from "./transform.js";
 import type { Generator } from "./generate.js";
+import type { IRSnapshot, OutputDelegate } from "./output.js";
+import type { CompilerRegistry } from "./registry.js";
 
 /** Severity levels mirror the TypeSpec compiler's diagnostic model. */
 export type DiagnosticSeverity = "error" | "warning";
@@ -56,6 +58,32 @@ export interface CompileConfig {
    * memory) and are ignored if supplied here.
    */
   emitter?: Record<string, unknown>;
+  /**
+   * Ordered transform steps to run, resolved by `use` id against the registry
+   * in `CompileOptions.registry`. Absent/empty -> identity (no transform).
+   */
+  pipeline?: PipelineStepConfig[];
+  /**
+   * Generator to run, resolved by `use` id against the registry. Absent -> the
+   * no-op generator.
+   */
+  generator?: GeneratorConfig;
+}
+
+/** Declarative selection of a registered transform step. */
+export interface PipelineStepConfig {
+  /** Registered transform-step id (see CompilerRegistry). */
+  use: string;
+  /** Options handed to the step factory. */
+  options?: Record<string, unknown>;
+}
+
+/** Declarative selection of a registered generator. */
+export interface GeneratorConfig {
+  /** Registered generator id (see CompilerRegistry). */
+  use: string;
+  /** Options handed to the generator factory. */
+  options?: Record<string, unknown>;
 }
 
 /**
@@ -92,6 +120,21 @@ export interface CompileOptions {
    * no-op generator that emits nothing.
    */
   generator?: Generator;
+  /**
+   * Capture the IR after emit (index 0) and after each transform step as
+   * `IRSnapshot`s. Snapshots flow to `output`; with the default collector they
+   * also appear on `CompileResult.snapshots`.
+   */
+  captureIR?: boolean;
+  /**
+   * Host output sink for every generated file and (when `captureIR`) every IR
+   * snapshot, delivered in pipeline order. Defaults to an in-memory collector
+   * that fills `CompileResult.files` / `.snapshots`. A custom sink takes
+   * ownership, leaving those result buffers empty.
+   */
+  output?: OutputDelegate;
+  /** Implementations backing `CompileConfig.pipeline` / `.generator` ids. */
+  registry?: CompilerRegistry;
 }
 
 /**
@@ -105,6 +148,11 @@ export interface CompileResult {
   ir?: IR;
   /** Generated output files, keyed by relative path. */
   files: Map<string, string>;
+  /**
+   * Per-step IR snapshots (emit + each transform step), present when `captureIR`
+   * is set and the default collector sink is used. Empty/omitted otherwise.
+   */
+  snapshots?: IRSnapshot[];
   /** All diagnostics collected across every stage. */
   diagnostics: CompilerDiagnostic[];
 }

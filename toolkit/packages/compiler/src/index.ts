@@ -26,7 +26,23 @@ export type {
   CompileInput,
   CompileOptions,
   CompileResult,
+  PipelineStepConfig,
+  GeneratorConfig,
 } from "./types.js";
+
+export type {
+  IRSnapshot,
+  EmitArtifact,
+  OutputDelegate,
+} from "./output.js";
+
+export {
+  createRegistry,
+  isValidStepId,
+  type CompilerRegistry,
+  type TransformStepFactory,
+  type GeneratorFactory,
+} from "./registry.js";
 
 export {
   createTransformPipeline,

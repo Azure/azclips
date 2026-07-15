@@ -127,11 +127,11 @@ namespace Azclips.Help.Tool.Validation
             if (!indexesByCliGroup.TryGetValue(groupName, out var index))
             {
                 // Intrinsic host verbs (e.g. `version`) are implemented by the CLI host itself, not
-                // by any installed extension, so they never appear in indexesByCliGroup. Their
-                // examples are still valid `az` invocations — help comes from the markdown corpus —
-                // so accept them rather than flagging an unknown group. Mirrors the runtime's
-                // intrinsic-verb handling in RuntimeHelpDispatcher.
-                if (IntrinsicVerbs.All.Contains(groupName))
+                // by any installed extension, so they never appear in indexesByCliGroup. They accept
+                // both the bare verb (`az version`) and the equivalent top-level flag (`az --version`);
+                // accept either shape rather than flagging an unknown group. Mirrors the runtime's
+                // intrinsic-verb handling in RuntimeHelpDispatcher / ExtensionDispatcher.
+                if (IsIntrinsicVerbInvocation(groupName))
                 {
                     return;
                 }
@@ -492,15 +492,27 @@ namespace Azclips.Help.Tool.Validation
             return char.IsLetter(token[1]);
         }
 
-        /// <summary>
-        /// Help flags recognized by the CLI runtime: <c>--help</c>, <c>-h</c>, <c>-?</c>, <c>?</c>.
-        /// </summary>
+        /// <summary>Recognised CLI help-flag forms; kept in sync with <c>ExtensionDispatcher.s_helpFlags</c>.</summary>
+        /// <remarks>
+        /// Bare <c>help</c> is intentionally excluded even though the runtime accepts <c>az help</c>
+        /// at the top level — the intrinsic <c>az help</c> shape is handled upstream by
+        /// <see cref="IsIntrinsicVerbInvocation"/>, and treating bare <c>help</c> as a help-flag
+        /// mid-invocation would mask real errors on routed commands whose sub-name is <c>help</c>
+        /// (e.g. <c>az agent tool help</c>).
+        /// </remarks>
         private static bool IsHelpFlag(string token)
             => token.Equals("--help", StringComparison.Ordinal)
             || token.Equals("-h", StringComparison.Ordinal)
             || token.Equals("-?", StringComparison.Ordinal)
-            || token.Equals("?", StringComparison.Ordinal)
-            || token.Equals("help", StringComparison.Ordinal);
+            || token.Equals("?", StringComparison.Ordinal);
+
+        /// <summary>
+        /// Intrinsic host verbs can be written as the bare verb (<c>az version</c>) or the equivalent
+        /// top-level flag (<c>az --version</c>). Returns true when the group token is either shape of a
+        /// known intrinsic verb. Delegates to the runtime's single source of truth.
+        /// </summary>
+        private static bool IsIntrinsicVerbInvocation(string groupToken)
+            => IntrinsicVerbs.TryResolve(groupToken, out _);
 
         /// <summary>
         /// Shell-style tokenizer: splits on whitespace, honoring single/double quotes so values

@@ -390,6 +390,39 @@ public class ExtensionDispatcherTests
         Assert.Equal("create", createCommand.Name);
     }
 
+    // -------- Intermediate-group summary population --------
+
+    [Fact]
+    public void ExtensionIndexHelpAdapter_ShouldPopulateIntermediateGroupSummary_FromMarkdown()
+    {
+        // Relies on real corpus at src/CLI/Help/Docs/deployment/group/index.md.
+        var index = new StubExtensionIndex(cliLeaf: "deployment group create");
+        var adapter = new ExtensionIndexHelpAdapter(index.GetCommandTable(ClientType.CLI), "deployment");
+
+        var groupHelp = adapter.GetGroupHelp(["deployment", "group"]);
+
+        Assert.NotNull(groupHelp);
+        Assert.False(
+            string.IsNullOrWhiteSpace(groupHelp!.Summary),
+            "Intermediate group summary must be sourced from deployment/group/index.md, not empty.");
+    }
+
+    [Fact]
+    public void ExtensionIndexHelpAdapter_ShouldPopulateSubgroupRowSummary_FromMarkdown()
+    {
+        var index = new StubExtensionIndex(cliLeaf: "deployment group create");
+        var adapter = new ExtensionIndexHelpAdapter(index.GetCommandTable(ClientType.CLI), "deployment");
+
+        var parent = adapter.GetGroupHelp(["deployment"]);
+
+        Assert.NotNull(parent);
+        var groupRow = Assert.Single(parent!.Subgroups);
+        Assert.Equal("group", groupRow.Name);
+        Assert.False(
+            string.IsNullOrWhiteSpace(groupRow.Summary),
+            "Sub-group row must carry the summary from its own index.md.");
+    }
+
     /// <summary>
     /// Minimal in-memory <see cref="IExtensionIndex"/> for adapter-level tests. Supports a single
     /// CLI leaf so we can model intermediate-group shapes (e.g. <c>deployment group create</c>)

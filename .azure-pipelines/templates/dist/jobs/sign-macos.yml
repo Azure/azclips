@@ -22,7 +22,7 @@ parameters:
   default: ''
 - name: esrp_apple_keycode
   type: string
-  default: 'CP-401337-Apple'
+  default: ''
 - name: macos_bundle_id
   type: string
   default: 'com.microsoft.azclips.cli'

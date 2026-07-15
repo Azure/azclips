@@ -13,8 +13,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
     private static readonly HashSet<string> AllowedKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         // Per-process invariants (TelemetryTags.*)
-        // TelemetryTags.Id,
-        TelemetryTags.IsMicrosoftInternal,
+        TelemetryTags.InstallationId,        
         TelemetryTags.ProductName,
         TelemetryTags.ProductVersion,
         TelemetryTags.SchemaVersion,
@@ -29,6 +28,7 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.Parameter,
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
+        TelemetryTags.AuthType,
         TelemetryTags.Mode,
 
         // HTTP standard attributes — method/status/host are safe; URL/path are NOT allowed
