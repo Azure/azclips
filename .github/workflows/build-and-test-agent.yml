@@ -63,6 +63,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Publish built-in extensions (fills builtin-publish/ for the inject step)
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x devops/scripts/packaging/common/build_common.sh
+          bash devops/scripts/packaging/common/build_common.sh
+
       - name: Build the platform package (CLI + agent hybrid layout)
         env:
           PACKAGE_PROFILE: lean
