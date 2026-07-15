@@ -81,18 +81,39 @@ public class ArmListPaginatorTests
         Assert.Equal(new[] { "a", "b" }, items.Select(i => i.Name));
     }
 
-    [Fact]
-    public async Task NonAbsoluteNextLink_Throws()
+    [Theory]
+    [InlineData("relative/next")]      // relative reference: non-absolute on every platform
+    [InlineData("/leading/slash")]     // absolute file: URI on Unix, still not HTTP(S)
+    [InlineData("ftp://example.com/x")] // absolute but non-HTTP(S) scheme
+    public async Task NonHttpNextLink_Throws(string nextLink)
     {
-        // A leading-slash path ("/x") is treated as an absolute file: URI on Unix, so use a
-        // clearly relative reference that is non-absolute on every platform.
         var output = new FakeOutputHandler();
-        var pipeline = new FakeHttpPipeline((_, _) => Json("""{ "value": [ { "name": "a" } ], "nextLink": "relative/next" }"""));
+        var pipeline = new FakeHttpPipeline((_, _) => Json($$"""{ "value": [ { "name": "a" } ], "nextLink": "{{nextLink}}" }"""));
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             CollectAsync(pipeline, output, () => pipeline.SendAsync(new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/x"), new FakeEventPublisher())));
 
-        Assert.Contains("not an absolute URI", ex.Message);
+        Assert.Contains("not an absolute HTTP(S) URI", ex.Message);
+    }
+
+    [Fact]
+    public async Task NextLinkPageWithNoBody_ThrowsToAvoidTruncation()
+    {
+        // First page advertises a nextLink; the follow-up page returns an empty body. The
+        // paginator must fail fast rather than silently truncating the result set.
+        const string page1 = """{ "value": [ { "name": "a" } ], "nextLink": "https://management.azure.com/x?%24skiptoken=p2" }""";
+        var output = new FakeOutputHandler();
+        var call = 0;
+        var pipeline = new FakeHttpPipeline((_, _) =>
+            ++call == 1
+                ? Json(page1)
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(string.Empty, Encoding.UTF8, "application/json") });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CollectAsync(pipeline, output, () => pipeline.SendAsync(new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/x"), new FakeEventPublisher())));
+
+        Assert.Contains("would truncate results", ex.Message);
+        Assert.Empty(output.WrittenValues);
     }
 
     [Fact]

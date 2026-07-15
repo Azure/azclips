@@ -66,9 +66,12 @@ public static class ArmListPaginator
                     break;
                 }
 
-                if (!Uri.TryCreate(page.NextLink, UriKind.Absolute, out Uri? nextUri))
+                if (!Uri.TryCreate(page.NextLink, UriKind.Absolute, out Uri? nextUri)
+                    || (nextUri.Scheme != Uri.UriSchemeHttp && nextUri.Scheme != Uri.UriSchemeHttps))
                 {
-                    throw new InvalidOperationException($"Service returned a nextLink that is not an absolute URI: {page.NextLink}");
+                    // Require an absolute HTTP(S) URI. UriKind.Absolute alone is not enough: on Unix
+                    // a leading-slash path parses as an absolute file: URI, which must not be fetched.
+                    throw new InvalidOperationException($"Service returned a nextLink that is not an absolute HTTP(S) URI: {page.NextLink}");
                 }
 
                 if (!seenLinks.Add(page.NextLink))
