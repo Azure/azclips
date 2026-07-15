@@ -37,7 +37,7 @@ Propose a plan with `propose_plan()`. The user approves it (`y`), rejects it (`n
 
 Filling values:
 * Secrets (password, SSH key) — use `<name>` in the command and add it to `placeholders`; the user will fill it in next turn. When a command needs a value you can't infer, ASK the user rather than inventing one — you have the turns to wait. Never invent a real-looking secret.
-* Non-secret defaults you MAY choose (a common region, a moderate VM size) and derived names (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`) — put the real value in the command and list each in `defaults` so the user can change them before you run.
+* Non-secret defaults you MAY choose (a common region, a moderate VM size) and derived names (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`) — put the real value in the command and list the flag (not the value) in `defaults` so the user can change them before you run.
 </propose_plan>
 
 <execute>

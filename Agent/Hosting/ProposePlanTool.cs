@@ -15,7 +15,7 @@ namespace Core.Agent.Hosting;
 ///   • issues       — what went wrong, as plain-text points
 ///   • steps         — the ordered commands to fix it
 ///   • placeholders  — secrets only the user knows (rendered with &lt;name&gt;)
-///   • defaults      — values the agent chose/derived (rendered as the real value)
+///   • defaults      — flags the agent chose/derived (rendered from the command's real token)
 /// Argument validation lives in the hook, so this body only logs.
 /// </summary>
 public sealed class ProposePlanTool
@@ -32,7 +32,7 @@ public sealed class ProposePlanTool
                 "issues (what went wrong, as short points), " +
                 "steps (the commands to fix it, in order), " +
                 "placeholders (secrets only the user can supply; optional), " +
-                "defaults (values you chose or derived for the user; optional).",
+                "defaults (flags you chose or derived; the value is read from your step's cmd; optional).",
         });
 
         All = new[] { ProposePlan };
@@ -49,7 +49,7 @@ public sealed class ProposePlanTool
         IReadOnlyList<StepMeta> steps,
         [Description("Optional. Secrets only the user knows — a password, an SSH private key, anything the system can't obtain or infer. Each: name (the flag name without dashes, e.g. \"admin-password\") + description (one short phrase telling the user what to fill in). Use <name> as a placeholder in the command (e.g. --admin-password <admin-password>); not replacing it is expected to fail. Do NOT list values the environment can supply (e.g. subscription id from the signed-in context) — those go in defaults. Omit when there are none.")]
         IReadOnlyList<UserInputNeed>? placeholders = null,
-        [Description("Optional. Values you chose or derived for the user — a default region/size, a subscription id from the signed-in context, or names derived from the user's input (e.g. myvm-nic / myvm-vnet). Each: name (the flag name without dashes), value (the actual value you put in the command), note (one short phrase, why you picked it). Put the real value in the command so the user can run it as-is; this just flags it so they can change it. Do NOT list values the user already wrote in their original command. Omit when there are none.")]
+        [Description("Optional. Values you chose or derived for the user — a default region/size, a subscription id from the signed-in context, or names derived from the user's input (e.g. myvm-nic / myvm-vnet). Each: flag (as written in your step's cmd, e.g. --location), note (one short phrase, why you picked it). Don't include the value — we read it from the matching flag in your step's cmd. List a flag only if the user may want to change it; don't list a flag the user already filled in themselves.")]
         IReadOnlyList<ChosenDefault>? defaults = null)
     {
         using var scope = ToolInvocationLog.Start("propose_plan",
@@ -80,11 +80,11 @@ public sealed record UserInputNeed(
     string Description);
 
 /// <summary>
-/// A value the agent chose or derived for the user (default region/size, a
-/// probe-supplied subscription id, a derived resource name). The real value is in
-/// the command so it runs as-is; the host flags it so the user can change it.
+/// A flag the agent chose or derived for the user (default region/size, a
+/// probe-supplied subscription id, a derived resource name). The value lives in
+/// the step command; the host reads it from there and flags it for review, so
+/// the display always matches what runs.
 /// </summary>
 public sealed record ChosenDefault(
-    string Name,
-    string Value,
+    string Flag,
     string Note);

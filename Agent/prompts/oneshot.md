@@ -38,11 +38,11 @@ Propose ONE complete plan with `propose_plan()` — the deliverable the user rea
 * `steps[]` — EVERY command needed, in order (if it's "create the resource group, then the VM", both are steps).
 * `issues` — what went wrong, one short point per entry.
 * `placeholders` — each secret you don't have (`name` + short `description`).
-* `defaults` — non-secret values you chose (`name` + `value` + `note`).
+* `defaults` — non-secret flags you chose (`flag` + `note`; not the value).
 
 Filling values:
 * Secrets (password, SSH key) — use `<name>` in the command, add it to `placeholders`, never invent one.
-* Non-secret defaults you MAY choose (a common region, a moderate VM size) and derived names (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`) — put the real value in the command and list each in `defaults`. For a region/SKU availability error, use `find_available_locations()` instead of assuming a default.
+* Non-secret defaults you MAY choose (a common region, a moderate VM size) and derived names (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`) — put the real value in the command and list the flag (not the value) in `defaults`. For a region/SKU availability error, use `find_available_locations()` instead of assuming a default.
 </propose_plan>
 
 <submit_plan>

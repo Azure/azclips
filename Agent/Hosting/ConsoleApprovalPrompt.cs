@@ -71,7 +71,10 @@ public sealed class ConsoleApprovalPrompt
 
     // A value the agent chose/derived for the user — rendered as the real value
     // (italic when the terminal supports it) so the user can run as-is or change it.
-    public sealed record ChosenDefault(string Name, string Value, string Note);
+    // A flag the agent chose/derived for the user. Value is NOT stored — it's read
+    // from the matching flag in the plan's step command at render time, so the
+    // review line always matches what will actually run.
+    public sealed record ChosenDefault(string Flag, string Note);
 
     // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
     // set, the user typed free-form text at the y/n prompt — the host treats it
@@ -220,6 +223,7 @@ public sealed class ConsoleApprovalPrompt
     // (shown as the real value, plain) and the secrets the user must fill in
     // (shown as <name> placeholders). Empty block is skipped.
     private static void RenderReviewValues(
+        IReadOnlyList<PlanStep>? steps,
         IReadOnlyList<ChosenDefault>? defaults,
         IReadOnlyList<UserInputNeed>? placeholders)
     {
@@ -232,13 +236,44 @@ public sealed class ConsoleApprovalPrompt
         if (hasDefaults)
             foreach (var d in defaults!)
             {
-                // Agent-chosen value: the real value, then the note after a colon.
+                // Show the flag exactly as it appears in the step command — with its
+                // real value if it takes one, bare if it's a switch — so the review
+                // line matches what runs. The value is never stored on ChosenDefault;
+                // it's read from the command here.
+                var token = FindFlagToken(steps, d.Flag);
                 var note = string.IsNullOrWhiteSpace(d.Note) ? "" : $": {OneLine(d.Note)}";
-                Console.WriteLine($"• {OneLine(d.Name)} {OneLine(d.Value)}{note}");
+                Console.WriteLine($"• {OneLine(token)}{note}");
             }
         if (hasPlaceholders)
             foreach (var p in placeholders!)
                 Console.WriteLine($"• <{OneLine(p.Name)}>: {OneLine(p.Description)}");
+    }
+
+    // Locate a flag in the plan's step commands and return it exactly as written,
+    // with its value if any: "--location eastus2", "--admin-password <pw>", or a
+    // bare "--active" for a switch. Falls back to the flag alone if not found.
+    // internal for unit testing.
+    internal static string FindFlagToken(IReadOnlyList<PlanStep>? steps, string flag)
+    {
+        if (string.IsNullOrWhiteSpace(flag)) return flag;
+        // Normalize to a leading-dash form for matching; keep what the model gave
+        // for the fallback display.
+        var needle = flag.StartsWith('-') ? flag : "--" + flag;
+        if (steps is not null)
+        {
+            foreach (var s in steps)
+            {
+                if (string.IsNullOrEmpty(s.Cmd)) continue;
+                // Match "<flag>" then optionally a value that is NOT another flag.
+                // Group 1 = the value token (absent for a switch).
+                var m = Regex.Match(s.Cmd,
+                    $@"(?<![^\s]){Regex.Escape(needle)}(?:[=\s]+(?<val>(?!--)\S+))?",
+                    RegexOptions.IgnoreCase);
+                if (m.Success)
+                    return m.Groups["val"].Success ? $"{needle} {m.Groups["val"].Value}" : needle;
+            }
+        }
+        return needle; // not found in any step — show the flag alone
     }
 
     // Collapse newlines/tabs/runs of whitespace to single spaces so a stray
@@ -400,10 +435,6 @@ public sealed class ConsoleApprovalPrompt
     // a light background). Headings are distinguished by structure, not color.
     private static void RenderPlan(PlanContent plan)
     {
-        // Deterministic post-processing before rendering (e.g. drop a redundant
-        // "true" on a boolean switch flag). See PlanSanitizer.
-        plan = Core.Agent.Plan.PlanSanitizer.Sanitize(plan);
-
         Console.WriteLine("AI help");
         Console.WriteLine("───────");
 
@@ -434,7 +465,7 @@ public sealed class ConsoleApprovalPrompt
             }
         }
 
-        RenderReviewValues(plan.Defaults, plan.Placeholders);
+        RenderReviewValues(plan.Steps, plan.Defaults, plan.Placeholders);
         // Blank line between the review-values block and the disclaimer, then the
         // disclaimer as the last line of every rendered plan — so it travels with
         // the plan wherever it's shown (one-shot at submit, interactive before
