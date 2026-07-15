@@ -8,9 +8,10 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 /// <summary>
-/// Lists virtual machines in a resource group. ARM list endpoints return an envelope
-/// <c>{ "value": [...], "nextLink": "..." }</c>; this processor delegates the unwrap +
-/// <c>nextLink</c> pagination to <see cref="ArmListPaginator"/>.
+/// Lists virtual machines in a resource group. The ARM list endpoint returns an envelope
+/// <c>{ "value": [...] }</c>; this processor deserializes that envelope and writes its
+/// <c>value</c> array so PowerShell enumerates individual VMs and the CLI serializes a JSON array.
+/// Pagination (<c>nextLink</c>) is intentionally not followed yet.
 /// </summary>
 public class ListVMProcessor : ComputeProcessorBase<VirtualMachineListResult>
 {
@@ -25,7 +26,5 @@ public class ListVMProcessor : ComputeProcessorBase<VirtualMachineListResult>
         return request;
     }
 
-    public override Task ProcessAsync() =>
-        ArmListPaginator.CollectAndWriteAsync<VirtualMachineListResult, VirtualMachine>(
-            HttpPipeline, Publisher, JsonOptions, WriteOutput, SendAsync);
+    protected override object SelectOutput(VirtualMachineListResult body) => body.Value ?? [];
 }

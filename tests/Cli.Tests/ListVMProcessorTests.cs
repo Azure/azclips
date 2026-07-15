@@ -12,10 +12,10 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Offline tests for <see cref="ListVMProcessor"/>. ARM list endpoints return an envelope
-/// <c>{ "value": [...], "nextLink": "..." }</c>; the processor must unwrap it into the flat
-/// array of VMs (regression: it previously deserialized the envelope into a single VM, so
-/// non-empty resource groups appeared to contain no VMs).
+/// Offline tests for <see cref="ListVMProcessor"/>. The ARM list endpoint returns an envelope
+/// <c>{ "value": [...] }</c>; the processor unwraps it and writes the flat VM array (regression:
+/// it previously deserialized the envelope into a single VM, so non-empty resource groups
+/// appeared to contain no VMs). Pagination is intentionally not followed yet.
 /// </summary>
 public class ListVMProcessorTests
 {
@@ -79,29 +79,24 @@ public class ListVMProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_FollowsNextLink_AcrossPages()
+    public async Task ProcessAsync_DoesNotFollowNextLink_ReturnsFirstPageOnly()
     {
-        var page1 = """
+        // Pagination is intentionally not implemented yet: a nextLink is ignored and only the
+        // first page's items are returned.
+        const string page1 = """
             {
               "value": [ { "name": "vm1", "location": "eastus" } ],
-              "nextLink": "https://management.azure.com/subscriptions/s/resourceGroups/my-rg/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01&%24skiptoken=page2"
+              "nextLink": "https://management.azure.com/next?%24skiptoken=page2"
             }
             """;
-        const string page2 = """
-            { "value": [ { "name": "vm2", "location": "westus" } ] }
-            """;
-
-        var pipeline = new FakeHttpPipeline((request, _) =>
-            request.RequestUri!.Query.Contains("skiptoken", StringComparison.OrdinalIgnoreCase)
-                ? Json(page2)
-                : Json(page1));
+        var pipeline = new FakeHttpPipeline((_, _) => Json(page1));
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, pipeline.SendCount);
+        Assert.Equal(1, pipeline.SendCount);
         var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(output.WrittenValues));
-        Assert.Equal(new[] { "vm1", "vm2" }, vms.Select(v => v.Name));
+        Assert.Equal(new[] { "vm1" }, vms.Select(v => v.Name));
     }
 }

@@ -15,8 +15,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 /// Compute extension's <c>[ExtensionVerb("vm")] [ExtensionVerb("disk")]</c> contract holds
 /// end-to-end. Wired through <see cref="ExtensionIndex"/>'s <c>s_cliTable</c> as <c>disk list</c>.
 /// <para>
-/// ARM list endpoints return an envelope <c>{ "value": [...], "nextLink": "..." }</c>; the unwrap
-/// and <c>nextLink</c> pagination are delegated to <see cref="ArmListPaginator"/>.
+/// The ARM list endpoint returns an envelope <c>{ "value": [...] }</c>; this processor writes its
+/// <c>value</c> array. Pagination (<c>nextLink</c>) is intentionally not followed yet.
 /// </para>
 /// </summary>
 public class ListDiskProcessor : ComputeProcessorBase<DiskListResult>
@@ -32,7 +32,5 @@ public class ListDiskProcessor : ComputeProcessorBase<DiskListResult>
         return request;
     }
 
-    public override Task ProcessAsync() =>
-        ArmListPaginator.CollectAndWriteAsync<DiskListResult, Disk>(
-            HttpPipeline, Publisher, JsonOptions, WriteOutput, SendAsync);
+    protected override object SelectOutput(DiskListResult body) => body.Value ?? [];
 }

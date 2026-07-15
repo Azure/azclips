@@ -14,7 +14,8 @@ namespace Cli.Tests;
 /// <summary>
 /// Offline tests for <see cref="ListDiskProcessor"/>. Same regression class as
 /// <see cref="ListVMProcessorTests"/>: the ARM <c>disks</c> list endpoint returns an envelope
-/// <c>{ "value": [...], "nextLink": "..." }</c> that must be unwrapped into a flat array.
+/// <c>{ "value": [...] }</c> that must be unwrapped into a flat array. Pagination is
+/// intentionally not followed yet.
 /// </summary>
 public class ListDiskProcessorTests
 {
@@ -74,27 +75,24 @@ public class ListDiskProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_FollowsNextLink_AcrossPages()
+    public async Task ProcessAsync_DoesNotFollowNextLink_ReturnsFirstPageOnly()
     {
+        // Pagination is intentionally not implemented yet: a nextLink is ignored and only the
+        // first page's items are returned.
         const string page1 = """
             {
               "value": [ { "name": "disk1", "location": "eastus" } ],
-              "nextLink": "https://management.azure.com/subscriptions/s/resourceGroups/my-rg/providers/Microsoft.Compute/disks?api-version=2025-01-02&%24skiptoken=page2"
+              "nextLink": "https://management.azure.com/next?%24skiptoken=page2"
             }
             """;
-        const string page2 = """{ "value": [ { "name": "disk2", "location": "westus" } ] }""";
-
-        var pipeline = new FakeHttpPipeline((request, _) =>
-            request.RequestUri!.Query.Contains("skiptoken", StringComparison.OrdinalIgnoreCase)
-                ? Json(page2)
-                : Json(page1));
+        var pipeline = new FakeHttpPipeline((_, _) => Json(page1));
         var output = new FakeOutputHandler();
         var processor = CreateProcessor(pipeline, output);
 
         await processor.ProcessAsync();
 
-        Assert.Equal(2, pipeline.SendCount);
+        Assert.Equal(1, pipeline.SendCount);
         var disks = Assert.IsType<Disk[]>(Assert.Single(output.WrittenValues));
-        Assert.Equal(new[] { "disk1", "disk2" }, disks.Select(d => d.Name));
+        Assert.Equal(new[] { "disk1" }, disks.Select(d => d.Name));
     }
 }
