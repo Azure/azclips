@@ -14,13 +14,13 @@
 This new generation of command line tools provide a lightweight, efficient and intelligent set of commands to manage Azure resources.
 Depending on preferences, scripting environment or other requirements, you can use the native command or its PowerShell equivalent to obtain identical outcomes.
 
-The architecture used for these commands allows execution in secure, constrained environments and provide a faster execution or disk footprint.
+The architecture used for these commands allows execution in secure, constrained environments and provides faster execution or a smaller disk footprint.
 
 ## Preview capabilities
 
 - **Profile-based login** — sign in and manage which subscription and context your commands run against.
 - **Single sign-on (SSO)** — one `az login` is shared between Azure PowerShell and native `az` commands in the same session; no re-authentication when switching.
-- **Faster tab completion** — press `<Tab>` to complete command groups, subcommands, and parameters, resolved against the installed CLI.
+- **Faster tab completion** — press <kbd>Tab</kbd> to complete command groups, subcommands, and parameters, resolved against the installed CLI.
 - **AI-powered error recovery** — when a command fails, an integrated AI model explains what went wrong and suggests a guided fix. See [AI-based error recovery](./docs/azure-cli/docs-conceptual/ai-based-error-recovery.md).
 
 Plus the basics: install, `az --help`, `az --version` and `az config`.
