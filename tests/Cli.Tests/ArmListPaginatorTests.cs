@@ -84,8 +84,10 @@ public class ArmListPaginatorTests
     [Fact]
     public async Task NonAbsoluteNextLink_Throws()
     {
+        // A leading-slash path ("/x") is treated as an absolute file: URI on Unix, so use a
+        // clearly relative reference that is non-absolute on every platform.
         var output = new FakeOutputHandler();
-        var pipeline = new FakeHttpPipeline((_, _) => Json("""{ "value": [ { "name": "a" } ], "nextLink": "/relative/next" }"""));
+        var pipeline = new FakeHttpPipeline((_, _) => Json("""{ "value": [ { "name": "a" } ], "nextLink": "relative/next" }"""));
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             CollectAsync(pipeline, output, () => pipeline.SendAsync(new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/x"), new FakeEventPublisher())));
