@@ -6,7 +6,7 @@ description: Learn how to organize conceptual and reference documentation in the
 # Documentation structure for the private preview
 
 This article describes the documentation structure and contribution guidelines for the private
-preview.
+preview for the end user documentation.
 
 ## Documentation structure
 
@@ -42,6 +42,9 @@ Examples of conceptual content include:
 - What's new
 - AI-based error recovery
 - Troubleshooting
+- How-To
+- Tutorials
+- Scenarios
 
 ## Place reference documentation
 
