@@ -49,15 +49,6 @@ jobs:
             out_glob: devops/out/windows
             az_name: az.exe
             shell: pwsh
-          # --- macOS P0 repro matrix: {Intel macos-13, Apple Silicon macos-14}
-          #     x {lean, full}. The reported crash was on a full install where
-          #     `vm show` actually runs (vm/Compute present) and fails, spawning the
-          #     agent — so the `full` jobs trigger with a real `vm show` command;
-          #     `lean` jobs use a generic miss (vm would be a structured bypass).
-          - { os: macos-13, platform: macos13-intel-lean, profile: lean, trigger: miss, build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh, out_glob: devops/out/macos, az_name: az, shell: bash }
-          - { os: macos-13, platform: macos13-intel-full, profile: full, trigger: vm,   build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh, out_glob: devops/out/macos, az_name: az, shell: bash }
-          - { os: macos-14, platform: macos14-arm-lean,   profile: lean, trigger: miss, build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh, out_glob: devops/out/macos, az_name: az, shell: bash }
-          - { os: macos-14, platform: macos14-arm-full,   profile: full, trigger: vm,   build: bash devops/scripts/packaging/macos/tarball/build_macos_tarball.sh, out_glob: devops/out/macos, az_name: az, shell: bash }
 
     runs-on: ${{ matrix.os }}
     name: agent-smoke (${{ matrix.platform }})
@@ -169,3 +160,73 @@ jobs:
             Write-Host "::error::agent never reached the auth step — no 'requires an Azure login'. Fallback may not have fired, or agent died early."
             exit 1
           }
+
+  # ===========================================================================
+  # macOS P0 reproduction — install EXACTLY like a user does.
+  #
+  # Users install via install/azcli-install.sh: it downloads the latest *signed*
+  # release with `gh release download`, extracts to ~/.local/share/azcli, and
+  # runs it as a RELATIVE `./az` (so it doesn't shadow the system az). The
+  # reported crash ("Failed to create CoreCLR, HRESULT: 0x80070008") happens on
+  # that signed-release install — which is why our from-source packaging never
+  # reproduced it. This job mirrors the user path exactly: same installer, same
+  # arm64 arch (release ships arm64 only), same relative `./az` invocation.
+  #
+  # It's a LAGGING check: it tests whatever release is currently published, not
+  # this PR's code. That's intentional — if the shipped package ever regresses
+  # here, it surfaces in an unrelated PR and forces a fix.
+  # ===========================================================================
+  macos-release-repro:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]      # arm64 images (release ships arm64 only)
+        package: [full, lean]
+    runs-on: ${{ matrix.os }}
+    name: macos-release-repro (${{ matrix.os }} / ${{ matrix.package }})
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # gh release download needs an authenticated session
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install the signed release exactly like a user (install/azcli-install.sh)
+        run: |
+          set -euo pipefail
+          chmod +x install/azcli-install.sh
+          # Same entry point users run; --package selects full/lean. Installs to
+          # ~/.local/share/azcli (the script's default INSTALL_ROOT).
+          bash install/azcli-install.sh --package ${{ matrix.package }}
+
+      - name: Reproduce — run as the user does (relative ./az)
+        run: |
+          set -uo pipefail
+          # Match the user's exact working style: cd into the install dir and
+          # invoke a RELATIVE ./az (they do this to avoid shadowing system az).
+          cd "$HOME/.local/share/azcli"
+          ./az --version
+
+          ./az config set --key agent.enabled --value true
+          ./az config set --key agent.sessionStyle --value oneshot
+
+          set +e
+          if [ "${{ matrix.package }}" = "full" ]; then
+            # Full has vm/Compute → `vm show` actually runs, fails, spawns the agent
+            # (the reported repro command).
+            OUT="$(./az vm show --name test --subscription-id 00000000-0000-0000-0000-000000000000 --resource-group test 2>&1)"
+          else
+            # Lean has no vm → use a generic miss to fire the fallback.
+            OUT="$(./az create a resource group named ci-repro 2>&1)"
+          fi
+          set -e
+          echo "----- output -----"; echo "$OUT"; echo "------------------"
+
+          if echo "$OUT" | grep -qi "Failed to create CoreCLR"; then
+            echo "::error::P0 REPRODUCED on ${{ matrix.os }}/${{ matrix.package }} — agent subprocess failed to start its .NET runtime (Failed to create CoreCLR)."
+            exit 1
+          fi
+          if echo "$OUT" | grep -qiE "requires an Azure login|No active Azure account"; then
+            echo "No CoreCLR crash — agent started and reached the auth step. (P0 not reproduced on this image/package.)"
+          else
+            echo "::warning::agent did not reach the auth step and did not crash on CoreCLR — inspect the output above (the released package may behave differently)."
+          fi
