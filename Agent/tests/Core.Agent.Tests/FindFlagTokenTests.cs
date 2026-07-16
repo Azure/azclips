@@ -10,8 +10,9 @@ namespace Core.Agent.Tests;
 /// <summary>
 /// Unit tests for <see cref="ConsoleApprovalPrompt.FindFlagToken"/> — the render-
 /// time lookup that reads a review flag's real token out of the plan's step
-/// command, so "Values to review" always matches what will run (no LLM-supplied
-/// value, no "active true" mis-shaping).
+/// command, so "Values to review" matches what will run instead of an
+/// LLM-supplied value. (It doesn't special-case switches; a switch renders bare
+/// simply because its command token has no value — see SwitchFlag_ReturnsBareFlag.)
 /// </summary>
 public class FindFlagTokenTests
 {
@@ -87,8 +88,11 @@ public class FindFlagTokenTests
     [Fact]
     public void PrefixFlag_DoesNotFalseMatchLongerFlag()
     {
-        // "--resource-group" must not be matched when looking for "--resource".
-        var steps = Steps("az vm show --resource-group my-rg");
-        Assert.Equal("--resource", ConsoleApprovalPrompt.FindFlagToken(steps, "--resource"));
+        // "--resource" must not match inside "--resource-group". A real "--resource"
+        // appears later; the function must skip the longer flag and find the real
+        // one — so the expected value differs from the not-found fallback, making
+        // this a genuine test (not one the fallback would satisfy by accident).
+        var steps = Steps("az vm show --resource-group my-rg --resource foo");
+        Assert.Equal("--resource foo", ConsoleApprovalPrompt.FindFlagToken(steps, "--resource"));
     }
 }

@@ -69,8 +69,6 @@ public sealed class ConsoleApprovalPrompt
     // A secret only the user can supply — rendered with <Name> as a placeholder.
     public sealed record UserInputNeed(string Name, string Description);
 
-    // A value the agent chose/derived for the user — rendered as the real value
-    // (italic when the terminal supports it) so the user can run as-is or change it.
     // A flag the agent chose/derived for the user. Value is NOT stored — it's read
     // from the matching flag in the plan's step command at render time, so the
     // review line always matches what will actually run.
@@ -259,10 +257,11 @@ public sealed class ConsoleApprovalPrompt
             }
     }
 
-    // Locate a flag in the plan's step commands and return it exactly as written,
-    // with its value if any: "--location eastus2", "--admin-password <pw>", or a
-    // bare "--active" for a switch. Falls back to the flag alone if not found.
-    // internal for unit testing.
+    // Locate a flag in the plan's step commands and return the flag with its value
+    // if any: "--location eastus2", "--admin-password <pw>", or a bare "--active"
+    // for a switch. The flag is normalized to a leading "--" for matching (a model
+    // may list it without dashes), and "--flag=value" is rendered as "--flag value".
+    // Falls back to the flag alone if not found. internal for unit testing.
     internal static string FindFlagToken(IReadOnlyList<PlanStep>? steps, string flag)
     {
         if (string.IsNullOrWhiteSpace(flag)) return flag;
@@ -274,10 +273,12 @@ public sealed class ConsoleApprovalPrompt
             foreach (var s in steps)
             {
                 if (string.IsNullOrEmpty(s.Cmd)) continue;
-                // Match "<flag>" then optionally a value that is NOT another flag.
-                // Group 1 = the value token (absent for a switch).
+                // Match the flag as a WHOLE token — the trailing (?![\w-]) stops
+                // "--resource" from matching inside "--resource-group". Then an
+                // optional value that isn't itself a flag ((?!-) rejects both
+                // "--x" and short "-x"). Group "val" is absent for a switch.
                 var m = Regex.Match(s.Cmd,
-                    $@"(?<![^\s]){Regex.Escape(needle)}(?:[=\s]+(?<val>(?!--)\S+))?",
+                    $@"(?<![^\s]){Regex.Escape(needle)}(?![\w-])(?:[=\s]+(?<val>(?!-)\S+))?",
                     RegexOptions.IgnoreCase);
                 if (m.Success)
                     return m.Groups["val"].Success ? $"{needle} {m.Groups["val"].Value}" : needle;
