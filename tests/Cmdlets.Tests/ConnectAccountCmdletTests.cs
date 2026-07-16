@@ -80,7 +80,7 @@ public class ConnectAccountCmdletTests
 
         Assert.NotNull(alias);
         Assert.Contains("MSI", alias!.AliasNames);
-        Assert.Contains("ManagedIdentity", alias.AliasNames);
+        Assert.Contains("ManagedService", alias.AliasNames);
     }
 
     [Fact]
