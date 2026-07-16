@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784187726014,
+  "lastUpdate": 1784202729374,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -630,6 +630,48 @@ window.BENCHMARK_DATA = {
             "value": 221494126.29,
             "unit": "ns",
             "range": "± 4009652.701538785"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b28c14debd913c390d2bf76791ad3edf479afab4",
+          "message": "{DevOps} Trigger stable release 0.0.7 (#538)\n\nUpdates src/CLI/Core.Cli.csproj to 0.0.7 and aggregates module\nChangeLog.md entries into CHANGELOG.md and PowerShell module manifests.\nAfter this PR merges to main, azclips-trigger-stable-release will run\nagain from the main version change, tag the merged commit as v0.0.7.<UTC\nyyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-07-16T21:37:55+10:00",
+          "tree_id": "cf47d606296f0224af5d156555888fa01f8d4e9d",
+          "url": "https://github.com/Azure/azclips/commit/b28c14debd913c390d2bf76791ad3edf479afab4"
+        },
+        "date": 1784202729266,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 232820853.74,
+            "unit": "ns",
+            "range": "± 3300817.3094495204"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 234078346.67,
+            "unit": "ns",
+            "range": "± 3833678.189611168"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 231602171.65,
+            "unit": "ns",
+            "range": "± 3705288.175395022"
           }
         ]
       }
