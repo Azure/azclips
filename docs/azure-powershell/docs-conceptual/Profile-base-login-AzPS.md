@@ -62,7 +62,7 @@ A profile name must:
 
 The name `temp` is reserved for sign-in without a named profile and can't be used as a profile name.
 
-## List your profiles
+## List profiles
 
 To see all saved profiles, use `Get-AzProfile`:
 
