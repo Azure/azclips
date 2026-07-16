@@ -1,5 +1,10 @@
 ## Upcoming Release
 
+## v0.0.6 - 2026-07-16 01:40 UTC
+
+#### CLI
+- `az vm list`: Report CLI flag names instead of internal property names in missing-required-parameter errors (#461)
+
 ## v0.0.5 - 2026-07-13 00:22 UTC
 
 - No user-facing PowerShell module changes were listed for this release.
