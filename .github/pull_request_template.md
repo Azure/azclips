@@ -19,6 +19,8 @@ If one PR needs multiple release-note entries, or if the PR title is only a summ
 [Component Name] `az command`: Add customer-facing behavior
 [Component Name] BREAKING CHANGE: `az command`: Remove deprecated behavior
 
+History note lines must not end with trailing punctuation or trailing spaces.
+
 Common components: CLI, PowerShell, Agent, Auth, Packaging, DevOps, Docs.
 Delete this section only when no release note is needed.
 -->
