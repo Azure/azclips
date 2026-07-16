@@ -1,13 +1,13 @@
 {
   "project": "Project Azclips",
-  "repository": "Azure/azclips",
-  "description": "A .NET 10 extension-based CLI framework (the `az` binary) for Azure resource management, with an out-of-process AI agent fallback (GitHub Copilot SDK), an interactive Terminal UI, and mirrored PowerShell cmdlets. Project codename is Azclips; user-scoped state lives under ~/.azclips.",
+  "repository": "Azure/cirrus",
+  "description": "A .NET 10 extension-based CLI framework (the `az` binary) for Azure resource management, with an out-of-process AI agent fallback built on the GitHub Copilot SDK, a full-screen interactive Terminal UI (Hex1b), and mirrored PowerShell cmdlets. The product/code identity is 'Azclips' (namespaces, binaries, ~/.azclips state) even though the GitHub repository itself is named 'cirrus' (`git remote -v` -> github.com/Azure/cirrus.git) — the two names refer to the same codebase and should not be conflated as separate projects.",
   "primaryLanguage": "C# (.NET 10 / net10.0)",
   "generatedAgainst": {
     "targetFramework": "net10.0",
-    "sdk": "10.0.203 (global.json)",
-    "sourceOfTruth": "current working tree at /Users/yeliu/code/azclips-main",
-    "note": "README.md, AGENTS.md and docs/spec/ARCHITECTURE.md contain stale claims (.NET 9, in-process AgentEngine/Azure OpenAI, Bootstrapper class). This catalogue reflects the ACTUAL code."
+    "sdk": "10.0.203 (global.json:3, rollForward latestMinor)",
+    "sourceOfTruth": "current working tree at C:\\Code\\cirrus-deepwiki-agent-refresh (branch docs/refresh-deepwiki-agent)",
+    "note": "This refresh corrects several stale claims found in README.md, AGENTS.md, docs/spec/ARCHITECTURE.md and the previous wiki/catalogue.json: (1) the AI fallback is NOT the TUI — the CLI's Program.TryAgentFallbackAsync (src/CLI/Program.cs:318) spawns a SEPARATE standalone process, azclips-agent.exe (Agent/Core.Agent.csproj, AssemblyName 'azclips-agent'), independent of Core.Tui; (2) the agent is built on the GitHub Copilot SDK (GitHub.Copilot.SDK 1.0.0, Agent/Core.Agent.csproj:49) driving a bundled 'copilot' daemon over stdio (Agent/BundledDaemonResolver.cs), NOT Azure OpenAI directly, though the built-in provider still authenticates via Azure/MSAL (Agent/Providers/BuiltinProviderConfig.cs); (3) AgentModeEntry (the chat-loop host) lives under Agent/AgentMode/, having moved out of Core.Tui; (4) src/PS now has six module folders (Az, Common, Compute, Config, Login, Resources) plus TelemetryHelper.ps1, not just Login/Resources as README.md's Quick Start still shows; (5) src/Extensions now includes a Compute extension (VM commands) alongside Config, Extension, ExtensionRuntime, Login, Resources; (6) Agent tool implementations live under Agent/Tools/{Env,Help,Resource/Cache,Resource/Sku,Shell} and are also exposed as first-class `az agent tool ...` CLI commands via a dedicated extension, Agent/Commands (Agent.Commands.csproj) — not folded into ChatAgent.cs."
   },
   "conventions": {
     "maxDepth": 4,
@@ -21,23 +21,23 @@
       "type": "section",
       "order": 1,
       "outputFolder": "01-getting-started",
-      "summary": "Orientation for new users and contributors: what Azclips is, how it is built, how to run the `az` CLI and the PowerShell modules.",
+      "summary": "Orientation for new users and contributors: what Azclips is, how it is built, and how to drive its four client surfaces — the `az` CLI, PowerShell modules, the interactive Terminal UI, and the opt-in AI agent fallback.",
       "children": [
         {
           "id": "overview-architecture",
           "title": "Overview & Architecture",
           "type": "page",
           "output": "01-getting-started/overview.md",
-          "prompt": "Explain what Project Azclips is and give the 10,000-foot architecture. It is a .NET 10 (net10.0) extension-based CLI producing the `az` binary, with an out-of-process AI agent fallback and mirrored PowerShell cmdlets. Cover the four client surfaces (CLI, PowerShell, interactive TUI, agent-mode) all sharing one DI composition root. Trace the happy path: `src/CLI/Program.cs:31` Main -> `AzclipsServiceProvider.Initialize` (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67`) -> `ExtensionDispatcher.Parse` (`src/CLI/Parser/ExtensionDispatcher.cs:44`) -> `IEngine.OpenExecutionSession` (`src/Core/Core.Abstractions/IEngine.cs:8`, `src/Core/Core.Engine/Engine.cs:39`) -> `ExecutionSession.RunAsync` (`src/Core/Core.Engine/ExecutionSession.cs:57`). Then explain the failure path: on exception `Program.TryAgentFallbackAsync` (`src/CLI/Program.cs:281`) spawns the TUI in `--agent-mode` (`src/CLI/Program.cs:320`). IMPORTANT: correct the record vs stale docs — target is net10.0 NOT .NET 9 (`global.json:3`, `src/Directory.Build.props:5`); the composition root is `AzclipsServiceProvider`, there is no `Bootstrapper` class; the agent uses the GitHub Copilot SDK, not Azure OpenAI. Note the Azclips product naming (product `Shared.props:3`, config dir `~/.azclips` `src/Core/Core.Abstractions/HomePaths.cs:14`). Include a system-context Mermaid diagram (dark-mode colors).",
+          "prompt": "Explain what Project Azclips is and give the 10,000-foot architecture, grounded in real code, not README.md's stale narrative. Note up front that the GitHub repository is Azure/cirrus but every namespace, binary name, and on-disk state directory uses the 'Azclips'/'azclips' identity (Shared.props:3 <Product>Azclips</Product>, ~/.azclips via src/Core/Core.Abstractions/HomePaths.cs:10-12) — these are the same codebase, not two products. Cover the four client surfaces that all share one DI composition root: CLI (src/CLI/Program.cs), PowerShell cmdlets (src/PS/), an interactive Terminal UI (TUI/Program.cs, Core.Tui.csproj), and a standalone AI agent process (Agent/Core.Agent.csproj, AssemblyName 'azclips-agent'). Trace the CLI happy path: Program.Main (src/CLI/Program.cs:38) -> AzclipsServiceProvider.Initialize(ClientType.CLI) (src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67) -> the extension dispatcher -> IEngine.OpenExecutionSession (src/Core/Core.Abstractions/IEngine.cs:8, implemented at src/Core/Core.Engine/Engine.cs:39) -> ExecutionSession.RunAsync (src/Core/Core.Engine/ExecutionSession.cs:57). Then the failure path: on HttpRequestException or any unhandled exception, Program.TryAgentFallbackAsync (src/CLI/Program.cs:318) spawns azclips-agent.exe as a CHILD PROCESS with inherited stdio (ProcessStartInfo at src/CLI/Program.cs:369-387) — this is the critical correction versus older docs claiming the TUI hosts the fallback. Call out target framework net10.0 (global.json:3, src/Directory.Build.props:4) and the AgentOptions.Enabled opt-in gate (src/Core/Core.Abstractions/AgentOptions.cs:11), off by default for private preview. Include a system-context Mermaid diagram (dark-mode colors) showing CLI, PowerShell, TUI, and the agent process around the shared Engine/DI core.",
           "citations": [
-            "src/CLI/Program.cs:31",
-            "src/CLI/Program.cs:281",
+            "src/CLI/Program.cs:38",
+            "src/CLI/Program.cs:318",
             "src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67",
             "src/Core/Core.Engine/Engine.cs:39",
-            "global.json:3",
-            "src/Directory.Build.props:5",
-            "Shared.props:3",
-            "src/Core/Core.Abstractions/HomePaths.cs:14"
+            "src/Core/Core.Abstractions/HomePaths.cs:10",
+            "Agent/Core.Agent.csproj:6",
+            "src/Core/Core.Abstractions/AgentOptions.cs:11",
+            "global.json:3"
           ]
         },
         {
@@ -45,14 +45,15 @@
           "title": "Environment Setup",
           "type": "page",
           "output": "01-getting-started/environment-setup.md",
-          "prompt": "Step-by-step environment setup. Prerequisites: .NET 10 SDK pinned to 10.0.203 (`global.json:3`, roll-forward latestMinor), PowerShell 7+, an Azure subscription for live calls, and PlatyPS 1.0.1 only for help artifact generation (see `README.md:73`). Explain the solution layout from `azclips.slnx` (src/CLI, 10 Core projects, 6 Extensions, TUI, Agent, src/PS, tests, tools/Help). Show build commands: `dotnet build -c Release azclips.slnx` produces `artifacts/Release/Core.Cli/az`; note `scripts/deploy.sh` and the `build/` PowerShell scripts. Explain the artifacts output convention from `Shared.props:8` (OutputPath = artifacts/$(Configuration)/$(ExtName)/) and the shared build properties in `src/Directory.Build.props` (Nullable, ImplicitUsings, TreatWarningsAsErrors). Show where user state lands: `~/.azclips` (`src/Core/Core.Abstractions/HomePaths.cs:14`) and `{LocalApplicationData}/.azclips` for profiles/auth. Verify with `dotnet --info` matching global.json.",
+          "prompt": "Step-by-step environment setup grounded in the actual solution layout. Prerequisites: .NET 10 SDK pinned to exactly 10.0.203 with rollForward latestMinor (global.json:1-6), PowerShell 7+ for the PS modules, and Microsoft.PowerShell.PlatyPS only for help-artifact generation via build/Install-BuildDependencies.ps1. Walk the solution file azclips.slnx: src/CLI (Core.Cli), 9+ Core.* libraries under src/Core/ (Abstractions, ArgumentParsing, AssemblyLoading, Authentication, Configuration, DependencyInjection, Engine, Extensions, Runtime, Telemetry), 6 extension projects under src/Extensions/ (Compute, Config, Extension, ExtensionRuntime, Login, Resources), TUI (Core.Tui), Agent (Core.Agent + Agent.Commands + Core.Agent.Tools), src/PS/{Az,Common,Compute,Config,Login,Resources}, tests/, and tools/Help. Show `dotnet build -c Release azclips.slnx` producing artifacts under artifacts/Release/<ExtName>/ per the OutputPath convention in Shared.props:9 (OutputPath=$(RepoArtifacts)$(Configuration)/$(ExtName)/) and src/Directory.Build.props (net10.0, Nullable, TreatWarningsAsErrors:10). Cover build/build.ps1 and build/Set-ModuleConfiguration.ps1 for staging PowerShell modules. Show where user state lands: ~/.azclips (src/Core/Core.Abstractions/HomePaths.cs:12 DefaultHomeDirectoryName) for config/registry/trace/arm-cache, and {LocalApplicationData}/.azclips for the auth context file (HomePaths.cs:56-57). Verify with `dotnet --info` matching global.json.",
           "citations": [
             "global.json:1",
             "azclips.slnx:1",
-            "Shared.props:1",
-            "src/Directory.Build.props:1",
-            "README.md:71",
-            "src/Core/Core.Abstractions/HomePaths.cs:14"
+            "Shared.props:9",
+            "src/Directory.Build.props:4",
+            "src/Core/Core.Abstractions/HomePaths.cs:12",
+            "build/build.ps1",
+            "build/Install-BuildDependencies.ps1"
           ]
         },
         {
@@ -60,13 +61,14 @@
           "title": "CLI Usage",
           "type": "page",
           "output": "01-getting-started/cli-usage.md",
-          "prompt": "Practical guide to the `az` CLI. Show structured extension commands (e.g. `az group create ...`, `az vm ...`, `az config set/get/list`, `az login`, `az extension add/list`) using the help docs under `src/CLI/Help/Docs/` (config, deployment, disk, extension, group, login, logout, profile, rest, vm) as the authoritative command surface. Explain global flags parsed in `Program.cs`: `--debug` (`src/CLI/Program.cs:155`), `--output json|plain` (`:220`), `--no-cache` (`:246`, sets AZCLIPS_NO_EXTENSION_CACHE). Explain shell completions (`src/CLI/Completions/CompletionGenerator.cs`, bash/zsh/ps1 scripts) and `--help` dispatch (`DispatchHelpException`, `RuntimeHelpDispatcher`). Explain the `--profile`/global-profile override. Then explain the AI fallback UX: when a command fails and `agent.enabled` is true and the session is an interactive TTY, the CLI hands off to agent-mode (`src/CLI/Program.cs:281-373`); note the non-interactive/CI guard and the AZCLIPS_IN_AGENT_MODE recursion guard. Include a Mermaid sequence diagram (autonumber) of parse -> execute -> fallback.",
+          "prompt": "Practical guide to the `az` CLI as it exists today. Show structured extension commands (`az group create ...`, `az vm ...` from the Compute extension, `az config set/get/list/delete/info`, `az login`, `az extension add/list`) using the help docs under src/CLI/Help/Docs/ as the authoritative surface. Explain global flag parsing in Program.cs: ParseDebugFlag / --debug (src/CLI/Program.cs:192), ParseOutputFlag / --output json|plain (src/CLI/Program.cs:257), ParseNoCacheFlag / --no-cache setting AZCLIPS_NO_EXTENSION_CACHE (src/CLI/Program.cs:283). Trace the error-handling ladder in Main's try/catch (around src/CLI/Program.cs:140-181): AzclipsErrorException renders structured JSON/text with no AI fallback (src/CLI/Program.cs:165-172), while HttpRequestException and any other unhandled Exception both call TryAgentFallbackAsync (src/CLI/Program.cs:163, :180). Explain the fallback UX from TryAgentFallbackAsync (src/CLI/Program.cs:318): the agent.enabled config gate, the non-interactive/redirected-stdio guard for interactive sessionStyle (src/CLI/Program.cs:347-351), and the AZCLIPS_IN_AGENT_MODE recursion guard (src/CLI/Program.cs:26, :355-358). Include a Mermaid sequence diagram (autonumber) of parse -> execute -> structured-error-or-fallback.",
           "citations": [
-            "src/CLI/Program.cs:155",
-            "src/CLI/Program.cs:220",
-            "src/CLI/Program.cs:281",
-            "src/CLI/Help/Docs/config/index.md",
-            "src/CLI/Completions/CompletionGenerator.cs"
+            "src/CLI/Program.cs:192",
+            "src/CLI/Program.cs:257",
+            "src/CLI/Program.cs:283",
+            "src/CLI/Program.cs:318",
+            "src/CLI/Program.cs:347",
+            "src/CLI/Help/Docs"
           ]
         },
         {
@@ -74,12 +76,46 @@
           "title": "PowerShell Module Usage",
           "type": "page",
           "output": "01-getting-started/powershell-usage.md",
-          "prompt": "Guide to the PowerShell surface. The cmdlet projects live under `src/PS/` (Cmdlets.Common, Cmdlets.Compute, Cmdlets.Config, Cmdlets.Login, Cmdlets.Resources — see `azclips.slnx`). Show importing modules and using cmdlets (e.g. `Connect-AzAccount`, `New-AzResourceGroup`, `New-AzVM`/`Get-AzVM` from `src/PS/Compute/Cmdlets/`, `Set-AzConfig` for config/telemetry opt-out per `README.md:160`). Explain how cmdlets share the SAME engine as the CLI: they call `AzclipsServiceProvider.Initialize(ClientType.PowerShell/...)` and resolve `IEngine`, then open an execution session whose output is pumped through a per-invocation channel back to `$PSCmdlet.WriteObject` — reference the thread-safety/output-routing notes in `src/Core/Core.Engine/Engine.cs:13-21` and `CmdletOutputStreamsFactory` (`src/PS/Common/CmdletOutputStreamsFactory.cs`). Note the .psd1 manifests and help markdown under each `src/PS/<Module>/help/`. Include a Mermaid diagram showing cmdlet -> Engine -> channel -> WriteObject.",
+          "prompt": "Guide to the PowerShell surface. The cmdlet/module projects live under src/PS/{Az,Common,Compute,Config,Login,Resources} (see azclips.slnx) with manifests such as src/PS/Compute/Compute.psd1 and src/PS/Login/Login.psd1. Show importing modules and using cmdlets (e.g. Connect-AzAccount, New-AzVM / Get-AzVM / Remove-AzVM from src/PS/Compute/Cmdlets/NewVMCmdlet.cs, GetVMCmdlet.cs, RemoveVMCmdlet.cs, and Set-AzConfig for config/telemetry opt-out). Explain how cmdlets share the SAME engine as the CLI: they call AzclipsServiceProvider.Initialize(ClientType.PowerShell) (src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67) and resolve IEngine, then open an execution session whose output is pumped through a per-invocation channel back to $PSCmdlet.WriteObject via CmdletOutputStreamsFactory (src/PS/Common/CmdletOutputStreamsFactory.cs:28). Note the .psd1 manifests and any help markdown under each src/PS/<Module>/help/, and TelemetryHelper.ps1 (src/PS/TelemetryHelper.ps1) used by module-level telemetry opt-out. Include a Mermaid diagram showing Cmdlet -> AzclipsServiceProvider -> Engine -> output channel -> WriteObject.",
           "citations": [
-            "src/PS/Common/CmdletOutputStreamsFactory.cs",
+            "src/PS/Common/CmdletOutputStreamsFactory.cs:28",
             "src/PS/Compute/Cmdlets/NewVMCmdlet.cs",
-            "src/Core/Core.Engine/Engine.cs:13",
-            "azclips.slnx:40"
+            "src/PS/Compute/Cmdlets/GetVMCmdlet.cs",
+            "src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67",
+            "src/PS/Login/Login.psd1",
+            "azclips.slnx"
+          ]
+        },
+        {
+          "id": "tui-quickstart",
+          "title": "Terminal UI Quickstart",
+          "type": "page",
+          "output": "01-getting-started/tui-quickstart.md",
+          "prompt": "Introduce the interactive Terminal UI (Core.Tui.csproj) as a distinct client surface from the CLI. Show launching it (the built binary from artifacts, or `dotnet run` against TUI/Core.Tui.csproj) and its full-screen Hex1b-based shell built in TUI/Program.cs:20 (Main) and TUI/Program.cs:77 (BuildUI). Explain the two shell modes toggled by F2 or `/mode` — ShellMode.Azure (default, runs `az` under the hood) and ShellMode.Local (runs the system shell) — defined in TUI/Models.cs:6 and toggled by AppState.ToggleMode (TUI/AppState.cs:173) via TUI/commands/ModeCommand.cs:6. Walk a first session: typing a command calls AppState.ExecuteCommand (TUI/AppState.cs:254), which for Azure mode shells out to the `az` binary through ProcessService.RunCliAsync (TUI/services/ProcessService.cs:27) and streams stdout/stderr into the scrollable history panel (TUI/Rendering/HistoryRenderer.cs). Cover slash commands (/cd, /ls, /pwd, /mode, /refresh, /copy, /exit under TUI/commands/) and key bindings (F1 help, Ctrl+L clear, Ctrl+C cancel) wired in TUI/Program.cs's InputBindings block. Mention that the Azure VFS (`/cd`, `/ls`) browses real Azure resources via TUI/Azure/AzureVfs.cs and TUI/Azure/ArmClient.cs. Include a short Mermaid flow of keypress -> AppState -> ProcessService/AzureVfs -> history render.",
+          "citations": [
+            "TUI/Program.cs:20",
+            "TUI/AppState.cs:173",
+            "TUI/AppState.cs:254",
+            "TUI/Models.cs:6",
+            "TUI/services/ProcessService.cs:27",
+            "TUI/commands/ModeCommand.cs:6",
+            "TUI/Azure/AzureVfs.cs"
+          ]
+        },
+        {
+          "id": "agent-mode-quickstart",
+          "title": "AI Agent Fallback Quickstart",
+          "type": "page",
+          "output": "01-getting-started/agent-mode-quickstart.md",
+          "prompt": "Practical guide to opting into and using the AI agent fallback. Show enabling it: `az config set --key agent.enabled --value true` (gate read in src/Core/Core.Abstractions/AgentOptions.cs:11, checked in src/CLI/Program.cs:324-338). Explain the two session styles from AgentOptions.SessionStyle (src/Core/Core.Abstractions/AgentOptions.cs:17): 'oneshot' (default — proposes a fix and exits, safe even with redirected stdio) versus 'interactive' (a chat loop gated behind a live-TTY check at src/CLI/Program.cs:347-351). Walk a real failure: an `az` command throws, TryAgentFallbackAsync (src/CLI/Program.cs:318) spawns azclips-agent.exe with --agent-mode --failed-command ... --error ... (src/CLI/Program.cs:396-403), which AgentModeEntry.RunAsync (Agent/AgentMode/AgentModeEntry.cs:24) picks up: it prints a banner (or stays quiet in oneshot), builds a ChatAgent (Agent/ChatAgent.cs:102 CreateAsync), and runs a turn loop that proposes a plan the user must approve before any command executes. Cover the interaction brake (soft reminder at 12 exchanges, hard stop at 20 — Agent/AgentMode/AgentModeEntry.cs:21-22) and Ctrl+C/abort semantics (Agent/Hosting/AbortKeyWatcher.cs). Include a Mermaid sequence diagram (autonumber): failed command -> agent spawn -> propose_plan -> user approval -> submit_response.",
+          "citations": [
+            "src/CLI/Program.cs:318",
+            "src/CLI/Program.cs:324",
+            "src/Core/Core.Abstractions/AgentOptions.cs:11",
+            "src/Core/Core.Abstractions/AgentOptions.cs:17",
+            "Agent/AgentMode/AgentModeEntry.cs:24",
+            "Agent/ChatAgent.cs:102",
+            "Agent/Hosting/AbortKeyWatcher.cs"
           ]
         }
       ]
@@ -90,42 +126,167 @@
       "type": "section",
       "order": 2,
       "outputFolder": "02-deep-dive",
-      "summary": "Architecture-level explanations grouped by concern. Each leaf traces real code paths with file:line citations. Grouped into four themes so no section exceeds eight children.",
+      "summary": "Architecture-level explanations grouped by concern. Every leaf traces real code paths with file:line citations and calls out where prior documentation drifted from the current source. Organized into three groups so no section exceeds eight children.",
       "children": [
         {
-          "id": "runtime-core",
-          "title": "Runtime Core",
+          "id": "agent-copilot-interactive",
+          "title": "Agent, Copilot SDK & Interactive Surfaces",
           "type": "group",
-          "summary": "The composition root, engine/session model, HTTP execution, and authentication that every command flows through.",
+          "summary": "The out-of-process AI agent (GitHub Copilot SDK), its tools/prompts/plan protocol, the dual rendering systems, and how the Terminal UI relates to and hosts agent behavior.",
+          "children": [
+            {
+              "id": "agent-architecture",
+              "title": "Agent Architecture",
+              "type": "page",
+              "output": "02-deep-dive/agent-architecture.md",
+              "prompt": "Deep dive on the standalone agent process (Agent/ -> Core.Agent.csproj, AssemblyName azclips-agent, OutputType Exe per Agent/Core.Agent.csproj:5-6). Trace the full lifecycle: Program.Main (Agent/Program.cs:9) dispatches only on `--agent-mode` to AgentModeEntry.RunAsync (Agent/AgentMode/AgentModeEntry.cs:24), which initializes its OWN DI container as ClientType.CLI (Agent/AgentMode/AgentModeEntry.cs:36 — a deliberate choice documented in-code: 'was TUI back when this entry lived inside Core.Tui'), resolves IAuthService/IProfileService/IConfigurationService, reads AgentOptions (Agent/AgentMode/AgentModeEntry.cs:44), and picks the prompt/quiet mode based on IsInteractive (Agent/AgentMode/AgentModeEntry.cs:47-50). Explain SessionState (Agent/SessionState.cs:11) as the per-session mutable gate shared with the PreToolUse hook — PlanApproved, IsOneShot, SubmittedThisTurn — and how ChatAgent (Agent/ChatAgent.cs:27) tracks _sendCalledClosingTool (Agent/ChatAgent.cs:43, LastSendCalledClosingTool:52) to enforce the 'always act through tools' contract, retried up to MaxToolEnforcementRetries=3 in AgentModeEntry.SendWithToolEnforcementAsync (Agent/AgentMode/AgentModeEntry.cs:226). Cover the escape valve (soft 12 / hard 20 exchanges, Agent/AgentMode/AgentModeEntry.cs:21-22) and the RunChatLoopAsync (Agent/AgentMode/AgentModeEntry.cs:136) split between one-shot drain and interactive `> ` prompt loop. Trace how it is invoked: CLI's TryAgentFallbackAsync (src/CLI/Program.cs:318) child-process spawn with inherited stdio. Diagrams: process/lifecycle sequence (autonumber) and a state diagram of SessionState's plan/submit gates.",
+              "citations": [
+                "Agent/Program.cs:9",
+                "Agent/AgentMode/AgentModeEntry.cs:24",
+                "Agent/AgentMode/AgentModeEntry.cs:36",
+                "Agent/SessionState.cs:11",
+                "Agent/ChatAgent.cs:27",
+                "Agent/ChatAgent.cs:43",
+                "src/CLI/Program.cs:318",
+                "Agent/Core.Agent.csproj:6"
+              ]
+            },
+            {
+              "id": "copilot-sdk-integration",
+              "title": "Copilot SDK Integration",
+              "type": "page",
+              "output": "02-deep-dive/copilot-sdk-integration.md",
+              "prompt": "Explain exactly how azclips integrates the GitHub Copilot SDK (GitHub.Copilot.SDK 1.0.0, Agent/Core.Agent.csproj:49). Trace ChatAgent.CreateAsync (Agent/ChatAgent.cs:102): it builds a CopilotClient with RuntimeConnection.ForStdio pointed at a bundled daemon resolved by BundledDaemonResolver.Resolve (Agent/BundledDaemonResolver.cs:13), which locates the platform-specific 'copilot'/'copilot.exe' binary under a runtimes/<rid>/native/ layout whose base path is decided by AgentInstallLayout (Agent/AgentInstallLayout.cs:22) — packaged builds read Extensions/Microsoft.Azure.Azclips.Extensions.Agent/deps/runtimes/<rid>/native/, dev builds read NuGet's default runtimes/<rid>/native/ next to the exe, distinguished at compile time by the AGENT_DEV_BUILD constant (Agent/Core.Agent.csproj:22, Agent/AgentInstallLayout.cs:24-28). Cover provider construction: BuiltinProviderConfig.BuildAsync (Agent/Providers/BuiltinProviderConfig.cs:16) acquires an ARM-scoped MSAL token via IAuthService.AcquireTokenSilentlyAsync and builds an Azure-type ProviderConfig pointing at the APIM-fronted GPT endpoint (BuiltinProviderOptions defaults in src/Core/Core.Abstractions/AgentOptions.cs:54-59). Explain the SDK's hook surface wired by ChatAgent — OnPreToolUse -> PreToolUseHook.HandleAsync (Agent/Hooks/PreToolUseHook.cs:19) — and how EventRenderer.Forward (Agent/EventRenderer.cs:36) translates GitHub.Copilot SessionEvent types (AssistantMessageDeltaEvent, ToolExecutionStartEvent/CompleteEvent, AssistantUsageEvent, SessionErrorEvent) into azclips's host-agnostic AgentEvent hierarchy (Agent/AgentEvents.cs:18). Diagram: component diagram of CopilotClient/CopilotSession/BundledDaemonResolver/ProviderConfig plus a sequence for one turn's SDK event stream.",
+              "citations": [
+                "Agent/ChatAgent.cs:102",
+                "Agent/BundledDaemonResolver.cs:13",
+                "Agent/AgentInstallLayout.cs:22",
+                "Agent/Providers/BuiltinProviderConfig.cs:16",
+                "Agent/EventRenderer.cs:36",
+                "Agent/AgentEvents.cs:18",
+                "Agent/Core.Agent.csproj:49"
+              ]
+            },
+            {
+              "id": "agent-tools",
+              "title": "Agent Tools",
+              "type": "page",
+              "output": "02-deep-dive/agent-tools.md",
+              "prompt": "Catalog and trace every tool the agent can call, split across two projects. (1) Core.Agent.Tools (Agent/Tools/Core.Agent.Tools.csproj), consumed by both the agent exe and the CLI extension: EnvironmentProber.ProbeAsync (Agent/Tools/Env/EnvironmentProber.cs:19) builds an EnvironmentSnapshot (OS, shell, cwd forwarded via AZCLIPS_CALLER_CWD); HelpTools (Agent/Tools/Help/HelpTools.cs:19) exposes list_commands/get_command by shelling out to `az agent tool help`; the Resource/Cache subtree (Agent/Tools/Resource/Cache/: ResourceCache.cs, CachedResourceTools.cs, ArmCacheRefresher.cs, ArmDetailsClient.cs, AuthServiceTokenCredential.cs, FileLockHelper.cs) backs find/show/tree resource lookups against a local ARM cache; Resource/Sku/AvailableLocationsTool.cs checks VM SKU/region availability; Shell/ShellOutHelper.cs wraps process execution for the help/resource tools. (2) The turn-closing tools live in Agent/Hosting/ as Microsoft.Extensions.AI AIFunctions: ProposePlanTool (Agent/Hosting/ProposePlanTool.cs:21, AIFunctionFactory.Create at :25) and SubmitResponseTool (Agent/Hosting/SubmitResponseTool.cs:20) — both bodies only log via ToolInvocationLog; real validation/rendering happens in the PreToolUseHook. (3) The SAME internal tools are re-exposed as first-class `az agent tool ...` CLI commands via a separate extension, Agent.Commands (Agent/Commands/ExtensionIndex.cs:11, [ExtensionVerb(\"agent\")]), with processors under Agent/Commands/Processors/ (EnvProcessor.cs, HelpProcessor.cs, Resource/ResourceFindProcessor.cs, ResourceSkuProcessor.cs, ResourceTreeProcessor.cs, ResourceShowProcessor.cs, ResourceRefreshProcessor.cs) — so external programs (Copilot CLI, Claude Code Skills) can invoke them without a full chat loop. Diagram: tool taxonomy (env / help / resource-cache / sku / shell / plan-protocol) and which project owns each.",
+              "citations": [
+                "Agent/Tools/Env/EnvironmentProber.cs:19",
+                "Agent/Tools/Help/HelpTools.cs:19",
+                "Agent/Tools/Resource/Cache/ResourceCache.cs",
+                "Agent/Tools/Resource/Sku/AvailableLocationsTool.cs",
+                "Agent/Hosting/ProposePlanTool.cs:21",
+                "Agent/Hosting/SubmitResponseTool.cs:20",
+                "Agent/Commands/ExtensionIndex.cs:11"
+              ]
+            },
+            {
+              "id": "prompts-and-plan-mode",
+              "title": "Prompts & Plan Mode",
+              "type": "page",
+              "output": "02-deep-dive/prompts-and-plan-mode.md",
+              "prompt": "Explain the system prompts and the propose_plan / submit_response protocol that gives the agent human-in-the-loop safety. The two prompt files, Agent/prompts/inline.md and Agent/prompts/oneshot.md, are selected by AgentModeEntry based on AgentOptions.IsInteractive (Agent/AgentMode/AgentModeEntry.cs:47) and copied to the output dir via the csproj's `<None Update=\"prompts\\*.md\">` item (Agent/Core.Agent.csproj:72-77). Trace FailedCommandHelp.BuildContextAsync (Agent/Plan/FailedCommandHelp.cs:21): it conservatively extracts a command verb from the failed input (ExtractCommandName, Agent/Plan/FailedCommandHelp.cs:84) and pre-fetches its help text via the same path get_command uses, injecting it into session start context so the agent doesn't spend a turn re-discovering the command it was triggered by. Trace PlanArgsParser (Agent/Plan/PlanArgsParser.cs:12): ValidateSubmitResponse (:20) enforces the completed/rejected/failed status enum and the OUT_OF_SCOPE_ message convention; ValidateProposePlan (:42) requires non-empty issues and steps with label+cmd; HasDangerVerb (:172) auto-flags delete/remove/purge/... commands as destructive even if the model didn't say so. Trace the enforcement point, PreToolUseHook.HandleAsync (Agent/Hooks/PreToolUseHook.cs:19): the post-terminator gate denying tool calls after submit_response (:30), the submit_response branch that renders the final outcome and sets SubmitRendered/SubmittedThisTurn (:42-82), the propose_plan branch gating bash/powershell behind PlanApproved (:89-171), and PlaceholderDetector.TryDetect (Agent/Hooks/PlaceholderDetector.cs:16) denying commands containing unfilled <placeholder>/{{...}}/YOUR_*/*-PLACEHOLDER tokens. Diagram: a state machine for propose_plan -> approval -> execute -> submit_response, plus the prompt-selection branch.",
+              "citations": [
+                "Agent/prompts/inline.md",
+                "Agent/prompts/oneshot.md",
+                "Agent/Plan/FailedCommandHelp.cs:21",
+                "Agent/Plan/PlanArgsParser.cs:20",
+                "Agent/Plan/PlanArgsParser.cs:42",
+                "Agent/Hooks/PreToolUseHook.cs:19",
+                "Agent/Hooks/PlaceholderDetector.cs:16"
+              ]
+            },
+            {
+              "id": "rendering-and-terminal-ux",
+              "title": "Rendering & Terminal UX",
+              "type": "page",
+              "output": "02-deep-dive/rendering-and-terminal-ux.md",
+              "prompt": "Explain azclips's TWO distinct rendering systems and why they differ. (1) Agent console rendering (Agent/Hosting/): IAgentRenderer (Agent/Hosting/IAgentRenderer.cs) is implemented by ConsoleAgentRenderer (Agent/Hosting/ConsoleAgentRenderer.cs:7), which prints plain-line output for the agent's chat loop (streaming tokens, tool start/complete/fail, plan/approval prompts via ConsoleApprovalPrompt) and suppresses trailing model prose once submit_response has rendered (SetOnFinalRendered wiring, Agent/ChatAgent.cs and Agent/AgentMode/AgentModeEntry.cs:108). TraceAgentRenderer (Agent/Hosting/TraceAgentRenderer.cs:15) decorates it to additionally append a JSONL trace file when agent.trace.enabled (path expansion for a leading '~' at Agent/AgentMode/AgentModeEntry.cs:355-362). SpinnerService (Agent/Hosting/SpinnerService.cs) shows a busy indicator while a turn is in flight, raced against ConsoleApprovalPrompt.PumpOneAsync so an approval prompt can interrupt it (Agent/AgentMode/AgentModeEntry.cs:260-330 SendAndPumpAsync); AbortKeyWatcher (Agent/Hosting/AbortKeyWatcher.cs) owns Ctrl+C during a turn. RendererLoggingService (Agent/Hosting/RendererLoggingService.cs) funnels azclips's own Warn/Error logs through the renderer's lock instead of racing stdout directly. (2) TUI full-screen rendering (TUI/Rendering/): built on the Hex1b widget library — HeaderRenderer, FooterRenderer, HistoryRenderer, MenuBarRenderer, SuggestionRenderer, HelpRenderer compose the VStack/HStack widget tree assembled in TUI/Program.cs:87 BuildUI, themed via TuiTheme.Load/CreateBaseTheme (TUI/Rendering/TuiTheme.cs) and raw ANSI helpers in TUI/Rendering/Ansi.cs. Contrast the two: the agent renderer is a simple append-only console stream meant to be readable when spawned as a child process with inherited stdio, while the TUI renderer owns the whole terminal buffer and repaints via Hex1b's diffing engine. Diagram: two parallel rendering pipelines (agent turn events -> IAgentRenderer chain; TUI AppState -> Hex1b widget tree).",
+              "citations": [
+                "Agent/Hosting/IAgentRenderer.cs",
+                "Agent/Hosting/ConsoleAgentRenderer.cs:7",
+                "Agent/Hosting/TraceAgentRenderer.cs:15",
+                "Agent/Hosting/SpinnerService.cs",
+                "Agent/Hosting/AbortKeyWatcher.cs",
+                "TUI/Rendering/TuiTheme.cs",
+                "TUI/Rendering/Ansi.cs",
+                "TUI/Program.cs:87"
+              ]
+            },
+            {
+              "id": "tui-agent-mode",
+              "title": "TUI Agent Mode & Fallback Interplay",
+              "type": "page",
+              "output": "02-deep-dive/tui-agent-mode.md",
+              "prompt": "Explain precisely how the Terminal UI relates to the AI agent fallback — a subtle seam worth its own page because the TUI does NOT host a chat mode itself; it runs `az` as a redirected child process, which changes how the CLI's own fallback behaves. Trace ProcessService.RunCliAsync (TUI/services/ProcessService.cs:27): it launches the `az` binary with RedirectStandardOutput=true and RedirectStandardError=true (TUI/services/ProcessService.cs:41-42) but does not redirect stdin, and critically this makes Console.IsOutputRedirected true inside that child `az` process. Trace the consequence in TryAgentFallbackAsync's interactive guard (src/CLI/Program.cs:347-351): `if (agentOptions.IsInteractive && (Console.IsInputRedirected || Console.IsOutputRedirected)) return 1;` — so when a command run from inside the TUI fails, INTERACTIVE agent sessionStyle is silently disabled, while ONESHOT sessionStyle still works because it is not gated (src/CLI/Program.cs:340-351 comment explains the rationale) and inherits stdio (RedirectStandardInput=false at src/CLI/Program.cs:386) so streaming/plan output still reaches the TUI's captured stdout stream and is classified into HistoryItemType.Output/Error lines (TUI/services/ProcessService.cs:179-186 ClassifyLine). Cover ShellMode (TUI/Models.cs:6 — Azure vs Local) and how AppState.ExecuteCommand (TUI/AppState.cs:254) branches: Local mode never touches `az` or the agent at all (plain shell via ProcessService.RunLocalAsync); Azure mode always goes through `az`, so agent fallback (oneshot only) is reachable from the TUI in that mode. Cover the AZCLIPS_IN_AGENT_MODE recursion guard (src/CLI/Program.cs:26) that would prevent a nested spawn if the TUI itself were ever launched from inside an agent session. Diagram: sequence showing TUI -> ProcessService.RunCliAsync -> az (child) -> TryAgentFallbackAsync -> azclips-agent.exe (grandchild) -> streamed output back through the TUI's redirected pipes into HistoryRenderer.",
+              "citations": [
+                "TUI/services/ProcessService.cs:27",
+                "TUI/services/ProcessService.cs:41",
+                "src/CLI/Program.cs:347",
+                "src/CLI/Program.cs:386",
+                "TUI/Models.cs:6",
+                "TUI/AppState.cs:254",
+                "src/CLI/Program.cs:26"
+              ]
+            },
+            {
+              "id": "tui-interactive-shell",
+              "title": "TUI Interactive Shell & Azure VFS",
+              "type": "page",
+              "output": "02-deep-dive/tui-interactive-shell.md",
+              "prompt": "Deep dive on the non-agent half of the Terminal UI: its Azure Virtual File System and shell ergonomics. Trace TUI/Program.cs:22-40, which PrependRegistration's ArmClient, AzureVfs, ProcessService, PromptService, HistoryService, AppState and OverrideRegistration's a silent TuiLoggingService plus TUITelemetryProvider before calling AzclipsServiceProvider.Initialize(ClientType.TUI) (TUI/Program.cs:40) — showing how the TUI customizes the shared DI container rather than forking the engine. Cover AzureVfs (TUI/Azure/AzureVfs.cs) and ArmClient (TUI/Azure/ArmClient.cs) which present subscriptions/resource groups/resources as a navigable path (`/sub/rg/resource`) driving `/cd` and `/ls` (TUI/commands/CdCommand.cs, LsCommand.cs). Trace AppState (TUI/AppState.cs:14) as the coordinator: EditorState-backed InputText/CursorPos (:29-39), thread-safe History via a lock (:60-81), UpdateSuggestions delegating to CompletionService (:195-211, TUI/services/CompletionService.cs), and ExecuteCommand's slash-command dispatch (:254-307) via the ISlashCommand registry (TUI/commands/ISlashCommand.cs) covering Cd/Ls/Pwd/Mode/Refresh/Copy/Exit. Cover CustomShellWorkload / AzclipsShellWorkload (TUI/services/AzclipsShellWorkload.cs:13) which hand-rolls ANSI cursor movement and raw-byte input parsing (arrow keys, Ctrl+A/E/K/U/W, UTF-8 multi-byte decode) for the prompt line, and HistoryService (TUI/services/HistoryService.cs) for per-mode command history navigation. Diagram: AppState-centric component diagram linking Vfs, ProcessService, CompletionService, HistoryService and the slash-command registry.",
+              "citations": [
+                "TUI/Program.cs:22",
+                "TUI/Program.cs:40",
+                "TUI/Azure/AzureVfs.cs",
+                "TUI/Azure/ArmClient.cs",
+                "TUI/AppState.cs:14",
+                "TUI/services/AzclipsShellWorkload.cs:13",
+                "TUI/commands/ISlashCommand.cs"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "core-runtime-auth-extensibility",
+          "title": "Core Runtime, Auth & Extensibility",
+          "type": "group",
+          "summary": "The composition root and engine every client shares, the HTTP execution pipeline, MSAL-based authentication, the extension model, and the PowerShell cmdlet architecture built on top of the same engine.",
           "children": [
             {
               "id": "core-engine-orchestration",
               "title": "Core Engine & Orchestration",
               "type": "page",
               "output": "02-deep-dive/core-engine-orchestration.md",
-              "prompt": "The single most important architectural page. Trace the composition-root + session model and the CLI's try/execute/fallback orchestration. (1) DI bootstrap: `AzclipsServiceProvider` (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:17`) with `PrependRegistration`/`OverrideRegistration` (:29,:44), `RegisterAzclipsServices` chaining all module DIRegisterExtensions (:53), and idempotent `Initialize(ClientType)` (:67). Explain how each client (CLI `src/CLI/Program.cs:40-53`, TUI `TUI/Program.cs:23-41`) customizes registrations before Initialize. (2) The Engine: `Engine` is a partial mediator class (`src/Core/Core.Engine/Engine.cs:22`) implementing `IEngine` (`src/Core/Core.Abstractions/IEngine.cs:8`); it opens `ExecutionSession`/`DiscoverySession`, caches extension indices via `LFUCache<Lazy<IExtensionIndex>>` (:36,:81), and builds a per-invocation `ProcessorContext` in `CreateProcessorContext` (:99) including profile resolution (`ResolveProfileAsync` :143) and the HTTP pipeline with AuthHandler prepended. (3) ExecutionSession: channel-based isolated output, `RunAsync` -> `GetProcessor().ProcessAsync()` (`src/Core/Core.Engine/ExecutionSession.cs:57`), the global `--profile` pre-binding pass (per `openspec/changes/profile-management/design.md` Decision 4). (4) Orchestration/fallback: `Program.Main` try/catch (`src/CLI/Program.cs:65-145`) distinguishes structured `AzclipsErrorException` (no fallback) from `HttpRequestException`/generic exceptions that route to `TryAgentFallbackAsync` (:281). CRITICAL: explain that the historical 'OrchestratorEngine tries DefaultCommandEngine then falls back to AgentEngine' (per AGENTS.md / docs/spec/ARCHITECTURE.md) is NOT the current code — the fallback is now an out-of-process TUI `--agent-mode` spawn; call this out as fact vs stale doc. Diagrams: component diagram of the DI graph + a sequence diagram (autonumber) of a full invocation with fallback.",
+              "prompt": "The single most important architectural page. Trace the composition-root + session model every client (CLI, PowerShell, TUI, Agent) flows through. (1) DI bootstrap: AzclipsServiceProvider (src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:17) with PrependRegistration/OverrideRegistration (:29, :44) letting each client customize the container BEFORE RegisterAzclipsServices chains every module's DIRegisterExtensions (:53), then idempotent Initialize(ClientType) (:67). Show each client's customization point: CLI (src/CLI/Program.cs:57-60 PrependRegistration), TUI (TUI/Program.cs:22-38), Agent (Agent/AgentMode/AgentModeEntry.cs:36 — Initialize(ClientType.CLI), not a distinct Agent client type). (2) The Engine: a partial mediator class (src/Core/Core.Engine/Engine.cs:22) implementing IEngine (src/Core/Core.Abstractions/IEngine.cs:8); OpenExecutionSession (:39) caches extension indices via LFUCache<Lazy<IExtensionIndex>> (:36), and CreateProcessorContext (:99) resolves the active Profile (ResolveProfileAsync, :151) and builds the HTTP pipeline with the auth handler prepended. (3) ExecutionSession (src/Core/Core.Engine/ExecutionSession.cs:12): channel-based isolated output, RunAsync (:57) driving the resolved IProcessor. (4) Orchestration/fallback: Program.Main's try/catch (src/CLI/Program.cs:140-181) distinguishes structured AzclipsErrorException (no fallback) from HttpRequestException/generic Exception, both routing to TryAgentFallbackAsync (src/CLI/Program.cs:318) which spawns the SEPARATE azclips-agent.exe process — NOT an in-process OrchestratorEngine/AgentEngine as some historical docs describe. Diagrams: component diagram of the DI graph, and a sequence diagram (autonumber) of a full invocation with fallback.",
               "citations": [
                 "src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:17",
                 "src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:53",
                 "src/Core/Core.Engine/Engine.cs:22",
                 "src/Core/Core.Engine/Engine.cs:99",
-                "src/Core/Core.Engine/ExecutionSession.cs:57",
+                "src/Core/Core.Engine/ExecutionSession.cs:12",
                 "src/Core/Core.Abstractions/IEngine.cs:8",
-                "src/CLI/Program.cs:65",
-                "src/CLI/Program.cs:281"
+                "src/CLI/Program.cs:140",
+                "src/CLI/Program.cs:318"
               ]
             },
             {
-              "id": "http-pipeline",
+              "id": "http-pipeline-runtime",
               "title": "HTTP Pipeline & Runtime",
               "type": "page",
-              "output": "02-deep-dive/http-pipeline.md",
-              "prompt": "Explain the runtime HTTP execution layer in Core.Runtime. Cover `HttpPipeline` (`src/Core/Core.Runtime/HttpPipeline.cs`), `HttpPipelineService` (`HttpPipelineService.cs`), `HttpClientFactory`, and the delegating-handler composition: how `CreateProcessorContext` prepends the `AuthHandler.SendAsync` (`src/Core/Core.Engine/Engine.cs:115-135`), prepends a terminating step (`HttpPipelineTerminatingStep` — passthrough by default, terminates during client mocking) and appends a request-tracing step (`HttpRequestMessageTracingStep`) used for record/playback in tests. Explain retry policy (MaxRetries, MaxRetriesFor429, PollingInterval) sourced from `CoreOptions.Http`. Cover `SendAsyncFactory`/`SendAsyncTerminalFactory`, `RuntimeEventBus` (`src/Core/Core.Runtime/RuntimeEventBus.cs`) event publication, and `ConsoleOutputAdapter`/`ConsoleLoggingService`/`ScopedLoggingService` for output/log routing. Explain the `IProcessor`/`ProcessorContext` contract that extension commands implement. Diagram: the delegating-handler chain (auth -> terminating -> real send -> tracing) as a Mermaid flow.",
+              "output": "02-deep-dive/http-pipeline-runtime.md",
+              "prompt": "Explain the runtime HTTP execution layer in Core.Runtime. Trace HttpPipeline (src/Core/Core.Runtime/HttpPipeline.cs:15, implementing IRuntimeHttpPipeline) and HttpPipelineService (src/Core/Core.Runtime/HttpPipelineService.cs), which compose delegating handlers around HttpClientFactory-produced clients. Trace how Engine.CreateProcessorContext (src/Core/Core.Engine/Engine.cs:99) prepends an auth handler backed by the resolved Profile/IAuthService before any extension's IProcessor runs. Cover SendAsyncFactory and SendAsyncTerminalFactory (src/Core/Core.Runtime/SendAsyncFactory.cs, SendAsyncTerminalFactory.cs) as the seams used to swap in mocked terminal senders for tests. Cover RuntimeEventBus (src/Core/Core.Runtime/RuntimeEventBus.cs) for cross-cutting runtime event publication, and ConsoleOutputAdapter / ConsoleLoggingService / ScopedLoggingService (src/Core/Core.Runtime/) for output and log routing — noting that ScopedLoggingService.UseScope is exactly what the agent process swaps out for RendererLoggingService (Agent/AgentMode/AgentModeEntry.cs:90) so azclips-internal logs don't race the spinner. Cover the IProcessor/ProcessorContext contract every extension command implements, and CommandLoadingExtension (src/Core/Core.Runtime/CommandLoadingExtension.cs). Diagram: the delegating-handler chain (auth -> pipeline -> real send) as a Mermaid flow, contrasted with the test-time terminal-factory substitution.",
               "citations": [
-                "src/Core/Core.Runtime/HttpPipeline.cs",
+                "src/Core/Core.Runtime/HttpPipeline.cs:15",
                 "src/Core/Core.Runtime/HttpPipelineService.cs",
-                "src/Core/Core.Engine/Engine.cs:115",
-                "src/Core/Core.Runtime/RuntimeEventBus.cs"
+                "src/Core/Core.Runtime/SendAsyncFactory.cs",
+                "src/Core/Core.Runtime/RuntimeEventBus.cs",
+                "src/Core/Core.Runtime/ScopedLoggingService.cs",
+                "src/Core/Core.Engine/Engine.cs:99",
+                "Agent/AgentMode/AgentModeEntry.cs:90"
               ]
             },
             {
@@ -133,141 +294,120 @@
               "title": "Authentication (MSAL)",
               "type": "page",
               "output": "02-deep-dive/authentication.md",
-              "prompt": "Explain the authentication subsystem. `MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs:11`) implements `IAuthService` (`src/Core/Core.Abstractions/IAuthService.cs`) using Microsoft.Identity.Client: ARM scope `https://management.core.windows.net//.default` (:12), public-client ClientId (:13), `LoginAsync` branching between device-code and interactive flows (:16), token cache persistence (`RegisterTokenCacheAsync`), and `AcquireTokenSilentlyAsync` used by the engine's AuthHandler. Explain `LogoutAsync(userPrincipalName)` (:29) — it removes only the account matching the active profile's UPN from the SHARED MSAL cache (per `openspec/changes/profile-management/design.md` Decision 6), not a blanket clear. Cover `AuthResultExtensions` and how `AuthResult` was extended to surface the account username. Explain the auth-context history: the old `AuthContext`/`context.json` was REMOVED and replaced by the resolved `Profile` flowing through `ProcessorContext.AuthHandler` (link to the Configuration & Profile Management page). Reference `docs/spec/auth-context.md`. Diagram: sequence (autonumber) of `az login` -> MSAL interactive/device-code -> token cache -> profile save+activate.",
+              "prompt": "Explain the authentication subsystem. MsalAuthService (src/Core/Core.Authentication/MsalAuthService.cs:10) implements IAuthService (src/Core/Core.Abstractions/IAuthService.cs) using Microsoft.Identity.Client: LoginAsync (:19) branches between interactive and device-code flows, LogoutAsync(userPrincipalName) (:30) removes only the matching account from the MSAL token cache, AcquireTokenSilentlyAsync (:135) is what both the engine's auth handler and the agent's BuiltinProviderConfig (Agent/Providers/BuiltinProviderConfig.cs:24) call to get a token without prompting, and CanAcquireTokenSilentlyAsync (:178) probes cache validity. Cover AzureCredentialFactory (src/Core/Core.Authentication/AzureCredentialFactory.cs) for building Azure.Core TokenCredential instances, ManagedIdentityAuthenticator (src/Core/Core.Authentication/ManagedIdentity/) for MI scenarios, SubscriptionService (src/Core/Core.Authentication/SubscriptionService.cs) for subscription/tenant resolution, and AuthConstants/AuthResultExtensions (src/Core/Core.Authentication/AuthConstants.cs, AuthResultExtensions.cs). Explain how the resolved Profile (not a standalone AuthContext/context.json) is the source of truth flowing through ProcessorContext, and how AZCLIPS_CALLER_CWD / the agent's own auth calls reuse the exact same IAuthService rather than a parallel credential path. Diagram: sequence (autonumber) of `az login` -> MSAL interactive/device-code -> token cache -> profile activation -> silent reuse by both CLI commands and the agent's builtin provider.",
               "citations": [
-                "src/Core/Core.Authentication/MsalAuthService.cs:11",
-                "src/Core/Core.Authentication/MsalAuthService.cs:29",
+                "src/Core/Core.Authentication/MsalAuthService.cs:10",
+                "src/Core/Core.Authentication/MsalAuthService.cs:19",
+                "src/Core/Core.Authentication/MsalAuthService.cs:135",
                 "src/Core/Core.Abstractions/IAuthService.cs",
-                "openspec/changes/profile-management/design.md:70",
-                "docs/spec/auth-context.md"
+                "src/Core/Core.Authentication/AzureCredentialFactory.cs",
+                "src/Core/Core.Authentication/SubscriptionService.cs",
+                "Agent/Providers/BuiltinProviderConfig.cs:24"
               ]
-            }
-          ]
-        },
-        {
-          "id": "extensibility",
-          "title": "Extensibility",
-          "type": "group",
-          "summary": "How commands are packaged, discovered, loaded, and configured — the extension model plus configuration and profiles.",
-          "children": [
+            },
             {
               "id": "extension-system",
               "title": "Extension System",
               "type": "page",
               "output": "02-deep-dive/extension-system.md",
-              "prompt": "Explain the extension architecture end-to-end. (1) Anatomy of an extension: `IExtensionIndex` (`src/Core/Core.Abstractions/IExtensionIndex.cs`), an `ExtensionIndex.cs` command registry, `IProcessor` command implementations, and Orchestrators/Processors (see `src/Extensions/Resources/` and `src/Extensions/Compute/`). (2) Discovery & loading: built-in map (`BuiltInExtensions.Map`) vs user-installed registry, resolved by `ExtensionDispatcher` (`src/CLI/Parser/ExtensionDispatcher.cs:44`) and loaded by `CLIAssemblyLoadingProvider`/`ExtensionLoader` (`src/CLI/AssemblyLoading/`) and `IAssemblyLoadingService`; multi-version support via `MultiVersionExtensionLoader` (`src/CLI/Program.cs:42-43`). Extension index caching via LFUCache in Engine. (3) Extension management commands: add/list/pin/unpin/remove/show/update in `src/Extensions/Extension/` (`Add.cs`, `ExtensionInstaller.cs`, `DiscoveryBackedExtensionRegistry.cs`, `LocalArtifactProbe.cs`) with help under `src/CLI/Help/Docs/extension/`. (4) ExtensionRuntime: the serialization/type-conversion runtime (`src/Extensions/ExtensionRuntime/`) — JsonConverter framework, Conversions/Instances, Parser/Writers — that extensions use to (de)serialize ARM payloads. Reference `docs/spec/extension-framework.md` and `docs/spec/extension-management.md`. Diagram: extension resolution/loading sequence (autonumber).",
+              "prompt": "Explain the extension architecture end-to-end. (1) Anatomy of an extension: IExtensionIndex (src/Core/Core.Abstractions/IExtensionIndex.cs) implemented per extension (e.g. src/Extensions/Compute/ExtensionIndex.cs, src/Extensions/Login/ExtensionIndex.cs, src/Extensions/Config/ExtensionIndex.cs, Agent/Commands/ExtensionIndex.cs:11), each mapping CLI/PowerShell command names to IProcessor implementations (see src/Extensions/Compute/Processors/, src/Extensions/Config/Commands/{GetConfigCommand.cs,SetConfigCommand.cs,ListConfigCommand.cs,DeleteConfigCommand.cs,InfoConfigCommand.cs} sharing ConfigCommandBase). (2) Registration & resolution: ExtensionRegistry / ExtensionRegistryEntry (src/Core/Core.Extensions/ExtensionRegistry.cs:20, :67), FileExtensionRegistryStore (src/Core/Core.Extensions/FileExtensionRegistryStore.cs) persisting to the registry.json under ~/.azclips/extensions (HomePaths.cs:13-14, :32-33), ExtensionResolver and ExtensionCandidateSelector (src/Core/Core.Extensions/ExtensionResolver.cs, ExtensionCandidateSelector.cs) picking among installed versions, CompatibilityGuard (src/Core/Core.Extensions/CompatibilityGuard.cs) enforcing per-extension Compatibility.cs declarations (e.g. src/Extensions/Compute/Compatibility.cs). (3) Built-ins vs installable: BuiltInExtensions (src/Core/Core.Extensions/BuiltInExtensions.cs) versus the Extension management extension (`az extension add/list/remove`, src/Extensions/Extension/) with ExtensionAddPlanner (src/Core/Core.Extensions/ExtensionAddPlanner.cs). (4) Metadata plumbing: LeafIndex/LeafReader/RegistryLookup/ExtensionVerbReader (src/Core/Core.Extensions/) and ExtensionMetadataContext. (5) ExtensionRuntime (src/Extensions/ExtensionRuntime/) — the JSON serialization/type-conversion layer extensions use to (de)serialize ARM payloads. Diagram: extension resolution/loading sequence (autonumber) from CLI verb to loaded IProcessor.",
               "citations": [
-                "src/CLI/Parser/ExtensionDispatcher.cs:44",
-                "src/CLI/Program.cs:42",
-                "src/Extensions/Extension/ExtensionInstaller.cs",
-                "src/Extensions/ExtensionRuntime/Conversions/JsonConverter.cs",
-                "docs/spec/extension-framework.md"
+                "src/Core/Core.Abstractions/IExtensionIndex.cs",
+                "src/Extensions/Compute/ExtensionIndex.cs",
+                "src/Core/Core.Extensions/ExtensionRegistry.cs:20",
+                "src/Core/Core.Extensions/ExtensionResolver.cs",
+                "src/Core/Core.Extensions/CompatibilityGuard.cs",
+                "src/Core/Core.Extensions/BuiltInExtensions.cs",
+                "src/Extensions/Config/Commands/ConfigCommandBase.cs",
+                "Agent/Commands/ExtensionIndex.cs:11"
               ]
             },
             {
-              "id": "configuration-profiles",
-              "title": "Configuration & Profile Management",
+              "id": "powershell-cmdlet-architecture",
+              "title": "PowerShell Cmdlet Architecture",
               "type": "page",
-              "output": "02-deep-dive/configuration-profiles.md",
-              "prompt": "NEW feature area (#345). Two related but distinct concerns. (A) Configuration: the `Config` extension (`src/Extensions/Config/`) implements `az config get/set/list/delete/info` via processors (`Commands/GetConfigCommand.cs`, `SetConfigCommand.cs:9`, `ListConfigCommand.cs`, `DeleteConfigCommand.cs`, `InfoConfigCommand.cs`) sharing `ConfigCommandBase` (`Commands/ConfigCommandBase.cs:15`), which normalizes keys (dot/colon notation, `NormalizeKey` :39) and calls `IConfigurationService` (`src/Core/Core.Abstractions/IConfigurationService.cs`, impl in `src/Core/Core.Configuration/`). Config persists to `~/.azclips/config.json` (`src/Core/Core.Abstractions/HomePaths.cs:15`); known keys (e.g. `telemetry.enabled`, `agent.enabled`) come from typed options (`CoreOptions`, `AgentOptions`, `TelemetryOptions`); `--force` allows unknown keys. Mirror cmdlets in `src/PS/Config`. Reference `docs/howto/config.md`, `docs/spec/config-implementation.md`. (B) Profiles: `IProfileService`/`ProfileService` (`src/Core/Core.Runtime/ProfileService.cs:14`) store named connection profiles in `{LocalApplicationData}/.azclips/profiles.json` with a separate `active-profile` pointer, atomic temp+rename writes, and a `_gate` semaphore. Profile is the single source of truth for connection state and REPLACED the old AuthContext/context.json. Commands live in the Login extension: `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor` (`src/Extensions/Login/Processors/`). Explain login semantics (bare login -> reserved 'temp' profile; `--out-profile <name>`; `--profile` re-auth; mutual exclusion) and the global `--profile` override resolved by `Engine.ResolveProfileAsync` (`src/Core/Core.Engine/Engine.cs:143`). Ground the design in `openspec/changes/profile-management/design.md` (Decisions 1-8) and its specs (profile-crud, profile-switching, login-profile-integration). Diagrams: profile state model + a sequence for `az login --out-profile prod` and `az group list --profile prod`.",
+              "output": "02-deep-dive/powershell-cmdlet-architecture.md",
+              "prompt": "Explain how the PowerShell surface is built on the SAME engine as the CLI rather than a parallel implementation. Trace a cmdlet like NewVMCmdlet (src/PS/Compute/Cmdlets/NewVMCmdlet.cs) or GetVMCmdlet.cs / RemoveVMCmdlet.cs: each cmdlet's ProcessRecord calls AzclipsServiceProvider.Initialize(ClientType.PowerShell) (src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67), resolves IEngine, and opens an ExecutionSession exactly as the CLI does (link to Core Engine & Orchestration). Trace CmdletOutputStreamsFactory (src/PS/Common/CmdletOutputStreamsFactory.cs:28) — the internal static class that builds OutputStreams delegates routing WriteOutput/WriteError/WriteVerbose back to $PSCmdlet.WriteObject/WriteError/WriteVerbose so the engine's channel-based output model works identically for a blocking cmdlet call as it does for a long-running CLI process. Cover the module layout: six module projects under src/PS/ (Az, Common, Compute, Config, Login, Resources) each with a .psd1 manifest (e.g. src/PS/Compute/Compute.psd1, src/PS/Login/Login.psd1) and, for script modules, exported functions; TelemetryHelper.ps1 (src/PS/TelemetryHelper.ps1) shared across modules for telemetry opt-out. Note that Login is a binary module requiring `dotnet build` first, while script modules like Resources work directly from source. Diagram: Cmdlet.ProcessRecord -> AzclipsServiceProvider -> IEngine -> ExecutionSession -> CmdletOutputStreamsFactory -> WriteObject.",
               "citations": [
-                "src/Extensions/Config/Commands/ConfigCommandBase.cs:15",
-                "src/Extensions/Config/Commands/SetConfigCommand.cs:9",
-                "src/Core/Core.Runtime/ProfileService.cs:14",
-                "src/Core/Core.Abstractions/IProfileService.cs",
-                "src/Core/Core.Engine/Engine.cs:143",
-                "openspec/changes/profile-management/design.md:38",
-                "src/Extensions/Login/Processors/ProfileSetProcessor.cs"
+                "src/PS/Compute/Cmdlets/NewVMCmdlet.cs",
+                "src/PS/Compute/Cmdlets/GetVMCmdlet.cs",
+                "src/PS/Common/CmdletOutputStreamsFactory.cs:28",
+                "src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67",
+                "src/PS/Compute/Compute.psd1",
+                "src/PS/TelemetryHelper.ps1"
               ]
             }
           ]
         },
         {
-          "id": "ai-interactive",
-          "title": "AI & Interactive Experience",
+          "id": "platform-configuration-telemetry-quality",
+          "title": "Platform: Configuration, Telemetry, Packaging & Quality",
           "type": "group",
-          "summary": "The GitHub Copilot-powered agent and the interactive Terminal UI that hosts it.",
+          "summary": "Cross-cutting platform concerns: typed configuration, privacy-respecting telemetry, the multi-flavor packaging/install pipeline, and the test/build toolchain.",
           "children": [
             {
-              "id": "ai-agent",
-              "title": "AI Agent",
+              "id": "configuration-management",
+              "title": "Configuration Management",
               "type": "page",
-              "output": "02-deep-dive/ai-agent.md",
-              "prompt": "Deep dive on the Agent/ project (Core.Agent.csproj). CRITICAL correction: the agent is built on the GitHub Copilot SDK (`GitHub.Copilot.SDK` 1.0.0, `Agent/Core.Agent.csproj:31`) driving a BUNDLED Copilot CLI daemon (`Agent/BundledDaemonResolver.cs:12`, resolves runtimes/<rid>/native/copilot). It is NOT Azure OpenAI/GPT-4o-mini — docs/spec/ARCHITECTURE.md is stale; state this as fact vs stale doc. (1) `ChatAgent` (`Agent/ChatAgent.cs:23`): wraps `CopilotClient`/`CopilotSession`, exposes `SendAsync`, enforces the 'act-through-tools' contract with turn-closing tools (`_sendCalledClosingTool`, `LastSendCalledClosingTool` :34-49), 10-minute turn timeout, one-shot vs interactive session semantics (`SessionClosed`, `PlanShown`). (2) Tools (`Agent/Tools/`): `ProposePlanTool`, `SubmitResponseTool` (turn-closing), Help tools (`Tools/Help/HelpTools.cs` + HelpIndex.json/HelpManifest.json), Cache tools (`Tools/Cache/` — ARM resource cache: `ResourceCache`, `CachedResourceTools`, `ArmDetailsClient`, `AuthServiceTokenCredential`), Sku tools (`AvailableLocationsTool`). (3) Prompts (`Agent/prompts/inline.md`, `oneshot.md`, `tui.md`) selected by interaction mode. (4) Hosting/rendering (`Agent/Hosting/`): `ConsoleAgentRenderer`, `ConsoleApprovalPrompt` (y/n pump raced against SendAsync), `AbortKeyWatcher`, `SpinnerService`, `TraceAgentRenderer` (JSONL trace under agent.trace.path). (5) Environment probes (`Agent/Probes/`) and Hooks (`PlaceholderDetector`). Explain how agent-mode is entered from the CLI fallback (link to Core Engine page). Reference `docs/spec/agent-experience.md`. Diagrams: agent turn lifecycle sequence (autonumber) + component diagram of ChatAgent/tools/renderers.",
+              "output": "02-deep-dive/configuration-management.md",
+              "prompt": "Explain the configuration subsystem end-to-end. ConfigurationService (src/Core/Core.Configuration/Implementation/ConfigurationService.cs:14) implements IConfigurationService (src/Core/Core.Abstractions/IConfigurationService.cs), reading/writing through FileConfigurationProvider (src/Core/Core.Configuration/Implementation/FileConfigurationProvider.cs) which persists to ~/.azclips/config.json (HomePaths.cs:15, :35-36) and validating unknown/typed keys via DefaultConfigurationValidator (src/Core/Core.Configuration/Implementation/DefaultConfigurationValidator.cs) against ConfigurationSchema (src/Core/Core.Configuration/Schema/ConfigurationSchema.cs). Trace GetConfiguration<T>() binding raw JSON into strongly-typed options: AgentOptions (src/Core/Core.Abstractions/AgentOptions.cs:6 — Enabled, Provider, SessionStyle, Interactive.Verbose, Trace.Enabled/Path, Builtin.{Endpoint,Scope,ModelId,ApiVersion}), TelemetryOptions (src/Core/Core.Abstractions/TelemetryOptions.cs), and the Core.Configuration/Options/ set (AssemblyLoadingOptions.cs, ClientsOptions.cs, DefaultsOptions.cs, ExtensionsOptions.cs). Trace the `az config` extension surface: ConfigCommandBase (src/Extensions/Config/Commands/ConfigCommandBase.cs) shared by GetConfigCommand.cs, SetConfigCommand.cs, ListConfigCommand.cs, DeleteConfigCommand.cs, InfoConfigCommand.cs, including key normalization (dot/colon notation) and the `--force` escape hatch for unknown keys. Reference docs/howto/config.md and docs/spec/config-implementation.md for the documented key catalog, and cross-check it against ConfigurationSchema.cs for drift. Diagram: `az config set` -> ConfigCommandBase -> ConfigurationService -> FileConfigurationProvider -> config.json, and a second arrow showing GetConfiguration<AgentOptions>() consumed by TryAgentFallbackAsync.",
               "citations": [
-                "Agent/ChatAgent.cs:23",
-                "Agent/BundledDaemonResolver.cs:12",
-                "Agent/Core.Agent.csproj:31",
-                "Agent/Tools/ProposePlanTool.cs",
-                "Agent/Tools/Cache/ResourceCache.cs",
-                "Agent/Hosting/ConsoleApprovalPrompt.cs",
-                "docs/spec/agent-experience.md"
+                "src/Core/Core.Configuration/Implementation/ConfigurationService.cs:14",
+                "src/Core/Core.Configuration/Implementation/FileConfigurationProvider.cs",
+                "src/Core/Core.Configuration/Schema/ConfigurationSchema.cs",
+                "src/Core/Core.Abstractions/AgentOptions.cs:6",
+                "src/Extensions/Config/Commands/ConfigCommandBase.cs",
+                "src/Core/Core.Abstractions/HomePaths.cs:15",
+                "docs/howto/config.md"
               ]
             },
             {
-              "id": "terminal-ui",
-              "title": "Terminal UI (TUI)",
-              "type": "page",
-              "output": "02-deep-dive/terminal-ui.md",
-              "prompt": "NEW top-level TUI project (Core.Tui.csproj) — must be its own page. Explain its two entry modes from `TUI/Program.cs:21`: (a) `--agent-mode` -> `AgentModeEntry.RunAsync` (`TUI/AgentMode/AgentModeEntry.cs`), the process spawned by the CLI on failure that owns the chat loop, banner, single-reader stdin, escape-valve turn limits (soft 12 / hard 20), prompt selection (inline vs oneshot), and optional JSONL trace; (b) the interactive full-screen shell built on the Hex1b terminal library (`TUI/Program.cs:23-60`). Cover the interactive shell: `AppState` (`TUI/AppState.cs`) + `AzureVfs` (`TUI/Azure/AzureVfs.cs`) presenting Azure resources as a virtual filesystem via `ArmClient` (`TUI/Azure/ArmClient.cs`); slash commands (`TUI/commands/`: Cd/Ls/Pwd/Copy/Exit/Mode/Refresh, `ISlashCommand.cs`); rendering (`TUI/Rendering/`: Header/Footer/History/MenuBar/Suggestion renderers, `TuiTheme`, `Ansi`); services (`TUI/services/`: CommandTree, CompletionService, HistoryService, ProcessService, PromptService, ClipboardService, AzclipsShellWorkload); TUI-specific DI overrides (`TuiLoggingService` silent logger, `TUITelemetryProvider` in `TUI/Program.cs:34-41`). Explain how it shares the same `AzclipsServiceProvider`/`IEngine` and how `AZCLIPS_IN_AGENT_MODE` prevents recursive agent spawns. Diagrams: TUI mode-selection flow + interactive shell component diagram.",
-              "citations": [
-                "TUI/Program.cs:21",
-                "TUI/AgentMode/AgentModeEntry.cs",
-                "TUI/AppState.cs",
-                "TUI/Azure/AzureVfs.cs",
-                "TUI/commands/ISlashCommand.cs",
-                "TUI/Rendering/TuiTheme.cs"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "operations",
-          "title": "Operations & Quality",
-          "type": "group",
-          "summary": "Observability, test strategy, and the build/release toolchain.",
-          "children": [
-            {
-              "id": "telemetry",
+              "id": "telemetry-observability",
               "title": "Telemetry & Observability",
               "type": "page",
-              "output": "02-deep-dive/telemetry.md",
-              "prompt": "Explain the telemetry subsystem (Core.Telemetry). `TelemetryService` (`src/Core/Core.Telemetry/TelemetryService.cs`) starts a root activity and per-command activities via System.Diagnostics ActivitySource (see `src/CLI/Program.cs:67,79` StartRootActivity/StartActivity and `TagInvocation`). Cover the privacy model: `DefaultTelemetryPropertyFilter`/`DefaultTelemetryActivityNameFilter` and their Processor variants strip parameter VALUES/URLs (only names + success/failure + env kept, per `README.md:153`), `TelemetryTags`/`TelemetryPropertyResolver`. Cover the async export path: `FileExporter` writes traces to disk, then a DETACHED background process re-invokes `az --upload-telemetry` (`src/CLI/Program.cs:34,410 SpawnTelemetryUploader`) which calls `FileTelemetrySender.SendPendingStatic` -> `DirectTelemetrySender` -> `WellKnownEndpoints` (Azure Monitor). Explain opt-out via `telemetry.enabled=false` (config), per-client `ITelemetryProvider` (CLITelemetryProvider/TUITelemetryProvider), and `TimingActivityListener`. Reference `docs/spec/telemetry.md`. Diagram: activity capture -> file buffer -> detached uploader sequence (autonumber).",
+              "output": "02-deep-dive/telemetry-observability.md",
+              "prompt": "Explain the telemetry subsystem (Core.Telemetry). TelemetryService (src/Core/Core.Telemetry/TelemetryService.cs:13) implements ITelemetryService and starts root/per-command Activities via a System.Diagnostics ActivitySource, tagged through TelemetryPropertyResolver and TelemetryTags. Cover the privacy model: DefaultTelemetryPropertyFilter / DefaultTelemetryActivityNameFilter and their *Processor variants (src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs, DefaultTelemetryPropertyFilterProcessor.cs, DefaultTelemetryActivityNameFilter.cs, DefaultActivityNameFilterProcessor.cs) strip parameter VALUES/URLs, keeping only parameter names + success/failure + basic environment data — matching the privacy claim in README.md's Telemetry section. Cover the async export path: FileExporter/FileTelemetrySender (src/Core/Core.Telemetry/FileExporter.cs, FileTelemetrySender.cs) buffer traces to disk, then a background `--upload-telemetry` invocation (src/CLI/Program.cs:43-47) reads pending traces via DirectTelemetrySender against WellKnownEndpoints (src/Core/Core.Telemetry/DirectTelemetrySender.cs, WellKnownEndpoints.cs). Cover per-client ITelemetryProvider implementations: DefaultTelemetryProvider (src/Core/Core.Telemetry/DefaultTelemetryProvider.cs) versus TUITelemetryProvider (TUI/Telemetry/TUITelemetryProvider.cs:13), which is registered via AzclipsServiceProvider.OverrideRegistration in TUI/Program.cs:31-38 and gates entirely on TelemetryOptions.Enabled before wiring OpenTelemetry's TracerProviderBuilder (TUI/Telemetry/TUITelemetryProvider.cs:17-22). Cover the opt-out: `az config set --key telemetry.enabled --value false` / `Set-AzConfig`, and TimingActivityListener (src/Core/Core.Telemetry/TimingActivityListener.cs). Diagram: activity capture -> file buffer -> background uploader sequence (autonumber), annotated with the two ITelemetryProvider implementations.",
               "citations": [
-                "src/Core/Core.Telemetry/TelemetryService.cs",
+                "src/Core/Core.Telemetry/TelemetryService.cs:13",
+                "src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs",
                 "src/Core/Core.Telemetry/FileTelemetrySender.cs",
-                "src/CLI/Program.cs:410",
-                "src/CLI/Program.cs:34",
-                "docs/spec/telemetry.md"
+                "src/Core/Core.Telemetry/WellKnownEndpoints.cs",
+                "src/CLI/Program.cs:43",
+                "TUI/Telemetry/TUITelemetryProvider.cs:13",
+                "TUI/Program.cs:31"
               ]
             },
             {
-              "id": "testing-benchmarking",
-              "title": "Testing & Benchmarking",
+              "id": "packaging-and-distribution",
+              "title": "Packaging & Distribution",
               "type": "page",
-              "output": "02-deep-dive/testing-benchmarking.md",
-              "prompt": "Explain the test and benchmark strategy. Test projects (from `azclips.slnx`): `tests/Cli.Tests` (CLI integration: structured commands, agent fallback, typo correction), `tests/Cmdlets.Tests` (PowerShell cmdlets), `tests/Core.Extensions.Tests`, `tests/Core.Telemetry.Tests`, `tests/Common` (Tests.Common shared helpers), `tests/Fixtures/SharedAlpha`+`SharedBeta` (fixture extensions for assembly-loading/multi-version tests), `Agent/tests/Core.Agent.Tests` (agent tools, approval prompt, snapshot tests — e.g. `ClosingToolPredicateTests`, `ProposePlanValidationTests`, `EventRendererSnapshotTests`, `SnapshotTesting`), and `tools/Help/Azclips.Help.Tool.Tests`. Framework is xUnit with Coverlet coverage configured in `tests/Directory.Build.props` (per AGENTS.md). Explain the HTTP record/playback approach enabled by the pipeline tracing step (link to HTTP Pipeline page) and the terminating step used to mock clients. Explain `tests/Benchmark` (BenchmarkDotNet) and the `--no-cache`/in-process benchmark hooks (`src/CLI/Program.cs:246,417`); reference `docs/spec/benchmark-workflows.md`. Cover test naming convention `MethodName_ShouldBehavior_WhenCondition` (AGENTS.md). Commands: `dotnet test`, single-project, `--collect:\"XPlat Code Coverage\"`.",
+              "output": "02-deep-dive/packaging-and-distribution.md",
+              "prompt": "Explain how azclips is built, signed, and shipped as installable artifacts. Trace the shared build shape: Shared.props (Product=Azclips :3, OutputPath=$(RepoArtifacts)$(Configuration)/$(ExtName)/ :9, delay-signing with MSSharedLibKey.snk in Release :18-27). Cover the two-flavor CLI packaging model from install/README.md: 'lean' (built-in extensions only) vs 'full' (built-in + add-on extensions bundled), 6 supported RIDs (win/linux-x64/arm64, macos-arm64). Trace the agent's OWN packaging seam because it ships as a separate extension bundle: AgentInstallLayout (Agent/AgentInstallLayout.cs:22) defines AgentExtensionDir as Extensions/Microsoft.Azure.Azclips.Extensions.Agent/ (:32-33), with prompts/ and deps/runtimes/<rid>/native/ staged there for packaged builds versus dev-loop defaults (:35-45); the actual staging is performed by devops/scripts/packaging/stage_agent.ps1 and stage_agent.sh. Cover devops/scripts/packaging/{common,windows,linux,macos,powershell,signing,config}/ (build_common.sh, create_component_archives.sh, inject_builtin_extensions.ps1/.sh, rename_extension_packages.sh) and devops/scripts/publishing/Update-ReleaseChangelog.ps1. Cover the end-user install scripts install/azcli-install.ps1 / .sh (and their uninstall counterparts) which fetch GitHub-hosted release archives via `gh api ... | bash`, installing to `~/.local/share/azcli` (or `%LOCALAPPDATA%\\Programs\\azcli`) WITHOUT modifying PATH by default — deliberately coexisting with classic azure-cli. Diagram: source -> per-extension build (OutputPath by ExtName) -> stage_agent -> component archive -> signed release asset -> install script -> ~/.local/share/azcli.",
               "citations": [
-                "azclips.slnx:52",
+                "Shared.props:3",
+                "Shared.props:9",
+                "Agent/AgentInstallLayout.cs:22",
+                "devops/scripts/packaging/common/stage_agent.ps1",
+                "devops/scripts/packaging/common/build_common.sh",
+                "install/azcli-install.sh",
+                "install/README.md"
+              ]
+            },
+            {
+              "id": "testing-and-build",
+              "title": "Testing & Build Pipeline",
+              "type": "page",
+              "output": "02-deep-dive/testing-and-build.md",
+              "prompt": "Explain the test and build/CI strategy. Test projects (from azclips.slnx and tests/): Cli.Tests, Cmdlets.Tests, Common (Tests.Common shared helpers), Core.Engine.Tests (e.g. ExecutionSessionSeamTests.cs — testing the ExecutionSession seam described in the Core Engine page), Core.Extensions.Tests, Core.Telemetry.Tests, Benchmark (BenchmarkDotNet), and Fixtures for assembly-loading/multi-version scenarios; plus Agent/tests/Core.Agent.Tests/ (ClosingToolPredicateTests.cs, ProposePlanValidationTests.cs, SubmitResponseValidationTests.cs, ExtractCommandNameTests.cs, ExtractPlanStepsTests.cs, EventRendererSnapshotTests.cs, ConsoleApprovalPromptTests.cs, PlanGateTests.cs, ArmCacheRefresherTests.cs, EnvironmentProberTests.cs, ShellOutHelperTests.cs — unit-testing the pure PlanArgsParser/PreToolUseHook logic in isolation from the live SDK, per Agent/tests/Core.Agent.Tests/AgentToolsLiveTests.cs for the live-SDK-dependent subset). Framework is xUnit with settings centralized in tests/Directory.Build.props and Agent/tests/Directory.Build.props. Cover build/build.ps1 and build/Install-BuildDependencies.ps1 (PlatyPS for help artifacts) and build/New-PSHelpMarkdown.ps1 / Set-ModuleConfiguration.ps1. Cover CI: devops/scripts/ci/check_pull_request.py, and the packaging pipeline consuming build output (link to Packaging & Distribution). Cover tools/Help (the help-generation tool backing `az agent tool help` and the CLI's own --help). Cover the openspec/ workflow (openspec/changes/profile-management/ as a worked example of proposal/design/tasks/specs) as the repository's design-doc process referenced by AGENTS.md. Diagram: source -> `dotnet build`/`dotnet test` -> coverage -> CI gate (check_pull_request.py) -> packaging.",
+              "citations": [
+                "tests/Core.Engine.Tests/ExecutionSessionSeamTests.cs",
                 "Agent/tests/Core.Agent.Tests/ClosingToolPredicateTests.cs",
-                "tests/Benchmark/Benchmark.csproj",
-                "src/CLI/Program.cs:246",
-                "docs/spec/benchmark-workflows.md"
-              ]
-            },
-            {
-              "id": "build-cicd",
-              "title": "Build & CI/CD",
-              "type": "page",
-              "output": "02-deep-dive/build-cicd.md",
-              "prompt": "Explain the build and release toolchain. Local build: `dotnet build -c Release azclips.slnx` -> `artifacts/Release/`; the artifacts layout is driven by `Shared.props:8` (OutputPath per ExtName) and `src/Directory.Build.props` (net10.0, TreatWarningsAsErrors, analyzers). SDK is pinned by `global.json` (10.0.203, roll-forward latestMinor). Cover the `build/` PowerShell scripts (e.g. `Install-BuildDependencies.ps1` for PlatyPS, help artifact generation via `-GenerateHelpArtifacts`) and `scripts/deploy.sh` (builds + publishes CLI + copies PowerShell modules). Cover CI: `.azure-pipelines/` and `.github/` workflows, `devops/` assets; reference `docs/spec/ci.md`. Explain the `tools/Help` help-generation tool and its tests. Explain the `openspec/` workflow (change proposals like `profile-management` with proposal/design/tasks/specs) as the design-doc process. Cover the help-docs pipeline: markdown under `src/CLI/Help/Docs/` parsed by `MarkdownCommandHelpProvider`/`FrontmatterParser` (`src/CLI/Help/`). Diagram: source -> build -> artifacts -> publish/deploy flow.",
-              "citations": [
-                "Shared.props:8",
-                "global.json:1",
-                "scripts/deploy.sh",
-                ".azure-pipelines/",
-                "docs/spec/ci.md",
-                "openspec/changes/profile-management/proposal.md"
+                "Agent/tests/Core.Agent.Tests/ProposePlanValidationTests.cs",
+                "tests/Directory.Build.props",
+                "build/build.ps1",
+                "devops/scripts/ci/check_pull_request.py",
+                "openspec/changes/profile-management",
+                "azclips.slnx"
               ]
             }
           ]

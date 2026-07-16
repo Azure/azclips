@@ -1,131 +1,151 @@
 ---
 title: PowerShell Module Usage
-description: Guide to the Azclips PowerShell surface — importing modules, the cmdlet catalogue, and how cmdlets share the same Core engine as the CLI via a per-invocation output channel routed to WriteObject.
+description: How to import and use the Azclips PowerShell modules, the six module folders under src/PS, and how cmdlets share the exact same engine as the az CLI via CmdletOutputStreamsFactory.
 outline: deep
 ---
 
 # PowerShell Module Usage
 
-## Why a PowerShell Surface Exists
+## Why There Is a PowerShell Surface At All
 
-PowerShell users expect object output, pipelines, and cmdlet ergonomics — not text scraping. Project Azclips satisfies that by shipping cmdlets that are **thin wrappers over the exact same Core engine** the `az` CLI uses. A cmdlet doesn't re-implement resource-group creation; it builds a `CommandInvocation`, resolves `IEngine` from the shared `AzclipsServiceProvider`, and opens an execution session whose output is pumped back into the PowerShell stream via `$PSCmdlet.WriteObject`. This means CLI and PowerShell stay behaviorally identical while giving PowerShell users native objects.
+The PowerShell modules are **not** a re-implementation of the CLI — they are a second front door to the *same* engine. A `New-AzVM` call and an `az vm create` call resolve the identical `IEngine`, build the identical HTTP pipeline, authenticate with the identical `IAuthService`, and differ only in how output is delivered to the caller. That is the whole point: parity for free. This page shows how to import the modules and use the cmdlets, and explains the one mechanism that makes the shared-engine model work in PowerShell — `CmdletOutputStreamsFactory`.
 
-## Modules and Cmdlets
+Reminder: the repo is `Azure/cirrus`; modules, cmdlets, and namespaces carry the **Azclips** identity.
 
-The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `Cmdlets.Resources`, `Cmdlets.Compute`, `Cmdlets.Login`, and `Cmdlets.Config`. Each ships a `.psd1` manifest and per-module help Markdown under `src/PS/<Module>/help/`.
+## The Six Module Folders
 
-| Module | Representative cmdlets | Source |
+`src/PS/` contains six folders, but they play different roles:
+
+| Folder | Role | Key files |
 | --- | --- | --- |
-| **Login** | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzProfile`, `Set-AzProfile`, `Remove-AzProfile` | `src/PS/Login/Cmdlets/ConnectAccountCmdlet.cs:11` |
-| **Resources** | `New-AzResourceGroup`, `Get-AzResourceGroup`, `New-AzResourceGroupDeployment`, `Invoke-AzRestMethod` | `src/PS/Resources/Cmdlets/NewResourceGroupCmdlet.cs` |
-| **Compute** | `New-AzVM`, `Get-AzVM`, `Remove-AzVM` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
-| **Config** | `Get-AzConfig`, `Set-AzConfig`, `Get-AzConfigList`, `Get-AzConfigInfo`, `Remove-AzConfig` | `src/PS/Config/Cmdlets/SetAzConfigCmdlet.cs` |
+| `Login` | **Binary** module; hosts the DI initializer | `Login.psd1`, `ModuleInitializer.cs`, cmdlets |
+| `Compute` | Binary module (VM cmdlets) | `Compute.psd1`, `Cmdlets/{New,Get,Remove}VMCmdlet.cs` |
+| `Config` | Binary module (config cmdlets) | `Config.psd1`, `Cmdlets/SetAzConfigCmdlet.cs` |
+| `Resources` | Resource cmdlets | `Resources.psd1`, `Cmdlets/`, `exports/` |
+| `Az` | **Rollup** manifest (no cmdlets of its own) | `Az.psd1` |
+| `Common` | Shared helper library used by the binary cmdlet projects | `CmdletOutputStreamsFactory.cs` |
 
-> **Naming note:** All modules carry the `Az` noun prefix so cmdlet names match Azure PowerShell. Login and Config define the prefix via `Constants.CommandPrefix = "Az"` (`src/PS/Login/Constants.cs:11`), giving `Connect-AzAccount` and `Set-AzConfig`; Compute and Resources use `Az`-prefixed nouns like `New-AzVM` and `New-AzResourceGroup`.
+Plus `src/PS/TelemetryHelper.ps1`, a script shared across modules that starts/stops per-cmdlet telemetry activities.
 
-### Importing and Using
+The `Az` module is a convenience rollup: importing it pulls in Login, Compute, Resources, and Config as required modules (`src/PS/Az/Az.psd1:11-16`). Because every binary module lists `Login` in its `RequiredModules`, importing any of them boots the shared DI container exactly once.
 
-```powershell
-# Import a built module (manifests reference artifact DLLs by relative path)
-Import-Module ./src/PS/Login/Login.psd1
-Import-Module ./src/PS/Compute/Compute.psd1
+```mermaid
+graph TB
+    AZ["Az.psd1 (rollup, 0.0.7)<br>src/PS/Az/Az.psd1"]
+    LOGIN["Login (binary, 0.1.0)<br>hosts ModuleInitializer"]
+    COMPUTE["Compute (0.1.0)"]
+    CONFIG["Config (0.1.0)"]
+    RESOURCES["Resources (0.1.0)"]
+    DI["AzclipsServiceProvider.Initialize(ClientType.PowerShell)<br>ModuleInitializer.cs:24"]
 
-# Authenticate, then create a resource group and a VM
-Connect-AzAccount -SubscriptionId <sub-id>
-New-AzResourceGroup -Name myrg -Location eastus -SubscriptionId <sub-id>
-New-AzVM -Name myvm -ResourceGroupName myrg -Location eastus -SubscriptionId <sub-id> `
-       -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword <pwd> `
-       -NetworkInterfaceName nic1 -VirtualNetworkName vnet1 -NetworkSecurityGroupName nsg1
-Get-AzVM -ResourceGroupName myrg -SubscriptionId <sub-id>
+    AZ --> LOGIN
+    AZ --> COMPUTE
+    AZ --> CONFIG
+    AZ --> RESOURCES
+    COMPUTE -->|"RequiredModules"| LOGIN
+    CONFIG -->|"RequiredModules"| LOGIN
+    RESOURCES -->|"RequiredModules"| LOGIN
+    LOGIN --> DI
 
-# Opt out of telemetry via config
-Set-AzConfig -Key telemetry.enabled -Value false
+    style AZ fill:#2d2d3d,stroke:#7a7a8a,color:#e0e0e0
+    style LOGIN fill:#2d4a3e,stroke:#4aba8a,color:#e0e0e0
+    style COMPUTE fill:#1e3a5f,stroke:#4a9eed,color:#e0e0e0
+    style CONFIG fill:#1e3a5f,stroke:#4a9eed,color:#e0e0e0
+    style RESOURCES fill:#1e3a5f,stroke:#4a9eed,color:#e0e0e0
+    style DI fill:#5a4a2e,stroke:#d4a84b,color:#e0e0e0
 ```
 
-The `Set-AzConfig -Key telemetry.enabled -Value false` opt-out is the documented PowerShell equivalent of the CLI's `az config set` (`README.md:166`). Note the Compute module declares the Login module as a `RequiredModule` (`src/PS/Compute/Compute.psd1:55`), so importing Compute pulls in Login automatically.
+## Importing and Using the Modules
 
-## Shared Engine, Per-Invocation Output Channel
+```powershell
+# Option A: import the rollup (brings in Login + Compute + Resources + Config)
+Import-Module ./src/PS/Az/Az.psd1
 
-Every cmdlet follows the same three-step pattern, visible in `NewVMCmdlet`:
+# Option B: import a single module. Compute declares Login as a RequiredModule,
+# so importing Compute imports Login first (which boots the shared DI container).
+Import-Module ./src/PS/Compute/Compute.psd1
 
-1. In `BeginProcessing`, build an `OutputStreams` bound to this cmdlet and resolve `IEngine` from the shared provider (`src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87`).
-2. In `ProcessRecord`, assemble a `CommandInvocation` from bound parameters (`src/PS/Compute/Cmdlets/NewVMCmdlet.cs:130`).
-3. Open an execution session and run it synchronously (`src/PS/Compute/Cmdlets/NewVMCmdlet.cs:133`).
+# Sign in, then use resource cmdlets
+Connect-AzAccount
+New-AzVM -SubscriptionId <sub> -ResourceGroupName rg1 -Name vm1 -Location eastus `
+         -VmSize Standard_D2s_v5 -AdminUsername azureuser -AdminPassword <pw> ...
+Get-AzVM -SubscriptionId <sub> -ResourceGroupName rg1 -Name vm1
+Remove-AzVM -SubscriptionId <sub> -ResourceGroupName rg1 -Name vm1
 
-The engine is explicitly designed for this. Its documented **Thread Safety** and **Output Routing** guarantees state that each invocation gets its own `Channel`: the worker thread writes to the channel, and the caller's thread reads and dispatches to the provided output delegate — *e.g.* `$PSCmdlet.WriteObject` (`src/Core/Core.Engine/Engine.cs:13`–`:21`). This per-invocation isolation is what allows concurrent cmdlet execution without output cross-talk.
+# Opt out of telemetry (same key the CLI uses)
+Set-AzConfig -Key telemetry.enabled -Value $false
+```
 
-The bridge between engine output and PowerShell streams is `CmdletOutputStreamsFactory.Create`, which constructs an `OutputStreams` whose delegates map each engine channel to the correct PowerShell stream (`src/PS/Common/CmdletOutputStreamsFactory.cs:30`):
+Exported cmdlets per module (from the manifests):
 
-| Engine stream | PowerShell target | Source |
+| Module | Cmdlets | Manifest |
 | --- | --- | --- |
-| `WriteOutput` | `cmdlet.WriteObject(value[, enumerate])` | `src/PS/Common/CmdletOutputStreamsFactory.cs:39` |
-| `WriteError` | `cmdlet.WriteError(new ErrorRecord(...))` | `src/PS/Common/CmdletOutputStreamsFactory.cs:91` |
-| `WriteWarning` | `cmdlet.WriteWarning(...)` | `src/PS/Common/CmdletOutputStreamsFactory.cs:82` |
-| `WriteVerbose` | `WriteVerbose` / host verbose line | `src/PS/Common/CmdletOutputStreamsFactory.cs:52` |
-| `WriteDebug` | `WriteDebug` / host debug line | `src/PS/Common/CmdletOutputStreamsFactory.cs:67` |
-| `WriteInformation` | `cmdlet.WriteInformation(...)` | `src/PS/Common/CmdletOutputStreamsFactory.cs:100` |
+| Login | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzProfile`, `Set-AzProfile`, `Remove-AzProfile` | `src/PS/Login/Login.psd1:85` |
+| Compute | `New-AzVM`, `Get-AzVM`, `Remove-AzVM` | `src/PS/Compute/Compute.psd1:80` |
+| Config | `Get-AzConfig`, `Set-AzConfig`, `Remove-AzConfig`, `Get-AzConfigList`, `Get-AzConfigInfo` | `src/PS/Config/Cmdlets/` |
 
-Verbose/Debug/Info/Warn honor the configured log level via `ShouldEmit`, but `-Verbose`/`-Debug` bound parameters force emission (`src/PS/Common/CmdletOutputStreamsFactory.cs:135`).
+## How a Cmdlet Shares the CLI's Engine
 
-## End-to-End Flow
+DI is bootstrapped **once, at module import**, not per cmdlet call. `Login` implements `IModuleAssemblyInitializer`; its `OnImport` registers PowerShell-specific providers and then calls `AzclipsServiceProvider.Initialize(ClientType.PowerShell)` (`src/PS/Login/ModuleInitializer.cs:16-25`). Because every binary module lists `Login` (directly or transitively) in `RequiredModules`, that initializer always runs first.
+
+From then on, each cmdlet is a thin adapter:
+
+1. `BeginProcessing` builds an `OutputStreams` bound to the live `$PSCmdlet` and resolves `IEngine` from the shared container (`src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87-91`).
+2. `ProcessRecord` packs parameters into a `CommandInvocation`, opens an execution session, and calls the **synchronous** `session.Run()` (`src/PS/Compute/Cmdlets/NewVMCmdlet.cs:93-134`).
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant User as PowerShell User
-    participant Cmd as NewVMCmdlet<br>(NewVMCmdlet.cs)
-    participant Factory as CmdletOutputStreamsFactory<br>(:30)
-    participant DI as AzclipsServiceProvider
-    participant Eng as IEngine / ExecutionSession
-    participant Chan as Per-invocation Channel
-    participant PSOut as $PSCmdlet.WriteObject
+    actor User
+    participant Import as Login import<br>ModuleInitializer.OnImport
+    participant DI as AzclipsServiceProvider<br>(:67)
+    participant Cmdlet as New-AzVM<br>(NewVMCmdlet.cs)
+    participant Streams as CmdletOutputStreamsFactory<br>(:30)
+    participant Engine as IEngine / ExecutionSession
+    participant PS as $PSCmdlet.WriteObject
 
-    User->>Cmd: New-AzVM -Name myvm ...
-    Cmd->>Factory: Create(this, "VMError", ...)  [BeginProcessing]
-    Factory-->>Cmd: OutputStreams (delegates -> PS streams)
-    Cmd->>DI: GetRequiredService(IEngine)
-    Cmd->>Eng: OpenExecutionSession(invocation, streams)  [ProcessRecord]
-    Eng->>Chan: worker writes results
-    Chan->>Cmd: caller thread pumps channel
-    Cmd->>PSOut: WriteObject(value)
-    PSOut-->>User: native PowerShell objects
+    User->>Import: Import-Module Compute.psd1 (RequiredModule: Login)
+    Import->>DI: Initialize(ClientType.PowerShell)
+    User->>Cmdlet: New-AzVM -Name vm1 ...
+    Cmdlet->>Streams: Create($PSCmdlet, errorId, category)
+    Cmdlet->>DI: GetRequiredService<IEngine>()
+    Cmdlet->>Engine: OpenExecutionSession(invocation, streams)
+    Cmdlet->>Engine: session.Run()
+    Engine->>Streams: WriteOutput(value)
+    Streams->>PS: WriteObject(value)
+    PS-->>User: pipeline object(s)
 ```
 
-```mermaid
-graph LR
-    subgraph psh["PowerShell Host"]
-        CMD["Cmdlet<br>New-AzVM / Set-AzConfig"]
-        WO["$PSCmdlet.WriteObject /<br>WriteError / WriteVerbose"]
-    end
-    subgraph shared["Shared Core (same as CLI)"]
-        DI["AzclipsServiceProvider<br>Initialize(ClientType.PowerShell)"]
-        ENG["IEngine<br>OpenExecutionSession"]
-        CH["Per-invocation Channel"]
-    end
-    OS["OutputStreams<br>CmdletOutputStreamsFactory"]
+### CmdletOutputStreamsFactory — the output bridge
 
-    CMD --> DI --> ENG --> CH --> OS --> WO
-    CMD -. builds .-> OS
+The engine writes to an abstract `OutputStreams` regardless of surface. For PowerShell, `CmdletOutputStreamsFactory.Create` (`src/PS/Common/CmdletOutputStreamsFactory.cs:30`) builds that struct so each channel routes back to the cmdlet's native streams:
 
-    style CMD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style WO fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ENG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style OS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style psh fill:#161b22,stroke:#30363d,color:#e6edf3
-    style shared fill:#161b22,stroke:#30363d,color:#e6edf3
+| Engine channel | PowerShell target | Source line |
+| --- | --- | --- |
+| `WriteOutput` | `$PSCmdlet.WriteObject` (enumerated when appropriate) | `src/PS/Common/CmdletOutputStreamsFactory.cs:43-47` |
+| `WriteError` | `$PSCmdlet.WriteError(new ErrorRecord(...))` | `src/PS/Common/CmdletOutputStreamsFactory.cs:91-98` |
+| `WriteVerbose` | `WriteVerbose` / host UI, honoring `-Verbose` | `src/PS/Common/CmdletOutputStreamsFactory.cs:52-64` |
+| `WriteWarning` / `WriteInformation` | `WriteWarning` / `WriteInformation`, severity-gated by `core.logging.level` | `src/PS/Common/CmdletOutputStreamsFactory.cs:82-108` |
+
+This is why the same engine code that streams to `Console.WriteLine` in the CLI produces first-class pipeline objects in PowerShell — only the `OutputStreams` delegates differ. The deep dive [PowerShell Cmdlet Architecture](/02-deep-dive/powershell-cmdlet-architecture) traces this end-to-end.
+
+## Telemetry Opt-Out
+
+Telemetry is on by default and can be disabled per the config key shared with the CLI:
+
+```powershell
+Set-AzConfig -Key telemetry.enabled -Value $false
 ```
 
-## Manifests and Help
-
-Each module ships a `.psd1` manifest (e.g. `src/PS/Compute/Compute.psd1`) declaring `ModuleVersion`, required modules, and the artifact DLLs it loads, plus `help/*.md` files (e.g. `src/PS/Compute/help/New-AzVM.md`) generated for `Get-Help`. Because manifests reference DLLs under `artifacts/<Config>/...` (`src/PS/Compute/Compute.psd1:59`), you must build the solution before importing a module.
+`src/PS/TelemetryHelper.ps1` resolves `ITelemetryService` from the same container (`Get-TelemetryService`, `src/PS/TelemetryHelper.ps1:10-23`) and wraps cmdlet activities via `Start-CmdletActivity` / `Complete-CmdletActivity`.
 
 ## References
 
-- `src/PS/Common/CmdletOutputStreamsFactory.cs:30` — maps engine streams to `$PSCmdlet` output methods.
-- `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87` — cmdlet resolves `IEngine` and opens a session.
-- `src/Core/Core.Engine/Engine.cs:13` — per-invocation channel thread-safety / output-routing contract.
-- `azclips.slnx:40` — PowerShell cmdlet projects (`Resources`, `Compute`, `Login`, `Config`).
-- `src/PS/Login/Constants.cs:11` — `Az` command-noun prefix.
-- `README.md:166` — `Set-AzConfig -Key telemetry.enabled` opt-out.
+- `src/PS/Login/ModuleInitializer.cs:24` — `Initialize(ClientType.PowerShell)` at module import
+- `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:67` — the shared composition root
+- `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87-134` — `BeginProcessing`/`ProcessRecord` → engine session
+- `src/PS/Common/CmdletOutputStreamsFactory.cs:30` — output bridge to `$PSCmdlet`
+- `src/PS/Login/Login.psd1:85` — Login cmdlet exports (`Connect-AzAccount`, ...)
+- `src/PS/Compute/Compute.psd1:80` — Compute cmdlet exports (`New-AzVM`, ...) and `RequiredModules: Login`
+- `src/PS/Az/Az.psd1:11-16` — rollup that requires Login/Compute/Resources/Config
+- `src/PS/TelemetryHelper.ps1:10-23` — shared telemetry activity helper

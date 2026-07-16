@@ -1,0 +1,12 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Azclips logo">
+  <defs>
+    <linearGradient id="azclipsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6d5dfc" />
+      <stop offset="100%" stop-color="#a89ffd" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#0d1117" stroke="url(#azclipsGradient)" stroke-width="2" />
+  <path d="M20 40 L32 18 L44 40" fill="none" stroke="url(#azclipsGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M24 34 H40" fill="none" stroke="url(#azclipsGradient)" stroke-width="4" stroke-linecap="round" />
+  <rect x="19" y="44" width="26" height="4" rx="2" fill="url(#azclipsGradient)" />
+</svg>

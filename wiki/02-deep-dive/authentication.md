@@ -1,341 +1,153 @@
 ---
 title: Authentication (MSAL)
-description: How Azclips authenticates to Azure with MSAL — ARM-scoped tokens, device-code vs interactive login, the shared cross-platform token cache, profile-scoped logout, and how the resolved Profile flows through the HTTP auth pipeline.
+description: The MSAL-based authentication subsystem — interactive/device-code/managed-identity login, the cross-platform token cache, silent token reuse by both the HTTP pipeline and the AI agent, and subscription/tenant resolution.
 outline: deep
 ---
 
 # Authentication (MSAL)
 
-## Overview — why this design
+## Why There Is One Auth Service
 
-Azclips is a CLI that calls Azure Resource Manager (ARM) on the user's behalf. Every
-authenticated call needs a valid bearer token, and users expect to sign in once and have
-subsequent commands "just work" without re-prompting. To achieve this, the authentication
-subsystem is built on **Microsoft.Identity.Client (MSAL)** and is deliberately split into two
-concerns:
+Authentication in Azclips is deliberately centralized in a single service, `MsalAuthService`, for a reason that shows up everywhere else in the architecture: **the HTTP pipeline and the AI agent must acquire tokens through the exact same code path.** There is no parallel credential flow for the agent, no second cache, no separate app registration. When a CLI command needs a bearer token it calls `IAuthService.AcquireTokenSilentlyAsync`; when the agent's built-in Copilot provider needs an ARM-scoped token, it calls the *same* method. That single-source-of-truth design is what this page traces.
 
-1. **Token acquisition & cache management** — owned by `MsalAuthService`
-   (`src/Core/Core.Authentication/MsalAuthService.cs:11`), which implements the MSAL-agnostic
-   `IAuthService` contract (`src/Core/Core.Abstractions/IAuthService.cs:9`).
-2. **Token *usage*** — owned by the engine's `AuthHandler`
-   (`src/Core/Core.Runtime/Handler/AuthHandler.cs:14`), a step in the HTTP pipeline that attaches
-   a `Bearer` header to each outgoing request.
+The code is in `Azure/cirrus` under the `Azclips` identity, built on `Microsoft.Identity.Client` (MSAL).
 
-The key architectural decision is that **`IAuthService` returns a simplified, MSAL-independent
-`AuthResult`** (`src/Core/Core.Abstractions/Models/AuthResult.cs:11`) rather than leaking MSAL's
-`AuthenticationResult` type across the whole codebase. This keeps the rest of Azclips free of a
-hard MSAL dependency, so the auth provider could be swapped without touching every processor.
+## The Service and Its Contract
 
-> **Naming note.** Product code, cache keyrings and the `~/.azclips` home directory all use the
-> **Azclips** codename. The target framework is **net10.0**.
-
-## Component map
-
-```mermaid
-graph TD
-    subgraph host["Host process (az)"]
-        LP["LoginProcessor<br>LogoutProcessor"]
-        ENG["Engine.CreateProcessorContext"]
-        AH["AuthHandler<br>(HTTP pipeline step)"]
-    end
-    subgraph auth["Core.Authentication"]
-        SVC["MsalAuthService : IAuthService"]
-        EXT["AuthResultExtensions<br>ToAuthResult()"]
-    end
-    subgraph msal["Microsoft.Identity.Client"]
-        PCA["PublicClientApplication"]
-        CACHE["MsalCacheHelper<br>MSAL.cache.plaintext"]
-    end
-
-    LP -->|"LoginAsync / LogoutAsync"| SVC
-    ENG -->|"AcquireTokenAsyncDefault ="| SVC
-    AH -->|"Profile.TenantId"| SVC
-    SVC --> PCA
-    SVC --> EXT
-    PCA --> CACHE
-
-    style host fill:#161b22,stroke:#30363d,color:#e6edf3
-    style auth fill:#161b22,stroke:#30363d,color:#e6edf3
-    style msal fill:#161b22,stroke:#30363d,color:#e6edf3
-    style LP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ENG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SVC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style EXT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PCA fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CACHE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    linkStyle default stroke:#8b949e
-```
-
-## The `IAuthService` contract
-
-`IAuthService` exposes exactly three operations, deliberately narrow
-(`src/Core/Core.Abstractions/IAuthService.cs:17`):
+`MsalAuthService` (`src/Core/Core.Authentication/MsalAuthService.cs:10`) implements `IAuthService` (`src/Core/Core.Abstractions/IAuthService.cs`). It is registered as a singleton alongside the credential factory, the managed-identity authenticator, and the subscription service (`src/Core/Core.Authentication/DIRegisterExtensions.cs:14-20`).
 
 | Method | Purpose | Source |
 | --- | --- | --- |
-| `LoginAsync(LoginRequest, ct)` | Interactive/device-code sign-in; returns a fresh `AuthResult` | `IAuthService.cs:17` |
-| `LogoutAsync(string? userPrincipalName, ct)` | Remove **one** account (by UPN) from the shared cache | `IAuthService.cs:27` |
-| `AcquireTokenSilentlyAsync(scopes, tenantId, promptOnError, ct)` | Silent (cache-backed) token acquisition used by the engine | `IAuthService.cs:37` |
+| `LoginAsync` | Branches on `AuthMethod`: managed identity, device code, or interactive | `src/Core/Core.Authentication/MsalAuthService.cs:19` |
+| `LogoutAsync` | Removes **only** the account matching a user principal name from the token cache | `src/Core/Core.Authentication/MsalAuthService.cs:30` |
+| `AcquireTokenSilentlyAsync` | Silent token acquisition (used by the HTTP pipeline **and** the agent) | `src/Core/Core.Authentication/MsalAuthService.cs:135` |
+| `CanAcquireTokenSilentlyAsync` | Probe: returns `true`/`false` for whether interactive sign-in is required | `src/Core/Core.Authentication/MsalAuthService.cs:178` |
 
-The single concrete implementation is `MsalAuthService`, constructed with an `ILoggingService`
-and an `ITelemetryService` (`src/Core/Core.Authentication/MsalAuthService.cs:10`). Every public
-method opens a telemetry activity named `MsalAuthService.<Method>` so sign-in latency is traceable
-(`MsalAuthService.cs:17`).
+The public-client app id is the classic first-party Azure CLI GUID `1950a258-227b-4e31-a9cf-717495945fc2` (`src/Core/Core.Authentication/MsalAuthService.cs:17`), and the default ARM scope is `https://management.core.windows.net//.default` (`src/Core/Core.Authentication/AuthConstants.cs:10`).
 
-### Fixed constants: scope and client id
+## Login Flows
 
-Two constants define *what* Azclips asks for and *as whom*
-(`src/Core/Core.Authentication/MsalAuthService.cs:12`):
+`LoginAsync` (`src/Core/Core.Authentication/MsalAuthService.cs:19`) is a switch over the requested `AuthMethod`:
 
-```csharp
-private const string ArmDefaultScope = "https://management.core.windows.net//.default";
-private const string ClientId        = "1950a258-227b-4e31-a9cf-717495945fc2";
-```
+| Method | Path | Source |
+| --- | --- | --- |
+| `ManagedIdentity` | Delegates to `ManagedIdentityAuthenticator.AuthenticateAsync` | `src/Core/Core.Authentication/MsalAuthService.cs:24` |
+| `DeviceCode` | `AcquireTokenWithDeviceCode` — prints the code + URL to the console | `src/Core/Core.Authentication/MsalAuthService.cs:72` |
+| Interactive (default) | `AcquireTokenInteractive` with the system browser (`WithUseEmbeddedWebView(false)`) | `src/Core/Core.Authentication/MsalAuthService.cs:61` |
 
-- **`ArmDefaultScope`** — the ARM `.default` scope. The double slash (`windows.net//.default`) is
-  intentional: `.default` is appended to the resource URI `https://management.core.windows.net/`,
-  which itself ends in a slash. This tells Entra ID to issue a token carrying every ARM permission
-  already consented for the app.
-- **`ClientId`** — a well-known Microsoft public-client application id (the same first-party id used
-  by other Azure command-line tools). Because it is a *public* client, no secret is embedded in the
-  binary; MSAL uses the redirect URI + PKCE flow instead.
-
-When no explicit scope is passed, every acquisition falls back to `[ArmDefaultScope]`
-(`MsalAuthService.cs:65`, `:76`, `:146`).
-
-## Login: device-code vs interactive
-
-`LoginAsync` is a thin branch over the `LoginRequest.UseDeviceCodeFlow` flag
-(`src/Core/Core.Authentication/MsalAuthService.cs:15`):
-
-```csharp
-public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default)
-{
-    if (request.UseDeviceCodeFlow)
-        return await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, ct);
-    else
-        return await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, ct);
-}
-```
-
-| Flow | MSAL call | User experience | Source |
-| --- | --- | --- | --- |
-| **Interactive** (default) | `AcquireTokenInteractive(...).WithUseEmbeddedWebView(false)` | Opens the system browser via the `http://localhost` redirect | `MsalAuthService.cs:65` |
-| **Device code** | `AcquireTokenWithDeviceCode(...)` with a callback that logs the code | Prints "go to microsoft.com/devicelogin and enter code…" — used on headless/SSH hosts | `MsalAuthService.cs:76` |
-
-Both flows are constructed by the shared `BuildApp(tenantId)` helper, which sets the redirect URI
-to `http://localhost` and defaults to the Microsoft corporate tenant when no tenant is supplied
-(`MsalAuthService.cs:87`). After acquisition, `LogTokenMetadataDebug` records the username, token
-source and cache-refresh reason at debug level (`MsalAuthService.cs:164`), and the MSAL result is
-converted to an `AuthResult` via `ToAuthResult()`.
-
-### The `az login` end-to-end sequence
+Managed identity is handled by a dedicated `ManagedIdentityAuthenticator` (`src/Core/Core.Authentication/ManagedIdentityAuthenticator.cs:6`), which builds a `TokenCredential` from the `AzureCredentialFactory` (`src/Core/Core.Authentication/AzureCredentialFactory.cs:7`) — system- or user-assigned depending on the id encoded on the profile.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant User
-    participant LP as LoginProcessor
-    participant SVC as MsalAuthService
-    participant MSAL as MSAL / Entra ID
-    participant CACHE as MSAL.cache.plaintext
-    participant PS as IProfileService
+    actor User
+    participant CLI as az login
+    participant Msal as MsalAuthService<br>(MsalAuthService.cs)
+    participant IdP as Entra ID (MSAL)
+    participant Cache as MSAL token cache<br>{LocalAppData}/.azclips
+    participant Profile as ProfileService
+    participant Pipe as HTTP pipeline (AuthHandler)
+    participant Agent as azclips-agent (builtin provider)
 
-    User->>LP: az login --subscription-id ... [--use-device-code]
-    LP->>LP: validate --profile / --out-profile<br>(mutually exclusive)
-    LP->>SVC: LoginAsync(LoginRequest)
-    alt UseDeviceCodeFlow
-        SVC->>MSAL: AcquireTokenWithDeviceCode(scopes)
-        MSAL-->>User: "enter code at microsoft.com/devicelogin"
-    else Interactive
-        SVC->>MSAL: AcquireTokenInteractive(scopes)
-        MSAL-->>User: system browser sign-in
+    User->>CLI: az login [--use-device-code]
+    CLI->>Msal: LoginAsync(request)
+    alt interactive
+        Msal->>IdP: AcquireTokenInteractive (system browser) (:61)
+    else device code
+        Msal->>IdP: AcquireTokenWithDeviceCode (:72)
     end
-    MSAL-->>SVC: AuthenticationResult (+ IAccount)
-    SVC->>CACHE: RegisterCache persists refresh token
-    SVC-->>LP: AuthResult (incl. UserPrincipalName)
-    LP->>PS: SaveAndActivateProfileAsync(Profile)
-    PS-->>User: profile written + set active
+    IdP-->>Msal: AuthenticationResult
+    Msal->>Cache: RegisterTokenCacheAsync (plaintext) (:98)
+    Msal-->>Profile: activate profile (tenant/sub)
+    Note over Pipe,Agent: later, without prompting...
+    Pipe->>Msal: AcquireTokenSilentlyAsync (:135)
+    Msal->>Cache: read cached account
+    Cache-->>Pipe: Bearer token
+    Agent->>Msal: AcquireTokenSilentlyAsync (:135)
+    Msal-->>Agent: same code path, ARM-scoped token
 ```
 
-`LoginProcessor` builds a `LoginRequest` from its bound arguments, calls `LoginAsync`, then
-projects the returned `AuthResult` into a `Profile` (carrying `TenantId`, `SubscriptionId`,
-`AuthMethod` and `UserPrincipalName`) and persists it with a single
-`SaveAndActivateProfileAsync` call (`src/Extensions/Login/Processors/LoginProcessor.cs:90`). Note
-that `--profile` **re-authenticates** an existing profile while `--out-profile` **creates** one;
-supplying both fails fast before any network call (`LoginProcessor.cs:46`).
+## The Token Cache (and a Security Note)
 
-## Silent acquisition — the engine's default token source
+`RegisterTokenCacheAsync` (`src/Core/Core.Authentication/MsalAuthService.cs:98`) wires MSAL to a cross-platform file cache under `GetDefaultLocalAppDataRoot()` → `{LocalAppData}/.azclips` (`src/Core/Core.Authentication/MsalAuthService.cs:100`).
 
-Everyday commands never call `LoginAsync`. Instead the engine wires
-`AcquireTokenSilentlyAsync` as the default token acquirer (see below). This method:
+Every caller today passes `plaintextUnsafe: true` (`src/Core/Core.Authentication/MsalAuthService.cs:46,65,76,149`), so the cache file is `MSAL.cache.plaintext` written with `WithUnprotectedFile()`. The Linux keyring / macOS keychain branch exists in the code (`src/Core/Core.Authentication/MsalAuthService.cs:111-119`) but is **currently unused**.
 
-1. Builds a `PublicClientApplication` for the tenant and registers the cache
-   (`MsalAuthService.cs:134`).
-2. Reads the first cached account; if none, it still attempts a silent call with a `null` account so
-   MSAL can use a login hint from the cache (`MsalAuthService.cs:137`).
-3. On `MsalUiRequiredException`, it *only* falls back to interactive sign-in when
-   `promptOnError` is `true` (`MsalAuthService.cs:155`); otherwise the exception propagates so the
-   caller can surface a "please run `az login`" message.
+> **Security-relevant [FACT]:** the MSAL token cache is stored unencrypted in preview. The OS-keyring/keychain code path is dormant. This is flagged for security review; treat `MSAL.cache.plaintext` as sensitive on shared machines.
 
-```csharp
-catch (MsalUiRequiredException) when (promptOnError)
-{
-    result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
-                      .WithUseEmbeddedWebView(false)
-                      .ExecuteAsync(cancellationToken);
-}
-```
+## Silent Reuse: The Shared Seam
 
-## The token cache — shared and cross-platform
+The important architectural fact is *who calls `AcquireTokenSilentlyAsync`*:
 
-`RegisterTokenCacheAsync` hooks MSAL's user token cache into a persistent, cross-platform store
-using `Microsoft.Identity.Client.Extensions.Msal` (`src/Core/Core.Authentication/MsalAuthService.cs:93`).
-Its behaviour depends on the `plaintextUnsafe` flag:
+1. **The HTTP pipeline.** The engine wires the `AuthHandler`'s token source to `authService.AcquireTokenSilentlyAsync` (`src/Core/Core.Engine/Engine.cs:106`). The handler injects a bearer header **only when a `Profile` is resolved** (`src/Core/Core.Runtime/Handler/AuthHandler.cs:28-40`).
+2. **The AI agent.** `BuiltinProviderConfig.BuildAsync` acquires an ARM-scoped token via the same `IAuthService.AcquireTokenSilentlyAsync` before constructing the Copilot provider config (`Agent/Providers/BuiltinProviderConfig.cs:24`).
 
-| Mode | Storage backend | Notes |
-| --- | --- | --- |
-| `plaintextUnsafe: true` (currently used everywhere) | Unprotected file `MSAL.cache.plaintext` | `builder.WithUnprotectedFile()` — `MsalAuthService.cs:104` |
-| `plaintextUnsafe: false` (future) | Linux keyring / macOS keychain | Keyring labelled `Microsoft.Azclips` / `Microsoft Azclips` — `MsalAuthService.cs:106` |
-
-The cache directory is resolved by `HomePaths.GetDefaultLocalAppDataRoot()`
-(`src/Core/Core.Abstractions/HomePaths.cs:47`), which places `MSAL.cache[.plaintext]` under the
-per-user local-app-data `.azclips` folder (`HomePaths.cs:12`). Crucially, **this one cache file is
-shared across all profiles** — a fact that shapes how logout works.
-
-## Logout — remove *only* the active profile's account
-
-Because the MSAL cache is shared, a naïve "clear the cache" logout would sign out accounts that
-belong to *other* profiles. The design therefore narrows logout to a single account. Per
-**Decision 6** of the profile-management design
-(`openspec/changes/profile-management/design.md:70`), `az logout`:
-
-1. Removes only the account whose `IAccount.Username` matches the active profile's
-   `UserPrincipalName` from the shared cache.
-2. Clears the active-profile pointer (the profile definition itself is retained).
-
-`LogoutAsync(userPrincipalName)` implements step 1 (`src/Core/Core.Authentication/MsalAuthService.cs:28`):
-
-```csharp
-if (string.IsNullOrWhiteSpace(userPrincipalName)) return;      // nothing to remove
-var app = PublicClientApplicationBuilder.Create(ClientId).Build();
-await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
-
-var matching = (await app.GetAccountsAsync())
-    .Where(a => string.Equals(a.Username, userPrincipalName, StringComparison.OrdinalIgnoreCase));
-foreach (var account in matching)
-    await app.RemoveAsync(account);                            // targeted removal
-```
-
-The orchestration lives in `LogoutProcessor`, which reads the active profile, calls
-`LogoutAsync(activeProfile.UserPrincipalName)`, then unsets the active pointer via
-`SetActiveProfileNameAsync(null)` (`src/Extensions/Login/Processors/LogoutProcessor.cs:21`). When no
-profile is active, logout is a safe no-op.
+`AcquireTokenSilentlyAsync` (`src/Core/Core.Authentication/MsalAuthService.cs:135`) itself: resolves the active profile if none is passed (`:141`), short-circuits to managed identity when the profile says so (`:142-145`), otherwise loads the cached account and calls `AcquireTokenSilent`, optionally falling back to interactive on `MsalUiRequiredException` when `promptOnError` is set (`:160-172`).
 
 ```mermaid
-graph LR
-    A["az logout"] --> B{"active profile?"}
-    B -->|no| N["no-op"]
-    B -->|yes| C["LogoutAsync(UPN)"]
-    C --> D{"account matches<br>UPN in cache?"}
-    D -->|yes| E["RemoveAsync(account)"]
-    D -->|no| F["nothing removed"]
-    E --> G["SetActiveProfileNameAsync(null)"]
-    F --> G
+graph TB
+    subgraph auth["Core.Authentication"]
+        MSAL["MsalAuthService (:10)<br>IAuthService"]
+        MI["ManagedIdentityAuthenticator (:6)"]
+        CF["AzureCredentialFactory (:7)"]
+        SUB["SubscriptionService (:11)"]
+        CACHE["MSAL.cache.plaintext"]
+    end
+    ENG["Engine.CreateProcessorContext (:99)<br>AuthHandler.AcquireTokenAsyncDefault (:106)"]
+    AGENT["Agent BuiltinProviderConfig (:24)"]
+    PROF["ProfileService (active profile)"]
 
-    style A fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style C fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style D fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style E fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
-    style F fill:#5a4a2e,stroke:#d4a84b,color:#e6edf3
-    style G fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style N fill:#2d333b,stroke:#7a7a8a,color:#e6edf3
-    linkStyle default stroke:#8b949e
+    ENG --> MSAL
+    AGENT --> MSAL
+    MSAL --> MI
+    MI --> CF
+    MSAL --> CACHE
+    MSAL --> PROF
+    SUB -. "raw HttpClient, ARM 2022-12-01" .-> ARM["ARM /subscriptions"]
+
+    style MSAL fill:#1e3a5f,stroke:#4a9eed,color:#e0e0e0
+    style MI fill:#2d4a3e,stroke:#4aba8a,color:#e0e0e0
+    style CF fill:#2d4a3e,stroke:#4aba8a,color:#e0e0e0
+    style SUB fill:#2d2d3d,stroke:#7a7a8a,color:#e0e0e0
+    style CACHE fill:#5a4a2e,stroke:#d4a84b,color:#e0e0e0
+    style ENG fill:#1e3a5f,stroke:#4a9eed,color:#e0e0e0
+    style AGENT fill:#5a4a2e,stroke:#d4a84b,color:#e0e0e0
+    style PROF fill:#2d2d3d,stroke:#7a7a8a,color:#e0e0e0
+    style ARM fill:#4a2e2e,stroke:#d45b5b,color:#e0e0e0
 ```
 
-## `AuthResult` and `AuthResultExtensions`
+## Profiles Are the Source of Truth
 
-`AuthResult` is a `record` that mirrors the useful fields of MSAL's `AuthenticationResult` while
-staying MSAL-free (`src/Core/Core.Abstractions/Models/AuthResult.cs:11`). It carries `AccessToken`,
-`ExpiresOn`, `Scopes`, `TenantId`, `CorrelationId`, and a **nullable `UserPrincipalName`**
-(`AuthResult.cs:51`).
+Auth state flows through the resolved **`Profile`**, not a standalone auth context. The engine resolves the active (or `--profile`-overridden) profile in `ResolveProfileAsync` (`src/Core/Core.Engine/Engine.cs:151`) and threads it into `ProcessorContext`, so a command's tenant, subscription, and auth method all come from one place. The agent forwards the caller's real working directory via `AZCLIPS_CALLER_CWD` (`src/CLI/Program.cs:30`) but authenticates through the *same* `IAuthService`, not a parallel path.
 
-That `UserPrincipalName` field was added specifically so logout can later identify the account: the
-mapping happens in `AuthResultExtensions.ToAuthResult()`, which copies `Account?.Username` into it
-(`src/Core/Core.Authentication/AuthResultExtensions.cs:20`):
+## Subscription & Tenant Resolution
 
-```csharp
-UserPrincipalName = msalAuthResult.Account?.Username,
-```
+`SubscriptionService` (`src/Core/Core.Authentication/SubscriptionService.cs:11`) enumerates subscriptions **outside** the normal pipeline, using a raw `HttpClient` against ARM API `2022-12-01`:
 
-The extension also copies the scopes into a fresh array rather than referencing MSAL's internal
-array, keeping the returned record fully decoupled (`AuthResultExtensions.cs:17`).
+- `ListSubscriptionsAsync` (`src/Core/Core.Authentication/SubscriptionService.cs:21`) pages through `/subscriptions`, guarding against a cyclic `nextLink`.
+- `ResolveSubscriptionTenantAsync` (`src/Core/Core.Authentication/SubscriptionService.cs:61`) resolves a subscription's tenant, using the `WWW-Authenticate` challenge for cross-tenant cases.
 
-## From `AuthContext`/`context.json` to `Profile` on `ProcessorContext`
+It takes a bearer token as a parameter rather than composing the auth handler, which is why it is intentionally simpler than a command's ARM call.
 
-Historically the signed-in session was represented by an `AuthContext` object persisted to
-`context.json` (still described by the now-stale spec `docs/spec/auth-context.md`). That model was
-**removed**. Per **Decision 5** of the profile-management design, `AuthContext`,
-`IAuthContextService`/`AuthContextService`, and `context.json` were deleted, and the resolved
-**`Profile`** became the single connection-state object flowing through the runtime
-(`openspec/changes/profile-management/design.md:70`).
+## Component Reference
 
-Today, per invocation:
-
-1. `Engine.CreateProcessorContext` resolves the profile (explicit `--profile`, else the active
-   profile, else `null`) and constructs an `AuthHandler`, binding
-   `AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync`
-   (`src/Core/Core.Engine/Engine.cs:101`).
-2. The resolved `Profile?` is placed both on the `AuthHandler` and on the `ProcessorContext` record
-   (`src/Core/Core.Abstractions/Models/ProcessorContext.cs:9`).
-3. On each outgoing request, `AuthHandler.SendAsync` acquires a token **only when a profile is
-   present**, reading `Profile.TenantId` for the acquisition and attaching the `Bearer` header
-   (`src/Core/Core.Runtime/Handler/AuthHandler.cs:38`):
-
-```csharp
-if (this.Profile is not null)
-{
-    var token = await tokenAcquirer(null, this.Profile.TenantId, false);
-    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
-}
-```
-
-When no profile is resolved, no token is attached; commands that genuinely require auth fail at the
-point of use with a clear error rather than sending an anonymous request
-(`AuthHandler.cs:30`). The token acquirer is the `AcquireTokenAsyncDelegate` whose signature
-deliberately matches `AcquireTokenSilentlyAsync`
-(`src/Core/Core.Abstractions/Runtime/delegates.cs:28`), and an override slot
-(`AcquireTokenAsyncOverride`) lets tests inject mock tokens without touching MSAL.
-
-> **See also:** [Configuration & Profile Management](./configuration-profiles.md) for how profiles
-> are stored, activated, and resolved, and how `--profile`/`-Profile` pre-binding feeds
-> `CreateProcessorContext`.
-
-## Threat model & current limitations
-
-| Concern | Current state | Source |
+| Component | Responsibility | Source |
 | --- | --- | --- |
-| Token-at-rest protection | Cache written **unencrypted** (`MSAL.cache.plaintext`); keyring/keychain code exists but is not the active path | `MsalAuthService.cs:104` |
-| Multi-tenant | `BuildApp` falls back to a hard-coded corporate tenant when none supplied | `MsalAuthService.cs:90` |
-| Client id | Single hard-coded first-party public-client id (marked `todo: 1P or 3P?`) | `MsalAuthService.cs:13` |
-| App reuse | A new `PublicClientApplication` is built per call (`todo` notes reuse when tenant is stable) | `MsalAuthService.cs:86` |
-
-These are tracked as inline `todo`s in `MsalAuthService` and represent the main hardening backlog for
-the auth subsystem.
+| `MsalAuthService` | All login/logout/silent-token flows | `src/Core/Core.Authentication/MsalAuthService.cs:10` |
+| `ManagedIdentityAuthenticator` | MI login + token refresh | `src/Core/Core.Authentication/ManagedIdentityAuthenticator.cs:6` |
+| `AzureCredentialFactory` | Builds `TokenCredential`s (stubbable in tests) | `src/Core/Core.Authentication/AzureCredentialFactory.cs:7` |
+| `SubscriptionService` | Subscription/tenant enumeration, raw ARM | `src/Core/Core.Authentication/SubscriptionService.cs:11` |
+| `AuthConstants` | Default ARM scope | `src/Core/Core.Authentication/AuthConstants.cs:10` |
 
 ## References
 
-- `src/Core/Core.Authentication/MsalAuthService.cs:11` — MSAL implementation of `IAuthService`
-- `src/Core/Core.Authentication/MsalAuthService.cs:28` — profile-scoped `LogoutAsync`
-- `src/Core/Core.Authentication/AuthResultExtensions.cs:20` — surfaces `UserPrincipalName`
-- `src/Core/Core.Abstractions/IAuthService.cs:9` — the auth contract
-- `src/Core/Core.Abstractions/Models/AuthResult.cs:11` — MSAL-independent result record
-- `src/Core/Core.Abstractions/HomePaths.cs:47` — token-cache location under `.azclips`
-- `src/Core/Core.Runtime/Handler/AuthHandler.cs:38` — HTTP pipeline token attachment
-- `src/Core/Core.Engine/Engine.cs:101` — wires `AcquireTokenSilentlyAsync` + resolves `Profile`
-- `src/Extensions/Login/Processors/LoginProcessor.cs:90` — login → profile save + activate
-- `src/Extensions/Login/Processors/LogoutProcessor.cs:21` — active-profile logout orchestration
-- `openspec/changes/profile-management/design.md:70` — Decisions 5 & 6 (Profile replaces AuthContext; scoped logout)
-- `docs/spec/auth-context.md` — **stale** legacy spec; the `AuthContext`/`context.json` model it describes was removed
+- `src/Core/Core.Authentication/MsalAuthService.cs:10,19,30,98,135,178` — the MSAL service and flows
+- `src/Core/Core.Abstractions/IAuthService.cs` — the auth contract
+- `src/Core/Core.Authentication/AzureCredentialFactory.cs:7` — credential factory
+- `src/Core/Core.Authentication/ManagedIdentityAuthenticator.cs:6` — managed identity
+- `src/Core/Core.Authentication/SubscriptionService.cs:11,21,61` — subscription/tenant resolution
+- `src/Core/Core.Authentication/AuthConstants.cs:10` — default ARM scope
+- `src/Core/Core.Authentication/DIRegisterExtensions.cs:14` — service registration
+- `src/Core/Core.Engine/Engine.cs:106` — pipeline wires `AcquireTokenSilentlyAsync`
+- `src/Core/Core.Runtime/Handler/AuthHandler.cs:28` — bearer injection gated on a profile
+- `Agent/Providers/BuiltinProviderConfig.cs:24` — the agent reuses the same auth service

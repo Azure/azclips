@@ -3,7 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid({
   title: 'Azclips Wiki',
   description: 'Technical documentation for Project Azclips — a .NET 10 extension-based CLI (the `az` binary) for Azure resource management, with an out-of-process AI agent fallback, an interactive Terminal UI, and mirrored PowerShell cmdlets',
-  appearance: 'dark',
+  appearance: 'force-dark',
   ignoreDeadLinks: true,
 
   head: [
@@ -45,24 +45,50 @@ export default withMermaid({
         items: [
           { text: 'Overview & Architecture', link: '/01-getting-started/overview' },
           { text: 'Environment Setup', link: '/01-getting-started/environment-setup' },
-          { text: 'CLI Usage Guide', link: '/01-getting-started/cli-usage' },
-          { text: 'PowerShell Module Guide', link: '/01-getting-started/powershell-usage' },
+          { text: 'CLI Usage', link: '/01-getting-started/cli-usage' },
+          { text: 'PowerShell Module Usage', link: '/01-getting-started/powershell-usage' },
+          { text: 'Terminal UI Quickstart', link: '/01-getting-started/tui-quickstart' },
+          { text: 'AI Agent Fallback Quickstart', link: '/01-getting-started/agent-mode-quickstart' },
         ],
       },
       {
         text: '🔬 Deep Dive',
         collapsed: false,
         items: [
-          { text: 'Core Engine & Orchestration', link: '/02-deep-dive/core-engine-orchestration' },
-          { text: 'HTTP Pipeline & Runtime', link: '/02-deep-dive/http-pipeline' },
-          { text: 'Authentication (MSAL)', link: '/02-deep-dive/authentication' },
-          { text: 'Extension System', link: '/02-deep-dive/extension-system' },
-          { text: 'Configuration & Profile Management', link: '/02-deep-dive/configuration-profiles' },
-          { text: 'AI Agent', link: '/02-deep-dive/ai-agent' },
-          { text: 'Terminal UI (TUI)', link: '/02-deep-dive/terminal-ui' },
-          { text: 'Telemetry & Observability', link: '/02-deep-dive/telemetry' },
-          { text: 'Testing & Benchmarking', link: '/02-deep-dive/testing-benchmarking' },
-          { text: 'Build & CI/CD', link: '/02-deep-dive/build-cicd' },
+          {
+            text: 'Agent, Copilot SDK & Interactive Surfaces',
+            collapsed: false,
+            items: [
+              { text: 'Agent Architecture', link: '/02-deep-dive/agent-architecture' },
+              { text: 'Copilot SDK Integration', link: '/02-deep-dive/copilot-sdk-integration' },
+              { text: 'Agent Tools', link: '/02-deep-dive/agent-tools' },
+              { text: 'Prompts & Plan Mode', link: '/02-deep-dive/prompts-and-plan-mode' },
+              { text: 'Rendering & Terminal UX', link: '/02-deep-dive/rendering-and-terminal-ux' },
+              { text: 'TUI Agent Mode & Fallback Interplay', link: '/02-deep-dive/tui-agent-mode' },
+              { text: 'TUI Interactive Shell & Azure VFS', link: '/02-deep-dive/tui-interactive-shell' },
+            ],
+          },
+          {
+            text: 'Core Runtime, Auth & Extensibility',
+            collapsed: false,
+            items: [
+              { text: 'Core Engine & Orchestration', link: '/02-deep-dive/core-engine-orchestration' },
+              { text: 'HTTP Pipeline & Runtime', link: '/02-deep-dive/http-pipeline-runtime' },
+              { text: 'Authentication (MSAL)', link: '/02-deep-dive/authentication' },
+              { text: 'Extension System', link: '/02-deep-dive/extension-system' },
+              { text: 'PowerShell Cmdlet Architecture', link: '/02-deep-dive/powershell-cmdlet-architecture' },
+            ],
+          },
+          {
+            text: 'Platform: Configuration, Telemetry, Packaging & Quality',
+            collapsed: false,
+            items: [
+              { text: 'Configuration Management', link: '/02-deep-dive/configuration-management' },
+              { text: 'Telemetry & Observability', link: '/02-deep-dive/telemetry-observability' },
+              { text: 'Packaging & Distribution', link: '/02-deep-dive/packaging-and-distribution' },
+              { text: 'Testing & Build Pipeline', link: '/02-deep-dive/testing-and-build' },
+            ],
+          },
         ],
       },
     ],
