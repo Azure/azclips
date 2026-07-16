@@ -374,7 +374,7 @@ public sealed class ChatAgent : IAsyncDisposable
         try { _activeTurnCts?.Cancel(); } catch { }
         try { await _session.AbortAsync(ct).ConfigureAwait(false); } catch { }
     }
-    private static readonly string[] ValidEntrypoints = ["oneshot", "inline", "tui"];
+    private static readonly string[] ValidEntrypoints = ["oneshot", "inline"];
 
     private static string LoadSystemPrompt(string flavor, string entrypoint)
     {
