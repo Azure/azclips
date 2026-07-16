@@ -112,7 +112,6 @@ public class Program
             }
             catch (DispatchHelpException)
             {
-                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
                 // Banner only for bare `az`, not for top-level flags like `az --help` —
                 // keeps scripted help-output grepping unaffected.
@@ -127,7 +126,6 @@ public class Program
             }
             catch (RuntimeExtensionHelpException helpException)
             {
-                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
                 try
                 {

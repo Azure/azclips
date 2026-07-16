@@ -80,4 +80,41 @@ public class PrintProbeTests
         Assert.Equal(0, exit);
         Assert.NotEmpty(writer.ToString());
     }
+
+    [Fact]
+    public void TryHandle_PrintProbeAlias_BehavesLikeMeow()
+    {
+        // --print-probe is the primary flag; --meow is retained as an alias.
+        var writer = new StringWriter();
+
+        var exit = PrintProbe.TryHandle(["--print-probe", "--list"], writer);
+
+        Assert.Equal(0, exit);
+        Assert.NotEmpty(writer.ToString());
+    }
+
+    [Fact]
+    public void TryHandle_HintMessagesEchoInvokedFlag()
+    {
+        // Users who typed `--meow` should see `--meow` in the hint text (and vice versa).
+        var meowWriter = new StringWriter();
+        PrintProbe.TryHandle(["--meow", "no-such-sample"], meowWriter);
+        Assert.Contains("--meow", meowWriter.ToString());
+
+        var probeWriter = new StringWriter();
+        PrintProbe.TryHandle(["--print-probe", "no-such-sample"], probeWriter);
+        Assert.Contains("--print-probe", probeWriter.ToString());
+    }
+
+    [Fact]
+    public void TryHandle_ExtraTokens_PrintsUsage_AndReturnsOne()
+    {
+        // args.Length >= 3 — unknown shape. Covers the fall-through branch.
+        var writer = new StringWriter();
+
+        var exit = PrintProbe.TryHandle(["--meow", "kitten", "extra"], writer);
+
+        Assert.Equal(1, exit);
+        Assert.Contains("usage:", writer.ToString());
+    }
 }

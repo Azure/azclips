@@ -27,7 +27,7 @@ internal static class WelcomeBanner
             output.WriteLine(line);
         }
         output.WriteLine();
-        output.WriteLine("  Welcome to AzCLIPS — Azure CLI, PowerShell & automation, in one host.");
+        output.WriteLine("  Welcome to AzCLIPS - Azure CLI, PowerShell & automation, in one host.");
         output.WriteLine("  Run `az --help` for command groups, or `az <verb> --help` for a specific verb.");
         output.WriteLine();
     }
