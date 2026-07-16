@@ -106,6 +106,17 @@ jobs:
           done
         }
 
+        requires_dotnet_entitlements() {
+          case "$(basename "$1")" in
+            az|azclips-agent)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
         raw_mac_assets=()
         while IFS= read -r asset; do
           raw_mac_assets+=("$asset")
@@ -144,7 +155,7 @@ jobs:
             fi
 
             relative_path="${binary#$content_root/}"
-            if [[ "$(basename "$binary")" == "az" ]]; then
+            if requires_dotnet_entitlements "$binary"; then
               chmod +x "$binary"
               codesign --force --sign - --options runtime --entitlements "$entitlements_source" "$binary"
               verify_dotnet_entitlements "$binary"
