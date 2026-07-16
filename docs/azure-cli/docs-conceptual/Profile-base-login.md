@@ -162,9 +162,8 @@ description = 'Name of the active Azure CLI profile'
 ```
 
 > [!NOTE]
-> The location of the `active-profile` file depends on your operating system's local application
-> data directory. If the paths above don't match your environment, run `az profile show --active`
-> to confirm the active profile.
+> Azure CLI stores the active profile pointer at `{LocalApplicationData}/.azclips/active-profile`.
+> On Linux, `{LocalApplicationData}` is typically `${XDG_DATA_HOME:-$HOME/.local/share}`.
 
 ## Next steps
 
