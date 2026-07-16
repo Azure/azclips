@@ -125,7 +125,7 @@ To sign out of the active profile and clear its account from the token cache, us
 Disconnect-AzAccount
 ```
 
-## Customizing Prompt to Display Profile Name
+## Display the active profile in your prompt
 
 Configure your shell prompt to display the active profile name. Azure PowerShell writes the active
 profile name to an `active-profile` file in its local application data directory
