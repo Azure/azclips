@@ -53,9 +53,8 @@ az login --tenant-id <tenant-id> --subscription-id <subscription-id> --out-profi
 The profile that you sign in to most recently becomes the active profile.
 
 > [!NOTE]
-> If you run `az login` without `--out-profile`, Azure CLI signs you in without creating a named
-> profile. A temporary profile is saved so that behavior stays compatible with the existing Azure
-> CLI. To keep a reusable, named context, always pass `--out-profile`.
+> If you run `az login` without `--out-profile`, Azure CLI saves the sign-in context as the reserved `temp` profile (overwriting any existing `temp` profile) and sets it as active.
+> To keep a reusable, named context, always pass `--out-profile`.
 
 ### Profile naming rules
 
