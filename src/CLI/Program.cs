@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
+using Core.Cli.Agent;
 using Core.Cli.Completions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
@@ -160,7 +161,7 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args, ex.Message);
+                return await TryAgentFallbackAsync(args, ex, "HttpRequestException");
             }
             catch (AzclipsErrorException ex)
             {
@@ -177,7 +178,7 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args, ex.Message);
+                return await TryAgentFallbackAsync(args, ex, "Exception");
             }
         }
         finally
@@ -315,8 +316,10 @@ public class Program
         }
     }
 
-    private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
+    private static async Task<int> TryAgentFallbackAsync(string[] args, Exception exception, string source)
     {
+        var errorText = exception.Message;
+
         // Global enable switch: config `agent.enabled` (off by default for PP).
         // The user opts in with `az config set --key agent.enabled --value true`.
         // Fail-safe: if config can't be read, treat as disabled and surface the
@@ -337,6 +340,35 @@ public class Program
             return 1;
         }
 
+        // Skeleton for a future data-driven decision. The exclusion set is empty
+        // today, so this is always false and every exception still reaches the
+        // agent — behavior is unchanged. The trace below records the exception
+        // (including whether it was excluded) so we can later decide which types
+        // are well-understood enough to skip the agent.
+        var excluded = AgentFallbackExclusions.IsExcluded(exception);
+
+        // Whether the subprocess will actually run: not excluded, and none of the
+        // guards below (interactive+redirected, recursion) trip, and the agent exe
+        // exists. Computed up front so the trace records the real outcome.
+        var interactiveBlocked = agentOptions.IsInteractive &&
+            (Console.IsInputRedirected || Console.IsOutputRedirected);
+        var recursion = Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1";
+        var agentExe = FindAgentExe();
+        var willSpawn = !excluded && !interactiveBlocked && !recursion && agentExe is not null;
+
+        // Record the triggering exception (parent side, real type) as the first
+        // line of the session trace; hand the path to the child so it appends its
+        // session to the same file. Null when tracing is off — then no --trace-file.
+        var tracePath = AgentFallbackTrace.BeginSession(
+            agentOptions.Trace, exception, source, excluded, willSpawn);
+
+        // Excluded → surface the original error without spawning (no exclusions
+        // today, so unreachable; kept so the skeleton is wired end to end).
+        if (excluded)
+        {
+            return 1;
+        }
+
         // Non-interactive guard — only for interactive sessions. `agent.sessionStyle`
         // = interactive keeps a chat loop that reads y/n approvals and prompts from
         // the terminal, so a non-TTY (CI, a pipe, an unattended script) would hang or
@@ -344,20 +376,18 @@ public class Program
         // without any approval turn, so it's safe (and useful) even when stdio is
         // redirected — don't gate it. Inlined (not the agent's ConsoleEnvironment
         // helper) so Core.Cli stays decoupled from Core.Agent — same TTY semantics.
-        if (agentOptions.IsInteractive &&
-            (Console.IsInputRedirected || Console.IsOutputRedirected))
+        if (interactiveBlocked)
         {
             return 1;
         }
 
         // Recursion guard: a failed az invoked by powershell from inside an
         // already-running agent process must NOT spawn another agent.
-        if (Environment.GetEnvironmentVariable(AgentModeEnvVar) == "1")
+        if (recursion)
         {
             return 1;
         }
 
-        var agentExe = FindAgentExe();
         if (agentExe is null)
         {
             _logger?.Error("agent mode unavailable: azclips-agent.exe not found alongside az");
@@ -400,6 +430,15 @@ public class Program
             {
                 psi.ArgumentList.Add("--error");
                 psi.ArgumentList.Add(errorText);
+            }
+            // Hand the parent-owned trace file to the child so it appends its
+            // session trace to the same file (one timeline: parent exception →
+            // child session). Null when tracing is off — then no --trace-file and
+            // the child writes nothing.
+            if (!string.IsNullOrWhiteSpace(tracePath))
+            {
+                psi.ArgumentList.Add("--trace-file");
+                psi.ArgumentList.Add(tracePath);
             }
 
             // The child agent takes over Ctrl+C (it cancels the session). The parent

@@ -36,7 +36,11 @@ public sealed class TraceAgentRenderer : IAgentRenderer, IDisposable
             var dir = Path.GetDirectoryName(tracePath);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
-            _writer = new StreamWriter(new FileStream(tracePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+            // Append: the parent `az` process owns this file and may have already
+            // written the triggering exception as its first line (it spawns us with
+            // --trace-file). Append leaves that line intact and adds this session
+            // after it; if the file doesn't exist yet, Append creates it.
+            _writer = new StreamWriter(new FileStream(tracePath, FileMode.Append, FileAccess.Write, FileShare.Read))
             {
                 AutoFlush = true,
             };

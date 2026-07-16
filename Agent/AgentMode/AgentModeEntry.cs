@@ -29,6 +29,11 @@ public static class AgentModeEntry
 
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
+        // Trace file is owned by the parent `az` process (it wrote the triggering
+        // exception as the first line). When present, append this session's trace
+        // to the same file so one file holds the whole timeline. Absent (e.g. trace
+        // disabled) → no trace is written here.
+        var traceFile     = ArgValue(args, "--trace-file");
 
         // Agent runs as its own process (azclips-agent.exe), spawned by the CLI
         // as its error-handling fallback — so it initializes as ClientType.CLI
@@ -54,18 +59,16 @@ public static class AgentModeEntry
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var az     = FindAzExe() ?? "az";
             var consoleRenderer = new ConsoleAgentRenderer(quiet, agentOpts.Interactive.Verbose);
-            // When agent.trace.enabled, wrap the console renderer to record a JSONL
-            // trace under agent.trace.path. Prose suppression after submit_response
-            // lives on ConsoleAgentRenderer itself (always-on), independent of trace.
+            // Trace is owned by the parent `az` process: if it passed --trace-file
+            // (only when agent.trace.enabled), append this session's JSONL trace to
+            // that same file so one file holds the parent exception + this session
+            // in order. No --trace-file → no trace here. Prose suppression after
+            // submit_response lives on ConsoleAgentRenderer itself (always-on),
+            // independent of trace.
             IAgentRenderer renderer = consoleRenderer;
-            if (agentOpts.Trace.Enabled && !string.IsNullOrWhiteSpace(agentOpts.Trace.Path))
+            if (!string.IsNullOrWhiteSpace(traceFile))
             {
-                // Expand a leading ~ (the documented default is ~/.azclips/trace) — .NET
-                // does NOT expand it, so without this the trace lands in a literal "~"
-                // directory. Resolve to an absolute path so the announced location works.
-                var traceDir = ExpandHome(agentOpts.Trace.Path);
-                var fileName = $"trace-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.jsonl";
-                var fullPath = Path.GetFullPath(Path.Combine(traceDir, fileName));
+                var fullPath = Path.GetFullPath(traceFile);
                 trace = new TraceAgentRenderer(consoleRenderer, fullPath);
                 renderer = trace;
                 // Always announce the trace file (even in quiet) — if it's on, the
@@ -348,18 +351,6 @@ public static class AgentModeEntry
         Console.WriteLine("   type 'exit' or Ctrl+C to leave");
         Console.WriteLine();
         Console.ForegroundColor = prev;
-    }
-
-    // .NET does not expand a leading "~"; do it ourselves so the documented default
-    // (~/.azclips/trace) resolves under the user profile instead of a literal "~" dir.
-    private static string ExpandHome(string path)
-    {
-        if (path == "~")
-            return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (path.StartsWith("~/", StringComparison.Ordinal) || path.StartsWith("~\\", StringComparison.Ordinal))
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[2..]);
-        return path;
     }
 
     private static string? ArgValue(string[] args, string flag)
