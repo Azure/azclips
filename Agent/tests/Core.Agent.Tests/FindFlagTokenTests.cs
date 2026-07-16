@@ -86,6 +86,24 @@ public class FindFlagTokenTests
     }
 
     [Fact]
+    public void QuotedValueWithSpaces_IsNotTruncated()
+    {
+        // A double-quoted value with spaces must be taken whole, not cut at the
+        // first space (that would render "--query "[?a]" instead of the full arg).
+        var steps = Steps("az vm list --query \"[?location=='east us'].name\"");
+        Assert.Equal("--query \"[?location=='east us'].name\"",
+            ConsoleApprovalPrompt.FindFlagToken(steps, "--query"));
+    }
+
+    [Fact]
+    public void SingleQuotedValueWithSpaces_IsNotTruncated()
+    {
+        var steps = Steps("az vm create --admin-username 'my user'");
+        Assert.Equal("--admin-username 'my user'",
+            ConsoleApprovalPrompt.FindFlagToken(steps, "--admin-username"));
+    }
+
+    [Fact]
     public void PrefixFlag_DoesNotFalseMatchLongerFlag()
     {
         // "--resource" must not match inside "--resource-group". A real "--resource"

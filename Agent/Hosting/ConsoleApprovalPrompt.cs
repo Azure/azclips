@@ -276,9 +276,12 @@ public sealed class ConsoleApprovalPrompt
                 // Match the flag as a WHOLE token — the trailing (?![\w-]) stops
                 // "--resource" from matching inside "--resource-group". Then an
                 // optional value that isn't itself a flag ((?!-) rejects both
-                // "--x" and short "-x"). Group "val" is absent for a switch.
+                // "--x" and short "-x"). A quoted value ("..." or '...') is taken
+                // whole so a value with spaces (e.g. --query "[?a].b c") isn't cut
+                // at the first space; otherwise a bare non-space token. Group "val"
+                // is absent for a switch.
                 var m = Regex.Match(s.Cmd,
-                    $@"(?<![^\s]){Regex.Escape(needle)}(?![\w-])(?:[=\s]+(?<val>(?!-)\S+))?",
+                    $@"(?<![^\s]){Regex.Escape(needle)}(?![\w-])(?:[=\s]+(?<val>(?!-)(?:""[^""]*""|'[^']*'|\S+)))?",
                     RegexOptions.IgnoreCase);
                 if (m.Success)
                     return m.Groups["val"].Success ? $"{needle} {m.Groups["val"].Value}" : needle;
