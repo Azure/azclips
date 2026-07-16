@@ -6,7 +6,7 @@ using System.Collections.Frozen;
 namespace Core.Cli.Help;
 
 /// <summary>
-/// Easter-egg registry of team-member cats rendered by <see cref="MeowCommand"/>.
+/// Easter-egg registry of team-member cats rendered by <see cref="PrintProbe"/>.
 /// Contributors: add a new entry to <see cref="s_cats"/>. Keep names lowercase and
 /// URL-safe (a-z, 0-9, dash) so <c>az --meow &lt;name&gt;</c> parsing stays trivial.
 /// </summary>

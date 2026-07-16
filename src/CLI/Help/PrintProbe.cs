@@ -4,20 +4,24 @@
 namespace Core.Cli.Help;
 
 /// <summary>
-/// Handles the hidden <c>--meow</c> easter-egg flag. Intentionally NOT listed in
-/// <c>az --help</c> — discovery is word-of-mouth. Cold-path only: routes purely on
-/// argv, does no DI resolution, and exits before <see cref="Core.Cli.Program"/>
-/// touches the extension dispatcher.
+/// Cold-path diagnostic that prints a known-good sample block to stdout,
+/// used to eyeball terminal wrapping, encoding pass-through, and column
+/// alignment when triaging render issues. Routes purely on argv, does no
+/// DI resolution, and exits before <see cref="Core.Cli.Program"/> touches
+/// the extension dispatcher. Intentionally NOT listed in <c>az --help</c>.
 /// </summary>
 /// <remarks>
 /// Supported shapes:
 /// <list type="bullet">
-///   <item><c>az --meow</c> — print a random cat.</item>
-///   <item><c>az --meow --list</c> — print the roster of cat names.</item>
-///   <item><c>az --meow &lt;name&gt;</c> — print the named cat, or a "not found" hint.</item>
+///   <item><c>az --meow</c> — print a random sample.</item>
+///   <item><c>az --meow --list</c> — print the roster of sample names.</item>
+///   <item><c>az --meow &lt;name&gt;</c> — print the named sample, or a "not found" hint.</item>
 /// </list>
+/// The flag name is retained for backwards compatibility with the initial
+/// diagnostic surface; the sample corpus is authored by contributors
+/// (see <see cref="Cats"/>).
 /// </remarks>
-internal static class MeowCommand
+internal static class PrintProbe
 {
     private const string MeowFlag = "--meow";
     private const string ListFlag = "--list";

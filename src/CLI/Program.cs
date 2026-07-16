@@ -47,11 +47,14 @@ public class Program
             return 0;
         }
 
-        // Hidden `--meow` easter egg. Cold-path; no DI, no dispatcher touch.
-        int? meowExit = MeowCommand.TryHandle(args, Console.Out);
-        if (meowExit.HasValue)
+        // Cold-path short-circuit for the hidden UI-print probe. Renders a
+        // known-good sample block to stdout so we can eyeball terminal wrap
+        // behavior, encoding pass-through, and column alignment during
+        // triage. No DI, no dispatcher touch — must run before either.
+        int? printProbeExit = PrintProbe.TryHandle(args, Console.Out);
+        if (printProbeExit.HasValue)
         {
-            return meowExit.Value;
+            return printProbeExit.Value;
         }
 
         AzclipsServiceProvider.PrependRegistration(services =>

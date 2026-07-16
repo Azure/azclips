@@ -10,14 +10,14 @@ namespace Cli.Tests;
 /// Tests for the hidden <c>--meow</c> easter egg. Kept lightweight — behavior surface
 /// is small and intentionally does not appear in <c>az --help</c>.
 /// </summary>
-public class MeowCommandTests
+public class PrintProbeTests
 {
     [Fact]
     public void TryHandle_ReturnsNull_WhenFirstArgIsNotMeow()
     {
         var writer = new StringWriter();
 
-        var exit = MeowCommand.TryHandle(["login"], writer);
+        var exit = PrintProbe.TryHandle(["login"], writer);
 
         Assert.Null(exit);
         Assert.Empty(writer.ToString());
@@ -28,7 +28,7 @@ public class MeowCommandTests
     {
         var writer = new StringWriter();
 
-        var exit = MeowCommand.TryHandle([], writer);
+        var exit = PrintProbe.TryHandle([], writer);
 
         Assert.Null(exit);
     }
@@ -38,7 +38,7 @@ public class MeowCommandTests
     {
         var writer = new StringWriter();
 
-        var exit = MeowCommand.TryHandle(["--meow", "--list"], writer);
+        var exit = PrintProbe.TryHandle(["--meow", "--list"], writer);
 
         Assert.Equal(0, exit);
         var lines = writer.ToString()
@@ -54,7 +54,7 @@ public class MeowCommandTests
     {
         var writer = new StringWriter();
 
-        var exit = MeowCommand.TryHandle(["--meow", "kitten"], writer);
+        var exit = PrintProbe.TryHandle(["--meow", "kitten"], writer);
 
         Assert.Equal(0, exit);
         Assert.NotEmpty(writer.ToString());
@@ -65,7 +65,7 @@ public class MeowCommandTests
     {
         var writer = new StringWriter();
 
-        var exit = MeowCommand.TryHandle(["--meow", "no-such-cat"], writer);
+        var exit = PrintProbe.TryHandle(["--meow", "no-such-cat"], writer);
 
         Assert.Equal(1, exit);
         Assert.Contains("--list", writer.ToString());
@@ -77,7 +77,7 @@ public class MeowCommandTests
         // Randomness is fine here — every entry in Cats produces non-empty output.
         var writer = new StringWriter();
 
-        var exit = MeowCommand.TryHandle(["--meow"], writer);
+        var exit = PrintProbe.TryHandle(["--meow"], writer);
 
         Assert.Equal(0, exit);
         Assert.NotEmpty(writer.ToString());
