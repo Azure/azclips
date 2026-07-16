@@ -130,7 +130,7 @@ az profile remove --name corp
 
 If you remove the active profile, no profile is active until you set one with `az profile set`.
 
-## Show the active profile in your shell prompt
+## Display the active profile in your prompt
 
 To keep track of which profile is active, you can display the active profile name in your shell
 prompt. Azure CLI writes the active profile name to an `active-profile` file in its local data
