@@ -142,7 +142,7 @@ Add the following to your `~/.bashrc` to append the active profile to your promp
 
 ```bash
 azclips_profile() {
-  local f="$HOME/.local/share/.azclips/active-profile"
+  local f="${XDG_DATA_HOME:-$HOME/.local/share}/.azclips/active-profile"
   [ -f "$f" ] && printf '@%s' "$(cat "$f")"
 }
 PS1='\u@\h \w $(azclips_profile)\$ '
