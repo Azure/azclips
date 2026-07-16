@@ -1,5 +1,9 @@
 ## Upcoming Release
 
+## v0.0.7 - 2026-07-16 10:53 UTC
+
+- No user-facing CLI or PowerShell module changes were listed for this release.
+
 ## v0.0.6 - 2026-07-16 01:40 UTC
 
 #### CLI
