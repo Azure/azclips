@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Azure.Monitor.OpenTelemetry.Exporter;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -18,16 +19,16 @@ namespace Core.Telemetry;
 public class FileTelemetrySender : ITelemetrySender
 {
     private const string FallbackSourceName = "AzclipsTelemetryUploader";
-    private const string TraceDirectoryName = "Azclips";
+    private const string TracesSubdirectoryName = "traces";
 
     /// <summary>
     /// Gets the shared trace directory for the background uploader picks up all files from one location.
+    /// Uses the same <c>{LocalApplicationData}/.azclips/</c> root as auth profiles for consistency.
     /// </summary>
     public static string GetTraceDirectory() =>
         Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            TraceDirectoryName,
-            "traces");
+            HomePaths.GetDefaultLocalAppDataRoot(),
+            TracesSubdirectoryName);
 
     public void ConfigureExporter(TracerProviderBuilder builder, string traceDirectory)
     {
