@@ -137,7 +137,7 @@ Run `code $PROFILE` to open your PowerShell profile and add the following code s
 
 ```powershell
 function prompt {
-    $activeProfileFile = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) '.azclips/active-profile'
+    $activeProfileFile = Join-Path (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) '.azclips') 'active-profile'
     $activeProfile = if (Test-Path $activeProfileFile) { (Get-Content $activeProfileFile -Raw).Trim() } else { '' }
     $suffix = if ($activeProfile) { " @$activeProfile" } else { '' }
     "PS $($ExecutionContext.SessionState.Path.CurrentLocation)$suffix$('>' * ($NestedPromptLevel + 1)) "
