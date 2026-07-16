@@ -6,16 +6,9 @@ ms.topic: conceptual
 
 # Manage sign-in profiles in Azure CLI (Private preview)
 
-A *profile* is a named sign-in context that Azure CLI saves when you authenticate. Each profile
-remembers who you signed in as and which tenant and subscription to use, so you can switch between
-different accounts, tenants, and subscriptions without signing in again every time. Because each
-profile has a memorable name, it's easy to recall and tell environments apart at a glance—for
-example a development versus a production environment—instead of memorizing tenant and subscription
-IDs. Profiles also conveniently store the basic information needed to sign in, so you don't have to
-re-enter that context on every command.
+A _profile_ is a named sign-in context that Azure CLI saves when you authenticate. Each profile remembers the tenant, subscription, cloud, and sign-in information needed to connect to Azure. Profiles let you switch between accounts, tenants, and subscriptions without signing in each time.
 
-Profiles are useful when you regularly work across more than one context, for example a personal
-subscription and a corporate subscription, or a development tenant and a production tenant.
+Profiles are useful when you regularly work across multiple contexts, such as personal and corporate subscriptions or separate development and production environments.
 
 ## What a profile stores
 
