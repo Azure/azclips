@@ -153,7 +153,8 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 }
 ```
 
-- `code` is the **contract** for programmatic callers (`LeafConflict`, `ExtensionNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`). Tests and downstream tooling MUST assert on `code`, never on `message` — the latter is free to evolve.
+- `code` is the **contract** for programmatic callers (`LeafConflict`, `ExtensionNotFound`, `CommandNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`). Tests and downstream tooling MUST assert on `code`, never on `message` — the latter is free to evolve.
+- `ExtensionNotFound` (exit 4) fires only when the owning package is genuinely absent from discovery. `CommandNotFound` (exit 4) fires when the top-level verb IS owned by a discovered extension but the specific `(verb, path)` leaf doesn't exist — e.g. `az vm --list` or `az group foobar` when Compute/Resources are installed. Splitting these prevents the misleading "install the extension you already have" hint.
 - `message` is human-readable and not contractual.
 - `details` carries operation-specific context. For `LeafConflict`, the array enumerates every `(verb, path)` a single `add` collided on. Field names within `details` are not contractual.
 
@@ -405,12 +406,16 @@ v1 ships an embedded `extension-hints.json`. Schema is feed-ready so the fetch h
         "vm create": {
             "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
         },
-        "vm list": { "packageId": "Microsoft.Azure.Azclips.Extensions.Compute" },
+        "vm list": {
+            "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
+        },
         "disk": { "packageId": "Microsoft.Azure.Azclips.Extensions.Compute" },
         "disk list": {
             "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
         },
-        "group": { "packageId": "Microsoft.Azure.Azclips.Extensions.Resources" },
+        "group": {
+            "packageId": "Microsoft.Azure.Azclips.Extensions.Resources",
+        },
         "group create": {
             "packageId": "Microsoft.Azure.Azclips.Extensions.Resources",
         },

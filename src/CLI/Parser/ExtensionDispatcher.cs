@@ -94,6 +94,12 @@ public class ExtensionDispatcher //: IParser
         {
             if (!_resolver.TryResolve(verb, out resolved) || resolved is null)
             {
+                // Verb is known to discovery → leaf typo, not a missing package.
+                if (_leafIndex.Value.HasVerb(verb))
+                {
+                    throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+                }
+
                 for (int len = nonFlagLeadingArgs.Length; len >= 0; len--)
                 {
                     var path = string.Join(" ", nonFlagLeadingArgs, 0, len);
