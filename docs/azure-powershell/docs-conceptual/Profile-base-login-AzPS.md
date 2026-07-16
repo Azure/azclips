@@ -15,7 +15,7 @@ Profiles are useful when you regularly work across multiple contexts, such as pe
 Profiles are useful when you:
 
 - Work across multiple Azure tenants or subscriptions.
-- Separate development and production environments.
+- Keep development and production environments separate.
 - Use both personal and work accounts.
 - Occasionally run commands against a different subscription without changing your default context.
 
