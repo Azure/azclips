@@ -150,11 +150,10 @@ Add this to your `~/.config/starship.toml`
 
 ```toml
 [custom.profile]
-command = 'cat ~/Library/Application\ Support/.azclips/active-profile'
+command = 'test -f "$HOME/Library/Application Support/.azclips/active-profile" && cat "$HOME/Library/Application Support/.azclips/active-profile"'
 symbol = '@'
-when = true
-description = 'Name of the active profile of Azure Client Tools'
-```
+when = 'test -f "$HOME/Library/Application Support/.azclips/active-profile"'
+description = 'Name of the active profile in Azure PowerShell'
 
 > [!NOTE]
 > The location of the `active-profile` file depends on your operating system's local application
