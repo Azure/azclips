@@ -16,7 +16,7 @@ Depending on preferences, scripting environment or other requirements, you can u
 
 The architecture used for these commands allows execution in secure, constrained environments and provides faster execution or a smaller disk footprint.
 
-## Preview capabilities
+## Preview capabilities (<sub>[What's new](docs/azure-cli/docs-conceptual/whats-new.md)</sub>)
 
 - **Profile-based login** — sign in and manage which subscription and context your commands run against.
 - **Single sign-on (SSO)** — one `az login` is shared between Azure PowerShell and native `az` commands in the same session; no re-authentication when switching.
@@ -27,7 +27,7 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 
 ## Getting started
 
-1. **Install** — see the [install overview](docs/azure-cli/docs-conceptual/install-overview.md) for the single-command install (Windows, Linux, macOS). Packages ship via [GitHub Releases](https://github.com/Azure/azclips/releases).
+1. **Install** — see the [Azure CLI install overview](docs/azure-cli/docs-conceptual/install-overview.md) and the [Azure PowerShell modules install guide](docs/azure-powershell/docs-conceptual/install-powershell-modules.md) for the single-command install (Windows, Linux, macOS). Packages ship via [GitHub Releases](https://github.com/Azure/azclips/releases).
 2. **Verify** — run `az --version`.
 3. **Sign in** — run `az login`.
 
@@ -46,7 +46,7 @@ az profile set prod                                 # switch the active profile
 **Azure PowerShell ↔ native SSO** — sign in once, then use both surfaces in the same session, no re-auth:
 
 ```bash
-az login            # sign in once
+az login --subscription-id <id>   # sign in once
 az group list       # native az command — already authenticated
 ```
 
@@ -89,11 +89,6 @@ Start here, then follow the pointers into `./docs`.
 **Azure PowerShell**
 - [Overview](docs/azure-powershell/docs-conceptual/README.md) — getting-started guide in progress
 
-**How-to guides**
-- [Configuration (`az config`)](docs/howto/config.md)
-- [Help system](docs/howto/help.md)
-- [Extension management](docs/howto/extension-management.md)
-
 > Documentation is being consolidated during the preview, so paths may change.
 
 ## Known limitations
@@ -105,7 +100,7 @@ This is an early private preview — expect rough edges and change between build
 - Azure CLI & Azure PowerShell installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
 - Commands, behavior, and packaging may change without notice during the preview.
 
-For the current list, see [Getting started → Known preview limitations](./docs/azure-cli/docs-conceptual/getting-started.md).
+For the current list, see [Troubleshooting](https://github.com/Azure/azclips/blob/main/docs/azure-cli/docs-conceptual/troubleshooting.md).
 
 ## Feedback
 
@@ -113,28 +108,12 @@ Please share early and often.
 
 - **[GitHub Issues](https://github.com/Azure/azclips/issues)** — primary channel for bugs, install problems, doc gaps, command issues, and feature requests (templates provided).
 - **[GitHub Discussions](https://github.com/Azure/azclips/discussions)** — questions and ideas.
-- **Pulse survey** — short (~5 min) Microsoft Forms survey: [ADD SURVEY LINK]. <!-- TODO: confirm Microsoft Forms pulse survey link -->
-- **Moderated sessions** — group and 1:1; book here: [ADD BOOKING LINK]. <!-- TODO: confirm 1:1 booking link -->
+- **[Pulse survey](https://forms.cloud.microsoft/r/n0H7LqgM5e)** — short (~5 min) Microsoft Forms survey.
+- **Moderated sessions** — group and 1:1; details will be shared over email.
 
-We review on a regular cadence. For sensitive issues, contact the team directly: [ADD CONTACT]. <!-- TODO: confirm direct contact (alias/email) -->
+We review on a regular cadence. For quick collaboration with the Product Group, you will be added to a Microsoft Teams channel. Share your Teams ID if you haven't been added yet.
 
 > Never include secrets, tokens, customer data, tenant IDs, or subscription IDs in issues or discussions.
-
-## Governance
-
-- **License** — [MIT](LICENSE). *(Open-source review in progress.)*
-- **Support** — [SUPPORT.md](SUPPORT.md)
-- **Code of Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- **Security Policy** — [SECURITY.md](SECURITY.md)
-- **Privacy & telemetry** — the preview collects limited telemetry with your consent (command names, parameter *names* only, success/failure, and basic environment data — never parameter values, URLs, or personal content). Telemetry is on by default; opt out with `az config set --key telemetry.enabled --value false` (Azure PowerShell equivalent: `Set-AzConfig -Key telemetry.enabled -Value false`). See [Configuration Management](docs/howto/config.md#valid-configuration-keys).
-
-### Data Collection
-
-The software may collect information about you and your use of the software and send it to Microsoft. Microsoft may use this information to provide services and improve our products and services. You may turn off the telemetry as described in the repository. There are also some features in the software that may enable you and Microsoft to collect data from users of your applications. If you use these features, you must comply with applicable law, including providing appropriate notices to users of your applications together with a copy of Microsoft's privacy statement. Our privacy statement is located at [https://go.microsoft.com/fwlink/?LinkID=824704](https://go.microsoft.com/fwlink/?LinkID=824704). You can learn more about data collection and use in the help documentation and our privacy statement. Your use of the software operates as your consent to these practices.
-
-### Trademarks
-
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship. Any use of third-party trademarks or logos is subject to those third-party policies.
 
 ## Repository structure
 
@@ -169,3 +148,19 @@ azclips/
 ├── CONTRIBUTING.md   # Contribution guidelines
 └── LICENSE           # MIT license
 ```
+
+## Governance
+
+- **License** — [MIT](LICENSE). *(Open-source review in progress.)*
+- **Support** — [SUPPORT.md](SUPPORT.md)
+- **Code of Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- **Security Policy** — [SECURITY.md](SECURITY.md)
+- **Privacy & telemetry** — the preview collects limited telemetry with your consent (command names, parameter *names* only, success/failure, and basic environment data — never parameter values, URLs, or personal content). Telemetry is on by default; opt out with `az config set --key telemetry.enabled --value false` (Azure PowerShell equivalent: `Set-AzConfig -Key telemetry.enabled -Value false`). See [Configuration Management](docs/howto/config.md#valid-configuration-keys).
+
+### Data Collection
+
+The software may collect information about you and your use of the software and send it to Microsoft. Microsoft may use this information to provide services and improve our products and services. You may turn off the telemetry as described in the repository. There are also some features in the software that may enable you and Microsoft to collect data from users of your applications. If you use these features, you must comply with applicable law, including providing appropriate notices to users of your applications together with a copy of Microsoft's privacy statement. Our privacy statement is located at [https://go.microsoft.com/fwlink/?LinkID=824704](https://go.microsoft.com/fwlink/?LinkID=824704). You can learn more about data collection and use in the help documentation and our privacy statement. Your use of the software operates as your consent to these practices.
+
+### Trademarks
+
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship. Any use of third-party trademarks or logos is subject to those third-party policies.
