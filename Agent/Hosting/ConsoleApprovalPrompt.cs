@@ -246,7 +246,17 @@ public sealed class ConsoleApprovalPrompt
             }
         if (hasPlaceholders)
             foreach (var p in placeholders!)
-                Console.WriteLine($"• <{OneLine(p.Name)}>: {OneLine(p.Description)}");
+            {
+                // Show the flag as it appears in the command (e.g.
+                // "--admin-password <admin-password>") so it lines up with the
+                // default rows above, instead of a bare "<admin-password>".
+                var token = FindFlagToken(steps, p.Name);
+                // If the flag wasn't found in any step, FindFlagToken returns just
+                // the flag (no value) — fall back to the <name> form so the
+                // "you must fill this in" cue isn't lost.
+                var display = token.Contains('<') ? token : $"--{OneLine(p.Name.TrimStart('-'))} <{OneLine(p.Name.TrimStart('-'))}>";
+                Console.WriteLine($"• {OneLine(display)}: {OneLine(p.Description)}");
+            }
     }
 
     // Locate a flag in the plan's step commands and return it exactly as written,
