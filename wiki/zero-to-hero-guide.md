@@ -469,7 +469,7 @@ The happy path above returns `0`. The interesting behavior is what happens when 
 | `HttpRequestException`          | network/ARM failure                         | `TryAgentFallbackAsync`                                                         |
 | any other `Exception`           | unknown failure                             | `TryAgentFallbackAsync`                                                         |
 
-The key idea: **structured, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures that suggest the _intent_ needs reinterpreting (a typo, natural language, a "how do I…"). And even then, `TryAgentFallbackAsync` (`:281`) only proceeds if three gates pass:
+The key idea: **structured, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures where the command ran but broke in a way a fix could recover (a typo, a missing required flag, an unexpected runtime error). And even then, `TryAgentFallbackAsync` (`:304`) only proceeds if three gates pass:
 
 ```csharp
 if (!config.GetConfiguration<AgentOptions>().Enabled) return 1;               // opted in?
@@ -733,13 +733,13 @@ Import-Module ./src/PS/Resources/Resources.psd1
 New-AzResourceGroup -Name demo -Location eastus
 ```
 
-**Try the TUI / agent (optional):**
+**Try the AI-based error recovery (optional):**
 
 ```bash
 az config set --key agent.enabled --value true    # opt in
-# now a failing/natural-language command on an interactive terminal
-# hands off to the TUI agent-mode:
-az "create a resource group called demo in westus"
+# now, when an az command FAILS on an interactive terminal, the failure
+# hands off to agent-mode, which proposes a fix for you to review:
+az group create --name demo   # missing --location: the agent proposes the fix
 ```
 
 <a name="p3-18"></a>
