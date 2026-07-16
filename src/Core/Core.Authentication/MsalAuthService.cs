@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using Core.Abstractions;
@@ -89,11 +89,18 @@ public class MsalAuthService(
     }
 
     // todo: reuse app instance but allow reinitialization when tenantId changes
-    private IPublicClientApplication BuildApp(string? tenantId) => PublicClientApplicationBuilder.Create(ClientId)
-                .WithRedirectUri("http://localhost")
-                // todo: what should be the client id here?
-                .WithTenantId(tenantId ?? "72f988bf-86f1-41af-91ab-2d7cd011db47") // todo: fallback to tenant id in the context
-                .Build();
+    private IPublicClientApplication BuildApp(string? tenantId)
+    {
+        var builder = PublicClientApplicationBuilder.Create(ClientId)
+            .WithRedirectUri("http://localhost");
+
+        // No tenant supplied: use the multi-tenant "organizations" authority
+        builder = string.IsNullOrWhiteSpace(tenantId)
+            ? builder.WithAuthority(AzureCloudInstance.AzurePublic, AadAuthorityAudience.AzureAdMultipleOrgs)
+            : builder.WithTenantId(tenantId);
+
+        return builder.Build();
+    }
 
     private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
     {
@@ -145,26 +152,24 @@ public class MsalAuthService(
         }
 
         // otherwise use the usual MSAL flow
-        var app = BuildApp(tenantId);
+        var effectiveTenantId = string.IsNullOrWhiteSpace(tenantId) ? profile?.TenantId : tenantId;
+        var app = BuildApp(effectiveTenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
         var accounts = await app.GetAccountsAsync();
-        var account = accounts.FirstOrDefault();
+        var account = MsalAccountSelector.SelectAccount(accounts, profile);
 
         AuthenticationResult result;
         try
         {
-            // If no account found, try with AcquireTokenSilent without account (uses login hint from cache)
             if (account == null)
             {
-                result = await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], (IAccount?)null)
-                    .WithForceRefresh(false)
-                    .ExecuteAsync(cancellationToken);
+                throw new MsalUiRequiredException(
+                    "no_matching_account",
+                    "No cached account matches the active profile. Sign in again to refresh credentials.");
             }
-            else
-            {
-                result = await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], account).ExecuteAsync(cancellationToken);
-            }
+
+            result = await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], account).ExecuteAsync(cancellationToken);
         }
         catch (MsalUiRequiredException) when (promptOnError)
         {
