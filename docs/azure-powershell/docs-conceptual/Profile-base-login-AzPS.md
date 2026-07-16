@@ -19,7 +19,7 @@ profile, including:
 - The Azure tenant (directory)
 - The Azure subscription
 - The cloud environment
-- The sign-in identity (the signed-in user, when available)
+- The sign-in identity (the signed-in user)
 - The authentication method used to sign in
 
 Profiles are stored locally on your machine. Switching profiles changes which of these saved
