@@ -166,5 +166,5 @@ description = 'Name of the active profile in Azure PowerShell'
 
 > [!NOTE]
 > The location of the `active-profile` file depends on your operating system's local application
-> data directory. If the paths above don't match your environment, run `Get-AzProfile -Active` to
-> confirm the active profile.
+> data directory. To discover the path on your machine, run `[Environment]::GetFolderPath('LocalApplicationData')` in PowerShell and append `/.azclips/active-profile`.
+> Use `Get-AzProfile -Active` to confirm which profile is active.
