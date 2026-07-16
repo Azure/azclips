@@ -106,6 +106,29 @@ jobs:
         fi
       }
 
+      verify_required_dotnet_entitlements() {
+        local az_binary="$1"
+        local apphost_dir
+        local agent_binary
+        local failed=0
+
+        apphost_dir="$(cd "$(dirname "$az_binary")" && pwd -P)"
+        agent_binary="$apphost_dir/azclips-agent"
+
+        if ! verify_dotnet_entitlements "$az_binary"; then
+          failed=1
+        fi
+
+        if [[ ! -f "$agent_binary" ]]; then
+          echo "ERROR: Required .NET binary not found next to az entrypoint: $agent_binary"
+          failed=1
+        elif ! verify_dotnet_entitlements "$agent_binary"; then
+          failed=1
+        fi
+
+        return "$failed"
+      }
+
       for tarball in "${tarballs[@]}"; do
         verify_dir="$(Pipeline.Workspace)/verify-macos/$(basename "${tarball%.tar.gz}")"
         mkdir -p "$verify_dir"
@@ -136,7 +159,7 @@ jobs:
           continue
         fi
 
-        if ! verify_dotnet_entitlements "$az_binary"; then
+        if ! verify_required_dotnet_entitlements "$az_binary"; then
           errors=1
         fi
 
