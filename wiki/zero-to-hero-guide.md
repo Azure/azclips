@@ -461,13 +461,13 @@ Notice the four patterns you'll copy for every command: `[ArgumentInfo]` on publ
 
 The happy path above returns `0`. The interesting behavior is what happens when a command _throws_. `Program.Main` wraps execution in a catch ladder (`src/CLI/Program.cs:91-144`), and the _type_ of exception decides everything:
 
-| Thrown                          | Meaning                         | What happens                                                                    |
-| ------------------------------- | ------------------------------- | ------------------------------------------------------------------------------- |
-| `DispatchHelpException`         | user asked for root help        | render help, exit                                                               |
-| `RuntimeExtensionHelpException` | user asked for a command's help | render that help, exit                                                          |
-| `AzclipsErrorException`         | a known, structured error       | print it (`error: [code] message` or JSON), return its exit code — **no agent** |
-| `HttpRequestException`          | network/ARM failure             | `TryAgentFallbackAsync`                                                         |
-| any other `Exception`           | unknown failure                 | `TryAgentFallbackAsync`                                                         |
+| Thrown                          | Meaning                                     | What happens                                                                    |
+| ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
+| `DispatchHelpException`         | user asked for root help (or ran bare `az`) | render help, exit (bare `az` also prints a welcome banner)                      |
+| `RuntimeExtensionHelpException` | user asked for a command's help             | render that help, exit                                                          |
+| `AzclipsErrorException`         | a known, structured error                   | print it (`error: [code] message` or JSON), return its exit code — **no agent** |
+| `HttpRequestException`          | network/ARM failure                         | `TryAgentFallbackAsync`                                                         |
+| any other `Exception`           | unknown failure                             | `TryAgentFallbackAsync`                                                         |
 
 The key idea: **structured, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures that suggest the _intent_ needs reinterpreting (a typo, natural language, a "how do I…"). And even then, `TryAgentFallbackAsync` (`:281`) only proceeds if three gates pass:
 
@@ -481,7 +481,7 @@ Only if all three pass does it spawn the TUI in `--agent-mode` and wait for it. 
 
 ### 9.2 The discovery path (help & completions)
 
-Not every invocation executes a command. `az --help`, `az group --help`, and shell tab-completion all take the **discovery** path instead of the execution path. `CompletionGenerator.TryHandleAsync` (`Program.cs:56`) short-circuits before real work for completion requests, and help exceptions route to `RuntimeHelpDispatcher`, which uses `Engine.OpenDiscoverySession` (`IEngine.cs:12`) to _introspect_ extensions (load their indices, read metadata) without running anything. Keeping discovery separate from execution is why `--help` is fast and side-effect-free.
+Not every invocation executes a command. Bare `az`, `az --help`, `az group --help`, and shell tab-completion all take the **discovery** path instead of the execution path. `CompletionGenerator.TryHandleAsync` (`Program.cs:56`) short-circuits before real work for completion requests, and help exceptions route to `RuntimeHelpDispatcher`, which uses `Engine.OpenDiscoverySession` (`IEngine.cs:12`) to _introspect_ extensions (load their indices, read metadata) without running anything. Keeping discovery separate from execution is why `--help` is fast and side-effect-free.
 
 <a name="p2-10"></a>
 

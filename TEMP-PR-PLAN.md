@@ -78,7 +78,7 @@ exit code 1 when the agent is disabled).
 - [x] Update `ExtensionDispatcherTests`.
 - [x] `dotnet build azclips.slnx` clean.
 - [x] `dotnet test tests/Cli.Tests/Cli.Tests.csproj` green.
-- [ ] Docs updates.
+- [x] Docs updates (`cli-usage.md`, `extension-system.md`, `core-engine-orchestration.md`, `onboarding-guide.md`, `zero-to-hero-guide.md`).
 - [ ] Manual smoke test: `az`, `az --help`, `az --debug`, `az version`.
 
 ## Follow-up (separate PR) — switch handling refactor

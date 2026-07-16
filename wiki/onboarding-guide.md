@@ -417,7 +417,7 @@ sequenceDiagram
 
 `Main` first special-cases the telemetry uploader (`Program.cs:34`) — a re-entrant `az --upload-telemetry` used by the detached flush process (see §10). Then it registers CLI providers and calls `Initialize` (`:40-53`). Completion generation gets a chance to short-circuit (`:56`), because shell tab-completion must resolve `IEngine` directly and exit before we do "real" work.
 
-`ExtensionDispatcher.Parse` (`:76`, impl at `ExtensionDispatcher.cs:44`) turns `argv` into a `CommandInvocation`. It distinguishes help forms (`--help`, `-h`, bare `az help <group>`), throwing typed `DispatchHelpException`/`RuntimeExtensionHelpException` that `Main` catches to render help rather than execute (`Program.cs:91-120`). It resolves the verb against a merged **leaf index** of built-in extensions (`BuiltInExtensions.Map`) plus the user's installed registry (`FileExtensionRegistryStore`).
+`ExtensionDispatcher.Parse` (`:76`, impl at `ExtensionDispatcher.cs:44`) turns `argv` into a `CommandInvocation`. It distinguishes help forms (bare `az`, `--help`, `-h`, `az help <group>`), throwing typed `DispatchHelpException`/`RuntimeExtensionHelpException` that `Main` catches to render help rather than execute. Bare `az` is treated as a top-level help request and additionally triggers the ASCII welcome banner in `Program.Main` (`WelcomeBanner.cs`). It resolves the verb against a merged **leaf index** of built-in extensions (`BuiltInExtensions.Map`) plus the user's installed registry (`FileExtensionRegistryStore`).
 
 ### 5.2 Open the session, resolve the profile, build the context
 
