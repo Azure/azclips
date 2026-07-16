@@ -51,9 +51,7 @@ Connect-AzAccount -TenantId <tenant-id> -SubscriptionId <subscription-id> -OutPr
 ```
 
 > [!NOTE]
-> If you run `Connect-AzAccount` without `-OutProfile`, Azure PowerShell signs you in without
-> creating a named profile. A temporary profile is saved so that behavior stays compatible with the
-> existing Azure PowerShell. To keep a reusable, named context, always pass `-OutProfile`.
+> If you run `Connect-AzAccount` without `-OutProfile`, Azure PowerShell signs you in using the reserved `temp` profile (instead of creating a reusable named profile). This preserves compatibility with existing `Connect-AzAccount` behavior. To keep a reusable, named context, always pass `-OutProfile`.
 
 ### Profile naming rules
 
