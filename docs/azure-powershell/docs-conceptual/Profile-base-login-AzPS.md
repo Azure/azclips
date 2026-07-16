@@ -144,7 +144,7 @@ function prompt {
 }
 ```
 
-### zsh + starship
+### Zsh with Starship
 
 On macOS, add this to your `~/.config/starship.toml`:
 ```toml
