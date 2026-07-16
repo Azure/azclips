@@ -265,8 +265,8 @@ public sealed class ConsoleApprovalPrompt
     internal static string FindFlagToken(IReadOnlyList<PlanStep>? steps, string flag)
     {
         if (string.IsNullOrWhiteSpace(flag)) return flag;
-        // Normalize to a leading-dash form for matching; keep what the model gave
-        // for the fallback display.
+        // Normalize to a leading "--" form; this normalized value is used both for
+        // matching and for the fallback display when the flag isn't found.
         var needle = flag.StartsWith('-') ? flag : "--" + flag;
         if (steps is not null)
         {
