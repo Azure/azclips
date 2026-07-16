@@ -73,7 +73,7 @@ To see all saved profiles, use `az profile list`:
 az profile list
 ```
 
-## Show a profile
+## View a profile
 
 To view the details of a specific profile, use `az profile show` with the profile name:
 
