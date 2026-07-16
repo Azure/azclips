@@ -10,6 +10,15 @@ A _profile_ is a named sign-in context that Azure PowerShell saves when you auth
 
 Profiles are useful when you regularly work across multiple contexts, such as personal and corporate subscriptions or separate development and production environments.
 
+## When to use profiles
+
+Profiles are useful when you:
+
+- Work across multiple Azure tenants or subscriptions.
+- Separate development and production environments.
+- Use both personal and work accounts.
+- Occasionally run commands against a different subscription without changing your default context.
+
 ## What a profile stores
 
 When you sign in and save a profile, Azure PowerShell records the connection context for that
