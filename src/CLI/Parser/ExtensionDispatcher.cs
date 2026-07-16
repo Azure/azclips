@@ -45,14 +45,13 @@ public class ExtensionDispatcher //: IParser
 
     public CommandInvocation Parse(string[] args)
     {
-        // Bare `az` (no args at all) is treated as a top-level help request — same as
-        // `az --help`. Program.Main renders a welcome banner in addition to the help
-        // in the empty-args case; the dispatch signal itself is uniform.
+        // Bare `az` (or only global flags stripped upstream) → dispatch as help.
+        // Program.Main adds the welcome banner when the invocation was originally bare.
         if (args.Length == 0)
         {
             throw new DispatchHelpException(this);
         }
-        
+
         if (string.IsNullOrWhiteSpace(args[0])) throw new ArgumentException("Command-group token cannot be empty or whitespace.", nameof(args));
 
         // Bare top-level help: `az --help`, `az -h`, `az help`, etc.

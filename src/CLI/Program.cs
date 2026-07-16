@@ -47,10 +47,8 @@ public class Program
             return 0;
         }
 
-        // Cold-path short-circuit for the hidden UI-print probe. Renders a
-        // known-good sample block to stdout so we can eyeball terminal wrap
-        // behavior, encoding pass-through, and column alignment during
-        // triage. No DI, no dispatcher touch — must run before either.
+        // Hidden UI-print probe. Renders a sample block for triaging terminal
+        // wrap / encoding / alignment. Runs before DI so it stays independent.
         int? printProbeExit = PrintProbe.TryHandle(args, Console.Out);
         if (printProbeExit.HasValue)
         {
@@ -117,10 +115,8 @@ public class Program
             {
                 var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-                // Welcome banner runs only for bare `az` (no args), not for
-                // `az --help` / `az -h` / `az help`. Keep it above the help
-                // block so scripts that grep the help output aren't affected
-                // by a leading blank line (Console.Out is line-buffered here).
+                // Banner only for bare `az`, not for `az --help` and friends —
+                // keeps scripted help-output grepping unaffected.
                 if (isBareInvocation)
                 {
                     WelcomeBanner.Write(Console.Out);

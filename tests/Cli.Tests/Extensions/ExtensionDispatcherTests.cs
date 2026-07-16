@@ -23,10 +23,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldThrowDispatchHelpException_WhenArgsEmpty()
     {
-        // Bare `az` (no args) is treated as a top-level help request — same signal as
-        // `az --help`. Program.Main adds a welcome banner on the empty-args path,
-        // but the dispatcher itself emits the uniform help-dispatch exception.
-        // Regression guard for Azure/CLIPS#503.
+        // Bare `az` dispatches as help; Program.Main layers on the banner separately.
         var dispatcher = new ExtensionDispatcher();
         var emptyArgs = Array.Empty<string>();
 

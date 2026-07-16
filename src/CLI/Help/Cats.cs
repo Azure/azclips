@@ -6,14 +6,13 @@ using System.Collections.Frozen;
 namespace Core.Cli.Help;
 
 /// <summary>
-/// Easter-egg registry of team-member cats rendered by <see cref="PrintProbe"/>.
-/// Contributors: add a new entry to <see cref="s_cats"/>. Keep names lowercase and
-/// URL-safe (a-z, 0-9, dash) so <c>az --meow &lt;name&gt;</c> parsing stays trivial.
+/// Sample-block registry rendered by <see cref="PrintProbe"/>. Contributors:
+/// add an entry to <see cref="s_cats"/>. Names must be lowercase and URL-safe
+/// (a-z, 0-9, dash).
 /// </summary>
 internal static class Cats
 {
-    // Verbatim strings so backslashes and quotes in the art render literally. Each entry
-    // starts with a newline so the printed cat has breathing room above it.
+    // Verbatim strings; each entry starts with a newline for breathing room.
     private static readonly FrozenDictionary<string, string> s_cats = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["kitten"] = @"

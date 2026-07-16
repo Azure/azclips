@@ -7,8 +7,7 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Tests for the hidden <c>--meow</c> easter egg. Kept lightweight — behavior surface
-/// is small and intentionally does not appear in <c>az --help</c>.
+/// Tests for <see cref="PrintProbe"/>. Lightweight — surface is tiny.
 /// </summary>
 public class PrintProbeTests
 {
@@ -44,8 +43,7 @@ public class PrintProbeTests
         var lines = writer.ToString()
             .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
         Assert.NotEmpty(lines);
-        // Roster is authoritative and case-insensitively sorted; make the test resilient
-        // to future additions by checking sortedness, not exact contents.
+        // Sortedness, not exact contents — adding samples must not break the test.
         Assert.Equal(lines.OrderBy(x => x, StringComparer.OrdinalIgnoreCase), lines);
     }
 
@@ -74,7 +72,7 @@ public class PrintProbeTests
     [Fact]
     public void TryHandle_BareMeow_PrintsSomething()
     {
-        // Randomness is fine here — every entry in Cats produces non-empty output.
+        // Every entry in Cats is non-empty, so randomness is safe here.
         var writer = new StringWriter();
 
         var exit = PrintProbe.TryHandle(["--meow"], writer);

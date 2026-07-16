@@ -10,9 +10,7 @@ namespace Core.Cli.Help;
 /// </summary>
 internal static class WelcomeBanner
 {
-    // Figlet "small" font for "AzCLIPS" (generated with pyfiglet: `pyfiglet -f small AzCLIPS`).
-    // Kept as a single literal so any future font tweak lands in one place. Do NOT normalize
-    // whitespace or trim trailing spaces — the glyphs rely on that padding for alignment.
+    // Figlet "small" font for "AzCLIPS". Do NOT trim trailing whitespace — glyphs rely on it.
     private static readonly string[] s_bannerLines =
     [
         @"     _        ___ _    ___ ___  ___ ",
