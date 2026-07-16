@@ -142,7 +142,7 @@ profile name to an `active-profile` file in its local application data directory
 
 ### PowerShell
 
-Run `code $PROFILE` to open your PowerShell profile and add the following code snippet:
+Open your PowerShell profile script (for example, run `code $PROFILE`) and incorporate the following snippet into your existing `prompt` function (or replace it if you don't already have one):
 
 ```powershell
 function prompt {
