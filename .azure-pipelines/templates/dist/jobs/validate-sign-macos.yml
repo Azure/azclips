@@ -107,23 +107,24 @@ jobs:
       }
 
       verify_required_dotnet_entitlements() {
-        local verify_dir="$1"
-        local required_binary
-        local required_path
+        local az_binary="$1"
+        local apphost_dir
+        local agent_binary
         local failed=0
 
-        for required_binary in az azclips-agent; do
-          required_path="$verify_dir/$required_binary"
-          if [[ ! -f "$required_path" ]]; then
-            echo "ERROR: Required .NET binary not found in signed macOS tarball: $required_path"
-            failed=1
-            continue
-          fi
+        apphost_dir="$(cd "$(dirname "$az_binary")" && pwd -P)"
+        agent_binary="$apphost_dir/azclips-agent"
 
-          if ! verify_dotnet_entitlements "$required_path"; then
-            failed=1
-          fi
-        done
+        if ! verify_dotnet_entitlements "$az_binary"; then
+          failed=1
+        fi
+
+        if [[ ! -f "$agent_binary" ]]; then
+          echo "ERROR: Required .NET binary not found next to az entrypoint: $agent_binary"
+          failed=1
+        elif ! verify_dotnet_entitlements "$agent_binary"; then
+          failed=1
+        fi
 
         return "$failed"
       }
@@ -158,7 +159,7 @@ jobs:
           continue
         fi
 
-        if ! verify_required_dotnet_entitlements "$verify_dir"; then
+        if ! verify_required_dotnet_entitlements "$az_binary"; then
           errors=1
         fi
 
