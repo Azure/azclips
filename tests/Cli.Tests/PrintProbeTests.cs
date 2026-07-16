@@ -115,6 +115,6 @@ public class PrintProbeTests
         var exit = PrintProbe.TryHandle(["--meow", "kitten", "extra"], writer);
 
         Assert.Equal(1, exit);
-        Assert.Contains("usage:", writer.ToString());
+        Assert.Contains("Usage:", writer.ToString());
     }
 }

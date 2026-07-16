@@ -70,12 +70,12 @@ internal static class PrintProbe
                 return 0;
             }
 
-            output.WriteLine($"no sample named '{args[1]}'. try `az {invokedFlag} --list`.");
+            output.WriteLine($"No sample named '{args[1]}'. Try 'az {invokedFlag} --list'.");
             return 1;
         }
 
         // args.Length >= 3 — unknown shape (e.g. `az --meow foo bar`).
-        output.WriteLine($"usage: az {invokedFlag} [<name> | --list]");
+        output.WriteLine($"Usage: az {invokedFlag} [<name> | --list]");
         return 1;
     }
 }
