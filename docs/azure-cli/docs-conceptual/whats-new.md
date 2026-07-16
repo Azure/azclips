@@ -55,4 +55,4 @@ Azure CLI now supports _profiles_, which let you save named sign-in contexts for
 tenants, and subscriptions. Profiles make it easy to switch between environments without signing in
 again.
 
-For more information, see [Manage sign-in profiles in Azure CLI](./profile-based-sign-in.md).
+For more information, see [Manage sign-in profiles in Azure CLI](./Profile-base-login.md).
