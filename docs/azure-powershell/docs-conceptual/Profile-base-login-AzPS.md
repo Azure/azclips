@@ -70,7 +70,7 @@ To see all saved profiles, use `Get-AzProfile`:
 Get-AzProfile
 ```
 
-## Show a profile
+## View a profile
 
 To view the details of a specific profile, use `Get-AzProfile` with the `-Name` parameter:
 
