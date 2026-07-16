@@ -12,7 +12,7 @@ namespace Cli.Tests;
 public class PrintProbeTests
 {
     [Fact]
-    public void TryHandle_ReturnsNull_WhenFirstArgIsNotMeow()
+    public void TryHandle_ReturnsNull_WhenFirstArgIsNotProbeFlag()
     {
         var writer = new StringWriter();
 
