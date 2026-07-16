@@ -156,12 +156,13 @@ function prompt {
 ### Zsh with Starship
 
 On macOS, add this to your `~/.config/starship.toml`:
-```toml
+~~~toml
 [custom.profile]
 command = 'test -f "$HOME/Library/Application Support/.azclips/active-profile" && cat "$HOME/Library/Application Support/.azclips/active-profile"'
 symbol = '@'
 when = 'test -f "$HOME/Library/Application Support/.azclips/active-profile"'
 description = 'Name of the active profile in Azure PowerShell'
+~~~
 
 > [!NOTE]
 > The location of the `active-profile` file depends on your operating system's local application
