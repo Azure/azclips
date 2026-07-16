@@ -155,9 +155,9 @@ If you use [Starship](https://starship.rs/), add a custom module to your
 
 ```toml
 [custom.profile]
-command = 'cat "$HOME/.local/share/.azclips/active-profile"'
+command = 'cat "${XDG_DATA_HOME:-$HOME/.local/share}/.azclips/active-profile"'
 symbol = '@'
-when = 'test -f "$HOME/.local/share/.azclips/active-profile"'
+when = 'test -f "${XDG_DATA_HOME:-$HOME/.local/share}/.azclips/active-profile"'
 description = 'Name of the active Azure CLI profile'
 ```
 
