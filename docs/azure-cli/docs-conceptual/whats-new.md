@@ -51,10 +51,8 @@ During the private preview:
 
 ## Profile-based sign-in
 
-Azure CLI introduces *profiles*—named sign-in contexts that save who you signed in as and which
-tenant and subscription to use. With profiles, you can save multiple sign-in contexts and switch
-between different accounts, tenants, and subscriptions without signing in again every time. Because
-each profile has a memorable name, it's easy to tell environments apart—for example a development
-versus a production environment—and to reuse the basic information needed to sign in.
+Azure CLI now supports _profiles_, which let you save named sign-in contexts for different accounts,
+tenants, and subscriptions. Profiles make it easy to switch between environments without signing in
+again.
 
-For details, see [Manage sign-in profiles in Azure CLI](Profile-base-login.md).
+For more information, see [Manage sign-in profiles in Azure CLI](./profile-based-sign-in.md).
