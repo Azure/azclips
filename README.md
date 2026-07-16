@@ -27,39 +27,11 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 
 ## Getting started
 
-1. **Install** — follow the [install guide](./install) for the single-command install across Windows, Linux, and macOS. Packages are published to [GitHub Releases](https://github.com/Azure/azclips/releases).
+1. **Install** — see the [install overview](docs/azure-cli/docs-conceptual/install-overview.md) for the single-command install (Windows, Linux, macOS). Packages ship via [GitHub Releases](https://github.com/Azure/azclips/releases).
+2. **Verify** — run `az --version`.
+3. **Sign in** — run `az login`.
 
-   Prerequisite — install the [GitHub CLI](https://cli.github.com/) and sign in once (the installer uses your authenticated `gh` session):
-
-   ```bash
-   gh auth login    # verify with: gh auth status
-   ```
-
-   **Linux / macOS (Apple Silicon):**
-
-   ```bash
-   gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' | bash
-   ```
-
-   **Windows (PowerShell 7+):**
-
-   ```powershell
-   gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1 && ./azcli-install.ps1
-   ```
-
-2. **Verify** the install:
-
-   ```bash
-   az --version
-   ```
-
-3. **Sign in:**
-
-   ```bash
-   az login
-   ```
-
-> By default the installer does **not** modify your `PATH`, so `az` coexists with the classic `azure-cli`. See the [install guide](./install) for running by full path or adding it to `PATH`.
+> `az` installs side-by-side with the classic `azure-cli` and does **not** modify your `PATH` by default. See the [install overview](docs/azure-cli/docs-conceptual/install-overview.md) for PATH and offline options.
 
 ## Try these scenarios
 
@@ -71,7 +43,7 @@ az profile list                                     # list profiles
 az profile set prod                                 # switch the active profile
 ```
 
-**PowerShell ↔ native SSO** — sign in once, then use both surfaces in the same session, no re-auth:
+**Azure PowerShell ↔ native SSO** — sign in once, then use both surfaces in the same session, no re-auth:
 
 ```bash
 az login            # sign in once
@@ -82,13 +54,13 @@ az group list       # native az command — already authenticated
 Get-AzResourceGroup   # Azure PowerShell — same session, no re-login
 ```
 
-**Tab completion** — type a partial command and press `<Tab>`:
+**Tab completion** — type a partial command and press <kbd>Tab</kbd>:
 
 ```bash
 az pro<Tab>         # completes to: az profile
 ```
 
-Enable it for bash, zsh, or PowerShell — see [tab completion](./install/docs/install-cli-completions.md).
+Enable it for bash, zsh, or PowerShell — see [tab completion](docs/azure-cli/docs-conceptual/install-cli-completions.md).
 
 **AI-powered error recovery** — when a command fails, the AI explains the cause and suggests a fix:
 
@@ -99,11 +71,30 @@ az profile set does-not-exist
 
 ## Documentation
 
-- [Getting started (Azure CLI, private preview)](./docs/azure-cli/docs-conceptual/getting-started.md)
-- [Documentation](./docs) — conceptual guides and command reference for Azure CLI and Azure PowerShell.
-- [Install guide](./install) — single-command install, manual/offline install, extensions, completions, and PowerShell modules.
+Start here, then follow the pointers into `./docs`.
 
-> Documentation is actively being consolidated during the preview, so paths and structure may change.
+**Install**
+- [Install overview](docs/azure-cli/docs-conceptual/install-overview.md)
+- [Manual / offline install](docs/azure-cli/docs-conceptual/install-cli-manual.md)
+- [Add-on CLI extensions](docs/azure-cli/docs-conceptual/install-cli-extensions.md)
+- [Tab completion](docs/azure-cli/docs-conceptual/install-cli-completions.md)
+- [Azure PowerShell modules](docs/azure-powershell/docs-conceptual/install-powershell-modules.md)
+
+**Azure CLI**
+- [Getting started](docs/azure-cli/docs-conceptual/getting-started.md)
+- [AI-based error recovery](docs/azure-cli/docs-conceptual/ai-based-error-recovery.md)
+- [Troubleshooting](docs/azure-cli/docs-conceptual/troubleshooting.md)
+- [What's new](docs/azure-cli/docs-conceptual/whats-new.md)
+
+**Azure PowerShell**
+- [Overview](docs/azure-powershell/docs-conceptual/README.md) — getting-started guide in progress
+
+**How-to guides**
+- [Configuration (`az config`)](docs/howto/config.md)
+- [Help system](docs/howto/help.md)
+- [Extension management](docs/howto/extension-management.md)
+
+> Documentation is being consolidated during the preview, so paths may change.
 
 ## Known limitations
 
@@ -135,7 +126,7 @@ We review on a regular cadence. For sensitive issues, contact the team directly:
 - **Support** — [SUPPORT.md](SUPPORT.md)
 - **Code of Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - **Security Policy** — [SECURITY.md](SECURITY.md)
-- **Privacy & telemetry** — the preview collects limited telemetry with your consent (command names, parameter *names* only, success/failure, and basic environment data — never parameter values, URLs, or personal content). Telemetry is on by default; opt out with `az config set --key telemetry.enabled --value false`. See [Configuration Management](docs/howto/config.md#valid-configuration-keys).
+- **Privacy & telemetry** — the preview collects limited telemetry with your consent (command names, parameter *names* only, success/failure, and basic environment data — never parameter values, URLs, or personal content). Telemetry is on by default; opt out with `az config set --key telemetry.enabled --value false` (Azure PowerShell equivalent: `Set-AzConfig -Key telemetry.enabled -Value false`). See [Configuration Management](docs/howto/config.md#valid-configuration-keys).
 
 ### Data Collection
 
