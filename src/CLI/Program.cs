@@ -37,7 +37,6 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
-        // Track whether the user invoked bare `az` (no args at all)
         bool isBareInvocation = args.Length == 0;
 
         // Background telemetry upload mode: send pending traces and exit.
@@ -115,7 +114,7 @@ public class Program
             {
                 var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-                // Banner only for bare `az`, not for `az --help` and friends —
+                // Banner only for bare `az`, not for top-level flags like `az --help` —
                 // keeps scripted help-output grepping unaffected.
                 if (isBareInvocation)
                 {
