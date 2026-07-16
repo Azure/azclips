@@ -249,6 +249,7 @@ public abstract class ConfigCommandBase : IProcessor
             ["assemblyLoading"] = new AssemblyLoadingOptions(),
             ["telemetry"] = new TelemetryOptions(),
             ["agent"] = new AgentOptions(),
+            ["completion"] = new CompletionOptions(),
             ["extensions"] = new ExtensionsOptions(),
             ["clients"] = new ClientsOptions(),
             ["defaults"] = new DefaultsOptions()
