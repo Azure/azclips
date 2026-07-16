@@ -146,8 +146,7 @@ function prompt {
 
 ### zsh + starship
 
-Add this to your `~/.config/starship.toml`
-
+On macOS, add this to your `~/.config/starship.toml`:
 ```toml
 [custom.profile]
 command = 'test -f "$HOME/Library/Application Support/.azclips/active-profile" && cat "$HOME/Library/Application Support/.azclips/active-profile"'
