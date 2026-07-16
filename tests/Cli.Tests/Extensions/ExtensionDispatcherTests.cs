@@ -21,15 +21,13 @@ public class ExtensionDispatcherTests
 {
 
     [Fact]
-    public void Parse_ShouldThrowArgumentException_WhenArgsEmpty()
+    public void Parse_ShouldThrowDispatchHelpException_WhenArgsEmpty()
     {
-        // Arrange
+        // Bare `az` dispatches as help; Program.Main layers on the banner separately.
         var dispatcher = new ExtensionDispatcher();
         var emptyArgs = Array.Empty<string>();
-        
-        // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => dispatcher.Parse(emptyArgs));
-        Assert.Contains("Arguments cannot be empty", exception.Message);
+
+        Assert.Throws<DispatchHelpException>(() => dispatcher.Parse(emptyArgs));
     }
 
     [Theory]

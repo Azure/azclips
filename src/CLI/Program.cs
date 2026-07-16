@@ -37,11 +37,21 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
+        bool isBareInvocation = args.Length == 0;
+
         // Background telemetry upload mode: send pending traces and exit.
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
             await FileTelemetrySender.SendPendingStatic();
             return 0;
+        }
+
+        // Hidden UI-print probe. Renders a sample block for triaging terminal
+        // wrap / encoding / alignment. Runs before DI so it stays independent.
+        int? printProbeExit = PrintProbe.TryHandle(args, Console.Out);
+        if (printProbeExit.HasValue)
+        {
+            return printProbeExit.Value;
         }
 
         AzclipsServiceProvider.PrependRegistration(services =>
@@ -102,8 +112,13 @@ public class Program
             }
             catch (DispatchHelpException)
             {
-                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+                // Banner only for bare `az`, not for top-level flags like `az --help` —
+                // keeps scripted help-output grepping unaffected.
+                if (isBareInvocation)
+                {
+                    WelcomeBanner.Write(Console.Out);
+                }
                 var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
@@ -111,7 +126,6 @@ public class Program
             }
             catch (RuntimeExtensionHelpException helpException)
             {
-                var assemblyLoading = AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>();
                 var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
                 try
                 {
