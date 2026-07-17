@@ -152,6 +152,16 @@ public class ExtensionDispatcher //: IParser
             commandName = string.IsNullOrEmpty(subCommand) ? verb : $"{verb} {subCommand}";
         }
 
+        // A resolved verb whose invocation lands on a command group (a root like `agent` or an
+        // intermediate group like `agent tool`) has no runnable leaf. Surface CommandNotFound with a
+        // `--help` hint here rather than dispatching it to the extension, which would throw a generic
+        // "command not found" and fall through to the AI agent. Mirrors the verb-only fallback above.
+        var commandPath = string.Join(" ", commandName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1));
+        if (_leafIndex.Value.IsCommandGroup(verb, commandPath))
+        {
+            throw new CommandNotFoundException(verb, commandName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray());
+        }
+
         return new CommandInvocation(
             extensionName,
             commandName,

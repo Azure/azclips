@@ -78,6 +78,42 @@ namespace Core.Extensions
         }
 
         /// <summary>
+        /// True if <c>(verb, path)</c> names a command group rather than a runnable leaf. A leaf is
+        /// runnable only when it has no children: <c>login</c> (whose sole leaf is its root) is
+        /// runnable, whereas a group root like <c>agent</c> or an intermediate group like
+        /// <c>agent tool</c> owns longer leaves and so is a group. The dispatcher uses this to surface
+        /// a <c>CommandNotFound</c> hint instead of handing a non-runnable group to the extension,
+        /// which would misreport it as an unknown command and fall through to the AI agent.
+        /// </summary>
+        public bool IsCommandGroup(string verb, string path)
+        {
+            if (string.IsNullOrEmpty(verb))
+            {
+                return false;
+            }
+
+            var prefix = string.IsNullOrEmpty(path) ? string.Empty : path + " ";
+            foreach (var (leafVerb, leafPath) in _entries.Keys)
+            {
+                if (!string.Equals(leafVerb, verb, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // A strictly longer leaf under this (verb, path) proves it is a group, not a leaf.
+                // Empty path matches any non-empty leaf; a non-empty path matches leaves it prefixes.
+                if (string.IsNullOrEmpty(path)
+                    ? !string.IsNullOrEmpty(leafPath)
+                    : leafPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Builds an index from the supplied built-in seed and registry. Duplicate <c>(verb, path)</c>
         /// pairs across sources fail fast \u2014 duplicate leaves are a hard error. Built-ins
         /// are emitted as <c>(verb, "")</c> root leaves.
