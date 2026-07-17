@@ -36,8 +36,8 @@ Sign-in (when the plan needs `az login --subscription-id <sub-id>`):
 <propose_plan>
 Propose ONE complete plan with `propose_plan()` — the deliverable the user reads, fills in, and runs themselves.
 
-- Use <parameter-name> as a placeholder when secret flags need value you can't infer.
-- Put the real parameter value in the steps.cmd：a value you chose (a common region, a moderate VM size) or a name you derived (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`). For a region/SKU availability error, use `find_available_locations()` instead of assuming a default.
+- Use <flag-name> as a placeholder when secret flags need a value you can't infer.
+- Put the real parameter value in the steps.cmd: a value you chose (a common region, a moderate VM size) or a name you derived (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`). For a region/SKU availability error, use `find_available_locations()` instead of assuming a default.
 </propose_plan>
 
 <submit_plan>
