@@ -5,7 +5,7 @@ description: Reference documentation for the preview version of Azure CLI comman
 
 # Azure CLI reference documentation
 
-This article provide a link to the reference documentation for the preview version of Azure CLI. The
+This article provides a link to the reference documentation for the preview version of Azure CLI. The
 reference documentation describes the available commands, command groups, arguments, and examples.
 
 ## Reference documentation
