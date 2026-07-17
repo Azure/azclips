@@ -1,5 +1,15 @@
 ## Upcoming Release
 
+## v0.0.8 - 2026-07-17 03:17 UTC
+
+#### Compute
+- `az vm list`: Fix empty output by writing the ARM list envelope value (#463)
+- `az disk list`: Fix empty output by writing the ARM list envelope value (#463)
+
+#### Login
+- `az login` / `Connect-AzAccount`: Show surface-correct parameter names in validation and post-sign-in error messages (#530)
+- `az login`: Select the MSAL cache account matching the active profile during silent token acquisition to avoid signing requests with a stale or unrelated account (#537)
+
 ## v0.0.7 - 2026-07-16 10:53 UTC
 
 - No user-facing CLI or PowerShell module changes were listed for this release.
