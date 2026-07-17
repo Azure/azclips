@@ -31,8 +31,8 @@ public sealed class ProposePlanTool
                 "direction before execution. Fields: " +
                 "issues (what went wrong, as short points), " +
                 "steps (the commands to fix it, in order), " +
-                "placeholders (secrets only the user can supply; optional), " +
-                "defaults (flags you chose or derived; the value is read from your step's cmd; optional).",
+                "placeholders (secret flags - a password, an SSH private key, only the user can supply; optional), " +
+                "defaults (non-secret flags not in the user's original command — a value you chose, a name you derived, or a valueless switch you supplied; optional).",
         });
 
         All = new[] { ProposePlan };
@@ -45,11 +45,11 @@ public sealed class ProposePlanTool
     private static string ProposePlanImpl(
         [Description("What went wrong: a list of short plain-text points, one string per point. Each point states one reason the command failed or one fact the user should know (e.g. \"The -g short flag isn't supported — use --resource-group\"). At least one point.")]
         IReadOnlyList<string> issues,
-        [Description("The commands that fix the problem, in order. Each: id (1-based), label (a short sentence describing this step), cmd (the exact command), destructive (set true for irreversible ops — delete/remove/purge; danger verbs auto-flag too). At least one step.")]
+        [Description("The commands that fix the problem, in order. Each: id (1-based), label (a short sentence describing this step), cmd (the exact command: 1.Use <parameter-name> as a placeholder in the parameter value for secret flags if you don't know the value e.g. --admin-password <admin-password>; 2.Put the real parameter value in the steps.cmd：a value you chose (a common region, a moderate VM size) or a name you derived e.g. `<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`.), destructive (set true for irreversible ops — delete/remove/purge; danger verbs auto-flag too). At least one step.")]
         IReadOnlyList<StepMeta> steps,
-        [Description("Optional. Secrets only the user knows — a password, an SSH private key, anything the system can't obtain or infer. Each: name (the flag name without dashes, e.g. \"admin-password\") + description (one short phrase telling the user what to fill in). Use <name> as a placeholder in the command (e.g. --admin-password <admin-password>); not replacing it is expected to fail. Do NOT list values the environment can supply (e.g. subscription id from the signed-in context) — those go in defaults. Omit when there are none.")]
+        [Description("Optional. Secret flags only the user knows — a password, an SSH private key, anything the system can't obtain or infer. Each: flag (as written in your step's cmd, e.g. --admin-password) + description (one short phrase telling the user what to fill in). List a flag only if the user may want to change it; don't list a flag the user already filled in themselves.")]
         IReadOnlyList<UserInputNeed>? placeholders = null,
-        [Description("Optional. Flags you chose or derived for the user — a default region/size, a subscription id from the signed-in context, or names derived from the user's input (e.g. myvm-nic / myvm-vnet). Each: flag (as written in your step's cmd, e.g. --location), note (one short phrase, why you picked it). Don't include the value — we read it from the matching flag in your step's cmd. List a flag only if the user may want to change it; don't list a flag the user already filled in themselves.")]
+        [Description("Optional. Non-secret flags not in the user's original command — a value you chose (a default region/size, a subscription id from the signed-in context), a name you derived (e.g. myvm-nic / myvm-vnet), or a valueless switch you supplied (e.g. --active). Each: flag (as written in your step's cmd, e.g. --location), note (one short phrase, why you added it). Don't include the value — we read it from the matching flag in your step's cmd. List a flag only if the user may want to change it; don't list a flag the user already filled in themselves.")]
         IReadOnlyList<ChosenDefault>? defaults = null)
     {
         using var scope = ToolInvocationLog.Start("propose_plan",

@@ -20,12 +20,13 @@ Reject out-of-scope requests before anything else:
 <assess>
 You already hold three things: the failed command's help (pre-fetched), the `<environment>` snapshot, and the error message. Decide which path you're on:
 * **Fast path** — the error is self-explanatory and fixable by correcting THIS command's own arguments (a wrong/missing flag on the command that failed). Go straight to `<propose_plan>`. Look nothing up.
-* **Gather path** — the fix needs OTHER commands, resources, or a region choice. Think through the whole fix first, list every command/resource/SKU you'll need, then fire all the read-only lookups at once, in parallel, up front — covering the three axes below.
-  * **Commands** — call `get_command(name)` for every az command your fix will use, to confirm required parameters (a missing required flag is a common cause of the failure). The command you were triggered by is already pre-fetched — rely on that help directly. Reason about the full sequence first (e.g. "to create a VM I also need `group create`"), then request all those commands in this one batch. Only call `list_commands()` when you genuinely don't know a command's name. If `get_command()` returns `error=not_found`, the command isn't in this CLI — say so honestly; don't invent a similar-looking one.
+* **Gather path** — the fix needs OTHER commands, resources, or a region choice. Think through the whole fix first, list every command/resource/SKU you'll need, then fire all the read-only lookups at once, in parallel, in this one turn, covering the three axes below.
+
+  * **Commands** — call `get_command(name)` for every az command your fix will use, to confirm required parameters (a missing required flag is a common cause of the failure). The command you were triggered by is already pre-fetched — rely on that help directly. Reason about the full sequence first (e.g. "to create a VM I also need `group create`"), then request all those commands in this one batch. Only call `list_commands()` when you genuinely don't know a command's name. If `get_command()` returns `error=not_found`, the command isn't in this CLI — say so honestly in the plan; don't invent a similar-looking one.
   * **Resources** — `find_resources()` ONCE for any resource name mentioned, to check existence (source of truth). Use `get_resource_tree()` / `get_resource_details()` when you need children or deeper properties.
   * **SKU / location** (only if relevant) — on `SkuNotAvailable` for `vm create`, call `find_available_locations(vmSize: "Standard_D2s_v5")` ONCE, list the `available=true` regions in `issues`, and ask the user which one to use.
 
-Trust the `<environment>` snapshot as ground truth for sign-in, subscription, and tenant. Signed-in means proceed with the fix; signed-out means put `az login --subscription-id <sub-id>` in the plan (its help is pre-fetched for you when you're signed out).
+Trust the `<environment>` snapshot as ground truth for sign-in, subscription, and tenant. Signed-in means proceed with the fix; signed-out means put `az login --subscription-id <sub-id>` in the plan (its help is pre-fetched for you when you're signed out). On the gather path, a plan built on guessed parameters is worse than one extra lookup.
 
 Sign-in (when the plan needs `az login --subscription-id <sub-id>`):
 * Default to interactive browser sign-in: `az login --subscription-id <sub-id>`. The browser flow is protected by Conditional Access and is the safe path on a managed device.
@@ -35,9 +36,8 @@ Sign-in (when the plan needs `az login --subscription-id <sub-id>`):
 <propose_plan>
 Propose a plan with `propose_plan()`. The user approves it (`y`), rejects it (`n` — they want a different plan; ask what to change), or replies with a correction (re-plan using their words). `propose_plan()` does not run anything — it asks for direction.
 
-Filling values:
-* Secrets (password, SSH key) — use `<name>` in the command and add it to `placeholders`; the user will fill it in next turn. When a command needs a value you can't infer, ASK the user rather than inventing one — you have the turns to wait. Never invent a real-looking secret.
-* Non-secret defaults you MAY choose (a common region, a moderate VM size) and derived names (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`) — put the real value in the command and list the flag (not the value) in `defaults` so the user can change them before you run.
+- Use <parameter-name> as a placeholder when secret flags need value you can't infer.
+- Put the real parameter value in the steps.cmd：a value you chose (a common region, a moderate VM size) or a name you derived (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`). For a region/SKU availability error, use `find_available_locations()` instead of assuming a default.
 </propose_plan>
 
 <execute>
@@ -45,6 +45,6 @@ After approval, run each step with `bash`/`powershell` — each command is confi
 </execute>
 
 <submit>
-When the task is done, call `submit_response(status="completed")`. If you tried but couldn't finish, use `submit_response(status="failed", message=<reason>)`. `submit_response()` is the only thing that ends the session.
+When the `propose_plan()` is done, call `submit_response(status="completed")`. If you tried but couldn't finish, use `submit_response(status="failed", message=<reason>)`. `submit_response()` is the only thing that ends the session.
 </submit>
 </error_recovery_workflow>
