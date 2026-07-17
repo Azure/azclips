@@ -112,12 +112,12 @@ internal static class PlanArgsParser
         foreach (var need in needs.EnumerateArray())
         {
             if (need.ValueKind != JsonValueKind.Object) continue;
-            var name = need.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String
+            var flag = need.TryGetProperty("flag", out var n) && n.ValueKind == JsonValueKind.String
                 ? n.GetString() : null;
             var description = need.TryGetProperty("description", out var d) && d.ValueKind == JsonValueKind.String
                 ? d.GetString() ?? string.Empty : string.Empty;
-            if (string.IsNullOrWhiteSpace(name)) continue;
-            list.Add(new ConsoleApprovalPrompt.UserInputNeed(name!, description));
+            if (string.IsNullOrWhiteSpace(flag)) continue;
+            list.Add(new ConsoleApprovalPrompt.UserInputNeed(flag!, description));
         }
         return list.Count > 0 ? list : null;
     }
