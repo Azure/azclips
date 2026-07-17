@@ -1,5 +1,21 @@
 # Azclips Architecture: Azure CLI and PowerShell with AI Agent Fallback
 
+> ⚠️ **DEPRECATED (agent sections only) — the AI-fallback description below no
+> longer matches the code.** The current agent runs on the **GitHub Copilot SDK**
+> (not Azure OpenAI / GPT-4o-mini via `.env`, not a `CloudAgent` / `AgentEngine`,
+> not LlamaSharp/Phi-3.5), interacts through the structured **`propose_plan`** and
+> **`submit_response`** tools (not the `sample_command` / `executable_command` /
+> `question` JSON response types), and runs as a **standalone `azclips-agent`
+> process** spawned by `az` via `TryAgentFallbackAsync` (`src/CLI/Program.cs`) only
+> when a command **fails** — in `oneshot` mode it proposes a fix and exits without
+> running anything, in `interactive` mode it asks for per-command approval. There
+> is **no** free-form natural-language command entry (`az "…"`) and no
+> `resilv/merge-cli` branch. For the actual implementation see
+> `Agent/ChatAgent.cs`, `Agent/Hosting/ProposePlanTool.cs`,
+> `Agent/Hosting/SubmitResponseTool.cs`, and `Agent/AgentMode/AgentModeEntry.cs`.
+> The **non-agent** sections (extension system, DLL loading, engine) are unaffected
+> by this note.
+
 ## Overview
 
 Azclips is a modular Azure CLI tool with **AI-powered fallback** for natural language commands, typo correction, and "how to" questions. The architecture uses:
@@ -47,12 +63,10 @@ Azclips is a modular Azure CLI tool with **AI-powered fallback** for natural lan
 # Structured commands (extension routing)
 $ az group create --name mygroup --location eastus
 
-# Natural language (AI fallback)
-$ az create a resource group called mygroup in westus
-$ az how do I list virtual machines
-
-# Typo correction (AI fallback)
-$ az I would like to logni
+# When a structured command FAILS and the agent is enabled, the failure is
+# handed to the standalone azclips-agent, which proposes a fix to review.
+# (There is no free-form `az "natural language"` entry point — see the
+# DEPRECATED note at the top of this document.)
 ```
 
 **What the Bootstrapper does:**
