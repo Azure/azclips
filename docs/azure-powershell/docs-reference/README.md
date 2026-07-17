@@ -9,6 +9,8 @@ This article provides links to the reference documentation for the preview versi
 PowerShell. The articles describe the available cmdlets, their syntax, parameters, inputs, outputs,
 and examples.
 
+## Az.Compute
+
 - [Get-AzVM][01]
 - [New-AzVM][02]
 - [Remove-AzVM][03]
