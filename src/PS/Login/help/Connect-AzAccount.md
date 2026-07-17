@@ -20,7 +20,9 @@ Authenticate to Azure.
 ### \_\_AllParameterSets
 
 ```
-Connect-AzAccount -SubscriptionId <string> [-TenantId <string>] [-UseDeviceCode] [-WhatIf]
+Connect-AzAccount [-ClientId <string>] [-Identity] [-ObjectId <string>]
+ [-OutProfile <string>] [-Profile <string>] [-ResourceId <string>]
+ [-SubscriptionId <string>] [-TenantId <string>] [-UseDeviceCode] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -53,6 +55,27 @@ Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -Tenant
 
 ## PARAMETERS
 
+### -ClientId
+
+Client ID of the user-assigned managed identity. Requires -Identity.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
 ### -Confirm
 
 Prompts you for confirmation before running the cmdlet.
@@ -63,6 +86,113 @@ DefaultValue: ""
 SupportsWildcards: false
 Aliases:
     - cf
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -Identity
+
+Login using managed identity in the current environment. Not applicable with -TenantId.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ""
+SupportsWildcards: false
+Aliases:
+    - MSI
+    - ManagedService
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -ObjectId
+
+Object ID of the user-assigned managed identity. Requires -Identity.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -OutProfile
+
+Create or overwrite a named profile with the login result. Mutually exclusive with -Profile.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -Profile
+
+Re-authenticate the named existing profile. Mutually exclusive with -OutProfile.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -ResourceId
+
+Resource ID of the user-assigned managed identity. Requires -Identity.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
     - Name: (All)
       Position: Named
@@ -89,7 +219,7 @@ Aliases:
 ParameterSets:
     - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
