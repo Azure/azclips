@@ -64,7 +64,10 @@ public class MsalAuthService(
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
-        var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
+        var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
+            .WithPrompt(Prompt.SelectAccount)
+            .WithUseEmbeddedWebView(false)
+            .ExecuteAsync(cancellationToken);
         LogTokenMetadataDebug(result);
         return result.ToAuthResult();
     }
@@ -173,7 +176,10 @@ public class MsalAuthService(
         }
         catch (MsalUiRequiredException) when (promptOnError)
         {
-            result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
+            result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope])
+                .WithPrompt(Prompt.SelectAccount)
+                .WithUseEmbeddedWebView(false)
+                .ExecuteAsync(cancellationToken);
         }
 
         LogTokenMetadataDebug(result);
