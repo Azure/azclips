@@ -25,6 +25,27 @@ public interface IExtensionLoader
     IEnumerable<(string Name, string Version)> GetInstalledExtensions() => [];
 }
 
+/// <summary>
+/// Loads <b>Bundled</b> extensions — DLLs that ship alongside <c>az.exe</c> from the packaged install
+/// (<c>&lt;install&gt;/Extensions/&lt;PackageId&gt;/</c>) or the local build output (<c>artifacts/&lt;Config&gt;/</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Terminology note (pending rename in a follow-up PR):</b> the name <c>Builtin*</c> is legacy.
+/// This loader serves the <b>Bundled</b> tier, which is distinct from the <b>Core</b> tier
+/// (the compile-time seed in <see cref="Core.Extensions.BuiltInExtensions.Map"/>). Every Core extension
+/// happens to be Bundled, but not every Bundled extension is Core — <c>Resources</c> and <c>Compute</c> are
+/// Bundled-only. The <b>Installed</b> tier (<c>MultiVersionExtensionLoader</c>) covers extensions placed
+/// by <c>az extension add</c> under <c>~/.azclips/extensions/</c>.
+/// </para>
+/// <para>
+/// <b>Version resolution</b> for a Bundled extension is driven by the on-disk <c>.nupkg</c>
+/// (produced by <c>GeneratePackageOnBuild=true</c> in local builds). Packaged installs strip the
+/// <c>.nupkg</c> at packaging time, so <see cref="GetInstalledExtensions"/> reports
+/// <c>Version = string.Empty</c> for those — dispatch then takes the unversioned load path.
+/// See <c>docs/spec/extension-framework.md §3.2</c>.
+/// </para>
+/// </remarks>
 public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
     internal class ExtensionLoadContext(string extensionPath, ILoggingService? loggingService = null) : AssemblyLoadContext
@@ -120,20 +141,56 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Attempts to load a Bundled extension by name, optionally at a specific version.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Unversioned request</b> (<paramref name="version"/> null or empty): returns the first
+    /// on-disk match under any configured Bundled root. Used by the <c>az login</c>-style path where
+    /// dispatch has no version to enforce.
+    /// </para>
+    /// <para>
+    /// <b>Versioned request:</b> only serves the load when the on-disk <c>.nupkg</c> in the package
+    /// folder reports the exact same version. If the folder has no <c>.nupkg</c> (packaged install)
+    /// or the versions mismatch, returns <c>null</c> so the loader chain can defer to
+    /// <c>MultiVersionExtensionLoader</c>. This preserves user-installed shadowing: a user who
+    /// <c>az extension add</c>'s a newer version wins over the Bundled copy.
+    /// </para>
+    /// <para>
+    /// The versioned-match branch was added to fix Azure/CLIPS#522: local Debug/Release builds
+    /// discover Bundled extensions with a real version from the <c>.nupkg</c>, and dispatch then
+    /// requires that version — previously refused, causing "could not be found by any extension
+    /// loader" errors even though the DLL was sitting right there.
+    /// </para>
+    /// </remarks>
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
-        if (!string.IsNullOrEmpty(version))
-        {
-            return null;
-        }
-
         foreach (var root in GetCandidateRoots(_options.BuiltinInstallationDir))
         {
             foreach (var directoryName in GetCandidateDirectoryNames(extensionName, _options.ExtensionFolderPrefix))
             {
+                var packageDir = Path.Combine(root, directoryName);
+                if (!Directory.Exists(packageDir))
+                {
+                    continue;
+                }
+
+                // Versioned request: only serve if the on-disk .nupkg matches exactly. Unversioned
+                // request: trust the caller and take the first assembly-name match. See Azure/CLIPS#522.
+                if (!string.IsNullOrEmpty(version))
+                {
+                    var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, directoryName, _loggingService);
+                    if (string.IsNullOrEmpty(discoveredVersion) ||
+                        !string.Equals(discoveredVersion, version, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
                 foreach (var assemblyName in GetCandidateAssemblyNames(extensionName))
                 {
-                    var extensionPath = Path.Combine(root, directoryName, $"{assemblyName}.dll");
+                    var extensionPath = Path.Combine(packageDir, $"{assemblyName}.dll");
                     if (!File.Exists(extensionPath))
                     {
                         continue;
@@ -145,7 +202,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             }
         }
 
-        _loggingService?.Debug($"Extension '{extensionName}' not found in builtin extensions directory, will try other sources. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'");
+        _loggingService?.Debug($"Extension '{extensionName}' (version '{version ?? string.Empty}') not found in builtin extensions directory, will try other sources. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'");
         return null;
     }
 

@@ -27,12 +27,40 @@ namespace Core.Extensions
     }
 
     /// <summary>
-    /// Static seed of built-in extensions. The "true core" set is <c>extension</c>,
-    /// <c>login</c>, and <c>config</c>.
+    /// Static seed of the <b>Core</b> extensions \u2014 those baked into the CLI host at compile time
+    /// and always dispatchable without any filesystem read.
     /// </summary>
     /// <remarks>
-    /// Verb conflicts: a built-in always wins over a registry entry. <c>extension add</c> must refuse
-    /// to register any verb that appears in this seed.
+    /// <para>
+    /// <b>Terminology (pending rename in a follow-up PR):</b> this repository informally refers to
+    /// three tiers of extensions. The name <c>BuiltInExtensions</c> here refers only to the first
+    /// tier (Core); it does not mean everything shipped alongside <c>az.exe</c>.
+    /// </para>
+    /// <list type="bullet">
+    ///   <item>
+    ///     <term>Core</term>
+    ///     <description>The compile-time seed in <see cref="Map"/>. Currently <c>extension</c>,
+    ///     <c>login</c>/<c>logout</c>/<c>profile</c>, <c>config</c>, <c>agent</c>. Dispatch resolves
+    ///     these through the static map with no version required.</description>
+    ///   </item>
+    ///   <item>
+    ///     <term>Bundled</term>
+    ///     <description>DLLs shipped alongside <c>az.exe</c> in the packaged install
+    ///     (<c>&lt;install&gt;/Extensions/</c>) or the local build output (<c>artifacts/&lt;Config&gt;/</c>).
+    ///     Loaded by <c>BuiltinExtensionLoader</c>. Every Core extension is also Bundled, but not
+    ///     every Bundled extension is Core \u2014 <c>Resources</c> and <c>Compute</c> are Bundled-only.</description>
+    ///   </item>
+    ///   <item>
+    ///     <term>Installed</term>
+    ///     <description>DLLs placed by <c>az extension add</c> under
+    ///     <c>~/.azclips/extensions/&lt;pkg&gt;/&lt;version&gt;/</c>. Loaded by
+    ///     <c>MultiVersionExtensionLoader</c>.</description>
+    ///   </item>
+    /// </list>
+    /// <para>
+    /// Verb conflicts: a Core entry always wins over a registry entry. <c>extension add</c> must
+    /// refuse to register any verb that appears in this seed.
+    /// </para>
     /// </remarks>
     public static class BuiltInExtensions
     {
