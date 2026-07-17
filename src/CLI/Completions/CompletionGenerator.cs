@@ -49,11 +49,15 @@ internal static class CompletionGenerator
     /// Outputs a space-separated list of completion candidates (plain text, no JSON)
     /// for the given command context. Used by bash/zsh completion scripts to avoid
     /// requiring a JSON parser (jq).
-    /// Usage: az --completion-candidates [command-group] [subcommand]
+    /// Usage: az --completion-candidates [command-path...]
+    /// The command path is walked through the command tree, so groups of any depth work.
+    /// Each invocation returns the next tokens (intermediate groups / subcommands) that
+    /// extend the path, or the parameter flags when the path is a complete command.
     /// Examples:
-    ///   az --completion-candidates              (top-level groups: vm storage ...)
-    ///   az --completion-candidates vm           (subcommands + params: create list --verbose ...)
-    ///   az --completion-candidates vm create    (params: --name --location ...)
+    ///   az --completion-candidates                        (top-level groups: vm storage deployment ...)
+    ///   az --completion-candidates deployment             (next tokens: group)
+    ///   az --completion-candidates deployment group       (subcommands: create what-if)
+    ///   az --completion-candidates deployment group create (params: --name --template-file ...)
     /// </summary>
     public static async Task<int?> TryHandleCandidatesAsync(string[] args, ClientType clientType)
     {
@@ -193,7 +197,15 @@ internal static class CompletionGenerator
         var registryStore = new FileExtensionRegistryStore();
         var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
 
-        if (commandContext.Count == 0)
+        // The command path is the leading run of non-flag tokens. Flags (and their
+        // values) never appear in the command tree, so anything from the first
+        // "-"/"--" token onward is ignored when navigating.
+        var pathContext = commandContext
+            .TakeWhile(token => !token.StartsWith('-'))
+            .Select(token => token.ToLowerInvariant())
+            .ToList();
+
+        if (pathContext.Count == 0)
         {
             // Level 0: full discovery for top-level group names
             var extensionNames = leafIndex.Entries.Values
@@ -213,42 +225,98 @@ internal static class CompletionGenerator
             return 0;
         }
 
-        // Level 1+: group-specific discovery
-        var commandGroupName = commandContext[0].ToLowerInvariant();
+        // Level 1+: discover the extension(s) that own the leading verb, then walk the
+        // command tree by prefix. Commands are keyed by their full invocation name
+        // (e.g. "deployment group create"), so a typed token may be an intermediate
+        // group (offer the next token) or a full command (offer its parameters). This
+        // supports command groups of arbitrary depth.
+        var verb = pathContext[0];
         var discoveryExtensionNames = leafIndex.Entries.Values
-            .Where(v => v.Verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
+            .Where(v => v.Verb.Equals(verb, StringComparison.OrdinalIgnoreCase))
             .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
-        var filteredCommands = discoveredCommands
-            .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
-                || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
-
-        var groupTree = BuildCompletionTree(filteredCommands, scopedToVerb: true);
-        var candidates = new List<string>();
-
-        if (commandContext.Count == 1)
-        {
-            // Level 1: subcommands + group-level params
-            if (groupTree.TryGetValue("_subcommands", out var subsObj) && subsObj is List<string> subs)
-                candidates.AddRange(subs);
-            if (groupTree.TryGetValue("_params", out var paramsObj) && paramsObj is List<string> parms)
-                candidates.AddRange(parms);
-        }
-        else
-        {
-            // Level 2+: subcommand-specific params, fallback to group params
-            var sub = commandContext[1].ToLowerInvariant();
-            if (groupTree.TryGetValue(sub, out var subParamsObj) && subParamsObj is List<string> subParams)
-                candidates.AddRange(subParams);
-            else if (groupTree.TryGetValue("_params", out var fallbackObj) && fallbackObj is List<string> fallback)
-                candidates.AddRange(fallback);
-        }
+        var candidates = ComputeCandidates(discoveredCommands, pathContext);
 
         Console.WriteLine(string.Join(' ', candidates));
         return 0;
+    }
+
+    /// <summary>
+    /// Walks the discovered command set relative to the typed command path and returns
+    /// the completion candidates:
+    /// <list type="bullet">
+    ///   <item>the next path token for every command whose invocation name extends
+    ///   <paramref name="pathContext"/> (intermediate groups and subcommands), and</item>
+    ///   <item>the parameter flags of a command whose invocation name matches
+    ///   <paramref name="pathContext"/> exactly (leaf command).</item>
+    /// </list>
+    /// Results are deduplicated (case-insensitive) and sorted for stable output.
+    /// </summary>
+    internal static List<string> ComputeCandidates(
+        IEnumerable<KeyValuePair<string, CommandMetadata>> commands,
+        IReadOnlyList<string> pathContext)
+    {
+        var candidates = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (invocationName, meta) in commands)
+        {
+            var tokens = invocationName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (!IsPrefix(pathContext, tokens))
+            {
+                continue;
+            }
+
+            if (tokens.Length > pathContext.Count)
+            {
+                // Intermediate group or subcommand: offer the next path token.
+                var next = tokens[pathContext.Count];
+                if (seen.Add(next))
+                {
+                    candidates.Add(next);
+                }
+            }
+            else
+            {
+                // Exact command match: offer its parameter flags.
+                foreach (var parameterName in meta.Parameters.Keys)
+                {
+                    var flag = $"--{parameterName}";
+                    if (seen.Add(flag))
+                    {
+                        candidates.Add(flag);
+                    }
+                }
+            }
+        }
+
+        candidates.Sort(StringComparer.OrdinalIgnoreCase);
+        return candidates;
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when <paramref name="prefix"/> is a leading
+    /// subsequence of <paramref name="tokens"/> (case-insensitive).
+    /// </summary>
+    private static bool IsPrefix(IReadOnlyList<string> prefix, string[] tokens)
+    {
+        if (prefix.Count > tokens.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < prefix.Count; i++)
+        {
+            if (!tokens[i].Equals(prefix[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

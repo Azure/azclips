@@ -5,7 +5,7 @@
 #   source <path-to>/az.completions.zsh
 # Or add to your ~/.zshrc to auto-load on every session.
 #
-# Completions are resolved dynamically by invoking `az --completion-candidates [group] [subcommand]`
+# Completions are resolved dynamically by invoking `az --completion-candidates [command-path...]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
 # Detection: Old Azure CLI outputs error text (with uppercase letters) to stderr for unknown
@@ -66,7 +66,7 @@ _az_get_config_stamp() {
 }
 
 # Sets _az_query_result (avoids subshell so cache persists).
-# Usage: _az_query_candidates <exe> [group] [subcommand]
+# Usage: _az_query_candidates <exe> [command-path...]
 _az_query_candidates() {
     _az_query_result=""
     local exe="$1"; shift
@@ -135,63 +135,39 @@ _az() {
 
     _az_debug "enter _az CURRENT=$CURRENT words=(${words[*]})"
 
-    local -a candidates params used_params available
-    local group
+    local -a candidates used_params raw cmd_path
+    local i candidate used_param already_used
 
-    case $CURRENT in
-        2)
-            # Level 0: complete top-level command groups
-            _az_query_candidates "$exe"
-            if [[ -n "$_az_query_result" ]]; then
-                candidates=( ${=_az_query_result} )
-            fi
-            _az_debug "level=0 candidates=(${candidates[*]})"
-            ;;
-        3)
-            # Level 1: subcommands + group params
-            group="${words[2]:l}"
-            _az_query_candidates "$exe" "$group"
-            if [[ -n "$_az_query_result" ]]; then
-                candidates=( ${=_az_query_result} )
-            fi
-            _az_debug "level=1 group=$group candidates=(${candidates[*]})"
-            ;;
-        *)
-            # Level 2+: parameters for the command
-            group="${words[2]:l}"
-            local sub="${words[3]:l}"
-            if [[ "$sub" != --* ]]; then
-                _az_query_candidates "$exe" "$group" "$sub"
-            else
-                _az_query_candidates "$exe" "$group"
-            fi
-            if [[ -n "$_az_query_result" ]]; then
-                params=( ${=_az_query_result} )
-            fi
+    # Build the command path: the leading run of non-flag words after the command,
+    # excluding the word currently being completed. The CLI walks this path through
+    # the command tree, so command groups of any depth resolve (top-level groups,
+    # intermediate groups like `deployment group`, and leaf commands).
+    for (( i = 2; i < CURRENT; i++ )); do
+        [[ "${words[i]}" == -* ]] && break
+        cmd_path+=("${words[i]:l}")
+    done
 
-            # Filter out already-used flags
-            local i
-            for (( i = 2; i < CURRENT; i++ )); do
-                if [[ "${words[i]}" == --* ]]; then
-                    used_params+=("${words[i]}")
-                fi
-            done
+    _az_query_candidates "$exe" "${cmd_path[@]}"
+    if [[ -n "$_az_query_result" ]]; then
+        raw=( ${=_az_query_result} )
+    fi
 
-            local p already_used u
-            for p in "${params[@]}"; do
-                already_used=0
-                for u in "${used_params[@]}"; do
-                    if [[ "$p" == "$u" ]]; then
-                        already_used=1
-                        break
-                    fi
-                done
-                (( ! already_used )) && available+=("$p")
-            done
-            candidates=("${available[@]}")
-            _az_debug "level=2+ group=$group sub=$sub candidates=(${candidates[*]})"
-            ;;
-    esac
+    # Filter out flags already present on the command line.
+    for (( i = 2; i < CURRENT; i++ )); do
+        [[ "${words[i]}" == --* ]] && used_params+=("${words[i]}")
+    done
+
+    for candidate in "${raw[@]}"; do
+        already_used=0
+        for used_param in "${used_params[@]}"; do
+            if [[ "$candidate" == "$used_param" ]]; then
+                already_used=1
+                break
+            fi
+        done
+        (( ! already_used )) && candidates+=("$candidate")
+    done
+    _az_debug "cmd_path=(${cmd_path[*]}) candidates=(${candidates[*]})"
 
     (( ${#candidates[@]} > 0 )) && compadd -a candidates
     _az_debug "final candidates=(${candidates[*]}) count=${#candidates[@]}"
