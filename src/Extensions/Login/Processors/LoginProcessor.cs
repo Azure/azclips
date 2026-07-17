@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
@@ -59,6 +58,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         Description = @"Resource ID of the user-assigned managed identity.",
         SerializedName = @"ResourceId")]
         public string ResourceId { get; set; } = "";
+
+        private CommandMetadata? _cliCommandMetadataCache;
+        private CommandMetadata? _psCommandMetadataCache;
 
         public override async Task ProcessAsync()
         {
@@ -190,7 +192,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             string? outName = string.IsNullOrWhiteSpace(OutProfile) ? null : OutProfile.Trim();
 
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
-            string Flag(string property) => FormatParameterName(property, clientType);
+            string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
 
             // Enforce mutual exclusivity and the reserved-name rule before any authentication (fail fast).
             if (reAuthName is not null && outName is not null)
@@ -256,29 +258,42 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         }
 
         /// <summary>
-        /// Formats a processor property name as the flag the user actually typed on the invoking surface:
-        /// PowerShell binds '-PascalCase' parameters, while the CLI uses '--kebab-case' options. Because the
-        /// shared processor is surface-agnostic, error messages must resolve the surface at runtime rather
-        /// than hardcode one form (which would mis-instruct users on the other surface).
+        /// Formats a parameter as the flag the user actually typed on the invoking surface:
+        /// <c>--kebab-case</c> on the CLI, <c>-PascalCase</c> in PowerShell. The user-facing form is
+        /// sourced from <see cref="ExtensionIndex"/> so message text stays in sync with the metadata
+        /// that drives argument parsing — a rename to a <c>ParameterMetadata.InvocationName</c> updates
+        /// both. Because this processor is shared across both surfaces, hardcoding one form would
+        /// mis-instruct users on the other.
         /// </summary>
-        private static string FormatParameterName(string propertyName, ClientType clientType)
+        /// <param name="propertyName">
+        /// <param name="clientType">The invocation surface, resolved from DI by the caller.</param>
+        private string FormatParameterName(string propertyName, ClientType clientType)
         {
-            if (clientType == ClientType.PowerShell)
-            {
-                return "-" + propertyName;
-            }
+            const string CliPrefix = "--";
+            const string PsPrefix = "-";
 
-            var builder = new StringBuilder(propertyName.Length + 4).Append("--");
-            for (int i = 0; i < propertyName.Length; i++)
+            switch (clientType)
             {
-                char c = propertyName[i];
-                if (char.IsUpper(c) && i > 0)
-                {
-                    builder.Append('-');
-                }
-                builder.Append(char.ToLowerInvariant(c));
+                case ClientType.CLI:
+                    _cliCommandMetadataCache ??= new ExtensionIndex()
+                        .GetAllCommands(ClientType.CLI)
+                        .First(c => c.ProcessorType == GetType());
+                    return CliPrefix + _cliCommandMetadataCache.Parameters.Values
+                        .First(p => string.Equals(p.Name, propertyName, StringComparison.Ordinal))
+                        .InvocationName;
+
+                case ClientType.PowerShell:
+                    _psCommandMetadataCache ??= new ExtensionIndex()
+                        .GetAllCommands(ClientType.PowerShell)
+                        .First(c => c.ProcessorType == GetType());
+                    return PsPrefix + _psCommandMetadataCache.Parameters.Values
+                        .First(p => string.Equals(p.Name, propertyName, StringComparison.Ordinal))
+                        .InvocationName;
+
+                default:
+                    throw new NotSupportedException(
+                        $"Unsupported client type '{clientType}' for parameter name formatting.");
             }
-            return builder.ToString();
         }
 
         /// <summary>
@@ -294,7 +309,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             // Render sign-in guidance in the caller's surface: PowerShell users need 'Connect-AzAccount
             // -TenantId', CLI users need 'az login --tenant-id'. Hardcoding one form mis-instructs the other.
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
-            string Flag(string property) => FormatParameterName(property, clientType);
+            string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
             string signInCommand = clientType == ClientType.PowerShell ? "Connect-AzAccount" : "az login";
 
             bool canAcquire;
@@ -352,7 +367,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         {
             var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
-            string Flag(string property) => FormatParameterName(property, clientType);
+            string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
 
             try
             {
@@ -390,7 +405,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         {
             var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
-            string Flag(string property) => FormatParameterName(property, clientType);
+            string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
 
             try
             {
