@@ -13,8 +13,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 /// Lists managed disks in a resource group. Minimum-viable second-namespace leaf — proves the
 /// Compute extension's <c>[ExtensionVerb("vm")] [ExtensionVerb("disk")]</c> contract holds
 /// end-to-end. Wired through <see cref="ExtensionIndex"/>'s <c>s_cliTable</c> as <c>disk list</c>.
+/// <para>
+/// The ARM list endpoint returns an envelope <c>{ "value": [...] }</c>; this processor writes its
+/// <c>value</c> array. Pagination (<c>nextLink</c>) is intentionally not followed yet.
+/// </para>
 /// </summary>
-public class ListDiskProcessor : ComputeProcessorBase<Disk>
+public class ListDiskProcessor : ComputeProcessorBase<DiskListResult>
 {
     public string ResourceGroupName { get; set; } = string.Empty;
 
@@ -26,4 +30,6 @@ public class ListDiskProcessor : ComputeProcessorBase<Disk>
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
+
+    protected override object SelectOutput(DiskListResult body) => body.Value ?? [];
 }
