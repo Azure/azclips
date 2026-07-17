@@ -265,7 +265,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         /// both. Because this processor is shared across both surfaces, hardcoding one form would
         /// mis-instruct users on the other.
         /// </summary>
-        /// <param name="propertyName">
+        /// <param name="propertyName">The name of the processor property that maps to a parameter (e.g., nameof(SubscriptionId)).</param>
         /// <param name="clientType">The invocation surface, resolved from DI by the caller.</param>
         private string FormatParameterName(string propertyName, ClientType clientType)
         {
