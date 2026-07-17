@@ -4,7 +4,7 @@
 
 1. **Build time**: `build/build.ps1` builds the solution and copies shell completion scripts to `artifacts/<Configuration>/Core.Cli/`.
 2. **Runtime**: Shell completion scripts dynamically invoke `az` at tab time, ensuring completions always match whichever binary is on PATH.
-   - **PowerShell** uses `az --completions [command-path...]` which returns a JSON tree, parsed with built-in `ConvertFrom-Json`.
+   - **PowerShell** uses `az --completions [command-group]` (or no args for full tree), which returns a JSON tree parsed with built-in `ConvertFrom-Json`.
    - **bash/zsh** use `az --completion-candidates [command-path...]` which returns a plain-text word list (no JSON parser required).
 
 The JSON tree structure returned by `az --completions` (used by PowerShell):

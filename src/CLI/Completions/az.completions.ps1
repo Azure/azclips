@@ -5,7 +5,7 @@
 # Usage: . <path-to>/az.completions.ps1
 # Or add to your $PROFILE to auto-load on every session.
 #
-# Completions are resolved dynamically by invoking `az --completions [command-path...]`
+# Completions are resolved dynamically by invoking `az --completions [command-group]` (or no args for full tree)
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
 # Detection: The script auto-detects azclips by calling `az --completions`.
