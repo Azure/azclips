@@ -150,16 +150,17 @@ public class ExtensionDispatcher //: IParser
         {
             (string subCommand, parameters) = extensionParser.Parse(extensionArgs);
             commandName = string.IsNullOrEmpty(subCommand) ? verb : $"{verb} {subCommand}";
-        }
 
-        // A resolved verb whose invocation lands on a command group (a root like `agent` or an
-        // intermediate group like `agent tool`) has no runnable leaf. Surface CommandNotFound with a
-        // `--help` hint here rather than dispatching it to the extension, which would throw a generic
-        // "command not found" and fall through to the AI agent. Mirrors the verb-only fallback above.
-        var commandPath = string.Join(" ", commandName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1));
-        if (_leafIndex.Value.IsCommandGroup(verb, commandPath))
-        {
-            throw new CommandNotFoundException(verb, commandName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray());
+            // No leaf was matched by longest-prefix, so the invocation may name a command group
+            // (a root like `agent` or an intermediate group like `agent tool`) that has no runnable
+            // leaf. Surface CommandNotFound with a `--help` hint rather than dispatching it to the
+            // extension, which would throw a generic "command not found" and fall through to the AI
+            // agent. A matchedPathTokens > 0 branch can't reach here — it hit an exact leaf. Mirrors
+            // the verb-only fallback above.
+            if (_leafIndex.Value.IsCommandGroup(verb, string.Join(" ", nonFlagLeadingArgs)))
+            {
+                throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+            }
         }
 
         return new CommandInvocation(

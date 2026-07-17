@@ -92,6 +92,13 @@ namespace Core.Extensions
                 return false;
             }
 
+            // Fast path: an unknown verb (a typo, an uninstalled extension) owns no leaves, so it is
+            // never a group. Skip the O(N) entry scan on this common miss.
+            if (!_verbs.Contains(verb))
+            {
+                return false;
+            }
+
             var prefix = string.IsNullOrEmpty(path) ? string.Empty : path + " ";
             foreach (var (leafVerb, leafPath) in _entries.Keys)
             {
