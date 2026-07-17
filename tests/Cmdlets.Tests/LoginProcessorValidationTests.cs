@@ -77,9 +77,10 @@ public class LoginProcessorValidationTests
             }
             return result;
         }
-        catch (TargetInvocationException tie)
+        catch (TargetInvocationException tie) when (tie.InnerException is not null)
         {
-            throw tie.InnerException!;
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(tie.InnerException).Throw();
+            throw; // unreachable
         }
     }
 
