@@ -34,6 +34,86 @@ public class CompletionGeneratorTests
         Assert.True(CompletionGenerator.ResolveEnabled(config));
     }
 
+    [Fact]
+    public void ComputeCandidates_ReturnsNextToken_ForLeadingVerb()
+    {
+        // `az deployment <tab>` — offer the next token of the deeper commands.
+        var commands = Commands("deployment group create", "deployment group what-if");
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["deployment"]);
+
+        // Both commands share the same next token, so it is deduplicated.
+        Assert.Equal(["group"], result);
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsSubcommands_ForIntermediateGroup()
+    {
+        // `az deployment group <tab>` — the reported bug: expect create + what-if.
+        var commands = Commands("deployment group create", "deployment group what-if");
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["deployment", "group"]);
+
+        Assert.Equal(["create", "what-if"], result);
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsParameterFlags_ForExactCommand()
+    {
+        // `az deployment group create <tab>` — the path is a complete command.
+        var commands = new[]
+        {
+            Command("deployment group create", "name", "resource-group", "template-file"),
+        };
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["deployment", "group", "create"]);
+
+        Assert.Equal(["--name", "--resource-group", "--template-file"], result);
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsSiblingSubcommands_SortedAndDeduplicated()
+    {
+        // `az group <tab>` over a 2-level verb.
+        var commands = Commands("group show", "group create", "group list", "group create");
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["group"]);
+
+        Assert.Equal(["create", "list", "show"], result);
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsEmpty_WhenPathDoesNotMatchAnyCommand()
+    {
+        var commands = Commands("deployment group create");
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["deployment", "nope"]);
+
+        Assert.Empty(result);
+    }
+
+    private static KeyValuePair<string, CommandMetadata>[] Commands(params string[] invocationNames)
+        => invocationNames.Select(name => Command(name)).ToArray();
+
+    private static KeyValuePair<string, CommandMetadata> Command(string invocationName, params string[] parameterNames)
+    {
+        var parameters = parameterNames.ToDictionary(
+            p => p,
+            p => new ParameterMetadata(p, p, typeof(string), string.Empty, IsRequired: false, Aliases: [], AllowedValues: []));
+
+        var metadata = new CommandMetadata(
+            Name: invocationName,
+            InvocationName: invocationName,
+            Aliases: [],
+            FullName: invocationName,
+            AssemblyName: "test",
+            ProcessorType: typeof(object),
+            Parameters: parameters,
+            ParameterAliases: new Dictionary<string, string>());
+
+        return new KeyValuePair<string, CommandMetadata>(invocationName, metadata);
+    }
+
     //TODO: rewrite with mocking framework when introduced.
     private sealed class StubConfigurationService(CompletionOptions completion) : IConfigurationService
     {
