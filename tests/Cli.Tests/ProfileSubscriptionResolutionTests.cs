@@ -64,6 +64,19 @@ public class ProfileSubscriptionResolutionTests
         Assert.Equal("explicit-sub", processor.SubscriptionId);
     }
 
+    [Theory]
+    [InlineData(ClientType.CLI, "group create", "subscription-id")]
+    [InlineData(ClientType.PowerShell, "New-AzResourceGroup", "SubscriptionId")]
+    public void CreateResourceGroup_SubscriptionId_ShouldBeOptional(ClientType clientType, string command, string parameterKey)
+    {
+        var metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata(command, clientType);
+
+        Assert.False(
+            metadata.Parameters[parameterKey].IsRequired,
+            $"SubscriptionId should be optional for '{command}' so it defaults to the current subscription.");
+    }
+
     [Fact]
     public void Compute_NullProfile_ShouldThrowClearError()
     {
