@@ -32,18 +32,26 @@ This cmdlet has the following aliases,
 ## DESCRIPTION
 
 Provision a new resource group in your Azure subscription.
-Specify the resource group name, location (region), and subscription ID.
-An optional resource ID can be provided for advanced scenarios.
+Specify the resource group name and location (region).
+The subscription ID is optional and defaults to the current subscription when omitted.
 The resource group will be created immediately and can be used to organize your Azure resources.
 
 ## EXAMPLES
 
-### Create a resource group
+### Create a resource group in the current subscription
 
-Provision a new resource group named `myrg` in the East US region.
+Provision a new resource group named `myrg` in the East US region using the current subscription.
 
 ```powershell
 New-AzResourceGroup -Name myrg -Location eastus
+```
+
+### Create a resource group in a specific subscription
+
+Provision a new resource group named `myrg` in the East US region under a specific subscription.
+
+```powershell
+New-AzResourceGroup -Name myrg -Location eastus -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS
