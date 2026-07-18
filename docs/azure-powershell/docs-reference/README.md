@@ -5,8 +5,9 @@ description: Reference documentation for the preview version of Azure PowerShell
 
 # Azure PowerShell reference documentation
 
-This folder contains the reference documentation for the preview version of Azure PowerShell. The
-articles describe the available cmdlets, their syntax, parameters, inputs, outputs, and examples.
+This article provides links to the reference documentation for the preview version of Azure
+PowerShell. The articles describe the available cmdlets, their syntax, parameters, inputs, outputs,
+and examples.
 
 ## Az.Compute
 
