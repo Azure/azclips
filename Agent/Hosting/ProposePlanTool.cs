@@ -72,7 +72,7 @@ public sealed record StepMeta(
 
 /// <summary>
 /// A secret only the user can supply (password, SSH key, …). The agent writes
-/// the flag with a <c>&lt;placeholder&gt;</c> value in the step command; the host
+/// the flag with a <c>&lt;flag-name&gt;</c> placeholder value in the step command; the host
 /// reads the flag from there and renders a fill-in reminder. Not replacing it is
 /// expected to fail.
 /// </summary>
