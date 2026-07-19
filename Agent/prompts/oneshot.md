@@ -34,7 +34,7 @@ Sign-in (when the plan needs `az login --subscription-id <sub-id>`):
 </assess>
 
 <propose_plan>
-Propose ONE complete plan with `propose_plan()` and let user run themselves.
+Propose ONE complete plan with `propose_plan()` and let the user run it themselves.
 
 Rules for filling in parameter values:
 * Use <flag-name> as a placeholder when secret flags need a value you can't infer.
