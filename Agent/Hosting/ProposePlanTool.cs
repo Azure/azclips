@@ -71,10 +71,10 @@ public sealed record StepMeta(
     bool? Destructive = null);
 
 /// <summary>
-/// A secret only the user can supply (password, SSH key, …). The agent writes
-/// the flag with a <c>&lt;flag-name&gt;</c> placeholder value in the step command; the host
-/// reads the flag from there and renders a fill-in reminder. Not replacing it is
-/// expected to fail.
+/// A secret only the user can supply (password, SSH key, …). This record just
+/// names the flag (e.g. <c>--admin-password</c>); the agent writes that flag with a
+/// <c>&lt;placeholder&gt;</c> value in the step command. The host looks the flag up in
+/// the step command to render a fill-in reminder. Not replacing it is expected to fail.
 /// </summary>
 public sealed record UserInputNeed(
     string Flag,

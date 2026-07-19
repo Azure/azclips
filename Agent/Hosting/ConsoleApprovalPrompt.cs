@@ -66,7 +66,8 @@ public sealed class ConsoleApprovalPrompt
     // StepMeta so the hook owns the JSON parsing. Destructive drives the red marker.
     public sealed record PlanStep(int Id, string Label, string Cmd, bool Destructive = false);
 
-    // A secret only the user can supply — the flag carries a <placeholder> value in the step command.
+    // A secret only the user can supply — Flag names the flag (e.g. --admin-password);
+    // its value appears as a <placeholder> alongside the flag in the step command.
     public sealed record UserInputNeed(string Flag, string Description);
 
     // A flag the agent chose/derived for the user. Value is NOT stored — it's read
