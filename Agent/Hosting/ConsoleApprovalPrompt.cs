@@ -245,11 +245,13 @@ public sealed class ConsoleApprovalPrompt
         if (hasPlaceholders)
             foreach (var p in placeholders!)
             {
-                // Same as defaults: show the flag as it appears in the command (e.g.
-                // "--admin-password <admin-password>"). FindFlagToken returns the flag
-                // alone if the step didn't include it, so the review line still shows it.
+                // Show the flag with its value as it appears in the step command (e.g.
+                // "--admin-password <admin-password>"). If the flag value isn't present in
+                // any step (FindFlagToken returns just the flag), fall back to a <placeholder>
+                // so the "you must fill this in" cue isn't lost.
                 var token = FindFlagToken(steps, p.Flag);
-                Console.WriteLine($"• {OneLine(token)}: {OneLine(p.Description)}");
+                var display = token.Contains('<') ? token : $"{token} <value>";
+                Console.WriteLine($"• {OneLine(display)}: {OneLine(p.Description)}");
             }
     }
 
