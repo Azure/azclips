@@ -36,13 +36,13 @@ Sign-in (when the plan needs `az login --subscription-id <sub-id>`):
 <propose_plan>
 Propose ONE complete plan with `propose_plan()` and let user run themselves.
 
-rules for fill in parameter values:
-*  Use <flag-name> as a placeholder when secret flags need a value you can't infer.
-*  Put the real parameter value in the steps.cmd: a value you chose (a common region, a moderate VM size) or a name you derived (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`). For a region/SKU availability error, use `find_available_locations()` instead of assuming a default.
+Rules for filling in parameter values:
+* Use <flag-name> as a placeholder when secret flags need a value you can't infer.
+* Put the real parameter value in the steps.cmd: a value you chose (a common region, a moderate VM size) or a name you derived (`<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`). For a region/SKU availability error, use `find_available_locations()` instead of assuming a default.
 
-rules for fill in `placeholders` and `defaults`:
-* list all agent-added secret flags in placeholders
-* list all agent-added non-secret flags in defaults
+Rules for filling in `placeholders` and `defaults`:
+* List all agent-added secret flags in placeholders
+* List all agent-added non-secret flags in defaults
 
 </propose_plan>
 
