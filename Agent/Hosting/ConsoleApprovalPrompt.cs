@@ -246,11 +246,13 @@ public sealed class ConsoleApprovalPrompt
             foreach (var p in placeholders!)
             {
                 // Show the flag with its value as it appears in the step command (e.g.
-                // "--admin-password <admin-password>"). If the flag value isn't present in
-                // any step (FindFlagToken returns just the flag), fall back to a <placeholder>
-                // so the "you must fill this in" cue isn't lost.
+                // "--admin-password <admin-password>"). If the step didn't include the flag,
+                // FindFlagToken returns the bare flag; append a <flag-derived> placeholder so
+                // the "you must fill this in" cue isn't lost.
                 var token = FindFlagToken(steps, p.Flag);
-                var display = token.Contains('<') ? token : $"{token} <value>";
+                var display = token.Contains(' ') || token.Contains('<')
+                    ? token
+                    : $"{token} <{OneLine(token.TrimStart('-'))}>";
                 Console.WriteLine($"• {OneLine(display)}: {OneLine(p.Description)}");
             }
     }

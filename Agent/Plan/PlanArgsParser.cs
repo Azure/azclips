@@ -102,7 +102,7 @@ internal static class PlanArgsParser
         return list.Count > 0 ? list : null;
     }
 
-    // Parses an array of {name, description} (placeholders) into the host's
+    // Parses an array of {flag, description} (placeholders) into the host's
     // UserInputNeed view. Returns null when absent or empty. internal for tests.
     internal static IReadOnlyList<ConsoleApprovalPrompt.UserInputNeed>? ExtractUserInputNeeds(object? args, string field)
     {
