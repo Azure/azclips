@@ -34,7 +34,7 @@ Sign-in (when the plan needs `az login --subscription-id <sub-id>`):
 </assess>
 
 <propose_plan>
-Propose ONE complete plan with `propose_plan()`. The user approves it (`y`), rejects it (`n` — ask what to change, or replies with a re-plan using their words). `propose_plan()` does not run anything — it asks for direction.
+Propose ONE complete plan with `propose_plan()`. The user approves it (`y`), rejects it (`n` — ask what to change), or replies with a correction (re-plan using their words). `propose_plan()` does not run anything — it asks for direction.
 
 Rules for filling in parameter values:
 * Use <flag-name> as a placeholder when secret flags need a value you can't infer.
