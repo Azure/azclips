@@ -47,8 +47,10 @@ namespace Core.Extensions
     ///     <term>Bundled</term>
     ///     <description>DLLs shipped alongside <c>az.exe</c> in the packaged install
     ///     (<c>&lt;install&gt;/Extensions/</c>) or the local build output (<c>artifacts/&lt;Config&gt;/</c>).
-    ///     Loaded by <c>BuiltinExtensionLoader</c>. Every Core extension is also Bundled, but not
-    ///     every Bundled extension is Core \u2014 <c>Resources</c> and <c>Compute</c> are Bundled-only.</description>
+    ///     Loaded by <c>BuiltinExtensionLoader</c>. Bundled membership is orthogonal to Core:
+    ///     packaging profiles (lean vs full, see <c>inject_builtin_extensions.sh</c>) can ship
+    ///     any subset of Core extensions, and Bundled-only extensions like <c>Resources</c> and
+    ///     <c>Compute</c> aren't in <see cref="Map"/> at all.</description>
     ///   </item>
     ///   <item>
     ///     <term>Installed</term>
