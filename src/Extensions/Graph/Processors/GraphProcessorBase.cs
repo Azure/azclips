@@ -167,6 +167,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
     /// </summary>
     public abstract class GraphProcessorBase<TResponse> : GraphProcessorBase where TResponse : class
     {
+        /// <summary>
+        /// Projects the deserialized response into the value written to output. Default writes the
+        /// response as-is; list processors override this to unwrap the OData envelope and write its
+        /// <c>value</c> collection so PowerShell enumerates it and the CLI serializes a JSON array.
+        /// </summary>
+        protected virtual object SelectOutput(TResponse body) => body;
+
         public override async Task ProcessAsync()
         {
             EnsureRuntimeContext();
@@ -193,7 +200,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
                     TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
                     if (body is not null)
                     {
-                        await WriteOutput(body);
+                        await WriteOutput(SelectOutput(body));
                     }
                 }
                 catch (JsonException ex)

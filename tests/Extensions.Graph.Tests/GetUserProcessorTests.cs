@@ -8,11 +8,21 @@ namespace Extensions.Graph.Tests;
 
 public class GetUserProcessorTests
 {
-    private static TestableGetUserProcessor CreateProcessor(string id)
+    private static TestableGetUserProcessor CreateProcessor(
+        string id,
+        string[]? select = null,
+        string[]? expand = null,
+        bool appendSelected = false)
     {
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
-        return new TestableGetUserProcessor { Id = id }.WithPublisher(publisher.Object);
+        return new TestableGetUserProcessor
+        {
+            Id = id,
+            Select = select,
+            Expand = expand,
+            AppendSelected = appendSelected,
+        }.WithPublisher(publisher.Object);
     }
 
     [Fact]
@@ -35,7 +45,6 @@ public class GetUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        // '@' must be percent-encoded so UPNs are safe in the path segment.
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/users/alice%40contoso.com",
             request.RequestUri!.ToString());
@@ -60,5 +69,63 @@ public class GetUserProcessorTests
         var processor = CreateProcessor(id);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
+    }
+
+    [Fact]
+    public async Task CreateRequestMessage_WithSelect_ShouldAppendQuery()
+    {
+        var processor = CreateProcessor(
+            id: "48d31887-5fad-4d73-a9f5-3c356e68a038",
+            select: new[] { "id", "displayName", "mail" });
+
+        using HttpRequestMessage request = await processor.BuildRequestAsync();
+
+        Assert.Equal(
+            "https://graph.microsoft.com/v1.0/users/48d31887-5fad-4d73-a9f5-3c356e68a038?$select=id%2CdisplayName%2Cmail",
+            request.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task CreateRequestMessage_WithAppendSelected_ShouldInjectDefaults()
+    {
+        var processor = CreateProcessor(
+            id: "48d31887-5fad-4d73-a9f5-3c356e68a038",
+            select: new[] { "city" },
+            appendSelected: true);
+
+        using HttpRequestMessage request = await processor.BuildRequestAsync();
+
+        // Defaults come before caller extras — matches Az.Resources Get-AzADUser ordering.
+        var uri = request.RequestUri!.ToString();
+        Assert.Contains("$select=", uri, StringComparison.Ordinal);
+        Assert.Contains(Uri.EscapeDataString("displayName,id,deletedDateTime,userPrincipalName,usageLocation,givenName,surname,accountEnabled,mailNickname,mail,city"), uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreateRequestMessage_WithExpand_ShouldAppendQuery()
+    {
+        var processor = CreateProcessor(
+            id: "48d31887-5fad-4d73-a9f5-3c356e68a038",
+            expand: new[] { "memberOf" });
+
+        using HttpRequestMessage request = await processor.BuildRequestAsync();
+
+        Assert.EndsWith("?$expand=memberOf", request.RequestUri!.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreateRequestMessage_WithSelectAndExpand_ShouldCombineParts()
+    {
+        var processor = CreateProcessor(
+            id: "48d31887-5fad-4d73-a9f5-3c356e68a038",
+            select: new[] { "id", "displayName" },
+            expand: new[] { "memberOf" });
+
+        using HttpRequestMessage request = await processor.BuildRequestAsync();
+
+        var uri = request.RequestUri!.ToString();
+        Assert.Contains("$select=id%2CdisplayName", uri, StringComparison.Ordinal);
+        Assert.Contains("$expand=memberOf", uri, StringComparison.Ordinal);
+        Assert.Equal(1, uri.Count(static c => c == '&'));
     }
 }
