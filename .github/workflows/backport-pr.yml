@@ -151,10 +151,10 @@ jobs:
 
           git push origin "HEAD:$backport_branch"
 
-          gh label create "backport" --color "5319e7" --description "Backport created from another branch" --force || true
-          gh label create "backport-to-$TARGET_BRANCH" --color "1d76db" --description "Backport targeting $TARGET_BRANCH" --force || true
+          gh label create "backport" --color "5319e7" --description "Backport created from another branch" --force
+          gh label create "backport-to-$TARGET_BRANCH" --color "1d76db" --description "Backport targeting $TARGET_BRANCH" --force
           if [[ "$TARGET_BRANCH" == "main" ]]; then
-            gh label create "preview-feature" --color "0e8a16" --description "Candidate for private preview" --force || true
+            gh label create "preview-feature" --color "0e8a16" --description "Candidate for private preview" --force
           fi
 
           pr_title="Backport PR #$PR_NUMBER to $TARGET_BRANCH: $title"
