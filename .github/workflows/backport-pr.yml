@@ -16,9 +16,7 @@ on:
           - dev-to-main
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
 
 concurrency:
   group: backport-pr-${{ inputs.direction }}-${{ inputs.source_pr_number }}
@@ -50,17 +48,31 @@ jobs:
               ;;
           esac
 
+      - name: Validate backport token
+        env:
+          BACKPORT_PR_TOKEN: ${{ secrets.BACKPORT_PR_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$BACKPORT_PR_TOKEN" ]]; then
+            echo "ERROR: BACKPORT_PR_TOKEN must be configured."
+            echo "This repository does not permit github.token to create pull requests from GitHub Actions."
+            echo "Use a PAT or GitHub App token with contents, pull requests, and issues write access."
+            echo "If backporting .github/workflows changes, the token must also have workflow permission."
+            exit 1
+          fi
+
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.direction.outputs.target_branch }}
           fetch-depth: 0
-          token: ${{ secrets.BACKPORT_PR_TOKEN || github.token }}
+          token: ${{ secrets.BACKPORT_PR_TOKEN }}
 
       - name: Create backport PR
         env:
-          GH_TOKEN: ${{ secrets.BACKPORT_PR_TOKEN || github.token }}
-          BACKPORT_PR_TOKEN: ${{ secrets.BACKPORT_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.BACKPORT_PR_TOKEN }}
           PR_NUMBER: ${{ inputs.source_pr_number }}
           SOURCE_BRANCH: ${{ steps.direction.outputs.source_branch }}
           TARGET_BRANCH: ${{ steps.direction.outputs.target_branch }}
@@ -84,7 +96,6 @@ jobs:
           merged_at="$(jq -r '.mergedAt // ""' <<< "$pr_json")"
           merge_sha="$(jq -r '.mergeCommit.oid // ""' <<< "$pr_json")"
           mapfile -t source_commit_shas < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" --jq '.[].sha')
-          mapfile -t changed_files < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')
 
           if [[ -z "$merged_at" || -z "$merge_sha" ]]; then
             echo "ERROR: PR #$PR_NUMBER is not merged or has no merge commit."
@@ -95,14 +106,6 @@ jobs:
             echo "ERROR: PR #$PR_NUMBER was merged into '$base_branch', but direction '${{ inputs.direction }}' expects source branch '$SOURCE_BRANCH'."
             exit 1
           fi
-
-          for changed_file in "${changed_files[@]}"; do
-            if [[ "$changed_file" == .github/workflows/* && -z "$BACKPORT_PR_TOKEN" ]]; then
-              echo "ERROR: PR #$PR_NUMBER changes GitHub workflow files, which cannot be pushed by github.token."
-              echo "Configure BACKPORT_PR_TOKEN with workflow permission, then rerun this workflow."
-              exit 1
-            fi
-          done
 
           safe_title="$(printf '%s' "$title" \
             | tr '[:upper:]' '[:lower:]' \
