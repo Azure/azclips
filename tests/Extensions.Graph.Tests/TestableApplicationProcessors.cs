@@ -41,3 +41,14 @@ internal sealed class TestableDeleteApplicationProcessor : DeleteApplicationProc
         return this;
     }
 }
+
+internal sealed class TestableListApplicationProcessor : ListApplicationProcessor
+{
+    public Task<HttpRequestMessage> BuildRequestAsync() => CreateRequestMessage();
+
+    public TestableListApplicationProcessor WithPublisher(Core.Abstractions.Runtime.IEventPublisher publisher)
+    {
+        Publisher = publisher;
+        return this;
+    }
+}

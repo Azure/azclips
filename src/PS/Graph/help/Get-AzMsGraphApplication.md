@@ -13,9 +13,24 @@ title: Get-AzMsGraphApplication
 
 ## SYNOPSIS
 
-Gets a Microsoft Graph application registration by object ID.
+Gets Microsoft Graph application registrations. Lists registrations in the tenant, or retrieves a single one by object ID.
 
 ## SYNTAX
+
+### List (Default)
+
+```
+Get-AzMsGraphApplication [-Filter <string>] [-Orderby <string[]>] [-Search <string>]
+ [-ConsistencyLevel <string>] [-Select <string[]>] [<CommonParameters>]
+```
+
+### DisplayName
+
+```
+Get-AzMsGraphApplication -DisplayName <string> [-Select <string[]>] [<CommonParameters>]
+```
+
+### Get
 
 ```
 Get-AzMsGraphApplication -Id <string> [<CommonParameters>]
@@ -25,11 +40,29 @@ Get-AzMsGraphApplication -Id <string> [<CommonParameters>]
 
 ## DESCRIPTION
 
-Retrieves a single application registration from Microsoft Graph via `GET /applications/{id}` using the active Azure profile (see `Connect-AzAccount`). The identifier is the application's object ID. Mirrors `az ad app show`.
+Queries Microsoft Graph for application registrations using the active Azure profile (see `Connect-AzAccount`). The parameter surface mirrors the non-pagination subset of `Get-AzADApplication`:
+
+- **List (Default)**: `GET /applications` — returns the first page of applications. Combine with `-Filter`, `-Orderby`, `-Search`, and `-ConsistencyLevel` for raw OData queries. Pagination via `@odata.nextLink` is not followed in this preview.
+- **DisplayName**: shortcut that translates to the OData filter `displayName eq '<value>'`.
+- **Get**: `GET /applications/{id}` — retrieves a single application by object ID.
+
+`-Select` controls OData projection and is available in the list-based parameter sets.
 
 ## EXAMPLES
 
-### Example 1: Get an application by object ID
+### Example 1: List the first page of applications
+
+```powershell
+Get-AzMsGraphApplication
+```
+
+### Example 2: List applications by exact display name
+
+```powershell
+Get-AzMsGraphApplication -DisplayName my-app
+```
+
+### Example 3: Get an application by object ID
 
 ```powershell
 Get-AzMsGraphApplication -Id 00000000-0000-0000-0000-000000000000
@@ -47,9 +80,78 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: Get
   Position: Named
   IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -DisplayName
+
+Exact display name to match. Translated to the OData filter `displayName eq '<value>'`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: DisplayName
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Filter
+
+OData `$filter` expression applied by Microsoft Graph. Passed through verbatim.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Select
+
+Properties to project via OData `$select`.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: DisplayName
+  Position: Named
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
