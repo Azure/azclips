@@ -78,8 +78,11 @@ public static class ExtensionCandidateSelector
 
         if (persistedPreference is not { Pinned: true } ||
             string.IsNullOrWhiteSpace(persistedPreference.Version) ||
-            selection.Reason == ExtensionSelectionReason.Pinned)
+            string.Equals(persistedPreference.Version, selection.Selected.ResolvedVersion, StringComparison.OrdinalIgnoreCase))
         {
+            // Not pinned, no pin target, OR the selected candidate already matches the pin —
+            // the latter can happen via `SingleCandidate` (the sole candidate happens to be at
+            // the pinned version) as well as via the explicit `Pinned` reason.
             return;
         }
 

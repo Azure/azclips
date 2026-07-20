@@ -293,6 +293,33 @@ public sealed class ExtensionCandidateSelectorTests
     }
 
     [Fact]
+    public void ReportUnresolvablePin_ShouldBeSilent_WhenSingleCandidateMatchesPin()
+    {
+        // Regression: when only one candidate exists AND it happens to match the pinned version,
+        // Select short-circuits with SingleCandidate reason (never entering the Pinned branch).
+        // The diagnostic must still stay silent — the selected version DOES match the pin.
+        // Discovered when testing `az extension pin --name Compute` against a single-source install.
+        var candidates = new[]
+        {
+            CreateInfo("Contoso.Widget", "1.2.0", ["widget create"]),
+        };
+        var persisted = new ExtensionRegistryEntry
+        {
+            Version = "1.2.0",
+            Pinned = true,
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        var selection = ExtensionCandidateSelector.Select(candidates, persisted);
+        Assert.Equal(ExtensionSelectionReason.SingleCandidate, selection.Reason);
+
+        var logger = new RecordingLoggingService();
+
+        ExtensionCandidateSelector.ReportUnresolvablePin("Contoso.Widget", selection, persisted, logger);
+
+        Assert.Empty(logger.Errors);
+    }
+
+    [Fact]
     public void ReportUnresolvablePin_ShouldBeSilent_WhenNotPinned()
     {
         var candidates = new[]
