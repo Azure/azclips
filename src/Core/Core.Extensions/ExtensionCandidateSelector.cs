@@ -88,7 +88,7 @@ public static class ExtensionCandidateSelector
 
         var requestedVersion = persistedPreference.Version;
         var selectedVersion = string.IsNullOrWhiteSpace(selection.Selected.ResolvedVersion)
-            ? "<unknown>"
+            ? "(unversioned)"
             : selection.Selected.ResolvedVersion;
 
         loggingService?.Error(

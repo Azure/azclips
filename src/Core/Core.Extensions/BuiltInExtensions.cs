@@ -27,7 +27,7 @@ namespace Core.Extensions
     }
 
     /// <summary>
-    /// Static seed of the <b>Core</b> extensions \u2014 those baked into the CLI host at compile time
+    /// Static seed of the <b>Core</b> extensions — those baked into the CLI host at compile time
     /// and always dispatchable without any filesystem read.
     /// </summary>
     /// <remarks>
@@ -36,7 +36,11 @@ namespace Core.Extensions
     /// three tiers of extensions. The name <c>BuiltInExtensions</c> here refers only to the first
     /// tier (Core); it does not mean everything shipped alongside <c>az.exe</c>.
     /// </para>
-    /// <list type="bullet">
+    /// <list type="table">
+    ///   <listheader>
+    ///     <term>Tier</term>
+    ///     <description>Meaning</description>
+    ///   </listheader>
     ///   <item>
     ///     <term>Core</term>
     ///     <description>The compile-time seed in <see cref="Map"/>. Currently <c>extension</c>,

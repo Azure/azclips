@@ -33,10 +33,13 @@ public interface IExtensionLoader
 /// <para>
 /// <b>Terminology note (pending rename in a follow-up PR):</b> the name <c>Builtin*</c> is legacy.
 /// This loader serves the <b>Bundled</b> tier, which is distinct from the <b>Core</b> tier
-/// (the compile-time seed in <see cref="Core.Extensions.BuiltInExtensions.Map"/>). Every Core extension
-/// happens to be Bundled, but not every Bundled extension is Core — <c>Resources</c> and <c>Compute</c> are
-/// Bundled-only. The <b>Installed</b> tier (<c>MultiVersionExtensionLoader</c>) covers extensions placed
-/// by <c>az extension add</c> under <c>~/.azclips/extensions/</c>.
+/// (the compile-time seed in <see cref="Core.Extensions.BuiltInExtensions.Map"/>).
+/// Core and Bundled are orthogonal: packaging profiles (lean vs full, see
+/// <c>inject_builtin_extensions.sh</c>) can ship any subset of Core extensions, and Bundled-only
+/// extensions like <c>Resources</c> and <c>Compute</c> aren't seeded in
+/// <see cref="Core.Extensions.BuiltInExtensions.Map"/> at all. The <b>Installed</b> tier
+/// (<c>MultiVersionExtensionLoader</c>) covers extensions placed by <c>az extension add</c> under
+/// <c>~/.azclips/extensions/</c>.
 /// </para>
 /// <para>
 /// <b>Version resolution</b> for a Bundled extension is driven by the on-disk <c>.nupkg</c>
