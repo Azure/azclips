@@ -16,7 +16,7 @@ namespace Scenario.Tests;
 public class RecordPlaybackTests
 {
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
-    private const string ResourceGroupName = "cirrus-recorded-rg";
+    private const string ResourceGroupName = "azclips-recorded-rg";
     private const string Location = "eastus2";
 
     private static readonly string s_expectedUri =
@@ -109,7 +109,7 @@ public class RecordPlaybackTests
     public void RecordedSession_RoundTripsThroughJsonFile()
     {
         var record = RecordCliGroupCreate(out _);
-        var path = Path.Combine(Path.GetTempPath(), "cirrus-scenario-tests", Guid.NewGuid().ToString("N"), "GroupCreate.json");
+        var path = Path.Combine(Path.GetTempPath(), "azclips-scenario-tests", Guid.NewGuid().ToString("N"), "GroupCreate.json");
         try
         {
             record.Save(path);

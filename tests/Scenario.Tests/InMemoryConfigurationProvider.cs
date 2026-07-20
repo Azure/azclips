@@ -5,7 +5,7 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// Keeps configuration in memory so scenario runs never read or write the developer's
-/// <c>~/.cirrus/config.json</c>.
+/// <c>~/.azclips/config.json</c>.
 /// </summary>
 internal sealed class InMemoryConfigurationProvider : IConfigurationProvider
 {

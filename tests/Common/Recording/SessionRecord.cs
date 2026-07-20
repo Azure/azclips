@@ -39,18 +39,31 @@ public sealed class RecordedResponse
 }
 
 /// <summary>
-/// The recorded HTTP session for one scenario, in send order. Serializes to the JSON file
-/// that lives next to the test (the <c>SessionRecords/&lt;TestClass&gt;/&lt;TestName&gt;.json</c>
-/// layout and richer request matching are #471; this is the storage primitive they build on).
+/// The recorded HTTP session for one scenario: a version stamp, free-form metadata, and the
+/// exchanges in send order. Serializes to the JSON file that lives at
+/// <c>SessionRecords/&lt;TestClass&gt;/&lt;TestName&gt;.json</c> (see <see cref="SessionRecordFiles"/>).
+/// Entry order is significant — playback consumes duplicate matches in recorded order, which is
+/// what makes polling sequences replayable.
 /// </summary>
 public sealed class SessionRecord
 {
+    /// <summary>Schema version written by this code. Bump on breaking changes to the on-disk shape.</summary>
+    public const int CurrentVersion = 1;
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
+
+    public int Version { get; init; } = CurrentVersion;
+
+    /// <summary>
+    /// Free-form annotations about the recording (scenario name, origin, refresh hints).
+    /// Round-trips verbatim; nothing in record/playback interprets it.
+    /// </summary>
+    public Dictionary<string, string> Metadata { get; init; } = [];
 
     public List<SessionRecordEntry> Entries { get; init; } = [];
 

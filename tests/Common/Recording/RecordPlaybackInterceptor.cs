@@ -26,14 +26,16 @@ public enum RecorderMode
 /// <b>Record:</b> forwards to the next step (retries → wire), then appends the request/response
 /// pair to <see cref="SessionRecord"/>. The stored request omits the <c>Authorization</c> header
 /// so bearer tokens never land on disk (the full sanitizer set is #473).
-/// <b>Playback:</b> matches the outgoing request against the record by method + URI
-/// (case-insensitive, each entry consumed once, duplicates served in recorded order) and returns
-/// the stored response without calling the next step. An unmatched request throws with the
-/// request line and the record's unconsumed entries so the mismatch is immediately visible.
+/// <b>Playback:</b> matches the outgoing request against the record with the supplied
+/// <see cref="IRequestMatcher"/> (default: <see cref="DefaultRequestMatcher"/>, method + URI;
+/// each entry consumed once, duplicates served in recorded order) and returns the stored
+/// response without calling the next step. An unmatched request throws with the request line
+/// and the record's unconsumed entries so the mismatch is immediately visible.
 /// </para>
 /// </summary>
-public sealed class RecordPlaybackInterceptor(RecorderMode mode, SessionRecord sessionRecord) : ITracingInterceptor
+public sealed class RecordPlaybackInterceptor(RecorderMode mode, SessionRecord sessionRecord, IRequestMatcher? matcher = null) : ITracingInterceptor
 {
+    private readonly IRequestMatcher _matcher = matcher ?? new DefaultRequestMatcher();
     private readonly List<CapturedHttpRequest> _sent = [];
     private readonly HashSet<int> _consumed = [];
 
@@ -112,7 +114,7 @@ public sealed class RecordPlaybackInterceptor(RecorderMode mode, SessionRecord s
         for (int i = 0; i < SessionRecord.Entries.Count; i++)
         {
             var entry = SessionRecord.Entries[i];
-            if (!_consumed.Contains(i) && Matches(entry.Request, snapshot))
+            if (!_consumed.Contains(i) && _matcher.Matches(entry.Request, snapshot))
             {
                 _consumed.Add(i);
                 return ToResponse(entry.Response);
@@ -121,10 +123,6 @@ public sealed class RecordPlaybackInterceptor(RecorderMode mode, SessionRecord s
 
         throw new InvalidOperationException(BuildUnmatchedDiagnostic(snapshot));
     }
-
-    private static bool Matches(RecordedRequest recorded, CapturedHttpRequest outgoing)
-        => string.Equals(recorded.Method, outgoing.Method, StringComparison.OrdinalIgnoreCase)
-        && string.Equals(recorded.Uri, outgoing.Uri, StringComparison.OrdinalIgnoreCase);
 
     private static HttpResponseMessage ToResponse(RecordedResponse recorded)
     {
@@ -152,7 +150,7 @@ public sealed class RecordPlaybackInterceptor(RecorderMode mode, SessionRecord s
     private string BuildUnmatchedDiagnostic(CapturedHttpRequest snapshot)
     {
         var builder = new StringBuilder()
-            .AppendLine("Playback found no recorded response for:")
+            .AppendLine($"Playback found no recorded response (matching on {_matcher.Description}) for:")
             .AppendLine($"  {snapshot.Method} {snapshot.Uri}");
 
         var unconsumed = SessionRecord.Entries

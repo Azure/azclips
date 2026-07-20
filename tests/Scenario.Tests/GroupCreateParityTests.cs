@@ -9,7 +9,7 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// Task 0 of the scenario-test plan (the fail-fast "author once, replay both" spike, RISK-1):
-/// <c>azv2 group create</c> and <c>New-AzResourceGroup</c> resolve to the same
+/// <c>az group create</c> and <c>New-AzResourceGroup</c> resolve to the same
 /// <c>NewResourceGroupProcessor</c>, so for one recording to serve both surfaces the HTTP
 /// they emit must be identical. These tests drive both surfaces subcutaneously — the real
 /// dispatcher/binder for the CLI, the real cmdlet invocation shape and PS binder for
@@ -19,9 +19,9 @@ namespace Scenario.Tests;
 [Collection("Scenario Tests")]
 public class GroupCreateParityTests
 {
-    // Fixed identities from Tests.Common stubs (StubAuthContextService / StubAuthService).
+    // Fixed identities from Tests.Common stubs (StubProfileService / StubAuthService).
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
-    private const string ResourceGroupName = "cirrus-scenario-rg";
+    private const string ResourceGroupName = "azclips-scenario-rg";
     private const string Location = "westus2";
 
     private static readonly string s_expectedUri =
@@ -29,8 +29,8 @@ public class GroupCreateParityTests
 
     /// <summary>
     /// Canned ARM answer for the PUT, shaped like a real 201 from
-    /// Microsoft.Resources/resourceGroups. Stands in for the SessionRecords playback
-    /// source until #471 lands.
+    /// Microsoft.Resources/resourceGroups. The parity tests only compare what the surfaces
+    /// send, so a canned answer is enough — no recording involved.
     /// </summary>
     private static HttpResponseMessage ArmResponder(HttpRequestMessage request)
     {
