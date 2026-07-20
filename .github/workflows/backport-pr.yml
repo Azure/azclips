@@ -193,25 +193,23 @@ jobs:
           fi
 
           pr_title="Backport PR #$PR_NUMBER to $TARGET_BRANCH: $title"
-          pr_body="$(cat <<EOF
-          **Original PR**: #$PR_NUMBER
-          **Original PR title**: $title
-          **Original PR URL**: $url
-          **Source branch**: $SOURCE_BRANCH
-          **Target branch**: $TARGET_BRANCH
-          **Source PR head branch**: $head_branch
-          **Cherry-picked merge commit**: $merge_sha
-
-          This PR was created by the Create Backport PR workflow.
-
-          **Testing Guide**
-          - Review the diff and resolve any target-branch-specific concerns.
-          - Let the required PR validation checks run on this backport PR.
-
-          **History Notes**
-          {DevOps} Backport PR #$PR_NUMBER to $TARGET_BRANCH: $title
-          EOF
-          )"
+          pr_body="$(printf '%s\n' \
+            "**Original PR**: #$PR_NUMBER" \
+            "**Original PR title**: $title" \
+            "**Original PR URL**: $url" \
+            "**Source branch**: $SOURCE_BRANCH" \
+            "**Target branch**: $TARGET_BRANCH" \
+            "**Source PR head branch**: $head_branch" \
+            "**Cherry-picked merge commit**: $merge_sha" \
+            "" \
+            "This PR was created by the Create Backport PR workflow." \
+            "" \
+            "**Testing Guide**" \
+            "- Review the diff and resolve any target-branch-specific concerns." \
+            "- Let the required PR validation checks run on this backport PR." \
+            "" \
+            "**History Notes**" \
+            "{DevOps} Backport PR #$PR_NUMBER to $TARGET_BRANCH: $title")"
 
           pr_create_args=(
             --base "$TARGET_BRANCH"
