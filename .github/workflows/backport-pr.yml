@@ -16,7 +16,9 @@ on:
           - dev-to-main
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  issues: write
 
 concurrency:
   group: backport-pr-${{ inputs.direction }}-${{ inputs.source_pr_number }}
@@ -48,29 +50,15 @@ jobs:
               ;;
           esac
 
-      - name: Validate backport token
-        env:
-          BACKPORT_PR_TOKEN: ${{ secrets.BACKPORT_PR_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ -z "$BACKPORT_PR_TOKEN" ]]; then
-            echo "ERROR: BACKPORT_PR_TOKEN must be configured."
-            echo "Use a PAT or GitHub App token so the generated backport branch/PR can trigger normal PR validation workflows."
-            exit 1
-          fi
-
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.direction.outputs.target_branch }}
           fetch-depth: 0
-          token: ${{ secrets.BACKPORT_PR_TOKEN }}
 
       - name: Create backport PR
         env:
-          GH_TOKEN: ${{ secrets.BACKPORT_PR_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ inputs.source_pr_number }}
           SOURCE_BRANCH: ${{ steps.direction.outputs.source_branch }}
           TARGET_BRANCH: ${{ steps.direction.outputs.target_branch }}
