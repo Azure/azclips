@@ -1,0 +1,199 @@
+name: Create Backport PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_pr_number:
+        description: "Merged PR number to backport"
+        required: true
+        type: string
+      direction:
+        description: "Backport direction"
+        required: true
+        type: choice
+        options:
+          - main-to-dev
+          - dev-to-main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  create-backport-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve direction
+        id: direction
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${{ inputs.direction }}" in
+            main-to-dev)
+              echo "source_branch=main" >> "$GITHUB_OUTPUT"
+              echo "target_branch=dev" >> "$GITHUB_OUTPUT"
+              ;;
+            dev-to-main)
+              echo "source_branch=dev" >> "$GITHUB_OUTPUT"
+              echo "target_branch=main" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "ERROR: Unsupported direction: ${{ inputs.direction }}"
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.direction.outputs.target_branch }}
+          fetch-depth: 0
+          token: ${{ secrets.BACKPORT_PR_TOKEN || github.token }}
+
+      - name: Create backport PR
+        env:
+          GH_TOKEN: ${{ secrets.BACKPORT_PR_TOKEN || github.token }}
+          PR_NUMBER: ${{ inputs.source_pr_number }}
+          SOURCE_BRANCH: ${{ steps.direction.outputs.source_branch }}
+          TARGET_BRANCH: ${{ steps.direction.outputs.target_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: source_pr_number must be numeric. Got: $PR_NUMBER"
+            exit 1
+          fi
+
+          git fetch origin "+refs/heads/$SOURCE_BRANCH:refs/remotes/origin/$SOURCE_BRANCH" \
+            "+refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH" --prune
+
+          pr_json="$(gh pr view "$PR_NUMBER" --json number,title,url,baseRefName,headRefName,mergeCommit,mergedAt)"
+          title="$(jq -r '.title' <<< "$pr_json")"
+          url="$(jq -r '.url' <<< "$pr_json")"
+          base_branch="$(jq -r '.baseRefName' <<< "$pr_json")"
+          head_branch="$(jq -r '.headRefName' <<< "$pr_json")"
+          merged_at="$(jq -r '.mergedAt // ""' <<< "$pr_json")"
+          merge_sha="$(jq -r '.mergeCommit.oid // ""' <<< "$pr_json")"
+          mapfile -t source_commit_shas < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" --jq '.[].sha')
+
+          if [[ -z "$merged_at" || -z "$merge_sha" ]]; then
+            echo "ERROR: PR #$PR_NUMBER is not merged or has no merge commit."
+            exit 1
+          fi
+
+          if [[ "$base_branch" != "$SOURCE_BRANCH" ]]; then
+            echo "ERROR: PR #$PR_NUMBER was merged into '$base_branch', but direction '${{ inputs.direction }}' expects source branch '$SOURCE_BRANCH'."
+            exit 1
+          fi
+
+          safe_title="$(printf '%s' "$title" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-{2,}/-/g' \
+            | cut -c1-40 \
+            | sed -E 's/-+$//')"
+          if [[ -z "$safe_title" ]]; then
+            safe_title="change"
+          fi
+
+          backport_branch="backport/$TARGET_BRANCH/pr-$PR_NUMBER-$safe_title"
+
+          if git ls-remote --exit-code --heads origin "$backport_branch" >/dev/null 2>&1; then
+            echo "ERROR: Backport branch already exists: $backport_branch"
+            echo "Close or delete the existing branch, or update it manually."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$backport_branch" "origin/$TARGET_BRANCH"
+
+          parent_count="$(git rev-list --parents -n 1 "$merge_sha" | awk '{print NF - 1}')"
+          source_commit_count="${#source_commit_shas[@]}"
+          merge_sha_is_source_commit=false
+          for source_commit_sha in "${source_commit_shas[@]}"; do
+            if [[ "$source_commit_sha" == "$merge_sha" ]]; then
+              merge_sha_is_source_commit=true
+              break
+            fi
+          done
+
+          if [[ "$parent_count" -eq 1 && "$source_commit_count" -gt 1 && "$merge_sha_is_source_commit" == true ]]; then
+            echo "ERROR: PR #$PR_NUMBER appears to have been rebase-merged with multiple commits."
+            echo "This workflow cannot safely backport only mergeCommit.oid because it would drop earlier PR commits."
+            echo "Create the backport branch manually and apply the full PR commit range."
+            exit 1
+          fi
+
+          cherry_pick_args=(-x)
+          if [[ "$parent_count" -gt 1 ]]; then
+            cherry_pick_args=(-x -m 1)
+          fi
+
+          if ! git cherry-pick "${cherry_pick_args[@]}" "$merge_sha"; then
+            if git diff --quiet && git diff --cached --quiet; then
+              echo "No changes to backport. PR #$PR_NUMBER may already be present in $TARGET_BRANCH."
+              git cherry-pick --abort || true
+              exit 0
+            fi
+            echo "ERROR: Backport had conflicts. Resolve manually by creating a branch from '$TARGET_BRANCH' and applying PR #$PR_NUMBER."
+            git cherry-pick --abort || true
+            exit 1
+          fi
+
+          if git diff --quiet "origin/$TARGET_BRANCH"..HEAD; then
+            echo "No changes to backport. PR #$PR_NUMBER may already be present in $TARGET_BRANCH."
+            exit 0
+          fi
+
+          git push origin "HEAD:$backport_branch"
+
+          gh label create "backport" --color "5319e7" --description "Backport created from another branch" --force || true
+          gh label create "backport-to-$TARGET_BRANCH" --color "1d76db" --description "Backport targeting $TARGET_BRANCH" --force || true
+          if [[ "$TARGET_BRANCH" == "main" ]]; then
+            gh label create "preview-feature" --color "0e8a16" --description "Candidate for private preview" --force || true
+          fi
+
+          pr_title="Backport PR #$PR_NUMBER to $TARGET_BRANCH: $title"
+          pr_body="$(cat <<EOF
+          **Original PR**: #$PR_NUMBER
+          **Original PR title**: $title
+          **Original PR URL**: $url
+          **Source branch**: $SOURCE_BRANCH
+          **Target branch**: $TARGET_BRANCH
+          **Source PR head branch**: $head_branch
+          **Cherry-picked merge commit**: $merge_sha
+
+          This PR was created by the Create Backport PR workflow.
+
+          **Testing Guide**
+          - Review the diff and resolve any target-branch-specific concerns.
+          - Let the required PR validation checks run on this backport PR.
+
+          **History Notes**
+          {DevOps} Backport PR #$PR_NUMBER to $TARGET_BRANCH: $title
+          EOF
+          )"
+
+          pr_create_args=(
+            --base "$TARGET_BRANCH"
+            --head "$backport_branch"
+            --title "$pr_title"
+            --body "$pr_body"
+            --label "backport"
+            --label "backport-to-$TARGET_BRANCH"
+          )
+
+          if [[ "$TARGET_BRANCH" == "main" ]]; then
+            pr_create_args+=(--label "preview-feature")
+          fi
+
+          gh pr create "${pr_create_args[@]}"
+
+          echo "### Created backport PR" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Original PR: #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Direction: $SOURCE_BRANCH -> $TARGET_BRANCH" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch: \`$backport_branch\`" >> "$GITHUB_STEP_SUMMARY"
