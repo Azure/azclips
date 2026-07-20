@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784526585173,
+  "lastUpdate": 1784589560026,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -4284,6 +4284,48 @@ window.BENCHMARK_DATA = {
             "value": 1015980.6259377813,
             "unit": "ns",
             "range": "± 341895.9795958508"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a94c7be9f81727963950cd7edbf9f3b04e516df1",
+          "message": "{Telemetry} Revert consistent LocalAppData path for trace files (#569)\n\n**Related command**\nN/A\n\n**Description**\nReverts merged PR #523 (commit\n`fdf548a6617964f89054d12fc82fc52fd4f1f605`) to undo the LocalAppData\ntrace-file path change in `FileTelemetrySender`.\n\n**Testing Guide**\nN/A\n\n**History Notes**\n{Telemetry} Revert LocalAppData trace-file path change introduced by\n#523\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-21T09:08:56+10:00",
+          "tree_id": "fba663f299bcd6bcf2926a105907c4fe0034bc00",
+          "url": "https://github.com/Azure/azclips/commit/a94c7be9f81727963950cd7edbf9f3b04e516df1"
+        },
+        "date": 1784589558597,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1040677.1466613275,
+            "unit": "ns",
+            "range": "± 344028.159845577"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1023940.5156109276,
+            "unit": "ns",
+            "range": "± 322528.4786837393"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1008361.3449224612,
+            "unit": "ns",
+            "range": "± 326793.96270467096"
           }
         ]
       }
