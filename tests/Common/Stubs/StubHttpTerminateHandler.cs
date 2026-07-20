@@ -12,8 +12,11 @@ namespace Tests.Common.Stubs;
 public class StubHttpTerminateHandler : IHttpTerminateHandler
 {
     public SendAsyncStep SendAsync { get; } = (request, callback, next) =>
-        Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+    {
+        Thread.Sleep(1);
+        return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
         {
             Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
         });
+    };
 }
