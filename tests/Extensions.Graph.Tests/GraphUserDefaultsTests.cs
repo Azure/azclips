@@ -80,4 +80,12 @@ public class GraphUserDefaultsTests
 
         Assert.Equal("city,department", result);
     }
+
+    [Fact]
+    public void BuildSelectClause_ShouldTrimSurroundingWhitespaceOnEntries()
+    {
+        var result = GraphUserDefaults.BuildSelectClause(new[] { "city", " city ", "  department" }, appendSelected: false);
+
+        Assert.Equal("city,department", result);
+    }
 }

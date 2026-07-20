@@ -13,7 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph
         private const string SelectDescription = "Properties to project via OData $select. Combine with AppendSelected to widen rather than replace the default property set.";
         private const string ExpandDescription = "Related navigation properties to expand via OData $expand (for example, memberOf).";
         private const string OrderbyDescription = "Property paths to sort by via OData $orderby (for example, 'displayName', 'mail desc').";
-        private const string SearchDescription = "Free-text search expression mapped to OData $search (for example, 'displayName:ada').";
+        private const string SearchDescription = "Free-text search expression mapped to OData $search (for example, \"displayName:ada\").";
         private const string ConsistencyLevelDescription = "Value sent as the ConsistencyLevel HTTP header. Required (typically 'eventual') when using advanced queries such as $search, $count, or $orderby on non-indexed properties.";
         private const string AppendSelectedDescription = "When set, prepends the default Microsoft Graph user property set to the values supplied via Select instead of replacing them.";
         private const string IdDescription = "The object ID or user principal name (UPN) of the user.";

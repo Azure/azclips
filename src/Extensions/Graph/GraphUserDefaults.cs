@@ -48,9 +48,10 @@ public static class GraphUserDefaults
         void Add(string candidate)
         {
             if (string.IsNullOrWhiteSpace(candidate)) return;
-            if (seen.Add(candidate))
+            var trimmed = candidate.Trim();
+            if (seen.Add(trimmed))
             {
-                ordered.Add(candidate);
+                ordered.Add(trimmed);
             }
         }
 
