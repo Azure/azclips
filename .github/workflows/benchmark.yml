@@ -10,7 +10,7 @@ on:
       - 'azclips.slnx'
       - '.github/workflows/benchmark.yml'
   pull_request:
-    branches: [main, dev]
+    branches: [main]
     paths:
       - 'src/**'
       - 'tests/Benchmark/**'
