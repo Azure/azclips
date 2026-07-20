@@ -149,5 +149,6 @@ cp "$LICENSE_FILE" "$CLI_SC_DIR/LICENSE"
 
 mkdir -p "$(dirname "$CLI_TAR_PATH")"
 rm -f "$CLI_TAR_PATH"
+
 tar -czf "$CLI_TAR_PATH" -C "$CLI_SC_DIR" .
 echo "Created $CLI_TAR_PATH"

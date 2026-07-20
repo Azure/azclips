@@ -1,0 +1,160 @@
+parameters:
+- name: stage_name
+  type: string
+  default: ValidatePullRequest
+- name: display_name
+  type: string
+  default: Validate Pull Request
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: depends_on
+  type: object
+  default: []
+- name: github_repository
+  type: string
+  default: ''
+
+stages:
+- stage: ${{ parameters.stage_name }}
+  displayName: ${{ parameters.display_name }}
+  dependsOn: ${{ parameters.depends_on }}
+  condition: succeeded()
+  jobs:
+  - job: CheckPullRequest
+    displayName: Check Pull Request Title and History Notes
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: self
+      persistCredentials: true
+    - bash: |
+        set -euo pipefail
+
+        python3 - <<'PY'
+        import base64
+        import json
+        import os
+        import subprocess
+        import sys
+        import urllib.error
+        import urllib.request
+
+        pr_number = os.environ.get('SYSTEM_PULLREQUEST_PULLREQUESTNUMBER')
+        repository = os.environ.get('GITHUB_REPOSITORY_NAME') or os.environ.get('BUILD_REPOSITORY_NAME')
+
+        if not pr_number:
+            print('No pull request number found; skipping pull request metadata validation.')
+            sys.exit(0)
+        if not repository:
+            print('GitHub repository name is not set. Configure github_repository or BUILD_REPOSITORY_NAME.', file=sys.stderr)
+            sys.exit(1)
+        repository = repository.strip().strip('/')
+        if len(repository.split('/')) != 2 or not all(repository.split('/')):
+            print(f'GitHub repository must be in owner/repo form. Received: {repository}', file=sys.stderr)
+            sys.exit(1)
+
+        headers = {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'azclips-pr-title-check',
+            'X-GitHub-Api-Version': '2022-11-28'
+        }
+
+        def get_token_from_extraheader(extraheader):
+            name, separator, value = extraheader.partition(':')
+            if not separator or name.strip().lower() != 'authorization':
+                return ''
+
+            authorization = value.strip()
+            if authorization.lower().startswith('bearer '):
+                return authorization[7:].strip()
+            if authorization.lower().startswith('basic '):
+                encoded_credentials = authorization[6:].strip()
+                try:
+                    decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8', errors='replace')
+                except Exception:
+                    return ''
+                _, credential_separator, password = decoded_credentials.partition(':')
+                if credential_separator:
+                    return password.strip()
+            return ''
+
+        def get_checkout_token():
+            try:
+                result = subprocess.run(
+                    ['git', 'config', '--get-regexp', r'^http\..*\.extraheader$'],
+                    capture_output=True,
+                    check=False,
+                    text=True
+                )
+            except Exception:
+                return ''
+
+            if result.returncode not in (0, 1):
+                return ''
+
+            for line in result.stdout.splitlines():
+                _, _, extraheader = line.partition(' ')
+                token = get_token_from_extraheader(extraheader)
+                if token:
+                    return token
+            return ''
+
+        token = get_checkout_token()
+        if token:
+            headers['Authorization'] = f'Bearer {token}'
+
+        def get_error_body(error):
+            try:
+                return error.read().decode('utf-8', errors='replace').strip()
+            except Exception:
+                return ''
+
+        request = urllib.request.Request(
+            f'https://api.github.com/repos/{repository}/pulls/{pr_number}',
+            headers=headers
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                pull_request = json.load(response)
+        except urllib.error.HTTPError as error:
+            error_body = get_error_body(error)
+            error_message = ''
+            try:
+                error_message = json.loads(error_body).get('message', '')
+            except json.JSONDecodeError:
+                error_message = error_body.strip()
+            print(
+                f'Failed to fetch pull request metadata from GitHub: HTTP {error.code} {error.reason}. '
+                f'Repository: {repository}. Pull request: #{pr_number}.',
+                file=sys.stderr
+            )
+            if error.code in (403, 404):
+                print(
+                    'Ensure checkout uses persistCredentials: true and the GitHub service connection can read pull request metadata for this repository.',
+                    file=sys.stderr
+                )
+            if error_message:
+                print(f'GitHub API message: {error_message}', file=sys.stderr)
+            sys.exit(1)
+        except urllib.error.URLError as error:
+            print(f'Failed to fetch pull request metadata from GitHub: {error.reason}', file=sys.stderr)
+            sys.exit(1)
+
+        title = pull_request.get('title') or ''
+        body = pull_request.get('body') or ''
+
+        print(f'Check pull request title and history notes: #{pr_number}')
+        print(title)
+
+        subprocess.run(
+            ['python3', 'devops/scripts/ci/check_pull_request.py', title],
+            input=body,
+            text=True,
+            check=True
+        )
+        PY
+      displayName: Check PR title and history notes
+      env:
+        GITHUB_REPOSITORY_NAME: ${{ parameters.github_repository }}

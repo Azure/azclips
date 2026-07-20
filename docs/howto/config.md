@@ -16,11 +16,10 @@ Configuration follows strict precedence: **command args > environment variables 
 | `assemblyLoading.builtinInstallationDir`      | string | (system)           | Built-in assembly directory                                                                                                                                            |
 | `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                       |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                       |
-| `telemetry.appInsightsInstrumentationKey`     | string | (empty)            | Application Insights key                                                                                                                                               |
-| `telemetry.zipkinEndpoint`                    | string | (empty)            | Zipkin tracing endpoint                                                                                                                                                |
 | `agent.enabled`                               | bool   | `false`            | Enable AI agent fallback (opt-in: `az config set --key agent.enabled --value true`)                                                                                    |
 | `agent.provider`                              | string | `builtin`          | Agent model provider: `builtin` (default, Microsoft's AOAI deployment via APIM, requires `az login`) \| `github` (user's Copilot subscription, requires Copilot login) |
 | `agent.sessionStyle`                          | string | `oneshot`          | Agent interaction mode: `oneshot` (single plan, then stop) or `interactive` (multi-turn)                                                                               |
+| `agent.interactive.verbose`                   | bool   | `false`            | In interactive mode, also show internal tool details (get_command / find_* args and output), not just shell commands. Off by default to keep the session clean         |
 | `agent.trace.enabled`                         | bool   | `false`            | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation                                                                            |
 | `agent.trace.path`                            | string | `~/.azclips/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write)                                                                      |
 | `completion.enabled`                          | bool   | `true`             | Enable `az` shell tab-completion; set `false` to stop suggestions even while the completion script stays sourced                                                       |
@@ -201,7 +200,6 @@ You can override configuration using environment variables:
 | `AZCLIPS_LOG_LEVEL`                                                 | `core.logging.level`         |
 | `PS_HTTP_MAX_RETRIES` / `AZURE_PS_HTTP_MAX_RETRIES`                 | `core.http.maxRetries`       |
 | `PS_HTTP_MAX_RETRIES_FOR_429` / `AZURE_PS_HTTP_MAX_RETRIES_FOR_429` | `core.http.maxRetriesFor429` |
-| `ZIPKIN_ENDPOINT`                                                   | `telemetry.zipkinEndpoint`   |
 
 ## Configuration File Location
 

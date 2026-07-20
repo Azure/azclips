@@ -184,7 +184,7 @@ namespace Azclips.Help.Tool.Validation
                 ValidateUnassignedVariables(ast, filePath, fenceBodyAbsoluteLine, report);
 
                 // PSL7: every example fence must invoke the cmdlet whose help file it lives in.
-                // Setup commands (e.g. `$rg = New-ResourceGroup ...` in `Get-ResourceGroup.md`) are
+                // Setup commands (e.g. `$rg = New-AzResourceGroup ...` in `Get-AzResourceGroup.md`) are
                 // fine as long as the documented cmdlet appears at least once in the same fence.
                 if (hasDocumentedCmdletName
                     && !commands.Any(c => string.Equals(c.GetCommandName(), documentedCmdlet, StringComparison.OrdinalIgnoreCase)))

@@ -13,8 +13,7 @@ public static class TelemetryTags
 {
     public const int Version = 1;
     // Per-process invariants.
-    public const string Id = "Id";
-    public const string IsMicrosoftInternal = "IsMicrosoftInternal";
+    public const string InstallationId = "InstallationId";    
     public const string ProductName = "productName";
     public const string ProductVersion = "productVersion";
     public const string SchemaVersion = "schemaVersion";
@@ -29,6 +28,7 @@ public static class TelemetryTags
     public const string Parameter = "parameter";
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
+    public const string AuthType = "authType";
     public const string Mode = "mode";
 
     // todo: reserved for later product level instrumentation.

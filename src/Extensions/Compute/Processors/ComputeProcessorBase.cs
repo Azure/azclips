@@ -316,6 +316,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             return base.SendAsyncLRO();
         }
 
+        /// <summary>
+        /// Projects the deserialized response into the value written to output. Default writes the
+        /// response as-is; list processors override this to unwrap the ARM envelope and write its
+        /// <c>value</c> collection (a flat array), which PowerShell enumerates and the CLI serializes.
+        /// </summary>
+        protected virtual object SelectOutput(TResponse body) => body;
+
         public override async Task ProcessAsync()
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
@@ -341,7 +348,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
                 if (body is not null)
                 {
-                    await WriteOutput(body);
+                    await WriteOutput(SelectOutput(body));
                 }
             }
             catch (JsonException)

@@ -69,9 +69,10 @@ public sealed class ConsoleApprovalPrompt
     // A secret only the user can supply — rendered with <Name> as a placeholder.
     public sealed record UserInputNeed(string Name, string Description);
 
-    // A value the agent chose/derived for the user — rendered as the real value
-    // (italic when the terminal supports it) so the user can run as-is or change it.
-    public sealed record ChosenDefault(string Name, string Value, string Note);
+    // A flag the agent chose/derived for the user. Value is NOT stored — it's read
+    // from the matching flag in the plan's step command at render time, so the
+    // review line always matches what will actually run.
+    public sealed record ChosenDefault(string Flag, string Note);
 
     // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
     // set, the user typed free-form text at the y/n prompt — the host treats it
@@ -220,6 +221,7 @@ public sealed class ConsoleApprovalPrompt
     // (shown as the real value, plain) and the secrets the user must fill in
     // (shown as <name> placeholders). Empty block is skipped.
     private static void RenderReviewValues(
+        IReadOnlyList<PlanStep>? steps,
         IReadOnlyList<ChosenDefault>? defaults,
         IReadOnlyList<UserInputNeed>? placeholders)
     {
@@ -232,13 +234,60 @@ public sealed class ConsoleApprovalPrompt
         if (hasDefaults)
             foreach (var d in defaults!)
             {
-                // Agent-chosen value: the real value, then the note after a colon.
+                // Show the flag exactly as it appears in the step command — with its
+                // real value if it takes one, bare if it's a switch — so the review
+                // line matches what runs. The value is never stored on ChosenDefault;
+                // it's read from the command here.
+                var token = FindFlagToken(steps, d.Flag);
                 var note = string.IsNullOrWhiteSpace(d.Note) ? "" : $": {OneLine(d.Note)}";
-                Console.WriteLine($"• {OneLine(d.Name)} {OneLine(d.Value)}{note}");
+                Console.WriteLine($"• {OneLine(token)}{note}");
             }
         if (hasPlaceholders)
             foreach (var p in placeholders!)
-                Console.WriteLine($"• <{OneLine(p.Name)}>: {OneLine(p.Description)}");
+            {
+                // Show the flag as it appears in the command (e.g.
+                // "--admin-password <admin-password>") so it lines up with the
+                // default rows above, instead of a bare "<admin-password>".
+                var token = FindFlagToken(steps, p.Name);
+                // If the flag wasn't found in any step, FindFlagToken returns just
+                // the flag (no value) — fall back to the <name> form so the
+                // "you must fill this in" cue isn't lost.
+                var display = token.Contains('<') ? token : $"--{OneLine(p.Name.TrimStart('-'))} <{OneLine(p.Name.TrimStart('-'))}>";
+                Console.WriteLine($"• {OneLine(display)}: {OneLine(p.Description)}");
+            }
+    }
+
+    // Locate a flag in the plan's step commands and return the flag with its value
+    // if any: "--location eastus2", "--admin-password <pw>", or a bare "--active"
+    // for a switch. The flag is normalized to a leading "--" for matching (a model
+    // may list it without dashes), and "--flag=value" is rendered as "--flag value".
+    // Falls back to the flag alone if not found. internal for unit testing.
+    internal static string FindFlagToken(IReadOnlyList<PlanStep>? steps, string flag)
+    {
+        if (string.IsNullOrWhiteSpace(flag)) return flag;
+        // Normalize to a leading "--" form; this normalized value is used both for
+        // matching and for the fallback display when the flag isn't found.
+        var needle = flag.StartsWith('-') ? flag : "--" + flag;
+        if (steps is not null)
+        {
+            foreach (var s in steps)
+            {
+                if (string.IsNullOrEmpty(s.Cmd)) continue;
+                // Match the flag as a WHOLE token — the trailing (?![\w-]) stops
+                // "--resource" from matching inside "--resource-group". Then an
+                // optional value that isn't itself a flag ((?!-) rejects both
+                // "--x" and short "-x"). A quoted value ("..." or '...') is taken
+                // whole so a value with spaces (e.g. --query "[?a].b c") isn't cut
+                // at the first space; otherwise a bare non-space token. Group "val"
+                // is absent for a switch.
+                var m = Regex.Match(s.Cmd,
+                    $@"(?<![^\s]){Regex.Escape(needle)}(?![\w-])(?:[=\s]+(?<val>(?!-)(?:""[^""]*""|'[^']*'|\S+)))?",
+                    RegexOptions.IgnoreCase);
+                if (m.Success)
+                    return m.Groups["val"].Success ? $"{needle} {m.Groups["val"].Value}" : needle;
+            }
+        }
+        return needle; // not found in any step — show the flag alone
     }
 
     // Collapse newlines/tabs/runs of whitespace to single spaces so a stray
@@ -430,7 +479,7 @@ public sealed class ConsoleApprovalPrompt
             }
         }
 
-        RenderReviewValues(plan.Defaults, plan.Placeholders);
+        RenderReviewValues(plan.Steps, plan.Defaults, plan.Placeholders);
         // Blank line between the review-values block and the disclaimer, then the
         // disclaimer as the last line of every rendered plan — so it travels with
         // the plan wherever it's shown (one-shot at submit, interactive before
@@ -442,13 +491,17 @@ public sealed class ConsoleApprovalPrompt
 
     // Soft-wrap long args across terminal width. Never truncates — the user
     // needs to see the FULL command (passwords, unusual flags hide at the
-    // tail). Continuation lines are indented to align under the first arg
-    // char so the visual block reads as one value.
+    // tail). Wraps at whitespace so a whitespace-delimited token isn't cut
+    // mid-word; a single token longer than the line is hard-split as a last
+    // resort. Note: this is not shell-quote-aware — spaces inside a quoted
+    // value (e.g. --query "foo bar") are still treated as wrap points, since
+    // faithfully parsing quotes/escapes across bash+powershell isn't worth it
+    // for a display-only wrap. Continuation lines align under the first arg.
     private const string ArgsLabel    = "   args: ";
     private const string ArgsContinue = "         ";
     private static void WriteArgs(string args)
     {
-        if (string.IsNullOrEmpty(args))
+        if (string.IsNullOrWhiteSpace(args))
         {
             Console.WriteLine(ArgsLabel);
             return;
@@ -456,12 +509,53 @@ public sealed class ConsoleApprovalPrompt
         int width = TryGetWindowWidth();
         int budget = Math.Max(20, width - ArgsLabel.Length);
         bool first = true;
-        for (int i = 0; i < args.Length; i += budget)
+        foreach (var line in WrapAtWhitespace(args, budget))
         {
-            int take = Math.Min(budget, args.Length - i);
             Console.Write(first ? ArgsLabel : ArgsContinue);
-            Console.WriteLine(args.AsSpan(i, take));
+            Console.WriteLine(line);
             first = false;
+        }
+    }
+
+    // Greedy word-wrap: packs whitespace-delimited tokens onto lines up to
+    // budget, breaking a token across lines only when it alone exceeds budget.
+    private static IEnumerable<string> WrapAtWhitespace(string text, int budget)
+    {
+        var line = new System.Text.StringBuilder();
+        foreach (var token in SplitKeepingWidth(text, budget))
+        {
+            if (line.Length == 0)
+            {
+                line.Append(token);
+            }
+            else if (line.Length + 1 + token.Length <= budget)
+            {
+                line.Append(' ').Append(token);
+            }
+            else
+            {
+                yield return line.ToString();
+                line.Clear();
+                line.Append(token);
+            }
+        }
+        if (line.Length > 0)
+            yield return line.ToString();
+    }
+
+    // Splits on whitespace; any token longer than budget is chunked so the
+    // greedy packer above never receives a token it can't place.
+    private static IEnumerable<string> SplitKeepingWidth(string text, int budget)
+    {
+        foreach (var token in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.Length <= budget)
+            {
+                yield return token;
+                continue;
+            }
+            for (int i = 0; i < token.Length; i += budget)
+                yield return token.Substring(i, Math.Min(budget, token.Length - i));
         }
     }
 

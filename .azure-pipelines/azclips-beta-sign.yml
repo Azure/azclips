@@ -21,6 +21,7 @@ parameters:
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
+- template: templates/dist/variables/release.yml
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
 - name: SourceProject
@@ -92,6 +93,11 @@ stages:
     source_artifact_source: specific
     signed_artifact_name: ${{ parameters.signed_artifact_name }}
     esrp_service_connection: ${{ variables.ESRPServiceConnection }}
+    esrp_nuget_keycode: ${{ variables.esrp_nuget_keycode }}
+    esrp_authenticode_keycode: ${{ variables.esrp_authenticode_keycode }}
+    esrp_third_party_keycode: ${{ variables.esrp_third_party_keycode }}
+    esrp_strong_name_keycode: ${{ variables.esrp_strong_name_keycode }}
+    esrp_apple_keycode: ${{ variables.esrp_apple_keycode }}
     macos_bundle_id: ${{ variables.MacOSBundleId }}
 
 - template: templates/dist/stages/component-governance.yml

@@ -31,10 +31,14 @@ namespace Core.Extensions
             new VerbPathComparer();
 
         private readonly IReadOnlyDictionary<(string Verb, string Path), LeafEntry> _entries;
+        private readonly HashSet<string> _verbs;
 
         private LeafIndex(IReadOnlyDictionary<(string Verb, string Path), LeafEntry> entries)
         {
             _entries = entries;
+            _verbs = entries.Keys
+                .Select(k => k.Verb)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -55,6 +59,22 @@ namespace Core.Extensions
 
             leaf = null;
             return false;
+        }
+
+        /// <summary>
+        /// True if any leaf in the index claims <paramref name="verb"/> under any path.
+        /// Answers "is this top-level verb known to discovery?" — used by the dispatcher's
+        /// fallback path to distinguish "typo inside an installed group" from "extension
+        /// genuinely not installed" before consulting <see cref="ExtensionHintTable"/>.
+        /// </summary>
+        public bool HasVerb(string verb)
+        {
+            if (string.IsNullOrEmpty(verb))
+            {
+                return false;
+            }
+
+            return _verbs.Contains(verb);
         }
 
         /// <summary>

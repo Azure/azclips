@@ -29,8 +29,7 @@ public class TelemetryService : ITelemetryService
     {
         var activity = StartActivity($"{_clientType.ToString()}.Activity.Root", ActivityKind.Server);
         if (activity is null) return null;
-        activity.SetTag(TelemetryTags.Id, TelemetryPropertyResolver.Id);
-        activity.SetTag(TelemetryTags.IsMicrosoftInternal, TelemetryPropertyResolver.IsMicrosoftInternal);
+        activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);        
         activity.SetTag(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName);
         activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
         activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);

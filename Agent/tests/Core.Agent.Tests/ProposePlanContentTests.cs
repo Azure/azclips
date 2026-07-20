@@ -67,22 +67,35 @@ public class ProposePlanContentTests
     }
 
     [Fact]
-    public void Defaults_parses_name_value_note()
+    public void Defaults_parses_flag_note()
     {
         var defs = PlanArgsParser.ExtractChosenDefaults(Args(new
         {
             defaults = new[]
             {
-                new { name = "location", value = "eastus", note = "a common region" },
-                new { name = "vm-size", value = "Standard_D2s_v3", note = "moderate size" },
+                new { flag = "--location", note = "a common region" },
+                new { flag = "--size", note = "moderate size" },
             },
         }));
 
         Assert.NotNull(defs);
         Assert.Equal(2, defs!.Count);
-        Assert.Equal("location", defs[0].Name);
-        Assert.Equal("eastus", defs[0].Value);
+        Assert.Equal("--location", defs[0].Flag);
         Assert.Equal("a common region", defs[0].Note);
+    }
+
+    [Fact]
+    public void Defaults_tolerates_legacy_name_key()
+    {
+        // A model still emitting the old {name,...} shape should degrade to the
+        // flag name, not drop the entry.
+        var defs = PlanArgsParser.ExtractChosenDefaults(Args(new
+        {
+            defaults = new[] { new { name = "location", note = "a common region" } },
+        }));
+
+        Assert.NotNull(defs);
+        Assert.Equal("location", defs![0].Flag);
     }
 
     [Fact]

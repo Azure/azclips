@@ -113,7 +113,7 @@ reflecting the default value out of each options object (`ConfigCommandBase.cs:2
 | Section prefix    | Options type              | Example keys                            |
 | ----------------- | ------------------------- | --------------------------------------- |
 | `core`            | `CoreOptions`             | `core.logging.level`, `core.http.maxRetries` |
-| `telemetry`       | `TelemetryOptions`        | `telemetry.enabled`, `telemetry.zipkinEndpoint` |
+| `telemetry`       | `TelemetryOptions`        | `telemetry.enabled`                     |
 | `agent`           | `AgentOptions`            | `agent.enabled`, `agent.provider`, `agent.trace.enabled` |
 | `assemblyLoading` | `AssemblyLoadingOptions`  | —                                       |
 | `extensions`      | `ExtensionsOptions`       | —                                       |

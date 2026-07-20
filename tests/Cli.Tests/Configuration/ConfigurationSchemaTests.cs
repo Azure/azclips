@@ -127,4 +127,24 @@ public class ConfigurationSchemaTests
         // Must stay in sync with CompletionOptions.Enabled = true (opt-out default).
         Assert.Equal("true", key.DefaultValue);
     }
+
+    [Fact]
+    public void ValidateValue_ShouldRejectNonBoolValue_ForAgentInteractiveVerbose()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("agent.interactive.verbose", "notabool");
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldDefaultAgentInteractiveVerboseToFalse()
+    {
+        var key = _schema.GetAllKeys()
+            .Single(k => string.Equals(k.Key, "agent.interactive.verbose", StringComparison.OrdinalIgnoreCase));
+
+        // Must stay in sync with InteractiveOptions.Verbose = false (clean-by-default).
+        Assert.Equal("false", key.DefaultValue);
+    }
 }

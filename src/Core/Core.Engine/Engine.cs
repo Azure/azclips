@@ -99,6 +99,7 @@ namespace Core.Engine
         private async Task<ProcessorContext> CreateProcessorContext(ExecutionSession session, string? profileNameOverride)
         {
             Profile? profile = await ResolveProfileAsync(profileNameOverride);
+
             IAuthHandler authHandler = new AuthHandler
             {
                 Profile = profile,
@@ -134,6 +135,11 @@ namespace Core.Engine
             httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep);
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
+
+            // Announce the created context; the ProcessorContextCreated subscriber enriches the
+            // telemetry root span with profile-derived tags (subscription, tenant, auth type).
+            await session.EventBus.Publish(Events.ProcessorContextCreated, new EventData { Payload = profile });
+
             return context;
         }
 

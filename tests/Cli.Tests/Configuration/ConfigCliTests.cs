@@ -322,7 +322,6 @@ public class ConfigCliTests
         private static readonly string[] s_environmentKeys =
         [
             "AZCLIPS_LOG_LEVEL",
-            "ZIPKIN_ENDPOINT",
             "PS_HTTP_MAX_RETRIES",
             "AZURE_PS_HTTP_MAX_RETRIES",
             "PS_HTTP_MAX_RETRIES_FOR_429",

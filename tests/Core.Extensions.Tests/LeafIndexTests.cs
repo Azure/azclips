@@ -159,6 +159,80 @@ namespace Core.Extensions.Tests
             Assert.True(index.TryGet("vm", "", out var vm));
             Assert.Equal("Pkg.Vm", vm!.PackageId);
         }
+
+        [Fact]
+        public void HasVerb_ShouldReturnTrue_WhenAnyLeafClaimsTheVerb()
+        {
+            var registry = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Microsoft.Azure.Azclips.Extensions.Compute"] = new ExtensionRegistryEntry
+                    {
+                        Version = "1.0.0",
+                        InstalledAt = DateTimeOffset.UtcNow,
+                        Contributions =
+                        {
+                            new Contribution { Verb = "vm",   Path = "create" },
+                            new Contribution { Verb = "vm",   Path = "list" },
+                            new Contribution { Verb = "disk", Path = "attach" },
+                        },
+                    },
+                },
+            };
+
+            var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), registry);
+
+            Assert.True(index.HasVerb("vm"));
+            Assert.True(index.HasVerb("disk"));
+            Assert.False(index.HasVerb("network"));
+        }
+
+        [Fact]
+        public void HasVerb_ShouldMatch_CaseInsensitively()
+        {
+            var registry = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Pkg"] = new ExtensionRegistryEntry
+                    {
+                        Version = "1.0.0",
+                        InstalledAt = DateTimeOffset.UtcNow,
+                        Contributions = { new Contribution { Verb = "VM", Path = "Create" } },
+                    },
+                },
+            };
+
+            var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), registry);
+
+            Assert.True(index.HasVerb("vm"));
+            Assert.True(index.HasVerb("VM"));
+            Assert.True(index.HasVerb("Vm"));
+        }
+
+        [Fact]
+        public void HasVerb_ShouldReturnFalse_ForNullOrEmpty()
+        {
+            var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), new ExtensionRegistry());
+
+            Assert.False(index.HasVerb(string.Empty));
+            Assert.False(index.HasVerb(null!));
+        }
+
+        [Fact]
+        public void HasVerb_ShouldReturnTrue_ForBuiltInVerbs()
+        {
+            var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
+            };
+
+            var index = LeafIndex.Build(builtIns, new ExtensionRegistry());
+
+            Assert.True(index.HasVerb("login"));
+            Assert.False(index.HasVerb("vm"));
+        }
     }
 }
 

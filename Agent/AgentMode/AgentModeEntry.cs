@@ -43,8 +43,7 @@ public static class AgentModeEntry
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
-            // interactive → inline.md. (tui.md exists for a future full-screen
-            // entry point that nothing spawns yet.)
+            // interactive → inline.md.
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
             // Quiet mode in one-shot: hide the AI-mode banner and agent-internal
             // event spam; the user sees only the spinner + the final AI help.
@@ -54,7 +53,7 @@ public static class AgentModeEntry
 
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var az     = FindAzExe() ?? "az";
-            var consoleRenderer = new ConsoleAgentRenderer(quiet);
+            var consoleRenderer = new ConsoleAgentRenderer(quiet, agentOpts.Interactive.Verbose);
             // When agent.trace.enabled, wrap the console renderer to record a JSONL
             // trace under agent.trace.path. Prose suppression after submit_response
             // lives on ConsoleAgentRenderer itself (always-on), independent of trace.

@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Cli.Exceptions;
+using Core.Cli.Help;
 using Core.Cli.Version;
 using Core.Extensions;
 
@@ -44,7 +45,13 @@ public class ExtensionDispatcher //: IParser
 
     public CommandInvocation Parse(string[] args)
     {
-        if (args.Length == 0) throw new ArgumentException("Arguments cannot be empty.", nameof(args));
+        // Bare `az` (or only global flags stripped upstream) → dispatch as help.
+        // Program.Main adds the welcome banner when the invocation was originally bare.
+        if (args.Length == 0)
+        {
+            throw new DispatchHelpException(this);
+        }
+
         if (string.IsNullOrWhiteSpace(args[0])) throw new ArgumentException("Command-group token cannot be empty or whitespace.", nameof(args));
 
         // Bare top-level help: `az --help`, `az -h`, `az help`, etc.
@@ -93,6 +100,12 @@ public class ExtensionDispatcher //: IParser
         {
             if (!_resolver.TryResolve(verb, out resolved) || resolved is null)
             {
+                // Verb is known to discovery → leaf typo, not a missing package.
+                if (_leafIndex.Value.HasVerb(verb))
+                {
+                    throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+                }
+
                 for (int len = nonFlagLeadingArgs.Length; len >= 0; len--)
                 {
                     var path = string.Join(" ", nonFlagLeadingArgs, 0, len);
@@ -211,22 +224,29 @@ public class ExtensionDispatcher //: IParser
     // here `az --version` is ["--version"] and `az version` is ["version"].
     private static bool TryCreateVersionRequest(string[] args, out VersionOutputFormat format)
     {
-        // `az --version` is a top-level flag (peer of `az --help`) → human-readable text.
-        if (args.Length == 1 && args[0].Equals("--version", StringComparison.OrdinalIgnoreCase))
-        {
-            format = VersionOutputFormat.Text;
-            return true;
-        }
-
-        // Bare `az version` verb → structured JSON, preserving the output shape of the command it
-        // replaces. Trailing tokens fall through to normal resolution (there is no `version` subcommand).
-        if (args.Length == 1 && args[0].Equals("version", StringComparison.OrdinalIgnoreCase))
-        {
-            format = VersionOutputFormat.Json;
-            return true;
-        }
-
         format = VersionOutputFormat.Json;
-        return false;
+
+        // Only the exact single-token shapes dispatch here; trailing tokens fall through to normal
+        // resolution (there is no `version` subcommand).
+        if (args.Length != 1)
+        {
+            return false;
+        }
+
+        // IntrinsicVerbs is the single source of truth for valid invocation shapes, so the `--version`
+        // flag form is honored only because `version` opts into it (AllowFlagForm) — keeping dispatch
+        // and help in agreement about which shapes exist.
+        if (!IntrinsicVerbs.TryResolve(args[0], out var resolved)
+            || !resolved.Equals(IntrinsicVerbs.Version, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Bare `az version` → structured JSON, preserving the output shape of the command it replaces;
+        // the `az --version` global flag (peer of `az --help`) → human-readable text.
+        format = args[0].StartsWith("--", StringComparison.Ordinal)
+            ? VersionOutputFormat.Text
+            : VersionOutputFormat.Json;
+        return true;
     }
 }

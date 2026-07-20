@@ -1,5 +1,19 @@
 # Agent Experience Design Specification
 
+> ⚠️ **DEPRECATED — this document describes an earlier agent design that no longer
+> matches the code.** The current agent runs on the **GitHub Copilot SDK** (not
+> Azure OpenAI / GPT-4o-mini / LlamaSharp), interacts through the structured
+> **`propose_plan`** and **`submit_response`** tools (not the `sample_command` /
+> `executable_command` / `question` JSON response types described below), and runs
+> as a **standalone `azclips-agent` process** spawned by `az` on a failed command —
+> in `oneshot` mode it proposes a fix and exits without running anything, in
+> `interactive` mode it asks for per-command approval. There is **no** free-form
+> natural-language command entry (`az "…"`), and **no** `Invoke-AzAI` / `ask` /
+> `pls` PowerShell aliases. For the actual implementation see
+> `Agent/Hosting/ProposePlanTool.cs`, `Agent/Hosting/SubmitResponseTool.cs`,
+> `Agent/AgentMode/AgentModeEntry.cs`, and the `Agent/prompts/oneshot.md` /
+> `Agent/prompts/inline.md` prompts. This file is kept only for historical context.
+
 ## Overview
 
 Core.Agent is an AI-powered natural language interface for Azure CLI and Azure PowerShell that interprets user intent and generates executable commands. It operates as an **exception-driven fallback**: when standard command parsing fails, control passes to the agent to interpret the natural language input.
@@ -126,25 +140,11 @@ The agent supports three AI backend implementations:
 
 ### Interface Support
 
-The agent works with both:
-
-1. **Azure CLI** - Command-line interface
-   ```bash
-   az create a resource group called mygroup in westus
-   ```
-
-2. **Azure PowerShell** - Natural language support via `Invoke-AzAI` function
-   ```powershell
-   # Full function name
-   Invoke-AzAI how do I create a resource group
-   
-   # Convenient aliases (no quotes needed)
-   ask how do I create a resource group
-   please show me all resource groups
-   pls list virtual machines
-   ```
-
-**Note:** PowerShell uses `ValueFromRemainingArguments`, so arguments are passed **without quotes**.
+The agent is triggered from the Azure CLI when an `az` command fails; it inspects
+the failed command and error and proposes a fix for the user to review. (The
+free-form entry points and PowerShell `Invoke-AzAI` / `ask` / `pls` aliases
+described in earlier drafts of this document no longer exist — see the DEPRECATED
+note at the top.)
 
 ## Agent Capabilities
 
@@ -211,10 +211,10 @@ PS> ask how do I create a resource group
 ⠋ Thinking...
 
 Azure PowerShell:
-New-ResourceGroup -Name <resource-group-name> -Location <location>
+New-AzResourceGroup -Name <resource-group-name> -Location <location>
 
 # Example:
-New-ResourceGroup -Name myResourceGroup -Location eastus
+New-AzResourceGroup -Name myResourceGroup -Location eastus
 ```
 
 **Behavioral Note:** Both interfaces display guidance only - user must manually execute commands with their own values.
@@ -271,7 +271,7 @@ PS> ask create a resource group called mygroup in westus
 I'll create a resource group named "mygroup" in the westus region.
 
 Command:
-New-ResourceGroup -Name mygroup -Location westus
+New-AzResourceGroup -Name mygroup -Location westus
 
 Name     Location ProvisioningState
 ----     -------- -----------------
@@ -368,32 +368,10 @@ The agent returns JSON with a `type` field:
 
 ### Production Use
 
-The agent is automatically invoked when standard command parsing fails:
-
-**Azure CLI:**
-```bash
-# Natural language commands
-$ az create a storage account called mystore in westus
-
-# Typo correction
-$ az how do I logni
-
-# Help questions
-$ az how do I list virtual machines
-```
-
-**Azure PowerShell:**
-```powershell
-# Full function name (no quotes needed)
-Invoke-AzAI create a storage account called mystore in westus
-
-# Convenient aliases
-ask how do I create a resource group
-please show me all storage accounts
-pls list virtual machines in eastus
-```
-
-**Important:** PowerShell arguments use `ValueFromRemainingArguments`, so **do not use quotes** around queries.
+The agent is automatically invoked when a standard command **fails** (see the
+current implementation in `Agent/AgentMode/AgentModeEntry.cs`). It receives the
+failed command and error text and proposes a fix; it is not a free-form
+natural-language command entry point.
 
 ### Testing & Evaluation (via Program.cs)
 
@@ -666,7 +644,7 @@ PS> ask create a resource group called mygroup in westus
 I'll create a resource group named "mygroup" in the westus region.
 
 Command:
-New-ResourceGroup -Name mygroup -Location westus
+New-AzResourceGroup -Name mygroup -Location westus
 
 Shall I proceed?
 
@@ -692,7 +670,7 @@ PS> pls show me all resource groups in westus
 I'll retrieve all resource groups in the westus region.
 
 Command:
-Get-ResourceGroup | Where-Object Location -eq 'westus'
+Get-AzResourceGroup | Where-Object Location -eq 'westus'
 
 Shall I proceed?
 

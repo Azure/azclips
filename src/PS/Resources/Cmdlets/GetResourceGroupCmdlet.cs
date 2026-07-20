@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsCommon.Get, "ResourceGroup", DefaultParameterSetName = "List")]
+[Cmdlet(VerbsCommon.Get, "AzResourceGroup", DefaultParameterSetName = "List")]
 public class GetResourceGroupCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -46,7 +46,7 @@ public class GetResourceGroupCmdlet : PSCmdlet
         }
 
         var parameterSetName = ParameterSetName;
-        var commandName = $"Get-ResourceGroup_{parameterSetName}";
+        var commandName = $"Get-AzResourceGroup_{parameterSetName}";
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
             parameters.Add("Profile", Profile!);

@@ -4,12 +4,14 @@ param(
     [string] $Version,
     [Parameter(Mandatory = $true)]
     [string] $ReleaseTimestamp,
+    [string] $GitHubRepository,
     [switch] $AllowEmpty,
     [switch] $DryRun
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
@@ -222,6 +224,236 @@ function Set-RollupRequiredModuleVersions {
     Write-Utf8NoBomFile -Path $ManifestPath -Lines $lines
 }
 
+function Get-LatestStableTag {
+    param([string] $Root)
+
+    $tagPattern = '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$'
+    $tagOutput = @(& git --no-pager -C $Root tag --merged HEAD --sort=-version:refname --list 'v*' 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "git tag failed while resolving the latest stable tag. $($tagOutput -join "`n")"
+    }
+
+    $tags = @($tagOutput | Where-Object { $_ -match $tagPattern })
+
+    if ($tags.Count -eq 0) {
+        return $null
+    }
+
+    return $tags[0]
+}
+
+function Test-GitHubRepositoryName {
+    param([string] $Name)
+
+    -not [string]::IsNullOrWhiteSpace($Name) -and $Name.Trim() -match '^[^/\s]+/[^/\s]+$'
+}
+
+function Get-GitHubRepositoryName {
+    param([string] $ConfiguredRepository)
+
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredRepository)) {
+        $configured = $ConfiguredRepository.Trim()
+        if (Test-GitHubRepositoryName -Name $configured) {
+            return $configured
+        }
+
+        throw "GitHub repository must be in owner/repo form. Received: $configured"
+    }
+
+    foreach ($candidate in @(
+            @{ Name = 'BUILD_REPOSITORY_NAME'; Value = $env:BUILD_REPOSITORY_NAME },
+            @{ Name = 'GITHUB_REPOSITORY'; Value = $env:GITHUB_REPOSITORY }
+        )) {
+        if ([string]::IsNullOrWhiteSpace($candidate.Value)) {
+            continue
+        }
+
+        $repository = $candidate.Value.Trim()
+        if (Test-GitHubRepositoryName -Name $repository) {
+            return $repository
+        }
+
+        Write-Warning "Ignoring $($candidate.Name) because it is not in owner/repo form: $repository"
+    }
+
+    return 'Azure/azclips'
+}
+
+function Invoke-GitHubApi {
+    param([string] $Url)
+
+    $headers = @{
+        Accept = 'application/vnd.github+json'
+        'User-Agent' = 'azclips-release-changelog'
+        'X-GitHub-Api-Version' = '2022-11-28'
+    }
+
+    $token = if (-not [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { $env:GH_TOKEN } else { $env:GITHUB_TOKEN }
+    if (-not [string]::IsNullOrWhiteSpace($token) -and -not $token.StartsWith('$(')) {
+        $headers.Authorization = "Bearer $token"
+    }
+
+    Invoke-RestMethod -Method Get -Uri $Url -Headers $headers
+}
+
+function Get-PullRequestMetadata {
+    param(
+        [string] $Repository,
+        [string] $Number
+    )
+
+    $url = "https://api.github.com/repos/$Repository/pulls/$Number"
+    try {
+        Invoke-GitHubApi -Url $url
+    }
+    catch {
+        Write-Warning "Could not fetch pull request #$Number from $Repository. Falling back to the squash commit title. $($_.Exception.Message)"
+        $null
+    }
+}
+
+function Get-HistoryNoteLines {
+    param([string] $Body)
+
+    if ([string]::IsNullOrWhiteSpace($Body)) {
+        return @()
+    }
+
+    $match = [regex]::Match($Body, '(?s)\*\*History Notes\*\*(?<content>.*?)(?:\r?\n---|\z)')
+    if (-not $match.Success) {
+        return @()
+    }
+
+    @($match.Groups['content'].Value -split "\r?\n" | Where-Object { $_.StartsWith('[') })
+}
+
+function ConvertTo-ReleaseNote {
+    param(
+        [string] $Message,
+        [string] $PullRequestNumber
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Message)) {
+        return $null
+    }
+    if ($Message -match '^\[Component Name') {
+        return $null
+    }
+    if ($Message -match '^\[[^\]]+\]\(.+\)\s*$') {
+        return $null
+    }
+    if ($Message -notmatch '^\[(?<component>[^\]]+)\]\s+(?<note>\S.*)$') {
+        return $null
+    }
+
+    $component = $Matches.component.Trim()
+    $note = $Matches.note.Trim()
+    if ([string]::IsNullOrWhiteSpace($component) -or [string]::IsNullOrWhiteSpace($note)) {
+        return $null
+    }
+    if ($note -match '^\[[^\]]+\]\(.+\)\s*$') {
+        return $null
+    }
+
+    $note = $note.TrimEnd('.', ',', ' ')
+
+    if ($note -notmatch "\s*\(#$([regex]::Escape($PullRequestNumber))\)$") {
+        $note = "$note (#$PullRequestNumber)"
+    }
+
+    $note = [regex]::Replace($note, 'BREAKING CHANGE:', '[BREAKING CHANGE]', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($note -match '^(?<command>az [^:]+):(?<rest>.*)$') {
+        $command = $Matches.command
+        $rest = $Matches.rest
+        $note = "``${command}``:$rest"
+    }
+    if ($note -notmatch ':' -and -not $note.StartsWith('az') -and $note.Length -gt 0) {
+        $note = $note.Substring(0, 1).ToUpperInvariant() + $note.Substring(1)
+    }
+
+    [pscustomobject]@{
+        Component = $component
+        Note = $note
+    }
+}
+
+function Get-PullRequestReleaseNotes {
+    param(
+        [string] $Title,
+        [string] $Body,
+        [string] $PullRequestNumber
+    )
+
+    $notes = New-Object System.Collections.Generic.List[object]
+    foreach ($line in @(Get-HistoryNoteLines -Body $Body)) {
+        $note = ConvertTo-ReleaseNote -Message $line -PullRequestNumber $PullRequestNumber
+        if ($null -ne $note) {
+            $notes.Add($note)
+        }
+    }
+
+    if ($notes.Count -eq 0) {
+        $note = ConvertTo-ReleaseNote -Message $Title -PullRequestNumber $PullRequestNumber
+        if ($null -ne $note) {
+            $notes.Add($note)
+        }
+    }
+
+    $notes
+}
+
+function Get-MergedPullRequestReleaseNoteLines {
+    param(
+        [string] $Root,
+        [string] $Repository
+    )
+
+    $latestStableTag = Get-LatestStableTag -Root $Root
+    $range = if ([string]::IsNullOrWhiteSpace($latestStableTag)) { 'HEAD' } else { "$latestStableTag..HEAD" }
+    $subjects = @(& git --no-pager -C $Root log --first-parent --pretty=format:%s $range 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "git log failed while collecting merged pull requests for changelog generation. $($subjects -join "`n")"
+    }
+
+    $notesByComponent = [ordered]@{}
+    foreach ($subject in $subjects) {
+        if ($subject -match '\(#(?<number>[0-9]+)\)\s*$') {
+            $number = $Matches.number
+            $fallbackTitle = ($subject -replace '\s*\(#[0-9]+\)\s*$', '').Trim()
+        }
+        elseif ($subject -match '^Merge pull request #(?<number>[0-9]+)\s+from\s+.+$') {
+            $number = $Matches.number
+            $fallbackTitle = ''
+        }
+        else {
+            continue
+        }
+
+        $pullRequest = Get-PullRequestMetadata -Repository $Repository -Number $number
+        $title = if ($null -ne $pullRequest -and -not [string]::IsNullOrWhiteSpace($pullRequest.title)) { [string]$pullRequest.title } else { $fallbackTitle }
+        $body = if ($null -ne $pullRequest) { [string]$pullRequest.body } else { '' }
+
+        foreach ($releaseNote in @(Get-PullRequestReleaseNotes -Title $title -Body $body -PullRequestNumber $number)) {
+            if (-not $notesByComponent.Contains($releaseNote.Component)) {
+                $notesByComponent[$releaseNote.Component] = New-Object System.Collections.Generic.List[string]
+            }
+
+            $notesByComponent[$releaseNote.Component].Add("- $($releaseNote.Note)")
+        }
+    }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($component in @($notesByComponent.Keys | Sort-Object)) {
+        $lines.Add("#### $component")
+        foreach ($note in $notesByComponent[$component]) {
+            $lines.Add($note)
+        }
+        $lines.Add('')
+    }
+
+    $lines
+}
+
 if (-not (Test-Path -Path $moduleRoot -PathType Container)) {
     throw "PowerShell module root was not found: $moduleRoot"
 }
@@ -274,6 +506,13 @@ $rootSection = New-Object System.Collections.Generic.List[string]
 $rootSection.Add("## v$Version - $ReleaseTimestamp")
 $rootSection.Add('')
 
+$releaseNoteLines = @(Get-MergedPullRequestReleaseNoteLines -Root $RepoRoot -Repository (Get-GitHubRepositoryName -ConfiguredRepository $GitHubRepository))
+if ($releaseNoteLines.Count -gt 0) {
+    foreach ($line in $releaseNoteLines) {
+        $rootSection.Add($line)
+    }
+}
+
 foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
     $rootSection.Add("#### Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
     foreach ($line in $moduleRelease.ReleaseNotes) {
@@ -282,8 +521,8 @@ foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
     $rootSection.Add('')
 }
 
-if ($moduleReleases.Count -eq 0) {
-    $rootSection.Add('- No user-facing PowerShell module changes were listed for this release.')
+if ($releaseNoteLines.Count -eq 0 -and $moduleReleases.Count -eq 0) {
+    $rootSection.Add('- No user-facing CLI or PowerShell module changes were listed for this release.')
     $rootSection.Add('')
 }
 
@@ -308,25 +547,28 @@ else {
     Write-Utf8NoBomFile -Path $rootChangeLogPath -Lines ([string[]]($rootSection + $existingRootChangeLog))
 }
 
-if ($moduleReleases.Count -gt 0 -and (Test-Path -Path $rollupManifestPath -PathType Leaf)) {
-    $rollupReleaseNotes = New-Object System.Collections.Generic.List[string]
-    $rollupReleaseNotes.Add("$Version - $ReleaseTimestamp")
-    foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
-        $rollupReleaseNotes.Add("Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
-        foreach ($line in $moduleRelease.ReleaseNotes) {
-            $rollupReleaseNotes.Add($line)
-        }
-        $rollupReleaseNotes.Add('')
-    }
-
-    $requiredModuleVersions = @{}
-    foreach ($moduleRelease in $moduleReleases) {
-        $requiredModuleVersions[$moduleRelease.ModuleName] = $moduleRelease.ModuleVersion
-    }
-
+if (Test-Path -Path $rollupManifestPath -PathType Leaf) {
     Set-ManifestModuleVersion -ManifestPath $rollupManifestPath -ModuleVersion $Version
-    Set-RollupRequiredModuleVersions -ManifestPath $rollupManifestPath -ModuleVersions $requiredModuleVersions
-    Set-ManifestReleaseNotes -ManifestPath $rollupManifestPath -ReleaseNotes $rollupReleaseNotes
+
+    if ($moduleReleases.Count -gt 0) {
+        $rollupReleaseNotes = New-Object System.Collections.Generic.List[string]
+        $rollupReleaseNotes.Add("$Version - $ReleaseTimestamp")
+        foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
+            $rollupReleaseNotes.Add("Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
+            foreach ($line in $moduleRelease.ReleaseNotes) {
+                $rollupReleaseNotes.Add($line)
+            }
+            $rollupReleaseNotes.Add('')
+        }
+
+        $requiredModuleVersions = @{}
+        foreach ($moduleRelease in $moduleReleases) {
+            $requiredModuleVersions[$moduleRelease.ModuleName] = $moduleRelease.ModuleVersion
+        }
+
+        Set-RollupRequiredModuleVersions -ManifestPath $rollupManifestPath -ModuleVersions $requiredModuleVersions
+        Set-ManifestReleaseNotes -ManifestPath $rollupManifestPath -ReleaseNotes $rollupReleaseNotes
+    }
 }
 
 Write-Host "Aggregated release notes for $($moduleReleases.Count) module(s)."

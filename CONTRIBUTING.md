@@ -1,6 +1,6 @@
-# Contributing to Azclips
+# Contributing to Azure CLI and PowerShell
 
-Thank you for your interest in Azclips. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from private preview to public release.
+Thank you for your interest in Azure CLI and PowerShell. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from private preview to public release.
 
 During private preview, maintainers may limit pull request acceptance to scoped fixes, documentation updates, and changes aligned with preview goals.
 
@@ -37,6 +37,16 @@ Use the repository conventions in [AGENTS.md](AGENTS.md) for coding style, proje
 - Add or update tests for new behavior and bug fixes.
 - Update documentation when behavior, setup, support, or security guidance changes.
 - Prefer Conventional Commit style in commit messages when practical, such as `feat(auth): add token cache` or `fix(cli): handle empty command input`.
+
+### Release Note Guidance
+
+Private preview releases ship weekly, and release notes are generated from pull request details during release preparation.
+
+- Start customer-facing PR titles with `[Component Name]`, for example `[CLI] Add resource group list output`.
+- Start non-customer-facing PR titles with `{Component Name}`, for example `{DevOps} Update release pipeline validation`.
+- Use the `History Notes` section in the PR description when one PR needs multiple release-note entries or when the PR title is only a summary.
+- Write history notes as `[Component Name] message`; for example, ``[CLI] `az group list`: Add table output``.
+- Mark breaking changes with `BREAKING CHANGE:` so they are visible during release review.
 
 ## Reviews and Maintainer Expectations
 
