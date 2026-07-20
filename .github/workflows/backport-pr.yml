@@ -16,9 +16,11 @@ on:
           - dev-to-main
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
+
+concurrency:
+  group: backport-pr-${{ inputs.direction }}-${{ inputs.source_pr_number }}
+  cancel-in-progress: false
 
 jobs:
   create-backport-pr:
@@ -164,10 +166,30 @@ jobs:
 
           git push origin "HEAD:$backport_branch"
 
-          gh label create "backport" --color "5319e7" --description "Backport created from another branch" --force
-          gh label create "backport-to-$TARGET_BRANCH" --color "1d76db" --description "Backport targeting $TARGET_BRANCH" --force
+          ensure_label() {
+            local name="$1"
+            local color="$2"
+            local description="$3"
+            local output=""
+
+            if gh label view "$name" >/dev/null 2>&1; then
+              return 0
+            fi
+
+            if ! output="$(gh label create "$name" --color "$color" --description "$description" 2>&1)"; then
+              if grep -qi 'already exists' <<< "$output"; then
+                return 0
+              fi
+
+              printf '%s\n' "$output"
+              return 1
+            fi
+          }
+
+          ensure_label "backport" "5319e7" "Backport created from another branch"
+          ensure_label "backport-to-$TARGET_BRANCH" "1d76db" "Backport targeting $TARGET_BRANCH"
           if [[ "$TARGET_BRANCH" == "main" ]]; then
-            gh label create "preview-feature" --color "0e8a16" --description "Candidate for private preview" --force
+            ensure_label "preview-feature" "0e8a16" "Candidate for private preview"
           fi
 
           pr_title="Backport PR #$PR_NUMBER to $TARGET_BRANCH: $title"
