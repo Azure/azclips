@@ -140,7 +140,7 @@ CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** 
 | `azclips-beta-build.yml` | Azure DevOps | beta channel | Unsigned beta distribution |
 | `azclips-stable-{build,sign,publish,release}.yml` | Azure DevOps | `v*.*.*` tags | Versioned, signed, published stable release |
 
-The GitHub gate is intentionally pragmatic: `build-and-test.yml` builds and tests in **Debug**, not Release, with an inline comment noting Release currently has extension-DLL-location and `RequiredAssemblies` issues (`.github/workflows/build-and-test.yml:28-32`). E2E is a smoke test — run `az --help` and assert exit 0, and import the `Login` PS module and assert commands exist (`.github/workflows/build-and-test.yml:34-52`) — mirroring the criteria in `docs/spec/ci.md:5-15` ("the code builds; all tests pass; E2E tests pass").
+The GitHub gate is intentionally pragmatic: `build-and-test.yml` builds and tests in **Debug**, not Release, with an inline comment noting Release currently has extension-DLL-location and `RequiredAssemblies` issues (`.github/workflows/build-and-test.yml:28-32`). E2E is a smoke test — run `az --help` and assert exit 0, and import the `Login` PS module and assert commands exist (`.github/workflows/build-and-test.yml:34-52`) — mirroring the criteria in `eng-docs/spec/ci.md:5-15` ("the code builds; all tests pass; E2E tests pass").
 
 The Azure DevOps side is template-driven. `azclips-stable-build.yml` triggers on SemVer `v*.*.*` tags, runs a preflight that ensures it's in the `release` project, then delegates to the shared `templates/dist/stages/build-unsigned-distribution.yml` stage (`.azure-pipelines/azclips-stable-build.yml:3-42`). The alpha pipeline reuses the same distribution stage with `release_channel: pr-alpha` on every PR (`.azure-pipelines/azclips-alpha-build.yml:14-20`), so alpha, beta, and stable share one build definition parameterized by channel.
 
@@ -185,5 +185,5 @@ The `profile-management` change is a worked example: its proposal opens with a "
 - `.github/workflows/disallow-azclips-references.yml:1-28` — legacy-name guard
 - `.azure-pipelines/azclips-stable-build.yml:3-42` — signed stable release build
 - `.azure-pipelines/azclips-alpha-build.yml:14-20` — per-PR unsigned build
-- `docs/spec/ci.md:5-15` — CI acceptance criteria
+- `eng-docs/spec/ci.md:5-15` — CI acceptance criteria
 - `openspec/changes/profile-management/proposal.md:1-24` & `tasks.md:1-18` — change-proposal workflow example

@@ -346,7 +346,7 @@ Integration:
 
 **Documentation Created:**
 
-- `docs/howto/config.md` — User guide with valid keys table, CLI + PS examples, env var mappings, defaults patterns
+- `docs/azure-cli/docs-conceptual/config.md` — User guide with valid keys table, CLI + PS examples, env var mappings, defaults patterns
 
 **Additional Artifacts:**
 

@@ -2,7 +2,7 @@
 
 > **Audience.** Senior/principal engineers who need the _why_ behind Azclips, not a click-by-click tutorial. This guide assumes you can read C# fluently, know what a DI container is, and have shipped a CLI before. It trades breadth for depth: we pick the _one_ architectural idea that explains most of the codebase and follow it all the way down to `file:line`.
 >
-> **Freshness contract.** This guide was regenerated against the current working tree. Where the in-repo prose docs (`README.md`, `AGENTS.md`, `docs/spec/ARCHITECTURE.md`) disagree with the code, **the code wins** and the disagreement is called out explicitly. Notably:
+> **Freshness contract.** This guide was regenerated against the current working tree. Where the in-repo prose docs (`README.md`, `AGENTS.md`, `eng-docs/spec/ARCHITECTURE.md`) disagree with the code, **the code wins** and the disagreement is called out explicitly. Notably:
 >
 > - Target framework is **net10.0** (`global.json:3`, `src/Directory.Build.props:5`) — _not_ .NET 9.
 > - The project codename is **Azclips** (the shipping products are **Azure CLI** and **Azure PowerShell**); user state lives under **`~/.azclips`** (`src/Core/Core.Abstractions/HomePaths.cs:14`).
@@ -179,7 +179,7 @@ if (Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE") == "1") return 1
 
 The recursion guard is the subtle one. Agent-mode can itself run `az` (via PowerShell tool calls); if that inner `az` fails, we must **not** recursively open another agent-mode TUI. The `AZCLIPS_IN_AGENT_MODE=1` env var, set on the child's `ProcessStartInfo` at `:339`, is the fuse.
 
-> **Fact vs. stale doc.** `AGENTS.md:16` and `docs/spec/ARCHITECTURE.md` describe an in-process `OrchestratorEngine` that "tries `DefaultCommandEngine` first, falls back to `AgentEngine`." That design is **not in the current tree** — `grep` finds no `OrchestratorEngine`/`AgentEngine`/`Bootstrapper` types (only unrelated `*Processor_Orchestrator` classes inside the Resources/Compute extensions). The _actual_ orchestration is the try/catch in `Program.Main` plus the process spawn in `TryAgentFallbackAsync`. Treat the spec's "theoretical vs actual" table as historical.
+> **Fact vs. stale doc.** `AGENTS.md:16` and `eng-docs/spec/ARCHITECTURE.md` describe an in-process `OrchestratorEngine` that "tries `DefaultCommandEngine` first, falls back to `AgentEngine`." That design is **not in the current tree** — `grep` finds no `OrchestratorEngine`/`AgentEngine`/`Bootstrapper` types (only unrelated `*Processor_Orchestrator` classes inside the Resources/Compute extensions). The _actual_ orchestration is the try/catch in `Program.Main` plus the process spawn in `TryAgentFallbackAsync`. Treat the spec's "theoretical vs actual" table as historical.
 
 ---
 
@@ -527,7 +527,7 @@ sequenceDiagram
 
 `ChatAgent` (`Agent/ChatAgent.cs:23`) is a thin, opinionated wrapper over the **GitHub Copilot SDK** (`GitHub.Copilot`, `GitHub.Copilot.Rpc`; package `GitHub.Copilot.SDK` 1.0.0, `Agent/Core.Agent.csproj:31`). It talks to a **bundled native Copilot CLI daemon** located by `BundledDaemonResolver.Resolve()` (`Agent/BundledDaemonResolver.cs:12`) under `runtimes/<rid>/native/copilot`. The SDK owns the daemon's lifecycle (it kills it by PID / process tree).
 
-> **Fact vs. stale doc.** `docs/spec/ARCHITECTURE.md` says the agent uses "Azure OpenAI Service (GPT-4o-mini) with streaming, configured via .env file." That is **not** the current implementation. The current agent is the Copilot SDK + bundled daemon; the Azure OpenAI story is historical.
+> **Fact vs. stale doc.** `eng-docs/spec/ARCHITECTURE.md` says the agent uses "Azure OpenAI Service (GPT-4o-mini) with streaming, configured via .env file." That is **not** the current implementation. The current agent is the Copilot SDK + bundled daemon; the Azure OpenAI story is historical.
 
 ### 6.2 The "act through tools" contract
 
@@ -717,7 +717,7 @@ The through-line: **degrade to the plain error, never to a hang or a hallucinati
 - **Telemetry never blocks the user.** Traces buffer to a `FileExporter`; the flush is a _detached_ background `az --upload-telemetry` (`Program.cs:410`). The foreground command returns as soon as its work is done.
 - **Agent-mode is heavy by design** and kept off the structured path (§1.2). The bundled daemon start-up and LLM round-trips are only paid when the user has opted in _and_ a command failed _and_ the session is interactive.
 
-For benchmarking, `tests/Benchmark` (BenchmarkDotNet) plus the in-process/`--no-cache` hooks let you measure cold vs warm command dispatch; see `docs/spec/benchmark-workflows.md`.
+For benchmarking, `tests/Benchmark` (BenchmarkDotNet) plus the in-process/`--no-cache` hooks let you measure cold vs warm command dispatch; see `eng-docs/spec/benchmark-workflows.md`.
 
 ---
 
@@ -744,7 +744,7 @@ Architectural smell to watch: two HTTP stacks (hand-rolled `HttpPipeline` for co
 2. **Single-reader stdin in agent-mode.** The approval pump and the prompt share one stdin reader; the `AbortKeyWatcher` is _paused_ (not destroyed) while approvals read `y/n` (`TUI/AgentMode/AgentModeEntry.cs`). Terminal ownership is also split with the parent CLI (both intercept Ctrl+C to avoid "terminal hijack", `Program.cs:349-366`). This is the fiddliest code in the repo.
 3. **The "act through tools" invariant.** It spans `ChatAgent` (tracking), the host (forcing corrections), and each tool (turn-closing vs diagnostic). Changing one side silently breaks auditability.
 4. **Shared MSAL cache across profiles.** Logout must scope to one UPN; a careless `RemoveAsync` loop would sign out unrelated profiles (`MsalAuthService.cs:29`, `design.md` Decision 6).
-5. **Stale in-repo docs.** The single biggest onboarding hazard is trusting `docs/spec/ARCHITECTURE.md` or `AGENTS.md`'s architecture section. Cross-check every architectural claim against code; use the ledger below.
+5. **Stale in-repo docs.** The single biggest onboarding hazard is trusting `eng-docs/spec/ARCHITECTURE.md` or `AGENTS.md`'s architecture section. Cross-check every architectural claim against code; use the ledger below.
 
 ---
 

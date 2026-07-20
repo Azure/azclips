@@ -2,7 +2,7 @@
 
 How to install, list, update, pin, and remove Azclips extensions, plus what to do when something goes wrong.
 
-For extension **authoring**, see [Extension-Development-For-Private-Preview.md](./Extension-Development-For-Private-Preview.md). For the full design, see [docs/spec/extension-management.md](../spec/extension-management.md).
+For extension **authoring**, see [Extension-Development-For-Private-Preview.md](./Extension-Development-For-Private-Preview.md). For the full design, see [eng-docs/spec/extension-management.md](../spec/extension-management.md).
 
 ## What is an extension?
 
