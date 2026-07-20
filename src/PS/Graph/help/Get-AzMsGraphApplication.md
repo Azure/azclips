@@ -40,7 +40,7 @@ Get-AzMsGraphApplication -Id <string> [<CommonParameters>]
 
 ## DESCRIPTION
 
-Queries Microsoft Graph for application registrations using the active Azure profile (see `Connect-AzAccount`). The parameter surface mirrors the non-pagination subset of `Get-AzADApplication`:
+Queries Microsoft Graph for application registrations using the active Azure profile (see `Connect-AzAccount`). The available parameter sets are:
 
 - **List (Default)**: `GET /applications` — returns the first page of applications. Combine with `-Filter`, `-Orderby`, `-Search`, and `-ConsistencyLevel` for raw OData queries. Pagination via `@odata.nextLink` is not followed in this preview.
 - **DisplayName**: shortcut that translates to the OData filter `displayName eq '<value>'`.

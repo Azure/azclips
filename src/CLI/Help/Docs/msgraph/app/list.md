@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Return the first page of application registrations from Microsoft Graph via `GET /applications`. Pagination via `@odata.nextLink` is not followed in this preview — the response contains the default Graph page size. Use `--display-name` for a quick equality lookup, or `--filter` for any other OData expression. Mirrors the surface of `az ad app list`.
+Description: Return the first page of application registrations from Microsoft Graph via `GET /applications`. Pagination via `@odata.nextLink` is not followed in this preview — the response contains the default Graph page size. Use `--display-name` for a quick equality lookup, or `--filter` for any other OData expression.
 
 ### List the first page of applications
 
