@@ -78,6 +78,14 @@ public class ExtensionIndexTests
         }
     }
 
+    [Fact]
+    public void CliTable_ListDisplayName_ShouldMapToPrefixSemantics()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
+
+        Assert.Equal("DisplayNamePrefix", metadata.Parameters["display-name"].Name);
+    }
+
     [Theory]
     [InlineData("Get-AzMsGraphUser_Get", "Id")]
     [InlineData("Get-AzMsGraphUser_Mail", "Mail")]

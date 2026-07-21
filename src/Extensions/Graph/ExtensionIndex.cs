@@ -83,7 +83,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph
             ProcessorType: typeof(Processors.ListUserProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["StartsWith"]     = new("StartsWith", "StartsWith", typeof(string), StartsWithDescription, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["StartsWith"]     = new("DisplayNamePrefix", "StartsWith", typeof(string), StartsWithDescription, IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Select"]         = new("Select", "Select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Expand"]         = new("Expand", "Expand", typeof(string[]), ExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AppendSelected"] = new("AppendSelected", "AppendSelected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -144,7 +144,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph
             ProcessorType: typeof(Processors.ListUserProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["display-name"] = new("DisplayName", "display-name", typeof(string), DisplayNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["display-name"] = new("DisplayNamePrefix", "display-name", typeof(string), StartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["filter"]       = new("Filter", "filter", typeof(string), FilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["upn"]          = new("UserPrincipalName", "upn", typeof(string), UserPrincipalNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },

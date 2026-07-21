@@ -18,7 +18,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $filter expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax. Combines with the convenience shortcuts (DisplayName, Mail, StartsWith, UserPrincipalName) using OData 'and'.",
+            Description = @"OData $filter expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax. Combines with the convenience shortcuts (DisplayName, Mail, DisplayNamePrefix, UserPrincipalName) using OData 'and'.",
             SerializedName = @"Filter")]
         public string? Filter { get; set; }
 
@@ -37,8 +37,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
         [ArgumentInfo(
             Required = false,
             Description = @"Prefix to match against the display name. Translated to the OData filter startswith(displayName,'value').",
-            SerializedName = @"StartsWith")]
-        public string? StartsWith { get; set; }
+            SerializedName = @"DisplayNamePrefix")]
+        public string? DisplayNamePrefix { get; set; }
 
         [ArgumentInfo(
             Required = false,
@@ -151,9 +151,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
             {
                 clauses.Add($"mail eq '{EscapeODataString(Mail)}'");
             }
-            if (!string.IsNullOrWhiteSpace(StartsWith))
+            if (!string.IsNullOrWhiteSpace(DisplayNamePrefix))
             {
-                clauses.Add($"startswith(displayName,'{EscapeODataString(StartsWith)}')");
+                clauses.Add($"startswith(displayName,'{EscapeODataString(DisplayNamePrefix)}')");
             }
             if (!string.IsNullOrWhiteSpace(UserPrincipalName))
             {

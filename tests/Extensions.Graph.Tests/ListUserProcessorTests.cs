@@ -14,7 +14,7 @@ public class ListUserProcessorTests
         string? filter = null,
         string? displayName = null,
         string? mail = null,
-        string? startsWith = null,
+        string? displayNamePrefix = null,
         string? userPrincipalName = null,
         string[]? select = null,
         string[]? expand = null,
@@ -30,7 +30,7 @@ public class ListUserProcessorTests
             Filter = filter,
             DisplayName = displayName,
             Mail = mail,
-            StartsWith = startsWith,
+            DisplayNamePrefix = displayNamePrefix,
             UserPrincipalName = userPrincipalName,
             Select = select,
             Expand = expand,
@@ -85,9 +85,9 @@ public class ListUserProcessorTests
     }
 
     [Fact]
-    public async Task CreateRequestMessage_StartsWithShortcut_ShouldTranslateToStartswithFilter()
+    public async Task CreateRequestMessage_DisplayNamePrefixShortcut_ShouldTranslateToStartswithFilter()
     {
-        var processor = CreateProcessor(startsWith: "Ada");
+        var processor = CreateProcessor(displayNamePrefix: "Ada");
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
@@ -126,7 +126,7 @@ public class ListUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        // Composition order: raw Filter first, then DisplayName, Mail, StartsWith, UPN.
+        // Composition order: raw Filter first, then DisplayName, Mail, DisplayNamePrefix, UPN.
         var expected = "accountEnabled eq true and displayName eq 'Ada' and userPrincipalName eq 'ada@contoso.com'";
         Assert.Contains($"$filter={Uri.EscapeDataString(expected)}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
     }
