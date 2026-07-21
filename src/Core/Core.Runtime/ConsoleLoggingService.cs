@@ -40,19 +40,13 @@ public class ConsoleLoggingService : ILoggingService
 
     public void Verbose(string message)
     {
-        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-        if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.Error.WriteLine($"VERBOSE: {message}");
-        if (emitColor) Console.ResetColor();
         RecordTelemetry("Verbose", message);
     }
 
     public void Debug(string message)
     {
-        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-        if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.Error.WriteLine($"DEBUG: {message}");
-        if (emitColor) Console.ResetColor();
         RecordTelemetry("Debug", message);
     }
 
