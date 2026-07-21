@@ -63,6 +63,10 @@ namespace Core.Extensions
                 {
                     Leaves = new[] { "tool env", "tool help", "tool resource find", "tool resource sku", "tool resource tree", "tool resource show", "tool resource refresh" },
                 },
+                ["acr"] = new("acr", "Microsoft.Azure.Azclips.Extensions.ContainerRegistry")
+                {
+                    Leaves = new[] { "connect", "repository list", "repository show", "repository delete", "manifest list", "manifest show", "manifest delete", "tag list", "tag show", "tag delete" },
+                },
             };
 
         /// <summary>

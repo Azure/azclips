@@ -24,6 +24,7 @@ public abstract class AcrProcessorBase : IProcessor
     protected IAuthHandler AuthHandler = null!;
     protected JsonSerializerOptions JsonOptions = null!;
     protected OutputStreamDelegate WriteOutput = null!;
+    private static readonly HttpClient AcrHttpClient = new();
 
     public CancellationToken Token => CancellationToken.None;
     public Action Cancel => throw new NotImplementedException();
@@ -91,8 +92,13 @@ public abstract class AcrProcessorBase : IProcessor
         });
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        using var response = await HttpPipeline.SendAsync(request, Publisher);
-        response.EnsureSuccessStatusCode();
+        using var response = await AcrHttpClient.SendAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            string errorBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"ACR token exchange failed ({response.StatusCode}): {errorBody}");
+        }
 
         string body = await response.Content.ReadAsStringAsync();
         var tokenResponse = JsonSerializer.Deserialize<AcrTokenResponse>(body, JsonOptions)
@@ -114,7 +120,7 @@ public abstract class AcrProcessorBase : IProcessor
         });
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        using var response = await HttpPipeline.SendAsync(request, Publisher);
+        using var response = await AcrHttpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
         string body = await response.Content.ReadAsStringAsync();
@@ -142,12 +148,11 @@ public abstract class AcrProcessorBase : IProcessor
             request.Content = body;
         }
 
-        var response = await HttpPipeline.SendAsync(request, Publisher);
-        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+        var response = await AcrHttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
         try
         {
-            await response.EnsureSuccessAsync(Publisher);
+            response.EnsureSuccessStatusCode();
         }
         catch
         {

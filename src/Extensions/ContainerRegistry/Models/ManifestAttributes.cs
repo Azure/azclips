@@ -13,7 +13,7 @@ public class ManifestAttributes
 public class ManifestAttributeBase
 {
     public string? Digest { get; set; }
-    public string? ImageSize { get; set; }
+    public long? ImageSize { get; set; }
     public string? CreatedTime { get; set; }
     public string? LastUpdateTime { get; set; }
     public string? Architecture { get; set; }
