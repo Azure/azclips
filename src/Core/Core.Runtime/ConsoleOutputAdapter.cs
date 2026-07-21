@@ -35,7 +35,7 @@ public class ConsoleOutputAdapter : IOutputAdapter
     {
         var originalColor = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine(message);
+        Console.Error.WriteLine(message);
         Console.ForegroundColor = originalColor;
         return Task.CompletedTask;
     }
