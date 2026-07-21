@@ -74,9 +74,9 @@ Succinct "why" for each committed decision. All resolved 2026-07-21.
 
     Timing via `Stopwatch.StartNew()` at method entry, stopped just before the successful return. _(commit `3d45a8de1`)_
 
-13. ✅ [`src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs`](src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs) constructor — one-time loader-chain-order log: `[CLIAssemblyLoadingProvider] Loader chain: [BuiltinExtensionLoader, MultiVersionExtensionLoader].` Fires once per process (the provider is DI-singleton). Placed here rather than in `CliExtensionServiceRegistration.cs` because the chain is only meaningful once DI has actually resolved it into the provider. _(commit `3d45a8de1`)_
+13. ✅ ~~[`src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs`](src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs) constructor — one-time loader-chain-order log~~. **Dropped** during §3.4 verification: the provider's ctor runs at DI-resolution time — before any session's `UseScope` is active — so a `loggingService.Debug(...)` call there bypasses the level gate and leaked to stderr under `warn`. Deferring to first `LoadExtension` didn't help either, because the first LoadExtension calls happen inside [`DiscoveryBackedExtensionRegistry.RunDiscoverySession`](src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs#L112) whose `OutputStreams` are silent no-ops — so the log vanishes instead of leaks. The per-load `[BuiltinExtensionLoader]` / `[MultiVersionExtensionLoader]` prefix on each Debug line already conveys which loader served each request, making the chain-kickoff line redundant. _(dropped in §3.4 commit)_
 
-14. ✅ [`src/CLI/Program.cs`](src/CLI/Program.cs) `Main` `finally` — calls `ExtensionLoadTracker.EmitSummary(_logger)` before `AzclipsServiceProvider.Dispose()`. Idempotent (silently no-op if nothing was recorded, e.g. `az --help`). Example output under `--debug`:
+14. ✅ [`src/CLI/Program.cs`](src/CLI/Program.cs) `Main` `finally` — calls `ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult())` before `AzclipsServiceProvider.Dispose()`. Routes through `streams.WriteDebug` (level-gated by `BuildStreams`) rather than the injected `ILoggingService` — the `finally` runs **after** the session's `UseScope` was disposed, so `ScopedLoggingService` would otherwise fall back to the ungated `ConsoleLoggingService` and leak the aggregate table under `warn`/`error`. Correspondingly [`ExtensionLoadTracker.EmitSummary`](src/CLI/AssemblyLoading/ExtensionLoadTracker.cs) now takes an `Action<string> writeDebug` callback rather than an `ILoggingService`. Idempotent (silently no-op if nothing was recorded). Example output under `--debug`:
 
     ```
     [ExtensionLoadTracker] Extension                      Time (ms) Version      Path
@@ -96,7 +96,10 @@ Succinct "why" for each committed decision. All resolved 2026-07-21.
     - `az foo --output json 2>/dev/null` stays parseable when a warning fires mid-command.
     - `az --debug <cmd>` emits extension-loader debug lines on stderr (grep for `[BuiltinExtensionLoader]` / `[MultiVersionExtensionLoader]` prefix).
     - With no config set + an operation that emits `Warn`, warning surfaces on stderr; `Info`/`Debug` do not.
-17. `TUI` unit test for the extended `ClassifyLine` (item 5) covering each prefix.
+
+    Landed as [`tests/Cli.Tests/StreamRoutingIntegrationTests.cs`](tests/Cli.Tests/StreamRoutingIntegrationTests.cs) — 4 tests covering: (a) `WriteError → stderr`; (b) `warn` default keeps stderr silent (including no `[ExtensionLoadTracker]` leak); (c) `--debug` puts `DEBUG:` on stderr with stdout clean; (d) `--debug` emits both `[BuiltinExtensionLoader|MultiVersionExtensionLoader] Resolving extension` and `[ExtensionLoadTracker] Extension` / `Total (N)` on stderr. The chain-order line originally planned in item 13 is not asserted (see item 13's dropped note). _(commit pending)_
+
+17. ✅ `TUI` unit test for the extended `ClassifyLine` (item 5) covering each prefix — landed as [`tests/Cli.Tests/TuiClassifyLineTests.cs`](tests/Cli.Tests/TuiClassifyLineTests.cs). 7 tests covering `ERROR:` → `Error`, `WARNING:`/`INFO:` → `Info`, `VERBOSE:`/`DEBUG:` → dropped, lowercase (git/npm) fallthrough, unprefixed lines use caller default, ANSI-escape stripping, and leading-whitespace trimming. Required bumping `ClassifyLine` from `private static` to `internal static` in [`TUI/services/ProcessService.cs`](TUI/services/ProcessService.cs) and adding `InternalsVisibleTo="Cli.Tests"` to [`TUI/Core.Tui.csproj`](TUI/Core.Tui.csproj) plus a `<ProjectReference>` from `Cli.Tests` to `Core.Tui`. _(commit pending)_
 
 ### 3.5 Docs
 
