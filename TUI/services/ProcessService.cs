@@ -176,7 +176,7 @@ class ProcessService
         }
     }
 
-    private static (HistoryItemType type, string text)? ClassifyLine(string line, HistoryItemType defaultType)
+    internal static (HistoryItemType type, string text)? ClassifyLine(string line, HistoryItemType defaultType)
     {
         // Strip ANSI escape codes from subprocess output before matching prefixes.
         var clean = StripAnsi(line).TrimStart();

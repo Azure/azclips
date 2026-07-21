@@ -25,6 +25,10 @@
     <ProjectReference Include="../../Agent/Commands/Agent.Commands.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
 
+    <!-- Reference TUI (an OutputType=Exe project) so we can unit-test its internal
+         line classifier via InternalsVisibleTo. -->
+    <ProjectReference Include="../../TUI/Core.Tui.csproj" />
+
     <!-- Shared-verb contract test fixtures. ReferenceOutputAssembly=false so fixture
          types don't leak into the test compilation; we only need the DLLs built so the test can
          stage them into temp dirs and read them via LeafReader. -->
