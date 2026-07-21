@@ -182,10 +182,11 @@ public class Program
         }
         finally
         {
-            if (_logger is not null)
-            {
-                ExtensionLoadTracker.EmitSummary(_logger);
-            }
+            // Route through streams.WriteDebug (level-gated) so the aggregate table stays
+            // silent under warn/error and only surfaces under --debug. Routing through
+            // _logger would fall back to ConsoleLoggingService here (session's UseScope
+            // was already disposed) and leak the table regardless of level.
+            ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
             AzclipsServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }

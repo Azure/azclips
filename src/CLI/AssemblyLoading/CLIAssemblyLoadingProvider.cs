@@ -21,9 +21,6 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         this.extensionLoaders = extensionLoaders;
         this.loggingService = loggingService;
         this.registryStore = registryStore;
-
-        // One-time chain-order log so `--debug` output explains "which loader ran first".
-        loggingService.Debug($"[{nameof(CLIAssemblyLoadingProvider)}] Loader chain: [{string.Join(", ", extensionLoaders.Select(l => l.GetType().Name))}].");
     }
 
     private Assembly? LoadExtension(IEnumerable<IExtensionLoader> extensionLoaders, string extensionName, string? version = null) => extensionLoaders

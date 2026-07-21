@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Core.Abstractions;
-
 namespace Core.Cli;
 
 /// <summary>
@@ -43,7 +41,17 @@ public static class ExtensionLoadTracker
     /// Emits a Debug-level table of all recorded loads and clears the buffer. Idempotent:
     /// silent no-op when nothing was recorded (e.g. <c>az --version</c> which loads no extensions).
     /// </summary>
-    public static void EmitSummary(ILoggingService logger)
+    /// <param name="writeDebug">
+    /// Callback that writes one Debug line. Callers are expected to pass a delegate that
+    /// applies the CLI log-level gate (e.g. <c>streams.WriteDebug</c> built by
+    /// <c>Program.BuildStreams</c>), so the summary is suppressed under levels &lt; Debug.
+    /// Routing through the streams — not <see cref="ILoggingService.Debug"/> directly — is
+    /// required because <c>EmitSummary</c> is invoked in <c>Program.Main</c>'s <c>finally</c>
+    /// block, after the session's <c>UseScope</c> has been disposed, so
+    /// <see cref="ScopedLoggingService"/> would otherwise fall back to the ungated
+    /// <see cref="ConsoleLoggingService"/> and leak the table under <c>warn</c>/<c>error</c>.
+    /// </param>
+    public static void EmitSummary(Action<string> writeDebug)
     {
         List<Row> snapshot;
         lock (_lock)
@@ -56,14 +64,14 @@ public static class ExtensionLoadTracker
             _rows.Clear();
         }
 
-        logger.Debug(string.Format(HeaderFormat, "Extension", "Time (ms)", "Version", "Path"));
+        writeDebug(string.Format(HeaderFormat, "Extension", "Time (ms)", "Version", "Path"));
         double totalMs = 0;
         foreach (var r in snapshot)
         {
-            logger.Debug(string.Format(RowFormat, r.Name, r.ElapsedMs, string.IsNullOrEmpty(r.Version) ? "-" : r.Version, r.Path));
+            writeDebug(string.Format(RowFormat, r.Name, r.ElapsedMs, string.IsNullOrEmpty(r.Version) ? "-" : r.Version, r.Path));
             totalMs += r.ElapsedMs;
         }
-        logger.Debug(string.Format(RowFormat, $"Total ({snapshot.Count})", totalMs, "-", "-"));
+        writeDebug(string.Format(RowFormat, $"Total ({snapshot.Count})", totalMs, "-", "-"));
     }
 
     private readonly record struct Row(string Name, double ElapsedMs, string Version, string Path);
