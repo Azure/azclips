@@ -504,7 +504,7 @@ Command help lives in two parallel corpora: CLI help under `src/CLI/Help/Docs/<e
 
 Four validators gate every PR: markdown structure, completeness against routed commands, CLI example syntax (command path + flag signature + value type), and PowerShell example syntax (PSL1–PSL7: cmdlet name + parameter signature + required-parameter coverage + duplicate-flag check + variable-assignment check + value-type check + per-fence documented-cmdlet enforcement). Stale help fails CI before merge.
 
-For the design philosophy, validator details, and authoring schema, see [help-system.md](help-system.md). For the author workflow, see [docs/howto/help.md](../howto/help.md).
+For the design philosophy, validator details, and authoring schema, see [help-system.md](help-system.md). For the author workflow, see [eng-docs/howto/help.md](../howto/help.md).
 
 ## Example Execution Flows
 

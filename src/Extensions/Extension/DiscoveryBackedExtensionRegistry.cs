@@ -37,6 +37,7 @@ internal static class DiscoveryBackedExtensionRegistry
                 context: "DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences",
                 selection: selection,
                 persistedPreference: fileEntry));
+            ExtensionCandidateSelector.ReportUnresolvablePin(group.Key, selection, fileEntry, loggingService);
             var info = selection.Selected;
 
             if (s_builtInPackageIds.Contains(info.PackageId))

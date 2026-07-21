@@ -211,7 +211,7 @@ The design intent is explicit in the source: a structured `AzclipsErrorException
 
 > "**Orchestrator**: `OrchestratorEngine` tries `DefaultCommandEngine` first, falls back to `AgentEngine` (AI) on failure"
 
-and `docs/spec/ARCHITECTURE.md` repeats an in-process `OrchestratorEngine → DefaultCommandEngine → AgentEngine` routing model.
+and `eng-docs/spec/ARCHITECTURE.md` repeats an in-process `OrchestratorEngine → DefaultCommandEngine → AgentEngine` routing model.
 
 **Fact** — no `OrchestratorEngine`, `DefaultCommandEngine`, or `AgentEngine` type exists in `src/` today. The real fallback, `TryAgentFallbackAsync` (`src/CLI/Program.cs:281`), **spawns a separate process** — the TUI binary (`Core.Tui`) with `--agent-mode` — and waits for it to exit:
 
@@ -286,5 +286,5 @@ sequenceDiagram
 - `src/Core/Core.Abstractions/CLIContracts.cs` — `IProcessor` contract (`:11`)
 - `src/CLI/Program.cs` — orchestration & fallback (`:40`, `:65`, `:121`, `:128`, `:281`)
 - `TUI/Program.cs` — TUI registrations & `--agent-mode` entry (`:21`, `:23`)
-- `AGENTS.md:16`, `docs/spec/ARCHITECTURE.md` — **stale** OrchestratorEngine model
+- `AGENTS.md:16`, `eng-docs/spec/ARCHITECTURE.md` — **stale** OrchestratorEngine model
 - `openspec/changes/profile-management/design.md` — Decision 4 (global `--profile` pre-binding)
