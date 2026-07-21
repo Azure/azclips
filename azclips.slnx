@@ -47,6 +47,9 @@
     <Project Path="tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj" />
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
+  <Folder Name="/src/Extensions/ContainerRegistry/">
+    <Project Path="src/Extensions/ContainerRegistry/Extensions.ContainerRegistry.csproj" />
+  </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
