@@ -178,10 +178,48 @@ class ProcessService
 
     private static (HistoryItemType type, string text)? ClassifyLine(string line, HistoryItemType defaultType)
     {
-        // Strip ANSI escape codes from subprocess output before matching prefixes
+        // Strip ANSI escape codes from subprocess output before matching prefixes.
         var clean = StripAnsi(line).TrimStart();
-        if (clean.StartsWith("[DEBUG]", StringComparison.OrdinalIgnoreCase)) return null;
-        if (clean.StartsWith("[VERBOSE]", StringComparison.OrdinalIgnoreCase)) return null;
+
+        // The AzClips CLI emits diagnostics on stderr with stable prefixes. Classify by
+        // prefix so warnings/info don't get stamped as errors under RunCliAsync (which
+        // uses defaultType=Error). Two prefix styles exist because two surfaces render
+        // them:
+        //   BuildStreams (per-invocation OutputStreams):   "VERBOSE:", "DEBUG:", "WARNING:", "INFO:", "[ERROR]"
+        //   ConsoleLoggingService (process-wide fallback): "[VERBOSE]", "[DEBUG]", "[WARN]", "[INFO]", "[ERROR]"
+        // Case-sensitive (Ordinal) match: AzClips always emits uppercase, but tools like
+        // git/npm emit lowercase ("warning:"), so we intentionally leave those alone —
+        // RunLocalAsync callers still see git output as HistoryItemType.Output.
+
+        // Drop verbose/debug lines entirely — too noisy for the TUI history.
+        if (clean.StartsWith("[VERBOSE]", StringComparison.Ordinal) ||
+            clean.StartsWith("VERBOSE:",  StringComparison.Ordinal) ||
+            clean.StartsWith("[DEBUG]",   StringComparison.Ordinal) ||
+            clean.StartsWith("DEBUG:",    StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (clean.StartsWith("[ERROR]", StringComparison.Ordinal))
+        {
+            return (HistoryItemType.Error, StripAnsi(line));
+        }
+
+        // No dedicated Warn value in HistoryItemType — render warnings as Info (dim
+        // gray) so they don't inherit red-error styling. A proper Warn type is a
+        // follow-up.
+        if (clean.StartsWith("[WARN]",   StringComparison.Ordinal) ||
+            clean.StartsWith("WARNING:", StringComparison.Ordinal))
+        {
+            return (HistoryItemType.Info, StripAnsi(line));
+        }
+
+        if (clean.StartsWith("[INFO]", StringComparison.Ordinal) ||
+            clean.StartsWith("INFO:",  StringComparison.Ordinal))
+        {
+            return (HistoryItemType.Info, StripAnsi(line));
+        }
+
         return (defaultType, StripAnsi(line));
     }
 
