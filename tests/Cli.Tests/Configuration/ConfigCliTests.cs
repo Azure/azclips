@@ -247,7 +247,7 @@ public class ConfigCliTests
 
         var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
 
-        Assert.Contains("logging.level = error", output.Single());
+        Assert.Contains("logging.level = warn", output.Single());
     }
 
     [Fact]
