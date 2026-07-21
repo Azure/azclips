@@ -220,7 +220,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
                 {
-                    Console.WriteLine($"VERBOSE: {value}");
+                    Console.Error.WriteLine($"VERBOSE: {value}");
                 }
                 return Task.CompletedTask;
             },
@@ -228,7 +228,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
                 {
-                    Console.WriteLine($"DEBUG: {value}");
+                    Console.Error.WriteLine($"DEBUG: {value}");
                 }
                 return Task.CompletedTask;
             },
@@ -236,7 +236,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
                 {
-                    Console.WriteLine($"WARNING: {value}");
+                    Console.Error.WriteLine($"WARNING: {value}");
                 }
                 return Task.CompletedTask;
             },
@@ -244,7 +244,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
                 {
-                    Console.WriteLine($"INFO: {value}");
+                    Console.Error.WriteLine($"INFO: {value}");
                 }
                 return Task.CompletedTask;
             }
