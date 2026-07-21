@@ -11,22 +11,19 @@ namespace Core.Runtime;
 /// </summary>
 public class ConsoleLoggingService : ILoggingService
 {
-    public void Log(string message)
-    {
-        Console.WriteLine($"{message}");
-        RecordTelemetry("Log", message);
-    }
+    // Alias for `Info`; will be removed in a future release.
+    public void Log(string message) => Info(message);
 
     public void Info(string message)
     {
-        Console.WriteLine($"[INFO] {message}");
+        Console.Error.WriteLine($"[INFO] {message}");
         RecordTelemetry("Info", message);
     }
 
     public void Error(string message)
     {
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"[ERROR] {message}");
+        Console.Error.WriteLine($"[ERROR] {message}");
         Console.ResetColor();
         RecordTelemetry("Error", message);
     }
@@ -34,7 +31,7 @@ public class ConsoleLoggingService : ILoggingService
     public void Warn(string message)
     {
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"[WARN] {message}");
+        Console.Error.WriteLine($"[WARN] {message}");
         Console.ResetColor();
         RecordTelemetry("Warning", message);
     }
@@ -42,7 +39,7 @@ public class ConsoleLoggingService : ILoggingService
     public void Verbose(string message)
     {
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine($"[VERBOSE] {message}");
+        Console.Error.WriteLine($"[VERBOSE] {message}");
         Console.ResetColor();
         RecordTelemetry("Verbose", message);
     }
@@ -50,7 +47,7 @@ public class ConsoleLoggingService : ILoggingService
     public void Debug(string message)
     {
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine($"[DEBUG] {message}");
+        Console.Error.WriteLine($"[DEBUG] {message}");
         Console.ResetColor();
         RecordTelemetry("Debug", message);
     }
