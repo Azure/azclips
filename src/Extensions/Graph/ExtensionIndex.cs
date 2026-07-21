@@ -9,18 +9,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph
     public class ExtensionIndex : IExtensionIndex
     {
         // Descriptions are reused across parameter sets; centralize to avoid drift.
-        private const string FilterDescription = "OData $filter expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax.";
-        private const string SelectDescription = "Properties to project via OData $select. Combine with AppendSelected to widen rather than replace the default property set.";
-        private const string ExpandDescription = "Related navigation properties to expand via OData $expand (for example, memberOf).";
-        private const string OrderbyDescription = "Property paths to sort by via OData $orderby (for example, 'displayName', 'mail desc').";
-        private const string SearchDescription = "Free-text search expression mapped to OData $search (for example, \"displayName:ada\").";
-        private const string ConsistencyLevelDescription = "Value sent as the ConsistencyLevel HTTP header. Required (typically 'eventual') when using advanced queries such as $search, $count, or $orderby on non-indexed properties.";
-        private const string AppendSelectedDescription = "When set, prepends the default Microsoft Graph user property set to the values supplied via Select instead of replacing them.";
+        private const string FilterDescription = "OData $filter expression, for example \"accountEnabled eq true\".";
+        private const string SelectDescription = "Properties to return. Combine with AppendSelected to include the default properties as well.";
+        private const string ExpandDescription = "Related properties to include in the response, for example memberOf.";
+        private const string OrderbyDescription = "OData $orderby values, for example 'displayName' or 'mail desc'.";
+        private const string SearchDescription = "OData $search expression, for example \"displayName:ada\". Requires ConsistencyLevel eventual.";
+        private const string ConsistencyLevelDescription = "Set to 'eventual' to enable advanced query features such as $search, $count, or $orderby on non-indexed properties.";
+        private const string AppendSelectedDescription = "When set with Select, include the default property set alongside the values in Select rather than replacing them.";
         private const string IdDescription = "The object ID or user principal name (UPN) of the user.";
-        private const string DisplayNameDescription = "Exact display name to match. Translated to the OData filter displayName eq 'value'.";
-        private const string MailDescription = "Exact mail address to match. Translated to the OData filter mail eq 'value'.";
-        private const string StartsWithDescription = "Prefix to match against the display name. Translated to the OData filter startswith(displayName,'value').";
-        private const string UserPrincipalNameDescription = "Exact user principal name to match. Translated to the OData filter userPrincipalName eq 'value'.";
+        private const string DisplayNameDescription = "List users with the specified display name.";
+        private const string MailDescription = "List users with the specified mail address.";
+        private const string StartsWithDescription = "List users whose display name starts with the specified prefix.";
+        private const string UserPrincipalNameDescription = "List users with the specified user principal name.";
 
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_listUsers_PS = new(

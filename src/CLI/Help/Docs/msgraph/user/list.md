@@ -1,13 +1,13 @@
 ---
-summary: List Microsoft Graph users in the signed-in tenant.
+summary: List Microsoft Entra users.
 status: preview
 schema: 1.0.0
 online version:
 ---
 
-Description: Return the first page of users from Microsoft Graph. Pagination via `@odata.nextLink` is not followed in this preview — the response contains the default Graph page size (typically 100 users). Use `--display-name` for a display-name prefix match, `--upn` for exact user principal name, or `--filter` for any other OData expression. Mirrors the surface of `az ad user list`.
+Description: List users in your Microsoft Entra tenant. Filter results by a display name prefix, exact user principal name, or an OData `$filter` expression.
 
-### List the first page of users
+### List all users
 
 ```bash
 az msgraph user list
@@ -25,7 +25,7 @@ az msgraph user list --display-name Ada
 az msgraph user list --upn ada@contoso.com
 ```
 
-### Filter users with a raw OData expression
+### List users with a custom filter expression
 
 ```bash
 az msgraph user list --filter "endswith(mail,'@contoso.com')"

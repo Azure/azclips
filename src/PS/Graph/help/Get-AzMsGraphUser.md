@@ -13,7 +13,7 @@ title: Get-AzMsGraphUser
 
 ## SYNOPSIS
 
-Gets Microsoft Graph users. Lists users in the signed-in tenant, retrieves a single user by object ID or user principal name, or returns the currently signed-in user.
+Gets Microsoft Entra users.
 
 ## SYNTAX
 
@@ -64,30 +64,23 @@ Get-AzMsGraphUser -SignedIn [-Select <string[]>] [-Expand <string[]>] [-AppendSe
 
 ## DESCRIPTION
 
-Queries Microsoft Graph for user objects using the active Azure profile (see `Connect-AzAccount`). The parameter surface mirrors the non-pagination subset of `Get-AzADUser`:
-
-- **List (Default)**: `GET /users` — returns the first page of users. Combine with `-Filter`, `-Orderby`, `-Search`, and `-ConsistencyLevel` for raw OData queries. Pagination via `@odata.nextLink` is not followed in this preview.
-- **Mail / DisplayName / StartsWith**: shortcuts that translate to `-Filter` before invoking Graph — respectively `mail eq '…'`, `displayName eq '…'`, `startswith(displayName,'…')`.
-- **Get**: `GET /users/{id}` — retrieves a single user by object ID or user principal name.
-- **SignedIn**: `GET /me` — returns the currently signed-in user.
-
-`-Select` and `-Expand` control OData projection and are available in every parameter set. `-AppendSelected` widens `-Select` to include the default Graph user property set (`displayName`, `id`, `deletedDateTime`, `userPrincipalName`, `usageLocation`, `givenName`, `surname`, `accountEnabled`, `mailNickname`, `mail`) instead of replacing it.
+Look up Microsoft Entra users in your tenant. Without parameters, lists users in the signed-in tenant. Use `-Id` to retrieve a single user by object ID or user principal name; `-SignedIn` for the currently signed-in user; `-Mail`, `-DisplayName`, or `-StartsWith` to match by that property; or `-Filter`, `-Orderby`, `-Search` for custom queries.
 
 ## EXAMPLES
 
-### Example 1: List the first page of users
+### Example 1: List all users
 
 ```powershell
 Get-AzMsGraphUser
 ```
 
-### Example 2: List users by exact mail address
+### Example 2: List users with the specified mail address
 
 ```powershell
 Get-AzMsGraphUser -Mail ada@contoso.com
 ```
 
-### Example 3: List users by exact display name
+### Example 3: List users with the specified display name
 
 ```powershell
 Get-AzMsGraphUser -DisplayName 'Ada Lovelace'
@@ -99,7 +92,7 @@ Get-AzMsGraphUser -DisplayName 'Ada Lovelace'
 Get-AzMsGraphUser -StartsWith Ada
 ```
 
-### Example 5: Filter users with a raw OData expression
+### Example 5: List users with a custom filter expression
 
 ```powershell
 Get-AzMsGraphUser -Filter "endswith(mail,'@contoso.com')" -ConsistencyLevel eventual
@@ -117,7 +110,7 @@ Get-AzMsGraphUser -Id 00000000-0000-0000-0000-000000000000
 Get-AzMsGraphUser -SignedIn
 ```
 
-### Example 8: Project a subset of properties, widened with the defaults
+### Example 8: Return a subset of properties, widened with the defaults
 
 ```powershell
 Get-AzMsGraphUser -Select 'city','department' -AppendSelected
@@ -127,7 +120,7 @@ Get-AzMsGraphUser -Select 'city','department' -AppendSelected
 
 ### -Id
 
-The object ID or user principal name (UPN) of the Microsoft Graph user to retrieve.
+The object ID or user principal name (UPN) of the user to retrieve.
 
 ```yaml
 Type: System.String
@@ -148,7 +141,7 @@ HelpMessage: ''
 
 ### -Mail
 
-Exact mail address to match. Translated to the OData filter `mail eq '<value>'`.
+List users with the specified mail address.
 
 ```yaml
 Type: System.String
@@ -169,7 +162,7 @@ HelpMessage: ''
 
 ### -DisplayName
 
-Exact display name to match. Translated to the OData filter `displayName eq '<value>'`.
+List users with the specified display name.
 
 ```yaml
 Type: System.String
@@ -190,7 +183,7 @@ HelpMessage: ''
 
 ### -StartsWith
 
-Prefix to match against the display name. Translated to the OData filter `startswith(displayName,'<value>')`.
+List users whose display name starts with the specified prefix.
 
 ```yaml
 Type: System.String
@@ -211,7 +204,7 @@ HelpMessage: ''
 
 ### -SignedIn
 
-When set, returns the currently signed-in user via Microsoft Graph `GET /me`.
+Return the currently signed-in user.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -232,7 +225,7 @@ HelpMessage: ''
 
 ### -Filter
 
-OData `$filter` expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax and returns a 400 with details on invalid expressions.
+OData `$filter` expression, for example `"accountEnabled eq true"`.
 
 ```yaml
 Type: System.String
@@ -253,7 +246,7 @@ HelpMessage: ''
 
 ### -Orderby
 
-Property paths to sort by via OData `$orderby` (for example, `displayName` or `mail desc`).
+OData `$orderby` values, for example `'displayName'` or `'mail desc'`.
 
 ```yaml
 Type: System.String[]
@@ -274,7 +267,7 @@ HelpMessage: ''
 
 ### -Search
 
-Free-text search expression mapped to OData `$search` (for example, `"displayName:ada"`).
+OData `$search` expression, for example `"displayName:ada"`. Requires `-ConsistencyLevel eventual`.
 
 ```yaml
 Type: System.String
@@ -295,7 +288,7 @@ HelpMessage: ''
 
 ### -ConsistencyLevel
 
-Value sent as the `ConsistencyLevel` HTTP header. Set to `eventual` when using advanced queries such as `$search`, `$count`, or `$orderby` on non-indexed properties.
+Set to `eventual` to enable advanced query features such as `$search`, `$count`, or `$orderby` on non-indexed properties.
 
 ```yaml
 Type: System.String
@@ -316,7 +309,7 @@ HelpMessage: ''
 
 ### -Select
 
-Properties to project via OData `$select`. Combine with `-AppendSelected` to widen rather than replace the default property set.
+Properties to return. Combine with `-AppendSelected` to include the default properties as well.
 
 ```yaml
 Type: System.String[]
@@ -337,7 +330,7 @@ HelpMessage: ''
 
 ### -Expand
 
-Related navigation properties to expand via OData `$expand` (for example, `memberOf`).
+Related properties to include in the response, for example `memberOf`.
 
 ```yaml
 Type: System.String[]
@@ -358,7 +351,7 @@ HelpMessage: ''
 
 ### -AppendSelected
 
-When set, prepends the default Microsoft Graph user property set (`displayName`, `id`, `deletedDateTime`, `userPrincipalName`, `usageLocation`, `givenName`, `surname`, `accountEnabled`, `mailNickname`, `mail`) to the values supplied via `-Select` instead of replacing them.
+When set with `-Select`, include the default property set (`displayName`, `id`, `deletedDateTime`, `userPrincipalName`, `usageLocation`, `givenName`, `surname`, `accountEnabled`, `mailNickname`, `mail`) alongside the values in `-Select` rather than replacing them.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -390,7 +383,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.Object
 
-In the list-oriented parameter sets (List, Mail, DisplayName, StartsWith), each Microsoft Graph user object from the first response page is emitted individually to the pipeline. In the Get and SignedIn parameter sets, a single user object is returned.
+The Microsoft Entra user object or objects returned by the query.
 
 ## NOTES
 

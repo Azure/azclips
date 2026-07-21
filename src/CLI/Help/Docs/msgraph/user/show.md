@@ -1,11 +1,11 @@
 ---
-summary: Show a Microsoft Graph user by ID or user principal name.
+summary: Get the details of a Microsoft Entra user.
 status: preview
 schema: 1.0.0
 online version:
 ---
 
-Description: Retrieve a user object from Microsoft Graph using either the user's object ID or user principal name (UPN). The active Azure profile is used to authenticate to Microsoft Graph.
+Description: Retrieve full details for a user by object ID or user principal name.
 
 ### Show a user by user principal name
 

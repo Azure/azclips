@@ -14,19 +14,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
     {
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to project via OData $select. Combine with AppendSelected to widen rather than replace the default property set.",
+            Description = @"Properties to return. Combine with AppendSelected to include the default properties as well.",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related navigation properties to expand via OData $expand (for example, memberOf).",
+            Description = @"Related properties to include in the response, for example memberOf.",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"When set, prepends the default Microsoft Graph user property set to the values supplied via Select instead of replacing them.",
+            Description = @"When set with Select, include the default property set alongside the values in Select rather than replacing them.",
             SerializedName = @"AppendSelected")]
         public bool AppendSelected { get; set; }
 

@@ -18,67 +18,67 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $filter expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax. Combines with the convenience shortcuts (DisplayName, Mail, DisplayNamePrefix, UserPrincipalName) using OData 'and'.",
+            Description = @"OData $filter expression, for example ""accountEnabled eq true"". Combines with the convenience shortcuts (DisplayName, Mail, DisplayNamePrefix, UserPrincipalName) using OData 'and'.",
             SerializedName = @"Filter")]
         public string? Filter { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Exact display name to match. Translated to the OData filter displayName eq 'value'.",
+            Description = @"List users with the specified display name.",
             SerializedName = @"DisplayName")]
         public string? DisplayName { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Exact mail address to match. Translated to the OData filter mail eq 'value'.",
+            Description = @"List users with the specified mail address.",
             SerializedName = @"Mail")]
         public string? Mail { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Prefix to match against the display name. Translated to the OData filter startswith(displayName,'value').",
+            Description = @"List users whose display name starts with the specified prefix.",
             SerializedName = @"DisplayNamePrefix")]
         public string? DisplayNamePrefix { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Exact user principal name to match. Translated to the OData filter userPrincipalName eq 'value'.",
+            Description = @"List users with the specified user principal name.",
             SerializedName = @"UserPrincipalName")]
         public string? UserPrincipalName { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to project via OData $select. Combine with AppendSelected to widen rather than replace the default property set.",
+            Description = @"Properties to return. Combine with AppendSelected to include the default properties as well.",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related navigation properties to expand via OData $expand (for example, memberOf).",
+            Description = @"Related properties to include in the response, for example memberOf.",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Property paths to sort by via OData $orderby (for example, displayName, mail desc).",
+            Description = @"OData $orderby values, for example 'displayName' or 'mail desc'.",
             SerializedName = @"Orderby")]
         public string[]? Orderby { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Free-text search expression mapped to OData $search (for example, \""displayName:ada\"").",
+            Description = @"OData $search expression, for example \""displayName:ada\"". Requires ConsistencyLevel eventual.",
             SerializedName = @"Search")]
         public string? Search { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Value sent as the ConsistencyLevel HTTP header. Required (typically 'eventual') when using advanced queries such as $search, $count, or $orderby on non-indexed properties.",
+            Description = @"Set to 'eventual' to enable advanced query features such as $search, $count, or $orderby on non-indexed properties.",
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"When set, prepends the default Microsoft Graph user property set to the values supplied via Select instead of replacing them.",
+            Description = @"When set with Select, include the default property set alongside the values in Select rather than replacing them.",
             SerializedName = @"AppendSelected")]
         public bool AppendSelected { get; set; }
 
