@@ -210,10 +210,11 @@ public class Program
             },
             WriteError: (value, ct) =>
             {
+                var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 var originalColor = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Red;
+                if (emitColor) Console.ForegroundColor = ConsoleColor.Red;
                 Console.Error.WriteLine($"[ERROR] {value}");
-                Console.ForegroundColor = originalColor;
+                if (emitColor) Console.ForegroundColor = originalColor;
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, ct) =>

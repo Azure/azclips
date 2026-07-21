@@ -22,33 +22,37 @@ public class ConsoleLoggingService : ILoggingService
 
     public void Error(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Red;
+        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        if (emitColor) Console.ForegroundColor = ConsoleColor.Red;
         Console.Error.WriteLine($"[ERROR] {message}");
-        Console.ResetColor();
+        if (emitColor) Console.ResetColor();
         RecordTelemetry("Error", message);
     }
 
     public void Warn(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Yellow;
+        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        if (emitColor) Console.ForegroundColor = ConsoleColor.Yellow;
         Console.Error.WriteLine($"[WARN] {message}");
-        Console.ResetColor();
+        if (emitColor) Console.ResetColor();
         RecordTelemetry("Warning", message);
     }
 
     public void Verbose(string message)
     {
-        Console.ForegroundColor = ConsoleColor.DarkGray;
+        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.Error.WriteLine($"[VERBOSE] {message}");
-        Console.ResetColor();
+        if (emitColor) Console.ResetColor();
         RecordTelemetry("Verbose", message);
     }
 
     public void Debug(string message)
     {
-        Console.ForegroundColor = ConsoleColor.DarkGray;
+        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.Error.WriteLine($"[DEBUG] {message}");
-        Console.ResetColor();
+        if (emitColor) Console.ResetColor();
         RecordTelemetry("Debug", message);
     }
 
