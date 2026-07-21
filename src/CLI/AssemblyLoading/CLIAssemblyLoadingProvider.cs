@@ -7,11 +7,25 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Extensions;
 
-public class CLIAssemblyLoadingProvider(
-    IEnumerable<IExtensionLoader> extensionLoaders,
-    ILoggingService loggingService,
-    IExtensionRegistryStore? registryStore = null) : IAssemblyLoadingProvider
+public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
 {
+    private readonly IEnumerable<IExtensionLoader> extensionLoaders;
+    private readonly ILoggingService loggingService;
+    private readonly IExtensionRegistryStore? registryStore;
+
+    public CLIAssemblyLoadingProvider(
+        IEnumerable<IExtensionLoader> extensionLoaders,
+        ILoggingService loggingService,
+        IExtensionRegistryStore? registryStore = null)
+    {
+        this.extensionLoaders = extensionLoaders;
+        this.loggingService = loggingService;
+        this.registryStore = registryStore;
+
+        // One-time chain-order log so `--debug` output explains "which loader ran first".
+        loggingService.Debug($"[{nameof(CLIAssemblyLoadingProvider)}] Loader chain: [{string.Join(", ", extensionLoaders.Select(l => l.GetType().Name))}].");
+    }
+
     private Assembly? LoadExtension(IEnumerable<IExtensionLoader> extensionLoaders, string extensionName, string? version = null) => extensionLoaders
                     .Select(loader => loader.LoadExtension(extensionName, version))
                     .FirstOrDefault(assembly => assembly != null);

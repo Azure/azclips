@@ -69,13 +69,13 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
         {
             if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
             {
-                _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in BuiltinExtensionLoader.");
+                _loggingService?.Debug($"[{nameof(BuiltinExtensionLoader)}] Skipping shared assembly '{assemblyName.Name}'.");
                 return null;
             }
             string? assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
             if (assemblyPath != null)
             {
-                _loggingService?.Debug($"Loading assembly from path: {assemblyPath}");
+                _loggingService?.Debug($"[{nameof(BuiltinExtensionLoader)}] Loading dependency assembly from '{assemblyPath}'.");
                 return LoadManagedAssembly(assemblyPath);
             }
             return null;
@@ -169,6 +169,9 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
     /// </remarks>
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
+        _loggingService?.Debug($"[{nameof(BuiltinExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         foreach (var root in GetCandidateRoots(_options.BuiltinInstallationDir))
         {
             foreach (var directoryName in GetCandidateDirectoryNames(extensionName, _options.ExtensionFolderPrefix))
@@ -194,18 +197,27 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                 foreach (var assemblyName in GetCandidateAssemblyNames(extensionName))
                 {
                     var extensionPath = Path.Combine(packageDir, $"{assemblyName}.dll");
+                    _loggingService?.Debug($"[{nameof(BuiltinExtensionLoader)}] Probing '{extensionPath}'.");
                     if (!File.Exists(extensionPath))
                     {
                         continue;
                     }
 
                     var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-                    return loadContext.LoadManagedAssembly(extensionPath);
+                    var assembly = loadContext.LoadManagedAssembly(extensionPath);
+                    stopwatch.Stop();
+
+                    var loadedVersion = string.IsNullOrEmpty(version)
+                        ? ResolvePackageVersionFromNupkg(packageDir, directoryName, _loggingService)
+                        : version;
+                    _loggingService?.Debug($"[{nameof(BuiltinExtensionLoader)}] Loaded '{extensionName}' v{(string.IsNullOrEmpty(loadedVersion) ? "?" : loadedVersion)} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
+                    ExtensionLoadTracker.Record(extensionName, stopwatch.Elapsed.TotalMilliseconds, loadedVersion, extensionPath);
+                    return assembly;
                 }
             }
         }
 
-        _loggingService?.Debug($"Extension '{extensionName}' (version '{version ?? string.Empty}') not found in builtin extensions directory, will try other sources. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'");
+        _loggingService?.Debug($"[{nameof(BuiltinExtensionLoader)}] Extension '{extensionName}' (version='{version ?? "any"}') not found; will try other loaders. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'.");
         return null;
     }
 
@@ -346,7 +358,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
         {
             if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
             {
-                _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in MultiVersionExtensionLoader.");
+                _loggingService?.Debug($"[{nameof(MultiVersionExtensionLoader)}] Skipping shared assembly '{assemblyName.Name}'.");
                 return null;
             }
             string assemblyPath = Path.Combine(ExtensionDirectory, $"{assemblyName.Name}.dll");
@@ -447,10 +459,13 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
 
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
+        _loggingService?.Debug($"[{nameof(MultiVersionExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         var extensionDir = ResolveExtensionDirectory(extensionName, version);
         if (extensionDir is null)
         {
-            _loggingService?.Debug($"Extension '{extensionName}' not found in multi-version extensions directory, will try other sources. Checked root: '{_options.VersionedInstallationDir}'");
+            _loggingService?.Debug($"[{nameof(MultiVersionExtensionLoader)}] Extension '{extensionName}' not found under versioned installation directory. Root: '{_options.VersionedInstallationDir}'.");
             return null;
         }
 
@@ -460,27 +475,38 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
 
         if (extensionPath is null)
         {
-            _loggingService?.Debug($"Extension '{extensionName}' version '{version}' not found in multi-version extensions directory. Checked path: '{extensionDir}'");
+            _loggingService?.Debug($"[{nameof(MultiVersionExtensionLoader)}] Extension '{extensionName}' version '{version}' has no matching .dll under '{extensionDir}'.");
             return null;
         }
 
+        _loggingService?.Debug($"[{nameof(MultiVersionExtensionLoader)}] Probing '{extensionPath}'.");
+
+        Assembly assembly;
         if (_options.BypassExtensionCache)
         {
             // ExtensionLoadContext expects a directory (Path.Combine in Load resolves siblings).
             // Cache hits below already pass key.Directory directly.
             var freshCtx = new ExtensionLoadContext(extensionDir, _loggingService);
-            return freshCtx.LoadManagedAssembly(extensionPath);
+            assembly = freshCtx.LoadManagedAssembly(extensionPath);
+        }
+        else
+        {
+            var entry = s_cache.GetOrAdd(
+                (extensionDir, extensionPath),
+                key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+                {
+                    var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
+                    var asm = ctx.LoadManagedAssembly(key.AssemblyPath);
+                    return (ctx, asm);
+                }));
+            assembly = entry.Value.Assembly;
         }
 
-        var entry = s_cache.GetOrAdd(
-            (extensionDir, extensionPath),
-            key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
-            {
-                var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
-                var asm = ctx.LoadManagedAssembly(key.AssemblyPath);
-                return (ctx, asm);
-            }));
-        return entry.Value.Assembly;
+        stopwatch.Stop();
+        var resolvedVersion = version ?? Path.GetFileName(extensionDir);
+        _loggingService?.Debug($"[{nameof(MultiVersionExtensionLoader)}] Loaded '{extensionName}' v{resolvedVersion} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
+        ExtensionLoadTracker.Record(extensionName, stopwatch.Elapsed.TotalMilliseconds, resolvedVersion, extensionPath);
+        return assembly;
     }
 
     /// <inheritdoc/>

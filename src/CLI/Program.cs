@@ -182,6 +182,10 @@ public class Program
         }
         finally
         {
+            if (_logger is not null)
+            {
+                ExtensionLoadTracker.EmitSummary(_logger);
+            }
             AzclipsServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
