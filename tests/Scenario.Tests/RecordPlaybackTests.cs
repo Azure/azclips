@@ -98,8 +98,6 @@ public class RecordPlaybackTests
         Assert.Equal("11111111-1111-1111-1111-111111111111", entry.Response.Headers["x-ms-request-id"].Single());
         Assert.Contains("application/json", entry.Response.ContentHeaders["Content-Type"].Single());
 
-        // Recording must not disturb the command itself: the processor still deserialized
-        // the (re-wrapped) response and produced its output object.
         var resourceGroup = Assert.IsType<ResourceGroup>(Assert.Single(outputs));
         Assert.Equal(ResourceGroupName, resourceGroup.Name);
         Assert.Equal(Location, resourceGroup.Location);

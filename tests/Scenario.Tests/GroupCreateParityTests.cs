@@ -112,9 +112,6 @@ public class GroupCreateParityTests
             psRequest = Assert.Single(psHttp.Captured);
         }
 
-        // The author-once premise: one recording can only serve both surfaces if the raw
-        // traffic matches exactly. Comparing the full rendered captures (method, URI,
-        // every header, body) makes any divergence — and where it is — visible at once.
         Assert.Equal(cliRequest.ToString(), psRequest.ToString());
 
         // Same request + same recording must also yield the same object on both surfaces.
