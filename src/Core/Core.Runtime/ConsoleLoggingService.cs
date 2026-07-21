@@ -16,7 +16,7 @@ public class ConsoleLoggingService : ILoggingService
 
     public void Info(string message)
     {
-        Console.Error.WriteLine($"[INFO] {message}");
+        Console.Error.WriteLine($"INFO: {message}");
         RecordTelemetry("Info", message);
     }
 
@@ -24,7 +24,7 @@ public class ConsoleLoggingService : ILoggingService
     {
         var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
         if (emitColor) Console.ForegroundColor = ConsoleColor.Red;
-        Console.Error.WriteLine($"[ERROR] {message}");
+        Console.Error.WriteLine($"ERROR: {message}");
         if (emitColor) Console.ResetColor();
         RecordTelemetry("Error", message);
     }
@@ -33,7 +33,7 @@ public class ConsoleLoggingService : ILoggingService
     {
         var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
         if (emitColor) Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.Error.WriteLine($"[WARN] {message}");
+        Console.Error.WriteLine($"WARNING: {message}");
         if (emitColor) Console.ResetColor();
         RecordTelemetry("Warning", message);
     }
@@ -42,7 +42,7 @@ public class ConsoleLoggingService : ILoggingService
     {
         var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
         if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.Error.WriteLine($"[VERBOSE] {message}");
+        Console.Error.WriteLine($"VERBOSE: {message}");
         if (emitColor) Console.ResetColor();
         RecordTelemetry("Verbose", message);
     }
@@ -51,7 +51,7 @@ public class ConsoleLoggingService : ILoggingService
     {
         var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
         if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.Error.WriteLine($"[DEBUG] {message}");
+        Console.Error.WriteLine($"DEBUG: {message}");
         if (emitColor) Console.ResetColor();
         RecordTelemetry("Debug", message);
     }

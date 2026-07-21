@@ -181,26 +181,21 @@ class ProcessService
         // Strip ANSI escape codes from subprocess output before matching prefixes.
         var clean = StripAnsi(line).TrimStart();
 
-        // The AzClips CLI emits diagnostics on stderr with stable prefixes. Classify by
-        // prefix so warnings/info don't get stamped as errors under RunCliAsync (which
-        // uses defaultType=Error). Two prefix styles exist because two surfaces render
-        // them:
-        //   BuildStreams (per-invocation OutputStreams):   "VERBOSE:", "DEBUG:", "WARNING:", "INFO:", "[ERROR]"
-        //   ConsoleLoggingService (process-wide fallback): "[VERBOSE]", "[DEBUG]", "[WARN]", "[INFO]", "[ERROR]"
+        // The AzClips CLI emits diagnostics on stderr with the canonical "LEVEL: message"
+        // prefix (see decision registry). Classify by prefix so warnings/info don't get
+        // stamped as errors under RunCliAsync (which uses defaultType=Error).
         // Case-sensitive (Ordinal) match: AzClips always emits uppercase, but tools like
         // git/npm emit lowercase ("warning:"), so we intentionally leave those alone —
         // RunLocalAsync callers still see git output as HistoryItemType.Output.
 
         // Drop verbose/debug lines entirely — too noisy for the TUI history.
-        if (clean.StartsWith("[VERBOSE]", StringComparison.Ordinal) ||
-            clean.StartsWith("VERBOSE:",  StringComparison.Ordinal) ||
-            clean.StartsWith("[DEBUG]",   StringComparison.Ordinal) ||
-            clean.StartsWith("DEBUG:",    StringComparison.Ordinal))
+        if (clean.StartsWith("VERBOSE:", StringComparison.Ordinal) ||
+            clean.StartsWith("DEBUG:",   StringComparison.Ordinal))
         {
             return null;
         }
 
-        if (clean.StartsWith("[ERROR]", StringComparison.Ordinal))
+        if (clean.StartsWith("ERROR:", StringComparison.Ordinal))
         {
             return (HistoryItemType.Error, StripAnsi(line));
         }
@@ -208,14 +203,12 @@ class ProcessService
         // No dedicated Warn value in HistoryItemType — render warnings as Info (dim
         // gray) so they don't inherit red-error styling. A proper Warn type is a
         // follow-up.
-        if (clean.StartsWith("[WARN]",   StringComparison.Ordinal) ||
-            clean.StartsWith("WARNING:", StringComparison.Ordinal))
+        if (clean.StartsWith("WARNING:", StringComparison.Ordinal))
         {
             return (HistoryItemType.Info, StripAnsi(line));
         }
 
-        if (clean.StartsWith("[INFO]", StringComparison.Ordinal) ||
-            clean.StartsWith("INFO:",  StringComparison.Ordinal))
+        if (clean.StartsWith("INFO:", StringComparison.Ordinal))
         {
             return (HistoryItemType.Info, StripAnsi(line));
         }

@@ -213,7 +213,7 @@ public class Program
                 var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 var originalColor = Console.ForegroundColor;
                 if (emitColor) Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine($"[ERROR] {value}");
+                Console.Error.WriteLine($"ERROR: {value}");
                 if (emitColor) Console.ForegroundColor = originalColor;
                 return Task.CompletedTask;
             },
