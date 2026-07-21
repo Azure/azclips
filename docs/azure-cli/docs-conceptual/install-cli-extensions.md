@@ -1,8 +1,8 @@
 # Install azcli Extensions
 
-> **Most users should start with the [install guide](../README.md).** This page covers add-on extensions, which you only need on **lean** installs or to pin a specific extension version.
+> **Most users should start with the [install guide](install-overview.md).** This page covers add-on extensions, which you only need on **lean** installs or to pin a specific extension version.
 
-Add-on extensions ship as NuGet packages named `azcli.extensions.<name>.<version>.nupkg`. You need a working azcli before you can add extensions — follow the [install guide](../README.md) to install the **lean** or **full** package first, then use the steps below.
+Add-on extensions ship as NuGet packages named `azcli.extensions.<name>.<version>.nupkg`. You need a working azcli before you can add extensions — follow the [install guide](install-overview.md) to install the **lean** or **full** package first, then use the steps below.
 
 > The **full** azcli package already bundles the add-on extensions — you only need this guide if you installed the **lean** package or want a specific extension version from a package file.
 
@@ -84,7 +84,7 @@ The extension you added should appear in the list. If the command it provides no
 
 | Symptom | Fix |
 | --- | --- |
-| `az` is not found | Install azcli first — see the [install guide](../README.md). |
+| `az` is not found | Install azcli first — see the [install guide](install-overview.md). |
 | A command says an extension is missing | Install the add-on from the extensions bundle with `az extension add --path <pkg>` (see above). |
 | `--path` package not found | Confirm the file name and version match your download, e.g. `azcli.extensions.compute.0.1.0.nupkg`. |
 | Extension already installed | Use `az extension update --name <name>` or remove then re-add it. |
