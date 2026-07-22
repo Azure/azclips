@@ -23,14 +23,14 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         this.registryStore = registryStore;
     }
 
-    private Assembly? LoadExtension(IEnumerable<IExtensionLoader> extensionLoaders, string extensionName, string? version = null) => extensionLoaders
+    private Assembly? LoadExtensionFromLoaders(string extensionName, string? version = null) => extensionLoaders
                     .Select(loader => loader.LoadExtension(extensionName, version))
                     .FirstOrDefault(assembly => assembly != null);
 
     public Assembly LoadExtension(string extensionName, string? extensionVersion = null)
     {
         loggingService.Info($"Processing command with extension '{extensionName}'.");
-        return LoadExtension(extensionLoaders, extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
+        return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
     }
 
     public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
