@@ -1,9 +1,10 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,7 +23,6 @@ public abstract class BenchmarkBase
     protected int RgCounter = 0;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
 
-
     /// <summary>
     /// Initialize repo root (one-time setup).
     /// </summary>
@@ -33,16 +33,16 @@ public abstract class BenchmarkBase
 
     /// <summary>
     /// Registers stub DI overrides for benchmark isolation.
-    /// Call before each iteration since <see cref="CirrusServiceProvider.Dispose"/>
+    /// Call before each iteration since <see cref="AzclipsServiceProvider.Dispose"/>
     /// clears all registrations.
     /// </summary>
     protected void RegisterBenchmarkStubs()
     {
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IAuthContextService, StubAuthContextService>();
+            services.AddSingleton<IProfileService, StubProfileService>();
             services.AddSingleton<IAuthService, StubAuthService>();
         });
     }
@@ -52,8 +52,6 @@ public abstract class BenchmarkBase
     /// </summary>
     protected void CleanupCommon()
     {
-        CirrusServiceProvider.Dispose();
+        AzclipsServiceProvider.Dispose();
     }
-
-
 }

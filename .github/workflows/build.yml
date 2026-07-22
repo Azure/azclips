@@ -9,7 +9,7 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
 
 jobs:
 
@@ -25,7 +25,7 @@ jobs:
                              # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
 
     env:
-      Solution_Name: cirrus.slnx
+      Solution_Name: azclips.slnx
       Certificate_Directory: .  # Store certificate in the root directory
 
     steps:
@@ -67,6 +67,7 @@ jobs:
 
     # Decode the base 64 encoded pfx and save the Signing_Certificate
     - name: Decode the pfx
+      if: github.event_name != 'pull_request'
       run: |
         $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.Base64_Encoded_Pfx }}")
         $certificatePath = Join-Path -Path $env:Certificate_Directory -ChildPath GitHubActionsWorkflow.pfx
@@ -110,10 +111,11 @@ jobs:
         # Determine the SDK tool architecture based on the target platform
         $sdkArch = if ("${{ matrix.platform }}" -eq "win-x86") { "x86" } else { "x64" }
         $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath "$sdkArch\MakeAppx.exe"
-        & $makeAppxPath pack /d "./publish/${{ matrix.configuration }}/${{ matrix.platform }}" /p "./bin/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix" /nv
+        & $makeAppxPath pack /d "./publish/${{ matrix.configuration }}/${{ matrix.platform }}" /p "./bin/${{ matrix.configuration }}/az-${{ matrix.platform }}.msix" /nv
     
     # Sign the appx package
     - name: Sign the appx package
+      if: github.event_name != 'pull_request'
       run: |
         $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
         $latestBinDir = Get-ChildItem -Path $windowsKitBinRoot -Directory |
@@ -125,10 +127,11 @@ jobs:
         }
         # Use x64 signtool regardless of target platform (runs on host)
         $signtoolPath = Join-Path -Path $latestBinDir.FullName -ChildPath 'x64\signtool.exe'
-        & $signtoolPath sign /f "$env:Certificate_Directory/GitHubActionsWorkflow.pfx" /p "${{ secrets.Pfx_Key }}" /fd SHA256 "./bin/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix"
+        & $signtoolPath sign /f "$env:Certificate_Directory/GitHubActionsWorkflow.pfx" /p "${{ secrets.Pfx_Key }}" /fd SHA256 "./bin/${{ matrix.configuration }}/az-${{ matrix.platform }}.msix"
 
     # Remove the pfx
     - name: Remove the pfx
+      if: github.event_name != 'pull_request'
       run: Remove-Item -path $env:Certificate_Directory\GitHubActionsWorkflow.pfx
 
     # Upload the MSIX package:
@@ -136,7 +139,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MSIX Package (${{ matrix.configuration }}-${{ matrix.platform }})
-        path: ./bin/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix
+        path: ./bin/${{ matrix.configuration }}/az-${{ matrix.platform }}.msix
 
   discover-extensions:
     runs-on: ubuntu-latest
@@ -149,7 +152,7 @@ jobs:
         fetch-depth: 0
     - id: discover-extensions
       run: |
-        extensions=$(find src/Extensions -name "*.csproj" -type f | jq -R -s -c 'split("\n") | map(select(length > 0))')
+        extensions=$( { find src/Extensions -name "*.csproj" -type f; find Agent -name "Agent.Commands.csproj" -type f; } | jq -R -s -c 'split("\n") | map(select(length > 0))')
         echo "extensions=$extensions" >> $GITHUB_OUTPUT
 
   build-extension:
@@ -270,7 +273,7 @@ jobs:
       #     $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
       #     $moduleDir = "${{ steps.extract-metadata.outputs.module_dir }}"
       #     $publishDir = "./publish/$moduleName"
-      #     $buildOutput = "./artifacts/Release/Microsoft.Azure.Cirrus.Extensions.$moduleName"
+      #     $buildOutput = "./artifacts/Release/Microsoft.Azure.Azclips.Extensions.$moduleName"
           
       #     Write-Host "Publishing module: $moduleName"
       #     Write-Host "Source: $moduleDir"
@@ -287,7 +290,7 @@ jobs:
       #     Copy-Item -Path "$buildOutput/*.dll" -Destination $publishDir
           
       #     # Rename the main DLL to match what the module manifest expects
-      #     $mainDll = Join-Path $publishDir "Microsoft.Azure.Cirrus.Extensions.$moduleName.dll"
+      #     $mainDll = Join-Path $publishDir "Microsoft.Azure.Azclips.Extensions.$moduleName.dll"
       #     if (Test-Path $mainDll) {
       #       Rename-Item -Path $mainDll -NewName "$moduleName.dll"
       #       Write-Host "Renamed to: $moduleName.dll"

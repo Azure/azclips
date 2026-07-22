@@ -1,362 +1,290 @@
 ---
 title: Core Engine & Orchestration
-description: Deep dive into OrchestratorEngine, the DefaultCommandEngine → AgentEngine fallback pipeline, Bootstrapper DI registration, and the full engine interface hierarchy powering Cirrus CLI and PowerShell execution.
+description: How the AzclipsServiceProvider composition root, the Engine mediator, the ExecutionSession, and the CLI try/execute/fallback path collaborate to run one az command — and how the real out-of-process TUI agent fallback differs from the stale OrchestratorEngine documentation.
+outline: deep
 ---
 
 # Core Engine & Orchestration
 
-The engine layer is the beating heart of Cirrus. Every command — whether a structured CLI invocation like `azv2 group create --name test` or a natural-language query like _"create a resource group for me"_ — passes through the same orchestration pipeline. This page traces the complete lifecycle of a command from raw `string[]` args to executed result.
+## Overview
 
-## Engine Interface Hierarchy
+Everything the `az` binary does for a single command flows through three collaborating pieces: a **composition root** that builds the dependency-injection (DI) container exactly once (`AzclipsServiceProvider`), a **mediator** that owns per-invocation state and wiring (`Engine`), and a short-lived **session** that actually resolves the target processor and pumps its output (`ExecutionSession`). Around all of that sits the CLI's `Program.Main`, whose job is to _try_ to execute the command, _classify_ any failure, and — only for the right class of failure — _fall back_ to an AI agent.
 
-Cirrus defines two distinct engine contracts that serve different execution models (`src/Core/Core.Abstractions/IEngine.cs:5-25`):
+This page traces the real code path end to end. It matters because the orchestration model changed: older internal docs describe an in-process `OrchestratorEngine` that "tries `DefaultCommandEngine`, then falls back to `AgentEngine`." **That is no longer how it works.** The current fallback spawns a _separate out-of-process TUI process_ in `--agent-mode`. We call this out explicitly below as **fact vs. stale doc**, because getting it wrong will send you looking for classes that do not exist in the tree.
 
-| Interface | Purpose | Consumers |
-|---|---|---|
-| `IEngine` | Synchronous command processing with output delegates. Extends `IDisposable`. | `CLIEngine`, `PSEngine` (extension-based pipeline) |
-| `ICommandEngine` | Async command execution from `string[]` args. Exposes `ExtractedCommand` for AI-to-structured bridging. | `OrchestratorEngine`, `DefaultCommandEngine`, `AgentEngine` |
+> Terminology: the product is internally named **Azclips** (the composition root is `AzclipsServiceProvider`), while the user-facing brand and older docs say **Azclips**. Both names refer to the same system. The target framework is **net10.0**.
 
-The `ClientType` enum (`src/Core/Core.Abstractions/ClientType.cs:7-10`) distinguishes between the two host environments:
+---
+
+## 1. The composition root: `AzclipsServiceProvider`
+
+`AzclipsServiceProvider` is a _static_ class — there is no `Bootstrapper` type. It holds a single process-wide `IServiceProvider` behind a double-checked lock, plus two queues of registration callbacks that clients enqueue _before_ the container is built (`src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs:17`).
+
+| Member                    | Purpose                                                                                                   | Citation                        |
+| ------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `PrependRegistration`     | Queue a callback that runs **before** the default registrations. Throws if the provider is already built. | `AzclipsServiceProvider.cs:29`  |
+| `OverrideRegistration`    | Queue a callback that runs **after** the defaults; DI last-wins means these win ties.                     | `AzclipsServiceProvider.cs:44`  |
+| `RegisterAzclipsServices` | Chains every module's `Register…Services` extension into one call.                                        | `AzclipsServiceProvider.cs:53`  |
+| `Initialize(ClientType)`  | Idempotent build: first caller wins, later calls no-op.                                                   | `AzclipsServiceProvider.cs:67`  |
+| `GetRequiredService<T>`   | Resolve from the built container (throws if not initialized).                                             | `AzclipsServiceProvider.cs:96`  |
+| `Dispose`                 | Dispose the container and clear both queues.                                                              | `AzclipsServiceProvider.cs:119` |
+
+### Why prepend _and_ override?
+
+Microsoft.Extensions.DependencyInjection uses **last-registration-wins** semantics for a given service type. The two queues give clients two distinct levers:
+
+- **Prepend** runs first, so it can seed _additive_ services (e.g. multiple `IExtensionLoader` implementations) that the defaults may then consume.
+- **Override** runs last, so it can _replace_ a default singleton (e.g. swap the default logging service for a host-specific one).
+
+`Initialize` executes them in that exact order: seed `ClientType`, drain prepend queue, register defaults, drain override queue, then `BuildServiceProvider()` (`AzclipsServiceProvider.cs:77-89`). The `_serviceProvider is not null` fast-path plus the `lock` make it safe to call from multiple entry points (`AzclipsServiceProvider.cs:69-75`).
+
+`RegisterAzclipsServices` is the canonical dependency graph — each module contributes its own `Register…Services` extension, chained fluently (`AzclipsServiceProvider.cs:53-61`):
 
 ```csharp
-public enum ClientType
+services
+    .RegisterConfigurationServices()
+    .RegisterTelemetryServices()
+    .RegisterRuntimeServices()
+    .RegisterAuthenticationServices()
+    .RegisterEngineServices()
+    .RegisterAssemblyLoadingServices()
+    .RegisterArgumentParsingServices();
+```
+
+`RegisterEngineServices` is what binds `IEngine` to the concrete `Engine` and registers the shared `HttpClient` singleton (`src/Core/Core.Engine/DIRegisterExtensions.cs`).
+
+### Each client customizes registrations before `Initialize`
+
+Two hosts drive the same container differently:
+
+- **CLI** (`src/CLI/Program.cs:40-53`) prepends the extension loaders (`BuiltinExtensionLoader`, `MultiVersionExtensionLoader`), `PropertyParser`, and the CLI dispatch services, then _overrides_ the assembly-loading, argument-parsing, and telemetry providers with CLI implementations, then calls `Initialize(ClientType.CLI)`.
+- **TUI** (`TUI/Program.cs:23-41`) prepends its Azure/VFS/state services, then _overrides_ `ILoggingService` with a silent `TuiLoggingService` (so log lines can't corrupt the rendered UI) and swaps the telemetry provider, then calls `Initialize(ClientType.TUI)`.
+
+The `ClientType` singleton seeded at the top of `Initialize` (`AzclipsServiceProvider.cs:79`) is how downstream services (and the `Engine`) know which host they are running under.
+
+### The DI composition graph
+
+```mermaid
+flowchart TD
+    subgraph client["Client entry point (CLI or TUI)"]
+        P["PrependRegistration(...)<br>host-specific additive services"]
+        O["OverrideRegistration(...)<br>host-specific replacements"]
+        I["Initialize(ClientType)"]
+    end
+
+    subgraph root["AzclipsServiceProvider.Initialize"]
+        CT["AddSingleton(ClientType)"]
+        PQ["drain prepend queue"]
+        REG["RegisterAzclipsServices()"]
+        OQ["drain override queue"]
+        BUILD["BuildServiceProvider()"]
+    end
+
+    subgraph modules["RegisterAzclipsServices chain"]
+        M1["RegisterRuntimeServices"]
+        M2["RegisterAuthenticationServices"]
+        M3["RegisterEngineServices<br>IEngine -> Engine, HttpClient"]
+        M4["RegisterConfiguration / Telemetry /<br>AssemblyLoading / ArgumentParsing"]
+    end
+
+    P --> I
+    O --> I
+    I --> CT --> PQ --> REG --> OQ --> BUILD
+    REG --> M1 --> M2 --> M3 --> M4
+    BUILD --> SP["IServiceProvider (singleton)"]
+
+    style client fill:#161b22,stroke:#30363d,color:#e6edf3
+    style root fill:#161b22,stroke:#30363d,color:#e6edf3
+    style modules fill:#161b22,stroke:#30363d,color:#e6edf3
+    style P fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style O fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style I fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PQ fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style REG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style OQ fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style BUILD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style M1 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style M2 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style M3 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style M4 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+```
+
+---
+
+## 2. The `Engine`: a partial mediator
+
+`Engine` is declared as a `partial class` implementing `IEngine` (`src/Core/Core.Engine/Engine.cs:22`; interface at `src/Core/Core.Abstractions/IEngine.cs:8`). It uses a primary constructor that receives every collaborating service — profile, auth, telemetry, logging, assembly loading, argument parsing, configuration, and the HTTP pipeline service — plus the shared `HttpClient` and the `ClientType` (`Engine.cs:22-32`).
+
+The mediator's contract is deliberately small — `IEngine` exposes only two methods (`IEngine.cs:8`):
+
+| Method                 | Returns    | Role                                                     |
+| ---------------------- | ---------- | -------------------------------------------------------- |
+| `OpenExecutionSession` | `ISession` | Run one concrete command invocation.                     |
+| `OpenDiscoverySession` | `ISession` | Enumerate extension/command metadata (help, completion). |
+
+### What `OpenExecutionSession` wires up
+
+`OpenExecutionSession` constructs an `ExecutionSession`, subscribes all of the engine's event handlers to that session's event bus, publishes a `SessionCreated` event, and then injects a bundle of delegates into the session (`Engine.cs:39-60`). The session is intentionally passive — it holds no service references; instead the engine hands it _function pointers_ into itself:
+
+| Delegate on the session  | Backed by                                              |
+| ------------------------ | ------------------------------------------------------ |
+| `LoadAssembly`           | `assemblyLoadingService.LoadExtension`                 |
+| `BindProcessor`          | `argumentParsingService.BindArgumentsToProcessor`      |
+| `CreateProcessorContext` | `Engine.CreateProcessorContext`                        |
+| `CacheGetOrAdd`          | `Engine.CacheGetOrAdd`                                 |
+| `Option`                 | `configurationService.GetConfiguration<CoreOptions>()` |
+
+`SubscribeAll` (in the sibling partial `Engine.Subscriptions.cs:15`) attaches three families of handlers to the bus — message logging, telemetry activities, and metrics — so that every event the session publishes is observed centrally (`Engine.Subscriptions.cs:26-224`).
+
+### Extension-index caching
+
+Loading an extension assembly and reflecting its command index is expensive, so the engine caches indices in an `LFUCache<Lazy<IExtensionIndex>>` (`Engine.cs:36`). `CacheGetOrAdd` lazily creates the cache sized from `CoreOptions.Engine.ExtensionIndexCacheSize` and keys entries by `name` or `name-version` (`Engine.cs:81-89`). Wrapping the value in `Lazy<T>` guarantees the factory runs **exactly once per key** even under concurrent access — critical because sessions run on the thread pool. Transient invocations bypass the cache entirely (`ExecutionSession.cs:50-54`).
+
+### Building the per-invocation `ProcessorContext`
+
+`CreateProcessorContext` (`src/Core/Core.Engine/Engine.cs:99`) is where a single invocation's runtime is assembled. In order, it:
+
+1. Resolves the effective `Profile` via `ResolveProfileAsync` (`Engine.cs:143`).
+2. Builds an `AuthHandler` seeded with that profile and the silent token-acquisition delegate (`Engine.cs:102-107`).
+3. Builds an `OutputHandler` bound to the session's per-invocation output writer (`Engine.cs:110-113`).
+4. Builds a fresh `HttpPipeline` sized by `CoreOptions.Http.MaxRetries` / `MaxRetriesFor429` (`Engine.cs:115-118`).
+5. **Prepends `authHandler.SendAsync`** onto the pipeline and packs everything into the `ProcessorContext` record (`Engine.cs:123-130`).
+6. Prepends a passthrough terminating step and appends a request-tracing step (`Engine.cs:132-134`).
+
+Steps 4–6 are covered in depth on the [HTTP Pipeline & Runtime](./http-pipeline.md) page.
+
+`ResolveProfileAsync` encodes an important rule: an _explicit_ `--profile X` that names a non-existent profile is a hard error, whereas a _stale active pointer_ simply resolves to `null` (`Engine.cs:143-161`). A null profile means no token is acquired, and commands that require auth fail later at point of use with a clear message.
+
+---
+
+## 3. `ExecutionSession`: isolated output + pre-binding
+
+`ExecutionSession` is an `internal` class implementing `ISession` (`src/Core/Core.Engine/ExecutionSession.cs:12`). Each session owns its own `RuntimeEventBus` and a channel-based output path so that concurrent invocations never cross output streams (`ExecutionSession.cs:34-44`).
+
+### `RunAsync` — the async CLI path
+
+The CLI uses the async entry point (`ExecutionSession.cs:57`):
+
+```csharp
+public async Task RunAsync()
 {
-    PowerShell,  // PSEngine path — runspace-aware, channel-based output
-    CLI          // CLIEngine path — direct console output
+    ObjectDisposedException.ThrowIf(_disposed, this);
+    EventBus.Token.ThrowIfCancellationRequested();
+    ProcessorOutputWriter = sessionOutputWriter;
+    await (await GetProcessor()).ProcessAsync();
 }
 ```
 
-```mermaid
-classDiagram
-    direction TB
+`GetProcessor` (`ExecutionSession.cs:213`) is the heart of the session:
 
-    class IEngine {
-        <<interface>>
-        +Process(ICommandInvocation, CommandOutputDelegate, CancellationToken)
-        +Dispose()
-    }
-    class ICommandEngine {
-        <<interface>>
-        +ExtractedCommand : string?
-        +ExecuteCommandAsync(string[] args, CancellationToken) Task
-    }
-    class CLIEngine {
-        -IAuthContextService _authContextService
-        -IAuthService _authService
-        -HttpClient _httpClient
-        +Process(ICommandInvocation, CommandOutputDelegate, CancellationToken)
-        +GetProcessor(ICommandInvocation) IProcessor
-    }
-    class PSEngine {
-        -LFUCache~Lazy~IExtensionIndex~~ _extensionIndices
-        -HttpClient _httpClient
-        +ClientType : ClientType
-        +Process(ICommandInvocation, CommandOutputDelegate, CancellationToken)
-    }
-    class OrchestratorEngine {
-        -DefaultCommandEngine _defaultEngine
-        -AgentEngine _agentEngine
-        -CommandParser _parser
-        +ExtractedCommand : string?
-        +ExecuteCommandAsync(string[] args, CancellationToken) Task
-    }
-    class DefaultCommandEngine {
-        -CommandParser _parser
-        -CommandBinder _binder
-        +ExtractedCommand : string?
-        +ExecuteCommandAsync(string[] args, CancellationToken) Task
-    }
-    class AgentEngine {
-        -IOutputAdapter _output
-        -string _flavor
-        -CloudAgent? _agent
-        +ExtractedCommand : string?
-        +ExecuteCommandAsync(string[] args, CancellationToken) Task
-    }
+1. Look up `CommandMetadata` from the (possibly cached) extension index (`ExecutionSession.cs:215`).
+2. **Global `--profile` pre-binding pass**: extract and normalize the global `--profile`/`-Profile` value from the _raw_ invocation parameters _before_ the processor context is created (`ExecutionSession.cs:221`, `ExtractGlobalProfileParameter` at `:243`). This must happen first because the resolved `Profile?` is injected via `Init()` _ahead of_ the command-specific argument binding. This ordering is the concrete implementation of Decision 4 in `openspec/changes/profile-management/design.md`.
+3. Create the `ProcessorContext` for that profile (`ExecutionSession.cs:224`).
+4. `Init(context)` the processor instance, then bind the remaining CLI arguments onto it (`ExecutionSession.cs:226-234`).
 
-    IEngine <|.. CLIEngine
-    IEngine <|.. PSEngine
-    ICommandEngine <|.. OrchestratorEngine
-    ICommandEngine <|.. DefaultCommandEngine
-    ICommandEngine <|.. AgentEngine
-    OrchestratorEngine --> DefaultCommandEngine : tries first
-    OrchestratorEngine --> AgentEngine : fallback
+The parallel synchronous `Run()` method (`ExecutionSession.cs:76`) exists for PowerShell hosts: it pumps a `Channel<object>` on the caller's runspace thread while the processor runs on the thread pool, because `$PSCmdlet.WriteObject` has strict thread affinity (`ExecutionSession.cs:114-149`). The CLI does not use this path.
 
-    style IEngine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ICommandEngine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CLIEngine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PSEngine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style OrchestratorEngine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DefaultCommandEngine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AgentEngine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
+Every processor implements the tiny `IProcessor` contract — `Init(ProcessorContext)` then `ProcessAsync()` (`src/Core/Core.Abstractions/CLIContracts.cs:11-14`).
 
-## Bootstrapper & Dependency Injection
+---
 
-The `Bootstrapper` class (`src/Core/Core.Engine/Bootstrapper.cs:25`) is a static service-locator that lazily initializes the DI container on first access:
+## 4. Orchestration & fallback in `Program.Main`
 
-```csharp
-public static Task<IServiceProvider> ServiceProviderAsync => _serviceProvider.Value;
-private readonly static Lazy<Task<IServiceProvider>> _serviceProvider = new(() => StartAsync());
-```
+The CLI `Main` (`src/CLI/Program.cs:31`) is the outer orchestrator. After DI setup and flag parsing, its inner `try` executes the command and its `catch` blocks _classify_ failures (`src/CLI/Program.cs:65-145`). The classification is the whole point: not every failure deserves an AI fallback.
 
-The `RegisterServices` method (`src/Core/Core.Engine/Bootstrapper.cs:49-111`) wires every component:
+| Caught exception                | Handling                                                                   | Fallback? | Citation             |
+| ------------------------------- | -------------------------------------------------------------------------- | --------- | -------------------- |
+| _(success)_                     | `RunAsync()` returns, exit `0`                                             | —         | `Program.cs:84-89`   |
+| `DispatchHelpException`         | Render root help (plus a welcome banner when the invocation was bare `az`) | No        | `Program.cs`         |
+| `RuntimeExtensionHelpException` | Render extension help                                                      | No        | `Program.cs:100-120` |
+| `HttpRequestException`          | Network failure → try agent                                                | **Yes**   | `Program.cs:121-127` |
+| `AzclipsErrorException`         | Structured, well-known error → render + symbolic exit code                 | **No**    | `Program.cs:128-135` |
+| `Exception` (generic)           | Unknown failure → try agent                                                | **Yes**   | `Program.cs:136-144` |
 
-**Original registrations** (lines 53-58) — foundation services:
-- `ILoggingService` → `ConsoleLoggingService`
-- `IAuthService` → `MsalAuthService`
-- `IAuthContextService` → `AuthContextService`
-- `ITelemetryService` → `TelemetryService`
+The design intent is explicit in the source: a structured `AzclipsErrorException` means "the failure is well-known and the user's intent is unambiguous", so there is **no AI fallback** (`Program.cs:130-131`). Only network faults and _unclassified_ exceptions route into `TryAgentFallbackAsync` (`Program.cs:281`).
 
-**AI-integration registrations** (lines 62-105) — added for the orchestrator pattern:
-- `IOutputAdapter` → `ConsoleOutputAdapter` — abstracts console output so engines don't call `Console.WriteLine` directly (`src/Core/Core.Engine/Bootstrapper.cs:65`)
-- `CommandParser` and `CommandBinder` as singletons (`src/Core/Core.Engine/Bootstrapper.cs:70,75`)
-- `AgentEngine` with a factory that reads `AZURECLI_FLAVOR` at construction time (`src/Core/Core.Engine/Bootstrapper.cs:85-91`)
-- `ICommandEngine` → `OrchestratorEngine` — the actual engine returned to `Program.cs` (`src/Core/Core.Engine/Bootstrapper.cs:98-105`)
+### ⚠️ Fact vs. stale doc: the fallback is out-of-process
 
-### AZURECLI_FLAVOR Environment Variable
+**Stale doc** — `AGENTS.md:16` states:
 
-The flavor variable is read in two places:
+> "**Orchestrator**: `OrchestratorEngine` tries `DefaultCommandEngine` first, falls back to `AgentEngine` (AI) on failure"
 
-1. **Bootstrapper** (line 87): `Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli"` — passed to `AgentEngine` constructor to control prompt template flavor substitution.
-2. **OrchestratorEngine** (line 63): Same read — determines whether to use the full orchestration loop or the direct-to-AI PowerShell path.
+and `eng-docs/spec/ARCHITECTURE.md` repeats an in-process `OrchestratorEngine → DefaultCommandEngine → AgentEngine` routing model.
 
-When PowerShell cmdlets invoke the CLI, they set `AZURECLI_FLAVOR=azure powershell`, which bypasses structured parsing entirely and routes all input through the AI agent.
+**Fact** — no `OrchestratorEngine`, `DefaultCommandEngine`, or `AgentEngine` type exists in `src/` today. The real fallback, `TryAgentFallbackAsync` (`src/CLI/Program.cs:281`), **spawns a separate process** — the TUI binary (`Core.Tui`) with `--agent-mode` — and waits for it to exit:
 
-## OrchestratorEngine: The Heart of the System
+1. **Opt-in gate** — returns `1` unless config `agent.enabled` is `true`; if config can't be read, it fails safe to disabled (`Program.cs:287-299`).
+2. **Non-interactive guard** — if stdin or stdout is redirected (CI, pipes), it surfaces the original error instead of hanging on prompts (`Program.cs:308-311`).
+3. **Recursion guard** — if `AZCLIPS_IN_AGENT_MODE == "1"`, it refuses to spawn another agent (`Program.cs:315-318`).
+4. **Locate binary** — `FindTuiExe()` probes for `Core.Tui[.exe]` next to `az` (`Program.cs:390-404`).
+5. **Spawn** — starts `Core.Tui --agent-mode --failed-command <args> [--error <text>]` with inherited stdio and `AZCLIPS_IN_AGENT_MODE=1` set on the child, then `await proc.WaitForExitAsync()` and returns the child's exit code (`Program.cs:329-361`).
 
-`OrchestratorEngine` (`src/Core/Core.Engine/OrchestratorEngine.cs:33`) is the `ICommandEngine` implementation returned by the Bootstrapper. It coordinates the two sub-engines:
+On the receiving side, `TUI/Program.cs:21` short-circuits into `AgentModeEntry.RunAsync(args)` when its first argument is `--agent-mode`, _before_ any TUI DI setup — the agent runs as a first-class alternate entry point of a different executable, not an engine swapped in-process.
 
-### Execution Flow
-
-The `ExecuteCommandAsync` method (`src/Core/Core.Engine/OrchestratorEngine.cs:60-119`) implements a two-phase strategy:
-
-**Phase 1 — Flavor check** (lines 63-70): If `AZURECLI_FLAVOR == "azure powershell"`, skip the structured path entirely and send args directly to `AgentEngine`. PowerShell users interact via natural language exclusively.
-
-**Phase 2 — Retry loop** (lines 72-115): For CLI users, a `while` loop with `maxTries = 5` attempts:
-
-1. **Try `DefaultCommandEngine`** (line 84) — if the args match a known structured command, execute it and return.
-2. **`NotImplementedException`** (lines 87-92) — command is recognized but not yet implemented. Show a warning and exit gracefully (not an error).
-3. **Any other exception** (lines 94-114) — fall back to `AgentEngine`. If the AI generates an `executable_command`, parse it (`extractedCommand.Split(' ').Skip(1).ToArray()` on line 112), display a retry message, and loop again through `DefaultCommandEngine` with the new args.
-
-If all 5 attempts fail, a final exception is thrown (line 118).
+### End-to-end sequence (with fallback)
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant User
-    participant Orchestrator as OrchestratorEngine
-    participant Default as DefaultCommandEngine
-    participant Parser as CommandParser
-    participant Binder as CommandBinder
-    participant Agent as AgentEngine
-    participant Cloud as CloudAgent
+    participant Main as Program.Main (az)
+    participant DI as AzclipsServiceProvider
+    participant Engine
+    participant Session as ExecutionSession
+    participant Proc as IProcessor
+    participant TUI as Core.Tui --agent-mode
 
-    User->>Orchestrator: ExecuteCommandAsync(args)
-    Orchestrator->>Orchestrator: Read AZURECLI_FLAVOR
+    User->>Main: az <extension> <command> [args]
+    Main->>DI: Prepend/Override + Initialize(CLI)
+    Main->>DI: GetRequiredService<IEngine>()
+    Main->>Engine: OpenExecutionSession(invocation, streams)
+    Engine->>Session: new ExecutionSession + SubscribeAll(bus)
+    Main->>Session: await RunAsync()
+    Session->>Session: GetProcessor()<br>pre-bind global --profile
+    Session->>Engine: CreateProcessorContext(session, profile)
+    Engine-->>Session: ProcessorContext (http + auth + output)
+    Session->>Proc: Init(context) + bind args
+    Session->>Proc: await ProcessAsync()
 
-    alt flavor == "azure powershell"
-        Orchestrator->>Agent: ExecuteCommandAsync(args)
-        Agent->>Cloud: RunStreamingAsync(userInput)
-        Cloud-->>Agent: JSON response stream
-        Agent-->>Orchestrator: done
-    else flavor == "azure cli"
-        loop attempt < 5
-            Orchestrator->>Default: ExecuteCommandAsync(args)
-            Default->>Parser: Parse(args)
-            Parser-->>Default: ParseResult
-            Default->>Binder: Bind(parseResult)
-            alt command found
-                Binder-->>Default: ICommand
-                Default->>Default: command.ExecuteAsync()
-                Default-->>Orchestrator: success
-            else command not found
-                Binder-->>Default: null / exception
-                Default-->>Orchestrator: throws Exception
-                Orchestrator->>Agent: ExecuteCommandAsync(args)
-                Agent->>Cloud: RunStreamingAsync(userInput)
-                Cloud-->>Agent: JSON response
-                Agent-->>Orchestrator: ExtractedCommand?
-                alt has extracted command
-                    Orchestrator->>Orchestrator: parse extracted args, retry
-                else no command extracted
-                    Orchestrator-->>User: informational response
-                end
-            end
-        end
+    alt success
+        Proc-->>Session: output via channel
+        Session-->>Main: return
+        Main-->>User: exit 0
+    else AzclipsErrorException (well-known)
+        Proc-->>Main: throw AzclipsErrorException
+        Main-->>User: EmitStructuredError + symbolic exit code (no fallback)
+    else HttpRequestException / generic
+        Proc-->>Main: throw
+        Main->>Main: TryAgentFallbackAsync(args, error)
+        Main->>Main: check agent.enabled + TTY + recursion guards
+        Main->>TUI: Process.Start(Core.Tui --agent-mode ...)
+        TUI-->>User: interactive AI session (inherited stdio)
+        TUI-->>Main: exit code
+        Main-->>User: propagate child exit code
     end
-
-    style User fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Orchestrator fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Default fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Parser fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Binder fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Agent fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Cloud fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-## DefaultCommandEngine: The Structured Path
+---
 
-`DefaultCommandEngine` (`src/Core/Core.Engine/DefaultCommandEngine.cs:24`) is a primary-constructor class injecting `CommandParser`, `CommandBinder`, and `ILoggingService`. Its `ExecuteCommandAsync` method (lines 31-48) is deliberately simple:
+## Key takeaways
 
-1. **Parse** — `_parser.Parse(args)` → `ParseResult` (line 34)
-2. **Bind** — `_binder.Bind(parseResult)` → `ICommand?` (line 37)
-3. **Validate** — throws `InvalidOperationException` if command is null (line 42), which triggers the orchestrator's AI fallback
-4. **Execute** — `command.ExecuteAsync(await Bootstrapper.ServiceProviderAsync, parseResult.Options, cancellationToken)` (line 46)
-
-### CommandParser
-
-`CommandParser` (`src/Core/Core.Engine/CommandParser.cs:7`) separates args into commands (positional tokens) and options (key-value pairs). It supports three option formats:
-
-| Format | Example | Handling |
-|---|---|---|
-| `--key=value` | `--name=test` | Split on `=`, trim `--` prefix (line 27-30) |
-| `--key value` | `--name test` | Consume next arg as value (line 33-45) |
-| `-k value` | `-n test` | Short option, single char (line 48-60) |
-
-Flags without values default to `"true"` (lines 44, 59). Non-option tokens are collected as commands (line 65). The result is a `ParseResult` (`src/Core/Core.Engine/ParseResult.cs:6`) with `Commands` and `Options` properties.
-
-### CommandBinder
-
-`CommandBinder` (`src/Core/Core.Engine/CommandBinder.cs:9`) dynamically loads modules at runtime. Given a `ParseResult`, it:
-
-1. Takes the first command token as the module name (line 23)
-2. Calls `LoadModule(moduleName)` which searches `AppContext.BaseDirectory/{moduleName}/` for a DLL (lines 72-106)
-3. Loads the assembly via `Assembly.LoadFrom()` (line 110) and handles `ReflectionTypeLoadException` for partial loads (lines 119-123)
-4. Finds the `IModule` implementation and calls `GetCommands()` (lines 126-131)
-5. Matches the subcommand to a command type name using case-insensitive `Contains` (line 54-55)
-
-## AgentEngine: The AI Fallback
-
-`AgentEngine` (`src/Core/Core.Engine/AgentEngine.cs:32`) wraps `CloudAgent` in a conversation loop with interactive UI:
-
-### Conversation Loop Architecture
-
-The `ExecuteCommandAsync` method (lines 53-230) implements:
-
-1. **Lazy agent creation** — `_agent ??= await CloudAgent.CreateAsync(_flavor)` (line 59). The agent is reused across retry attempts, preserving conversation history.
-
-2. **User input** — args joined into a single string (line 64).
-
-3. **Spinner UI** — For CLI mode only (`_flavor != "azure powershell"`, line 75), a background task displays animated frames `["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]` with 100ms interval (lines 78-91).
-
-4. **Streaming** — Response is streamed via `_agent.RunStreamingAsync(userInput)` returning `IAsyncEnumerable<AgentRunResponseUpdate>` (line 98).
-
-5. **JSON parsing** — The raw response is deserialized into an `AgentResponse` with `Response` and `Type` properties (lines 47-51, 126-141).
-
-6. **Response type handling** (lines 151-222):
-
-| Type | Action | Line |
-|---|---|---|
-| `executable_command` | Store in `_extractedCommand`, display cyan, exit loop. For PowerShell: also emit `__PSEXEC__` marker | 153-168 |
-| `sample_command` | Display syntax in cyan, set `_extractedCommand = null`, exit | 170-177 |
-| `exit` | Display goodbye, set `_extractedCommand = null`, exit | 179-186 |
-| `confirmation` / `question` | Display message; in CLI mode prompt for input and continue loop; in PowerShell mode exit immediately | 188-215 |
-
-## CLIEngine vs PSEngine
-
-Both implement `IEngine` but differ in threading and output models:
-
-### CLIEngine
-
-`CLIEngine` (`src/Core/Core.Engine/CLIEngine.cs:15`) is for CLI binary consumers. Key characteristics:
-
-- **Extension loading** — uses `BuiltinExtensionLoader` and `MultiVersionExtensionLoader` (lines 58-62) with a static prefix `"Microsoft.Azure.Cirrus.Extensions."` (line 32)
-- **Processor context** — `CreateProcessorContext` (lines 129-162) assembles `AuthHandler`, `OutputHandler`, `TelemetryHandler`, and `HttpPipeline`
-- **Execution** — `ExecuteCommandAsync` wraps `command.ProcessAsync()` in `Task.Run` (lines 168-180)
-
-### PSEngine
-
-`PSEngine` (`src/Core/Core.Engine/PSEngine.cs:21`) is designed for PowerShell runspace affinity:
-
-- **Channel-based output** — uses `System.Threading.Channels.Channel.CreateUnbounded<object>()` (lines 63-67) to pump output on the caller's thread while the command runs in a background task
-- **Extension caching** — `LFUCache<Lazy<IExtensionIndex>>` with capacity 512 (line 26) avoids reloading extension indices
-- **Thread model** — worker task runs command in background; caller's thread pumps channel items for PowerShell `WriteObject()` calls (lines 76-83)
-
-```mermaid
-flowchart TB
-    subgraph CLI["CLI Execution Path"]
-        direction TB
-        A1["CLIEngine.Process()"]
-        A2["GetProcessor(invocation)"]
-        A3["CreateProcessorContext()"]
-        A4["Task.Run → ProcessAsync()"]
-        A5["Direct Console Output"]
-
-        A1 --> A2
-        A2 --> A3
-        A3 --> A4
-        A4 --> A5
-    end
-
-    subgraph PS["PowerShell Execution Path"]
-        direction TB
-        B1["PSEngine.Process()"]
-        B2["GetProcessor(invocation)"]
-        B3["CreateProcessorContext(channelWriter)"]
-        B4["Task.Run → ProcessAsync()"]
-        B5["Channel.Writer"]
-        B6["Channel.Reader on caller thread"]
-        B7["WriteObject() to PS runspace"]
-
-        B1 --> B2
-        B2 --> B3
-        B3 --> B4
-        B4 --> B5
-        B5 -.-> B6
-        B6 --> B7
-    end
-
-    style CLI fill:#161b22,stroke:#30363d,color:#e6edf3
-    style PS fill:#161b22,stroke:#30363d,color:#e6edf3
-    style A1 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style A2 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style A3 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style A4 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style A5 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B1 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B2 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B3 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B4 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B5 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B6 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B7 fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-
-    linkStyle 0,1,2,3,4,5,6,7,8 stroke:#8b949e
-```
-
-## Error Handling & Resilience
-
-The orchestration pipeline has several safety nets:
-
-1. **`NotImplementedException` escape** (`src/Core/Core.Engine/OrchestratorEngine.cs:87-92`) — recognized-but-unimplemented commands produce a warning, not an AI fallback. This prevents the AI from re-interpreting known future commands.
-
-2. **Max retry cap** — 5 iterations prevent infinite loops between `DefaultCommandEngine` and `AgentEngine` (`src/Core/Core.Engine/OrchestratorEngine.cs:73`).
-
-3. **Silent agent failure** — `AgentEngine` catches all exceptions and sets `_extractedCommand = null` (`src/Core/Core.Engine/AgentEngine.cs:225-229`), allowing the orchestrator to exit gracefully.
-
-4. **`ReflectionTypeLoadException` tolerance** — `CommandBinder` handles partial assembly loads (`src/Core/Core.Engine/CommandBinder.cs:119-123`), critical when PowerShell types can't load in a CLI-only context.
-
-## Key Design Decisions
-
-- **Lazy `ServiceProvider`** — `Bootstrapper.ServiceProviderAsync` uses `Lazy<Task<>>` to defer startup cost until first command execution. The provider is never disposed; CLI processes are short-lived and OS reclaims resources (`src/Core/Core.Engine/Bootstrapper.cs:108-110`).
-
-- **Agent reuse across retries** — `AgentEngine._agent` is preserved between `OrchestratorEngine` retry iterations, maintaining conversation context so the AI's multi-turn memory is not lost (`src/Core/Core.Engine/AgentEngine.cs:59`).
-
-- **Skip(1) on extracted commands** — When the AI returns `"azv2 group create --name test"`, the orchestrator skips the first token (`azv2`) since the DefaultCommandEngine expects args without the program name (`src/Core/Core.Engine/OrchestratorEngine.cs:112`).
+- The composition root is the **static** `AzclipsServiceProvider`; there is no `Bootstrapper`. Clients customize the container only through `PrependRegistration` / `OverrideRegistration` _before_ the idempotent `Initialize` (`AzclipsServiceProvider.cs:17,29,44,67`).
+- `Engine` is a **partial mediator** that owns caching, event subscription, and per-invocation `ProcessorContext` construction, but delegates the actual work into passive `ExecutionSession` delegates (`Engine.cs:22,39,99`).
+- `ExecutionSession.GetProcessor` performs a **global `--profile` pre-binding pass** before context creation so the resolved profile is available at `Init()` time (`ExecutionSession.cs:213-224`).
+- The CLI **classifies** failures: structured `AzclipsErrorException` never falls back; only `HttpRequestException`/generic exceptions do (`Program.cs:121-144`).
+- The fallback is an **out-of-process `Core.Tui --agent-mode` spawn**, not an in-process `OrchestratorEngine`/`AgentEngine` — the AGENTS.md / ARCHITECTURE.md description is stale (`Program.cs:281`, `TUI/Program.cs:21`).
 
 ## References
 
-| Source File | Key Lines | Purpose |
-|---|---|---|
-| `src/Core/Core.Engine/OrchestratorEngine.cs` | 33, 60-119 | Orchestrator with retry loop |
-| `src/Core/Core.Engine/DefaultCommandEngine.cs` | 24, 31-48 | Structured command pipeline |
-| `src/Core/Core.Engine/AgentEngine.cs` | 32, 53-230 | AI conversation engine |
-| `src/Core/Core.Engine/Bootstrapper.cs` | 25-111 | DI container setup |
-| `src/Core/Core.Engine/CommandParser.cs` | 7, 14-72 | Argument parsing |
-| `src/Core/Core.Engine/CommandBinder.cs` | 9, 16-141 | Module loading and command binding |
-| `src/Core/Core.Engine/ParseResult.cs` | 6-16 | Parse result data class |
-| `src/Core/Core.Engine/CLIEngine.cs` | 15, 111-162 | CLI execution engine |
-| `src/Core/Core.Engine/PSEngine.cs` | 21, 58-87 | PowerShell execution engine |
-| `src/Core/Core.Abstractions/IEngine.cs` | 5-25 | Engine interface definitions |
-| `src/Core/Core.Abstractions/ClientType.cs` | 7-10 | CLI/PowerShell enum |
+- `src/Core/Core.DependencyInjection/AzclipsServiceProvider.cs` — composition root (`:17`, `:29`, `:44`, `:53`, `:67`)
+- `src/Core/Core.Engine/Engine.cs` — mediator, caching, `CreateProcessorContext` (`:22`, `:36`, `:81`, `:99`, `:143`)
+- `src/Core/Core.Engine/Engine.Subscriptions.cs` — event subscriptions (`:15`)
+- `src/Core/Core.Engine/ExecutionSession.cs` — session, `RunAsync`, `GetProcessor`, profile pre-bind (`:12`, `:57`, `:213`, `:243`)
+- `src/Core/Core.Abstractions/IEngine.cs` — engine contract (`:8`)
+- `src/Core/Core.Abstractions/CLIContracts.cs` — `IProcessor` contract (`:11`)
+- `src/CLI/Program.cs` — orchestration & fallback (`:40`, `:65`, `:121`, `:128`, `:281`)
+- `TUI/Program.cs` — TUI registrations & `--agent-mode` entry (`:21`, `:23`)
+- `AGENTS.md:16`, `eng-docs/spec/ARCHITECTURE.md` — **stale** OrchestratorEngine model
+- `openspec/changes/profile-management/design.md` — Decision 4 (global `--profile` pre-binding)

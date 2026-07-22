@@ -1,302 +1,129 @@
 ---
-title: "CLI Usage Guide"
-description: "Complete guide to the azv2 command-line interface — structured commands, natural language input, AI fallback, help system, and response handling."
+title: CLI Usage
+description: Practical guide to the Azclips az CLI — structured extension commands, global flags, shell completions, help dispatch, profiles, and the AI agent-mode fallback.
+outline: deep
 ---
 
-# CLI Usage Guide
+# CLI Usage
 
-## CLI Binary
+## Why the CLI Works This Way
 
-The CLI is compiled as a self-contained executable named **`azv2`**. After building the solution the binary is located at:
+The `az` binary is a thin front door over the Core engine. It does almost no business logic itself — instead it parses a handful of **global flags**, converts your arguments into a `CommandInvocation`, and hands off to `IEngine`. Command _surfaces_ (like `group`, `vm`, `config`) are not compiled into the CLI; they are **extensions** loaded dynamically at runtime, and their authoritative documentation lives as Markdown under `src/CLI/Help/Docs/`. This keeps the CLI small and lets new command groups ship without changing `Program.cs`.
 
+## Command Surface
+
+The installed command groups are documented under `src/CLI/Help/Docs/` — each folder is a verb: `config`, `deployment`, `disk`, `extension`, `group`, `login`, `logout`, `profile`, `rest`, and `vm`. These `index.md` files are the authoritative command surface. Representative examples:
+
+| Command                 | Example                                                                                                   | Docs                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Create a resource group | `az group create --name myrg --location eastus --subscription-id <sub>`                                   | `src/CLI/Help/Docs/group/index.md`     |
+| List resource groups    | `az group list --subscription-id <sub>`                                                                   | `src/CLI/Help/Docs/group/index.md`     |
+| Manage VMs              | `az vm create ... / az vm list / az vm show`                                                              | `src/CLI/Help/Docs/vm/index.md`        |
+| Get/set/list config     | `az config get --key output.format` · `az config set --key output.format --value json` · `az config list` | `src/CLI/Help/Docs/config/index.md`    |
+| Authenticate            | `az login --subscription-id <sub> [--use-device-code]`                                                    | `src/CLI/Help/Docs/login/index.md`     |
+| Manage extensions       | `az extension add / list`                                                                                 | `src/CLI/Help/Docs/extension/index.md` |
+| Raw ARM call            | `az rest ...`                                                                                             | `src/CLI/Help/Docs/rest/index.md`      |
+
+Configuration keys use dot notation (e.g. `output.format`, `core.debug`) and persist to your local config file (`src/CLI/Help/Docs/config/index.md`).
+
+## Global Flags
+
+Before dispatch, `Program.Main` strips three global flags from the argument vector. Each is parsed by a dedicated helper:
+
+| Flag                                                      | Effect                                                                                                | Implementation                                |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `--debug`                                                 | Raises the effective log level for the invocation.                                                    | `ParseDebugFlag` (`src/CLI/Program.cs:155`)   |
+| `--output json` / `--output plain` (also `--output=json`) | Selects JSON vs. plain output; JSON mode renders errors as `{ "error": { code, message, details } }`. | `ParseOutputFlag` (`src/CLI/Program.cs:220`)  |
+| `--no-cache`                                              | Bypasses the extension cache by setting `AZCLIPS_NO_EXTENSION_CACHE=true`.                            | `ParseNoCacheFlag` (`src/CLI/Program.cs:246`) |
+
+The order matters: `--debug` is parsed first so the resolved log level applies to everything that follows (`src/CLI/Program.cs:69`).
+
+```mermaid
+graph LR
+    ARGS["raw args[]"] --> DBG["ParseDebugFlag<br>(:155)"]
+    DBG --> LVL["ResolveEffectiveLevel<br>build OutputStreams"]
+    LVL --> OUT["ParseOutputFlag<br>(:220)"]
+    OUT --> NC["ParseNoCacheFlag<br>(:246)<br>sets AZCLIPS_NO_EXTENSION_CACHE"]
+    NC --> PARSE["ExtensionDispatcher.Parse<br>(:44)"]
+    PARSE --> INV["CommandInvocation"]
+    INV --> EXEC["IEngine.OpenExecutionSession"]
+
+    style ARGS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style DBG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style LVL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style OUT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style NC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PARSE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style INV fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style EXEC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-artifacts/<Configuration>/Core.Cli/azv2
-```
 
-Inside the dev container, both `artifacts/Debug/Core.Cli` and `artifacts/Release/Core.Cli` are on `PATH` (`.devcontainer/devcontainer.json:60-61`), so `azv2` is directly invocable.
+## Help Dispatch
 
-The assembly name is set to `azv2` in the CLI project file, producing a single executable entry point at `src/CLI/Program.cs:22`.
+Help is modeled as _control flow via exceptions_. When the dispatcher sees a bare top-level help request (`az`, `az --help`, `az -h`, `az help`) it throws `DispatchHelpException` (`src/CLI/Parser/ExtensionDispatcher.cs`); a group- or command-scoped help request throws `RuntimeExtensionHelpException`. `Program.Main` catches these and renders through `RuntimeHelpDispatcher`, so help output is generated from the same extension metadata the executor uses.
 
-## Command Syntax
+Bare `az` (no arguments at all) is treated as the same signal as `az --help` — the dispatcher raises `DispatchHelpException` and `Program.Main` renders the root help. The one difference is a welcome banner: `Program.Main` captures whether the invocation was truly bare (before any flag stripping) and, on the empty-args path only, prints an ASCII `AzCLIPS` banner (`src/CLI/Help/WelcomeBanner.cs`) above the help output. `az --help`, `az -h`, and `az help` do **not** print the banner — keeping their output grep-friendly for scripts.
 
-Cirrus supports **two modes** of input in a single binary:
+## Shell Completions
 
-### Structured Commands
+Tab-completion metadata is produced by `CompletionGenerator`, which emits a JSON completion tree built from `ExtensionIndex` metadata (`src/CLI/Completions/CompletionGenerator.cs:17`). It is triggered by `--completions` as the first argument and is handled _after_ DI initialization so it can resolve `IEngine` directly (`src/CLI/Program.cs:56`):
 
 ```bash
-azv2 <group> <command> [--Parameter value ...]
+az --completions            # full tree
+az --completions vm         # commands in the vm group
+az --completions vm create  # metadata for a specific command
 ```
 
-Examples:
+The generator handles requests in `TryHandleAsync` (`src/CLI/Completions/CompletionGenerator.cs:28`) and ships shell scripts alongside it: `az.completions.bash`, `az.completions.zsh`, and `az.completions.ps1` (in `src/CLI/Completions/`).
 
-```bash
-azv2 group create --Name my-rg --Location eastus --SubscriptionId <id>
-azv2 group show --SubscriptionId <id> --Name my-rg
-azv2 login show
-azv2 login logout
-```
+## Profiles
 
-Arguments are parsed by `ExtensionDispatcher.Parse()` (`src/CLI/Parser/ExtensionDispatcher.cs:32-45`). The method:
+Commands accept a `--profile` override, and a global profile can be configured so subsequent commands reuse the same account context. Profile state is persisted under the LocalApplicationData `.azclips` root (`src/Core/Core.Abstractions/HomePaths.cs:47`), and PowerShell exposes the mirror `Get-AzProfile` / `Set-AzProfile` cmdlets.
 
-1. Validates that at least one argument is present (`ExtensionDispatcher.cs:34`).
-2. Checks for help flags (`--help`, `-h`, `help`, `?`, `-?`) and throws `DispatchHelpException` (`ExtensionDispatcher.cs:35-36`).
-3. Resolves the extension name via `CommandGroupIndex` (`ExtensionDispatcher.cs:37`).
-4. Delegates to `ExtensionParser.Parse()` for the command name and parameter dictionary (`ExtensionDispatcher.cs:42-44`).
+## The AI Agent-Mode Fallback
 
-### Natural Language Commands
+The CLI's most distinctive UX is what happens when a command _fails_. On an unhandled exception, `Program.Main` calls `TryAgentFallbackAsync` (`src/CLI/Program.cs:281`). Rather than hosting AI in-process, it **spawns the TUI as a child process** in `--agent-mode`, handing over the failed command and error text so the agent can suggest or run a corrected command interactively.
 
-```bash
-azv2 "create a resource group named test in eastus"
-azv2 "list all my resource groups"
-azv2 "how do I log in?"
-```
+Crucially, this only happens when it is safe:
 
-When the structured engine cannot match the input, the orchestrator falls back to the AI agent automatically — no special flag is needed.
-
-## Command Group Index
-
-`CommandGroupIndex` (`src/CLI/Parser/CommandGroupIndex.cs:14-21`) maintains a static dictionary that maps user-facing group names to internal extension names:
-
-| Group Name | Extension Name | Description |
-|-----------|---------------|-------------|
-| `Group` | `Resources` | Resource group management |
-| `Login` | `Login` | Authentication |
-| `Extension` | `Extension` | Extension management |
-
-The lookup method `getExtensionNameByCommandGroupName()` (`CommandGroupIndex.cs:22-28`) performs a case-insensitive match and throws if the group is unknown — triggering the AI fallback path.
-
-## How AI Fallback Works
-
-The fallback is implemented at two levels. The `OrchestratorEngine` handles the core retry loop (`src/Core/Core.Engine/OrchestratorEngine.cs:60-119`), while `Program.Main` provides an additional outer fallback for parse-level errors (`src/CLI/Program.cs:71-134`).
+- `agent.enabled` must be `true` (opt-in; off by default). Enable it with `az config set --key agent.enabled --value true`.
+- The session must be an interactive TTY — if stdin or stdout is redirected (CI, a pipe, an unattended script), the fallback is skipped and the original error is surfaced (`src/CLI/Program.cs:308`).
+- A recursion guard: if `AZCLIPS_IN_AGENT_MODE == 1`, no nested agent is spawned (`src/CLI/Program.cs:315`).
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant User
-    participant Main as Program.Main
+    participant Main as Program.Main<br>(Program.cs)
     participant Disp as ExtensionDispatcher
-    participant Orch as OrchestratorEngine
-    participant Def as DefaultCommandEngine
-    participant AI as AgentEngine
-    participant Cloud as CloudAgent
+    participant Eng as IEngine / ExecutionSession
+    participant Fallback as TryAgentFallbackAsync<br>(:281)
+    participant TUI as Core.Tui --agent-mode
 
-    User->>Main: azv2 "create a resource group"
+    User->>Main: az vm create ... (mistyped / fails)
+    Main->>Main: strip --debug/--output/--no-cache
     Main->>Disp: Parse(args)
-    Note over Disp: Unknown group → throws
-    Disp-->>Main: ParserException
-    Main->>Main: TryAgentFallbackAsync()
-    Main->>AI: ExecuteCommandAsync(args)
-    AI->>Cloud: RunStreamingAsync(prompt)
-    Cloud-->>AI: JSON { type, response }
-
-    alt type = executable_command
-        AI-->>Main: ExtractedCommand = "group create …"
-        Main->>Disp: Parse(extractedArgs)
-        Disp-->>Main: CLICommandInvocation
-        Main->>Orch: ExecuteCommandAsync(extractedArgs)
-        Orch->>Def: ExecuteCommandAsync(extractedArgs)
-        Def-->>Orch: Success
-        Orch-->>Main: return 0
-    else type = sample_command
-        AI-->>Main: Display sample, return 0
-    else type = question / confirmation
-        AI-->>Main: Prompt user, continue loop
-    else type = exit
-        AI-->>Main: Goodbye, return 0
+    Disp-->>Main: CommandInvocation
+    Main->>Eng: OpenExecutionSession + RunAsync
+    Eng--xMain: throws Exception
+    Main->>Fallback: TryAgentFallbackAsync(args, error)
+    alt agent.enabled off OR redirected OR AZCLIPS_IN_AGENT_MODE
+        Fallback-->>User: return 1 (original error)
+    else interactive + enabled
+        Fallback->>TUI: spawn with AZCLIPS_IN_AGENT_MODE=1<br>--failed-command --error
+        TUI-->>User: interactive AI suggestion / rerun
+        TUI-->>Fallback: exit code
+        Fallback-->>User: propagate exit code
     end
 ```
 
-### Retry Logic
-
-Both `Program.TryAgentFallbackAsync()` (`Program.cs:73`) and `OrchestratorEngine` (`OrchestratorEngine.cs:73`) enforce a maximum of **five retry attempts**. Each cycle:
-
-1. The AI agent receives the original (or last) user input.
-2. The agent returns a JSON response with a `type` and `response` field.
-3. If the type is `executable_command`, the extracted command string is tokenised, the leading assembly name token is stripped (`Program.cs:98-103`), and the resulting args are fed back to the dispatcher.
-4. If the structured engine succeeds on retry, execution completes with exit code **0**.
-5. If all retries are exhausted, exit code **1** is returned.
-
-### Flavour-Based Routing
-
-The `AZURECLI_FLAVOR` environment variable controls routing inside `OrchestratorEngine` (`OrchestratorEngine.cs:62-70`):
-
-| Value | Behaviour |
-|-------|-----------|
-| `"azure cli"` (default) | Full orchestration: try structured first, fall back to AI |
-| `"azure powershell"` | Skip structured parsing, route directly to AI agent |
-
-## Agent Response Types
-
-`AgentEngine.ExecuteCommandAsync()` (`src/Core/Core.Engine/AgentEngine.cs:53-230`) streams the AI response through `CloudAgent.RunStreamingAsync()` and deserialises the result as JSON. Five response types are handled:
-
-| Type | Behaviour | Lines |
-|------|-----------|-------|
-| `executable_command` | Displays the command in cyan, stores it in `ExtractedCommand`, triggers retry | `AgentEngine.cs:153-168` |
-| `sample_command` | Displays a syntax example in cyan, exits without executing | `AgentEngine.cs:170-177` |
-| `exit` | Prints a goodbye message and exits | `AgentEngine.cs:179-186` |
-| `confirmation` | Prompts the user for yes/no confirmation (CLI only) | `AgentEngine.cs:188-215` |
-| `question` | Asks a clarifying question (CLI only), continues conversation | `AgentEngine.cs:188-215` |
-
-For PowerShell flavour, interactive prompts (`confirmation` / `question`) are suppressed — the agent response is displayed but no input is requested (`AgentEngine.cs:196-200`). Instead, a special `__PSEXEC__{command}` marker is written for PowerShell to intercept (`AgentEngine.cs:164`).
-
-### Spinner Animation
-
-While waiting for the AI response, the CLI displays a Unicode spinner (`AgentEngine.cs:80`):
-
-```
-⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏
-```
-
-The spinner runs on a background task and is cancelled as soon as the first streaming token arrives (`AgentEngine.cs:103-109`).
-
-## Extension Loading
-
-When `DefaultCommandEngine` resolves a command, it delegates to `CLIEngine.GetCommand()` (`src/Core/Core.Engine/CLIEngine.cs:52-108`) which loads the extension assembly at runtime.
-
-```mermaid
-graph TB
-    subgraph Loading["Extension Resolution"]
-        style Loading fill:#161b22,stroke:#30363d,color:#e6edf3
-        Invoke["CLIEngine.GetCommand()"]
-        Chain["IExtensionLoader[] chain"]
-        MV["MultiVersionExtensionLoader<br>(NuGet semver)"]
-        BI["BuiltinExtensionLoader<br>(direct path)"]
-        ALC["ExtensionLoadContext<br>(AssemblyLoadContext)"]
-    end
-
-    subgraph Index["Extension Index"]
-        style Index fill:#161b22,stroke:#30363d,color:#e6edf3
-        Meta["ExtensionIndex<br>.GetCommandMetaData()"]
-        Reflect["Reflection-based<br>property binding"]
-    end
-
-    subgraph Extensions["Loaded Extensions"]
-        style Extensions fill:#161b22,stroke:#30363d,color:#e6edf3
-        Login["Extensions.Login.dll"]
-        Resources["Extensions.Resources.dll"]
-        Extension["Extensions.Extension.dll"]
-    end
-
-    Invoke --> Chain
-    Chain --> MV
-    Chain --> BI
-    MV --> ALC
-    BI --> ALC
-    ALC --> Login
-    ALC --> Resources
-    ALC --> Extension
-    Invoke --> Meta
-    Meta --> Reflect
-
-    style Invoke fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Chain fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style MV fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ALC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Meta fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Reflect fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Login fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Resources fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Extension fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
-
-Two loaders are tried in chain-of-responsibility order (`CLIEngine.cs:58-62`):
-
-1. **`MultiVersionExtensionLoader`** (`ExtensionLoader.cs:66-137`) — scans for versioned sub-directories, parses `NuGetVersion`, selects the latest (`ExtensionLoader.cs:106-119`).
-2. **`BuiltinExtensionLoader`** (`ExtensionLoader.cs:13-63`) — constructs the path `{extensionsDir}/{folderName}/{name}.dll` and loads directly (`ExtensionLoader.cs:49-62`).
-
-Both loaders use a custom `ExtensionLoadContext` (`ExtensionLoader.cs:15-44`) that shares `Core.*` and `Microsoft.Extensions.DependencyInjection` assemblies from the host process to avoid type duplication (`ExtensionLoader.cs:22-26`).
-
-## Help System
-
-The help system is exception-driven. When a help flag is detected during parsing, a `DispatchHelpException` is thrown (`src/CLI/Parser/ExtensionDispatcher.cs:35-36`). `Program.Main` catches it and returns exit code **0** (`src/CLI/Program.cs:46-48`).
-
-Help output is rendered through a table system:
-
-- **`HelpLine`** (`src/CLI/Help/HelpLine.cs:5-30`) — a single help entry with `Short`, `Names`, `Tags`, `Description`, and `Detail` arrays plus a `Group` category.
-- **`HelpCell`** (`src/CLI/Help/HelpCell.cs:3-100`) — handles column width calculation and word wrapping (`HelpCell.cs:37-71`). The `RenderLine()` static method (`HelpCell.cs:76-99`) merges multiple cells side-by-side for aligned console output.
-- **`HelpTableRenderedGroup`** (`src/CLI/Help/HelpTableRenderedGroup.cs:3-7`) — groups rendered lines by category name.
-
-Available help triggers:
-
-```bash
-azv2 --help
-azv2 -h
-azv2 help
-azv2 ?
-azv2 -?
-```
-
-## Exit Codes
-
-| Code | Meaning | Set At |
-|------|---------|--------|
-| **0** | Success — command executed or help displayed | `Program.cs:46, 52` |
-| **0** | AI provided informational response (no executable command) | `Program.cs:92` |
-| **1** | Error — command failed or max retries exhausted | `Program.cs:61, 134` |
-
-## Parameter Parsing
-
-`ExtensionParser.Parse()` (`src/CLI/Parser/ExtensionParser.cs:29-91`) splits the argument array into a command name and a parameter dictionary:
-
-- **Command name** (`ExtensionParser.cs:35-38`) — all tokens before the first `-`-prefixed argument are concatenated as the command name.
-- **Parameters** (`ExtensionParser.cs:46-78`) — keys are parameter names (kebab-case); values are `List<List<string>>` supporting repeated parameters.
-
-Property binding uses reflection: `CLIEngine.GetCommand()` iterates public properties with `ArgumentInfoAttribute` and calls `CommandLineArgs.Parse()` (`src/Core/Core.Engine/CLIEngine.cs:83-107`) to hydrate the command object.
-
-### `CommandLineArgs` Helper
-
-`CommandLineArgs.Parse()` (`CLIEngine.cs:238-292`) provides structured access:
-
-| Property | Type | Purpose |
-|----------|------|---------|
-| `PositionalArgs` | `List<string>` | Arguments without `-` prefix |
-| `Properties` | `Dictionary<string, List<string>>` | Named parameters |
-| `ShowHelp` | `bool` | Detected `--help` / `-h` |
-| `ShowVersion` | `bool` | Detected `--version` |
-
-## Error Handling
-
-Cirrus uses a hierarchy of custom exceptions (`src/CLI/Exceptions/`):
-
-| Exception | Trigger | Outcome |
-|-----------|---------|---------|
-| `DispatchHelpException` | Help flag detected at dispatch level | Exit 0, render help |
-| `CommandGroupHelpException` | Help at command group level | Exit 0, render group help |
-| `CommandHelpException` | Help at command level | Exit 0, render command help |
-| `ExtensionHelpException` | Help at extension level | Exit 0, render extension help |
-| `CommandParserException` | Malformed arguments | Triggers AI fallback |
-| `ParserException` | Base parsing error | Triggers AI fallback |
-
-The general flow in `Program.Main` (`Program.cs:54-62`):
-
-1. Log the error.
-2. Record the exception in the telemetry activity (`Program.cs:58-59`).
-3. Call `TryAgentFallbackAsync()` to attempt AI-assisted recovery (`Program.cs:61`).
-
-## Cloud Agent Conversation
-
-`CloudAgent` (`src/Core/Core.Agent/CloudAgent.cs:13-115`) maintains a `_conversationHistory` list so multi-turn interactions (questions, confirmations) are context-aware.
-
-- **`CreateAsync(flavor)`** (`CloudAgent.cs:29-79`) — loads `.env`, reads `prompt.md`, replaces the `{{flavor}}` placeholder, and creates an `AIAgent` via `AzureOpenAIClient`.
-- **`RunStreamingAsync(userInput)`** (`CloudAgent.cs:84-101`) — appends the user message to history, streams the response, and appends the assistant reply.
-- **`ClearHistory()`** (`CloudAgent.cs:111-114`) — resets conversation state.
+The child inherits stdio directly so streaming tokens, y/n approvals, and device-code links all render live in your terminal (`src/CLI/Program.cs:332`). The parent intercepts Ctrl+C (leaving cancellation to the child) to avoid a "terminal hijack" where the shell prompt redraws over the child's output (`src/CLI/Program.cs:354`).
 
 ## References
 
-| Source | Path |
-|--------|------|
-| CLI entry point | `src/CLI/Program.cs` |
-| Extension dispatcher | `src/CLI/Parser/ExtensionDispatcher.cs` |
-| Extension parser | `src/CLI/Parser/ExtensionParser.cs` |
-| Command group index | `src/CLI/Parser/CommandGroupIndex.cs` |
-| Orchestrator engine | `src/Core/Core.Engine/OrchestratorEngine.cs` |
-| Default command engine | `src/Core/Core.Engine/DefaultCommandEngine.cs` |
-| CLI engine | `src/Core/Core.Engine/CLIEngine.cs` |
-| Agent engine | `src/Core/Core.Engine/AgentEngine.cs` |
-| Cloud agent | `src/Core/Core.Agent/CloudAgent.cs` |
-| Extension loader | `src/Core/Core.Engine/ExtensionLoader.cs` |
-| Help cell renderer | `src/CLI/Help/HelpCell.cs` |
-| Help line model | `src/CLI/Help/HelpLine.cs` |
-| Help rendered group | `src/CLI/Help/HelpTableRenderedGroup.cs` |
-| Parser exceptions | `src/CLI/Exceptions/ParserException.cs` |
+- `src/CLI/Program.cs:155` — `--debug` (`ParseDebugFlag`).
+- `src/CLI/Program.cs:220` — `--output json|plain` (`ParseOutputFlag`).
+- `src/CLI/Program.cs:281` — `TryAgentFallbackAsync` agent-mode fallback.
+- `src/CLI/Parser/ExtensionDispatcher.cs:44` — argument parsing and help exceptions.
+- `src/CLI/Help/Docs/config/index.md` — authoritative `config` command surface.
+- `src/CLI/Completions/CompletionGenerator.cs:17` — shell completion tree generator.

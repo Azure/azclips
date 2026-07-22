@@ -1,0 +1,65 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: PackagingScriptsRoot
+  type: string
+- name: PackagingCommonOutRoot
+  type: string
+- name: PackagingLinuxOutRoot
+  type: string
+
+jobs:
+- job: BuildLinuxOutput
+  displayName: CLI Linux Tarball
+  timeoutInMinutes: 60
+  strategy:
+    matrix:
+      linux_x64_lean:
+        Rid: linux-x64
+        BuildProfile: lean
+        DistributionArtifact: Distribution_Linux_Lean
+      linux_arm64_lean:
+        Rid: linux-arm64
+        BuildProfile: lean
+        DistributionArtifact: Distribution_Linux_Arm64_Lean
+      linux_x64_full:
+        Rid: linux-x64
+        BuildProfile: full
+        DistributionArtifact: Distribution_Linux_Full
+      linux_arm64_full:
+        Rid: linux-arm64
+        BuildProfile: full
+        DistributionArtifact: Distribution_Linux_Arm64_Full
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+    retryCountOnTaskFailure: 3
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Get CLI Common
+    inputs:
+      artifact: Distribution_Common
+      path: ${{ parameters.PackagingCommonOutRoot }}
+
+  - script: |
+      set -euo pipefail
+      chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/build_linux_tarball.sh"
+    displayName: Build CLI Linux Tarball
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish CLI Linux
+    inputs:
+      targetPath: ${{ parameters.PackagingLinuxOutRoot }}
+      artifact: $(DistributionArtifact)
+      publishLocation: pipeline

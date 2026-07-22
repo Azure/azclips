@@ -1,9 +1,15 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Net;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
+using ProfileModel = Core.Abstractions.Profile;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     /// <summary>
     /// Non-generic base used as a marker so that <see cref="CreateExtendedProcessor{T}"/> and
@@ -16,7 +22,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         protected IEventPublisher Publisher = null!;
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
-        protected AuthContext AuthContext = null!;
+
+        /// <summary>The resolved connection profile from the processor context; null when none is available.</summary>
+        protected ProfileModel? ResolvedProfile;
+
+        /// <summary>
+        /// Bound <c>--profile</c>/<c>-Profile</c> parameter. The Engine resolves the named profile into
+        /// <see cref="ResolvedProfile"/> before the processor runs, so this property exists only to accept
+        /// the value during argument binding (per-processor workaround until a global-parameter framework exists).
+        /// </summary>
+        public string? Profile { get; set; }
+
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
 
@@ -38,7 +54,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            AuthContext = context.AuthHandler.AuthContext;
+            ResolvedProfile = context.Profile;
 
             AfterInit();
             return this;
@@ -48,7 +64,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
-        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, AuthContext)
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile)
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
@@ -61,7 +77,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 JsonOptions = JsonOptions,
             };
             child.WriteOutput = WriteOutput;
-            child.AuthContext = AuthContext;
+            child.ResolvedProfile = ResolvedProfile;
             configure?.Invoke(child);
             return child;
         }
@@ -88,6 +104,246 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 throw;
             }
             return _response;
+        }
+
+        /*
+            For LRO API has
+                "x-ms-long-running-operation-options": {
+                "final-state-via": "location/azure-async-operation"
+                }
+            "finaluri" is response.headers["Location"]
+            "operationLocationUri" is response.headers["Operation-Location"]
+            otherwise both null
+        */
+        protected virtual Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetOperationLocationUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetAsyncOperationUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
+
+        /// <summary>
+        /// Whether, after polling reaches a terminal status, the poller issues a final GET on
+        /// <c>_finalUri</c> (the original request URI by default) to fetch the terminal resource
+        /// state. True for resources whose canonical state lives at the original URI (e.g. a PUT
+        /// create). Override to false for operations whose poll already returns the full result and
+        /// whose original URI is not GET-able (e.g. the POST-only what-if endpoint).
+        /// </summary>
+        protected virtual bool FetchFinalState => true;
+
+        /// <summary>
+        /// Long-running-operation transport: issues the request, then polls the ARM async-operation /
+        /// location / operation-location URIs until the resource reaches a terminal provisioningState
+        /// (Succeeded/Canceled) or the operation fails. Mirrors the proven Compute poller. Atomic LRO
+        /// processors override <see cref="SendAsync"/> to delegate here.
+        /// </summary>
+        internal async virtual Task<HttpResponseMessage> SendAsyncLRO()
+        {
+            // Validate runtime context before CreateRequestMessage(), since derived implementations
+            // may publish events (using Publisher) while building the request.
+            EnsureRuntimeContext();
+            IRuntimeHttpPipeline _httpPipeline = HttpPipeline;
+            IEventPublisher _publisher = Publisher;
+            HttpRequestMessage _request = await CreateRequestMessage();
+            try
+            {
+                string _originalUri = _request.RequestUri!.AbsoluteUri;
+                HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
+                await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+                // declared final-state-via: location
+                var _declaredFinalUri = GetFinalUri(_response);
+                var _finalUri = string.IsNullOrEmpty(_declaredFinalUri) ? _originalUri : _declaredFinalUri;
+                var _asyncOperationUri = GetAsyncOperationUri(_response);
+                var _locationUri = GetLocationUri(_response);
+                var _operationLocationUri = GetOperationLocationUri(_response);
+                // Carries the ARM error detail captured during the status peek (while the body is
+                // still available) so the terminal-failure throw site below can surface it. Must be
+                // declared outside the loop to be in scope at both the peek and the throw.
+                string? failureDetail = null;
+
+                //polling
+                while ((_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK)
+                    || _response.StatusCode == HttpStatusCode.Created
+                    || _response.StatusCode == HttpStatusCode.Accepted)
+                {
+                    // TODO: get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
+                    // Floor the delay at 1 second: a fractional Retry-After (<1s) truncates to 0, which
+                    // would otherwise busy-poll ARM with no wait between calls.
+                    int delay = Math.Max(1, (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval));
+                    await _publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
+                    Task delayTask = Task.Delay(delay * 1000, _publisher.Token);
+
+                    // while we wait, let's grab the headers and get ready to poll.
+                    if (!string.IsNullOrEmpty(GetAsyncOperationUri(_response)))
+                    {
+                        _asyncOperationUri = GetAsyncOperationUri(_response);
+                    }
+                    if (!string.IsNullOrEmpty(GetLocationUri(_response)))
+                    {
+                        _locationUri = GetLocationUri(_response);
+                    }
+                    if (!string.IsNullOrEmpty(GetOperationLocationUri(_response)))
+                    {
+                        _operationLocationUri = GetOperationLocationUri(_response);
+                    }
+                    var _uri = string.IsNullOrEmpty(_asyncOperationUri) ? string.IsNullOrEmpty(_locationUri) ? string.IsNullOrEmpty(_operationLocationUri) ? _originalUri : _operationLocationUri : _locationUri : _asyncOperationUri;
+
+                    // drop the old response
+                    _response?.Dispose();
+
+                    await delayTask;
+
+                    _request = _request.CloneAndDispose(new Uri(_uri), HttpMethod.Get);
+                    await _publisher.Publish(Events.BeforePollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
+                    // make the polling call
+                    _response = await _httpPipeline.SendAsync(_request, _publisher);
+                    await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+                    await _publisher.Publish(Events.AfterPollingCall);
+
+                    // if we got back an OK, take a peek inside and see if it's done
+                    if (_response.StatusCode == global::System.Net.HttpStatusCode.OK)
+                    {
+                        var error = false;
+                        try
+                        {
+                            // Read the body once so it can be both parsed for status and reused for
+                            // error-detail extraction without re-reading the (already buffered) stream.
+                            string bodyText = await _response.Content.ReadAsStringAsync();
+                            if (JsonNode.Parse(bodyText) is JsonObject json)
+                            {
+                                var state = json.Property("properties")?.PropertyT<JsonString>("provisioningState") ?? json.PropertyT<JsonString>("status");
+                                if (state is null)
+                                {
+                                    // the body doesn't contain any information that has the state of the LRO
+                                    // we're going to just get out, and let the consumer have the result
+                                    break;
+                                }
+
+                                switch (state?.ToString()?.ToLowerInvariant())
+                                {
+                                    case "failed":
+                                        error = true;
+                                        // Capture the ARM error detail now, while the body is in hand.
+                                        // ARM deployment errors live at properties.error; some payloads
+                                        // use a top-level error. Fall back to the (truncated) raw body.
+                                        try
+                                        {
+                                            var errorObj = json.Property("properties")?.Property("error") ?? json.Property("error");
+                                            var code = errorObj?.PropertyT<JsonString>("code")?.ToString();
+                                            var detailMessage = errorObj?.PropertyT<JsonString>("message")?.ToString();
+                                            if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(detailMessage))
+                                            {
+                                                failureDetail = $"{code}: {detailMessage}";
+                                            }
+                                            else if (!string.IsNullOrWhiteSpace(code))
+                                            {
+                                                failureDetail = code;
+                                            }
+                                            else if (!string.IsNullOrWhiteSpace(detailMessage))
+                                            {
+                                                failureDetail = detailMessage;
+                                            }
+                                            else if (!string.IsNullOrWhiteSpace(bodyText))
+                                            {
+                                                failureDetail = bodyText.Length > 2000 ? bodyText.Substring(0, 2000) : bodyText;
+                                            }
+                                        }
+                                        catch
+                                        {
+                                            // Best-effort: never let extraction change control flow.
+                                            failureDetail = string.IsNullOrWhiteSpace(bodyText)
+                                                ? failureDetail
+                                                : (bodyText.Length > 2000 ? bodyText.Substring(0, 2000) : bodyText);
+                                        }
+                                        break;
+                                    case "succeeded":
+                                    case "canceled":
+                                        // we're done polling.
+                                        break;
+
+                                    default:
+                                        // need to keep polling!
+                                        _response.StatusCode = HttpStatusCode.Created;
+                                        continue;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // if we run into a problem peeking into the result,
+                            // we really don't want to do anything special.
+                        }
+                        if (error)
+                        {
+                            //TODO: redesign exceptions for extension runtime
+                            // Capture the message before disposing the response, then dispose the
+                            // current response (handle/socket) exactly once on this throw path.
+                            // The method exits here, so the surrounding finally only disposes _request.
+                            // failureDetail was captured during the peek (above), while the body was
+                            // still available; the response is only disposed here, never re-read.
+                            string message = string.IsNullOrWhiteSpace(failureDetail)
+                                ? $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}."
+                                : $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}. {failureDetail}";
+                            _response.Dispose();
+                            throw new InvalidOperationException(message);
+                        }
+                    }
+
+                    // check for terminal status code
+                    if (_response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
+                    {
+                        continue;
+                    }
+                    // we are done polling, do a request on final target?
+                    // create a new request with the final uri
+                    if (FetchFinalState && !string.IsNullOrEmpty(_finalUri))
+                    {
+                        // drop the old response
+                        _response?.Dispose();
+                        _request = _request.CloneAndDispose(new Uri(_finalUri), HttpMethod.Get);
+                        await _publisher.Publish(Events.BeforeFinalPollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
+                        // make the final call
+                        _response = await _httpPipeline.SendAsync(_request, _publisher);
+                        await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+                        await _publisher.Publish(Events.AfterFinalPollingCall);
+                        break;
+                    }
+                    // Terminal status reached but we are not fetching final state (FetchFinalState
+                    // is false or no _finalUri): exit deterministically rather than relying on the
+                    // while-condition re-evaluation, so a PUT-based LRO that opts out of the final
+                    // GET can never spin the poll loop.
+                    else
+                    {
+                        break;
+                    }
+                }
+                switch (_response.StatusCode)
+                {
+                    case HttpStatusCode.OK:
+                    case HttpStatusCode.NoContent:
+                    {
+                        await _publisher.Publish(Events.PollingFinished);
+                        break;
+                    }
+                    default:
+                    {
+                        await _publisher.Publish(Events.PollingFailed);
+                        try
+                        {
+                            await _response.EnsureSuccessAsync(_publisher);
+                        }
+                        catch
+                        {
+                            _response.Dispose();
+                            throw;
+                        }
+                        break;
+                    }
+                }
+                return _response;
+            }
+            finally
+            {
+                _request?.Dispose();
+            }
         }
 
         /// <summary>
@@ -131,10 +387,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         public string SubscriptionId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="AuthContext"/>.
+        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="ResolvedProfile"/>.
         /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport.
         /// </summary>
-        /// TODO: update processor context to accept tenantId and subscriptionId instead of auth context
         protected void ResolveSubscriptionId()
         {
             if (!string.IsNullOrWhiteSpace(SubscriptionId))
@@ -142,17 +397,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 return;
             }
 
-            if (AuthContext is null)
+            if (ResolvedProfile is null)
             {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(AuthContext)}, so SubscriptionId cannot be resolved. Provide it via the property instead.");
+                throw new InvalidOperationException($"Processor {GetType().Name} has no profile, so SubscriptionId cannot be resolved. Sign in with 'login' or pass --subscription-id / --profile.");
             }
 
-            if (string.IsNullOrWhiteSpace(AuthContext.SubscriptionId))
+            if (string.IsNullOrWhiteSpace(ResolvedProfile.SubscriptionId))
             {
-                throw new InvalidOperationException("SubscriptionId must be provided either via property or auth context.");
+                throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.");
             }
 
-            SubscriptionId = AuthContext.SubscriptionId;
+            SubscriptionId = ResolvedProfile.SubscriptionId;
         }
 
         internal override Task<HttpResponseMessage> SendAsync()

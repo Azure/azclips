@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Microsoft.Azure.Cirrus.Cmdlets.Login</AssemblyName>
-        <RootNamespace>Microsoft.Azure.Cirrus.Cmdlets.Login</RootNamespace>
-        <Description>PowerShell binary cmdlets for Cirrus Login module</Description>
+        <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Login</AssemblyName>
+        <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Login</RootNamespace>
+        <Description>PowerShell binary cmdlets for Azclips Login module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
@@ -13,6 +13,10 @@
         <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.8.0" />
         <PackageReference Include="OpenTelemetry" Version="1.15.3" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\Common\CmdletOutputStreamsFactory.cs" Link="Common\CmdletOutputStreamsFactory.cs" />
     </ItemGroup>
 
     <ItemGroup>

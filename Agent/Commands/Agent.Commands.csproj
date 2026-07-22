@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+        <AssemblyName>Microsoft.Azure.Azclips.Extensions.Agent</AssemblyName>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <RootNamespace>Microsoft.Azure.Azclips.Extensions.Agent</RootNamespace>
+        <ExtName>Microsoft.Azure.Azclips.Extensions.Agent</ExtName>
+
+        <Description>Agent tool command extension for Azclips CLI — exposes internal agent tools (env/help/resource) as `az agent tool ...` commands</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
+
+        <PackageId>Microsoft.Azure.Azclips.Extensions.Agent</PackageId>
+        <Version>0.1.0</Version>
+        <Authors>Microsoft Corporation</Authors>
+        <Company>Microsoft Corporation</Company>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\..\src\Core\Core.Configuration\Core.Configuration.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <!-- Assembly.GetExtensionIndex() extension method — invokes the extension's
+             IExtensionIndex constructor. HelpProcessor uses it to walk every installed
+             extension (built-in + user) at runtime and aggregate their command tables. -->
+        <ProjectReference Include="..\..\src\Core\Core.Runtime\Core.Runtime.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <!-- Assembly discovery: IAssemblyLoadingService.LoadAllExtensions() returns both
+             built-in seeds and every extension the user has added via `az extension add`. -->
+        <ProjectReference Include="..\..\src\Core\Core.AssemblyLoading\Core.AssemblyLoading.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <!-- Daniel's help pipeline: ExtensionHelpManifestBuilder + MarkdownCommandHelpProvider
+             turn per-extension IExtensionIndex instances into HelpManifest / HelpIndex JSON
+             with examples pulled from the packaged markdown corpus under <baseDir>/help/.
+             HelpProcessor reuses this pipeline instead of maintaining a parallel implementation.
+             Reverse-direction reference (extension → CLI host); tracked as GA-time refactor
+             to move the builder into Core.Extensions so it becomes a peer-layer dependency. -->
+        <ProjectReference Include="..\..\src\CLI\Core.Cli.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <!-- Agent tool implementations (EnvironmentProber / HelpTools /
+             CachedResourceTools / AvailableLocationsTool). Copy the runtime dll
+             into the extension output so the assembly is resolvable when the CLI
+             loads the extension. Its transitive dependency closure (Azure.Identity,
+             Azure.ResourceManager, Microsoft.Extensions.AI) is required by the tool
+             logic. -->
+        <ProjectReference Include="..\Tools\Core.Agent.Tools.csproj" />
+    </ItemGroup>
+</Project>

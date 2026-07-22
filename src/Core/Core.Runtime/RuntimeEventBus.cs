@@ -1,12 +1,15 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Runtime;
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 internal partial class RuntimeEventBus : IEventBus
 {
-    public CancellationToken Token { get; private set; }    
+    public CancellationToken Token { get; private set; }
     public Action Cancel { get; private set; }
     private Dictionary<string, Event> subscribers;
     private Event? globalSubscriber;

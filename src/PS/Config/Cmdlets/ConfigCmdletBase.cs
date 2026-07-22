@@ -1,8 +1,12 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
+namespace Microsoft.Azure.Azclips.Cmdlets.Config;
 
 public abstract class ConfigCmdletBase : PSCmdlet
 {
@@ -12,36 +16,21 @@ public abstract class ConfigCmdletBase : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        Streams = new OutputStreams(
-            WriteOutput: (value, ct) => { WriteObject(value); return Task.CompletedTask; },
-            WriteVerbose: (value, ct) => { WriteVerbose(value?.ToString() ?? string.Empty); return Task.CompletedTask; },
-            WriteDebug: (value, ct) => { WriteDebug(value?.ToString() ?? string.Empty); return Task.CompletedTask; },
-            WriteWarning: (value, ct) => { WriteWarning(value?.ToString() ?? string.Empty); return Task.CompletedTask; },
-            WriteError: (value, ct) =>
-            {
-                WriteError(new ErrorRecord(
-                    new Exception(value?.ToString() ?? string.Empty),
-                    "ConfigError",
-                    ErrorCategory.NotSpecified,
-                    null));
-                return Task.CompletedTask;
-            },
-            WriteInformation: (value, ct) =>
-            {
-                WriteInformation(new InformationRecord(value, null));
-                return Task.CompletedTask;
-            });
+        Streams = CmdletOutputStreamsFactory.Create(this, "ConfigError", ErrorCategory.NotSpecified);
 
-        Engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        Engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
     protected void ExecuteInvocation(Dictionary<string, object> parameters)
     {
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
         var commandName = MyInvocation.MyCommand.Name;
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Config", commandName, parameters, false, moduleName, moduleVersion);
+        telemetryService.TagInvocation(invocation);
 
         using ISession session = Engine.OpenExecutionSession(invocation, Streams, _cts.Token);
         session.Run();

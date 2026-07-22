@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
@@ -7,4 +10,5 @@ public record ProcessorContext
     (IRuntimeHttpPipeline HttpPipeline,
      IEventPublisher Publisher,
      IAuthHandler AuthHandler,
-     IOutputHandler OutputHandler);
+     IOutputHandler OutputHandler,
+     Profile? Profile = null);

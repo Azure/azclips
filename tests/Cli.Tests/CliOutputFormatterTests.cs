@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Text.Json;
 
 namespace Cli.Tests;
@@ -6,6 +9,10 @@ namespace Cli.Tests;
 /// Tests for <see cref="Core.Cli.CliOutputFormatter"/> ensuring CLI output
 /// correctly renders strings, primitives, complex objects, and collections.
 /// </summary>
+// One test redirects the process-global Console.Out to capture output end-to-end.
+// Join the non-parallel "Azclips Service Provider Tests" collection so it never runs
+// concurrently with engine-based tests that write log lines to Console.
+[Collection("Azclips Service Provider Tests")]
 public class CliOutputFormatterTests
 {
     // ── String pass-through ──────────────────────────────────────────
@@ -176,6 +183,32 @@ public class CliOutputFormatterTests
         using var doc = JsonDocument.Parse(output.Trim());
         Assert.Equal(JsonValueKind.Array, doc.RootElement.ValueKind);
         Assert.Equal(2, doc.RootElement.GetArrayLength());
+    }
+
+    // ── Relaxed escaping: raw JSON strings stay human-readable ──────
+
+    [Fact]
+    public void FormatValue_ShouldNotUnicodeEscapeQuotes_WhenValueContainsRawJsonString()
+    {
+        // Mirrors the `rest` command's RestResponse.Content: a property whose value is itself a raw
+        // JSON body. The inner quotes must render as `"` (not `\u0022`) for readable console output.
+        var value = new { Content = "{\"name\":\"rg1\"}" };
+
+        var result = Core.Cli.CliOutputFormatter.FormatValue(value);
+
+        Assert.DoesNotContain("\\u0022", result);
+        Assert.Contains("{\\\"name\\\":\\\"rg1\\\"}", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotUnicodeEscapeNonAscii_WhenValueContainsNonAsciiText()
+    {
+        var value = new { Name = "café-café" };
+
+        var result = Core.Cli.CliOutputFormatter.FormatValue(value);
+
+        Assert.Contains("café-café", result);
+        Assert.DoesNotContain("\\u00e9", result);
     }
 
     /// <summary>

@@ -1,0 +1,119 @@
+name: azclips-beta-sign-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+  - pipeline: betaBuild
+    project: public
+    source: azclips-beta-build
+    trigger:
+      tags:
+      - sign-beta
+
+parameters:
+- name: signed_artifact_name
+  displayName: Signed artifact name
+  type: string
+  default: Final_Signed_Beta_Distribution
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/release.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'AME ESRP Variable Group'
+- name: SourceProject
+  value: ${{ variables.public_project }}
+- name: SigningPipelineName
+  value: ${{ variables.beta_sign_pipeline_name }}
+- name: SourcePipelineName
+  value: ${{ variables.beta_build_pipeline_name }}
+- name: SourceArtifactName
+  value: Final_Build_Distribution
+- name: ESRPServiceConnection
+  value: ${{ variables.esrp_service_connection }}
+- name: MacOSBundleId
+  value: ${{ variables.macos_bundle_id }}
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: azclips-beta-sign must run in the 'release' project for ESRP access.
+    - bash: |
+        set -euo pipefail
+        source_build_id='$(resources.pipeline.betaBuild.runID)'
+        source_branch='$(resources.pipeline.betaBuild.sourceBranch)'
+        pipeline_branch='$(Build.SourceBranch)'
+
+        if [[ -z "$source_build_id" ]]; then
+          echo 'ERROR: betaBuild resource run id was not resolved. Select a sign-beta-tagged azclips-beta-build resource version when queueing this pipeline.'
+          exit 1
+        fi
+        if ! [[ "$source_build_id" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: betaBuild resource run id must be numeric. Got: $source_build_id"
+          exit 1
+        fi
+        if [[ "$source_branch" != 'refs/heads/main' && "$source_branch" != "$pipeline_branch" ]]; then
+          echo "ERROR: beta signing only supports refs/heads/main or the branch running this signing pipeline. Got: $source_branch; signing pipeline branch: $pipeline_branch"
+          exit 1
+        fi
+
+        echo "Beta source project: $(SourceProject)"
+        echo "Beta source pipeline: $(SourcePipelineName)"
+        echo "Beta source build id: $source_build_id"
+        echo "Beta source run name: $(resources.pipeline.betaBuild.runName)"
+        echo "Beta source branch: $source_branch"
+        echo "Signing pipeline branch: $pipeline_branch"
+        echo "Beta source commit: $(resources.pipeline.betaBuild.sourceCommit)"
+        echo "Beta source artifact: $(SourceArtifactName)"
+      displayName: Validate Beta Build Source
+
+- template: templates/dist/stages/sign-with-esrp.yml
+  parameters:
+    windows_pool: ${{ variables.windows_pool }}
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage: Preflight
+    SourceProject: ${{ variables.SourceProject }}
+    source_pipeline_name: ${{ variables.SourcePipelineName }}
+    source_build_id: $(resources.pipeline.betaBuild.runID)
+    source_artifact_name: ${{ variables.SourceArtifactName }}
+    source_artifact_source: specific
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}
+    esrp_service_connection: ${{ variables.ESRPServiceConnection }}
+    esrp_nuget_keycode: ${{ variables.esrp_nuget_keycode }}
+    esrp_authenticode_keycode: ${{ variables.esrp_authenticode_keycode }}
+    esrp_third_party_keycode: ${{ variables.esrp_third_party_keycode }}
+    esrp_strong_name_keycode: ${{ variables.esrp_strong_name_keycode }}
+    esrp_apple_keycode: ${{ variables.esrp_apple_keycode }}
+    macos_bundle_id: ${{ variables.MacOSBundleId }}
+
+- template: templates/dist/stages/component-governance.yml
+  parameters:
+    stage_name: SignedComponentGovernance
+    display_name: Component Governance For Signed Artifacts
+    windows_pool: ${{ variables.windows_pool }}
+    depends_on: AssembleSignedArtifacts
+
+- template: templates/dist/stages/verify-signed-distribution.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    dependency_stage: SignedComponentGovernance
+    SourceProject: release
+    signed_pipeline_name: ${{ variables.SigningPipelineName }}
+    signed_build_id: $(Build.BuildId)
+    signed_artifact_source: current
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}
+    require_stable_version_tag: false

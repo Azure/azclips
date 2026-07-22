@@ -67,6 +67,11 @@ dlldata.c
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
+# @TODO DANIEL: Revisit once PowerShell module build/package layout is refined.
+# These are generated MAML help outputs copied for local Get-Help development only.
+src/PS/*/en-US/
+src/PS/*/en-us/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
@@ -206,8 +211,6 @@ PublishScripts/
 *.nupkg
 # NuGet Symbol Packages
 *.snupkg
-# The packages folder can be ignored because of Package Restore
-**/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
 # Uncomment if necessary however generally it will be regenerated when needed
@@ -631,3 +634,8 @@ CLAUDE.md
 
 # macOS
 .DS_Store
+
+# Local packaging temp output
+devops/out/
+devops/sim/
+*scratch*

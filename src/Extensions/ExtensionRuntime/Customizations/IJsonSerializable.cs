@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 using System;
 
-namespace Microsoft.Azure.Cirrus.ExtensionRuntime
+namespace Microsoft.Azure.Azclips.ExtensionRuntime
 {
     public interface IJsonSerializable
     {
@@ -134,7 +134,7 @@ namespace Microsoft.Azure.Cirrus.ExtensionRuntime
         internal static JsonNode ToJsonValue(object value)
         {
             // things that implement our interface are preferred.
-            if (value is Microsoft.Azure.Cirrus.ExtensionRuntime.IJsonSerializable jsonSerializable)
+            if (value is Microsoft.Azure.Azclips.ExtensionRuntime.IJsonSerializable jsonSerializable)
             {
                 return jsonSerializable.ToJson();
             }
@@ -154,7 +154,7 @@ namespace Microsoft.Azure.Cirrus.ExtensionRuntime
             // dictionaries are objects that should be able to serialize
             if (value is System.Collections.Generic.IDictionary<string, object> dictionary)
             {
-                return Microsoft.Azure.Cirrus.ExtensionRuntime.JsonSerializable.ToJson(dictionary, null);
+                return Microsoft.Azure.Azclips.ExtensionRuntime.JsonSerializable.ToJson(dictionary, null);
             }
 
             // hashtables are converted to dictionaries for serialization
@@ -162,7 +162,7 @@ namespace Microsoft.Azure.Cirrus.ExtensionRuntime
             {
                 var dict = new System.Collections.Generic.Dictionary<string, object>();
                 DictionaryExtensions.HashTableToDictionary<object>(hashtable, dict);
-                return Microsoft.Azure.Cirrus.ExtensionRuntime.JsonSerializable.ToJson(dict, null);
+                return Microsoft.Azure.Azclips.ExtensionRuntime.JsonSerializable.ToJson(dict, null);
             }
 
             // enumerable collections are handled like arrays (again, fallback to ToJson()/ToJsonString() or literal JsonString)

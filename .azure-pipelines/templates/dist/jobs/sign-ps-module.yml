@@ -1,0 +1,601 @@
+
+
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+  default: 'azclips-adhoc-build'
+- name: source_build_id
+  type: string
+  default: ''
+- name: source_artifact_name
+  type: string
+  default: 'Final_Build_Distribution'
+- name: source_artifact_source
+  type: string
+  default: 'specific'
+- name: esrp_service_connection
+  type: string
+  default: ''
+- name: esrp_nuget_keycode
+  type: string
+  default: ''
+- name: esrp_authenticode_keycode
+  type: string
+  default: ''
+- name: esrp_strong_name_keycode
+  type: string
+  default: ''
+- name: esrp_third_party_keycode
+  type: string
+  default: ''
+- name: esrp_enable_nuget_verify
+  type: boolean
+  default: true
+- name: esrp_enable_payload_verify
+  type: boolean
+  default: true
+- name: esrp_enable_windows_timestamp
+  type: boolean
+  default: true
+- name: esrp_enable_strong_name_signing
+  type: boolean
+  default: true
+- name: esrp_strong_name_public_key_token
+  type: string
+  default: '31bf3856ad364e35'
+- name: esrp_strong_name_file_patterns
+  type: object
+  default: []
+- name: esrp_enable_non_azclips_dll_signing
+  type: boolean
+  default: true
+
+jobs:
+  - job: SignPowerShellModule
+    displayName: Sign PowerShell Module Packages
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    timeoutInMinutes: 120
+    variables:
+    - ${{ if eq(parameters.esrp_enable_windows_timestamp, true) }}:
+      - name: ESRPAuthenticodeSignParameters
+        value: '{ "OpusName": "Microsoft", "OpusInfo": "http://www.microsoft.com", "FileDigest": "/fd \"SHA256\"", "PageHash": "/NPH", "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256" }'
+    - ${{ if ne(parameters.esrp_enable_windows_timestamp, true) }}:
+      - name: ESRPAuthenticodeSignParameters
+        value: '{ "OpusName": "Microsoft", "OpusInfo": "http://www.microsoft.com", "FileDigest": "/fd \"SHA256\"", "PageHash": "/NPH" }'
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+    - task: UseDotNet@2
+      displayName: Setup .NET SDK
+      inputs:
+        packageType: sdk
+        version: '10.0.203'
+    - ${{ if eq(parameters.source_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Unsigned Distribution Artifacts
+        inputs:
+          artifact: ${{ parameters.source_artifact_name }}
+          path: $(Pipeline.Workspace)/unsigned-all
+    - ${{ if ne(parameters.source_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Unsigned Distribution Artifacts
+        inputs:
+          buildType: specific
+          project: ${{ parameters.SourceProject }}
+          definition: ${{ parameters.source_pipeline_name }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.source_build_id }}
+          artifact: ${{ parameters.source_artifact_name }}
+          path: $(Pipeline.Workspace)/unsigned-all
+    - task: PowerShell@2
+      displayName: Filter PowerShell Module Packages
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $sourceRoot = "$(Pipeline.Workspace)/unsigned-all"
+          $targetRoot = "$(Pipeline.Workspace)/unsigned"
+          Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+
+          $allNupkgs = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
+            $_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg'
+          }
+          $selected = $allNupkgs | Where-Object { $_.Name -like 'Az.*.nupkg' } | Sort-Object Name
+          if (-not $selected) {
+            throw "No PowerShell module packages found under $sourceRoot (expected Az.*.nupkg)"
+          }
+
+          foreach ($asset in $selected) {
+            Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
+          }
+          Write-Host "Selected $($selected.Count) PowerShell module package(s)."
+    - task: PowerShell@2
+      displayName: Prepare PowerShell Module Signing Inputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/prepare_signing_inputs.ps1
+        arguments: >-
+          -UnsignedRoot "$(Pipeline.Workspace)/unsigned"
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+          -EnableStrongNameSigning '${{ parameters.esrp_enable_strong_name_signing }}'
+          -StrongNamePatternCsv '${{ join('|', parameters.esrp_strong_name_file_patterns) }}'
+          -ExpectedStrongNameToken '${{ parameters.esrp_strong_name_public_key_token }}'
+          -EnableNonAzclipsDllSigning '${{ parameters.esrp_enable_non_azclips_dll_signing }}'
+        pwsh: true
+    - task: PowerShell@2
+      displayName: Stage InstallModule Script For Signing
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $source = "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/InstallModule.ps1"
+          if (-not (Test-Path $source)) {
+            throw "InstallModule.ps1 was not found: $source"
+          }
+
+          $targetRoot = "$(Pipeline.Workspace)/signing-work/standalone-powershell"
+          New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+          Copy-Item $source -Destination (Join-Path $targetRoot 'InstallModule.ps1') -Force
+
+          Write-Host "Staged InstallModule.ps1 for Authenticode signing."
+          Write-Host "##vso[task.setvariable variable=HasPowerShellPayload]true"
+          Write-Host "##vso[task.setvariable variable=HasInstallModulePayload]true"
+    - task: PowerShell@2
+      displayName: List PowerShell Module Signing Candidates
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $workingRoot = "$(Pipeline.Workspace)/signing-work"
+          $nupkgRoot = Join-Path $workingRoot 'nupkg'
+          $extractRoot = Join-Path $workingRoot 'nupkg-extracted'
+          $standalonePowerShellRoot = Join-Path $workingRoot 'standalone-powershell'
+
+          $packages = Get-ChildItem -Path $nupkgRoot -File -Filter 'Az.*.nupkg' | Sort-Object Name
+          Write-Host "PowerShell module package wrappers to NuGetSign ($($packages.Count))"
+          foreach ($pkg in $packages) {
+            Write-Host ("  {0} ({1} bytes)" -f $pkg.Name, $pkg.Length)
+          }
+
+          $payloadRoots = @($extractRoot, $standalonePowerShellRoot) | Where-Object { Test-Path $_ }
+          $payloads = Get-ChildItem -Path $payloadRoots -Recurse -File | Where-Object {
+            $_.Extension -in '.ps1', '.psm1', '.psd1', '.ps1xml' -or
+            $_.Name -like 'Microsoft.Azure.Azclips*.dll' -or
+            $_.Name -like 'Core.*.dll' -or
+            $_.Name -ieq 'az.dll' -or
+            $_.Name -ieq 'azclips-agent.dll' -or
+            $_.Name -like 'Microsoft.Azure.Azclips*.exe'
+          } | Sort-Object FullName
+          Write-Host "PowerShell module payload candidates ($($payloads.Count))"
+          foreach ($file in $payloads) {
+            $relative = $file.FullName.Substring($workingRoot.Length).TrimStart([char]'\', [char]'/')
+            Write-Host ("  {0} ({1} bytes)" -f $relative, $file.Length)
+          }
+    - ${{ if eq(parameters.esrp_enable_strong_name_signing, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: Strong-name Sign PowerShell Module DLL Payloads
+        condition: eq(variables['HasStrongNamePayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/strongname'
+          UseMinimatch: true
+          Pattern: '*.dll'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+                "OperationCode": "StrongNameSign",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+                "OperationCode": "StrongNameVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: PowerShell@2
+        displayName: Restore Strong-name Signed PowerShell Module DLLs
+        condition: eq(variables['HasStrongNamePayload'], 'true')
+        inputs:
+          targetType: inline
+          pwsh: true
+          script: |
+            $ErrorActionPreference = 'Stop'
+            $workingRoot = "$(Pipeline.Workspace)/signing-work"
+            $strongNameRoot = Join-Path $workingRoot 'strongname'
+            $mapPath = Join-Path $workingRoot 'strongname-map.json'
+
+            if (-not (Test-Path $mapPath)) {
+              throw "Strong-name restore map was not found: $mapPath"
+            }
+
+            $strongNameMap = @(Get-Content $mapPath -Raw | ConvertFrom-Json)
+            foreach ($entry in $strongNameMap) {
+              $signedFile = Join-Path $strongNameRoot ([string]$entry.FlatName)
+              $originalPath = [string]$entry.OriginalPath
+              if (-not (Test-Path $signedFile)) {
+                throw "Expected strong-name signed DLL was not found: $signedFile"
+              }
+              Copy-Item $signedFile -Destination $originalPath -Force
+            }
+
+            Write-Host "Restored strong-name signed DLLs into extracted PowerShell module packages: $($strongNameMap.Count)"
+    - task: EsrpCodeSigning@6
+      displayName: Authenticode Sign PowerShell Module Payloads
+      condition: eq(variables['HasPowerShellPayload'], 'true')
+      inputs:
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
+        FolderPath: '$(Pipeline.Workspace)/signing-work'
+        UseMinimatch: true
+        Pattern: |
+          nupkg-extracted/**/*.ps1
+          nupkg-extracted/**/*.psm1
+          nupkg-extracted/**/*.psd1
+          nupkg-extracted/**/*.ps1xml
+          standalone-powershell/**/*.ps1
+          standalone-powershell/**/*.psm1
+          standalone-powershell/**/*.psd1
+          standalone-powershell/**/*.ps1xml
+        signConfigType: inlineSignParams
+        SessionTimeout: '60'
+        MaxConcurrency: '25'
+        MaxRetryAttempts: '5'
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+              "OperationCode": "SigntoolSign",
+              "Parameters": $(ESRPAuthenticodeSignParameters),
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            },
+            {
+              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+              "OperationCode": "SigntoolVerify",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+    - task: EsrpCodeSigning@6
+      displayName: Authenticode Sign PowerShell Module Binary Payloads
+      condition: eq(variables['HasFirstPartyPayload'], 'true')
+      inputs:
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
+        FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg-extracted'
+        UseMinimatch: true
+        Pattern: |
+          **/az.dll
+          **/azclips-agent.dll
+          **/Core.*.dll
+          **/Microsoft.Azure.Azclips*.dll
+          **/Microsoft.Azure.Azclips*.exe
+        signConfigType: inlineSignParams
+        SessionTimeout: '60'
+        MaxConcurrency: '25'
+        MaxRetryAttempts: '5'
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+              "OperationCode": "SigntoolSign",
+              "Parameters": $(ESRPAuthenticodeSignParameters),
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            },
+            {
+              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+              "OperationCode": "SigntoolVerify",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+    - ${{ if eq(parameters.esrp_enable_non_azclips_dll_signing, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: Optional Co-sign PowerShell Module Third-Party DLLs
+        condition: eq(variables['HasThirdPartyDllPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/thirdparty'
+          UseMinimatch: true
+          Pattern: '*.dll'
+          signConfigType: inlineSignParams
+          SessionTimeout: '60'
+          MaxConcurrency: '25'
+          MaxRetryAttempts: '5'
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_third_party_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH",
+                  "Append": "/as",
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_third_party_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: PowerShell@2
+        displayName: Restore Co-signed PowerShell Module Third-Party DLLs
+        condition: eq(variables['HasThirdPartyDllPayload'], 'true')
+        inputs:
+          targetType: inline
+          pwsh: true
+          script: |
+            $ErrorActionPreference = 'Stop'
+            $workingRoot = "$(Pipeline.Workspace)/signing-work"
+            $thirdPartyRoot = Join-Path $workingRoot 'thirdparty'
+            $mapPath = Join-Path $workingRoot 'thirdparty-map.json'
+
+            if (-not (Test-Path $mapPath)) {
+              throw "Third-party restore map was not found: $mapPath"
+            }
+
+            $thirdPartyMap = @(Get-Content $mapPath -Raw | ConvertFrom-Json)
+            foreach ($entry in $thirdPartyMap) {
+              $signedFile = Join-Path $thirdPartyRoot ([string]$entry.FlatName)
+              $originalPath = [string]$entry.OriginalPath
+              if (-not (Test-Path $signedFile)) {
+                throw "Expected co-signed third-party DLL was not found: $signedFile"
+              }
+              Copy-Item $signedFile -Destination $originalPath -Force
+            }
+
+            Write-Host "Restored co-signed third-party DLLs into extracted PowerShell module packages: $($thirdPartyMap.Count)"
+    - ${{ if eq(parameters.esrp_enable_payload_verify, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: ESRP Verify PowerShell Module Payloads
+        condition: eq(variables['HasPowerShellPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work'
+          UseMinimatch: true
+          Pattern: |
+            nupkg-extracted/**/*.ps1
+            nupkg-extracted/**/*.psm1
+            nupkg-extracted/**/*.psd1
+            nupkg-extracted/**/*.ps1xml
+            standalone-powershell/**/*.ps1
+            standalone-powershell/**/*.psm1
+            standalone-powershell/**/*.psd1
+            standalone-powershell/**/*.ps1xml
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@6
+        displayName: ESRP Verify PowerShell Module Binary Payloads
+        condition: eq(variables['HasFirstPartyPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/az.dll
+            **/azclips-agent.dll
+            **/Core.*.dll
+            **/Microsoft.Azure.Azclips*.dll
+            **/Microsoft.Azure.Azclips*.exe
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+    - task: PowerShell@2
+      displayName: Repack Payload-signed PowerShell Module Packages
+      condition: eq(variables['HasNupkg'], 'true')
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+          $workingRoot = "$(Pipeline.Workspace)/signing-work"
+          $mapPath = Join-Path $workingRoot 'nupkg-map.json'
+          if (-not (Test-Path $mapPath)) {
+            throw "NuGet package map was not found: $mapPath"
+          }
+
+          $packageMap = @(Get-Content $mapPath -Raw | ConvertFrom-Json)
+          foreach ($entry in $packageMap) {
+            $packagePath = [string]$entry.PackagePath
+            $extractDir = [string]$entry.ExtractedDir
+            if (-not (Test-Path $extractDir)) {
+              throw "Extracted package directory was not found: $extractDir"
+            }
+            if (Test-Path $packagePath) {
+              Remove-Item $packagePath -Force
+            }
+            [System.IO.Compression.ZipFile]::CreateFromDirectory($extractDir, $packagePath)
+            Write-Host "Repacked payload-signed package: $packagePath"
+          }
+    - task: EsrpCodeSigning@6
+      displayName: NuGet Sign PowerShell Module Package Wrappers
+      condition: eq(variables['HasNupkg'], 'true')
+      inputs:
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
+        FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
+        UseMinimatch: true
+        Pattern: 'Az.*.nupkg'
+        signConfigType: inlineSignParams
+        SessionTimeout: '60'
+        MaxConcurrency: '25'
+        MaxRetryAttempts: '5'
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_nuget_keycode }}",
+              "OperationCode": "NuGetSign",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+    - ${{ if eq(parameters.esrp_enable_nuget_verify, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: ESRP Verify PowerShell Module Package Wrappers
+        condition: eq(variables['HasNupkg'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
+          UseMinimatch: true
+          Pattern: 'Az.*.nupkg'
+          signConfigType: inlineSignParams
+          SessionTimeout: '60'
+          MaxConcurrency: '25'
+          MaxRetryAttempts: '5'
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_nuget_keycode }}",
+                "OperationCode": "NuGetVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+    - task: PowerShell@2
+      displayName: Verify Signed PowerShell Module Outputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/verify_signed_outputs.ps1
+        arguments: >-
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -RequireNupkg $true
+          -RequireStrongName $${{ parameters.esrp_enable_strong_name_signing }}
+          -ExpectedStrongNameToken '${{ parameters.esrp_strong_name_public_key_token }}'
+          -RequirePowerShellAuthenticode $true
+          -RequirePackagePayloadAuthenticode $true
+          -RequireInstallModuleAuthenticode $true
+        pwsh: true
+    - task: PowerShell@2
+      displayName: Publish Signed PowerShell Module Artifacts
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $releaseRoot = "$(Build.ArtifactStagingDirectory)/signed-release"
+          New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
+          Get-ChildItem -Path "$(Pipeline.Workspace)/signing-work/nupkg" -File -Filter 'Az.*.nupkg' | ForEach-Object {
+            Copy-Item $_.FullName -Destination (Join-Path $releaseRoot $_.Name) -Force
+            Write-Host "Copied signed PowerShell module package: $($_.Name)"
+          }
+
+          $signedInstallModule = "$(Pipeline.Workspace)/signing-work/standalone-powershell/InstallModule.ps1"
+          if (-not (Test-Path $signedInstallModule)) {
+            throw "Signed InstallModule.ps1 was not found: $signedInstallModule"
+          }
+          Copy-Item $signedInstallModule -Destination (Join-Path $releaseRoot 'InstallModule.ps1') -Force
+          Write-Host "Copied signed InstallModule.ps1."
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Signed PowerShell Module Packages
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-release
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Signed PowerShell Module Packages
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-release
+        artifact: signed-ps-module
+        publishLocation: pipeline

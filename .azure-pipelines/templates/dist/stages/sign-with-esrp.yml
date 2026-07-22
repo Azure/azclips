@@ -1,0 +1,414 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: dependency_stage
+  type: object
+  default: 'Preflight'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+  default: 'azclips-adhoc-build'
+- name: source_build_id
+  type: string
+  default: ''
+- name: source_artifact_name
+  type: string
+  default: 'Final_Build_Distribution'
+- name: source_artifact_source
+  type: string
+  default: 'specific'
+- name: signed_artifact_name
+  type: string
+  default: 'signed-dist'
+- name: esrp_service_connection
+  type: string
+  default: ''
+- name: esrp_nuget_keycode
+  type: string
+  default: ''
+- name: esrp_authenticode_keycode
+  type: string
+  default: ''
+- name: esrp_third_party_keycode
+  type: string
+  default: ''
+- name: esrp_strong_name_keycode
+  type: string
+  default: ''
+- name: esrp_apple_keycode
+  type: string
+  default: ''
+- name: macos_bundle_id
+  type: string
+  default: 'com.microsoft.azclips.cli'
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
+- name: esrp_enable_nuget_verify
+  type: boolean
+  default: true
+- name: esrp_enable_windows_verify
+  type: boolean
+  default: true
+- name: esrp_enable_ps_module_payload_verify
+  type: boolean
+  default: true
+- name: esrp_enable_windows_timestamp
+  type: boolean
+  default: true
+- name: esrp_enable_ps_module_strong_name
+  type: boolean
+  default: true
+- name: esrp_require_windows_strong_name
+  type: boolean
+  default: false
+- name: esrp_strong_name_public_key_token
+  type: string
+  default: '31bf3856ad364e35'
+- name: esrp_strong_name_file_patterns
+  type: object
+  default: []
+- name: esrp_enable_non_azclips_dll_signing
+  type: boolean
+  default: true
+- name: windows_sign_architectures
+  type: object
+  default:
+  - x64
+  - arm64
+- name: linux_collect_architectures
+  type: object
+  default:
+  - x64
+  - arm64
+
+stages:
+- stage: SignNugetArtifacts
+  displayName: Sign CLI Extension NuGet Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-nuget.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
+      esrp_service_connection: ${{ parameters.esrp_service_connection }}
+      esrp_nuget_keycode: ${{ parameters.esrp_nuget_keycode }}
+      esrp_enable_nuget_verify: ${{ parameters.esrp_enable_nuget_verify }}
+- stage: SignPowerShellModuleArtifacts
+  displayName: Sign PowerShell Module Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-ps-module.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
+      esrp_service_connection: ${{ parameters.esrp_service_connection }}
+      esrp_nuget_keycode: ${{ parameters.esrp_nuget_keycode }}
+      esrp_authenticode_keycode: ${{ parameters.esrp_authenticode_keycode }}
+      esrp_strong_name_keycode: ${{ parameters.esrp_strong_name_keycode }}
+      esrp_third_party_keycode: ${{ parameters.esrp_third_party_keycode }}
+      esrp_enable_nuget_verify: ${{ parameters.esrp_enable_nuget_verify }}
+      esrp_enable_payload_verify: ${{ parameters.esrp_enable_ps_module_payload_verify }}
+      esrp_enable_windows_timestamp: ${{ parameters.esrp_enable_windows_timestamp }}
+      esrp_enable_strong_name_signing: ${{ parameters.esrp_enable_ps_module_strong_name }}
+      esrp_strong_name_public_key_token: ${{ parameters.esrp_strong_name_public_key_token }}
+      esrp_strong_name_file_patterns: ${{ parameters.esrp_strong_name_file_patterns }}
+      esrp_enable_non_azclips_dll_signing: ${{ parameters.esrp_enable_non_azclips_dll_signing }}
+- stage: SignWindowsArtifacts
+  displayName: Sign Windows Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-windows.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
+      esrp_service_connection: ${{ parameters.esrp_service_connection }}
+      esrp_authenticode_keycode: ${{ parameters.esrp_authenticode_keycode }}
+      esrp_third_party_keycode: ${{ parameters.esrp_third_party_keycode }}
+      esrp_strong_name_keycode: ${{ parameters.esrp_strong_name_keycode }}
+      esrp_enable_windows_verify: ${{ parameters.esrp_enable_windows_verify }}
+      esrp_enable_windows_timestamp: ${{ parameters.esrp_enable_windows_timestamp }}
+      esrp_require_windows_strong_name: ${{ parameters.esrp_require_windows_strong_name }}
+      esrp_strong_name_public_key_token: ${{ parameters.esrp_strong_name_public_key_token }}
+      esrp_strong_name_file_patterns: ${{ parameters.esrp_strong_name_file_patterns }}
+      esrp_enable_non_azclips_dll_signing: ${{ parameters.esrp_enable_non_azclips_dll_signing }}
+      windows_sign_architectures: ${{ parameters.windows_sign_architectures }}
+- stage: SignLinuxArtifacts
+  displayName: Collect Linux Artifacts (No Signing Yet)
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-linux.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
+      linux_collect_architectures: ${{ parameters.linux_collect_architectures }}
+- stage: SignMacOSArtifacts
+  displayName: Sign And Notarize macOS Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-macos.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
+      esrp_service_connection: ${{ parameters.esrp_service_connection }}
+      esrp_apple_keycode: ${{ parameters.esrp_apple_keycode }}
+      macos_bundle_id: ${{ parameters.macos_bundle_id }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+- stage: ValidateNugetArtifacts
+  displayName: Validate CLI Extension NuGet Artifacts
+  dependsOn: SignNugetArtifacts
+  jobs:
+  - template: ../jobs/validate-sign-nuget.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+
+- stage: ValidatePowerShellModuleArtifacts
+  displayName: Validate PowerShell Module Artifacts
+  dependsOn: SignPowerShellModuleArtifacts
+  jobs:
+  - template: ../jobs/validate-sign-nuget.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      artifact_name: signed-ps-module
+      display_name: Signed PowerShell Module Packages
+
+- stage: ValidateWindowsArtifacts
+  displayName: Validate Windows Artifacts
+  dependsOn: SignWindowsArtifacts
+  jobs:
+  - template: ../jobs/validate-sign-windows.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      esrp_require_windows_strong_name: ${{ parameters.esrp_require_windows_strong_name }}
+
+- stage: ValidateLinuxArtifacts
+  displayName: Validate Linux Artifacts
+  dependsOn: SignLinuxArtifacts
+  jobs:
+  - template: ../jobs/validate-sign-linux.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+
+- stage: ValidateMacOSArtifacts
+  displayName: Validate macOS Artifacts
+  dependsOn: SignMacOSArtifacts
+  jobs:
+  - template: ../jobs/validate-sign-macos.yml
+    parameters:
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+
+- stage: AssembleSignedArtifacts
+  displayName: Assemble Signed Artifacts
+  dependsOn:
+  - ValidateNugetArtifacts
+  - ValidatePowerShellModuleArtifacts
+  - ValidateWindowsArtifacts
+  - ValidateLinuxArtifacts
+  - ValidateMacOSArtifacts
+  jobs:
+  - job: ValidateAndAssemble
+    displayName: Validate And Assemble Final Signed Artifact
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+      retryCountOnTaskFailure: 3
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Windows Artifacts
+      inputs:
+        buildType: current
+        artifact: signed-windows
+        path: $(Pipeline.Workspace)/signed-windows
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed NuGet Artifacts
+      inputs:
+        buildType: current
+        artifact: signed-nuget
+        path: $(Pipeline.Workspace)/signed-nuget
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed PowerShell Module Artifacts
+      inputs:
+        buildType: current
+        artifact: signed-ps-module
+        path: $(Pipeline.Workspace)/signed-ps-module
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Linux Artifacts
+      inputs:
+        buildType: current
+        artifact: signed-linux
+        path: $(Pipeline.Workspace)/signed-linux
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed macOS Artifacts [arm64]
+      inputs:
+        buildType: current
+        artifact: signed-macos-arm64
+        path: $(Pipeline.Workspace)/signed-macos/arm64
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed macOS Artifacts [x64]
+      inputs:
+        buildType: current
+        artifact: signed-macos-x64
+        path: $(Pipeline.Workspace)/signed-macos/x64
+
+    - bash: |
+        set -euo pipefail
+        release_dir="$(Build.ArtifactStagingDirectory)/signed-release"
+        mkdir -p "$release_dir"
+
+        cp -v "$(Pipeline.Workspace)/signed-windows"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/signed-nuget"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/signed-ps-module"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/signed-linux"/* "$release_dir/" 2>/dev/null || true
+        find "$(Pipeline.Workspace)/signed-macos" -maxdepth 2 -type f -exec cp -v {} "$release_dir/" \;
+
+        chmod +x "$(Build.SourcesDirectory)/devops/scripts/packaging/common/create_component_archives.sh"
+        INSTALL_MODULE_SCRIPT="$release_dir/InstallModule.ps1" \
+        "$(Build.SourcesDirectory)/devops/scripts/packaging/common/create_component_archives.sh" \
+          --cli-extensions-root "$release_dir" \
+          --psgallery-root "$release_dir" \
+          --output-root "$release_dir" \
+          --version-source-root "$release_dir"
+        rm -f "$release_dir/InstallModule.ps1"
+
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+
+        release_dir = os.path.join(os.environ['BUILD_ARTIFACTSTAGINGDIRECTORY'], 'signed-release')
+        source_project = '${{ parameters.SourceProject }}'
+        source_pipeline_name = '${{ parameters.source_pipeline_name }}'
+        source_build_id = '${{ parameters.source_build_id }}'
+        source_artifact_name = '${{ parameters.source_artifact_name }}'
+
+        files = [
+          name
+          for name in sorted(os.listdir(release_dir))
+          if os.path.isfile(os.path.join(release_dir, name))
+        ]
+
+        checks = {
+          'nupkg': any(name.endswith('.nupkg') for name in files),
+          'windows_zip_x64': any(name.endswith('-x64.zip') for name in files),
+          'windows_zip_arm64': any(name.endswith('-arm64.zip') for name in files),
+          'linux_archive': any('linux' in name and (name.endswith('.tar.gz') or name.endswith('.zip')) for name in files),
+          'macos_archive': any(
+            any(token in name for token in ('mac', 'macos', 'osx', 'darwin')) and (name.endswith('.tar.gz') or name.endswith('.zip'))
+            for name in files
+          ),
+          'cli_extensions_archive': any(name.startswith('azcli-extensions-') and name.endswith('.tar.gz') for name in files),
+          'ps_cmdlets_archive': any(name.startswith('azps-cmdlets-') and name.endswith('.tar.gz') for name in files),
+        }
+
+        missing = [kind for kind, present in checks.items() if not present]
+        if missing:
+          raise SystemExit(f'Assemble validation failed. Missing expected artifact categories: {", ".join(missing)}')
+
+        entries = []
+        for name in files:
+          path = os.path.join(release_dir, name)
+          h = hashlib.sha256()
+          with open(path, 'rb') as f:
+            while True:
+              chunk = f.read(1024 * 1024)
+              if not chunk:
+                break
+              h.update(chunk)
+          entries.append({
+            'file': name,
+            'sha256': h.hexdigest(),
+            'size': os.path.getsize(path),
+          })
+
+        with open(os.path.join(release_dir, 'signing-manifest.json'), 'w', encoding='utf-8') as f:
+          json.dump(entries, f, indent=2)
+
+        provenance = {
+          'source': {
+            'project': source_project,
+            'pipeline': source_pipeline_name,
+            'buildId': source_build_id,
+            'artifact': source_artifact_name,
+          },
+          'signingRun': {
+            'project': os.getenv('SYSTEM_TEAMPROJECT', ''),
+            'pipeline': os.getenv('BUILD_DEFINITIONNAME', ''),
+            'buildId': os.getenv('BUILD_BUILDID', ''),
+            'buildNumber': os.getenv('BUILD_BUILDNUMBER', ''),
+            'sourceBranch': os.getenv('BUILD_SOURCEBRANCH', ''),
+            'sourceVersion': os.getenv('BUILD_SOURCEVERSION', ''),
+          },
+          'policy': {
+            'esrpNugetVerifyEnabled': '${{ parameters.esrp_enable_nuget_verify }}',
+            'esrpWindowsVerifyEnabled': '${{ parameters.esrp_enable_windows_verify }}',
+            'windowsTimestampEnabled': '${{ parameters.esrp_enable_windows_timestamp }}',
+            'windowsTimestampSetting': '/tr "http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer" /td sha256',
+            'windowsStrongNameRequired': '${{ parameters.esrp_require_windows_strong_name }}',
+            'windowsStrongNameKeyCode': '${{ parameters.esrp_strong_name_keycode }}',
+            'windowsStrongNamePublicKeyToken': '${{ parameters.esrp_strong_name_public_key_token }}',
+            'thirdPartySigningEnabled': '${{ parameters.esrp_enable_non_azclips_dll_signing }}',
+            'thirdPartyKeyCode': '${{ parameters.esrp_third_party_keycode }}',
+            'macosBundleId': '${{ parameters.macos_bundle_id }}',
+            'macosAppleKeyCode': '${{ parameters.esrp_apple_keycode }}',
+          },
+          'verificationMatrix': checks,
+        }
+
+        with open(os.path.join(release_dir, 'signing-provenance.json'), 'w', encoding='utf-8') as f:
+          json.dump(provenance, f, indent=2)
+        PY
+
+        echo "Final signed release contents:"
+        ls -al "$release_dir"
+      displayName: Assemble Final Signed Artifact
+
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Final Signed Artifact
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-release
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Final Signed Artifact
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-release
+        artifact: ${{ parameters.signed_artifact_name }}
+        publishLocation: pipeline

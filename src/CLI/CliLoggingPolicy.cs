@@ -1,0 +1,67 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions;
+
+namespace Core.Cli;
+
+internal enum CliLogLevel
+{
+    Error = 0,
+    Warn = 1,
+    Info = 2,
+    Debug = 3,
+}
+
+internal enum CliLogSeverity
+{
+    Error = 0,
+    Warn = 1,
+    Info = 2,
+    Debug = 3,
+    Verbose = 4,
+}
+
+internal static class CliLoggingPolicy
+{
+    public static CliLogLevel ResolveEffectiveLevel(IConfigurationService configurationService, bool debugOverride)
+    {
+        if (debugOverride)
+        {
+            return CliLogLevel.Debug;
+        }
+
+        var configured = configurationService.GetConfiguration<CoreOptions>().Logging.Level;
+        return Parse(configured);
+    }
+
+    public static CliLogLevel Parse(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return CliLogLevel.Error;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "error" => CliLogLevel.Error,
+            "warn" => CliLogLevel.Warn,
+            "info" => CliLogLevel.Info,
+            "debug" => CliLogLevel.Debug,
+            _ => CliLogLevel.Error,
+        };
+    }
+
+    public static bool ShouldEmit(CliLogLevel configuredLevel, CliLogSeverity messageSeverity)
+    {
+        return messageSeverity switch
+        {
+            CliLogSeverity.Error => true,
+            CliLogSeverity.Warn => configuredLevel >= CliLogLevel.Warn,
+            CliLogSeverity.Info => configuredLevel >= CliLogLevel.Info,
+            CliLogSeverity.Debug => configuredLevel >= CliLogLevel.Debug,
+            CliLogSeverity.Verbose => configuredLevel >= CliLogLevel.Debug,
+            _ => false,
+        };
+    }
+}

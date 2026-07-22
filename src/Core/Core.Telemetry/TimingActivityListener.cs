@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Diagnostics;
 using Core.Abstractions;
 
@@ -10,12 +13,12 @@ namespace Core.Telemetry;
 /// <c>using var _ = source.StartActivity("name")</c> shows up automatically
 /// here, no per-call-site stopwatch wiring needed.
 ///
-/// Opt-in: install only when env var <c>CIRRUS_TIMING=1</c> is set, so
+/// Opt-in: install only when env var <c>AZCLIPS_TIMING=1</c> is set, so
 /// regular CLI users don't see timing noise.
 /// </summary>
 public static class TimingActivityListener
 {
-    public const string EnvVar = "CIRRUS_TIMING";
+    public const string EnvVar = "AZCLIPS_TIMING";
 
     /// <summary>
     /// Returns true when timing output is requested via the

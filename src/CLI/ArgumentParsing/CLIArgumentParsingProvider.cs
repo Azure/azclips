@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Cli;
 
 using System.Collections;
@@ -231,7 +234,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         {
             if (kvp.Value.IsRequired && !args.ContainsKey(kvp.Key))
             {
-                errors.Add($"Required parameter '{kvp.Key}' is missing.");
+                errors.Add($"Required parameter '--{kvp.Value.InvocationName}' is missing.");
             }
         }
 

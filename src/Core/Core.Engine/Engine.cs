@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
@@ -19,7 +22,7 @@ namespace Core.Engine
     public partial class Engine(
         ClientType clientType,
         HttpClient httpClient,
-        IAuthContextService authContextService,
+        IProfileService profileService,
         IAuthService authService,
         ITelemetryService telemetryService,
         ILoggingService loggingService,
@@ -39,13 +42,19 @@ namespace Core.Engine
             // Create a per-invocation channel for worker-to-caller communication
             var session = new ExecutionSession(clientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session.EventBus);
-            session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created", ModuleName = invocation.ModuleName!, ModuleVersion = invocation.ModuleVersion! }).GetAwaiter().GetResult();
+
+            session.EventBus.Publish(Events.SessionCreated,
+                new EventData
+                {
+                    Message = $"{session.Id} created",
+                }).GetAwaiter().GetResult();
+
             // TODO(Yabo): get extension version from config service in the future
-            session.GetExtensionVersion = () => string.Empty;
+            session.GetExtensionVersion = () => invocation.ModuleVersion ?? string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
             session.Option = GetOption();
-            session.CreateProcessorContext = s => CreateProcessorContext(s);
+            session.CreateProcessorContext = (s, profileName) => CreateProcessorContext(s, profileName);
             session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
             return session;
         }
@@ -55,7 +64,7 @@ namespace Core.Engine
             ObjectDisposedException.ThrowIf(_disposed, this);
             var session = new DiscoverySession(clientType, extensionNames, commandName, outputStreams, isTransient, cancellationToken);
             SubscribeAll(session.EventBus);
-            session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created", ModuleName = commandName ?? string.Empty }).GetAwaiter().GetResult();
+            session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created" }).GetAwaiter().GetResult();
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = (name) => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
@@ -83,12 +92,17 @@ namespace Core.Engine
         /// Creates a new processor context for this invocation with channel-based output.
         /// Each processor execution gets its own isolated context.
         /// </summary>
-        private async Task<ProcessorContext> CreateProcessorContext(ExecutionSession session)
+        /// <param name="session">The execution session.</param>
+        /// <param name="profileNameOverride">
+        /// The pre-bound global <c>--profile</c>/<c>-Profile</c> value, or null when not supplied.
+        /// </param>
+        private async Task<ProcessorContext> CreateProcessorContext(ExecutionSession session, string? profileNameOverride)
         {
-            AuthContext authContext = await authContextService.GetCurrentContextAsync() ?? new AuthContext(TenantId: "", SubscriptionId: "");
+            Profile? profile = await ResolveProfileAsync(profileNameOverride);
+
             IAuthHandler authHandler = new AuthHandler
             {
-                AuthContext = authContext with { },
+                Profile = profile,
                 AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync,
                 ApplyOverride = false
             };
@@ -112,13 +126,46 @@ namespace Core.Engine
                 HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),
                 Publisher: session.EventBus,
                 AuthHandler: authHandler,
-                OutputHandler: outputHandler
+                OutputHandler: outputHandler,
+                Profile: profile
             );
+            // stamp User-Agent header on every outgoing request
+            httpPipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
             // passthrough by default, terminate during client mocking
             httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep);
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
+
+            // Announce the created context; the ProcessorContextCreated subscriber enriches the
+            // telemetry root span with profile-derived tags (subscription, tenant, auth type).
+            await session.EventBus.Publish(Events.ProcessorContextCreated, new EventData { Payload = profile });
+
             return context;
+        }
+
+        /// <summary>
+        /// Resolves the profile for an invocation: the explicit <c>--profile</c> override if provided,
+        /// otherwise the active profile, otherwise null. An explicit override that names a profile which
+        /// does not exist is an error; a stale active pointer simply resolves to null.
+        /// </summary>
+        private async Task<Profile?> ResolveProfileAsync(string? profileNameOverride)
+        {
+            bool explicitOverride = !string.IsNullOrWhiteSpace(profileNameOverride);
+            string? name = explicitOverride
+                ? profileNameOverride?.Trim()
+                : await profileService.GetActiveProfileNameAsync();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            Profile? profile = await profileService.GetProfileAsync(name);
+            if (profile is null && explicitOverride)
+            {
+                throw new ArgumentException($"Profile '{profileNameOverride?.Trim()}' does not exist.");
+            }
+            return profile;
         }
 
         /// <summary>

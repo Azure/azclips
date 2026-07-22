@@ -1,8 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
+    <AssemblyOriginatorKeyFile>../../../src/MSSharedLibKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\Core.Agent.csproj" />
     <ProjectReference Include="..\..\..\tests\Common\Tests.Common.csproj" />
+    <!-- HelpLookup lives in the Agent.Commands extension; referenced for its
+         public FindCommand / FindSuggestions unit coverage. -->
+    <ProjectReference Include="..\..\Commands\Agent.Commands.csproj" />
   </ItemGroup>
 
   <ItemGroup>

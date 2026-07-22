@@ -1,38 +1,48 @@
-# Cirrus Benchmark Suite
+# Azclips Benchmark Suite
 
-Performance benchmarking for Cirrus CLI/PowerShell engine, comparing execution time across API, CLI, and PowerShell products.
+Performance benchmarking for Azclips CLI/PowerShell engine, comparing execution time across CLI and PowerShell products.
 
 ## Quick Start
 
 ### Prerequisites
 
-1. **Authentication**: Run `azv2 login` to authenticate
-2. **Build**: Run `dotnet build cirrus.slnx` from repo root
+Benchmarks execute the **Release** build artifacts (CLI host, extensions, and PowerShell module DLLs), so build in Release first:
+
+```bash
+# Build the solution in Release (produces artifacts/Release/...)
+dotnet build azclips.slnx -c Release
+
+# Stage PS module manifests into artifacts/Release/PS/ (required for PS benchmarks)
+./build/Set-ModuleConfiguration.ps1 -c Release
+```
 
 ### Run Benchmarks
 
 ```bash
-# Run all benchmarks (API, CLI, PS) - uploads to App Insights
+# Run all benchmarks (CLI + PS) - uploads results to App Insights
 dotnet run --project tests/Benchmark/Benchmark.csproj
 
 # Run in local mode (skip App Insights upload)
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local
 
-# Run specific product only
+# Run a specific product only (CLI or PS)
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --product CLI
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --product PS
-dotnet run --project tests/Benchmark/Benchmark.csproj -- --product API
 
 # Combine options
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product CLI
+
+# CI mode (implies --local, writes to a stable artifacts path)
+dotnet run --project tests/Benchmark/Benchmark.csproj -- --ci --product CLI
 ```
 
 ### Output
 
-Results are saved to `artifacts/Benchmark/<timestamp>/`:
+Results are saved to `artifacts/Benchmark/<timestamp>/` (or `artifacts/Benchmark/ci/<PRODUCT>/` in `--ci` mode):
 - `benchmark-comparison-*.html` - Grouped bar chart (Chart.js)
 - `benchmark-details-*.html` - Detailed breakdown
 - `benchmark-summary-*.json` - JSON data for programmatic use
+- `results/` - BenchmarkDotNet's own exports (full JSON + GitHub-flavored Markdown)
 
 ---
 
@@ -45,20 +55,31 @@ Results are saved to `artifacts/Benchmark/<timestamp>/`:
 
 ### Test Configuration
 
-| Setting | Value |
-|---------|-------|
-| Warmup iterations | 1 |
-| Measurement iterations | 5 |
-| Strategy | Monitoring |
-| Cleanup | Auto-delete test resource groups |
+Configured via BenchmarkDotNet attributes on `CLIBenchmarkBase` / `PSBenchmarkBase`:
+
+| Setting | Value | Attribute |
+|---------|-------|-----------|
+| Invocations per iteration | 1 (unroll factor 1) | `[InvocationCount(1, 1)]` |
+| Warmup iterations | 5,000 | `[WarmupCount(5000)]` |
+| Measurement iterations | 5,000 | `[IterationCount(5000)]` |
+| Outlier handling | Remove all | `[Outliers(OutlierMode.RemoveAll)]` |
+| Memory diagnostics | Enabled (allocations tracked) | `[MemoryDiagnoser]` |
+
+Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`); 5,000 warmup and 5,000 measurement iterations are collected per benchmark. The two products are configured to measure the same thing — the warm, in-process per-command pipeline — excluding the cost of standing up their respective execution environments (process launch is excluded by running in-process; extension/module loading is excluded from the measured region on both sides). Per-iteration setup keeps every run isolated:
+
+- `[GlobalSetup]` (once per class): discovers the repo root; for CLI it also stages the required extensions into a benchmark-scoped `artifacts/Benchmark/home/extensions` layout; for PS it stages the module manifest closure under `artifacts/Benchmark/PS`.
+- `[IterationSetup]` (before each run): re-registers stub HTTP/auth/telemetry services; for CLI it also re-registers the extension loaders + registry store pointed at the staged home; for PS it creates and opens a fresh runspace and imports the module (both excluded from the measurement, so only the cmdlet invocation is measured).
+- `[IterationCleanup]` (after each run): disposes the DI container (which clears all registrations); for PS it also closes and disposes the runspace created in setup.
+- `[GlobalCleanup]` (once per class): removes the staged extensions home (best-effort).
 
 ### Product Implementations
 
 | Product | Implementation | Measures |
 |---------|----------------|----------|
-| API | HttpClient + Bearer Token | Pure network latency (baseline) |
-| CLI | Process.Start(azv2.exe) | Full process startup + execution |
-| PS | In-process Runspace (SDK) | Cmdlet execution in shared session |
+| CLI | In-process `Core.Cli.Program.Main(args)` | Warm CLI command pipeline (extension loaded once into a process-wide ALC) |
+| PS | Cmdlet invocation on a runspace + module imported in `[IterationSetup]` (PowerShell SDK) | Warm cmdlet execution (runspace creation + module import excluded) |
+
+HTTP is short-circuited by a stub terminate handler (returns `{}` 200 OK), so benchmarks measure the local CLI/PS pipeline only and never call Azure.
 
 ---
 
@@ -66,16 +87,18 @@ Results are saved to `artifacts/Benchmark/<timestamp>/`:
 
 ```
 tests/Benchmark/
-├── Program.cs              # Entry point, argument parsing
-├── BenchmarkBase.cs        # Shared setup (auth, cleanup, utilities)
-├── ChartGenerator.cs       # HTML/JSON chart generation
-├── AppInsightsExporter.cs  # Metrics upload to App Insights
-├── API/
-│   └── ResourceGroupBenchmarks.cs   # API baseline benchmarks
+├── Program.cs                  # Entry point: arg parsing, BDN config, exit-code aggregation
+├── BenchmarkBase.cs            # Shared setup: repo root, stub DI registration, cleanup
+├── BenchmarkEventListener.cs   # BenchmarkEventPublisher: no-op IEventPublisher stub
+├── ChartGenerator.cs           # HTML/JSON chart generation
+├── AppInsightsExporter.cs      # Benchmark metrics upload to App Insights
 ├── CLI/
-│   └── ResourceGroupBenchmarks.cs   # CLI process benchmarks
+│   ├── CLIBenchmarkBase.cs                       # BDN attributes, extension staging + DI overrides
+│   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
+│   └── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG
 └── PS/
-    └── ResourceGroupBenchmarks.cs   # PowerShell cmdlet benchmarks
+    ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + import setup, cmdlet-invoke helper
+    └── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG
 ```
 
 ---
@@ -84,17 +107,21 @@ tests/Benchmark/
 
 | Option | Description | Example |
 |--------|-------------|---------|
-| `--local` | Skip App Insights upload | `-- --local` |
-| `--product <name>` | Run specific product only (API/CLI/PS/ALL) | `-- --product CLI` |
+| `--local`, `-l` | Skip App Insights upload | `-- --local` |
+| `--product <name>` | Run a specific product only (`CLI`, `PS`, or `ALL`) | `-- --product CLI` |
+| `--ci` | CI mode: implies `--local` and writes to a stable `artifacts/Benchmark/ci/<PRODUCT>/` path | `-- --ci --product CLI` |
 
 ---
 
 ## Current Test Scenarios
 
-Azure Resource Group operations:
-- **List** - `GET /subscriptions/{id}/resourcegroups`
-- **Create** - `PUT /subscriptions/{id}/resourcegroups/{name}`
-- **Get** - `GET /subscriptions/{id}/resourcegroups/{name}`
+Azure Resource Group operations, run against stubbed HTTP (no real Azure calls):
+
+| Operation | CLI command | PowerShell cmdlet | Conceptual REST call |
+|-----------|-------------|-------------------|----------------------|
+| List | `group list` | `Get-AzResourceGroup` | `GET /subscriptions/{id}/resourcegroups` |
+| Create | `group create` | `New-AzResourceGroup` | `PUT /subscriptions/{id}/resourcegroups/{name}` |
+| Get | `group show` | `Get-AzResourceGroup -Name` | `GET /subscriptions/{id}/resourcegroups/{name}` |
 
 ---
 
@@ -106,15 +133,14 @@ Benchmark Runner ──▶ App Insights ──▶ Grafana ──▶ Analysis ─
        └──────────────────────────────────────────────────────────────┘
 ```
 
-Running benchmarks uploads two types of data:
-1. **Benchmark Metrics** - Aggregated latency (Mean, StdDev) per operation
-2. **Command Telemetry** - Fine-grained traces from CLI/PS execution
+Unless `--local`/`--ci` is set, each run uploads aggregated benchmark metrics to App Insights via `AppInsightsExporter`:
+1. **`BenchmarkDuration`** custom metric - mean duration per result
+2. **`BenchmarkResult`** custom event - duration (s/ms) plus `Product`, `Operation`, `Resource`, and `Timestamp` dimensions for Grafana filtering
 
-Analyze telemetry to discover bottlenecks → Add new benchmark cases → Validate fixes.
+Command-level telemetry is stubbed out during benchmarks (`StubTelemetryService`) to keep measurements isolated, so only these aggregated results are exported. Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
 
 ---
 
 ## See Also
 
-- [Benchmark Design Doc](../../docs/benchmark-design-sharing.md) - Full design details
 - [Grafana Dashboard](https://ms.portal.azure.com#view/Microsoft_Azure_PinToGrafana/AzureGrafana.ReactView/GalleryType/azure%20monitor/ConfigurationId/%2Fsubscriptions%2F9e223dbe-3399-4e19-88eb-0975f02ac87f%2FresourceGroups%2Fnori-app-insights%2Fproviders%2FMicrosoft.Dashboard%2Fdashboards%2Fnori-grafana-0203) - Live performance dashboard

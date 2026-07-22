@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -30,9 +33,11 @@ public sealed class ConfigurationService(
         [typeof(AssemblyLoadingOptions)] = "assemblyLoading",
         [typeof(TelemetryOptions)] = "telemetry",
         [typeof(AgentOptions)] = "agent",
+        [typeof(CompletionOptions)] = "completion",
         [typeof(ExtensionsOptions)] = "extensions",
         [typeof(ClientsOptions)] = "clients",
-        [typeof(DefaultsOptions)] = "defaults"
+        [typeof(DefaultsOptions)] = "defaults",
+        [typeof(BenchmarkOptions)] = "benchmark"
     };
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
@@ -324,6 +329,7 @@ public sealed class ConfigurationService(
         AddDefaults(defaults, new AssemblyLoadingOptions(), "assemblyLoading");
         AddDefaults(defaults, new TelemetryOptions(), "telemetry");
         AddDefaults(defaults, new AgentOptions(), "agent");
+        AddDefaults(defaults, new CompletionOptions(), "completion");
         AddDefaults(defaults, new ExtensionsOptions(), "extensions");
         AddDefaults(defaults, new ClientsOptions(), "clients");
         AddDefaults(defaults, new DefaultsOptions(), "defaults");

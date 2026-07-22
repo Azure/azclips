@@ -183,18 +183,18 @@ class CompletionService
     {
         var historySuggestions = GetHistorySuggestions(history, null, trimmed);
 
-        if (trimmed.StartsWith("azv2 ", StringComparison.OrdinalIgnoreCase))
+        if (trimmed.StartsWith("az ", StringComparison.OrdinalIgnoreCase))
         {
-            // Strip "azv2 " and feed remainder to CommandTree
-            var afterPrefix = trimmed[5..];
+            // Strip "az " and feed remainder to CommandTree
+            var afterPrefix = trimmed[3..];
             var treeSuggestions = CommandTree.GetSuggestions(afterPrefix);
             return historySuggestions.Concat(treeSuggestions).ToList();
         }
 
-        if ("azv2".StartsWith(trimmed, StringComparison.OrdinalIgnoreCase))
+        if ("az".StartsWith(trimmed, StringComparison.OrdinalIgnoreCase))
         {
-            var azv2Suggestion = new List<Suggestion> { new("azv2", "Cirrus CLI") };
-            return historySuggestions.Concat(azv2Suggestion).ToList();
+            var azSuggestion = new List<Suggestion> { new("az", "Azclips CLI") };
+            return historySuggestions.Concat(azSuggestion).ToList();
         }
 
         return historySuggestions;

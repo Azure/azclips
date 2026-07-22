@@ -1,0 +1,81 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: PackagingScriptsRoot
+  type: string
+- name: PackagingCommonOutRoot
+  type: string
+- name: PackagingWindowsOutRoot
+  type: string
+
+jobs:
+- job: WindowsValidation
+  displayName: CLI Windows Validation
+  timeoutInMinutes: 45
+  strategy:
+    matrix:
+      win_x64_lean:
+        Rid: win-x64
+        BuildProfile: lean
+        DistributionArtifact: Distribution_Windows_Lean
+        SkipRuntime: false
+      win_arm64_lean:
+        Rid: win-arm64
+        BuildProfile: lean
+        DistributionArtifact: Distribution_Windows_Arm64_Lean
+        SkipRuntime: true
+      win_x64_full:
+        Rid: win-x64
+        BuildProfile: full
+        DistributionArtifact: Distribution_Windows_Full
+        SkipRuntime: false
+      win_arm64_full:
+        Rid: win-arm64
+        BuildProfile: full
+        DistributionArtifact: Distribution_Windows_Arm64_Full
+        SkipRuntime: true
+  pool:
+    vmImage: ${{ parameters.windows_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+    retryCountOnTaskFailure: 3
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Get Windows Dist
+    inputs:
+      artifact: $(DistributionArtifact)
+      path: ${{ parameters.PackagingWindowsOutRoot }}
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Get CLI Common
+    inputs:
+      artifact: Distribution_Common
+      path: ${{ parameters.PackagingCommonOutRoot }}
+
+  - task: PowerShell@2
+    displayName: Validate CLI Windows Zip
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
+        $env:PACKAGE_PROFILE = "$(BuildProfile)"
+        $skipRuntime = "$(SkipRuntime)"
+        if ($skipRuntime -eq 'true') {
+          & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)" -SkipRuntime
+        }
+        else {
+          & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
+        }
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish CLI Windows Sim
+    condition: always()
+    inputs:
+      targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
+      artifact: Validate_Windows_Sim_$(Rid)_$(BuildProfile)
+      publishLocation: pipeline

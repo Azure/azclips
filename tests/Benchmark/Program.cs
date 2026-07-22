@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -171,7 +174,6 @@ public class Program
     {
         var allTypes = new[]
         {
-            typeof(API.ResourceGroupBenchmarks),
             typeof(CLI.ResourceGroupBenchmarks),
             typeof(PS.ResourceGroupBenchmarks)
         };
@@ -183,11 +185,38 @@ public class Program
 
         return product switch
         {
-            "API" => new[] { typeof(API.ResourceGroupBenchmarks) },
             "CLI" => new[] { typeof(CLI.ResourceGroupBenchmarks) },
             "PS" => new[] { typeof(PS.ResourceGroupBenchmarks) },
-            _ => throw new ArgumentException($"Unknown product: {product}. Use: API, CLI, PS, or ALL")
+            "STARTUP" => GetStartupBenchmarkTypes(),
+            _ => throw new ArgumentException($"Unknown product: {product}. Use: CLI, PS, STARTUP, or ALL")
         };
+    }
+
+    /// <summary>
+    /// Startup benchmark classes. Warm always runs; cold runs only when OS page-cache eviction
+    /// is available on this machine (otherwise it is skipped with a log — never reported as
+    /// cold-but-actually-warm).
+    /// </summary>
+    private static Type[] GetStartupBenchmarkTypes()
+    {
+        var types = new List<Type>
+        {
+            typeof(Startup.CliWarmStartupBenchmarks),
+            typeof(Startup.PsWarmStartupBenchmarks),
+        };
+
+        if (Startup.StartupEviction.IsAvailable())
+        {
+            types.Add(typeof(Startup.CliColdStartupBenchmarks));
+            types.Add(typeof(Startup.PsColdStartupBenchmarks));
+        }
+        else
+        {
+            Console.WriteLine(
+                $"[Startup] cold eviction unavailable ({Startup.StartupEviction.DescribeUnavailable()}) — skipping cold startup benchmarks");
+        }
+
+        return types.ToArray();
     }
 
     private static string? ParseProductFilter(string[] args)

@@ -121,7 +121,7 @@ public sealed record SessionErrored(
 
 // ── Host-side log routing ─────────────────────────────────────────────
 //
-// Cirrus's own services (MsalAuthService / AuthContextService / Engine) call
+// Azclips's own services (MsalAuthService / AuthContextService / Engine) call
 // ILoggingService directly and historically wrote to stdout, racing the
 // spinner. In agent mode we redirect that channel to the renderer via this
 // event so every byte the user sees goes through the renderer's lock.
@@ -131,7 +131,7 @@ public sealed record SessionErrored(
 public enum HostLogLevel { Warn, Error }
 
 /// <summary>
-/// A Warn / Error from cirrus's own services (not the LLM, not a tool).
+/// A Warn / Error from azclips's own services (not the LLM, not a tool).
 /// Emitted by RendererLoggingService so all stdout writes funnel through
 /// IAgentRenderer instead of bypassing its lock.
 /// </summary>

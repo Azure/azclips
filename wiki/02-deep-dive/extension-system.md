@@ -1,385 +1,329 @@
 ---
-title: Extension System & Dynamic Loading
-description: How Cirrus dynamically discovers, loads, and isolates extensions using AssemblyLoadContext, NuGet APIs, and a command-group registry — plus a step-by-step guide to creating new extensions.
+title: Extension System
+description: End-to-end tour of the Azclips extension architecture — the IExtensionIndex command registry, IProcessor commands, verb/leaf dispatch, built-in vs user-installed resolution, multi-version assembly loading with isolated ALCs, the extension-management CRUD commands, and the ExtensionRuntime (de)serialization framework.
+outline: deep
 ---
 
-# Extension System & Dynamic Loading
+# Extension System
 
-Cirrus uses a plugin-based extension architecture where each functional domain (resource groups, login, extension management) ships as an independently loadable assembly. Extensions are discovered at runtime, loaded into isolated `AssemblyLoadContext` instances, and wired into the command dispatch pipeline. This design enables side-by-side versioning, user-installed extensions from NuGet, and hot-reloading without restarting the host process.
+## Overview — why extensions
 
-## Architecture Overview
+Azclips ships a small self-contained host (`az`) and delivers essentially all of its command
+surface as **extensions** — independently versioned .NET class libraries loaded at runtime. This
+keeps the host binary lean, lets Azure service teams ship their own command modules on their own
+cadence, and allows multiple versions of an extension to coexist on one machine. The same extension
+assemblies are consumed by two host surfaces, the CLI and the PowerShell modules
+(`eng-docs/spec/extension-framework.md`).
 
-The extension system spans three layers: **dispatch** (routing commands to extensions), **loading** (finding and loading assemblies), and **registration** (mapping command names to types inside each extension).
+An extension is anything that provides three things (`eng-docs/spec/extension-framework.md`):
+
+- an **`IExtensionIndex`** — the command registry that maps a command name + client surface to
+  metadata (`src/Core/Core.Abstractions/IExtensionIndex.cs:10`);
+- one or more **`IProcessor`** classes — the actual command implementations
+  (`src/Core/Core.Abstractions/CLIContracts.cs:11`);
+- a build that produces a loadable, dependency-carrying `.nupkg` / DLL.
+
+This page traces the four moving parts end to end: **(1)** anatomy of an extension, **(2)**
+discovery & loading, **(3)** the extension-management commands, and **(4)** the `ExtensionRuntime`
+serialization framework.
 
 ```mermaid
-flowchart TB
-    subgraph Dispatch["Command Dispatch Layer"]
-        direction LR
-        CGI["CommandGroupIndex"]
-        ED["ExtensionDispatcher"]
-        EP["ExtensionParser"]
+graph TD
+    ARGS["args: az extension remove Compute"] --> DISP["ExtensionDispatcher.Parse"]
+    DISP -->|"CommandInvocation"| ENG["Engine / ExecutionSession"]
+    ENG --> ALP["CLIAssemblyLoadingProvider"]
+    ALP --> L1["BuiltinExtensionLoader"]
+    ALP --> L2["MultiVersionExtensionLoader"]
+    L1 --> ASM["extension Assembly"]
+    L2 --> ASM
+    ASM --> IDX["IExtensionIndex"]
+    IDX --> PROC["IProcessor.ProcessAsync"]
+    PROC --> RT["ExtensionRuntime<br>JSON (de)serialization"]
 
-        CGI --> ED
-        ED --> EP
-    end
-
-    subgraph Loading["Assembly Loading Layer"]
-        direction LR
-        BEL["BuiltinExtensionLoader"]
-        MVEL["MultiVersionExtensionLoader"]
-        ELC["ExtensionLoadContext"]
-
-        BEL --> ELC
-        MVEL --> ELC
-    end
-
-    subgraph Registration["Extension Registration Layer"]
-        direction LR
-        IEI["IExtensionIndex"]
-        REI["Resources ExtensionIndex"]
-        LEI["Login ExtensionIndex"]
-        EEI["Extension ExtensionIndex"]
-
-        IEI -.-> REI
-        IEI -.-> LEI
-        IEI -.-> EEI
-    end
-
-    Dispatch --> Loading
-    Loading --> Registration
-
-    style Dispatch fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Loading fill:#161b22,stroke:#30363d,color:#e6edf3
-    style Registration fill:#161b22,stroke:#30363d,color:#e6edf3
-    style CGI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ED fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style EP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BEL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style MVEL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ELC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style IEI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style REI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style LEI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style EEI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-
-    linkStyle 0,1,2,3,4,5,6,7,8 stroke:#8b949e
+    style ARGS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style DISP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style ENG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style ALP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style L1 fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style L2 fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style ASM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style IDX fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PROC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style RT fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
+    linkStyle default stroke:#8b949e
 ```
 
-## IExtensionIndex Interface
+## 1. Anatomy of an extension
 
-Every extension must expose an `IExtensionIndex` implementation (`src/Core/Core.Abstractions/IExtensionIndex.cs:7-16`):
+### The command registry: `IExtensionIndex`
+
+`IExtensionIndex` is the contract every extension implements to declare its commands
+(`src/Core/Core.Abstractions/IExtensionIndex.cs:10`). Its members are keyed by `ClientType` (CLI vs
+PowerShell) so a single index serves both surfaces:
+
+| Member                                 | Role                                                        | Source                  |
+| -------------------------------------- | ----------------------------------------------------------- | ----------------------- |
+| `GetCommandMetadata(name, clientType)` | Resolve one command's metadata                              | `IExtensionIndex.cs:12` |
+| `GetCommandTable(clientType)`          | The full keyed command table for a surface                  | `IExtensionIndex.cs:18` |
+| `GetAllCommands(clientType)`           | Enumerate commands (help system)                            | `IExtensionIndex.cs:24` |
+| `GetCommandKeys(clientType)`           | Leaf keys (e.g. `"vm create"`) used at `extension add` time | `IExtensionIndex.cs:33` |
+| `GetVerbs()`                           | Top-level verbs the extension contributes                   | `IExtensionIndex.cs:42` |
+
+A concrete index is just a set of static `CommandMetadata` records wired into a per-surface table.
+The built-in **Extension** module's own index is a good reference implementation
+(`src/Extensions/Extension/ExtensionIndex.cs:9`): it declares one `CommandMetadata` per command
+(`src/Extensions/Extension/ExtensionIndex.cs:12`) and assembles them into a full-path CLI table
+keyed by `"extension add"`, `"extension list"`, … (`src/Extensions/Extension/ExtensionIndex.cs:121`).
+Lookup simply switches on `ClientType` and indexes the table
+(`src/Extensions/Extension/ExtensionIndex.cs:132`), while `GetVerbs()` returns `["extension"]`
+(`src/Extensions/Extension/ExtensionIndex.cs:169`). The `[ExtensionVerb("extension")]` attribute on
+the class declares its top-level verb to the host.
+
+### The command implementations: `IProcessor`
+
+Commands are `IProcessor` implementations with just two methods
+(`src/Core/Core.Abstractions/CLIContracts.cs:11`):
 
 ```csharp
-public interface IExtensionIndex
+public interface IProcessor
 {
-    ICommandMetadata GetCommandMetaData(string name, ClientType clientType);
-    IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType);
+    Task ProcessAsync();
+    IProcessor Init(ProcessorContext context);
 }
 ```
 
-This interface serves as the extension's manifest. When an engine loads an extension, it instantiates the `ExtensionIndex` class and calls `GetCommandMetaData` to resolve a specific command or `GetAllCommands` to enumerate all available commands for a given `ClientType`.
+`Init(context)` injects the per-invocation `ProcessorContext` (HTTP pipeline, event publisher,
+auth handler, output handler, resolved profile); `ProcessAsync()` runs the command. Parameters are
+declared with `[ArgumentInfo(...)]` attributes on public properties
+(`src/Core/Core.Abstractions/CLIContracts.cs:24`) and mirror the `ParameterMetadata` entries in the
+index. For example `AddExtensionProcessor` declares `--name`, `--version`, `--feed-url`, `--path`,
+`--pin`, `--force` as `[ArgumentInfo]` properties (`src/Extensions/Extension/Add.cs:11`) that
+exactly match the `s_addExtension_CLI` metadata in the index
+(`src/Extensions/Extension/ExtensionIndex.cs:12`). Richer service extensions add **Orchestrators**
+that compose multiple processors (see `src/Extensions/Resources/` and `src/Extensions/Compute/`).
 
-Each extension maintains separate command dictionaries for CLI and PowerShell (`src/Extensions/Resources/ExtensionIndex.cs:10-11`):
+## 2. Discovery & loading
 
-```csharp
-private IDictionary<string, ICommandMetadata> _psTable;
-private IDictionary<string, ICommandMetadata> _cliTable;
-```
+### Routing model: verbs, leaves, and the two sources
 
-The `IModule` interface (`src/Core/Core.Abstractions/IModule.cs:3-5`) is a simpler variant used by the `CommandBinder` path:
+Routing is `{(verb, path) → packageId}` with O(1) lookup; a top-level verb is a _shared namespace_
+and each full `(verb, path)` leaf is owned by exactly one extension
+(`eng-docs/spec/extension-management.md`). Command groups resolve from two merged sources:
 
-```csharp
-public interface IModule
-{
-    IEnumerable<ICommand> GetCommands();
-}
-```
+1. **Built-in map** — `BuiltInExtensions.Map`, a static seed of host-shipped extensions
+   (`src/Core/Core.Extensions/BuiltInExtensions.cs:44`). The "true core" is `extension`, `login`,
+   `logout`, `profile`, and `config` (`src/Core/Core.Extensions/BuiltInExtensions.cs:48`). Each
+   entry can declare `Leaves` (e.g. `add`, `list`, `remove` for `extension`) so the dispatcher can
+   peel positional sub-commands correctly (`src/Core/Core.Extensions/BuiltInExtensions.cs:50`).
+   Built-ins are never persisted to the registry and a built-in **always wins** over a registry
+   entry for the same verb (`src/Core/Core.Extensions/BuiltInExtensions.cs:34`).
+2. **User-installed registry** — the on-disk `registry.json` under
+   `~/.azclips/extensions/` (`src/Core/Core.Abstractions/HomePaths.cs:14`), loaded through
+   `FileExtensionRegistryStore` and merged with the built-in seed.
 
-And `ICommand` (`src/Core/Core.Abstractions/ICommand.cs:3-11`) defines the execution contract:
+### Dispatch: `ExtensionDispatcher.Parse`
 
-```csharp
-public interface ICommand
-{
-    Task ExecuteAsync(IServiceProvider serviceProvider,
-        IDictionary<string, string> options,
-        CancellationToken cancellationToken = default);
-}
-```
+`ExtensionDispatcher.Parse` turns raw `args` into a `CommandInvocation`
+(`src/CLI/Parser/ExtensionDispatcher.cs:44`). Its default constructor builds a `LeafIndex` from the
+built-in map **and** the on-disk store (`src/CLI/Parser/ExtensionDispatcher.cs:28`). Resolution
+proceeds in stages:
 
-## Extension Loaders
+1. **Help short-circuits** — bare `az`, `az --help`, `az help <group>`, and `az <group> … --help` are
+   detected and turned into help exceptions before routing
+   (`src/CLI/Parser/ExtensionDispatcher.cs`). The empty-args case raises the same
+   `DispatchHelpException` as `az --help`; `Program.Main` layers a welcome banner on top when the
+   invocation was truly bare.
+2. **Longest-prefix leaf match** — the leading non-flag tokens after the verb are matched against
+   the `LeafIndex` from the longest prefix down; the first hit wins and yields a `ResolvedExtension`
+   (`src/CLI/Parser/ExtensionDispatcher.cs:71`).
+3. **Verb-only fallback** — if no leaf matches, the `IExtensionResolver` resolves the bare verb
+   (`src/CLI/Parser/ExtensionDispatcher.cs:85`). If even that misses, a hint table can raise
+   `ExtensionNotInstalledException` (suggesting the package to install), otherwise a generic
+   `KeyNotFoundException` lets the orchestrator hand off to the AI fallback
+   (`src/CLI/Parser/ExtensionDispatcher.cs:90`).
+4. **Prefix strip + parse** — the known package prefix is stripped (the loader re-prepends it) and
+   the remaining args are parsed into a `CommandInvocation` carrying the extension name and
+   command name (`src/CLI/Parser/ExtensionDispatcher.cs:104`, `:134`).
 
-Two loader implementations provide different strategies for locating extension assemblies (`src/Core/Core.Engine/ExtensionLoader.cs:8-11`):
+### Assembly loading: chain of loaders + isolated ALCs
 
-```csharp
-public interface IExtensionLoader
-{
-    Assembly? LoadExtension(string extensionFolderName,
-        string extensionName, string? version = null);
-}
-```
-
-### BuiltinExtensionLoader
-
-`BuiltinExtensionLoader` (`src/Core/Core.Engine/ExtensionLoader.cs:13-64`) loads extensions bundled alongside the CLI binary. It constructs the DLL path as `{extensionsDir}/{extensionFolderName}/{extensionName}.dll` (line 55) and returns `null` if a specific version is requested (line 51-54) — version-pinned extensions must go through the multi-version loader.
-
-### MultiVersionExtensionLoader
-
-`MultiVersionExtensionLoader` (`src/Core/Core.Engine/ExtensionLoader.cs:66-137`) handles user-installed extensions with semantic versioning. When no version is specified, it scans the extension directory for subdirectories, parses each as a `NuGetVersion`, and selects the highest version (lines 114-119):
-
-```csharp
-NuGetVersion.TryParse(dir, out var nugetVersion)
-```
-
-This enables side-by-side installation of multiple extension versions.
-
-### Assembly Load Contexts & Isolation
-
-Both loaders create isolated `ExtensionLoadContext` instances inheriting from `AssemblyLoadContext` (`src/Core/Core.Engine/ExtensionLoader.cs:15-45`, `68-87`). These contexts prevent extension dependencies from conflicting with the host:
-
-- **Builtin context** — uses `AssemblyDependencyResolver` (line 17) to resolve dependencies from the extension's directory. Assemblies starting with `Core.` or `Microsoft.Extensions.DependencyInjection` are skipped (lines 22-26), allowing the extension to share the host's core types.
-- **Multi-version context** — resolves from the extension's versioned directory, with the same skip-list pattern for shared contracts (line 73-86).
-
-The skip-list is critical: without it, each extension would load its own copy of `Core.Abstractions`, making cross-boundary `IExtensionIndex` casts fail due to type identity mismatches.
-
-## Command Dispatch Pipeline
-
-### CommandGroupIndex
-
-`CommandGroupIndex` (`src/CLI/Parser/CommandGroupIndex.cs:12-31`) is a static registry mapping user-facing command group names to extension names:
+Once dispatch names an extension, `CLIAssemblyLoadingProvider` loads its assembly by trying each
+registered `IExtensionLoader` in order and taking the first non-null result
+(`src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs:11`). Two loaders are registered at startup,
+in priority order (`src/CLI/Program.cs:42`):
 
 ```csharp
-static CommandGroupIndex()
-{
-    _commandGroups["Group"] = "Resources";       // line 17
-    _commandGroups["Login"] = "Login";           // line 18
-    _commandGroups["Extension"] = "Extension";   // line 19
-}
+services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();       // Program.cs:42
+services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();  // Program.cs:43
 ```
 
-The `getExtensionNameByCommandGroupName` method (lines 22-29) performs a dictionary lookup and throws `KeyNotFoundException` for unregistered groups.
+| Loader                        | Layout it understands                       | Version selection                                           | Source                                           |
+| ----------------------------- | ------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------ |
+| `BuiltinExtensionLoader`      | Flat extension folders next to the host     | Single version                                              | `src/CLI/AssemblyLoading/ExtensionLoader.cs:26`  |
+| `MultiVersionExtensionLoader` | `…/<package>/<version>/` version subfolders | Exact version if requested, else **highest `NuGetVersion`** | `src/CLI/AssemblyLoading/ExtensionLoader.cs:197` |
 
-### ExtensionDispatcher
+Both loaders isolate each extension in its own `AssemblyLoadContext` (ALC). The ALC's `Load`
+override deliberately **returns `null` for `Core.*` and `Microsoft.Extensions.DependencyInjection`
+assemblies** so those shared contracts come from the host rather than the extension's own copy —
+this is what lets a processor's `ProcessorContext` be the _same_ type the host created
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:42`, `:220`). Managed assemblies are read into memory
+and loaded via `LoadFromStream`, so the on-disk DLL is not locked
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:33`).
 
-`ExtensionDispatcher` (`src/CLI/Parser/ExtensionDispatcher.cs:7-78`) parses raw CLI args into a structured `CLICommandInvocation`:
+`MultiVersionExtensionLoader.ResolveExtensionDirectory` walks candidate package-folder names under
+the configured versioned-install root, and when no exact version is requested it parses each version
+subfolder name as a `NuGetVersion` and selects the highest
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:258`). Loaded `(context, assembly)` pairs are memoised
+in a static `ConcurrentDictionary` so repeated invocations in a long-running host reuse the same ALC
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:199`, load entry point at `:301`).
 
-1. Check for empty args → throw `ArgumentException` (line 34)
-2. Check for help flags (`--help`, `-h`) → throw `DispatchHelpException` (line 36)
-3. Resolve the extension name via `CommandGroupIndex.getExtensionNameByCommandGroupName()` (line 37)
-4. Create an `ExtensionParser` and parse the remaining args (lines 42-43)
-5. Return a `CLICommandInvocation` with extension name, command name, and parameters (line 44)
+### Index caching: `LFUCache` in the Engine
 
-The dispatcher also has its own `ExtensionLoadContext` inner class (lines 9-26) that skips `SharedContracts` and `Core.SharedContracts` assemblies during loading (line 15).
+Building an extension's `IExtensionIndex` has a cost, so the Engine caches resolved indices in an
+`LFUCache` keyed by `name` (and version, when present)
+(`src/Core/Core.Engine/Engine.cs:81`). The cache is created lazily with a configurable size
+(`Engine.ExtensionIndexCacheSize`) and stores `Lazy<IExtensionIndex>` so concurrent misses build the
+index exactly once (`src/Core/Core.Engine/Engine.cs:83`). The backing structure is a
+least-frequently-used eviction cache (`src/Core/Core.Engine/utils/LFUCache.cs`).
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant User
-    participant Dispatcher as ExtensionDispatcher
-    participant Index as CommandGroupIndex
-    participant Parser as ExtensionParser
-    participant Loader as IExtensionLoader
-    participant Context as ExtensionLoadContext
-    participant ExtIdx as IExtensionIndex
-    participant Engine as CLIEngine
+    participant U as User
+    participant D as ExtensionDispatcher
+    participant P as CLIAssemblyLoadingProvider
+    participant B as BuiltinExtensionLoader
+    participant M as MultiVersionExtensionLoader
+    participant E as Engine (LFUCache)
+    participant I as IExtensionIndex
 
-    User->>Engine: Process("group create --name test")
-    Engine->>Dispatcher: Parse(args)
-    Dispatcher->>Index: getExtensionNameByCommandGroupName("Group")
-    Index-->>Dispatcher: "Resources"
-    Dispatcher->>Parser: Parse(remaining args)
-    Parser-->>Dispatcher: CLICommandInvocation
-
-    Engine->>Loader: LoadExtension("Resources", extensionName)
-    Loader->>Context: new ExtensionLoadContext(path)
-    Context->>Context: LoadFromAssemblyPath(dll)
-    Context-->>Loader: Assembly
-
-    Engine->>ExtIdx: GetCommandMetaData("create", CLI)
-    ExtIdx-->>Engine: ICommandMetadata
-    Engine->>Engine: Activator.CreateInstance(CommandType)
-    Engine->>Engine: Set properties via reflection
-    Engine->>Engine: command.ProcessAsync()
-
-    style User fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Dispatcher fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Index fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Parser fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Loader fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Context fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style ExtIdx fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Engine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    U->>D: az vm create ...
+    D->>D: LeafIndex longest-prefix match<br>(BuiltInExtensions.Map + registry.json)
+    D-->>E: CommandInvocation(extension=Compute, cmd="vm create")
+    E->>E: LFUCache.GetOrAdd("Compute")
+    alt cache miss
+        E->>P: LoadExtension("Compute")
+        P->>B: LoadExtension (first loader)
+        B-->>P: null (not a builtin folder)
+        P->>M: LoadExtension
+        M->>M: ResolveExtensionDirectory → highest NuGetVersion
+        M-->>P: Assembly (isolated ALC)
+        P-->>E: Assembly
+        E->>I: build + cache index
+    else cache hit
+        E->>I: reuse cached index
+    end
+    I->>I: GetCommandMetadata("vm create", CLI)
+    I-->>U: run IProcessor.ProcessAsync()
 ```
 
-## Extension Registration: How Extensions Declare Commands
+## 3. Extension management commands
 
-Each extension's `ExtensionIndex` constructor populates command tables mapping string names to `ICommandMetadata` instances. The pattern is consistent across all extensions:
+The built-in **Extension** module (`src/Extensions/Extension/`) implements the full lifecycle CRUD
+surface. Each verb is a processor paired with its `CommandMetadata` in `ExtensionIndex`, and each has
+help authored under `src/CLI/Help/Docs/extension/`:
 
-### Resources Extension
+| Command                   | Processor file | Purpose                                                                                 |
+| ------------------------- | -------------- | --------------------------------------------------------------------------------------- |
+| `extension add`           | `Add.cs`       | Install from a NuGet feed (`--name`) or a local `.nupkg` (`--path`), optionally `--pin` |
+| `extension list`          | `List.cs`      | List installed extensions (optionally regrouped `--by-verb`)                            |
+| `extension show`          | `Show.cs`      | Show one extension's details                                                            |
+| `extension remove`        | `Remove.cs`    | Uninstall an extension                                                                  |
+| `extension update`        | `Update.cs`    | Update to a newer version (skips pinned unless forced)                                  |
+| `extension pin` / `unpin` | `Pin.cs`       | Pin/unpin a version so `update` skips it                                                |
 
-`src/Extensions/Resources/ExtensionIndex.cs:8-84` registers commands for both CLI and PowerShell:
+The install workhorse is `ExtensionInstaller`, which uses the official NuGet client APIs to fetch and
+extract packages (`src/Extensions/Extension/ExtensionInstaller.cs:19`). It defaults its install path
+to `HomePaths.GetDefaultExtensionsRoot()` (`~/.azclips/extensions/`) and targets a `.NETCoreApp`
+framework matching the running runtime (`src/Extensions/Extension/ExtensionInstaller.cs:27`).
+`InstallExtensionAsync` resolves the latest version when none is specified, then downloads and lays
+out the package (`src/Extensions/Extension/ExtensionInstaller.cs:47`). Supporting types include
+`LocalArtifactProbe` (inspecting a local `.nupkg`, `src/Extensions/Extension/LocalArtifactProbe.cs`)
+and `Compatibility` (host↔extension version checks, `src/Extensions/Extension/Compatibility.cs`).
 
-**PowerShell table** (lines 15-32):
-- `"New-ResourceGroup"` → `CreateResourceGroupCommand`
-- `"Get-ResourceGroup_Get"` → Get by name
-- `"Get-ResourceGroup_List"` → List all
+To populate `list`/`show` without executing extension code, `DiscoveryBackedExtensionRegistry`
+runs a discovery session over installed packages and merges the results with the file registry —
+skipping any package id that belongs to the built-in seed
+(`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:8`, `:14`). Its per-extension entry
+records the verb, resolved version, pin state and contributed namespaces
+(`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:28`).
 
-**CLI table** (lines 33-50):
-- `"create"` → `CreateResourceGroupCommand`
-- `"list"` → List command
-- `"get"` → Get command
+## 4. ExtensionRuntime — the (de)serialization framework
 
-### Login Extension
+Extensions talk to ARM using JSON payloads, so `src/Extensions/ExtensionRuntime/` provides a
+self-contained JSON object model + serializer that extensions use to (de)serialize ARM models
+without taking a dependency on a specific system JSON stack. It is organised as:
 
-`src/Extensions/Login/ExtensionIndex.cs:8-85` provides authentication commands:
+| Area                         | Responsibility                                                                 | Representative source                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `Conversions/`               | Type-conversion framework (`JsonConverter<T>`, factory, per-type converters)   | `src/Extensions/ExtensionRuntime/Conversions/JsonConverter.cs:7`         |
+| `Conversions/Instances/`     | Built-in converters (`Guid`, `DateTimeOffset`, `Enum`, collections, …)         | `src/Extensions/ExtensionRuntime/Conversions/Instances/GuidConverter.cs` |
+| `Nodes/` & `Customizations/` | The JSON node model (`JsonObject`, `JsonArray`, `JsonString`, `JsonNumber`, …) | `src/Extensions/ExtensionRuntime/Nodes/JsonObject.cs`                    |
+| `Parser/`                    | Tokenizer + parser + readers that turn text into nodes                         | `src/Extensions/ExtensionRuntime/Parser/JsonParser.cs`                   |
+| `Writers/`                   | Serialize nodes back to JSON text                                              | `src/Extensions/ExtensionRuntime/Writers/JsonWriter.cs`                  |
+| `Serialization/` & `Models/` | Contract-driven object (de)serialization + model cache                         | `src/Extensions/ExtensionRuntime/Serialization/JsonSerializer.cs:19`     |
 
-**PowerShell table** (lines 15-32):
-- `"Connect-CirrusAccount"` → `LoginCommand`
-- `"Disconnect-CirrusAccount"` → `LogoutCommand`
-- `"Get-CirrusAccount"` → Show account
+The conversion framework is anchored by the abstract, generic `JsonConverter<T>` which bridges a
+strongly-typed converter to the non-generic `IJsonConverter` interface
+(`src/Extensions/ExtensionRuntime/Conversions/JsonConverter.cs:7`). Object (de)serialization is
+contract-driven: `JsonSerializer.Deserialize<T>` looks up a cached `JsonModel` for the target type
+from `JsonModelCache`, then maps each JSON field to a member, guarding against runaway recursion with
+a depth cap (`src/Extensions/ExtensionRuntime/Serialization/JsonSerializer.cs:19`). The `JsonModel`
+cache (`src/Extensions/ExtensionRuntime/Models/JsonModelCache.cs`) means reflection over a model
+type happens once and is reused across payloads — the same "build once, reuse" principle the Engine
+applies to extension indices.
 
-**CLI table** (lines 34-51):
-- `""` (empty string for bare `login`) → `LoginCommand`
-- `"logout"` → `LogoutCommand`
-- `"show"` → Show account
+```mermaid
+graph LR
+    TXT["ARM JSON text"] --> TOK["JsonTokenizer"]
+    TOK --> PAR["JsonParser"]
+    PAR --> NODE["JsonNode model<br>(JsonObject / JsonArray / ...)"]
+    NODE --> SER["JsonSerializer.Deserialize<T>"]
+    MODEL["JsonModelCache<br>JsonModel(T)"] --> SER
+    CONV["JsonConverter<T><br>(Conversions/Instances)"] --> SER
+    SER --> OBJ["Typed model T"]
+    OBJ --> WR["JsonWriter"]
+    WR --> TXT
 
-### Extension Manager Extension
-
-`src/Extensions/Extension/ExtensionIndex.cs:5-49` handles extension installation:
-
-**CLI only** (lines 12-17):
-- `"add"` → `AddExtensionCommand`
-
-The `GetCommandMetaData` method uses a `switch` on `ClientType` to select the appropriate table (e.g., `src/Extensions/Resources/ExtensionIndex.cs:53-73`).
-
-## Extension Installation via NuGet
-
-`ExtensionInstaller` (`src/Extensions/Extension/ExtensionInstaller.cs:16-298`) enables users to install extensions from NuGet feeds at runtime.
-
-### Installation Flow
-
-The `InstallExtensionAsync` method (lines 46-68) orchestrates:
-
-1. **Resolve sources** — `GetSourceRepositories()` returns configured NuGet feeds, or falls back to default repositories (`src/Extensions/Extension/ExtensionInstaller.cs:132-141`)
-2. **Version resolution** — if no version specified, `GetLatestVersionAsync()` queries all repositories and selects the highest version via `OrderByDescending` (lines 166-200)
-3. **Folder setup** — `InitializeExtensionFolder()` creates `{InstallPath}/{packageId}/{version}/` and deletes any existing version (lines 101-126)
-4. **Package extraction** — `ExtractPackageAssembliesAsync()` first checks the NuGet global packages folder, then downloads from remote feeds (lines 205-250)
-5. **DLL extraction** — `ExtractLibItemsAsync()` finds the nearest matching target framework using `NuGetFrameworkUtility` and extracts only `.dll` files (lines 255-297, filter on line 281)
-
-### Default Paths
-
-The default install path (`src/Extensions/Extension/ExtensionInstaller.cs:27-29`):
-```
-{Environment.SpecialFolder.UserProfile}/.cirrus/extensions
-```
-
-The target framework is detected from the current runtime version (line 31), ensuring extensions match the running .NET version.
-
-## CLIEngine Extension Loading
-
-`CLIEngine.GetCommand()` (`src/Core/Core.Engine/CLIEngine.cs:52-109`) demonstrates the complete load-to-execute flow:
-
-1. Validate extension name against the `_prefix` (`"Microsoft.Azure.Cirrus.Extensions."`, line 32)
-2. Build extension folder name from the short name (line 55)
-3. Create loader array: `[MultiVersionExtensionLoader, BuiltinExtensionLoader]` (lines 58-62) — versioned extensions take priority
-4. Attempt load through each loader sequentially (line 63)
-5. Locate `ExtensionIndex` type in the loaded assembly (lines 65-66)
-6. Instantiate via reflection with exception handling (lines 68-79)
-7. Retrieve `ICommandMetadata` for the requested command (line 81)
-8. Create command instance via `Activator.CreateInstance(metadata.CommandType)` (line 83)
-9. Set properties via reflection using `PropertyParser` (lines 85-106)
-
-## PSEngine Extension Caching
-
-`PSEngine` (`src/Core/Core.Engine/PSEngine.cs:21`) adds a performance optimization: an LFU (Least Frequently Used) cache of extension indices (line 26):
-
-```csharp
-private readonly LFUCache<Lazy<IExtensionIndex>> _extensionIndices = new(512);
+    style TXT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style TOK fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style PAR fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style NODE fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
+    style SER fill:#1e3a5f,stroke:#4a9eed,color:#e6edf3
+    style MODEL fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style CONV fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style OBJ fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style WR fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    linkStyle default stroke:#8b949e
 ```
 
-The `GetCommand` method (lines 154-178) wraps index creation in a `Lazy<IExtensionIndex>` and caches it by extension name. This avoids reloading assemblies on every cmdlet invocation in a long-running PowerShell session.
+## Key design invariants
 
-## Creating a New Extension
-
-Follow these steps to add a new extension to Cirrus:
-
-### Step 1: Create the Project
-
-Create a new class library under `src/Extensions/{YourExtension}/`:
-```
-src/Extensions/YourExtension/
-├── YourExtension.csproj
-├── ExtensionIndex.cs
-├── Commands/
-│   └── YourCommand.cs
-└── Business/
-    └── YourService.cs
-```
-
-### Step 2: Implement IExtensionIndex
-
-Model after `src/Extensions/Resources/ExtensionIndex.cs`:
-```csharp
-public class ExtensionIndex : IExtensionIndex
-{
-    private IDictionary<string, ICommandMetadata> _cliTable;
-
-    public ExtensionIndex()
-    {
-        _cliTable = new Dictionary<string, ICommandMetadata>
-        {
-            ["mycommand"] = new CommandMetadata("mycommand", "...",
-                "YourAssembly", typeof(MyCommand))
-        };
-    }
-
-    public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)
-        => clientType switch
-        {
-            ClientType.CLI => _cliTable[name],
-            _ => throw new NotSupportedException()
-        };
-}
-```
-
-### Step 3: Register in CommandGroupIndex
-
-Add the mapping to `src/CLI/Parser/CommandGroupIndex.cs:15-21`:
-```csharp
-_commandGroups["YourGroup"] = "YourExtension";
-```
-
-### Step 4: Configure ExcludeAssets
-
-In your `.csproj`, ensure shared dependencies use `ExcludeAssets="runtime"` to avoid duplicating core assemblies:
-```xml
-<PackageReference Include="Core.Abstractions" ExcludeAssets="runtime" />
-```
-
-### Step 5: Build and Deploy
-
-The extension DLL must be placed in the extensions directory (builtin or versioned) following the naming convention:
-```
-Microsoft.Azure.Cirrus.Extensions.{Name}.dll
-```
-
-The `CLIEngine._prefix` constant (`src/Core/Core.Engine/CLIEngine.cs:32`) enforces this naming:
-```csharp
-private static readonly string _prefix = "Microsoft.Azure.Cirrus.Extensions.";
-```
+- **Shared contracts come from the host, not the extension.** ALCs refuse to load `Core.*`, so
+  extension and host agree on `IProcessor`/`ProcessorContext` identity
+  (`src/CLI/AssemblyLoading/ExtensionLoader.cs:42`).
+- **Built-ins outrank the registry.** A verb in `BuiltInExtensions.Map` can never be overridden by an
+  installed package (`src/Core/Core.Extensions/BuiltInExtensions.cs:34`).
+- **Leaf ownership is exclusive.** Many extensions may share a verb namespace, but each `(verb, path)`
+  leaf is owned by one package (`eng-docs/spec/extension-management.md`).
+- **Everything expensive is cached once.** Extension indices via `LFUCache`
+  (`src/Core/Core.Engine/Engine.cs:81`); loaded ALCs via a static dictionary
+  (`src/CLI/AssemblyLoading/ExtensionLoader.cs:199`); reflection models via `JsonModelCache`.
 
 ## References
 
-| Source File | Key Lines | Purpose |
-|---|---|---|
-| `src/Core/Core.Engine/ExtensionLoader.cs` | 8-137 | `IExtensionLoader`, `BuiltinExtensionLoader`, `MultiVersionExtensionLoader` |
-| `src/Core/Core.Abstractions/IExtensionIndex.cs` | 7-16 | Extension manifest interface |
-| `src/Core/Core.Abstractions/IModule.cs` | 3-5 | Module interface for `CommandBinder` path |
-| `src/Core/Core.Abstractions/ICommand.cs` | 3-11 | Command execution contract |
-| `src/CLI/Parser/CommandGroupIndex.cs` | 12-31 | Static command-group-to-extension registry |
-| `src/CLI/Parser/ExtensionDispatcher.cs` | 7-78 | CLI arg parsing and extension dispatch |
-| `src/Extensions/Resources/ExtensionIndex.cs` | 8-84 | Resources extension command registration |
-| `src/Extensions/Login/ExtensionIndex.cs` | 8-85 | Login extension command registration |
-| `src/Extensions/Extension/ExtensionIndex.cs` | 5-49 | Extension manager registration |
-| `src/Extensions/Extension/ExtensionInstaller.cs` | 16-298 | NuGet-based extension installation |
-| `src/Core/Core.Engine/CLIEngine.cs` | 15, 32, 52-109 | CLI extension loading and execution |
-| `src/Core/Core.Engine/PSEngine.cs` | 21, 26, 154-178 | PowerShell extension caching |
+- `src/Core/Core.Abstractions/IExtensionIndex.cs:10` — the command-registry contract
+- `src/Core/Core.Abstractions/CLIContracts.cs:11` — the `IProcessor` contract + `[ArgumentInfo]`
+- `src/Extensions/Extension/ExtensionIndex.cs:121` — a concrete CLI command table
+- `src/CLI/Parser/ExtensionDispatcher.cs:44` — arg → `CommandInvocation` dispatch
+- `src/Core/Core.Extensions/BuiltInExtensions.cs:44` — built-in verb → package map
+- `src/CLI/Program.cs:42` — loader registration order (`BuiltinExtensionLoader`, `MultiVersionExtensionLoader`)
+- `src/CLI/AssemblyLoading/ExtensionLoader.cs:197` — multi-version loader + isolated ALCs
+- `src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs:11` — chain-of-loaders resolution
+- `src/Core/Core.Engine/Engine.cs:81` — `LFUCache` of extension indices
+- `src/Extensions/Extension/ExtensionInstaller.cs:47` — NuGet-based install
+- `src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:14` — discovery-backed registry
+- `src/Extensions/ExtensionRuntime/Conversions/JsonConverter.cs:7` — converter framework
+- `src/Extensions/ExtensionRuntime/Serialization/JsonSerializer.cs:19` — contract-driven (de)serialization
+- `eng-docs/spec/extension-framework.md` — extension loading, ALC isolation, processor contract
+- `eng-docs/spec/extension-management.md` — registry, routing, and lifecycle model

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
-    <AssemblyName>cirrus-agent</AssemblyName>
+    <AssemblyName>azclips-agent</AssemblyName>
     <RootNamespace>Core.Agent</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -11,8 +11,15 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904;GHCP001</WarningsNotAsErrors>
     <ExtName>Core.Agent</ExtName>
+    <!-- Compile-time marker for AgentInstallLayout. Packaging scripts publish
+         with /p:IsPackagedBuild=true; dev `dotnet build` / `dotnet run` / F5
+         never pass it, so dev binaries carry AGENT_DEV_BUILD and packaged
+         binaries do not. Each dll's flavor is baked in at compile time — an
+         MSI-installed agent and a locally-built one on the same box can never
+         confuse each other, because each looks only at its own `#if`. -->
+    <DefineConstants Condition="'$(IsPackagedBuild)' != 'true'">$(DefineConstants);AGENT_DEV_BUILD</DefineConstants>
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\Shared.props" />
@@ -22,27 +29,47 @@
     <None Remove="tests\**" />
     <Content Remove="tests\**" />
     <EmbeddedResource Remove="tests\**" />
+    <!-- Commands/ is its own extension project (Agent.Commands.csproj); do not
+         include its sources in the Core.Agent exe build. -->
+    <Compile Remove="Commands\**" />
+    <None Remove="Commands\**" />
+    <Content Remove="Commands\**" />
+    <EmbeddedResource Remove="Commands\**" />
+    <!-- Tools/ is its own class library (Core.Agent.Tools.csproj) that the
+         extension and this exe both consume via ProjectReference below. -->
+    <Compile Remove="Tools\**" />
+    <None Remove="Tools\**" />
+    <Content Remove="Tools\**" />
+    <EmbeddedResource Remove="Tools\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="Azure.ResourceManager" Version="1.13.1" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
-    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.0-beta.3" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.0" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.0" />
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.67.2" />
-    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.67.2" />
+    <PackageReference Include="Spectre.Console" Version="0.57.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <!-- AgentModeEntry (moved from TUI) needs the DI container + scoped logging.
+         These follow the code: they were on Core.Tui when the entry lived there. -->
+    <ProjectReference Include="..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
+    <ProjectReference Include="..\src\Core\Core.Runtime\Core.Runtime.csproj" />
+    <!-- Agent tool implementations (EnvironmentProber / HelpTools /
+         CachedResourceTools / AvailableLocationsTool) live in their own class
+         library so Agent.Commands (the extension) can consume them without
+         pulling in the whole azclips-agent.exe assembly. -->
+    <ProjectReference Include="Tools\Core.Agent.Tools.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="agent.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Tools\Help\*.json">
+    <!-- These files are already picked up as None items by the SDK's default glob
+         (EnableDefaultNoneItems=true); Update just sets CopyToOutputDirectory on them.
+         If default-item collection is ever disabled, switch these to Include (and add
+         EnableDefaultNoneItems=false) so prompts still reach the output dir. -->
+    <None Update="prompts\*.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update=".env" Condition="Exists('.env')">
@@ -50,7 +77,10 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <InternalsVisibleTo Include="Core.Agent.Tests" Key="$(MSSharedLibPublicKey)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
     <InternalsVisibleTo Include="Core.Agent.Tests" />
   </ItemGroup>
 

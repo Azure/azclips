@@ -1,0 +1,132 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.DependencyInjection;
+using Core.Extensions;
+
+namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
+
+public class ListExtensionsProcessor : IProcessor
+{
+    private OutputStreamDelegate _writeOutput = null!;
+
+    [ArgumentInfo(
+    Required = false,
+    Description = @"Regroup output verb-headed: one section per verb, listing every package that contributes to it.",
+    SerializedName = @"ByVerb")]
+    public bool ByVerb { get; set; }
+
+    public IProcessor Init(ProcessorContext context)
+    {
+        _writeOutput = context.OutputHandler.WriteOutput;
+        return this;
+    }
+
+    public async Task ProcessAsync()
+    {
+        var result = Process();
+        await _writeOutput(result);
+    }
+
+    public object Process()
+    {
+        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        using var _ = telemetryService.StartActivity($"{nameof(ListExtensionsProcessor)}.{nameof(Process)}");
+
+        var store = new FileExtensionRegistryStore();
+        var fileRegistry = store.Load();
+        var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
+
+        var discoveredExtensions = discoveredRegistry.Extensions
+            .OrderBy(kvp => kvp.Value.Verb, StringComparer.OrdinalIgnoreCase)
+            .Select(kvp => new
+            {
+                PackageId = kvp.Key,
+                Verb = kvp.Value.Verb,
+                // Multi-namespace extensions surface every verb they contribute to.
+                Namespaces = kvp.Value.Namespaces.Count > 0
+                    ? kvp.Value.Namespaces.ToArray()
+                    : (kvp.Value.Verb is null ? Array.Empty<string>() : new[] { kvp.Value.Verb }),
+                Version = kvp.Value.Version,
+                Pinned = kvp.Value.Pinned,
+                Source = kvp.Value.Source,
+                InstalledAt = kvp.Value.InstalledAt,
+            })
+            .ToList();
+
+        if (ByVerb)
+        {
+            // Regroup discovered contributors verb-headed for stable --by-verb output.
+            var contributors = discoveredExtensions.Select(e => new LiveContributor(
+                PackageId: e.PackageId,
+                Version: e.Version,
+                Pinned: e.Pinned,
+                Source: e.Source,
+                InstalledAt: e.InstalledAt,
+                Namespaces: e.Namespaces));
+
+            return PivotByVerb(contributors);
+        }
+
+        return discoveredExtensions;
+    }
+
+    /// <summary>
+    /// Pivot helper. Pure projection from <c>Live</c>-shaped contributors to a verb-headed map.
+    /// Public so unit tests can exercise it without spinning up DI + the on-disk registry.
+    /// Sort order is contract: verbs alphabetical, contributors within a verb alphabetical by
+    /// <c>PackageId</c>. Both comparisons are ordinal-ignore-case.
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<ContributorRow>> PivotByVerb(
+        IEnumerable<LiveContributor> contributors)
+    {
+        return contributors
+            .SelectMany(c => c.Namespaces.Select(verb => new { Verb = verb, Contributor = c }))
+            .GroupBy(x => x.Verb, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<ContributorRow>)g
+                    .Select(x => new ContributorRow(
+                        x.Contributor.PackageId,
+                        x.Contributor.Version,
+                        x.Contributor.Pinned,
+                        x.Contributor.Source,
+                        x.Contributor.InstalledAt))
+                    .OrderBy(r => r.PackageId, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    public string Process(bool Serialize)
+    {
+        var result = Process();
+        if (Serialize)
+        {
+            return System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        else
+        {
+            return result.ToString() ?? "";
+        }
+    }
+}
+
+/// <summary>Input row to <see cref="ListExtensionsProcessor.PivotByVerb"/>.</summary>
+public sealed record LiveContributor(
+    string PackageId,
+    string? Version,
+    bool Pinned,
+    string? Source,
+    DateTimeOffset? InstalledAt,
+    IReadOnlyList<string> Namespaces);
+
+/// <summary>Output row produced by <see cref="ListExtensionsProcessor.PivotByVerb"/>.</summary>
+public sealed record ContributorRow(
+    string PackageId,
+    string? Version,
+    bool Pinned,
+    string? Source,
+    DateTimeOffset? InstalledAt);

@@ -1,0 +1,150 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions;
+using Core.Configuration.Abstractions;
+using Core.Configuration.Implementation;
+using Core.Configuration.Schema;
+
+namespace Cli.Tests;
+
+public class ConfigurationSchemaTests
+{
+    private readonly IConfigurationSchema _schema = new ConfigurationSchema();
+
+    [Fact]
+    public void GetAllKeys_ShouldContainCoreLoggingLevel()
+    {
+        var keys = _schema.GetAllKeys();
+
+        Assert.Contains(keys, k => string.Equals(k.Key, "core.logging.level", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void IsKnownKey_ShouldReturnFalse_ForUnknownKey()
+    {
+        var known = _schema.IsKnownKey("core.notARealKey");
+
+        Assert.False(known);
+    }
+
+    [Fact]
+    public void ValidateKey_ShouldRejectUnknownKey_WhenForceIsFalse()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateKey("core.notARealKey", force: false);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void ValidateKey_ShouldAllowUnknownKey_WhenForceIsTrue()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateKey("core.notARealKey", force: true);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldRejectInvalidAllowedValue()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("core.logging.level", "verbose");
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldAcceptValidAllowedValue()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("core.logging.level", "debug");
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldRejectNonStringValue_ForStringTypedKey()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("core.logging.level", 123);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void ValidateKey_ShouldRejectUnknownDefaultsKey_WhenForceIsFalse()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateKey("defaults.unknown", force: false);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldRejectNonBoolValue_ForAgentEnabled()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("agent.enabled", "notabool");
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldDefaultAgentEnabledToFalse()
+    {
+        var key = _schema.GetAllKeys()
+            .Single(k => string.Equals(k.Key, "agent.enabled", StringComparison.OrdinalIgnoreCase));
+
+        // Must stay in sync with AgentOptions.Enabled = false (PP opt-in default).
+        Assert.Equal("false", key.DefaultValue);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldRejectNonBoolValue_ForCompletionEnabled()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("completion.enabled", "notabool");
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldDefaultCompletionEnabledToTrue()
+    {
+        var key = _schema.GetAllKeys()
+            .Single(k => string.Equals(k.Key, "completion.enabled", StringComparison.OrdinalIgnoreCase));
+
+        // Must stay in sync with CompletionOptions.Enabled = true (opt-out default).
+        Assert.Equal("true", key.DefaultValue);
+    }
+
+    [Fact]
+    public void ValidateValue_ShouldRejectNonBoolValue_ForAgentInteractiveVerbose()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("agent.interactive.verbose", "notabool");
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldDefaultAgentInteractiveVerboseToFalse()
+    {
+        var key = _schema.GetAllKeys()
+            .Single(k => string.Equals(k.Key, "agent.interactive.verbose", StringComparison.OrdinalIgnoreCase));
+
+        // Must stay in sync with InteractiveOptions.Verbose = false (clean-by-default).
+        Assert.Equal("false", key.DefaultValue);
+    }
+}

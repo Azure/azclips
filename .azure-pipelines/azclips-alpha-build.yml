@@ -1,0 +1,33 @@
+name: azclips-alpha-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr:
+  autoCancel: true
+  branches:
+    include:
+    - '*'
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/packaging.yml
+- template: templates/dist/variables/common.yml
+
+stages:
+- template: templates/dist/stages/validate-pull-request.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    github_repository: ${{ variables.github_target_repo }}
+
+- template: templates/dist/stages/build-unsigned-distribution.yml
+  parameters:
+    artifact_version_override: auto
+    bump_type: patch
+    release_channel: pr-alpha
+    release_date: auto
+    pr_number: auto
+    sequence: auto
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    final_artifact_name: Final_Build_Distribution

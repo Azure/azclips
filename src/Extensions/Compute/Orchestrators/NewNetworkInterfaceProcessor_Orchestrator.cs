@@ -1,7 +1,10 @@
-using System.Net.Http.Json;
-using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
+using System.Net.Http.Json;
+using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<NetworkInterface>
 {

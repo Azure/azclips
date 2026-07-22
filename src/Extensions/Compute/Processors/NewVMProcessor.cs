@@ -1,9 +1,12 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Net.Http.Json;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
-using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
     public class NewVMProcessor : ComputeProcessorBase<VirtualMachine>
     {

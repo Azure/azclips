@@ -8,7 +8,7 @@ namespace Core.Tui.Rendering;
 static class HelpRenderer
 {
     private static readonly string HelpMarkdown = """
-        # Cirrus Help
+        # Azclips Help
 
         ## Basics
 
@@ -21,10 +21,11 @@ static class HelpRenderer
 
         | Command | Description |
         |---------|-------------|
+        | `login` | Login to Azure |
+        | `logout` | Logout from Azure |
+        | `profile show --active` | Show the active profile |
         | `group list` | List resource groups |
         | `group create` | Create a resource group |
-        | `login` | Login to Azure |
-        | `login show` | Show current auth context |
         | `extension add` | Add an extension |
 
         ## Keyboard Shortcuts
@@ -52,7 +53,7 @@ static class HelpRenderer
 
         - Type a natural language query for AI help
         - Use tab completion for faster input
-        - Commands are forwarded to azv2 CLI
+        - Commands are forwarded to az CLI
 
         ---
 

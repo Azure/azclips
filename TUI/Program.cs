@@ -1,6 +1,5 @@
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Tui.AgentMode;
 using Core.Tui.Azure;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
@@ -20,9 +19,7 @@ public static class Program
 
     public static async Task<int> Main(string[] args)
     {
-        if (args.Length > 0 && args[0] == "--agent-mode") { return await AgentModeEntry.RunAsync(args); }
-
-        CirrusServiceProvider.PrependRegistration(services =>
+        AzclipsServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<ArmClient>();
             services.AddSingleton<AzureVfs>();
@@ -31,7 +28,7 @@ public static class Program
             services.AddSingleton<HistoryService>();
             services.AddSingleton<AppState>();
         });
-        CirrusServiceProvider.OverrideRegistration(services =>
+        AzclipsServiceProvider.OverrideRegistration(services =>
         {
             // Replace the default ScopedLoggingService (which falls back to
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
@@ -40,13 +37,13 @@ public static class Program
             services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();
         });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
-        CirrusServiceProvider.Initialize(ClientType.TUI);
+        AzclipsServiceProvider.Initialize(ClientType.TUI);
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
-        _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
-            var state = CirrusServiceProvider.GetRequiredService<AppState>();
+            var state = AzclipsServiceProvider.GetRequiredService<AppState>();
             var vfsSw = System.Diagnostics.Stopwatch.StartNew();
             await state.InitVfsAsync();
             Console.Error.WriteLine($"[startup] InitVfsAsync total: {vfsSw.ElapsedMilliseconds}ms");
@@ -73,7 +70,7 @@ public static class Program
         }
         finally
         {
-            CirrusServiceProvider.Dispose();
+            AzclipsServiceProvider.Dispose();
         }
     }
 

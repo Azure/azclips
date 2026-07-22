@@ -1,15 +1,17 @@
+using Core.Agent.AgentMode;
+
 namespace Core.Agent;
 
-// Placeholder entry — Core.Agent is exposed as a standalone exe so the
-// project can be published independently, but the real chat loop still
-// runs in-process inside TUI (see TUI/AgentMode/AgentModeEntry.cs).
-// When we wire up a standalone agent REPL, replace this body.
+// Standalone agent process (azclips-agent.exe). The classic CLI spawns this with
+// --agent-mode when an invocation fails; AgentModeEntry owns the chat loop.
 internal static class Program
 {
-    public static int Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
-        Console.WriteLine("cirrus-agent: standalone entry not implemented yet.");
-        Console.WriteLine("agent mode runs in-process via azv2 fallback → Core.Tui --agent-mode.");
+        if (args.Length > 0 && args[0] == "--agent-mode")
+            return await AgentModeEntry.RunAsync(args);
+
+        Console.WriteLine("azclips-agent: run via `--agent-mode` (spawned by the CLI on command failure).");
         return 0;
     }
 }

@@ -1,0 +1,507 @@
+name: azclips-trigger-stable-release-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - src/CLI/Core.Cli.csproj
+pr: none
+
+parameters:
+- name: bump_type
+  displayName: Stable version bump
+  type: string
+  default: patch
+  values:
+  - patch
+  - minor
+  - major
+  - custom
+- name: custom_version
+  displayName: Custom stable version (x.y.z; used only when bump is custom)
+  type: string
+  default: 'x.y.z'
+- name: target_branch
+  displayName: Target branch for release PR
+  type: string
+  default: main
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- name: GitHubTargetRepo
+  value: ${{ variables.github_target_repo }}
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: azclips-trigger-stable-release must run in the 'release' project because it can create release PRs and stable tags.
+
+- stage: TriggerStableRelease
+  displayName: Trigger Stable Release
+  dependsOn: Preflight
+  condition: and(succeeded(), eq(variables['Build.Reason'], 'Manual'))
+  jobs:
+  - job: OpenStableReleasePr
+    displayName: Bump CLI Version And Open Stable Release PR
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      persistCredentials: true
+
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - bash: |
+        set -euo pipefail
+
+        bump_type='${{ parameters.bump_type }}'
+        custom_version='${{ parameters.custom_version }}'
+        target_branch='${{ parameters.target_branch }}'
+        repo='$(GitHubTargetRepo)'
+        core_project='src/CLI/Core.Cli.csproj'
+        changelog_file='CHANGELOG.md'
+
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
+          echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the release PR branch and create the PR."
+          exit 1
+        fi
+
+        if ! command -v gh >/dev/null 2>&1; then
+          echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
+          exit 1
+        fi
+
+        read_core_version() {
+          local project_path="$1"
+          local version=""
+
+          version="$(grep -oPm1 '(?<=<Version>)[^<]+' "$project_path" || true)"
+          version="$(echo "$version" | xargs)"
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          echo "$version"
+        }
+
+        if [[ ! "$target_branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+          echo "ERROR: target_branch contains unsupported characters: $target_branch"
+          exit 1
+        fi
+
+        git fetch origin "+refs/heads/$target_branch:refs/remotes/origin/$target_branch" --prune
+        git fetch origin '+refs/tags/*:refs/tags/*' --prune
+        git checkout -B "$target_branch" "refs/remotes/origin/$target_branch"
+
+        current_version="$(read_core_version "$core_project")"
+        if [[ ! "$current_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          echo "ERROR: CLI version on $target_branch must be stable SemVer like 0.1.0. Got: $current_version"
+          exit 1
+        fi
+
+        major="${BASH_REMATCH[1]}"
+        minor="${BASH_REMATCH[2]}"
+        patch="${BASH_REMATCH[3]}"
+
+        case "$bump_type" in
+          patch)
+            target_version="$major.$minor.$((patch + 1))"
+            ;;
+          minor)
+            target_version="$major.$((minor + 1)).0"
+            ;;
+          major)
+            target_version="$((major + 1)).0.0"
+            ;;
+          custom)
+            custom_version="$(echo "$custom_version" | xargs)"
+            if [[ ! "$custom_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "ERROR: custom_version must be stable SemVer x.y.z when bump_type is custom. Got: $custom_version"
+              exit 1
+            fi
+            target_version="$custom_version"
+            ;;
+          *)
+            echo "ERROR: Unsupported bump_type: $bump_type"
+            exit 1
+            ;;
+        esac
+
+        if [[ ! "$target_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          echo "ERROR: Target version must be stable SemVer x.y.z. Got: $target_version"
+          exit 1
+        fi
+
+        target_major="${BASH_REMATCH[1]}"
+        target_minor="${BASH_REMATCH[2]}"
+        target_patch="${BASH_REMATCH[3]}"
+
+        if (( target_major < major )) || \
+           (( target_major == major && target_minor < minor )) || \
+           (( target_major == major && target_minor == minor && target_patch <= patch )); then
+          echo "ERROR: Target stable version $target_version must be greater than current CLI version $current_version."
+          exit 1
+        fi
+
+        release_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+        changelog_release_timestamp="$(date -u '+%Y-%m-%d %H:%M UTC')"
+        tag_name="v$target_version.$release_timestamp"
+        target_assembly_version="$target_version.0"
+        target_file_version="$target_version.0"
+        if git ls-remote --exit-code --tags origin "refs/tags/$tag_name" >/dev/null 2>&1; then
+          echo "ERROR: Stable tag $tag_name already exists on origin."
+          exit 1
+        fi
+
+        release_branch="release/trigger-stable-release-$target_version"
+        if git ls-remote --exit-code --heads origin "$release_branch" >/dev/null 2>&1; then
+          echo "ERROR: Branch $release_branch already exists on origin."
+          exit 1
+        fi
+
+        echo "Target branch: $target_branch"
+        echo "Current CLI version: $current_version"
+        echo "Requested bump: $bump_type"
+        if [[ "$bump_type" == "custom" ]]; then
+          echo "Requested custom version: $custom_version"
+        fi
+        echo "Target stable version: $target_version"
+        echo "Target assembly version: $target_assembly_version"
+        echo "Target file version: $target_file_version"
+        echo "Release branch: $release_branch"
+
+        git checkout -B "$release_branch"
+
+        if grep -q '<Version>' "$core_project"; then
+          sed -i -E "0,/<Version>[^<]+<\/Version>/s//<Version>$target_version<\/Version>/" "$core_project"
+        elif grep -q '<VersionPrefix>' "$core_project"; then
+          sed -i -E "0,/<VersionPrefix>[^<]+<\/VersionPrefix>/s//<VersionPrefix>$target_version<\/VersionPrefix>/" "$core_project"
+        else
+          echo "ERROR: Could not find <Version> or <VersionPrefix> in $core_project"
+          exit 1
+        fi
+
+        if grep -q '<AssemblyVersion>' "$core_project"; then
+          sed -i -E "0,/<AssemblyVersion>[^<]+<\/AssemblyVersion>/s//<AssemblyVersion>$target_assembly_version<\/AssemblyVersion>/" "$core_project"
+        else
+          sed -i -E "0,/(<(Version|VersionPrefix)>[^<]+<\/(Version|VersionPrefix)>)/s//\1\n    <AssemblyVersion>$target_assembly_version<\/AssemblyVersion>/" "$core_project"
+        fi
+
+        current_informational_version="$(grep -oPm1 '(?<=<InformationalVersion>)[^<]+' "$core_project" || true)"
+        current_informational_version="$(echo "$current_informational_version" | xargs)"
+        informational_suffix=""
+        if [[ "$current_informational_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+          informational_suffix="${BASH_REMATCH[1]:-}"
+        fi
+        target_informational_version="$target_version$informational_suffix"
+
+        if grep -q '<InformationalVersion>' "$core_project"; then
+          sed -i -E "0,/<InformationalVersion>[^<]+<\/InformationalVersion>/s//<InformationalVersion>$target_informational_version<\/InformationalVersion>/" "$core_project"
+        else
+          sed -i -E "0,/(<AssemblyVersion>[^<]+<\/AssemblyVersion>)/s//\1\n    <InformationalVersion>$target_informational_version<\/InformationalVersion>/" "$core_project"
+        fi
+
+        if grep -q '<FileVersion>' "$core_project"; then
+          sed -i -E "0,/<FileVersion>[^<]+<\/FileVersion>/s//<FileVersion>$target_file_version<\/FileVersion>/" "$core_project"
+        else
+          sed -i -E "0,/(<AssemblyVersion>[^<]+<\/AssemblyVersion>)/s//\1\n    <FileVersion>$target_file_version<\/FileVersion>/" "$core_project"
+        fi
+
+        updated_version="$(read_core_version "$core_project")"
+        if [[ "$updated_version" != "$target_version" ]]; then
+          echo "ERROR: Version update failed. Expected $target_version but got $updated_version"
+          exit 1
+        fi
+
+        updated_assembly_version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$core_project" || true)"
+        updated_assembly_version="$(echo "$updated_assembly_version" | xargs)"
+        if [[ "$updated_assembly_version" != "$target_assembly_version" ]]; then
+          echo "ERROR: AssemblyVersion update failed. Expected $target_assembly_version but got $updated_assembly_version"
+          exit 1
+        fi
+
+        updated_informational_version="$(grep -oPm1 '(?<=<InformationalVersion>)[^<]+' "$core_project" || true)"
+        updated_informational_version="$(echo "$updated_informational_version" | xargs)"
+        if [[ "$updated_informational_version" != "$target_informational_version" ]]; then
+          echo "ERROR: InformationalVersion update failed. Expected $target_informational_version but got $updated_informational_version"
+          exit 1
+        fi
+
+        updated_file_version="$(grep -oPm1 '(?<=<FileVersion>)[^<]+' "$core_project" || true)"
+        updated_file_version="$(echo "$updated_file_version" | xargs)"
+        if [[ "$updated_file_version" != "$target_file_version" ]]; then
+          echo "ERROR: FileVersion update failed. Expected $target_file_version but got $updated_file_version"
+          exit 1
+        fi
+
+        echo "##vso[task.setvariable variable=StableVersion]$target_version"
+        echo "##vso[task.setvariable variable=StableTag]$tag_name"
+        echo "##vso[task.setvariable variable=StableVersionBranch]$release_branch"
+        echo "##vso[task.setvariable variable=StableTargetBranch]$target_branch"
+        echo "##vso[task.setvariable variable=StableReleaseTimestamp]$changelog_release_timestamp"
+      displayName: Prepare Stable Release Branch
+      env:
+        GH_TOKEN: $(GitHubToken)
+
+    - task: PowerShell@2
+      displayName: Update Release Changelog
+      inputs:
+        pwsh: true
+        filePath: devops/scripts/publishing/Update-ReleaseChangelog.ps1
+        arguments: -RepoRoot "$(Build.SourcesDirectory)" -Version "$(StableVersion)" -ReleaseTimestamp "$(StableReleaseTimestamp)" -GitHubRepository "$(GitHubTargetRepo)" -AllowEmpty
+      env:
+        GH_TOKEN: $(GitHubToken)
+
+    - bash: |
+        set -euo pipefail
+
+        target_version='$(StableVersion)'
+        target_branch='$(StableTargetBranch)'
+        release_branch='$(StableVersionBranch)'
+        tag_name='$(StableTag)'
+        repo='$(GitHubTargetRepo)'
+        core_project='src/CLI/Core.Cli.csproj'
+        changelog_file='CHANGELOG.md'
+
+        git config user.name "Azclips Release Automation"
+        git config user.email "azclips-release-automation@microsoft.com"
+        git_add_paths=(
+          "$core_project"
+          "$changelog_file"
+          src/PS/*/ChangeLog.md
+          src/PS/*/*.psd1
+        )
+        git add "${git_add_paths[@]}"
+        git commit -m "Bump CLI version to $target_version"
+        basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+        git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$release_branch"
+
+        pr_title="{DevOps} Trigger stable release $target_version"
+        pr_body="Updates src/CLI/Core.Cli.csproj to $target_version and aggregates module ChangeLog.md entries into CHANGELOG.md and PowerShell module manifests. After this PR merges to $target_branch, azclips-trigger-stable-release will run again from the main version change, tag the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain."
+
+        gh pr create \
+          --repo "$repo" \
+          --base "$target_branch" \
+          --head "$release_branch" \
+          --title "$pr_title" \
+          --body "$pr_body"
+
+        echo "##vso[task.setvariable variable=StableVersion;isOutput=true]$target_version"
+        echo "##vso[task.setvariable variable=StableTag;isOutput=true]$tag_name"
+        echo "##vso[task.setvariable variable=StableVersionBranch;isOutput=true]$release_branch"
+      name: CreateStableReleasePr
+      displayName: Commit Stable Release Changes And Open PR
+      env:
+        GH_TOKEN: $(GitHubToken)
+
+- stage: CreateStableTag
+  displayName: Create Stable Tag
+  dependsOn: Preflight
+  condition: and(succeeded(), in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - job: TagMain
+    displayName: Validate Version And Tag Main
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      persistCredentials: true
+
+    - bash: |
+        set -euo pipefail
+
+        source_branch='main'
+        source_ref="refs/remotes/origin/$source_branch"
+        source_commit='$(Build.SourceVersion)'
+        repo='$(GitHubTargetRepo)'
+
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
+          echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the stable tag."
+          exit 1
+        fi
+
+        if [[ -z "$source_commit" ]]; then
+          echo "ERROR: Build.SourceVersion is empty; cannot determine commit to tag."
+          exit 1
+        fi
+
+        read_core_version() {
+          local project_path="$1"
+          local version=""
+
+          version="$(grep -oPm1 '(?<=<Version>)[^<]+' "$project_path" || true)"
+          version="$(echo "$version" | xargs)"
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          echo "$version"
+        }
+
+        echo "Fetching main and tags from origin"
+        git fetch origin "+refs/heads/$source_branch:$source_ref" --prune
+        git fetch origin '+refs/tags/*:refs/tags/*' --prune
+
+        if ! git merge-base --is-ancestor "$source_commit" "$source_ref"; then
+          echo "ERROR: Build.SourceVersion $source_commit is not contained in $source_ref. Refusing to tag an unexpected commit."
+          exit 1
+        fi
+
+        git checkout --detach "$source_commit"
+
+        echo "Source branch: $(Build.SourceBranch)"
+        echo "Source commit: $source_commit"
+
+        parent_count="$(git rev-list --parents -n 1 "$source_commit" | awk '{print NF - 1}')"
+        if [[ "$parent_count" -eq 0 ]]; then
+          echo "ERROR: Cannot validate version-only change for root commit $source_commit."
+          exit 1
+        fi
+
+        first_parent="$(git rev-parse "$source_commit^1")"
+        changed_files="$(git diff --name-only "$first_parent" "$source_commit")"
+        echo "Files changed in triggering commit:"
+        printf '%s\n' "$changed_files"
+
+        unexpected_changed_files="$(printf '%s\n' "$changed_files" | grep -Ev '^(src/CLI/Core\.Cli\.csproj|CHANGELOG\.md|src/PS/[^/]+/ChangeLog\.md|src/PS/[^/]+/[^/]+\.psd1)$' || true)"
+        if [[ -n "$unexpected_changed_files" ]]; then
+          echo "Commit changed files outside stable version metadata, release notes, and PowerShell manifests. Skipping stable tag creation."
+          printf '%s\n' "$unexpected_changed_files"
+          exit 0
+        fi
+
+        if ! printf '%s\n' "$changed_files" | grep -qx 'src/CLI/Core.Cli.csproj'; then
+          echo "Commit did not change src/CLI/Core.Cli.csproj. Skipping stable tag creation."
+          exit 0
+        fi
+
+        stable_version_line_regex='^[+-][[:space:]]*<(Version|VersionPrefix)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix)>[[:space:]]*$|^[+-][[:space:]]*<InformationalVersion>[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?</InformationalVersion>[[:space:]]*$|^[+-][[:space:]]*<(AssemblyVersion|FileVersion)>[0-9]+\.[0-9]+\.[0-9]+\.0</(AssemblyVersion|FileVersion)>[[:space:]]*$'
+        version_only_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E "$stable_version_line_regex" || true)"
+        non_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E '^[+-]' | grep -Ev '^(---|\+\+\+)' | grep -Ev "$stable_version_line_regex" || true)"
+
+        if [[ -z "$version_only_diff" ]]; then
+          echo "src/CLI/Core.Cli.csproj changed, but no stable version metadata line changed. Skipping stable tag creation."
+          exit 0
+        fi
+
+        if [[ -n "$non_version_diff" ]]; then
+          echo "src/CLI/Core.Cli.csproj changed outside the stable version line. Skipping stable tag creation."
+          printf '%s\n' "$non_version_diff"
+          exit 0
+        fi
+
+        echo "Confirmed triggering commit only changes stable version metadata, release notes, and PowerShell manifests."
+
+        core_project_tmp="$(mktemp)"
+        git show "$source_commit:src/CLI/Core.Cli.csproj" > "$core_project_tmp"
+        core_version="$(read_core_version "$core_project_tmp")"
+        rm -f "$core_project_tmp"
+
+        if [[ ! "$core_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          echo "ERROR: CLI version on $source_branch must be stable SemVer like 0.1.0. Got: $core_version"
+          exit 1
+        fi
+
+        target_major="${BASH_REMATCH[1]}"
+        target_minor="${BASH_REMATCH[2]}"
+        target_patch="${BASH_REMATCH[3]}"
+
+        target_version="$core_version"
+        release_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+        tag_name="v$target_version.$release_timestamp"
+        tag_ref="refs/tags/$tag_name"
+
+        latest_stable_tag="$(git tag --merged "$source_commit" --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$' | sort -Vr | head -n 1 || true)"
+        if [[ -n "$latest_stable_tag" ]]; then
+          latest_version="${latest_stable_tag#v}"
+
+          if [[ ! "$latest_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)\.[0-9]{8}T[0-9]{6}Z$ ]]; then
+            echo "ERROR: Latest stable tag must use vX.Y.Z.yyyyMMddTHHmmssZ: $latest_stable_tag"
+            exit 1
+          fi
+
+          latest_major="${BASH_REMATCH[1]}"
+          latest_minor="${BASH_REMATCH[2]}"
+          latest_patch="${BASH_REMATCH[3]}"
+          allowed_patch="$latest_major.$latest_minor.$((latest_patch + 1))"
+          allowed_minor="$latest_major.$((latest_minor + 1)).0"
+          allowed_major="$((latest_major + 1)).0.0"
+
+          if (( target_major < latest_major )) || \
+             (( target_major == latest_major && target_minor < latest_minor )) || \
+             (( target_major == latest_major && target_minor == latest_minor && target_patch <= latest_patch )); then
+            echo "ERROR: CLI version $target_version on $source_branch must be greater than latest stable tag $latest_stable_tag."
+            exit 1
+          fi
+
+          echo "Latest stable tag: $latest_stable_tag"
+          echo "Standard next versions: $allowed_patch, $allowed_minor, $allowed_major"
+          echo "Selected stable version: $target_version"
+        else
+          echo "No prior stable tag found on $source_branch. Treating $tag_name as the first stable release tag."
+        fi
+
+        if git show-ref --verify --quiet "$tag_ref"; then
+          existing_commit="$(git rev-list -n 1 "$tag_ref")"
+          echo "ERROR: Tag $tag_name already exists locally at $existing_commit. Refusing to recreate or move release tags."
+          exit 1
+        fi
+
+        remote_tag_line="$(git ls-remote --tags origin "$tag_ref" || true)"
+        if [[ -n "$remote_tag_line" ]]; then
+          echo "ERROR: Tag $tag_name already exists in origin. Refusing to recreate or move release tags."
+          echo "$remote_tag_line"
+          exit 1
+        fi
+
+        echo "CLI version on $source_branch: $core_version"
+        echo "Stable tag to create: $tag_name"
+        echo "Tagged commit: $source_commit"
+
+        git config user.name "Azclips Release Automation"
+        git config user.email "azclips-release-automation@microsoft.com"
+        git tag -a "$tag_name" "$source_commit" -m "Release $tag_name"
+        basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+        git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "$tag_ref"
+        echo "Created and pushed $tag_name. The tag trigger should start azclips-stable-release."
+
+        echo "##vso[task.setvariable variable=StableTagName]$tag_name"
+        echo "##vso[task.setvariable variable=StableVersion]$target_version"
+        echo "##vso[task.setvariable variable=StableSourceCommit]$source_commit"
+      displayName: Validate And Create Stable Tag
+      env:
+        GH_TOKEN: $(GitHubToken)

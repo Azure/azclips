@@ -5,12 +5,12 @@
          xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
          IgnorableNamespaces="uap uap5 desktop rescap">
-  <Identity Name="Cirrus.CLI" 
+  <Identity Name="Azclips.CLI" 
             Version="1.0.0.0" 
             Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
             ProcessorArchitecture="x64"/>
   <Properties>
-    <DisplayName>Azure CLI v2 (Cirrus)</DisplayName>
+    <DisplayName>Azure CLI v2 (Azclips)</DisplayName>
     <PublisherDisplayName>Microsoft Corporation</PublisherDisplayName>
     <Description>Azure CLI v2 command-line tool</Description>
     <Logo>Assets\StoreLogo.png</Logo>
@@ -25,8 +25,8 @@
     <rescap:Capability Name="runFullTrust"/>
   </Capabilities>
   <Applications>
-    <Application Id="azv2" Executable="azv2.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="Microsoft Azure CLI v2 (Cirrus)" Description="Azure CLI version 2 command-line interface for managing Azure resources"
+    <Application Id="az" Executable="az.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="Microsoft Azure CLI v2 (Azclips)" Description="Azure CLI version 2 command-line interface for managing Azure resources"
                           BackgroundColor="transparent"
                           AppListEntry="none"
                           Square150x150Logo="Assets\Square150x150Logo.png"
@@ -36,7 +36,7 @@
       <Extensions>
         <uap5:Extension Category="windows.appExecutionAlias">
           <uap5:AppExecutionAlias>
-            <uap5:ExecutionAlias Alias="azv2.exe"/>
+            <uap5:ExecutionAlias Alias="az.exe"/>
           </uap5:AppExecutionAlias>
         </uap5:Extension>
       </Extensions>

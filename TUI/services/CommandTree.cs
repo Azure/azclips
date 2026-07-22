@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Core.Tui.Services;
 
 /// <summary>
-/// Static command tree for Cirrus CLI autocomplete.
+/// Static command tree for AzClips CLI autocomplete.
 /// Mirrors the command groups, subcommands, and arguments registered in the extension system.
 /// </summary>
 static class CommandTree
@@ -39,7 +39,7 @@ static class CommandTree
                 new("--use-device-code", "Use device code flow for authentication", false),
             ]),
             new("logout", "Logout from Azure", []),
-            new("show", "Show current auth context", []),
+            new("show", "Show the active profile", []), // todo: outdated
         ]),
         new("extension", "Manage extensions", [
             new("add", "Add an extension", [

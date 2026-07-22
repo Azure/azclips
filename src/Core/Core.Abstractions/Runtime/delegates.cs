@@ -1,4 +1,7 @@
-﻿namespace Core.Abstractions.Runtime
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Core.Abstractions.Runtime
 {
     using System.Diagnostics;
     using System.Net.Http;
@@ -22,7 +25,7 @@
     /// Delegate for acquiring an access token silently.
     /// Matches <see cref="IAuthService.AcquireTokenSilentlyAsync"/> signature.
     /// </summary>
-    public delegate Task<AuthResult> AcquireTokenAsyncDelegate(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default);
+    public delegate Task<AuthResult> AcquireTokenAsyncDelegate(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null);
 
     /// <summary>
     /// Delegate for stream output processing.

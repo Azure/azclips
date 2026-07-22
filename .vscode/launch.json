@@ -14,7 +14,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
             "args": [
                 "group",
                 "create",
@@ -33,7 +33,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
             "args": [
                 "group",
                 "create",
@@ -54,7 +54,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
             "args": [
                 "login",
                 "show"
@@ -67,27 +67,10 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
             "args": [
                 "login",
                 "logout",
-            ],
-            "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "az: natural language (AI)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
-            "args": [
-                "create",
-                "a",
-                "resource",
-                "group",
-                "named",
-                "test"
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
             "console": "integratedTerminal"
@@ -97,7 +80,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
             "args": [
                 "--help"
             ],
@@ -105,15 +88,15 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "azv2: interactive",
+            "name": "az: interactive",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
             "args": [
-                "${input:azv2Arg1}",
-                "${input:azv2Arg2}",
-                "${input:azv2Arg3}"
+                "${input:azArg1}",
+                "${input:azArg2}",
+                "${input:azArg3}"
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
             "console": "integratedTerminal"
@@ -121,19 +104,19 @@
     ],
     "inputs": [
         {
-            "id": "azv2Arg1",
+            "id": "azArg1",
             "type": "promptString",
-            "description": "Enter azv2 argument 1 (e.g. help, group, login)"
+            "description": "Enter az argument 1 (e.g. help, group, login)"
         },
         {
-            "id": "azv2Arg2",
+            "id": "azArg2",
             "type": "promptString",
-            "description": "Enter azv2 argument 2 if needed (e.g. list, show, create)"
+            "description": "Enter az argument 2 if needed (e.g. list, show, create)"
         },
         {
-            "id": "azv2Arg3",
+            "id": "azArg3",
             "type": "promptString",
-            "description": "Enter azv2 argument 3 if needed"
+            "description": "Enter az argument 3 if needed"
         }
     ]
 }

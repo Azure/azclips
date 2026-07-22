@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Abstractions;
 
 /// <summary>
@@ -43,9 +46,15 @@ public record AuthResult
     public required string TenantId;
 
     /// <summary>
-    /// The correlation ID used for the authentication request.
+    /// The authenticated account's user principal name (from MSAL <c>IAccount.Username</c>), if available.
     /// </summary>
-    public required Guid CorrelationId;
+    public string? UserPrincipalName;
+
+    /// <summary>
+    /// The correlation ID used for the authentication request.
+    /// Null for credential types that do not provide a correlation ID (e.g., MI/SP).
+    /// </summary>
+    public Guid? CorrelationId;
 
     /// <summary>
     /// The token type (e.g., "Bearer").

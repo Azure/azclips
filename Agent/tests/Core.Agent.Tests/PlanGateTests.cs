@@ -1,0 +1,210 @@
+using System.Text.Json;
+using Core.Agent;
+using Core.Agent.Hooks;
+using Core.Agent.Hosting;
+using GitHub.Copilot;
+using Xunit;
+
+namespace Core.Agent.Tests;
+
+/// <summary>
+/// Unit tests for <see cref="PreToolUseHook.HandleAsync"/> — the OnPreToolUse
+/// gate. Drives it with a real <see cref="SessionState"/> and asserts the
+/// unified-mind contract: bash/powershell are denied without an approved plan;
+/// submit_response renders and allows (the sole terminator); an approved plan
+/// unlocks execution; a rejected plan denies and leaves the gate closed.
+/// Console output is suppressed; the interactive y/n is fed via a redirected stdin
+/// raced against the hook, the same way the host pumps approvals.
+/// </summary>
+[Collection("Console")]
+public class PlanGateTests
+{
+    private const string az = "/fake/az";
+
+    private static JsonElement Args(object obj) => JsonSerializer.SerializeToElement(obj);
+
+    private static PreToolUseHookInput Input(string toolName, object? args) => new()
+    {
+        ToolName = toolName,
+        ToolArgs = args is null ? null : Args(args),
+    };
+
+    private static object ValidPlan() => new
+    {
+        issues = new[] { "The resource group doesn't exist yet." },
+        steps = new[] { new { id = 1, label = "Create RG", cmd = "az group create -n foo -l eastus" } },
+    };
+
+    // Runs the hook with output suppressed. For branches that don't read stdin
+    // (gate denial, submit_response), no pump is needed.
+    private static async Task<PreToolUseHookOutput?> RunHookAsync(
+        PreToolUseHookInput input, SessionState state, ConsoleApprovalPrompt approval)
+    {
+        var prevOut = Console.Out;
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            return await PreToolUseHook.HandleAsync(input, az, approval, state, CancellationToken.None);
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+    }
+
+    // Drives an interactive plan approval: the hook awaits RequestPlanAsync, so we
+    // race it against PumpOneAsync with stdin preloaded with the user's y/n answer.
+    private static async Task<PreToolUseHookOutput?> RunInteractivePlanAsync(SessionState state, string userInput)
+    {
+        var approval = new ConsoleApprovalPrompt();
+        var prevIn = Console.In;
+        var prevOut = Console.Out;
+        Console.SetIn(new StringReader(userInput + Environment.NewLine));
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var hookTask = PreToolUseHook.HandleAsync(
+                Input("propose_plan", ValidPlan()), az, approval, state, CancellationToken.None);
+            // The hook posts the plan to the approval channel; pump it to read y/n.
+            await approval.PumpOneAsync(CancellationToken.None);
+            return await hookTask;
+        }
+        finally
+        {
+            Console.SetIn(prevIn);
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Theory]
+    [InlineData("bash")]
+    [InlineData("powershell")]
+    public async Task Denies_shell_without_approved_plan(string tool)
+    {
+        var state = new SessionState { PlanApproved = false };
+        var approval = new ConsoleApprovalPrompt();
+
+        var result = await RunHookAsync(Input(tool, new { command = "az group list" }), state, approval);
+
+        Assert.NotNull(result);
+        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.False(state.PlanApproved);
+    }
+
+    [Theory]
+    [InlineData("bash")]
+    [InlineData("powershell")]
+    public async Task Allows_shell_once_plan_approved(string tool)
+    {
+        // Pre-approved gate: the rewrite branch only fires for a bare "az ..."
+        // command, so a non-az command passes straight through (returns null).
+        var state = new SessionState { PlanApproved = true };
+        var approval = new ConsoleApprovalPrompt();
+
+        var result = await RunHookAsync(Input(tool, new { command = "echo hi" }), state, approval);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task Submit_response_renders_and_allows()
+    {
+        var state = new SessionState { IsOneShot = true };
+        var approval = new ConsoleApprovalPrompt();
+
+        var result = await RunHookAsync(
+            Input("submit_response", new { status = "completed", message = "all set" }), state, approval);
+
+        Assert.NotNull(result);
+        Assert.Equal("allow", result!.PermissionDecision);
+        Assert.True(state.SubmitRendered);
+    }
+
+    [Fact]
+    public async Task Submit_response_with_bad_args_is_denied_with_correction()
+    {
+        var state = new SessionState();
+        var approval = new ConsoleApprovalPrompt();
+
+        var result = await RunHookAsync(Input("submit_response", new { status = "bogus" }), state, approval);
+
+        Assert.NotNull(result);
+        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.False(state.SubmitRendered);
+        Assert.NotNull(result.AdditionalContext);
+    }
+
+    [Fact]
+    public async Task OneShot_plan_renders_and_allows_without_unlocking_execution()
+    {
+        // In one-shot the plan is shown and allowed (the agent then submits to
+        // close); it does NOT unlock bash — there is no execution stage.
+        var state = new SessionState { IsOneShot = true };
+        var approval = new ConsoleApprovalPrompt();
+
+        var result = await RunHookAsync(Input("propose_plan", ValidPlan()), state, approval);
+
+        Assert.NotNull(result);
+        Assert.Equal("allow", result!.PermissionDecision);
+        Assert.True(state.PlanShown);
+        Assert.False(state.PlanApproved);
+    }
+
+    [Fact]
+    public async Task Interactive_plan_approval_unlocks_execution()
+    {
+        var state = new SessionState { IsOneShot = false };
+
+        var result = await RunInteractivePlanAsync(state, "y");
+
+        Assert.NotNull(result);
+        Assert.Equal("allow", result!.PermissionDecision);
+        Assert.True(state.PlanApproved);
+    }
+
+    [Fact]
+    public async Task Interactive_plan_rejection_keeps_gate_closed_and_asks_to_replan()
+    {
+        var state = new SessionState { IsOneShot = false, PlanApproved = false };
+
+        var result = await RunInteractivePlanAsync(state, "n");
+
+        Assert.NotNull(result);
+        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.False(state.PlanApproved);
+        Assert.Contains("rejected", result.AdditionalContext, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Submit_response_sets_turn_flag()
+    {
+        var state = new SessionState { IsOneShot = true };
+        var approval = new ConsoleApprovalPrompt();
+
+        await RunHookAsync(
+            Input("submit_response", new { status = "completed", message = "all set" }), state, approval);
+
+        Assert.True(state.SubmittedThisTurn);
+    }
+
+    [Theory]
+    [InlineData("bash")]
+    [InlineData("powershell")]
+    [InlineData("propose_plan")]
+    [InlineData("submit_response")]
+    public async Task Any_tool_after_submit_is_denied_this_turn(string tool)
+    {
+        // The post-terminator gate: once submit_response rendered this turn, every
+        // further tool call is denied (no exceptions — even another submit), so the
+        // model can't keep acting past the terminator. PlanApproved=true proves the
+        // denial comes from the gate, not the plan check.
+        var state = new SessionState { IsOneShot = false, PlanApproved = true, SubmittedThisTurn = true };
+        var approval = new ConsoleApprovalPrompt();
+
+        var result = await RunHookAsync(Input(tool, new { command = "echo hi" }), state, approval);
+
+        Assert.NotNull(result);
+        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.Contains("submit_response", result.PermissionDecisionReason, StringComparison.OrdinalIgnoreCase);
+    }
+}

@@ -1,0 +1,412 @@
+using System.Diagnostics;
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.Authentication;
+using Core.Runtime;
+using Core.Runtime.Handler;
+using Moq;
+using Xunit;
+
+namespace Cli.Tests;
+
+/// <summary>
+/// Managed identity login E2E tests with a mock IMDS endpoint.
+/// <para>
+/// These tests isolate the profile store by pointing <c>LOCALAPPDATA</c> / <c>XDG_DATA_HOME</c> at a
+/// throwaway temp directory so the CLI subprocess never touches the real <c>~/.azclips</c>. That redirection
+/// only works on <b>Linux and macOS</b>: there .NET's
+/// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> for
+/// <see cref="System.Environment.SpecialFolder.LocalApplicationData"/> reads the <c>$XDG_DATA_HOME</c>
+/// environment variable. On <b>Windows</b> the same call resolves via the Win32 known-folder API
+/// (registry <c>User Shell Folders</c>) and <b>ignores a process-set <c>%LOCALAPPDATA%</c></b>, so the
+/// subprocess would write to the developer's real profile store instead of the temp directory — breaking the
+/// assertions and polluting <c>%LOCALAPPDATA%\.azclips</c>. The profile-dependent cases are therefore skipped
+/// on Windows via <see cref="SkipOnWindowsFactAttribute"/>.
+/// </para>
+/// </summary>
+[Collection("Azclips Service Provider Tests")]
+public class ManagedIdentityE2ETests : IAsyncLifetime
+{
+    // Resolve artifacts against the configuration these tests were built with,
+    // so the suite works whether the solution is built Debug (local/GitHub) or
+    // Release (distribution pipeline).
+#if DEBUG
+    private const string BuildConfiguration = "Debug";
+#else
+    private const string BuildConfiguration = "Release";
+#endif
+
+    private MockImdsServer? _imds;
+    private static readonly ILoggingService Logger = Mock.Of<ILoggingService>();
+    private static readonly ITelemetryService Telemetry = Mock.Of<ITelemetryService>();
+    // unsigned JWT with the tenant id claim; avoids a token literal in source
+    private static readonly string MockAccessToken = BuildMockJwt(MockTenantId);
+    private const string MockTenantId = "72f988bf-86f1-41af-91ab-2d7cd011db47";
+    private const string MockSubscriptionId = "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
+    private const string MockClientId = "b4c5d6e7-1234-4abc-8def-0123456789ab";
+
+    private static string BuildMockJwt(string tenantId)
+    {
+        static string B64Url(string value) =>
+            Convert.ToBase64String(Encoding.UTF8.GetBytes(value)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        var header = B64Url("{\"alg\":\"none\",\"typ\":\"JWT\"}");
+        var payload = B64Url($"{{\"tid\":\"{tenantId}\",\"aud\":\"https://management.azure.com\"}}");
+        var signature = B64Url("mock-signature");
+        return $"{header}.{payload}.{signature}";
+    }
+
+    // temp profile store so tests don't touch the real ~/.azclips
+    private string _localAppDataDir = string.Empty;
+    private string _profileDirectory = string.Empty;
+
+    public async Task InitializeAsync()
+    {
+        // must exist before use: on Unix GetFolderPath(LocalApplicationData) returns
+        // empty if the dir isn't there
+        _localAppDataDir = Path.Combine(Path.GetTempPath(), "azclips-mi-e2e", Guid.NewGuid().ToString("N"));
+        _profileDirectory = Path.Combine(_localAppDataDir, HomePaths.DefaultHomeDirectoryName);
+        Directory.CreateDirectory(_profileDirectory);
+
+        var artifactsDir = ResolveArtifactsDirectory();
+
+        var loginExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Login");
+
+        if (!Directory.Exists(loginExtensionDir))
+        {
+            throw new InvalidOperationException(
+                $"Login extension not found at {loginExtensionDir}. " +
+                $"Run `dotnet build tests/Cli.Tests/Cli.Tests.csproj` (or `dotnet test`) to regenerate it.");
+        }
+
+        Console.WriteLine($"Extensions found in: {artifactsDir}");
+        Console.WriteLine($"   - Login extension: {loginExtensionDir}");
+
+        // route MSAL MI discovery to the mock IMDS server
+        _imds = new MockImdsServer(MockAccessToken, MockClientId);
+        Environment.SetEnvironmentVariable("AZURE_POD_IDENTITY_AUTHORITY_HOST", _imds.Url);
+    }
+
+    public async Task DisposeAsync()
+    {
+        Environment.SetEnvironmentVariable("AZURE_POD_IDENTITY_AUTHORITY_HOST", null);
+
+        if (_imds != null)
+        {
+            await _imds.DisposeAsync();
+        }
+
+        // drop the temp store
+        try
+        {
+            if (!string.IsNullOrEmpty(_localAppDataDir) && Directory.Exists(_localAppDataDir))
+            {
+                Directory.Delete(_localAppDataDir, recursive: true);
+            }
+        }
+        catch
+        {
+            // ignore; OS cleans up temp eventually
+        }
+    }
+
+    /// <summary>Runs the CLI subprocess against the mock IMDS endpoint.</summary>
+    private async Task<int> RunCliAsync(string cliBinary, params string[] args)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = cliBinary,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        // route MI calls to the mock server
+        psi.Environment["AZURE_POD_IDENTITY_AUTHORITY_HOST"] = _imds!.Url;
+
+        // point the subprocess at the temp store too (LOCALAPPDATA on Windows,
+        // XDG_DATA_HOME on Mac/Linux) so login/logout stay off the real ~/.azclips
+        psi.Environment["LOCALAPPDATA"] = _localAppDataDir;
+        psi.Environment["XDG_DATA_HOME"] = _localAppDataDir;
+
+        foreach (var arg in args)
+        {
+            psi.ArgumentList.Add(arg);
+        }
+
+        using var process = new Process { StartInfo = psi };
+        var output = new StringBuilder();
+        var error = new StringBuilder();
+
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                output.AppendLine(e.Data);
+                Console.WriteLine($"[CLI OUT] {e.Data}");
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (e.Data != null)
+            {
+                error.AppendLine(e.Data);
+                Console.WriteLine($"[CLI ERR] {e.Data}");
+            }
+        };
+
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await process.WaitForExitAsync();
+
+        return process.ExitCode;
+    }
+
+    [SkipOnWindowsFact]
+    public async Task ManagedIdentity_E2E_SystemAssigned_ShouldLoginAndSaveProfile()
+    {
+        // Arrange
+        ResetProfiles();
+        var profileService = CreateProfileService();
+
+        var cliBinary = ResolveCliBinary();
+
+        Console.WriteLine($"Testing CLI binary: {cliBinary}");
+
+        // Act
+        var logoutExitCode = await RunCliAsync(cliBinary, "logout");
+        Assert.Equal(0, logoutExitCode);
+
+        // login with system-assigned MI
+        var loginExitCode = await RunCliAsync(cliBinary, "login", "--identity", "--subscription-id", MockSubscriptionId);
+
+        // Assert
+        Assert.Equal(0, loginExitCode);
+
+        // profile captures MI login
+        var savedProfile = await profileService.GetActiveProfileAsync();
+        Assert.NotNull(savedProfile);
+        Assert.Equal(AuthMethod.ManagedIdentity, savedProfile!.AuthMethod);
+        // managed identity does not persist a tenant id
+        Assert.True(string.IsNullOrEmpty(savedProfile.TenantId));
+        Assert.Equal(MockSubscriptionId, savedProfile.SubscriptionId);
+        Assert.Equal("MSI@", savedProfile.ManagedIdentityId); // System-assigned
+
+        // profile is written to the CLI's default location
+        var profilesFile = Path.Combine(_profileDirectory, "profiles.json");
+        Assert.True(File.Exists(profilesFile), $"Profiles file should exist at: {profilesFile}");
+        var profilesJson = await File.ReadAllTextAsync(profilesFile);
+        Assert.DoesNotContain(MockTenantId, profilesJson);
+        Assert.Contains("ManagedIdentity", profilesJson);
+        Assert.Contains("MSI@", profilesJson);
+    }
+
+    [SkipOnWindowsFact]
+    public async Task ManagedIdentity_E2E_UserAssignedClientId_ShouldLoginAndSaveProfile()
+    {
+        // Arrange
+        ResetProfiles();
+        var profileService = CreateProfileService();
+
+        var cliBinary = ResolveCliBinary();
+
+        await RunCliAsync(cliBinary, "logout");
+
+        // login with user-assigned MI
+        var customClientId = "e5f6a7b8-4567-4def-b234-56789abcdef0";
+        var loginExitCode = await RunCliAsync(cliBinary, "login", "--identity", "--subscription-id", MockSubscriptionId, "--client-id", customClientId);
+
+        // Assert
+        Assert.Equal(0, loginExitCode);
+
+        var savedProfile = await profileService.GetActiveProfileAsync();
+        Assert.NotNull(savedProfile);
+        Assert.Equal(AuthMethod.ManagedIdentity, savedProfile!.AuthMethod);
+        Assert.Equal($"MSIClient@{customClientId}", savedProfile.ManagedIdentityId);
+        Assert.Equal(customClientId, savedProfile.ClientId);
+    }
+
+
+
+    [SkipOnWindowsFact]
+    public async Task ManagedIdentity_E2E_CommandWithToken_ShouldUseTokenFromProfile()
+    {
+        // Exercise AuthHandler and verify it stamps the saved MI token on requests.
+
+        // Arrange
+        ResetProfiles();
+        var profileService = CreateProfileService();
+
+        var cliBinary = ResolveCliBinary();
+
+        var loginExitCode = await RunCliAsync(cliBinary, "login", "--identity", "--subscription-id", MockSubscriptionId);
+        Assert.Equal(0, loginExitCode);
+
+        var savedProfile = await profileService.GetActiveProfileAsync();
+        Assert.NotNull(savedProfile);
+        Assert.Equal(AuthMethod.ManagedIdentity, savedProfile!.AuthMethod);
+
+        // same auth service commands use for silent refresh
+        var authService = new MsalAuthService(
+            Logger,
+            Telemetry,
+            profileService,
+            new ManagedIdentityAuthenticator(new AzureCredentialFactory(), Logger, Telemetry));
+
+        // production handler that adds the bearer token
+        var authHandler = new AuthHandler
+        {
+            Profile = savedProfile,
+            AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync,
+        };
+
+        // Act
+        HttpRequestMessage? capturedRequest = null;
+        var terminal = new Mock<ISendAsync>();
+        terminal.Setup(t => t.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .Callback<HttpRequestMessage, IEventPublisher>((request, _) => capturedRequest = request)
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+        var commandRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"https://management.azure.com/subscriptions/{MockSubscriptionId}/resourcegroups?api-version=2022-12-01");
+
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        await authHandler.SendAsync(commandRequest, publisher.Object, terminal.Object);
+
+        // Assert
+        Assert.NotNull(capturedRequest);
+        Assert.NotNull(capturedRequest!.Headers.Authorization);
+        Assert.Equal("Bearer", capturedRequest.Headers.Authorization!.Scheme);
+        Assert.Equal(MockAccessToken, capturedRequest.Headers.Authorization.Parameter);
+    }
+
+
+    [Fact]
+    public async Task ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail()
+    {
+        // only one user-assigned MI selector is allowed
+        var cliBinary = ResolveCliBinary();
+
+        var clientId = "e5f6a7b8-4567-4def-b234-56789abcdef0";
+        var objectId = "22222222-2222-2222-2222-222222222222";
+
+        var exitCode = await RunCliAsync(
+            cliBinary, "login", "--identity", "--client-id", clientId, "--object-id", objectId);
+
+        Assert.NotEqual(0, exitCode);
+    }
+
+    [Fact]
+    public async Task ManagedIdentity_MockImdsServer_RequiresMetadataHeader()
+    {
+        using var httpClient = new HttpClient();
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"{_imds!.Url}/metadata/identity/oauth2/token?resource=https://management.azure.com");
+        // omit Metadata header on purpose
+
+        var response = await httpClient.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ManagedIdentity_MockImdsServer_HandlesClientIdParameter()
+    {
+        using var httpClient = new HttpClient();
+        var customClientId = "f6a7b8c9-5678-4ef0-c345-6789abcdef01";
+        var request = new HttpRequestMessage(HttpMethod.Get,
+            $"{_imds!.Url}/metadata/identity/oauth2/token?resource=https://management.azure.com&client_id={customClientId}");
+        request.Headers.Add("Metadata", "true");
+
+        var response = await httpClient.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+        using var tokenResponse = JsonSerializer.Deserialize<JsonDocument>(content);
+
+        var clientId = tokenResponse?.RootElement.GetProperty("client_id").GetString();
+        Assert.Equal(customClientId, clientId);
+    }
+
+    private static string ResolveCliBinary()
+    {
+        var cliBinary = Path.Combine(ResolveArtifactsDirectory(), "Core.Cli", "az");
+
+        if (!File.Exists(cliBinary))
+        {
+            throw new InvalidOperationException($"CLI binary not found: {cliBinary}");
+        }
+
+        return cliBinary;
+    }
+
+    /// <summary>
+    /// Locates the <c>artifacts/&lt;Configuration&gt;</c> directory by walking up from the test
+    /// assembly location, so the tests do not depend on a fixed directory depth. The distribution
+    /// layout there (per-package extension subdirectories) is required for the CLI subprocess to
+    /// resolve extensions such as Login.
+    /// </summary>
+    private static string ResolveArtifactsDirectory()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "artifacts", BuildConfiguration);
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Could not locate 'artifacts/{BuildConfiguration}' above {AppContext.BaseDirectory}. " +
+            $"Run `dotnet build azclips.slnx` to produce it.");
+    }
+
+    private ProfileService CreateProfileService()
+    {
+        // same temp store the subprocess writes to
+        return new ProfileService(Logger, _profileDirectory);
+    }
+
+    private void ResetProfiles()
+    {
+        // clean profile state between tests
+        // Do not need to clean AT since MI do not store it in disk
+        foreach (var fileName in new[] { "profiles.json", "active-profile" })
+        {
+            var path = Path.Combine(_profileDirectory, fileName);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A <see cref="FactAttribute"/> that skips on Windows. The profile-store isolation these tests rely on
+    /// works by redirecting <c>LOCALAPPDATA</c> / <c>XDG_DATA_HOME</c> to a temp directory, which only affects
+    /// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> on Linux/macOS. On
+    /// Windows that call resolves via the Win32 known-folder API (registry <c>User Shell Folders</c>) and
+    /// ignores a process-set <c>%LOCALAPPDATA%</c>, so the CLI subprocess would write to the real
+    /// <c>%LOCALAPPDATA%\.azclips</c> instead of the temp store — failing the assertions and polluting the
+    /// developer's profile. Skip until the CLI honors an explicit cross-platform override.
+    /// </summary>
+    private sealed class SkipOnWindowsFactAttribute : FactAttribute
+    {
+        public SkipOnWindowsFactAttribute()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Skip = "Profile-store isolation redirects LOCALAPPDATA/XDG_DATA_HOME, which only affects "
+                    + "GetFolderPath on Linux/macOS. On Windows .NET resolves LocalApplicationData via the "
+                    + "Win32 known-folder API and ignores the env override, so the store cannot be isolated.";
+            }
+        }
+    }
+}

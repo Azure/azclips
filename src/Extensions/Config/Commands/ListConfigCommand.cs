@@ -1,8 +1,11 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Diagnostics;
 using System.Text;
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Config.Commands;
+namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
 public sealed class ListConfigCommand : ConfigCommandBase
 {

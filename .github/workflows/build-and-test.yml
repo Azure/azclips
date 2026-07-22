@@ -2,49 +2,97 @@ name: Build and Test
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main, dev]
   workflow_dispatch:
+
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        global-json-file: global.json
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
 
-    - name: Restore dependencies
-      run: dotnet restore cirrus.slnx
+      - name: Restore dependencies
+        run: dotnet restore azclips.slnx
 
-    - name: Build
-      run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
-      # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
+      - name: Build
+        run: dotnet build azclips.slnx --no-restore --configuration Debug # Should be Release but
+        # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
-    - name: Run tests
-      run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
+      - name: Run tests
+        run: dotnet test azclips.slnx --no-build --configuration Debug --verbosity normal
 
-    - name: E2E - CLI Help
-      run: |
-        ./artifacts/Debug/Core.Cli/azv2 --help
+      - name: E2E - CLI Help
+        run: |
+          ./artifacts/Debug/Core.Cli/az --help
 
+      - name: Setup PowerShell
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y powershell
 
-    - name: Setup PowerShell
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y powershell
+      - name: E2E - PowerShell Module
+        shell: pwsh
+        run: |
+          Import-Module ./src/PS/Login/Login.psd1
+          $commands = Get-Command -Module Login
+          if ($commands.Count -eq 0) {
+            Write-Error "No commands found in Login module"
+            exit 1
+          }
+          Write-Host "Found $($commands.Count) commands in Login module"
 
-    - name: E2E - PowerShell Module
-      shell: pwsh
-      run: |
-        Import-Module ./src/PS/Login/Login.psd1
-        $commands = Get-Command -Module Login
-        if ($commands.Count -eq 0) {
-          Write-Error "No commands found in Login module"
-          exit 1
-        }
-        Write-Host "Found $($commands.Count) commands in Login module"
+  help-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore azclips.slnx
+
+      - name: Build
+        run: dotnet build azclips.slnx --no-restore --configuration Debug
+
+      - name: Validate help content
+        run: |
+          dotnet run --project tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj --no-build --configuration Debug -- \
+            --artifacts-root artifacts/Debug \
+            --output-root artifacts/help
+
+  help-tool-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj
+
+      - name: Build help tool tests
+        run: dotnet build tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-restore --configuration Debug
+
+      - name: Run help tool tests
+        run: dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal

@@ -1,0 +1,10 @@
+{
+  // Solution-style root tsconfig. Use project references for each package.
+  "files": [],
+  "references": [
+    { "path": "./packages/ir" },
+    { "path": "./packages/typespec-emitter" },
+    { "path": "./packages/compiler" },
+    { "path": "./packages/cli" }
+  ]
+}

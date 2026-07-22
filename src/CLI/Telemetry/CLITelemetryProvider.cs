@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -12,7 +15,7 @@ namespace Core.Cli.Telemetry;
 
 public class CLITelemetryProvider : DefaultTelemetryProvider
 {
-    public CLITelemetryProvider(IConfigurationService configurationService)
+    public CLITelemetryProvider(IConfigurationService configurationService, IEnumerable<BaseProcessor<Activity>> filterProcessors)
     {
         var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
         if (!isTelemetryEnabled) return;
@@ -31,6 +34,11 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
                 activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
             };
         });
+
+        foreach (var processor in filterProcessors)
+        {
+            builder.AddProcessor(processor);
+        }
 
         sender.ConfigureExporter(builder, FileTelemetrySender.GetTraceDirectory());
         TracerProvider = builder.Build();

@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
 
 namespace Core.Agent;
 
 /// <summary>
 /// Translates Copilot SDK <see cref="SessionEvent"/>s into <see cref="AgentEvent"/>s
-/// for cirrus's host-agnostic rendering layer.
+/// for azclips's host-agnostic rendering layer.
 ///
 /// Pattern:    streaming-dedup via per-turn flag + first-token timestamp.
 ///             Industry research §2: FinishReason is unreliable for dedup;

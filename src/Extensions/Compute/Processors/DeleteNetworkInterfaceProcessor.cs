@@ -1,8 +1,11 @@
-using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
-using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 public class DeleteNetworkInterfaceProcessor : ComputeProcessorBase<object>
 {

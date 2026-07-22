@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 # PowerShell Telemetry Helper
 # Provides telemetry integration for PowerShell cmdlets using the Core libraries
 
@@ -10,7 +13,7 @@ function Get-TelemetryService {
             # Ensure Core.DependencyInjection is loaded and accessible
             # Ensure this script is loaded after the module that initializes the DI container (e.g. Login.psm1) so that the service provider is available
             # We assume the module loading this script has loaded the necessary DLLs via RequiredAssemblies
-            $script:TelemetryService = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.ITelemetryService])
+            $script:TelemetryService = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService([Core.Abstractions.ITelemetryService])
         }
         catch {
             Write-Verbose "Telemetry initialization failed locally: $_"

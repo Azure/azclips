@@ -1,11 +1,39 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
+    <AssemblyOriginatorKeyFile>../../src/MSSharedLibKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Moq" Version="4.20.72" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/CLI/Core.Cli.csproj" />
     <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
     <ProjectReference Include="../../src/Core/Core.Configuration/Core.Configuration.csproj" />
+    <ProjectReference Include="../../src/Extensions/Login/Extensions.Login.csproj" />
+    <ProjectReference Include="../../src/Extensions/Compute/Extensions.Compute.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Authentication/Core.Authentication.csproj" />
     <ProjectReference Include="../../src/Extensions/Config/Extensions.Config.csproj" />
+    <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
+    <ProjectReference Include="../../src/Extensions/Extension/Extensions.Extension.csproj" />
+    <ProjectReference Include="../../src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
+    <ProjectReference Include="../../Agent/Commands/Agent.Commands.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
+
+    <!-- Shared-verb contract test fixtures. ReferenceOutputAssembly=false so fixture
+         types don't leak into the test compilation; we only need the DLLs built so the test can
+         stage them into temp dirs and read them via LeafReader. -->
+    <ProjectReference Include="../Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+    <ProjectReference Include="../Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
   </ItemGroup>
 
 </Project>

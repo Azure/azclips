@@ -1,10 +1,18 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
-using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
-public class ListVMProcessor : ComputeProcessorBase<VirtualMachine>
+/// <summary>
+/// Lists virtual machines in a resource group. The ARM list endpoint returns an envelope
+/// <c>{ "value": [...] }</c>; this processor deserializes that envelope and writes its
+/// <c>value</c> array so PowerShell enumerates individual VMs and the CLI serializes a JSON array.
+/// Pagination (<c>nextLink</c>) is intentionally not followed yet.
+/// </summary>
+public class ListVMProcessor : ComputeProcessorBase<VirtualMachineListResult>
 {
     public string ResourceGroupName { get; set; } = string.Empty;
 
@@ -16,4 +24,6 @@ public class ListVMProcessor : ComputeProcessorBase<VirtualMachine>
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
+
+    protected override object SelectOutput(VirtualMachineListResult body) => body.Value ?? [];
 }

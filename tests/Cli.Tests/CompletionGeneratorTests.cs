@@ -1,0 +1,150 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions;
+using Core.Cli.Completions;
+
+namespace Cli.Tests;
+
+public class CompletionGeneratorTests
+{
+    [Fact]
+    public void ResolveEnabled_ReturnsTrue_WhenCompletionEnabled()
+    {
+        var config = new StubConfigurationService(new CompletionOptions { Enabled = true });
+
+        Assert.True(CompletionGenerator.ResolveEnabled(config));
+    }
+
+    [Fact]
+    public void ResolveEnabled_ReturnsFalse_WhenCompletionDisabled()
+    {
+        var config = new StubConfigurationService(new CompletionOptions { Enabled = false });
+
+        Assert.False(CompletionGenerator.ResolveEnabled(config));
+    }
+
+    [Fact]
+    public void ResolveEnabled_FailsSafeToEnabled_WhenConfigThrows()
+    {
+        var config = new ThrowingConfigurationService();
+
+        // A benign, default-on convenience feature must not break because the
+        // config file is temporarily unreadable — fail safe to enabled.
+        Assert.True(CompletionGenerator.ResolveEnabled(config));
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsNextToken_ForLeadingVerb()
+    {
+        // `az deployment <tab>` — offer the next token of the deeper commands.
+        var commands = Commands("deployment group create", "deployment group what-if");
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["deployment"]);
+
+        // Both commands share the same next token, so it is deduplicated.
+        Assert.Equal(["group"], result);
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsSubcommands_ForIntermediateGroup()
+    {
+        // `az deployment group <tab>` — the reported bug: expect create + what-if.
+        var commands = Commands("deployment group create", "deployment group what-if");
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["deployment", "group"]);
+
+        Assert.Equal(["create", "what-if"], result);
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsParameterFlags_ForExactCommand()
+    {
+        // `az deployment group create <tab>` — the path is a complete command.
+        var commands = new[]
+        {
+            Command("deployment group create", "name", "resource-group", "template-file"),
+        };
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["deployment", "group", "create"]);
+
+        Assert.Equal(["--name", "--resource-group", "--template-file"], result);
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsSiblingSubcommands_SortedAndDeduplicated()
+    {
+        // `az group <tab>` over a 2-level verb.
+        var commands = Commands("group show", "group create", "group list", "group create");
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["group"]);
+
+        Assert.Equal(["create", "list", "show"], result);
+    }
+
+    [Fact]
+    public void ComputeCandidates_ReturnsEmpty_WhenPathDoesNotMatchAnyCommand()
+    {
+        var commands = Commands("deployment group create");
+
+        var result = CompletionGenerator.ComputeCandidates(commands, ["deployment", "nope"]);
+
+        Assert.Empty(result);
+    }
+
+    private static KeyValuePair<string, CommandMetadata>[] Commands(params string[] invocationNames)
+        => invocationNames.Select(name => Command(name)).ToArray();
+
+    private static KeyValuePair<string, CommandMetadata> Command(string invocationName, params string[] parameterNames)
+    {
+        var parameters = parameterNames.ToDictionary(
+            p => p,
+            p => new ParameterMetadata(p, p, typeof(string), string.Empty, IsRequired: false, Aliases: [], AllowedValues: []));
+
+        var metadata = new CommandMetadata(
+            Name: invocationName,
+            InvocationName: invocationName,
+            Aliases: [],
+            FullName: invocationName,
+            AssemblyName: "test",
+            ProcessorType: typeof(object),
+            Parameters: parameters,
+            ParameterAliases: new Dictionary<string, string>());
+
+        return new KeyValuePair<string, CommandMetadata>(invocationName, metadata);
+    }
+
+    //TODO: rewrite with mocking framework when introduced.
+    private sealed class StubConfigurationService(CompletionOptions completion) : IConfigurationService
+    {
+        public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
+        {
+            if (typeof(T) == typeof(CompletionOptions))
+            {
+                return (T)(object)completion;
+            }
+
+            return defaultValue ?? new T();
+        }
+
+        public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public string GetConfigFilePath() => throw new NotSupportedException();
+        public IConfigurationSchema GetSchema() => throw new NotSupportedException();
+    }
+
+    private sealed class ThrowingConfigurationService : IConfigurationService
+    {
+        public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
+            => throw new InvalidOperationException("config file contains invalid JSON");
+
+        public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public string GetConfigFilePath() => throw new NotSupportedException();
+        public IConfigurationSchema GetSchema() => throw new NotSupportedException();
+    }
+}

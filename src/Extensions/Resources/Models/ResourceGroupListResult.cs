@@ -1,6 +1,9 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Text.Json.Serialization;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
 {
     //
     // Summary:

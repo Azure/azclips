@@ -1,4 +1,7 @@
-﻿using System.Diagnostics;
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Diagnostics;
 using System.Text.Json;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -277,7 +280,7 @@ public class FileTelemetrySenderTests
 
         public ReplayHarness()
         {
-            var name = "cirrus-replay-" + Guid.NewGuid().ToString("N");
+            var name = "azclips-replay-" + Guid.NewGuid().ToString("N");
             Source = new ActivitySource(name);
             Stopped = new List<Activity>();
 
