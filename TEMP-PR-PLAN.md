@@ -121,16 +121,6 @@ Codebase scan (2026-07-22) for `.Warn(...)` / `WriteWarning(...)` producers to e
 
 Both are on the intentional side of D1's PS-side note: under the new default the PS host applies `$WarningPreference = Continue` and shows them; callers who want the old silence use `-WarningAction Ignore`.
 
-### Plumbing (dispatch/forwarding — not producers)
-
-- [`ExecutionSession.WriteChannelOutput` L170](src/Core/Core.Engine/ExecutionSession.cs#L170) — forwards processor-emitted `WarningMessage` values from the `OutputChannel` through `outputStreamAdapter.Warn`. No current processor produces `WarningMessage`s via the channel; it's future-proofing infrastructure.
-- `ScopedLoggingService.Warn` / `OutputStreamAdapter.Warn` / `ConsoleOutputAdapter.WriteWarningAsync` — level dispatch through the level-gated `BuildStreams.WriteWarning` delegate.
-- PS cmdlet `WriteWarning` bridges (`GetProfileCmdlet` / `RemoveProfileCmdlet` / `SetProfileCmdlet` L26-L41) — forward CLI streams to PS host warning stream.
-
-### Dormant infrastructure (unaffected)
-
-- [`Events.ValidationWarning`](src/Core/Core.Abstractions/Runtime/Events.cs#L13) is published by the [`RuntimeExtensions.AssertX` helpers](src/Extensions/ExtensionRuntime/RuntimeExtensions.cs#L22) that extensions can use to validate parameters, but [`Engine.Subscriptions.SubscribeMessages`](src/Core/Core.Engine/Engine.Subscriptions.cs#L37) never subscribes to it. Currently a dead-letter event on all surfaces — the flip does not change that.
-
 ---
 
 ## 5. Validation
