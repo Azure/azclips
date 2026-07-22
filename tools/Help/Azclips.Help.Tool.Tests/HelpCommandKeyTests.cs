@@ -22,17 +22,31 @@ namespace Azclips.Help.Tool.Tests
         [Theory]
         [InlineData("", "index.md")]
         [InlineData("login", "login.md")]
-        [InlineData("config get", "config-get.md")]
-        [InlineData("Group Role Assignment Create", "group-role-assignment-create.md")]
+        [InlineData("config get", "config/get.md")]
+        [InlineData("deployment group create", "deployment/group/create.md")]
+        [InlineData("Group Role Assignment Create", "group/role/assignment/create.md")]
         public void ToHelpFileName_ShouldMapKeyToFilename_WhenGivenCommandKey(string key, string expected)
         {
             Assert.Equal(expected, HelpCommandKey.ToHelpFileName(key));
         }
 
         [Theory]
+        [InlineData("", "index.md")]
+        [InlineData("group", "group/index.md")]
+        [InlineData("deployment group", "deployment/group/index.md")]
+        [InlineData("Deployment Group", "deployment/group/index.md")]
+        public void ToGroupIndexFileName_ShouldMapKeyToNestedIndex_WhenGivenGroupKey(string key, string expected)
+        {
+            Assert.Equal(expected, HelpCommandKey.ToGroupIndexFileName(key));
+        }
+
+        [Theory]
         [InlineData("index.md", "")]
         [InlineData("login.md", "login")]
-        [InlineData("config-get.md", "config get")]
+        [InlineData("config/get.md", "config get")]
+        [InlineData("deployment/group/create.md", "deployment group create")]
+        [InlineData("deployment/group/index.md", "deployment group")]
+        [InlineData(@"deployment\group\create.md", "deployment group create")]
         [InlineData("INDEX.MD", "")]
         public void FromHelpFileName_ShouldInvertToHelpFileName_WhenGivenFilename(string fileName, string expected)
         {

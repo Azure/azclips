@@ -241,11 +241,11 @@ public sealed class ChatAgent : IAsyncDisposable
     // long system message that models sometimes skim; injecting the same
     // reminder via SessionStart's AdditionalContext puts it in a spot the
     // model reads at every session boot. Wording deliberately mirrors the
-    // prompt copy (Azclips — NOT classic Azure CLI / training data may be
+    // prompt copy (next-generation Azure CLI — NOT classic Azure CLI / training data may be
     // wrong / verify with get_command) so the two channels reinforce each
     // other instead of introducing wording drift.
     private const string AzclipsBoundary =
-        "Reminder: this `az` is Azclips — NOT classic Azure CLI. " +
+        "Reminder: this `az` is a next-generation Azure CLI, NOT classic Azure CLI. " +
         "Your training data about classic `az` may be wrong; verify every command with get_command().";
 
     private static SessionConfig BuildBaseSessionConfig(
@@ -374,7 +374,7 @@ public sealed class ChatAgent : IAsyncDisposable
         try { _activeTurnCts?.Cancel(); } catch { }
         try { await _session.AbortAsync(ct).ConfigureAwait(false); } catch { }
     }
-    private static readonly string[] ValidEntrypoints = ["oneshot", "inline", "tui"];
+    private static readonly string[] ValidEntrypoints = ["oneshot", "inline"];
 
     private static string LoadSystemPrompt(string flavor, string entrypoint)
     {

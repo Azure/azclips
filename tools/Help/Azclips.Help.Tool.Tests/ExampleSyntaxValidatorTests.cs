@@ -486,6 +486,45 @@ namespace Azclips.Help.Tool.Tests
         }
 
         [Fact]
+        public void Validate_ShouldStillPoliceFlags_WhenCommandNameContainsHelp()
+        {
+            // Regression: bare "help" as a sub-command name (e.g. `az agent tool help`) must not
+            // be mistaken for a --help invocation. Unknown flags on such commands must still fire.
+            var help = new StubExtensionIndex(new Dictionary<string, (string flag, bool required, string[] aliases)[]>
+            {
+                ["agent tool help"] = new (string, bool, string[])[]
+                {
+                    ("name", false, Array.Empty<string>()),
+                },
+            });
+            var indexes = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["agent"] = help,
+            };
+            var content = Fence("az agent tool help --command \"vm create\"");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", indexes);
+
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.CLI_L2_UnknownFlag &&
+                e.Message.Contains("'--command'", StringComparison.Ordinal));
+        }
+
+        [Theory]
+        [InlineData("az group create ?")]
+        [InlineData("az group create -?")]
+        public void Validate_ShouldNotFireL4_OnBareQuestionMarkHelpInvocations(string invocation)
+        {
+            // Parity with ExtensionDispatcher.s_helpFlags: `?` and `-?` are accepted as help
+            // flags anywhere in the arg list, so required-flag policing must not apply.
+            var content = Fence(invocation);
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.CLI_L4_MissingRequiredFlag);
+        }
+
+        [Fact]
         public void Validate_ShouldNotFireL4_WhenCommandHasNoRequiredFlags()
         {
             // 'group list' has only an optional subscription-id; bare invocation must pass.

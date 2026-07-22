@@ -20,9 +20,10 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 }
 
 /// <summary>
-/// Reads and parses help markdown from <c>src/CLI/Help/Docs/&lt;ext&gt;/*.md</c> at runtime.
-/// Lenient: malformed/missing input returns <see cref="MarkdownCommandHelp.Empty"/> rather
-/// than throwing — strict checks live in the build-time help tool.
+/// Reads and parses help markdown from the nested corpus at <c>src/CLI/Help/Docs/&lt;ext&gt;/</c>.
+/// Layout: <c>&lt;ext&gt;/&lt;seg1&gt;/.../&lt;segN&gt;.md</c> for leaves,
+/// <c>&lt;ext&gt;/&lt;seg1&gt;/.../&lt;segN&gt;/index.md</c> for groups. Lenient: malformed/missing
+/// input returns <see cref="MarkdownCommandHelp.Empty"/> rather than throwing.
 /// </summary>
 public static class MarkdownCommandHelpProvider
 {
@@ -76,32 +77,71 @@ public static class MarkdownCommandHelpProvider
     private static string? ResolveHelpFilePath(string extensionName, string commandKey)
     {
         var folder = (extensionName ?? string.Empty).ToLowerInvariant();
-        var fileName = string.IsNullOrWhiteSpace(commandKey)
-            ? "index.md"
-            : commandKey.Replace(' ', '-').ToLowerInvariant() + ".md";
+        var segments = string.IsNullOrWhiteSpace(commandKey)
+            ? []
+            : commandKey.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-        // Repo-aware preference: if we can locate `azclips.slnx` from BaseDirectory we're
-        // running against a developer build, so prefer the source markdown — authors
-        // can edit `src/CLI/Help/Docs/...` and see results without rebuilding. If no repo
-        // root is reachable (shipped install), fall back to the packaged copy next to
-        // the CLI binary (see Core.Cli.csproj `<Content Include="Help\Docs\**\*.md">`).
+        // Reject path-traversal / rooted / separator-bearing segments. Callers (GetGroupHelp)
+        // pass user-supplied CLI tokens straight through, so the resolver must not let one
+        // like ".." or "C:\\..." escape the help corpus root.
+        if (!IsSafeSegment(folder) || segments.Any(static s => !IsSafeSegment(s)))
+        {
+            return null;
+        }
+
+        // Dev-loop: prefer source markdown when running against a repo checkout.
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
-            var source = Path.Combine(HelpPaths.CliHelpDocsRoot(repoRoot), folder, fileName);
-            if (File.Exists(source))
+            var source = ProbeCandidates(HelpPaths.CliHelpDocsRoot(repoRoot), folder, segments);
+            if (source != null)
             {
                 return source;
             }
         }
 
-        var packaged = Path.Combine(AppContext.BaseDirectory, "help", folder, fileName);
-        if (File.Exists(packaged))
+        return ProbeCandidates(Path.Combine(AppContext.BaseDirectory, "help"), folder, segments);
+    }
+
+    private static bool IsSafeSegment(string segment)
+        => !string.IsNullOrEmpty(segment)
+        && segment != "."
+        && segment != ".."
+        && !segment.Contains('/')
+        && !segment.Contains('\\')
+        && !Path.IsPathRooted(segment);
+
+    // Tries leaf form (<segments>.md) first, then group form (<segments>/index.md).
+    private static string? ProbeCandidates(string root, string folder, string[] segments)
+    {
+        if (segments.Length == 0)
         {
-            return packaged;
+            var indexPath = Path.Combine(root, folder, "index.md");
+            return File.Exists(indexPath) ? indexPath : null;
         }
 
-        return null;
+        var leafSegments = new string[segments.Length + 1];
+        leafSegments[0] = folder;
+        for (var i = 0; i < segments.Length - 1; i++)
+        {
+            leafSegments[i + 1] = segments[i];
+        }
+        leafSegments[^1] = segments[^1] + ".md";
+        var leafPath = Path.Combine(root, Path.Combine(leafSegments));
+        if (File.Exists(leafPath))
+        {
+            return leafPath;
+        }
+
+        var groupSegments = new string[segments.Length + 2];
+        groupSegments[0] = folder;
+        for (var i = 0; i < segments.Length; i++)
+        {
+            groupSegments[i + 1] = segments[i];
+        }
+        groupSegments[^1] = "index.md";
+        var groupPath = Path.Combine(root, Path.Combine(groupSegments));
+        return File.Exists(groupPath) ? groupPath : null;
     }
 
     private static string? FindRepoRoot()

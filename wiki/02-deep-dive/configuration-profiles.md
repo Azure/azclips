@@ -113,7 +113,7 @@ reflecting the default value out of each options object (`ConfigCommandBase.cs:2
 | Section prefix    | Options type              | Example keys                            |
 | ----------------- | ------------------------- | --------------------------------------- |
 | `core`            | `CoreOptions`             | `core.logging.level`, `core.http.maxRetries` |
-| `telemetry`       | `TelemetryOptions`        | `telemetry.enabled`, `telemetry.zipkinEndpoint` |
+| `telemetry`       | `TelemetryOptions`        | `telemetry.enabled`                     |
 | `agent`           | `AgentOptions`            | `agent.enabled`, `agent.provider`, `agent.trace.enabled` |
 | `assemblyLoading` | `AssemblyLoadingOptions`  | —                                       |
 | `extensions`      | `ExtensionsOptions`       | —                                       |
@@ -398,4 +398,4 @@ user is signed in — see the [AI Agent](./ai-agent.md) page.
 - `src/Extensions/Login/Processors/LoginProcessor.cs`, `ProfileSetProcessor.cs`, `ProfileListProcessor.cs`, `ProfileShowProcessor.cs`, `ProfileRemoveProcessor.cs`, `ProfileProcessorBase.cs`
 - `src/Core/Core.Engine/Engine.cs` — `ResolveProfileAsync` and context wiring
 - `openspec/changes/profile-management/design.md` — Decisions 1–8 (storage, temp login, global `--profile`, AuthContext removal, logout, login output)
-- `docs/howto/config.md`, `docs/spec/config-implementation.md`
+- `docs/azure-cli/docs-conceptual/config.md`, `eng-docs/spec/config-implementation.md`

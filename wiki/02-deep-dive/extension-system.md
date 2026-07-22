@@ -13,9 +13,9 @@ surface as **extensions** — independently versioned .NET class libraries loade
 keeps the host binary lean, lets Azure service teams ship their own command modules on their own
 cadence, and allows multiple versions of an extension to coexist on one machine. The same extension
 assemblies are consumed by two host surfaces, the CLI and the PowerShell modules
-(`docs/spec/extension-framework.md`).
+(`eng-docs/spec/extension-framework.md`).
 
-An extension is anything that provides three things (`docs/spec/extension-framework.md`):
+An extension is anything that provides three things (`eng-docs/spec/extension-framework.md`):
 
 - an **`IExtensionIndex`** — the command registry that maps a command name + client surface to
   metadata (`src/Core/Core.Abstractions/IExtensionIndex.cs:10`);
@@ -61,13 +61,13 @@ graph TD
 (`src/Core/Core.Abstractions/IExtensionIndex.cs:10`). Its members are keyed by `ClientType` (CLI vs
 PowerShell) so a single index serves both surfaces:
 
-| Member | Role | Source |
-| --- | --- | --- |
-| `GetCommandMetadata(name, clientType)` | Resolve one command's metadata | `IExtensionIndex.cs:12` |
-| `GetCommandTable(clientType)` | The full keyed command table for a surface | `IExtensionIndex.cs:18` |
-| `GetAllCommands(clientType)` | Enumerate commands (help system) | `IExtensionIndex.cs:24` |
-| `GetCommandKeys(clientType)` | Leaf keys (e.g. `"vm create"`) used at `extension add` time | `IExtensionIndex.cs:33` |
-| `GetVerbs()` | Top-level verbs the extension contributes | `IExtensionIndex.cs:42` |
+| Member                                 | Role                                                        | Source                  |
+| -------------------------------------- | ----------------------------------------------------------- | ----------------------- |
+| `GetCommandMetadata(name, clientType)` | Resolve one command's metadata                              | `IExtensionIndex.cs:12` |
+| `GetCommandTable(clientType)`          | The full keyed command table for a surface                  | `IExtensionIndex.cs:18` |
+| `GetAllCommands(clientType)`           | Enumerate commands (help system)                            | `IExtensionIndex.cs:24` |
+| `GetCommandKeys(clientType)`           | Leaf keys (e.g. `"vm create"`) used at `extension add` time | `IExtensionIndex.cs:33` |
+| `GetVerbs()`                           | Top-level verbs the extension contributes                   | `IExtensionIndex.cs:42` |
 
 A concrete index is just a set of static `CommandMetadata` records wired into a per-surface table.
 The built-in **Extension** module's own index is a good reference implementation
@@ -106,9 +106,9 @@ that compose multiple processors (see `src/Extensions/Resources/` and `src/Exten
 
 ### Routing model: verbs, leaves, and the two sources
 
-Routing is `{(verb, path) → packageId}` with O(1) lookup; a top-level verb is a *shared namespace*
+Routing is `{(verb, path) → packageId}` with O(1) lookup; a top-level verb is a _shared namespace_
 and each full `(verb, path)` leaf is owned by exactly one extension
-(`docs/spec/extension-management.md`). Command groups resolve from two merged sources:
+(`eng-docs/spec/extension-management.md`). Command groups resolve from two merged sources:
 
 1. **Built-in map** — `BuiltInExtensions.Map`, a static seed of host-shipped extensions
    (`src/Core/Core.Extensions/BuiltInExtensions.cs:44`). The "true core" is `extension`, `login`,
@@ -128,9 +128,11 @@ and each full `(verb, path)` leaf is owned by exactly one extension
 built-in map **and** the on-disk store (`src/CLI/Parser/ExtensionDispatcher.cs:28`). Resolution
 proceeds in stages:
 
-1. **Help short-circuits** — bare `az --help`, `az help <group>`, and `az <group> … --help` are
+1. **Help short-circuits** — bare `az`, `az --help`, `az help <group>`, and `az <group> … --help` are
    detected and turned into help exceptions before routing
-   (`src/CLI/Parser/ExtensionDispatcher.cs:50`).
+   (`src/CLI/Parser/ExtensionDispatcher.cs`). The empty-args case raises the same
+   `DispatchHelpException` as `az --help`; `Program.Main` layers a welcome banner on top when the
+   invocation was truly bare.
 2. **Longest-prefix leaf match** — the leading non-flag tokens after the verb are matched against
    the `LeafIndex` from the longest prefix down; the first hit wins and yields a `ResolvedExtension`
    (`src/CLI/Parser/ExtensionDispatcher.cs:71`).
@@ -155,15 +157,15 @@ services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();       // Prog
 services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();  // Program.cs:43
 ```
 
-| Loader | Layout it understands | Version selection | Source |
-| --- | --- | --- | --- |
-| `BuiltinExtensionLoader` | Flat extension folders next to the host | Single version | `src/CLI/AssemblyLoading/ExtensionLoader.cs:26` |
+| Loader                        | Layout it understands                       | Version selection                                           | Source                                           |
+| ----------------------------- | ------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------ |
+| `BuiltinExtensionLoader`      | Flat extension folders next to the host     | Single version                                              | `src/CLI/AssemblyLoading/ExtensionLoader.cs:26`  |
 | `MultiVersionExtensionLoader` | `…/<package>/<version>/` version subfolders | Exact version if requested, else **highest `NuGetVersion`** | `src/CLI/AssemblyLoading/ExtensionLoader.cs:197` |
 
 Both loaders isolate each extension in its own `AssemblyLoadContext` (ALC). The ALC's `Load`
 override deliberately **returns `null` for `Core.*` and `Microsoft.Extensions.DependencyInjection`
 assemblies** so those shared contracts come from the host rather than the extension's own copy —
-this is what lets a processor's `ProcessorContext` be the *same* type the host created
+this is what lets a processor's `ProcessorContext` be the _same_ type the host created
 (`src/CLI/AssemblyLoading/ExtensionLoader.cs:42`, `:220`). Managed assemblies are read into memory
 and loaded via `LoadFromStream`, so the on-disk DLL is not locked
 (`src/CLI/AssemblyLoading/ExtensionLoader.cs:33`).
@@ -221,14 +223,14 @@ The built-in **Extension** module (`src/Extensions/Extension/`) implements the f
 surface. Each verb is a processor paired with its `CommandMetadata` in `ExtensionIndex`, and each has
 help authored under `src/CLI/Help/Docs/extension/`:
 
-| Command | Processor file | Purpose |
-| --- | --- | --- |
-| `extension add` | `Add.cs` | Install from a NuGet feed (`--name`) or a local `.nupkg` (`--path`), optionally `--pin` |
-| `extension list` | `List.cs` | List installed extensions (optionally regrouped `--by-verb`) |
-| `extension show` | `Show.cs` | Show one extension's details |
-| `extension remove` | `Remove.cs` | Uninstall an extension |
-| `extension update` | `Update.cs` | Update to a newer version (skips pinned unless forced) |
-| `extension pin` / `unpin` | `Pin.cs` | Pin/unpin a version so `update` skips it |
+| Command                   | Processor file | Purpose                                                                                 |
+| ------------------------- | -------------- | --------------------------------------------------------------------------------------- |
+| `extension add`           | `Add.cs`       | Install from a NuGet feed (`--name`) or a local `.nupkg` (`--path`), optionally `--pin` |
+| `extension list`          | `List.cs`      | List installed extensions (optionally regrouped `--by-verb`)                            |
+| `extension show`          | `Show.cs`      | Show one extension's details                                                            |
+| `extension remove`        | `Remove.cs`    | Uninstall an extension                                                                  |
+| `extension update`        | `Update.cs`    | Update to a newer version (skips pinned unless forced)                                  |
+| `extension pin` / `unpin` | `Pin.cs`       | Pin/unpin a version so `update` skips it                                                |
 
 The install workhorse is `ExtensionInstaller`, which uses the official NuGet client APIs to fetch and
 extract packages (`src/Extensions/Extension/ExtensionInstaller.cs:19`). It defaults its install path
@@ -252,14 +254,14 @@ Extensions talk to ARM using JSON payloads, so `src/Extensions/ExtensionRuntime/
 self-contained JSON object model + serializer that extensions use to (de)serialize ARM models
 without taking a dependency on a specific system JSON stack. It is organised as:
 
-| Area | Responsibility | Representative source |
-| --- | --- | --- |
-| `Conversions/` | Type-conversion framework (`JsonConverter<T>`, factory, per-type converters) | `src/Extensions/ExtensionRuntime/Conversions/JsonConverter.cs:7` |
-| `Conversions/Instances/` | Built-in converters (`Guid`, `DateTimeOffset`, `Enum`, collections, …) | `src/Extensions/ExtensionRuntime/Conversions/Instances/GuidConverter.cs` |
-| `Nodes/` & `Customizations/` | The JSON node model (`JsonObject`, `JsonArray`, `JsonString`, `JsonNumber`, …) | `src/Extensions/ExtensionRuntime/Nodes/JsonObject.cs` |
-| `Parser/` | Tokenizer + parser + readers that turn text into nodes | `src/Extensions/ExtensionRuntime/Parser/JsonParser.cs` |
-| `Writers/` | Serialize nodes back to JSON text | `src/Extensions/ExtensionRuntime/Writers/JsonWriter.cs` |
-| `Serialization/` & `Models/` | Contract-driven object (de)serialization + model cache | `src/Extensions/ExtensionRuntime/Serialization/JsonSerializer.cs:19` |
+| Area                         | Responsibility                                                                 | Representative source                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `Conversions/`               | Type-conversion framework (`JsonConverter<T>`, factory, per-type converters)   | `src/Extensions/ExtensionRuntime/Conversions/JsonConverter.cs:7`         |
+| `Conversions/Instances/`     | Built-in converters (`Guid`, `DateTimeOffset`, `Enum`, collections, …)         | `src/Extensions/ExtensionRuntime/Conversions/Instances/GuidConverter.cs` |
+| `Nodes/` & `Customizations/` | The JSON node model (`JsonObject`, `JsonArray`, `JsonString`, `JsonNumber`, …) | `src/Extensions/ExtensionRuntime/Nodes/JsonObject.cs`                    |
+| `Parser/`                    | Tokenizer + parser + readers that turn text into nodes                         | `src/Extensions/ExtensionRuntime/Parser/JsonParser.cs`                   |
+| `Writers/`                   | Serialize nodes back to JSON text                                              | `src/Extensions/ExtensionRuntime/Writers/JsonWriter.cs`                  |
+| `Serialization/` & `Models/` | Contract-driven object (de)serialization + model cache                         | `src/Extensions/ExtensionRuntime/Serialization/JsonSerializer.cs:19`     |
 
 The conversion framework is anchored by the abstract, generic `JsonConverter<T>` which bridges a
 strongly-typed converter to the non-generic `IJsonConverter` interface
@@ -303,7 +305,7 @@ graph LR
 - **Built-ins outrank the registry.** A verb in `BuiltInExtensions.Map` can never be overridden by an
   installed package (`src/Core/Core.Extensions/BuiltInExtensions.cs:34`).
 - **Leaf ownership is exclusive.** Many extensions may share a verb namespace, but each `(verb, path)`
-  leaf is owned by one package (`docs/spec/extension-management.md`).
+  leaf is owned by one package (`eng-docs/spec/extension-management.md`).
 - **Everything expensive is cached once.** Extension indices via `LFUCache`
   (`src/Core/Core.Engine/Engine.cs:81`); loaded ALCs via a static dictionary
   (`src/CLI/AssemblyLoading/ExtensionLoader.cs:199`); reflection models via `JsonModelCache`.
@@ -323,5 +325,5 @@ graph LR
 - `src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:14` — discovery-backed registry
 - `src/Extensions/ExtensionRuntime/Conversions/JsonConverter.cs:7` — converter framework
 - `src/Extensions/ExtensionRuntime/Serialization/JsonSerializer.cs:19` — contract-driven (de)serialization
-- `docs/spec/extension-framework.md` — extension loading, ALC isolation, processor contract
-- `docs/spec/extension-management.md` — registry, routing, and lifecycle model
+- `eng-docs/spec/extension-framework.md` — extension loading, ALC isolation, processor contract
+- `eng-docs/spec/extension-management.md` — registry, routing, and lifecycle model

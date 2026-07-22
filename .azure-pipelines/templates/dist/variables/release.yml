@@ -1,0 +1,6 @@
+variables:
+  esrp_nuget_keycode: '$(ESRPNuGetKeyCode)'
+  esrp_authenticode_keycode: '$(ESRPAuthenticodeKeyCode)'
+  esrp_third_party_keycode: '$(ESRPThirdPartyKeyCode)'
+  esrp_strong_name_keycode: '$(ESRPStrongNameKeyCode)'
+  esrp_apple_keycode: '$(ESRPAppleKeyCode)'

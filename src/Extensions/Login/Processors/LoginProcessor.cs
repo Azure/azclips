@@ -59,6 +59,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         SerializedName = @"ResourceId")]
         public string ResourceId { get; set; } = "";
 
+        private CommandMetadata? _cliCommandMetadataCache;
+        private CommandMetadata? _psCommandMetadataCache;
+
         public override async Task ProcessAsync()
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
@@ -188,10 +191,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             string? reAuthName = string.IsNullOrWhiteSpace(Profile) ? null : Profile.Trim();
             string? outName = string.IsNullOrWhiteSpace(OutProfile) ? null : OutProfile.Trim();
 
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
+
             // Enforce mutual exclusivity and the reserved-name rule before any authentication (fail fast).
             if (reAuthName is not null && outName is not null)
             {
-                throw new ArgumentException("'--profile' and '--out-profile' cannot be used together. '--profile' re-authenticates an existing profile; '--out-profile' creates a new one.");
+                throw new ArgumentException($"'{Flag(nameof(Profile))}' and '{Flag(nameof(OutProfile))}' cannot be used together. '{Flag(nameof(Profile))}' re-authenticates an existing profile; '{Flag(nameof(OutProfile))}' creates a new one.");
             }
             if (outName is not null)
             {
@@ -207,7 +213,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                  || !string.IsNullOrEmpty(ResourceId)))
             {
                 throw new ArgumentException(
-                    "Authentication flags ('--identity', '--use-device-code', '--client-id', '--object-id', '--resource-id') cannot be combined with '--profile'. "
+                    $"Authentication flags ('{Flag(nameof(Identity))}', '{Flag(nameof(UseDeviceCode))}', '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}', '{Flag(nameof(ResourceId))}') cannot be combined with '{Flag(nameof(Profile))}'. "
                     + "Re-authentication reuses the profile's stored authentication method.");
             }
 
@@ -215,14 +221,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             // needed for managed identity (token carries it) or profile re-auth (sourced from the profile).
             if (!Identity && reAuthName is null && string.IsNullOrWhiteSpace(SubscriptionId))
             {
-                throw new ArgumentException("A subscription id is required. Provide it with --subscription-id.");
+                throw new ArgumentException($"A subscription id is required. Provide it with {Flag(nameof(SubscriptionId))}.");
             }
 
-            // --tenant doesn't apply to --identity.
+            // The tenant flag doesn't apply to a managed-identity login.
             if (Identity && !string.IsNullOrEmpty(TenantId))
             {
                 throw new InvalidOperationException(
-                    "usage error: '--identity' is not applicable with '--tenant'. " +
+                    $"usage error: '{Flag(nameof(Identity))}' is not applicable with '{Flag(nameof(TenantId))}'. " +
                     "Managed identity tokens already contain tenant information.");
             }
 
@@ -231,24 +237,63 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             if (identityIdCount > 1)
             {
                 throw new InvalidOperationException(
-                    "usage error: Provide only one of '--client-id', '--object-id', '--resource-id'.");
+                    $"usage error: Provide only one of '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}', '{Flag(nameof(ResourceId))}'.");
             }
 
-            // --identity and --use-device-code are mutually exclusive.
+            // The managed-identity and device-code flags are mutually exclusive.
             if (Identity && UseDeviceCode)
             {
                 throw new InvalidOperationException(
-                    "usage error: '--identity' cannot be combined with '--use-device-code'.");
+                    $"usage error: '{Flag(nameof(Identity))}' cannot be combined with '{Flag(nameof(UseDeviceCode))}'.");
             }
 
-            // MI selectors require --identity.
+            // MI selectors require the managed-identity flag.
             if (!Identity && identityIdCount > 0)
             {
                 throw new InvalidOperationException(
-                    "usage error: '--client-id', '--object-id' and '--resource-id' require '--identity'.");
+                    $"usage error: '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}' and '{Flag(nameof(ResourceId))}' require '{Flag(nameof(Identity))}'.");
             }
 
 
+        }
+
+        /// <summary>
+        /// Formats a parameter as the flag the user actually typed on the invoking surface:
+        /// <c>--kebab-case</c> on the CLI, <c>-PascalCase</c> in PowerShell. The user-facing form is
+        /// sourced from <see cref="ExtensionIndex"/> so message text stays in sync with the metadata
+        /// that drives argument parsing — a rename to a <c>ParameterMetadata.InvocationName</c> updates
+        /// both. Because this processor is shared across both surfaces, hardcoding one form would
+        /// mis-instruct users on the other.
+        /// </summary>
+        /// <param name="propertyName">The name of the processor property that maps to a parameter (e.g., nameof(SubscriptionId)).</param>
+        /// <param name="clientType">The invocation surface, resolved from DI by the caller.</param>
+        private string FormatParameterName(string propertyName, ClientType clientType)
+        {
+            const string CliPrefix = "--";
+            const string PsPrefix = "-";
+
+            switch (clientType)
+            {
+                case ClientType.CLI:
+                    _cliCommandMetadataCache ??= new ExtensionIndex()
+                        .GetAllCommands(ClientType.CLI)
+                        .First(c => c.ProcessorType == GetType());
+                    return CliPrefix + _cliCommandMetadataCache.Parameters.Values
+                        .First(p => string.Equals(p.Name, propertyName, StringComparison.Ordinal))
+                        .InvocationName;
+
+                case ClientType.PowerShell:
+                    _psCommandMetadataCache ??= new ExtensionIndex()
+                        .GetAllCommands(ClientType.PowerShell)
+                        .First(c => c.ProcessorType == GetType());
+                    return PsPrefix + _psCommandMetadataCache.Parameters.Values
+                        .First(p => string.Equals(p.Name, propertyName, StringComparison.Ordinal))
+                        .InvocationName;
+
+                default:
+                    throw new NotSupportedException(
+                        $"Unsupported client type '{clientType}' for parameter name formatting.");
+            }
         }
 
         /// <summary>
@@ -260,6 +305,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         private async Task EnsureCrossTenantAccessible(Profile profile, string subscriptionId)
         {
             var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+
+            // Render sign-in guidance in the caller's surface: PowerShell users need 'Connect-AzAccount
+            // -TenantId', CLI users need 'az login --tenant-id'. Hardcoding one form mis-instructs the other.
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
+            string signInCommand = clientType == ClientType.PowerShell ? "Connect-AzAccount" : "az login";
+
             bool canAcquire;
             try
             {
@@ -274,7 +326,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 throw new InvalidOperationException(
                     $"Signed in, but could not verify access to tenant '{profile.TenantId}' that owns subscription "
                     + $"'{subscriptionId}': {ex.Message} The profile was not saved. "
-                    + $"Run 'az login --tenant {profile.TenantId}' to authenticate to that tenant, then retry.",
+                    + $"Run '{signInCommand} {Flag(nameof(TenantId))} {profile.TenantId}' to authenticate to that tenant, then retry.",
                     ex);
             }
 
@@ -284,7 +336,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                     $"Signed in, but subscription '{subscriptionId}' is homed in tenant '{profile.TenantId}', which "
                     + "requires additional sign-in (for example, multifactor authentication or a conditional access policy). "
                     + "The profile was not saved. "
-                    + $"Run 'az login --tenant {profile.TenantId}' to finish authenticating to that tenant, then retry.");
+                    + $"Run '{signInCommand} {Flag(nameof(TenantId))} {profile.TenantId}' to finish authenticating to that tenant, then retry.");
             }
         }
 
@@ -314,6 +366,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         private async Task<string> ResolveSubscriptionTenantAsync(AuthResult authResult, string subscriptionId)
         {
             var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
+
             try
             {
                 var subscriptionService = AzclipsServiceProvider.GetRequiredService<ISubscriptionService>();
@@ -340,7 +395,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 throw new InvalidOperationException(
                     $"Could not determine the tenant that owns subscription '{subscriptionId}': {ex.Message} "
                     + "The profile was not saved to avoid persisting an unverified tenant. "
-                    + "Retry, or specify the tenant explicitly with '--tenant <tenantId>'.",
+                    + $"Retry, or specify the tenant explicitly with '{Flag(nameof(TenantId))} <tenantId>'.",
                     ex);
             }
         }
@@ -349,6 +404,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         private async Task<string> ResolveDefaultSubscriptionAsync(string accessToken)
         {
             var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            string Flag(string propertyName) => FormatParameterName(propertyName, clientType);
+
             try
             {
                 var subscriptionService = AzclipsServiceProvider.GetRequiredService<ISubscriptionService>();
@@ -359,7 +417,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 if (defaultSubscription is null)
                 {
                     logger.Warn("No subscriptions found for the logged-in identity. "
-                        + "Continuing with tenant-level access; pass '--subscription-id' to target a subscription.");
+                        + $"Continuing with tenant-level access; pass '{Flag(nameof(SubscriptionId))}' to target a subscription.");
                     return string.Empty;
                 }
 
@@ -368,7 +426,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             catch (Exception ex)
             {
                 logger.Warn($"Failed to auto-discover subscriptions: {ex.Message}. "
-                    + "Continuing without a default subscription; pass '--subscription-id' to set one.");
+                    + $"Continuing without a default subscription; pass '{Flag(nameof(SubscriptionId))}' to set one.");
                 return string.Empty;
             }
         }

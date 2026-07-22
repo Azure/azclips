@@ -127,7 +127,7 @@ flowchart LR
 
 ### Performance as a merge gate
 
-Benchmarks run on every PR and every push to `main`. On a PR, if any benchmark exceeds **115%** of the historical baseline the check fails and a comment is posted; on push to `main`, new numbers are published to GitHub Pages and become the next baseline (`docs/spec/benchmark-workflows.md:5-8`). The dashboards live at `azure.github.io/azclips/dev/bench/cli/` and `.../ps/`. See [Build & CI/CD](./build-cicd.md) for how `benchmark.yml` wires this into the pipeline.
+Benchmarks run on every PR and every push to `main`. On a PR, if any benchmark exceeds **115%** of the historical baseline the check fails and a comment is posted; on push to `main`, new numbers are published to GitHub Pages and become the next baseline (`eng-docs/spec/benchmark-workflows.md:5-8`). The dashboards live at `azure.github.io/azclips/dev/bench/cli/` and `.../ps/`. See [Build & CI/CD](./build-cicd.md) for how `benchmark.yml` wires this into the pipeline.
 
 ## Running tests locally
 
@@ -155,5 +155,5 @@ Coverlet is wired in via the `coverlet.collector` package reference in the share
 - `tests/Benchmark/Benchmark.csproj:4-25` — BenchmarkDotNet project references
 - `tests/Benchmark/BenchmarkBase.cs:41-55` — stub DI registration for benchmark isolation
 - `src/CLI/Program.cs:246,417` — `--no-cache` and in-process benchmark hooks
-- `docs/spec/benchmark-workflows.md:5-8` — 115% regression gate and dashboards
+- `eng-docs/spec/benchmark-workflows.md:5-8` — 115% regression gate and dashboards
 - `AGENTS.md:38` — `MethodName_ShouldBehavior_WhenCondition` naming convention

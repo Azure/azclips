@@ -45,7 +45,13 @@ public class ExtensionDispatcher //: IParser
 
     public CommandInvocation Parse(string[] args)
     {
-        if (args.Length == 0) throw new ArgumentException("Arguments cannot be empty.", nameof(args));
+        // Bare `az` (or only global flags stripped upstream) → dispatch as help.
+        // Program.Main adds the welcome banner when the invocation was originally bare.
+        if (args.Length == 0)
+        {
+            throw new DispatchHelpException(this);
+        }
+
         if (string.IsNullOrWhiteSpace(args[0])) throw new ArgumentException("Command-group token cannot be empty or whitespace.", nameof(args));
 
         // Bare top-level help: `az --help`, `az -h`, `az help`, etc.
@@ -94,6 +100,12 @@ public class ExtensionDispatcher //: IParser
         {
             if (!_resolver.TryResolve(verb, out resolved) || resolved is null)
             {
+                // Verb is known to discovery → leaf typo, not a missing package.
+                if (_leafIndex.Value.HasVerb(verb))
+                {
+                    throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+                }
+
                 for (int len = nonFlagLeadingArgs.Length; len >= 0; len--)
                 {
                     var path = string.Join(" ", nonFlagLeadingArgs, 0, len);

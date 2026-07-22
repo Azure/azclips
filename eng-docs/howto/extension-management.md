@@ -2,7 +2,7 @@
 
 How to install, list, update, pin, and remove Azclips extensions, plus what to do when something goes wrong.
 
-For extension **authoring**, see [Extension-Development-For-Private-Preview.md](./Extension-Development-For-Private-Preview.md). For the full design, see [docs/spec/extension-management.md](../spec/extension-management.md).
+For extension **authoring**, see [Extension-Development-For-Private-Preview.md](./Extension-Development-For-Private-Preview.md). For the full design, see [eng-docs/spec/extension-management.md](../spec/extension-management.md).
 
 ## What is an extension?
 
@@ -181,6 +181,10 @@ Extensions can declare a supported `core` version range:
 
 You typed a verb whose owning package isn't installed. The error names the package and gives an `extension add` command. If it's a local dev build, see [Local development install](#local-development-install).
 
+### `CommandNotFound` (exit 4)
+
+You typed a verb that IS owned by an installed extension, but the specific command you invoked doesn't exist under it — e.g. `az vm --list` (meant `az vm list`) or `az group foobar` (typo). Run `az <verb> --help` for the group's actual command list. Distinct from `ExtensionNotFound` so scripts can tell "install this" apart from "you typed it wrong".
+
 ### `LeafConflict` (exit 3)
 
 A `(verb, path)` you're trying to add is already owned by another installed extension. The error enumerates **every** colliding leaf in one shot:
@@ -236,17 +240,17 @@ $env:AZCLIPS_NO_EXTENSION_CACHE = "true"
 
 ## Exit code reference
 
-| Code | Meaning                              |
-| ---- | ------------------------------------ |
-| 0    | Success                              |
-| 1    | Generic error                        |
-| 2    | Usage error (bad args, unknown flag) |
-| 3    | `LeafConflict`                       |
-| 4    | `ExtensionNotFound`                  |
-| 5    | `FeedUnavailable`                    |
-| 6    | `PinViolation`                       |
-| 7    | `CompatibilityViolation`             |
-| 8    | `RegistryConcurrency`                |
-| 9    | `RegistryInvalid`                    |
+| Code | Meaning                                  |
+| ---- | ---------------------------------------- |
+| 0    | Success                                  |
+| 1    | Generic error                            |
+| 2    | Usage error (bad args, unknown flag)     |
+| 3    | `LeafConflict`                           |
+| 4    | `ExtensionNotFound` or `CommandNotFound` |
+| 5    | `FeedUnavailable`                        |
+| 6    | `PinViolation`                           |
+| 7    | `CompatibilityViolation`                 |
+| 8    | `RegistryConcurrency`                    |
+| 9    | `RegistryInvalid`                        |
 
 Programmatic callers should assert on the JSON `error.code` field, not the human-readable message.

@@ -12,7 +12,7 @@ Azclips is a short-lived command-line process: a single `az` invocation may last
 
 1. **Privacy first.** Only command *names*, parameter *names*, success/failure, and basic environment data leave the machine — never parameter values, URLs, or other personal content (`README.md:153`). This is enforced structurally by allow-list processors, not by trusting call sites.
 2. **Zero blocking on exit.** The CLI must not wait on a network round-trip to App Insights. Activities are exported synchronously to *local files*, and a **detached** background process replays them later (`src/CLI/Program.cs:146-150`).
-3. **Uniform capture.** Everything is a `System.Diagnostics.Activity` (an OpenTelemetry span). Any code that wraps work in `using var _ = source.StartActivity(...)` is captured automatically (`docs/spec/telemetry.md`).
+3. **Uniform capture.** Everything is a `System.Diagnostics.Activity` (an OpenTelemetry span). Any code that wraps work in `using var _ = source.StartActivity(...)` is captured automatically (`eng-docs/spec/telemetry.md`).
 
 Telemetry is built on OpenTelemetry for .NET and is **on by default**; opt out with `telemetry.enabled=false` (`README.md:157-166`). Targets `net10.0`; the internal assembly namespace is `Azclips`.
 
@@ -137,4 +137,4 @@ With telemetry disabled, the client keeps the base `DefaultTelemetryProvider` wh
 - `src/Core/Core.Telemetry/DirectTelemetrySender.cs`, `WellKnownEndpoints.cs` — direct export + Azure Monitor endpoint
 - `src/Core/Core.Telemetry/TimingActivityListener.cs`, `DIRegisterExtensions.cs` — local timing + DI wiring
 - `src/CLI/Program.cs:34,67,79,149,410` — root activity, `--upload-telemetry`, detached spawn
-- `docs/spec/telemetry.md`, `README.md:151-166` — telemetry spec and opt-out
+- `eng-docs/spec/telemetry.md`, `README.md:151-166` — telemetry spec and opt-out

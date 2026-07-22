@@ -43,8 +43,7 @@ public static class AgentModeEntry
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
-            // interactive → inline.md. (tui.md exists for a future full-screen
-            // entry point that nothing spawns yet.)
+            // interactive → inline.md.
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
             // Quiet mode in one-shot: hide the AI-mode banner and agent-internal
             // event spam; the user sees only the spinner + the final AI help.

@@ -29,17 +29,25 @@ namespace Azclips.Help.Tool.Validation
         {
             var report = new ValidationReport();
 
-            // Scope the routed command table to the verb. Keys arrive as "verb",
-            // "verb path"; emit the relative form ("", "path") that matches the
-            // help file lookup convention (index.md, path.md).
             var routedCommandKeys = ScopeKeysToVerb(
                 extensionIndex.GetCommandTable(ClientType.CLI).Keys,
                 verb);
 
-            var expectedFiles = routedCommandKeys
-                .Select(static key => HelpCommandKey.ToHelpFileName(key))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            expectedFiles.Add("index.md");
+            // Expected: verb-root index.md, one leaf per routed key, plus index.md at every intermediate prefix.
+            var expectedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "index.md" };
+            foreach (var key in routedCommandKeys)
+            {
+                if (TryReportReservedSegment(key, verb, verbFolder, report))
+                {
+                    continue;
+                }
+
+                expectedFiles.Add(HelpCommandKey.ToHelpFileName(key));
+                foreach (var prefix in HelpCommandKey.EnumerateGroupPrefixes(key))
+                {
+                    expectedFiles.Add(HelpCommandKey.ToGroupIndexFileName(prefix));
+                }
+            }
 
             var actualFiles = Directory.Exists(helpDirectory)
                 ? Directory
@@ -57,9 +65,9 @@ namespace Azclips.Help.Tool.Validation
 
             foreach (var file in missing)
             {
-                var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{file}";
-                // index.md backs the verb root itself, so render as the verb name rather than
-                // an empty-quoted command path (which reads as "routed command ''").
+                var platformFile = file.Replace('/', Path.DirectorySeparatorChar);
+                var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{platformFile}";
+                // Verb root and intermediate groups render as the verb-relative group path (or verb itself for the root).
                 var commandPath = file.Equals("index.md", StringComparison.OrdinalIgnoreCase)
                     ? verb
                     : HelpCommandKey.FromHelpFileName(file);
@@ -76,7 +84,8 @@ namespace Azclips.Help.Tool.Validation
 
             foreach (var orphan in orphaned)
             {
-                var orphanPath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{orphan}";
+                var platformOrphan = orphan.Replace('/', Path.DirectorySeparatorChar);
+                var orphanPath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{platformOrphan}";
                 report.AddWarning(
                     ProblemIds.Completeness_OrphanedHelpFile,
                     $"Help file is not referenced by any routed CLI command in verb '{verb}'.",
@@ -84,6 +93,33 @@ namespace Azclips.Help.Tool.Validation
             }
 
             return report;
+        }
+
+        /// <summary>
+        /// Reports and consumes a routed key that contains a reserved segment (<c>index</c>).
+        /// Returns <c>true</c> when reported so callers can skip further processing of that key.
+        /// </summary>
+        private static bool TryReportReservedSegment(string scopedKey, string verb, string verbFolder, ValidationReport report)
+        {
+            if (string.IsNullOrEmpty(scopedKey))
+            {
+                return false;
+            }
+
+            foreach (var segment in scopedKey.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (segment.Equals("index", StringComparison.OrdinalIgnoreCase))
+                {
+                    var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}";
+                    report.AddError(
+                        ProblemIds.Completeness_ReservedSegment,
+                        $"Routed command '{scopedKey}' in verb '{verb}' contains reserved segment 'index'. `index.md` names group-summary files at every corpus level; rename the segment (e.g. 'show-index').",
+                        relativePath);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

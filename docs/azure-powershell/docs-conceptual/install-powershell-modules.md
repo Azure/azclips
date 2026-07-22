@@ -1,6 +1,6 @@
 # Install azps (Az PowerShell Modules)
 
-> This page covers **azps** (the Az PowerShell modules) — a separate product from azcli. For the CLI, see the [install guide](../README.md).
+> This page covers **azps** (the Az PowerShell modules) — a separate product from azcli. For the CLI, see the [Install Overview](../../azure-cli/docs-conceptual/install-overview.md).
 
 The Az PowerShell cmdlets ship as NuGet module packages (`Az.*.nupkg`). Each release includes `azps-cmdlets-<version>.tar.gz`, which contains:
 

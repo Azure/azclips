@@ -1,6 +1,6 @@
 # Design Spec: Help System
 
-Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/Docs/<ext>/<command>.md` powers `az --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [docs/howto/help.md](../howto/help.md).
+Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/Docs/<ext>/…/<command>.md` (nested — the filesystem mirrors the command tree) powers `az --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [eng-docs/howto/help.md](../howto/help.md).
 
 ---
 
@@ -21,7 +21,7 @@ Two parallel markdown corpora drive three surfaces: CLI help authored under `src
 ## 2. Architecture at a Glance
 
 ```
-src/CLI/Help/Docs/<ext>/*.md    ◄── CLI corpus (az --help)
+src/CLI/Help/Docs/<ext>/**/*.md ◄── CLI corpus (az --help) — nested tree, index.md per group
 src/PS/<Module>/help/*.md       ◄── PowerShell corpus (Get-Help, MAML via PlatyPS)
         │
         ├── runtime ──────────────────────────────────────────────
@@ -106,7 +106,19 @@ If a user requests help for a verb that **no discovered extension owns**:
 
 ## 4. Authoring Model
 
-CLI help lives under `src/CLI/Help/Docs/<ext>/`; PowerShell help under `src/PS/<Module>/help/`. CLI root commands use `index.md` and subcommands use `<segment>-<segment>.md` (space-delimited canonical CLI key, dasherized). PowerShell files are named `<Verb-Noun>.md` (one per cmdlet), per PlatyPS convention.
+CLI help lives under `src/CLI/Help/Docs/<ext>/`; PowerShell help under `src/PS/<Module>/help/`. The CLI layout is **nested** — the filesystem mirrors the command tree:
+
+| Path role                                     | File                           |
+| --------------------------------------------- | ------------------------------ |
+| Verb root (`az <verb>`)                       | `<ext>/index.md`               |
+| Leaf command (`az <verb> <cmd>`)              | `<ext>/<cmd>.md`               |
+| Intermediate sub-group (`az <verb> <sub>`)    | `<ext>/<sub>/index.md`         |
+| Nested leaf (`az <verb> <sub> <cmd>`)         | `<ext>/<sub>/<cmd>.md`         |
+| Deeper leaf (`az <verb> <sub1> <sub2> <cmd>`) | `<ext>/<sub1>/<sub2>/<cmd>.md` |
+
+Groups and leaves are disambiguated by which file exists on disk — `MarkdownCommandHelpProvider.ResolveHelpFilePath` tries the leaf form first, then falls back to `<path>/index.md`. Intermediate `index.md` files are required by `HelpCompletenessValidator` for every prefix of every routed command key, so the tree cannot ship with blank summaries at any depth.
+
+PowerShell files are named `<Verb-Noun>.md` (one per cmdlet), per PlatyPS convention.
 
 Each file has YAML frontmatter (file-level metadata) followed by a markdown body (description + examples):
 
@@ -147,11 +159,11 @@ The CLI host project copies the markdown corpus to its build output as content:
 </ItemGroup>
 ```
 
-At runtime the provider resolves `<AppContext.BaseDirectory>/help/<ext>/<key>.md` first, with a dev-loop fallback that walks up to `azclips.slnx` and reads `src/CLI/Help/Docs/<ext>/<key>.md` directly. There is no embedded-resource path today.
+At runtime the provider first tries the repo source markdown when `azclips.slnx` is reachable from `AppContext.BaseDirectory` — the dev-loop path, so authors editing `src/CLI/Help/Docs/<ext>/…/<key>.md` see results without rebuilding. When no repo root is reachable (shipped installs), it falls back to the packaged copy at `<AppContext.BaseDirectory>/help/<ext>/…/<key>.md` (or `<key>/index.md` for group nodes). There is no embedded-resource path today.
 
 Markdown is hand-authored today. Codegen may interject at this layer in the future (e.g. emitting templates from `IExtensionIndex`); the on-disk contract downstream stays the same.
 
-Full author workflow lives in [docs/howto/help.md](../howto/help.md).
+Full author workflow lives in [eng-docs/howto/help.md](../howto/help.md).
 
 ---
 
