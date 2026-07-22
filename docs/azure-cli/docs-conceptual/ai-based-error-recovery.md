@@ -200,4 +200,4 @@ During the private preview, feedback is collected through user interviews and su
 
 <!-- link references -->
 
-[01]: ../../howto/config.md
+[01]: ./config.md

@@ -156,6 +156,9 @@ public static class CliExtensionServiceRegistration
                 context: "CliExtensionServiceRegistration.SelectInstalledCandidates",
                 selection: selection,
                 persistedPreference: persistedPreference));
+
+            ExtensionCandidateSelector.ReportUnresolvablePin(group.Key, selection, persistedPreference, loggingService);
+
             yield return selection.Selected;
         }
     }

@@ -13,9 +13,9 @@ surface as **extensions** — independently versioned .NET class libraries loade
 keeps the host binary lean, lets Azure service teams ship their own command modules on their own
 cadence, and allows multiple versions of an extension to coexist on one machine. The same extension
 assemblies are consumed by two host surfaces, the CLI and the PowerShell modules
-(`docs/spec/extension-framework.md`).
+(`eng-docs/spec/extension-framework.md`).
 
-An extension is anything that provides three things (`docs/spec/extension-framework.md`):
+An extension is anything that provides three things (`eng-docs/spec/extension-framework.md`):
 
 - an **`IExtensionIndex`** — the command registry that maps a command name + client surface to
   metadata (`src/Core/Core.Abstractions/IExtensionIndex.cs:10`);
@@ -108,7 +108,7 @@ that compose multiple processors (see `src/Extensions/Resources/` and `src/Exten
 
 Routing is `{(verb, path) → packageId}` with O(1) lookup; a top-level verb is a _shared namespace_
 and each full `(verb, path)` leaf is owned by exactly one extension
-(`docs/spec/extension-management.md`). Command groups resolve from two merged sources:
+(`eng-docs/spec/extension-management.md`). Command groups resolve from two merged sources:
 
 1. **Built-in map** — `BuiltInExtensions.Map`, a static seed of host-shipped extensions
    (`src/Core/Core.Extensions/BuiltInExtensions.cs:44`). The "true core" is `extension`, `login`,
@@ -305,7 +305,7 @@ graph LR
 - **Built-ins outrank the registry.** A verb in `BuiltInExtensions.Map` can never be overridden by an
   installed package (`src/Core/Core.Extensions/BuiltInExtensions.cs:34`).
 - **Leaf ownership is exclusive.** Many extensions may share a verb namespace, but each `(verb, path)`
-  leaf is owned by one package (`docs/spec/extension-management.md`).
+  leaf is owned by one package (`eng-docs/spec/extension-management.md`).
 - **Everything expensive is cached once.** Extension indices via `LFUCache`
   (`src/Core/Core.Engine/Engine.cs:81`); loaded ALCs via a static dictionary
   (`src/CLI/AssemblyLoading/ExtensionLoader.cs:199`); reflection models via `JsonModelCache`.
@@ -325,5 +325,5 @@ graph LR
 - `src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:14` — discovery-backed registry
 - `src/Extensions/ExtensionRuntime/Conversions/JsonConverter.cs:7` — converter framework
 - `src/Extensions/ExtensionRuntime/Serialization/JsonSerializer.cs:19` — contract-driven (de)serialization
-- `docs/spec/extension-framework.md` — extension loading, ALC isolation, processor contract
-- `docs/spec/extension-management.md` — registry, routing, and lifecycle model
+- `eng-docs/spec/extension-framework.md` — extension loading, ALC isolation, processor contract
+- `eng-docs/spec/extension-management.md` — registry, routing, and lifecycle model

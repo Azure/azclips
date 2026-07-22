@@ -1,6 +1,6 @@
 # Design Spec: Help System
 
-Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/Docs/<ext>/…/<command>.md` (nested — the filesystem mirrors the command tree) powers `az --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [docs/howto/help.md](../howto/help.md).
+Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/Docs/<ext>/…/<command>.md` (nested — the filesystem mirrors the command tree) powers `az --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [eng-docs/howto/help.md](../howto/help.md).
 
 ---
 
@@ -163,7 +163,7 @@ At runtime the provider first tries the repo source markdown when `azclips.slnx`
 
 Markdown is hand-authored today. Codegen may interject at this layer in the future (e.g. emitting templates from `IExtensionIndex`); the on-disk contract downstream stays the same.
 
-Full author workflow lives in [docs/howto/help.md](../howto/help.md).
+Full author workflow lives in [eng-docs/howto/help.md](../howto/help.md).
 
 ---
 

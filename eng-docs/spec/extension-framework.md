@@ -52,10 +52,25 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 
 > **[Proposal]** A Roslyn incremental source generator (`Core.Index.Generator`) auto-generates `ExtensionIndex` from `[ProcessorInfo]` attributes, eliminating hand-maintained command tables.
 
-### 2.3 How Extensions Are Packaged
+### 2.3 Extension tiers
 
-- **Builtin** — shipped alongside the CLI host in an `Extensions/` subdirectory
-- **User-installed** — downloaded as NuGet packages via `az extension add`, placed in `~/.azclips/extensions/<PackageId>/<Version>/`; latest semantic version is selected automatically
+Azclips distinguishes three tiers of extension by _how they get onto the machine_, not by their package format:
+
+| Tier          | How it gets there                                                                                                                            | Where it lives at runtime                                                          | Removable?                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------- |
+| **Core**      | Baked into the CLI host at compile time (`BuiltInExtensions.Map`)                                                                            | Dispatch resolves from the static map; verbs are known without any filesystem read | No                            |
+| **Bundled**   | Shipped alongside `az.exe` at packaging time (`<install>/Extensions/<PackageId>/`) or dropped there by a local build (`artifacts/<Config>/`) | Loaded by `BuiltinExtensionLoader` (name pending rename)                           | No — shipped with the install |
+| **Installed** | Placed by `az extension add`                                                                                                                 | `~/.azclips/extensions/<PackageId>/<Version>/`; multi-version aware                | Yes — `az extension remove`   |
+
+The three tiers are **independent**: an extension can appear in any subset of them.
+
+- **Core** membership is compile-time and independent of what's on disk. A Core verb (e.g. `login`) is dispatchable via the seed even if no Bundled DLL for `Microsoft.Azure.Azclips.Extensions.Login` exists on the machine — the load step then falls through to whichever loader can serve it (Bundled first, Installed second). If neither has the DLL, dispatch fails at load time even though the verb was routable.
+- **Bundled** membership depends on the packaging profile. Full installs typically ship every Core extension's DLL under `<install>/Extensions/`; lean installs ship a subset (see [`inject_builtin_extensions.sh`](../../devops/scripts/packaging/common/inject_builtin_extensions.sh) and its `lean_package.config` / `full_package.config` inputs). Local `dotnet build` output puts every extension DLL under `artifacts/<Config>/`.
+- **Installed** membership is entirely user-driven — whatever they've run `az extension add` for.
+
+`Compute` and `Resources` are examples of extensions that are Bundled (in typical installs) but never Core — they do not appear in `BuiltInExtensions.Map`, and dispatch resolves them purely through discovery.
+
+When the same `PackageId` appears in both the Bundled and Installed roots at different versions, [`ExtensionCandidateSelector`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs) picks the winner — see §3.4.
 
 ---
 
@@ -81,8 +96,10 @@ public sealed record DiscoveredExtensionInfo(
 
 **Key fields:**
 
-- **PackageId** — Unique extension identifier. Builtin and user-installed extensions use the same id scheme.
-- **ResolvedVersion** — The semantic version being used for this discovery pass. For builtin extensions, this is the host version. For user-installed, this is determined by multi-version resolution (see §3.4).
+- **PackageId** — Unique extension identifier. Bundled and Installed extensions use the same id scheme.
+- **ResolvedVersion** — The semantic version being used for this discovery pass.
+    - For **Installed** extensions the version is the directory name at `~/.azclips/extensions/<pkg>/<version>/`.
+    - For **Bundled** extensions the version is parsed from the on-disk `.nupkg` in the package folder (`BuiltinExtensionLoader.ResolvePackageVersionFromNupkg`). Local `dotnet build` output pairs each DLL with a freshly-packed `.nupkg` (via `GeneratePackageOnBuild=true`) and reports a real version. Packaged installs strip the `.nupkg` at packaging time (see [`inject_builtin_extensions.sh`](../../devops/scripts/packaging/common/inject_builtin_extensions.sh)) and report `ResolvedVersion = ""` — dispatch takes the unversioned load path in that case. Reporting a non-empty version for packaged Bundled extensions is tracked as a follow-up.
 - **Verbs** — All top-level command namespaces contributed by this extension (e.g., an extension may contribute both `vm` and `disk`).
 - **Commands** — Full `CommandMetadata` for each command, keyed by invocation name (for example, `"vm create"`).
 
@@ -90,42 +107,38 @@ public sealed record DiscoveredExtensionInfo(
 
 The discovery process is **index-only**. It does not execute command processors, but it does load extension assemblies and instantiate the extension index type to read declared verbs/commands.
 
-1. Walk `~/.azclips/extensions/<packageId>/` — find all installed versions
-2. Resolve the version to inspect (registry preference if present, otherwise latest semver)
-3. Load the extension assembly for the selected version
-4. Instantiate `IExtensionIndex`, then call `GetVerbs()` and `GetCommandTable()`
-5. Collect results into `DiscoveredExtensionInfo`
+1. Walk **both roots** — the Bundled root (`<install>/Extensions/` in packaged installs, `artifacts/<Config>/` in local builds) and the Installed root (`~/.azclips/extensions/<packageId>/<version>/`). Each `IExtensionLoader.GetInstalledExtensions()` yields the candidates it owns.
+2. Resolve the version to inspect (registry preference if present, otherwise latest semver — see §3.4).
+3. Load the extension assembly for the selected version through the loader chain.
+4. Instantiate `IExtensionIndex`, then call `GetVerbs()` and `GetCommandTable()`.
+5. Collect results into `DiscoveredExtensionInfo`.
 
 Because assemblies are loaded and index types are instantiated, discovery may run static initializers and index constructors. The runtime guarantee is narrower: discovery avoids processor activation/execution and processor-context initialization.
 
-### 3.4 Multi-Version Selection
+### 3.4 Candidate Selection Across Roots
 
-When multiple versions of an extension are installed, `DiscoverySession` resolves which one to use:
+Candidates from the Bundled and Installed roots are merged by `PackageId` (case-insensitive) and passed through [`ExtensionCandidateSelector.Select`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs). Rules, in order:
 
-1. **Check registry preference** — if `registry.json` has an active-version override for this package, use that version.
-2. **Fallback to latest** — if no preference is set, use the semantically latest version (descending semver sort).
-3. **Pin respect** — pinned versions are recorded in the registry and locked against `extension update` (unless forced).
+1. **Single unique candidate** → win. Identical content-fingerprint candidates from both roots collapse to one.
+2. **Pinned in registry AND pinned version present in candidates** → the pinned candidate wins.
+3. **Pinned in registry BUT pinned version absent** → fall back to highest SemVer _and emit a user-visible diagnostic + telemetry event_ (`extension.pin.unresolvable`) so the drift is not silent. The pinned version may have been manually deleted from `~/.azclips/extensions/` or never installed. See [`ExtensionCandidateSelector.ReportUnresolvablePin`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs).
+4. **No pin** → highest SemVer wins.
+5. **Multiple candidates at highest SemVer with differing content shapes** → deterministic content-fingerprint tie-break (logged as anomaly — identical versions with divergent command surfaces should not happen).
 
 Example:
 
 ```
-~/.azclips/extensions/Microsoft.Azure.Azclips.Extensions.Compute/
-  0.9.0/
-  1.0.0/
-  1.1.0/  ← Latest; selected unless registry overrides
-
-registry.json:
-  {
-    "extensions": {
-      "Microsoft.Azure.Azclips.Extensions.Compute": {
-        "version": "1.0.0",           ← Pinned to this version
-        "pinned": true
-      }
-    }
-  }
+Bundled root:                                           Installed root:
+<install>/Extensions/                                   ~/.azclips/extensions/
+  Microsoft.Azure.Azclips.Extensions.Compute/             Microsoft.Azure.Azclips.Extensions.Compute/
+    Microsoft.Azure.Azclips.Extensions.Compute.dll          0.9.0/
+    (no .nupkg → ResolvedVersion = "")                      1.0.0/    ← registry pins this
+                                                            1.1.0/    ← latest available
 ```
 
-With this setup, discovery resolves to version `1.0.0` (pinned preference) even though `1.1.0` is available.
+With `registry.json` pinning `1.0.0`, the Installed `1.0.0` candidate wins (rule 2). If the user deletes the `1.0.0` directory, the selector falls back to `1.1.0` and emits an error-level diagnostic naming the pin. If the registry is silent, `1.1.0` wins outright.
+
+**Dispatch load resolution.** Once the selector picks a `(PackageId, ResolvedVersion)`, dispatch calls `LoadExtension(name, version)`. Each loader accepts requests it can serve: `BuiltinExtensionLoader` serves the request when the on-disk `.nupkg` matches the requested version (or when the request is unversioned); `MultiVersionExtensionLoader` serves it when the exact `<pkg>/<version>/` directory exists in the Installed root. User-installed pins/shadows continue to win when versions differ.
 
 ### 3.5 Discovery in Help & Dispatch
 
