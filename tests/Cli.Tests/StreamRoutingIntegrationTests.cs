@@ -11,7 +11,8 @@ namespace Cli.Tests;
 /// End-to-end integration tests that spawn the built <c>az</c> binary and assert
 /// on the split between stdout and stderr. The in-process <c>ExecuteCli</c> fixture
 /// bypasses <c>Program.Main</c> and <c>BuildStreams</c>, so it can't cover stream
-/// routing (see decision D9 in <c>TEMP-PR-PLAN.md</c>). These tests close that gap.
+/// routing — see PR <see href="https://github.com/Azure/azclips/pull/575">Azure/azclips#575</see>
+/// (decision D9) for the rationale. These tests close that gap.
 /// </summary>
 public class StreamRoutingIntegrationTests
 {
@@ -85,6 +86,10 @@ public class StreamRoutingIntegrationTests
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+        // Pin AZCLIPS_LOG_LEVEL=warn so ambient developer/CI env doesn't shift the effective level
+        // and invalidate the routing assertions below. Tests that need Debug pass `--debug` explicitly;
+        // `args > env` precedence means the flag still wins over this pin.
+        psi.Environment["AZCLIPS_LOG_LEVEL"] = "warn";
         foreach (var a in args)
         {
             psi.ArgumentList.Add(a);
