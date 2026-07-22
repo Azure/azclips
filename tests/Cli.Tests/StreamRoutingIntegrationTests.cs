@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace Cli.Tests;
 
@@ -96,15 +95,17 @@ public class StreamRoutingIntegrationTests
         }
 
         using var proc = new Process { StartInfo = psi };
-        var outBuf = new StringBuilder();
-        var errBuf = new StringBuilder();
-        proc.OutputDataReceived += (_, e) => { if (e.Data is not null) outBuf.AppendLine(e.Data); };
-        proc.ErrorDataReceived += (_, e) => { if (e.Data is not null) errBuf.AppendLine(e.Data); };
         proc.Start();
-        proc.BeginOutputReadLine();
-        proc.BeginErrorReadLine();
+        // Drain stdout/stderr concurrently via ReadToEndAsync so we deterministically capture
+        // trailing lines. Event-based capture (OutputDataReceived) can race the process exit
+        // and drop the last few lines under CI scheduling. Same pattern as
+        // tests/Benchmark/Startup/StartupBenchmarkBase.RunToExit.
+        var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+        var stderrTask = proc.StandardError.ReadToEndAsync();
         await proc.WaitForExitAsync();
-        return (proc.ExitCode, outBuf.ToString(), errBuf.ToString());
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+        return (proc.ExitCode, stdout, stderr);
     }
 
     private static string ResolveCliBinary()
