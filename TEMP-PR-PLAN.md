@@ -131,10 +131,6 @@ Both are on the intentional side of D1's PS-side note: under the new default the
 
 - [`Events.ValidationWarning`](src/Core/Core.Abstractions/Runtime/Events.cs#L13) is published by the [`RuntimeExtensions.AssertX` helpers](src/Extensions/ExtensionRuntime/RuntimeExtensions.cs#L22) that extensions can use to validate parameters, but [`Engine.Subscriptions.SubscribeMessages`](src/Core/Core.Engine/Engine.Subscriptions.cs#L37) never subscribes to it. Currently a dead-letter event on all surfaces — the flip does not change that.
 
-### Notes / bonus finding
-
-- [`ExtensionCandidateSelector.ReportUnresolvablePin`](src/Core/Core.Extensions/ExtensionCandidateSelector.cs#L64) currently uses `loggingService?.Error(...)` for a pin-fallback diagnostic (extension pinned to a version that's no longer installed → falls back to a resolvable version). The XML doc carries a `TODO(FU-4-followup): Demote to ILoggingService.Warn once the CLI default log level moves to Info` note — stale now that we're moving to `warn` rather than `info`. Leaving the call at `.Error(...)` per D8 (no call-site severity retriage in this PR); a future PR can either drop the TODO or demote to `.Warn(...)` if desired.
-
 ---
 
 ## 5. Validation
