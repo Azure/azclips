@@ -31,7 +31,7 @@ public static class Program
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             // Replace the default ScopedLoggingService (which falls back to
-            // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
+            // ConsoleLoggingService and writes VERBOSE:/DEBUG: directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
             services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();

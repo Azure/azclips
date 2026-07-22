@@ -11,47 +11,53 @@ namespace Core.Runtime;
 /// </summary>
 public class ConsoleLoggingService : ILoggingService
 {
-    public void Log(string message)
-    {
-        Console.WriteLine($"{message}");
-        RecordTelemetry("Log", message);
-    }
+    // Alias for `Info`; kept as a permanent alias on the interface for backward compatibility
+    // (no deprecation planned). See PR #575 / issue Azure/CLIPS#493, decision D3.
+    public void Log(string message) => Info(message);
 
     public void Info(string message)
     {
-        Console.WriteLine($"[INFO] {message}");
+        Console.Error.WriteLine($"INFO: {message}");
         RecordTelemetry("Info", message);
     }
 
     public void Error(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"[ERROR] {message}");
-        Console.ResetColor();
+        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        var originalColor = Console.ForegroundColor;
+        if (emitColor) Console.ForegroundColor = ConsoleColor.Red;
+        Console.Error.WriteLine($"ERROR: {message}");
+        if (emitColor) Console.ForegroundColor = originalColor;
         RecordTelemetry("Error", message);
     }
 
     public void Warn(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"[WARN] {message}");
-        Console.ResetColor();
+        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        var originalColor = Console.ForegroundColor;
+        if (emitColor) Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.Error.WriteLine($"WARNING: {message}");
+        if (emitColor) Console.ForegroundColor = originalColor;
         RecordTelemetry("Warning", message);
     }
 
     public void Verbose(string message)
     {
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine($"[VERBOSE] {message}");
-        Console.ResetColor();
+        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        var originalColor = Console.ForegroundColor;
+        if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.Error.WriteLine($"VERBOSE: {message}");
+        if (emitColor) Console.ForegroundColor = originalColor;
         RecordTelemetry("Verbose", message);
     }
 
     public void Debug(string message)
     {
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine($"[DEBUG] {message}");
-        Console.ResetColor();
+        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        var originalColor = Console.ForegroundColor;
+        if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.Error.WriteLine($"DEBUG: {message}");
+        if (emitColor) Console.ForegroundColor = originalColor;
         RecordTelemetry("Debug", message);
     }
 

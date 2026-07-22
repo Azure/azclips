@@ -8,7 +8,7 @@ Configuration follows strict precedence: **command args > environment variables 
 
 | Key                                           | Type   | Default            | Notes                                                                                                                                                                  |
 | --------------------------------------------- | ------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core.logging.level`                          | string | `error`            | Log level: `debug`, `info`, `warn`, `error`                                                                                                                            |
+| `core.logging.level`                          | string | `warn`             | Log level: `debug`, `info`, `warn`, `error`. Diagnostics (`warn`/`info`/`verbose`/`debug`) are written to **stderr**; command results stay on stdout. See [CLI Usage](#cli-usage) below.                                    |
 | `core.http.maxRetries`                        | int    | `3`                | Max HTTP request retries                                                                                                                                               |
 | `core.http.maxRetriesFor429`                  | int    | `5`                | Max retries for 429 (rate limit) responses                                                                                                                             |
 | `core.engine.extensionIndexCacheSize`         | int    | `512`              | LFU cache capacity for extension index (entry count)                                                                                                                   |
@@ -39,6 +39,17 @@ Configuration follows strict precedence: **command args > environment variables 
 Use `--debug` to force debug-level output for a single invocation; this
 override does not persist to config.
 
+### Stream routing
+
+`az` follows the POSIX/GNU convention shared with every Azure-family and general-purpose CLI (Azure CLI Python, Az PowerShell, AWS CLI, `git`, `kubectl`, `docker`, `terraform`):
+
+- **stdout** — command results only (JSON payloads, table rows, resource IDs). Safe to pipe.
+- **stderr** — every diagnostic level: `error`, `warn`, `info`, `verbose`, `debug`. Each line is prefixed with `LEVEL: ` (uppercase word, single colon, single space) — matching Azure CLI Python's `WARNING:` output, the Python `logging` default formatter, and the way the PowerShell host renders `cmdlet.WriteWarning(...)`.
+
+Because diagnostics never touch stdout, `az foo --output json 2>/dev/null` stays parseable even when warnings fire mid-command.
+
+The default level is `warn` — matches Azure CLI Python (console default `Warning`) and Az PowerShell (effective `Warning + Error` baseline). Under `warn`, `warn`/`error` surface on stderr and `info`/`verbose`/`debug` stay hidden; `--debug` (or `core.logging.level=debug`) opens the full stream.
+
 Use explicit parameter names for CLI config commands:
 
 - `--key` for configuration key
@@ -50,13 +61,13 @@ Use explicit parameter names for CLI config commands:
 # Retrieve a single key
 az config get --key core.logging.level
 
-# Output: core.logging.level = error [default]
+# Output: core.logging.level = warn [default]
 
 # Retrieve a section (text output)
 az config get --key core
 
 # Example output:
-#   logging.level = error
+#   logging.level = warn
 #   engine.extensionIndexCacheSize = 512
 #   http.maxRetries = 3
 #   http.maxRetriesFor429 = 5
@@ -66,7 +77,7 @@ az config get --key core.logging --json
 
 # Example output:
 # {
-#   "level": "error"
+#   "level": "warn"
 # }
 
 # Retrieve a section as nested JSON
@@ -132,17 +143,17 @@ Import-Module ./src/PS/Config/Config.psd1
 
 ```powershell
 Get-AzConfig -Key core.logging.level
-# Output: core.logging.level = error [default]
+# Output: core.logging.level = warn [default]
 
 Get-AzConfig -Key core.logging.level -AsJson
-# Output: {"Key":"core.logging.level","Value":"error","Source":"default"}
+# Output: {"Key":"core.logging.level","Value":"warn","Source":"default"}
 
 # Retrieve a section (text output)
 Get-AzConfig -Key core
 
 # Retrieve a subsection as JSON
 Get-AzConfig -Key core.logging -AsJson
-# Output: {"level":"error"}
+# Output: {"level":"warn"}
 
 # Retrieve a section as nested JSON
 Get-AzConfig -Key core -AsJson

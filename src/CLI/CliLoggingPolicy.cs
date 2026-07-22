@@ -39,7 +39,7 @@ internal static class CliLoggingPolicy
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return CliLogLevel.Error;
+            return CliLogLevel.Warn;
         }
 
         return value.Trim().ToLowerInvariant() switch
@@ -48,7 +48,7 @@ internal static class CliLoggingPolicy
             "warn" => CliLogLevel.Warn,
             "info" => CliLogLevel.Info,
             "debug" => CliLogLevel.Debug,
-            _ => CliLogLevel.Error,
+            _ => CliLogLevel.Warn,
         };
     }
 
