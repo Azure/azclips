@@ -1,5 +1,11 @@
 ## Upcoming Release
 
+## v0.1.0 - 2026-07-20 23:15 UTC
+
+#### Resources
+- `az group create`: Make SubscriptionId an optional parameter that defaults to the current subscription (#555)
+- `New-AzResourceGroup`: Make SubscriptionId an optional parameter that defaults to the current subscription (#555)
+
 ## v0.0.8 - 2026-07-17 03:17 UTC
 
 #### Compute
