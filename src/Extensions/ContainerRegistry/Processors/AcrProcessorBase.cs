@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net.Http.Headers;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -24,7 +23,6 @@ public abstract class AcrProcessorBase : IProcessor
     protected IAuthHandler AuthHandler = null!;
     protected JsonSerializerOptions JsonOptions = null!;
     protected OutputStreamDelegate WriteOutput = null!;
-    private static readonly HttpClient AcrHttpClient = new();
 
     public CancellationToken Token => CancellationToken.None;
     public Action Cancel => throw new NotImplementedException();
@@ -64,21 +62,37 @@ public abstract class AcrProcessorBase : IProcessor
     /// </summary>
     protected async Task<string> AcquireAcrAccessTokenAsync(string loginServer, string scope)
     {
-        // Step 1: Get AAD token for the ACR resource
-        string acrResource = $"https://{loginServer}";
+        // Step 1: Get AAD token via the default auth delegate
         var authResult = await AuthHandler.AcquireTokenAsyncDefault(
-            scopes: [$"https://management.azure.com/.default"],
+            scopes: ["https://management.azure.com/.default"],
             tenantId: null);
 
         string aadToken = authResult.AccessToken;
 
-        // Step 2: Exchange AAD token for ACR refresh token
+        // Step 2: Exchange AAD token for ACR refresh token (pipeline adds ARM Bearer header; ACR tolerates it)
         string refreshToken = await ExchangeForRefreshTokenAsync(loginServer, aadToken);
 
         // Step 3: Exchange refresh token for ACR access token with scope
         string accessToken = await ExchangeForAccessTokenAsync(loginServer, refreshToken, scope);
 
         return accessToken;
+    }
+
+    /// <summary>
+    /// Activates the ACR access token as the auth override so subsequent pipeline calls
+    /// use it as the Bearer token instead of the ARM token.
+    /// </summary>
+    private void ApplyAcrTokenOverride(string acrAccessToken)
+    {
+        AuthHandler.AcquireTokenAsyncOverride = (scopes, tenantId, promptOnError, ct, profile) =>
+            Task.FromResult(new AuthResult
+            {
+                AccessToken = acrAccessToken,
+                ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(5),
+                Scopes = [],
+                TenantId = tenantId ?? string.Empty
+            });
+        AuthHandler.ApplyOverride = true;
     }
 
     private async Task<string> ExchangeForRefreshTokenAsync(string loginServer, string aadToken)
@@ -92,7 +106,7 @@ public abstract class AcrProcessorBase : IProcessor
         });
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        using var response = await AcrHttpClient.SendAsync(request);
+        using var response = await HttpPipeline.SendAsync(request, Publisher);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -120,7 +134,7 @@ public abstract class AcrProcessorBase : IProcessor
         });
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        using var response = await AcrHttpClient.SendAsync(request);
+        using var response = await HttpPipeline.SendAsync(request, Publisher);
         response.EnsureSuccessStatusCode();
 
         string body = await response.Content.ReadAsStringAsync();
@@ -133,22 +147,25 @@ public abstract class AcrProcessorBase : IProcessor
 
     /// <summary>
     /// Sends an authenticated request to the ACR data-plane API.
+    /// Acquires the ACR access token and activates it as the auth override before sending.
     /// </summary>
     protected async Task<HttpResponseMessage> SendAcrRequestAsync(HttpMethod method, string loginServer, string path, string scope, HttpContent? body = null)
     {
+        // Acquire scoped ACR token and switch the pipeline's auth to use it
         string accessToken = await AcquireAcrAccessTokenAsync(loginServer, scope);
+        ApplyAcrTokenOverride(accessToken);
+
         string url = path.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
             ? path
             : $"https://{loginServer}{path}";
 
         using var request = new HttpRequestMessage(method, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         if (body is not null)
         {
             request.Content = body;
         }
 
-        var response = await AcrHttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        var response = await HttpPipeline.SendAsync(request, Publisher);
 
         try
         {
