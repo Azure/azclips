@@ -9,27 +9,27 @@ using Core.Extensions;
 
 public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
 {
-    private readonly IEnumerable<IExtensionLoader> extensionLoaders;
-    private readonly ILoggingService loggingService;
-    private readonly IExtensionRegistryStore? registryStore;
+    private readonly IEnumerable<IExtensionLoader> _extensionLoaders;
+    private readonly ILoggingService _loggingService;
+    private readonly IExtensionRegistryStore? _registryStore;
 
     public CLIAssemblyLoadingProvider(
         IEnumerable<IExtensionLoader> extensionLoaders,
         ILoggingService loggingService,
         IExtensionRegistryStore? registryStore = null)
     {
-        this.extensionLoaders = extensionLoaders;
-        this.loggingService = loggingService;
-        this.registryStore = registryStore;
+        _extensionLoaders = extensionLoaders;
+        _loggingService = loggingService;
+        _registryStore = registryStore;
     }
 
-    private Assembly? LoadExtensionFromLoaders(string extensionName, string? version = null) => extensionLoaders
+    private Assembly? LoadExtensionFromLoaders(string extensionName, string? version = null) => _extensionLoaders
                     .Select(loader => loader.LoadExtension(extensionName, version))
                     .FirstOrDefault(assembly => assembly != null);
 
     public Assembly LoadExtension(string extensionName, string? extensionVersion = null)
     {
-        loggingService.Info($"Processing command with extension '{extensionName}'.");
+        _loggingService.Info($"Processing command with extension '{extensionName}'.");
         return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
     }
 
@@ -38,7 +38,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         var result = new List<InstalledExtensionRef>();
         var registry = TryLoadRegistry();
 
-        foreach (var loader in extensionLoaders)
+        foreach (var loader in _extensionLoaders)
         {
             foreach (var (name, version) in loader.GetInstalledExtensions())
             {
@@ -59,11 +59,11 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
     {
         try
         {
-            return (registryStore ?? new FileExtensionRegistryStore()).Load();
+            return (_registryStore ?? new FileExtensionRegistryStore()).Load();
         }
         catch (Exception ex)
         {
-            loggingService.Debug($"Failed to load extension registry during discovery: {ex.Message}");
+            _loggingService.Debug($"Failed to load extension registry during discovery: {ex.Message}");
             return null;
         }
     }
