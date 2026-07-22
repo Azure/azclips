@@ -64,12 +64,12 @@ Succinct "why" for each committed decision. All resolved 2026-07-21.
 
 12. ✅ [`src/CLI/AssemblyLoading/ExtensionLoader.cs`](src/CLI/AssemblyLoading/ExtensionLoader.cs) — instrumented both `BuiltinExtensionLoader.LoadExtension` and `MultiVersionExtensionLoader.LoadExtension` with:
 
-    | Event                                     | Prefix                              |
-    | ----------------------------------------- | ----------------------------------- |
-    | `LoadExtension` entry                     | `[BuiltinExtensionLoader]` / `[MultiVersionExtensionLoader]` |
-    | Per-candidate probe                       | Same, one line per candidate `.dll` path |
-    | Successful load (with elapsed ms)         | Same, plus `ExtensionLoadTracker.Record(...)` |
-    | Miss ("not found under root")             | Same, with checked roots enumerated |
+    | Event                                         | Prefix                                                                                             |
+    | --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+    | `LoadExtension` entry                         | `[BuiltinExtensionLoader]` / `[MultiVersionExtensionLoader]`                                       |
+    | Per-candidate probe                           | Same, one line per candidate `.dll` path                                                           |
+    | Successful load (with elapsed ms)             | Same, plus `ExtensionLoadTracker.Record(...)`                                                      |
+    | Miss ("not found under root")                 | Same, with checked roots enumerated                                                                |
     | Nested `ExtensionLoadContext.Load` skip / hit | Same (previously used class name in message text; now uses the `[ClassName]` prefix convention D6) |
 
     Timing via `Stopwatch.StartNew()` at method entry, stopped just before the successful return. _(commit `3d45a8de1`)_
@@ -91,19 +91,19 @@ Succinct "why" for each committed decision. All resolved 2026-07-21.
 
 ### 3.4 Tests (D9)
 
-16. New subprocess-based integration test in `tests/Cli.Tests/` — shells out to the built `az` binary and captures stdout+stderr separately (model on [`AgentToolsLiveTests.RunAsync`](Agent/tests/Core.Agent.Tests/AgentToolsLiveTests.cs#L206) or [`ManagedIdentityE2ETests.RunCliAsync`](tests/Cli.Tests/ManagedIdentityE2ETests.cs#L116)). Asserts:
+16. ✅ New subprocess-based integration test in `tests/Cli.Tests/` — shells out to the built `az` binary and captures stdout+stderr separately (model on [`AgentToolsLiveTests.RunAsync`](Agent/tests/Core.Agent.Tests/AgentToolsLiveTests.cs#L206) or [`ManagedIdentityE2ETests.RunCliAsync`](tests/Cli.Tests/ManagedIdentityE2ETests.cs#L116)). Asserts:
     - Warning/info lines appear on **stderr**; command result on stdout.
     - `az foo --output json 2>/dev/null` stays parseable when a warning fires mid-command.
     - `az --debug <cmd>` emits extension-loader debug lines on stderr (grep for `[BuiltinExtensionLoader]` / `[MultiVersionExtensionLoader]` prefix).
     - With no config set + an operation that emits `Warn`, warning surfaces on stderr; `Info`/`Debug` do not.
 
-    Landed as [`tests/Cli.Tests/StreamRoutingIntegrationTests.cs`](tests/Cli.Tests/StreamRoutingIntegrationTests.cs) — 4 tests covering: (a) `WriteError → stderr`; (b) `warn` default keeps stderr silent (including no `[ExtensionLoadTracker]` leak); (c) `--debug` puts `DEBUG:` on stderr with stdout clean; (d) `--debug` emits both `[BuiltinExtensionLoader|MultiVersionExtensionLoader] Resolving extension` and `[ExtensionLoadTracker] Extension` / `Total (N)` on stderr. The chain-order line originally planned in item 13 is not asserted (see item 13's dropped note). _(commit pending)_
+    Landed as [`tests/Cli.Tests/StreamRoutingIntegrationTests.cs`](tests/Cli.Tests/StreamRoutingIntegrationTests.cs) — 4 tests covering: (a) `WriteError → stderr`; (b) `warn` default keeps stderr silent (including no `[ExtensionLoadTracker]` leak); (c) `--debug` puts `DEBUG:` on stderr with stdout clean; (d) `--debug` emits both `[BuiltinExtensionLoader|MultiVersionExtensionLoader] Resolving extension` and `[ExtensionLoadTracker] Extension` / `Total (N)` on stderr. The chain-order line originally planned in item 13 is not asserted (see item 13's dropped note). _(commit `01990fea9`)_
 
-17. ✅ `TUI` unit test for the extended `ClassifyLine` (item 5) covering each prefix — landed as [`tests/Cli.Tests/TuiClassifyLineTests.cs`](tests/Cli.Tests/TuiClassifyLineTests.cs). 7 tests covering `ERROR:` → `Error`, `WARNING:`/`INFO:` → `Info`, `VERBOSE:`/`DEBUG:` → dropped, lowercase (git/npm) fallthrough, unprefixed lines use caller default, ANSI-escape stripping, and leading-whitespace trimming. Required bumping `ClassifyLine` from `private static` to `internal static` in [`TUI/services/ProcessService.cs`](TUI/services/ProcessService.cs) and adding `InternalsVisibleTo="Cli.Tests"` to [`TUI/Core.Tui.csproj`](TUI/Core.Tui.csproj) plus a `<ProjectReference>` from `Cli.Tests` to `Core.Tui`. _(commit pending)_
+17. ✅ `TUI` unit test for the extended `ClassifyLine` (item 5) covering each prefix — landed as [`tests/Cli.Tests/TuiClassifyLineTests.cs`](tests/Cli.Tests/TuiClassifyLineTests.cs). 7 tests covering `ERROR:` → `Error`, `WARNING:`/`INFO:` → `Info`, `VERBOSE:`/`DEBUG:` → dropped, lowercase (git/npm) fallthrough, unprefixed lines use caller default, ANSI-escape stripping, and leading-whitespace trimming. Required bumping `ClassifyLine` from `private static` to `internal static` in [`TUI/services/ProcessService.cs`](TUI/services/ProcessService.cs) and adding `InternalsVisibleTo="Cli.Tests"` to [`TUI/Core.Tui.csproj`](TUI/Core.Tui.csproj) plus a `<ProjectReference>` from `Cli.Tests` to `Core.Tui`. _(commit `01990fea9`)_
 
 ### 3.5 Docs
 
-18. [docs/howto/config.md L11](docs/howto/config.md#L11) and [docs/spec/config-implementation.md L368](docs/spec/config-implementation.md#L368) — document (a) the stream routing contract ("stdout is command result only") and (b) the new `warn` default. Lift rationale from §2 D1/D2.
+18. ✅ [`docs/azure-cli/docs-conceptual/config.md`](docs/azure-cli/docs-conceptual/config.md) and [`eng-docs/spec/config-implementation.md`](eng-docs/spec/config-implementation.md) — documented (a) the stream routing contract (stdout = command results only; stderr = warn/info/verbose/debug/error, `LEVEL:` prefix) and (b) the new `warn` default. In the user guide: bumped the `core.logging.level` row default from `error` → `warn` with a diagnostics-to-stderr note, added a new **Stream routing** subsection under **CLI Usage** covering the POSIX/GNU convention and the `LEVEL:` prefix format, and refreshed the seven sample outputs (`get`/`section`/`--json`/PS `Get-AzConfig`) to show `warn` instead of `error`. In the implementation spec: expanded **Critical Technical Decisions §10 "CLI Runtime Logging Policy"** into six paragraphs covering the default flip (with D1 peer-symmetry citations and PS-side effect note), the stream routing contract (POSIX/GNU + GNU Coding Standards §4.4 quote), the `LEVEL:` prefix format (D10 rationale), color gating via `ColorPolicy` (D4), and the `ExtensionLoadTracker.EmitSummary` streams-vs-logger routing invariant. Rationale lifted verbatim from §2 D1/D2/D4/D10. Note: the plan originally cited `docs/howto/config.md` and `docs/spec/config-implementation.md`; the actual paths in the repo are `docs/azure-cli/docs-conceptual/config.md` and `eng-docs/spec/config-implementation.md`. _(commit `c08ed4bd7`)_
 
 ### Explicitly out of scope
 
