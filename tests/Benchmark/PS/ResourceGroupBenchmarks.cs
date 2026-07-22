@@ -10,7 +10,9 @@ namespace Benchmark.PS;
 
 /// <summary>
 /// PS benchmarks — runs cmdlets with mocked HTTP. Does NOT hit Azure.
-/// Cold-start benchmarks: fresh runspace + module import + DI init + engine process + dispose per call.
+/// A fresh runspace is created and the module imported per iteration in [IterationSetup]
+/// (both excluded from the measurement); each measured run invokes only the cmdlet, so the
+/// result is comparable to the CLI benchmark's warm dispatch.
 /// </summary>
 public class ResourceGroupBenchmarks : PSBenchmarkBase
 {
