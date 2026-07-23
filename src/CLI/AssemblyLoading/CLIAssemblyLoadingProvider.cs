@@ -43,12 +43,17 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
             foreach (var (name, version, location) in loader.GetInstalledExtensions())
             {
                 var effectiveVersion = version;
+                var effectiveLocation = location;
                 if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion))
                 {
                     effectiveVersion = pinnedVersion;
+                    // Location came from the discovered version's package folder; when the pin
+                    // routes to a different version we don't know that DLL's path here, so avoid
+                    // returning a stale path that disagrees with what dispatch will load.
+                    effectiveLocation = null;
                 }
 
-                result.Add(new InstalledExtensionRef(name, effectiveVersion, location));
+                result.Add(new InstalledExtensionRef(name, effectiveVersion, effectiveLocation));
             }
         }
 

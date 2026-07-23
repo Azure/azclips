@@ -554,6 +554,14 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
                 .Select(assemblyName => Path.Combine(latestVersionDir, $"{assemblyName}.dll"))
                 .FirstOrDefault(File.Exists);
 
+            if (assemblyPath is null)
+            {
+                // Version directory exists but the DLL is missing (corrupt/partial install).
+                // Skip — dispatch couldn't load it anyway, and consumers rely on Name/Version pairs
+                // being backed by a loadable assembly. Matches BuiltinExtensionLoader's gate.
+                continue;
+            }
+
             yield return (shortName, latestVersion, assemblyPath);
         }
     }

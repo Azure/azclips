@@ -31,6 +31,7 @@ public sealed class ExtensionSelectionPathOverrideTests
 
             var versionedPackageDir = Path.Combine(versionedRoot, packageId, "1.3.0");
             Directory.CreateDirectory(versionedPackageDir);
+            File.WriteAllText(Path.Combine(versionedPackageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
 
             var configuration = new TestConfigurationService(builtinRoot, versionedRoot);
             var logging = new NullLoggingService();
@@ -168,6 +169,84 @@ public sealed class ExtensionSelectionPathOverrideTests
             Assert.Equal(expectedBuiltinDll, login.Location);
             var resources = Assert.Single(installed!, item => item.Name == "Resources");
             Assert.Equal(expectedVersionedDll, resources.Location);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void GetAllInstalledExtensions_ShouldNullLocation_WhenPinRoutesToDifferentVersion()
+    {
+        // When the registry pins a version different from what the loader reports as latest,
+        // the discovered `Location` came from the *unpinned* version's folder. Emit null rather
+        // than a path that disagrees with what dispatch will actually load.
+        var root = Path.Combine(Path.GetTempPath(), $"pin-location-{Guid.NewGuid():N}");
+        var versionedRoot = Path.Combine(root, "versioned");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        Directory.CreateDirectory(versionedRoot);
+
+        try
+        {
+            foreach (var version in new[] { "1.2.0", "1.3.0" })
+            {
+                var versionDir = Path.Combine(versionedRoot, packageId, version);
+                Directory.CreateDirectory(versionDir);
+                File.WriteAllText(Path.Combine(versionDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
+            }
+
+            var configuration = new TestConfigurationService(builtinRoot: Path.Combine(root, "builtin"), versionedRoot);
+            var logging = new NullLoggingService();
+            var versionedLoader = new MultiVersionExtensionLoader(logging, configuration);
+
+            var registry = new ExtensionRegistry();
+            registry.Extensions[packageId] = new ExtensionRegistryEntry
+            {
+                Version = "1.2.0",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            var provider = new CLIAssemblyLoadingProvider(
+                [versionedLoader],
+                logging,
+                new InMemoryRegistryStore(registry));
+
+            var single = Assert.Single(provider.GetAllInstalledExtensions()!);
+            Assert.Equal("Compute", single.Name);
+            Assert.Equal("1.2.0", single.Version);
+            Assert.Null(single.Location);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void MultiVersionExtensionLoader_GetInstalledExtensions_ShouldSkipVersionDirWithoutDll()
+    {
+        // Corrupt/partial install: version subdir exists but no DLL. Enumeration must skip it —
+        // dispatch couldn't load it anyway, so surfacing it in `az extension list` misleads users.
+        var root = Path.Combine(Path.GetTempPath(), $"missing-dll-{Guid.NewGuid():N}");
+        var versionedRoot = Path.Combine(root, "versioned");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        var versionDir = Path.Combine(versionedRoot, packageId, "1.0.0");
+        Directory.CreateDirectory(versionDir);
+
+        try
+        {
+            var configuration = new TestConfigurationService(builtinRoot: Path.Combine(root, "builtin"), versionedRoot);
+            var loader = new MultiVersionExtensionLoader(new NullLoggingService(), configuration);
+
+            Assert.Empty(loader.GetInstalledExtensions());
         }
         finally
         {

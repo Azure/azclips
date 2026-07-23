@@ -37,13 +37,14 @@ internal static class DiscoveryBackedExtensionRegistry
             var info = selection.Selected;
 
             // Include every discovered package (Core, Bundled, Installed); tier is implied by Location.
+            // Bundled/Core rows have no persisted registry entry, so InstalledAt is a best-effort proxy from the DLL mtime; the persisted timestamp overwrites this below for user-installed rows.
             var entry = new ExtensionRegistryEntry
             {
                 Verb = info.Verbs.FirstOrDefault(),
                 Version = info.ResolvedVersion,
                 Pinned = false,
                 Source = null,
-                InstalledAt = DateTimeOffset.UtcNow,
+                InstalledAt = TryGetDllTimestamp(info.Location) ?? DateTimeOffset.UtcNow,
                 Location = info.Location,
             };
 
@@ -149,5 +150,22 @@ internal static class DiscoveryBackedExtensionRegistry
         var verb = parts[0];
         var path = parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty;
         return (verb, path);
+    }
+
+    private static DateTimeOffset? TryGetDllTimestamp(string? location)
+    {
+        if (string.IsNullOrEmpty(location))
+        {
+            return null;
+        }
+
+        try
+        {
+            return File.Exists(location) ? File.GetLastWriteTimeUtc(location) : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
