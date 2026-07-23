@@ -266,7 +266,9 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                 var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId, _loggingService);
 
                 seen.Add(shortName);
-                yield return (shortName, discoveredVersion, assemblyPath);
+                // Normalize to an absolute path — Location is documented as absolute, but a
+                // user-configured relative BuiltinInstallationDir would otherwise leak through.
+                yield return (shortName, discoveredVersion, Path.GetFullPath(assemblyPath));
             }
         }
     }
@@ -562,7 +564,9 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
                 continue;
             }
 
-            yield return (shortName, latestVersion, assemblyPath);
+            // Normalize to an absolute path — Location is documented as absolute, but a
+            // user-configured relative VersionedInstallationDir would otherwise leak through.
+            yield return (shortName, latestVersion, Path.GetFullPath(assemblyPath));
         }
     }
 }
