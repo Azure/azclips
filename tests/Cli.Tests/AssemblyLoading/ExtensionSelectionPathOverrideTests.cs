@@ -128,9 +128,7 @@ public sealed class ExtensionSelectionPathOverrideTests
     [Fact]
     public void GetAllInstalledExtensions_ShouldPropagateLoaderLocation_IntoInstalledExtensionRef()
     {
-        // CLIPS#478: `InstalledExtensionRef.Location` carries the absolute DLL path from the
-        // loader through to `az extension list`/`show`. Verify both loaders' locations flow
-        // through the provider without being dropped or overwritten.
+        // Both loaders' DLL paths must flow through the provider without being dropped or overwritten.
         var root = Path.Combine(Path.GetTempPath(), $"location-flow-{Guid.NewGuid():N}");
         var builtinRoot = Path.Combine(root, "builtin");
         var versionedRoot = Path.Combine(root, "versioned");

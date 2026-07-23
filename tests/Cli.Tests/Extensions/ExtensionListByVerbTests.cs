@@ -83,9 +83,7 @@ public class ExtensionListByVerbTests
     [Fact]
     public void PivotByVerb_ShouldPropagateLocation_FromContributorToRow()
     {
-        // CLIPS#478: `Location` (absolute DLL path) surfaces on each contributor row so users can
-        // see exactly which on-disk file backs a listed extension, including bundled packages
-        // that previously would not appear at all.
+        // Location on the input contributor must land on every emitted row.
         const string bundledLocation = @"C:\Program Files\azclips\Extensions\Microsoft.Azure.Azclips.Extensions.Login\Microsoft.Azure.Azclips.Extensions.Login.dll";
         const string installedLocation = @"C:\Users\example\.azclips\extensions\Microsoft.Azure.Azclips.Extensions.Compute\1.2.3\Microsoft.Azure.Azclips.Extensions.Compute.dll";
 
@@ -116,8 +114,7 @@ public class ExtensionListByVerbTests
     [Fact]
     public void PivotByVerb_ShouldPreserveNullLocation_WhenLoaderCannotReportPath()
     {
-        // Discovery paths that bypass on-disk enumeration (e.g. named-extension lookups) leave
-        // Location null. The projection must not synthesize a path or crash.
+        // Null Location (e.g. named-extension lookup path) must round-trip, not be synthesized.
         var result = ListExtensionsProcessor.PivotByVerb(new[] { C("Some.Pkg", "verb") });
 
         Assert.Null(result["verb"].Single().Location);

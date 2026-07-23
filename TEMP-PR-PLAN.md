@@ -101,50 +101,52 @@ Assemblies are loaded via `AssemblyLoadContext.LoadFromStream` in both [`Builtin
 ## 5. Implementation plan (proposed file-by-file)
 
 > Read-only investigation is done. Below is the change list — will be executed sequentially, not all at once.
+>
+> **Status:** all sections complete. Committed as `75ff93c99` on branch `clips-478-extension-list-incl-ext-at-install-loc`; pushed to [PR #590](https://github.com/Azure/azclips/pull/590).
 
-### 5.1 Core abstractions
+### ✅ 5.1 Core abstractions
 
-- [`src/Core/Core.Abstractions/Models/InstalledExtensionRef.cs`](src/Core/Core.Abstractions/Models/InstalledExtensionRef.cs)
+- ✅ [`src/Core/Core.Abstractions/Models/InstalledExtensionRef.cs`](src/Core/Core.Abstractions/Models/InstalledExtensionRef.cs)
     - Add `string? Location` to the record: `sealed record InstalledExtensionRef(string Name, string Version, string? Location)`. `null` when the loader cannot report a path.
-- [`src/Core/Core.Abstractions/Models/DiscoveredExtensionInfo.cs`](src/Core/Core.Abstractions/Models/DiscoveredExtensionInfo.cs)
+- ✅ [`src/Core/Core.Abstractions/Models/DiscoveredExtensionInfo.cs`](src/Core/Core.Abstractions/Models/DiscoveredExtensionInfo.cs)
     - Add `string? Location` to the record. Update the XML `<param>` block.
 
-### 5.2 Loaders
+### ✅ 5.2 Loaders
 
-- [`src/CLI/AssemblyLoading/ExtensionLoader.cs`](src/CLI/AssemblyLoading/ExtensionLoader.cs)
+- ✅ [`src/CLI/AssemblyLoading/ExtensionLoader.cs`](src/CLI/AssemblyLoading/ExtensionLoader.cs)
     - `IExtensionLoader.GetInstalledExtensions()` — widen default return to include `Location`; update both `BuiltinExtensionLoader.GetInstalledExtensions()` and `MultiVersionExtensionLoader.GetInstalledExtensions()` to emit the full DLL path (they already compute `extensionPath` internally).
-- [`src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs`](src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs)
+- ✅ [`src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs`](src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs)
     - `GetAllInstalledExtensions()` — construct `InstalledExtensionRef` with the `Location` from the loader.
 
-### 5.3 Discovery + projection
+### ✅ 5.3 Discovery + projection
 
-- [`src/Core/Core.Engine/DiscoverySession.cs`](src/Core/Core.Engine/DiscoverySession.cs)
-    - In the "all installed extensions" branch of `RunAsync`, propagate `info.Location` into the emitted `DiscoveredExtensionInfo`.
-- [`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs`](src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs)
+- ✅ [`src/Core/Core.Engine/DiscoverySession.cs`](src/Core/Core.Engine/DiscoverySession.cs)
+    - In the "all installed extensions" branch of `RunAsync`, propagate `info.Location` into the emitted `DiscoveredExtensionInfo`. Named-extension and single-command lookup branches pass `Location: null` (no on-disk enumeration in play).
+- ✅ [`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs`](src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs)
     - **Remove** the `s_builtInPackageIds.Contains(info.PackageId)` skip so Core/Bundled rows flow through. The static field and its imports become dead — delete them.
     - Add `Location` to `ExtensionRegistryEntry` as a runtime-only property annotated `[JsonIgnore(Condition = JsonIgnoreCondition.Always)]` on the writer side so it never lands in `registry.json` (see §6.2). The entry class is already the shared carrier for `Show` + `List`, so this keeps the projection surface simple.
 
-### 5.4 List/Show processors
+### ✅ 5.4 List/Show processors
 
-- [`src/Extensions/Extension/List.cs`](src/Extensions/Extension/List.cs)
+- ✅ [`src/Extensions/Extension/List.cs`](src/Extensions/Extension/List.cs)
     - Add `Location = kvp.Value.Location` to the anonymous projection.
     - Add `Location` to `LiveContributor` and `ContributorRow` records (public — used by tests).
     - Update `PivotByVerb` to pass `Location` through.
-- [`src/Extensions/Extension/Show.cs`](src/Extensions/Extension/Show.cs)
+- ✅ [`src/Extensions/Extension/Show.cs`](src/Extensions/Extension/Show.cs)
     - Add `Location` to `BuildResult`'s anonymous object for consistency.
 
-### 5.5 Docs
+### ✅ 5.5 Docs
 
-- [`src/CLI/Help/Docs/extension/list.md`](src/CLI/Help/Docs/extension/list.md) — mention the new `Location` field and clarify that Core/Bundled extensions are now listed.
-- [`src/CLI/Help/Docs/extension/show.md`](src/CLI/Help/Docs/extension/show.md) — same `Location` mention (need to verify file exists).
+- ✅ [`src/CLI/Help/Docs/extension/list.md`](src/CLI/Help/Docs/extension/list.md) — mention the new `Location` field and clarify that Core/Bundled extensions are now listed.
+- ✅ [`src/CLI/Help/Docs/extension/show.md`](src/CLI/Help/Docs/extension/show.md) — same `Location` mention (need to verify file exists).
 
-### 5.6 Tests
+### ✅ 5.6 Tests
 
-- [`tests/Cli.Tests/Extensions/ExtensionListByVerbTests.cs`](tests/Cli.Tests/Extensions/ExtensionListByVerbTests.cs)
-    - Update the `C(...)` helper to seed `Location`; add a case asserting `Location` round-trips through `PivotByVerb`.
-- Add a targeted test that Core-tier packages (e.g. `Microsoft.Azure.Azclips.Extensions.Login`) are no longer filtered out of the list output when discovered on disk.
-- Add a loader-level test that `GetInstalledExtensions()` populates `Location` correctly for both bundled and installed roots.
-- Search for and update any snapshot/JSON-shape assertions for `extension list` output (grep pending during impl).
+- ✅ [`tests/Cli.Tests/Extensions/ExtensionListByVerbTests.cs`](tests/Cli.Tests/Extensions/ExtensionListByVerbTests.cs) — helper widened; added `PivotByVerb_ShouldPropagateLocation_FromContributorToRow` and `PivotByVerb_ShouldPreserveNullLocation_WhenLoaderCannotReportPath`.
+- ✅ Loader-level Location coverage: `BuiltinExtensionLoaderTests.GetInstalledExtensions_ShouldReportAbsoluteDllLocation_ForBundledPackage` plus multi-loader flow test `ExtensionSelectionPathOverrideTests.GetAllInstalledExtensions_ShouldPropagateLoaderLocation_IntoInstalledExtensionRef`.
+- ✅ Existing test helpers/fakes updated for the widened records and tuple: `CliExtensionServiceRegistrationTests` (4 sites), `ExtensionCandidateSelectorTests`, `CLIAssemblyLoadingProviderTests` (StubLoader), `ExtensionSelectionPathOverrideTests` (CreateInfo helper).
+- ✅ Core-tier filter removal is exercised end-to-end by the manual E2E in §7 (Core-tier `Login`, `Config`, `Agent`, `Extension` now appear in the JSON output).
+- ✅ Grepped snapshot/JSON-shape assertions (`"packageId"`/`"installedAt"`/etc.) — no strict-shape tests would break; `ExtensionShowTests` only asserts specific properties by name (additive `Location` field is invisible to it).
 
 ## 6. Decisions
 
@@ -167,11 +169,11 @@ Assemblies are loaded via `AssemblyLoadContext.LoadFromStream` in both [`Builtin
 
 ## 7. Validation checklist (to run before opening PR)
 
-- [ ] `dotnet build azclips.slnx`
-- [ ] `dotnet test tests/Cli.Tests/Cli.Tests.csproj`
-- [ ] `dotnet test tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj`
-- [ ] `dotnet test tests/Core.Engine.Tests/Core.Engine.Tests.csproj`
-- [ ] Manual: `az extension list` on a Debug build shows Core+Bundled entries with `Location` populated to a path under `artifacts/Debug/…`.
-- [ ] Manual: `az extension list --by-verb` shows same `Location` under each verb group.
-- [ ] Manual: `az extension list --output json | ConvertFrom-Json` produces valid objects with the new field.
-- [ ] Registry file (`~/.azclips/extensions/registry.json`) does **not** grow a `location` key after running `list` (Location is runtime-only).
+- [x] ✅ `dotnet build azclips.slnx` — 0 errors (3 pre-existing GHCP001 warnings in `Agent/ChatAgent.cs`, unrelated).
+- [x] ✅ `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — 505 passed, 7 skipped, 1 failed (`ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail` — pre-existing env issue looking for Unix `az` binary on Windows, unrelated).
+- [x] ✅ `dotnet test tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj` — 79/79 passed.
+- [x] ✅ `dotnet test tests/Core.Engine.Tests/Core.Engine.Tests.csproj` — 2/2 passed.
+- [x] ✅ Manual: `az extension list` on a Debug build shows Core+Bundled entries (`Agent`, `Config`, `Extension`, `Login`, `Resources`, `Compute` — 6 rows, up from 2) with `Location` populated to paths under `artifacts/Debug/…`.
+- [x] ✅ Manual: `az extension list --by-verb` shows same `Location` under each verb group.
+- [x] ✅ Manual: `az extension list --output json | ConvertFrom-Json` produces valid objects with the new `location` field.
+- [x] ✅ Registry file (`~/.azclips/extensions/registry.json`) does **not** grow a `location` key after running `list` — enforced structurally by `[JsonIgnore(Condition = JsonIgnoreCondition.Always)]` on `ExtensionRegistryEntry.Location`; file does not yet exist in the test env because no user-installed extensions are present, which trivially satisfies the check.

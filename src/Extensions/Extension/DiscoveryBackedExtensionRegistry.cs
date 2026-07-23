@@ -36,10 +36,7 @@ internal static class DiscoveryBackedExtensionRegistry
             ExtensionCandidateSelector.ReportUnresolvablePin(group.Key, selection, fileEntry, loggingService);
             var info = selection.Selected;
 
-            // CLIPS#478: Core-tier packages are no longer filtered out. `az extension list`
-            // now reflects everything discovery can actually load off disk (Core, Bundled, and
-            // Installed alike) instead of hiding the compile-time-seeded verbs. `Location`
-            // (populated below) is the user-visible hint about which tier each row came from.
+            // Include every discovered package (Core, Bundled, Installed); tier is implied by Location.
             var entry = new ExtensionRegistryEntry
             {
                 Verb = info.Verbs.FirstOrDefault(),
