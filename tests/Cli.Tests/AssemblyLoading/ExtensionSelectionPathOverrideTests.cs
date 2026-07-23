@@ -257,6 +257,52 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
     }
 
+    [Fact]
+    public void GetAllInstalledExtensions_ShouldKeepLocation_WhenPinMatchesDiscoveredVersion()
+    {
+        // When a pin resolves to the same version the loader already reports, the discovered
+        // Location is exactly what dispatch will load — don't null it out.
+        var root = Path.Combine(Path.GetTempPath(), $"pin-match-{Guid.NewGuid():N}");
+        var versionedRoot = Path.Combine(root, "versioned");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        var versionDir = Path.Combine(versionedRoot, packageId, "1.2.0");
+        Directory.CreateDirectory(versionDir);
+        var expectedDll = Path.Combine(versionDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll");
+        File.WriteAllText(expectedDll, string.Empty);
+
+        try
+        {
+            var configuration = new TestConfigurationService(builtinRoot: Path.Combine(root, "builtin"), versionedRoot);
+            var logging = new NullLoggingService();
+            var versionedLoader = new MultiVersionExtensionLoader(logging, configuration);
+
+            var registry = new ExtensionRegistry();
+            registry.Extensions[packageId] = new ExtensionRegistryEntry
+            {
+                Version = "1.2.0",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            var provider = new CLIAssemblyLoadingProvider(
+                [versionedLoader],
+                logging,
+                new InMemoryRegistryStore(registry));
+
+            var single = Assert.Single(provider.GetAllInstalledExtensions()!);
+            Assert.Equal("Compute", single.Name);
+            Assert.Equal("1.2.0", single.Version);
+            Assert.Equal(expectedDll, single.Location);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static DiscoveredExtensionInfo CreateInfo(string packageId, string version, IEnumerable<string> commandNames)
     {
         var commands = commandNames.ToDictionary(

@@ -44,12 +44,15 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
             {
                 var effectiveVersion = version;
                 var effectiveLocation = location;
-                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion))
+                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion) &&
+                    !string.Equals(pinnedVersion, version, StringComparison.OrdinalIgnoreCase))
                 {
                     effectiveVersion = pinnedVersion;
-                    // Location came from the discovered version's package folder; when the pin
-                    // routes to a different version we don't know that DLL's path here, so avoid
-                    // returning a stale path that disagrees with what dispatch will load.
+                    // Pin routes to a different version than what the loader discovered; the
+                    // reported Location points at the discovered version's DLL, not the pinned
+                    // one. Null it out rather than returning a path that disagrees with dispatch.
+                    // When the pin matches the discovered version, keep Location intact —
+                    // dispatch loads that exact DLL.
                     effectiveLocation = null;
                 }
 
