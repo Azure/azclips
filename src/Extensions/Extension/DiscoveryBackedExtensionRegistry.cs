@@ -161,7 +161,12 @@ internal static class DiscoveryBackedExtensionRegistry
 
         try
         {
-            return File.Exists(location) ? File.GetLastWriteTimeUtc(location) : null;
+            // Pin the offset explicitly rather than relying on DateTime.Kind-driven implicit
+            // conversion; keeps the behaviour correct if someone later swaps GetLastWriteTimeUtc
+            // for its local-time variant.
+            return File.Exists(location)
+                ? new DateTimeOffset(File.GetLastWriteTimeUtc(location), TimeSpan.Zero)
+                : null;
         }
         catch
         {
