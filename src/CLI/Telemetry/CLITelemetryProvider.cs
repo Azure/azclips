@@ -15,11 +15,11 @@ namespace Core.Cli.Telemetry;
 
 public class CLITelemetryProvider : DefaultTelemetryProvider
 {
-    public CLITelemetryProvider(IConfigurationService configurationService, IEnumerable<BaseProcessor<Activity>> filterProcessors)
+    // The Enabled check no longer lives here — TelemetryService gates every
+    // Start*Activity call at runtime so telemetry.enabled changes take effect on
+    // the next command without requiring a fresh process. See issue #470.
+    public CLITelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
     {
-        var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
-        if (!isTelemetryEnabled) return;
-
         FileTelemetrySender sender = new();
         ActivitySource = new ActivitySource(ClientType.CLI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()

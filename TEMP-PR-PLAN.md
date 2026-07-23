@@ -148,6 +148,169 @@ Get-AzConfig -Key telemetry.enabled
 # Expect on main: no probe lines. The Remove-Module workaround is what Teresa found.
 ```
 
+#### 5.1.1 Verified result (2026-07-23, main + probe) — enable direction
+
+The report from Teresa is disable→observed, but the mirror direction (enable→ignored) is the same root cause and is easier to demonstrate in isolation. Ran on this branch:
+
+```text
+# --- Session 1: cold-start with config on disk saying enabled=false ---
+
+PS> import-module ./src/PS/Config/Config.psd1
+PS> Get-AzConfig -Key telemetry.enabled
+telemetry.enabled = false [global config]
+PS> Set-AzConfig -Key telemetry.enabled -Value true
+Set telemetry.enabled = true
+PS> Get-AzConfig -Key telemetry.enabled
+telemetry.enabled = true [global config]
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+DEBUG: ExecutionSession-PowerShell-d6dfe360-... created
+telemetry.enabled = true [global config]
+DEBUG: Session ExecutionSession-PowerShell-d6dfe360-... disposed
+
+# NOTE: NO [TELEMETRY-PROBE] lines — even though config now says true.
+
+# --- Session 2: brand-new pwsh session, config still says enabled=true from above ---
+
+PS> import-module ./src/PS/Config/Config.psd1
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+[TELEMETRY-PROBE] recorded PowerShell.Activity.Root
+DEBUG: ExecutionSession-PowerShell-fea37a53-... created
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync
+telemetry.enabled = true [global config]
+DEBUG: Session ExecutionSession-PowerShell-fea37a53-... disposed
+```
+
+Interpretation:
+
+- **Session 1** started with on-disk `enabled=false`. `PSTelemetryProvider` ctor ran on the first `Get-AzConfig`, read `false`, hit its `if (!isTelemetryEnabled) return;` early-exit, and left `ActivitySource` as the no-op base `"Default"`. `Set-AzConfig … true` wrote the new value to disk. The subsequent `Get-AzConfig` inside the **same** PS session called `StartActivity` on the still-no-op source → returned `null` → no probe lines. **Enabling telemetry mid-session was silently ignored.**
+- **Session 2** was a fresh `pwsh` process. `PSTelemetryProvider` ctor read the now-`true` config, built the full pipeline, and probe lines fire as expected on the very first cmdlet.
+
+This is the mirror of Teresa's screenshot: same singleton-captured-in-ctor cause, opposite direction. Both directions are broken today; both are fixed by removing the ctor gate and moving the check into `TelemetryService`.
+
+#### 5.1.2 Verified result (2026-07-23, main + probe) — disable direction (matches Teresa's report)
+
+Continued from Session 2 in §5.1.1 (same `pwsh` process; config on disk = `true`; ctor already built the pipeline):
+
+```text
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+[TELEMETRY-PROBE] recorded PowerShell.Activity.Root
+DEBUG: ExecutionSession-PowerShell-fea37a53-... created
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync
+telemetry.enabled = true [global config]
+DEBUG: Session ExecutionSession-PowerShell-fea37a53-... disposed
+
+PS> Set-AzConfig -Key telemetry.enabled -Value false
+[TELEMETRY-PROBE] recorded PowerShell.Activity.Root
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded SetConfigCommand.ProcessAsync
+Set telemetry.enabled = false
+
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+[TELEMETRY-PROBE] recorded PowerShell.Activity.Root
+DEBUG: ExecutionSession-PowerShell-26c0a861-... created
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync
+telemetry.enabled = false [global config]
+DEBUG: Session ExecutionSession-PowerShell-26c0a861-... disposed
+```
+
+Interpretation:
+
+- **Call 1** (`Get-AzConfig`): config still `true` on disk, ctor already built the pipeline → probe fires. Expected.
+- **Call 2** (`Set-AzConfig … false`): writes the new value to disk. The `Set-AzConfig` cmdlet's _own_ invocation started with the pipeline still live → its own probe lines fire. Expected — you can't retroactively silence the invocation that itself flips the switch.
+- **Call 3** (`Get-AzConfig`): on-disk config now says `false`, and the config service correctly reads it back (`telemetry.enabled = false`), but the probe **still fires** for the root + `SessionCreated` + `GetConfigCommand.ProcessAsync` spans. **This is exactly Teresa's screenshot** — cmdlets emit telemetry after `telemetry.enabled=false` was set.
+
+Together with §5.1.1, both directions of the same bug are now on record:
+
+| Direction | Cold-start state | Mid-session toggle | Observed span emission                 | Expected after fix |
+| --------- | ---------------- | ------------------ | -------------------------------------- | ------------------ |
+| §5.1.1    | `enabled=false`  | → `true`           | **none** (bug: never wakes up)         | probe fires        |
+| §5.1.2    | `enabled=true`   | → `false`          | **still fires** (bug: never turns off) | no probe           |
+
+Same root cause (`PSTelemetryProvider` ctor gate is captured at first cmdlet), same fix (service-level runtime gate + drop the ctor early-exit).
+
+#### 5.1.3 Verified result (2026-07-23, this branch after fix + probe) — disable direction now silent
+
+Same session, same PWSH steps as §5.1.2, but run against the built fix:
+
+```text
+PS> import-module ./src/PS/Config/Config.psd1
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+[TELEMETRY-PROBE] recorded PowerShell.Activity.Root
+DEBUG: ExecutionSession-PowerShell-8608ce4a-... created
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync
+telemetry.enabled = true [global config]
+DEBUG: Session ExecutionSession-PowerShell-8608ce4a-... disposed
+
+PS> Set-AzConfig -Key telemetry.enabled -Value false
+[TELEMETRY-PROBE] recorded PowerShell.Activity.Root
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded SetConfigCommand.ProcessAsync
+Set telemetry.enabled = false
+
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+DEBUG: ExecutionSession-PowerShell-c3a55891-... created
+telemetry.enabled = false [global config]
+DEBUG: Session ExecutionSession-PowerShell-c3a55891-... disposed
+
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+DEBUG: ExecutionSession-PowerShell-7d7fe4ba-... created
+telemetry.enabled = false [global config]
+DEBUG: Session ExecutionSession-PowerShell-7d7fe4ba-... disposed
+```
+
+Interpretation:
+
+- **Call 1** (`Get`, config `true`): probe fires. Baseline unchanged.
+- **Call 2** (`Set … false`): probe fires for the Set itself — expected, config was still `true` when this invocation's `StartRootActivity` was called. You cannot retroactively silence the invocation that flips the switch.
+- **Call 3** (`Get`, config `false`): **no probe lines**. The service-level gate reads the live config, sees `false`, returns `null`. Compare directly against §5.1.2 Call 3 which was still firing on main.
+- **Call 4** (`Get`, still `false`): still no probe. Stays off across subsequent invocations without a module reload.
+
+This is Teresa's exact scenario, now silent on the very next cmdlet.
+
+#### 5.1.4 Verified result (2026-07-23, this branch after fix + probe) — enable direction now wakes up
+
+Fresh PWSH session, on-disk config still `enabled=false` from §5.1.3:
+
+```text
+PS> import-module ./src/PS/Config/Config.psd1
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+DEBUG: ExecutionSession-PowerShell-9a7a1950-... created
+telemetry.enabled = false [global config]
+DEBUG: Session ExecutionSession-PowerShell-9a7a1950-... disposed
+
+PS> Set-AzConfig -Key telemetry.enabled -Value true
+Set telemetry.enabled = true
+
+PS> Get-AzConfig -Key telemetry.enabled -Debug
+[TELEMETRY-PROBE] recorded PowerShell.Activity.Root
+DEBUG: ExecutionSession-PowerShell-4aa984c1-... created
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync
+telemetry.enabled = true [global config]
+DEBUG: Session ExecutionSession-PowerShell-4aa984c1-... disposed
+```
+
+Interpretation:
+
+- **Call 1** (`Get`, config `false` cold-start): no probe lines. The gate short-circuits before `StartActivity` reaches the source. Same as §5.1.1 Call 1.
+- **Call 2** (`Set … true`): no probe lines either — at `StartRootActivity` time the config was still `false`, so the gate returned `null`. The write to disk still succeeded because `SetConfigurationAsync` is orthogonal to telemetry.
+- **Call 3** (`Get`, config `true`): probe fires. The pipeline was built during ctor (no early-exit anymore) and the runtime gate now sees `true`. Compare against §5.1.1 Session 1 Call 4 which stayed silent on main until a whole new `pwsh` process.
+
+The mirror bug is fixed on the very next cmdlet — no session restart.
+
+#### 5.1.5 After-fix summary
+
+| Direction | Cold-start state | Mid-session toggle | Observed on main         | Observed on fix              |
+| --------- | ---------------- | ------------------ | ------------------------ | ---------------------------- |
+| Enable    | `enabled=false`  | → `true`           | never wakes up (§5.1.1)  | wakes up next call (§5.1.4)  |
+| Disable   | `enabled=true`   | → `false`          | never turns off (§5.1.2) | turns off next call (§5.1.3) |
+
+Both directions symmetric and live. Cleanup: remove the `// TEMP:` probe from `src/Core/Core.Telemetry/TelemetryService.cs` before pushing.
+
 ### 5.2 Prove the bug is NOT observable in the CLI
 
 ```powershell
@@ -170,6 +333,39 @@ dotnet run --project src/CLI/Core.Cli.csproj -- group list
 ```
 
 If step 3 does emit a span on main, then the CLI is also affected today and the CLI-side change becomes load-bearing. Current expectation: it won't, because CLI processes don't outlive a config change.
+
+#### 5.2.1 Verified result (2026-07-23, main + probe)
+
+Ran with the built `az` on this branch, `$HOME/.azclips/config.json` absent (defaults `enabled=true`):
+
+```text
+$ az config list --all
+[TELEMETRY-PROBE] recorded CLI.Activity.Root
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded AzureCLI.ProcessCommand
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded ListConfigCommand.ProcessAsync
+… (config dump follows)
+
+$ az config set --key telemetry.enabled --value false
+[TELEMETRY-PROBE] recorded CLI.Activity.Root
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded AzureCLI.ProcessCommand
+[TELEMETRY-PROBE] recorded SessionCreated
+[TELEMETRY-PROBE] recorded SetConfigCommand.ProcessAsync
+Set telemetry.enabled = false
+
+$ az config set --key telemetry.enabled --value false
+Set telemetry.enabled = false
+```
+
+Reading the three invocations:
+
+- **Call 1** (`az config list --all`): telemetry enabled → probe fires. Expected.
+- **Call 2** (`az config set … false`): this process _started_ with telemetry still enabled (the write to disk happens near the end of the invocation), so `CLITelemetryProvider` ctor already built the pipeline for this process → probe still fires. Expected.
+- **Call 3** (`az config set … false` again): fresh process; on-disk config now says `false`; `CLITelemetryProvider` ctor early-exits → `ActivitySource` stays as the no-op base `"Default"` → `StartActivity` returns `null` → **no probe lines**. Exactly the "CLI is single-shot, so the stale-singleton bug never has time to manifest" prediction.
+
+This is empirical confirmation that the fix in `CLITelemetryProvider` is a parity change, not a bug fix — the CLI-side change is worth doing for consistency and to close the latent pattern, but is not required to remediate what Teresa reported.
 
 ### 5.3 Manual repro artifact
 

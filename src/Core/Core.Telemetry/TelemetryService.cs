@@ -13,20 +13,36 @@ namespace Core.Telemetry;
 public class TelemetryService : ITelemetryService
 {
     private readonly ITelemetryProvider _telemetryProvider;
+    private readonly IConfigurationService _configurationService;
     private readonly ClientType _clientType;
     private bool _disposed;
 
-    public TelemetryService(ITelemetryProvider telemetryProvider, ClientType clientType)
+    public TelemetryService(
+        ITelemetryProvider telemetryProvider,
+        IConfigurationService configurationService,
+        ClientType clientType)
     {
         _telemetryProvider = telemetryProvider;
+        _configurationService = configurationService;
         _clientType = clientType;
     }
 
-    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
-        _telemetryProvider.ActivitySource.StartActivity(name, kind)?.SetTag(TelemetryTags.EventName, name);
+    // Read live on every call so Set-AzConfig / az config set take effect on
+    // the very next cmdlet without requiring a module reload. See issue #470.
+    // ConfigurationService.GetConfiguration<T>() re-parses ~/.azclips/config.json
+    // per call — cheap enough for the interactive command rate we ship at.
+    private bool IsTelemetryEnabled() =>
+        _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
+
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal)
+    {
+        if (!IsTelemetryEnabled()) return null;
+        return _telemetryProvider.ActivitySource.StartActivity(name, kind)?.SetTag(TelemetryTags.EventName, name);
+    }
 
     public Activity? StartRootActivity()
     {
+        if (!IsTelemetryEnabled()) return null;
         var activity = StartActivity($"{_clientType.ToString()}.Activity.Root", ActivityKind.Server);
         if (activity is null) return null;
         activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);        
