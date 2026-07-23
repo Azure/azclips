@@ -25,19 +25,19 @@ public class PSArgumentParsingProvider() : IArgumentParsingProvider
                 parsedArguments[key] = rawValue;
                 continue;
             }
+            var targetName = metadata.Name;
 
             // 1. Arg is array/sequence AND parameter expects a collection -> convert.
             if (IsArrayLike(rawValue) && TryGetCollectionElementType(metadata.ParameterType, out var elementType))
             {
-                parsedArguments[key] = ConvertToCollection(rawValue, metadata.ParameterType, elementType!);
+                parsedArguments[targetName] = ConvertToCollection(rawValue, metadata.ParameterType, elementType!);
                 continue;
             }
 
             // 2. Otherwise passthrough.
-            parsedArguments[key] = rawValue;
+            parsedArguments[targetName] = rawValue;
         }
 
-        // 3. Return parsed arguments.
         return parsedArguments;
     }
 
@@ -118,4 +118,4 @@ public class PSArgumentParsingProvider() : IArgumentParsingProvider
             return list;
         }
     }
-}
+}}
