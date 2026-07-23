@@ -161,12 +161,13 @@ internal static class DiscoveryBackedExtensionRegistry
 
         try
         {
-            // GetLastWriteTimeUtc returns DateTime.MinValue (1601-01-01) when the file is
-            // missing rather than throwing, so we call it unconditionally and treat MinValue
-            // as "unknown" — avoids a TOCTOU race between File.Exists and this call, and pins
-            // the offset explicitly rather than relying on DateTime.Kind implicit conversion.
+            // GetLastWriteTimeUtc returns 1601-01-01 (the FILETIME epoch) when the file is
+            // missing rather than throwing, so call it unconditionally and treat any
+            // suspiciously old timestamp as "unknown". Guards against that sentinel value
+            // (which is not DateTime.MinValue) and against platform variations, without
+            // racing File.Exists.
             var timestamp = File.GetLastWriteTimeUtc(location);
-            return timestamp == DateTime.MinValue
+            return timestamp.Year < 1980
                 ? null
                 : new DateTimeOffset(timestamp, TimeSpan.Zero);
         }
