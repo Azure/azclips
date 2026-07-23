@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784783687540,
+  "lastUpdate": 1784783691309,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -2480,6 +2480,48 @@ window.BENCHMARK_DATA = {
             "value": 270671261.3,
             "unit": "ns",
             "range": "± 2795259.728791373"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9ace2ec11b7d211c8c5c7c1f07baef54f4e0ed68",
+          "message": "[Extension] `az extension list`: Include bundled extensions and expose on-disk `Location` field (#590)\n\n**Related command**\n\n- `az extension list`\n- `az extension show`\n\n**Description**\n\nCurrently `az extension list` only surfaces extensions installed via `az\nextension add` under `~/.azclips/extensions/`; extensions bundled with\nthe `az` install are silently filtered out, and no row exposes the\non-disk DLL path.\n\nThis PR:\n\n- Removes the Core-tier `PackageId` filter in\n`DiscoveryBackedExtensionRegistry` so all discoverable extensions (Core\n+ Bundled + Installed) surface via `az extension list` / `az extension\nshow`.\n- Adds an absolute `Location` DLL path per row, plumbed from the loaders\nthrough `InstalledExtensionRef` → `DiscoveredExtensionInfo` →\n`ExtensionRegistryEntry`. `Location` is runtime-only\n(`[JsonIgnore(Always)]`) and never persisted to `registry.json`.\n\nFixes https://github.com/Azure/CLIPS/issues/478\n\n**Key design decisions**\n\n- **Scope**: list all three tiers (Core + Bundled + Installed) with an\nabsolute-path `Location` field. No `Tier` column — path prefix conveys\norigin.\n- **List only what's discoverable on disk**: do not synthesize rows from\n`BuiltInExtensions.Map` for Core verbs with no DLL present.\n- **Winner-take-all preserved**: `list` still shows one row per\n`PackageId` via `ExtensionCandidateSelector` — matches dispatch exactly.\nBroader \"show shadowed candidates\" visibility is coupled to the\nparallel-version-install work and deferred.\n- **`Location` is runtime-only**: never persisted; no `registry.json`\nschema bump.\n- **Private preview**: breaking changes to `Core.Abstractions.*` records\nand `IExtensionLoader` tuple are accepted; no back-compat shims.\n\n**Testing Guide**\n\n- Automated: `dotnet build azclips.slnx` clean; `Cli.Tests` 505 pass;\n`Core.Extensions.Tests` 79/79; `Core.Engine.Tests` 2/2. New tests cover\n`Location` propagation through `PivotByVerb` and end-to-end from both\nloaders.\n- Manual: full sweep on both local Debug build and CI\n`Distribution_Windows_Full.zip` — `list` / `show` / `add` / `remove` /\n`pin` / `update` / dispatch smoke (`vm`, `disk`, `login`, `config`,\n`agent`, `extension`) all pass, no CLIPS#522-shape \"could not be found\nby any extension loader\" errors, `registry.json` never gains a\n`location` key.\n\n**History Notes**\n\n[Extension] `az extension list`: Include bundled extensions and expose\non-disk `Location` field\n[Extension] `az extension show`: Expose on-disk `Location` field\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-23T15:03:18+10:00",
+          "tree_id": "cf472a4a12253b6a246c49d9925ecf2eefc4b76d",
+          "url": "https://github.com/Azure/azclips/commit/9ace2ec11b7d211c8c5c7c1f07baef54f4e0ed68"
+        },
+        "date": 1784783691255,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 284570228.63,
+            "unit": "ns",
+            "range": "± 6571319.204165976"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 286338332.53,
+            "unit": "ns",
+            "range": "± 5648553.940225832"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 284084566.93,
+            "unit": "ns",
+            "range": "± 5104207.401247991"
           }
         ]
       }
