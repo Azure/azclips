@@ -19,7 +19,12 @@ namespace Core.Abstractions
     /// <c>Microsoft.Azure.Azclips.Extensions.Compute</c>) or a short extension name
     /// (for example, <c>Compute</c>).
     /// </param>
-    /// <param name="Version">The version directory name (e.g. <c>1.1.0</c>).</param>
+    /// <param name="Version">
+    /// The resolved version string (e.g. <c>1.1.0</c>). May be <see cref="string.Empty"/> when
+    /// the loader cannot determine a version (e.g. packaged installs where per-version metadata
+    /// has been stripped). Source is loader-defined: some loaders read it from a version
+    /// directory name, others from on-disk package metadata.
+    /// </param>
     /// <param name="Location">
     /// Absolute filesystem path to the extension's primary DLL as reported by the loader that
     /// enumerated it. Surfaced by <c>az extension list</c>/<c>show</c> so users can see exactly
