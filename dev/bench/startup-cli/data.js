@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784783691309,
+  "lastUpdate": 1784794092736,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -1260,6 +1260,48 @@ window.BENCHMARK_DATA = {
             "value": 225317749.22,
             "unit": "ns",
             "range": "± 5128528.469089641"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b5d3e2863162ea3775b90bca7860a434ba700779",
+          "message": "[Core] Fix argument-name routing and user-visible error labels (#594)\n\n**Related command**\n\nAll commands (argument parsing layer). PS side affects any cmdlet where\nthe parameter name differs from the processor property (e.g. `-ObjectId`\nbound to a `Group` property). CLI side affects every command that emits\na parameter-related error or verbose log.\n\n**Description**\n\nTwo independent argument-parser bugs surfaced while onboarding a new\ncmdlet. Fixing both in one PR because they share the same test-project\nsetup and both trace back to the parsers passing the wrong string\ndownstream.\n\n**Fix 1 — `PSArgumentParsingProvider` routing (functional bug)**\n\n`PSArgumentParsingProvider.ParseArguments` was inserting each argument\ninto the output dictionary under the raw incoming key (the PS parameter\nname from `BoundParameters`). Downstream,\n`ArgumentParsingService.SetProperty` calls\n`processor.GetType().GetProperty(propertyName)` on that key, so whenever\nthe PS parameter name differed from the underlying processor property\nname the reflection lookup returned `null` and the whole call failed\nwith `The property 'X' does not exist on processor '...'`. The CLI\nprovider has always translated the incoming key to `metadata.Name`\nbefore writing it out — the PS provider was the only one skipping that\nstep.\n\nFixed by reading `metadata.Name` off the resolved `ParameterMetadata`\nand using it as the output-dict key. Unknown keys (no metadata) still\npass through unchanged so we don't mask legitimate \"unknown parameter\"\nerrors elsewhere.\n\n**Fix 2 — `CLIArgumentParsingProvider` error labels (UX bug)**\n\n`CLIArgumentParsingProvider` was building `ArgumentException` messages\nand verbose log lines from `parameterMetadata.Name`, which is the\nprocessor property name — not what the user typed. A user who ran `az\nfoo -g mygroup` and hit a validation failure would see an error naming\n`Group` (or whatever internal property) rather than `-g` or `--group`.\nSame story for aliases: users who typed the short form saw the canonical\nform in the error.\n\nFixed by capturing `originalInput = kvp.Key` at the top of the loop,\nbefore the alias-resolution branch reassigns `key`, and threading\n`originalInput` through `ParseArgument`, `ConvertToCollection`,\n`ConvertScalar`, and `PropertyParser.ConvertToType`. The `propertyName`\nparameter on those helpers is used exclusively for user-facing text —\nnever for lookups or control flow — so passing the literal input string\nis safe throughout. Errors and verbose lines now name exactly what the\nuser typed.\n\nNeither change alters public API. No behavioural change beyond the\nerror/log text on the CLI side and unblocking previously-broken cmdlets\non the PS side.\n\n**Testing Guide**\n\n```bash\n# From repo root\ndotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj\ndotnet test tests/Cli.Tests/Cli.Tests.csproj\n```\n\n- `tests/Cmdlets.Tests/PSArgumentParsingProviderTests.cs` (new) — 4\ntests covering the PS-name-to-processor-property translation,\nunknown-key passthrough, and array parameter handling.\n- `tests/Cli.Tests/ArgumentParsing/CliArgumentValidationTests.cs` — 3\nnew tests covering missing scalar value, scalar conversion failure, and\nshort-alias-in-error-message. Existing\n`ValidateArguments_MissingRequired_ReportsCliFlagName` unchanged.\n\nAlso verified by temporarily reverting each fix and confirming the new\ntests fail as expected before re-applying.\n\nTwo pre-existing failures on clean `main`\n(`CompatibilityGuardTests.CheckAssembly_StampedFirstPartyExtension_IsIncompatibleAt0_9_0`\nand\n`ManagedIdentityE2ETests.ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail`)\nare unrelated to this change and reproduce without any of these edits\napplied.\n\n**History Notes**\n\n[PowerShell] Argument parser: Route cmdlet parameters to their processor\nproperty name so parameters whose PS name differs from the backing\nproperty no longer fail with a missing-property error\n[CLI] Argument parser: Use the flag or alias the user typed in error\nmessages and verbose logs instead of the internal processor property\nname\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed. — n/a, no doc-visible behaviour changed",
+          "timestamp": "2026-07-23T17:49:50+10:00",
+          "tree_id": "98002ae6b3833fe7453539dad5e978403e2439cb",
+          "url": "https://github.com/Azure/azclips/commit/b5d3e2863162ea3775b90bca7860a434ba700779"
+        },
+        "date": 1784794092634,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 230532488.01,
+            "unit": "ns",
+            "range": "± 3813731.743600103"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 233426498.69,
+            "unit": "ns",
+            "range": "± 4429386.654336434"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 230416257.43,
+            "unit": "ns",
+            "range": "± 4174852.5347172846"
           }
         ]
       }
