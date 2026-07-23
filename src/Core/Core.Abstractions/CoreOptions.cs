@@ -14,7 +14,7 @@ public sealed class CoreOptions
 
 public sealed class LoggingOptions
 {
-    public string Level { get; set; } = "error";
+    public string Level { get; set; } = "warn";
 }
 
 public sealed class EngineOptions

@@ -182,6 +182,11 @@ public class Program
         }
         finally
         {
+            // Route through streams.WriteDebug (level-gated) so the aggregate table stays
+            // silent under warn/error and only surfaces under --debug. Routing through
+            // _logger would fall back to ConsoleLoggingService here (session's UseScope
+            // was already disposed) and leak the table regardless of level.
+            ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
             AzclipsServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
@@ -210,17 +215,18 @@ public class Program
             },
             WriteError: (value, ct) =>
             {
+                var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
                 var originalColor = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine($"[ERROR] {value}");
-                Console.ForegroundColor = originalColor;
+                if (emitColor) Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine($"ERROR: {value}");
+                if (emitColor) Console.ForegroundColor = originalColor;
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, ct) =>
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
                 {
-                    Console.WriteLine($"VERBOSE: {value}");
+                    Console.Error.WriteLine($"VERBOSE: {value}");
                 }
                 return Task.CompletedTask;
             },
@@ -228,7 +234,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
                 {
-                    Console.WriteLine($"DEBUG: {value}");
+                    Console.Error.WriteLine($"DEBUG: {value}");
                 }
                 return Task.CompletedTask;
             },
@@ -236,7 +242,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
                 {
-                    Console.WriteLine($"WARNING: {value}");
+                    Console.Error.WriteLine($"WARNING: {value}");
                 }
                 return Task.CompletedTask;
             },
@@ -244,7 +250,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
                 {
-                    Console.WriteLine($"INFO: {value}");
+                    Console.Error.WriteLine($"INFO: {value}");
                 }
                 return Task.CompletedTask;
             }

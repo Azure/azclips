@@ -346,7 +346,7 @@ Integration:
 
 **Documentation Created:**
 
-- `docs/howto/config.md` — User guide with valid keys table, CLI + PS examples, env var mappings, defaults patterns
+- `docs/azure-cli/docs-conceptual/config.md` — User guide with valid keys table, CLI + PS examples, env var mappings, defaults patterns
 
 **Additional Artifacts:**
 
@@ -365,7 +365,22 @@ Integration:
 7. **Default Reflection:** Defaults sourced from option classes via reflection, not flattened dicts, to preserve dotted schema keys
 8. **Lock + Atomic Writes:** Cross-process lock + temp file swap prevents corruption on concurrent writes
 9. **Environment Isolation in Tests:** Cache original env vars, clear on setup, restore on teardown to avoid ambient values shadowing test assertions
-10. **CLI Runtime Logging Policy:** `core.logging.level` now controls CLI host log stream emission; `--debug` is treated as a one-shot invocation override that takes precedence over env/global/default values.
+10. **CLI Runtime Logging Policy:** `core.logging.level` controls CLI host log stream emission; `--debug` is treated as a one-shot invocation override that takes precedence over env/global/default values.
+
+    **Default:** `warn` (changed from `error` in PR #575 / issue #493). Chosen for Azure-family peer symmetry: Azure CLI Python's console default is `Warning` ([azlogging.py](https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/azlogging.py)) and Az PowerShell's effective baseline is `Warning + Error` ([about_preference_variables](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-7.6)). AWS CLI is `Error`-only but has no `warn` tier at all \u2014 different data model, not a competing default. `info`-as-default was rejected: no cited peer defaults console to Info, and it would require call-site retriage of every existing `Info(...)` call. The invalid/empty-value fallback in [`CliLoggingPolicy`](../../src/CLI/CliLoggingPolicy.cs) and [`CmdletOutputStreamsFactory`](../../src/PS/Common/CmdletOutputStreamsFactory.cs) was moved from `Error` to `Warn` in lockstep so a malformed config value degrades to the new default rather than the old one.
+
+    **PS-side effect (intentional):** the config is shared, so PS cmdlets read `warn` too. Under the old `error` default, [`CmdletOutputStreamsFactory.WriteWarning`](../../src/PS/Common/CmdletOutputStreamsFactory.cs) silenced warnings before they reached the PS host; under `warn` they flow through `cmdlet.WriteWarning(...)` and the host applies its own `$WarningPreference` (default `Continue` = shown). Info/Verbose/Debug behavior is unchanged. Callers who want the old silence use `-WarningAction Ignore`.
+
+    **Stream routing contract (POSIX/GNU):** Adopted by every peer CLI examined (Azure CLI Python, Az PowerShell, AWS CLI, `git`, `kubectl`, `docker`, `terraform`) and codified in [GNU Coding Standards \u00a74.4](https://www.gnu.org/prep/standards/html_node/Errors.html) (_"All error messages should be directed to stderr rather than stdout."_):
+
+    - **stdout** carries **command results only** (JSON payloads, table rows, resource IDs). `WriteOutput` writes to `Console.Out`.
+    - **stderr** carries **every diagnostic level**: `error`, `warn`, `info`, `verbose`, `debug`. `WriteError` / `WriteWarning` / `WriteInformation` / `WriteVerbose` / `WriteDebug` all write to `Console.Error` (see [`BuildStreams` in `Program.cs`](../../src/CLI/Program.cs)). Prior to PR #575 the last four routed to stdout, polluting `--output json` pipelines \u2014 a bug, not a philosophy.
+
+    **Prefix format:** `LEVEL: message` \u2014 uppercase word, single colon, single space. Applied uniformly across `BuildStreams`, [`ConsoleLoggingService`](../../src/Core/Core.Runtime/ConsoleLoggingService.cs), and [`AgentEventStyle`](../../Agent/Hosting/AgentEventStyle.cs). Matches Azure CLI Python's `WARNING:` output and the Python `logging` default formatter (same peer-symmetry rationale as the default flip); matches the PS host's own default rendering of `cmdlet.WriteWarning("x")`; follows the human-facing CLI convention `program: level: message` rather than the log-aggregator convention `[LEVEL]`. Full word `WARNING`/`VERBOSE`/`DEBUG` (not `WARN`) matches Python level names. Consolidated in the same PR because AzClips is pre-production and no downstream parser has locked in a style yet \u2014 later would be a breaking change.
+
+    **Color gating:** [`ColorPolicy.ShouldEmitColor(bool targetIsRedirected)`](../../src/Core/Core.Runtime/ColorPolicy.cs) provides the ecosystem-standard precedence `NO_COLOR` \u2192 `FORCE_COLOR` \u2192 `TERM=dumb` \u2192 redirection check \u2192 else color, applied at every color site. Because diagnostics went from stdout to stderr, the stderr sites now pass `Console.IsErrorRedirected` (not `Console.IsOutputRedirected`) so ANSI escapes are suppressed when stderr is piped/captured.
+
+    **Extension-load debug tracing:** [`ExtensionLoadTracker`](../../src/CLI/AssemblyLoading/ExtensionLoadTracker.cs) accumulates per-extension load rows during a single invocation and emits an aggregated timing table in `Program.Main`'s `finally` block. All output is at `Debug` level. The tracker is routed through `streams.WriteDebug` (level-gated by `BuildStreams`) rather than through `ILoggingService` \u2014 the `finally` runs after the session's `UseScope` is disposed, so a plain `ILoggingService.Debug(...)` call would fall back to the ungated `ConsoleLoggingService` and leak the table under `warn`/`error`.
 
 ## Future Design Work (Phase 3+)
 

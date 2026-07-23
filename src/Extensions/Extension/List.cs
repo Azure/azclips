@@ -53,6 +53,7 @@ public class ListExtensionsProcessor : IProcessor
                 Pinned = kvp.Value.Pinned,
                 Source = kvp.Value.Source,
                 InstalledAt = kvp.Value.InstalledAt,
+                Location = kvp.Value.Location,
             })
             .ToList();
 
@@ -65,6 +66,7 @@ public class ListExtensionsProcessor : IProcessor
                 Pinned: e.Pinned,
                 Source: e.Source,
                 InstalledAt: e.InstalledAt,
+                Location: e.Location,
                 Namespaces: e.Namespaces));
 
             return PivotByVerb(contributors);
@@ -94,7 +96,8 @@ public class ListExtensionsProcessor : IProcessor
                         x.Contributor.Version,
                         x.Contributor.Pinned,
                         x.Contributor.Source,
-                        x.Contributor.InstalledAt))
+                        x.Contributor.InstalledAt,
+                        x.Contributor.Location))
                     .OrderBy(r => r.PackageId, StringComparer.OrdinalIgnoreCase)
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase);
@@ -121,6 +124,7 @@ public sealed record LiveContributor(
     bool Pinned,
     string? Source,
     DateTimeOffset? InstalledAt,
+    string? Location,
     IReadOnlyList<string> Namespaces);
 
 /// <summary>Output row produced by <see cref="ListExtensionsProcessor.PivotByVerb"/>.</summary>
@@ -129,4 +133,5 @@ public sealed record ContributorRow(
     string? Version,
     bool Pinned,
     string? Source,
-    DateTimeOffset? InstalledAt);
+    DateTimeOffset? InstalledAt,
+    string? Location);

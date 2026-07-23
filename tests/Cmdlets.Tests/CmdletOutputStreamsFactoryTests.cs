@@ -14,9 +14,9 @@ public class CmdletOutputStreamsFactoryTests
     [InlineData("info", 2)]
     [InlineData("debug", 3)]
     [InlineData("DEBUG", 3)]
-    [InlineData(null, 0)]
-    [InlineData("", 0)]
-    [InlineData("invalid", 0)]
+    [InlineData(null, 1)]
+    [InlineData("", 1)]
+    [InlineData("invalid", 1)]
     public void Parse_ShouldReturnExpectedLevel(string? configuredValue, int expected)
     {
         var level = CmdletOutputStreamsFactory.Parse(configuredValue);

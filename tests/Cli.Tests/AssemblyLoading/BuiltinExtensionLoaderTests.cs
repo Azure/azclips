@@ -98,6 +98,178 @@ public class BuiltinExtensionLoaderTests
         }
     }
 
+    [Fact]
+    public void GetInstalledExtensions_ShouldReportAbsoluteDllLocation_ForBundledPackage()
+    {
+        // Location must be the absolute DLL path, not just the package directory or null.
+        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        var packageDir = Path.Combine(root, packageId);
+        var expectedDllPath = Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll");
+        Directory.CreateDirectory(packageDir);
+
+        try
+        {
+            File.WriteAllText(expectedDllPath, string.Empty);
+
+            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+
+            var installed = Assert.Single(loader.GetInstalledExtensions());
+
+            Assert.Equal("Compute", installed.Name);
+            Assert.Equal(expectedDllPath, installed.Location);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // LoadExtension — versioned-load behavior (fix for Azure/CLIPS#522).
+    //
+    // Prior behavior: BuiltinExtensionLoader.LoadExtension short-circuited to null on any non-empty
+    // version, forcing the caller to fall through to MultiVersionExtensionLoader — which only knows
+    // about ~/.azclips/extensions/. That broke local Debug/Release dispatch because discovery
+    // stamps a real version onto Bundled candidates (from the on-disk .nupkg), so dispatch requested
+    // a versioned load the built-in loader had refused to serve.
+    //
+    // Fix: honor a versioned request when the on-disk .nupkg in the package folder reports the
+    // matching version. Empty/mismatched/absent versions still route to the next loader.
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void LoadExtension_ShouldReturnAssembly_WhenVersionMatchesNupkg()
+    {
+        var (root, packageDir) = CreateFakePackage("Foo", "1.2.3", includeNupkg: true, includeRealDll: true);
+        try
+        {
+            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+
+            var assembly = loader.LoadExtension("Foo", "1.2.3");
+
+            Assert.NotNull(assembly);
+        }
+        finally
+        {
+            SafeDelete(root);
+        }
+    }
+
+    [Fact]
+    public void LoadExtension_ShouldReturnNull_WhenVersionDoesNotMatchNupkg()
+    {
+        var (root, packageDir) = CreateFakePackage("Foo", "1.2.3", includeNupkg: true, includeRealDll: true);
+        try
+        {
+            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+
+            var assembly = loader.LoadExtension("Foo", "9.9.9");
+
+            Assert.Null(assembly);
+        }
+        finally
+        {
+            SafeDelete(root);
+        }
+    }
+
+    [Fact]
+    public void LoadExtension_ShouldReturnNull_WhenVersionedButNoNupkg()
+    {
+        // Package folder has a DLL but no .nupkg (the packaged-install shape). A versioned request
+        // cannot confirm identity here, so the loader must defer to the next one in the chain.
+        var (root, packageDir) = CreateFakePackage("Foo", version: null, includeNupkg: false, includeRealDll: true);
+        try
+        {
+            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+
+            var assembly = loader.LoadExtension("Foo", "1.2.3");
+
+            Assert.Null(assembly);
+        }
+        finally
+        {
+            SafeDelete(root);
+        }
+    }
+
+    [Fact]
+    public void LoadExtension_ShouldReturnAssembly_WhenUnversionedRequest()
+    {
+        // Regression guard on the pre-existing unversioned load path.
+        var (root, packageDir) = CreateFakePackage("Foo", version: null, includeNupkg: false, includeRealDll: true);
+        try
+        {
+            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+
+            var assembly = loader.LoadExtension("Foo");
+
+            Assert.NotNull(assembly);
+        }
+        finally
+        {
+            SafeDelete(root);
+        }
+    }
+
+    private static (string Root, string PackageDir) CreateFakePackage(
+        string shortName,
+        string? version,
+        bool includeNupkg,
+        bool includeRealDll)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
+        var packageId = $"Microsoft.Azure.Azclips.Extensions.{shortName}";
+        var packageDir = Path.Combine(root, packageId);
+        Directory.CreateDirectory(packageDir);
+
+        var dllPath = Path.Combine(packageDir, $"{packageId}.dll");
+        if (includeRealDll)
+        {
+            // Copy a real, load-able assembly so ExtensionLoadContext.LoadManagedAssembly succeeds.
+            // The test assembly is the cheapest one that is guaranteed to exist at test time.
+            var sourceAssembly = typeof(BuiltinExtensionLoaderTests).Assembly.Location;
+            File.Copy(sourceAssembly, dllPath, overwrite: true);
+        }
+        else
+        {
+            File.WriteAllText(dllPath, string.Empty);
+        }
+
+        if (includeNupkg && !string.IsNullOrEmpty(version))
+        {
+            File.WriteAllText(
+                Path.Combine(packageDir, $"{packageId}.{version}.nupkg"),
+                string.Empty);
+        }
+
+        return (root, packageDir);
+    }
+
+    private static void SafeDelete(string root)
+    {
+        // Assembly load may hold a lock on the DLL until the ALC is collected. Best-effort delete.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        if (Directory.Exists(root))
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (IOException)
+            {
+                // Non-fatal: temp cleanup will handle it eventually.
+            }
+        }
+    }
+
     private sealed class TestConfigurationService(string installationRoot) : IConfigurationService
     {
         private readonly AssemblyLoadingOptions _options = new()

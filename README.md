@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Build and Test](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml)
-[![Needs review](https://img.shields.io/badge/status-needs%20review-orange.svg)](#)
+[![Published](https://img.shields.io/badge/status-published-green.svg)](#)
 <!-- NEEDS ENG REVIEW: confirm the Build and Test badge/workflow before publishing (private-repo badge only renders for members with access). -->
 
 > [!IMPORTANT]
@@ -111,7 +111,7 @@ Please share early and often.
 - **[Pulse survey](https://forms.cloud.microsoft/r/n0H7LqgM5e)** — short (~5 min) Microsoft Forms survey.
 - **Moderated sessions** — group and 1:1; details will be shared over email.
 
-We review on a regular cadence. For quick collaboration with the Product Group, you will be added to a Microsoft Teams channel. Share your Teams ID if you haven't been added yet.
+We review on a regular cadence. For quick collaboration with the Product Group, you will be added to a Microsoft Teams channel. Share your Teams ID on the invite email if you haven't been added yet.
 
 > Never include secrets, tokens, customer data, tenant IDs, or subscription IDs in issues or discussions.
 

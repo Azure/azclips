@@ -4,7 +4,7 @@
 >
 > **How to use it.** Part I teaches just enough C#/.NET to read Azclips, always by comparison to Python. Part II is a guided tour of the actual architecture (including the newer **TUI**, **AI Agent**, and **Config/Profile** pieces). Part III is the practical loop: setup, build, test, debug, contribute. At the end there's a **40+ term glossary** and a **key-file reference** you'll keep coming back to.
 >
-> **One rule this guide lives by:** every architectural claim points at a real file and line. If you ever doubt a sentence here, open the file. The prose docs in this repo (`README.md`, `AGENTS.md`, `docs/spec/ARCHITECTURE.md`) have drifted from the code — this guide is written against the code as it exists now.
+> **One rule this guide lives by:** every architectural claim points at a real file and line. If you ever doubt a sentence here, open the file. The prose docs in this repo (`README.md`, `AGENTS.md`, `eng-docs/spec/ARCHITECTURE.md`) have drifted from the code — this guide is written against the code as it exists now.
 
 ---
 
@@ -802,7 +802,7 @@ public class ConfigCommandTests
 
 **Agent tests** are worth a peek even if you're not on the agent: `ClosingToolPredicateTests`, `ProposePlanValidationTests`, and the snapshot tests (`EventRendererSnapshotTests`, `SnapshotTesting/`) show how a tool-driven agent is tested deterministically.
 
-**Benchmarks.** `tests/Benchmark` uses BenchmarkDotNet; `--no-cache` (`Program.cs:246`) and in-process hooks let you measure cold vs warm dispatch. See `docs/spec/benchmark-workflows.md`.
+**Benchmarks.** `tests/Benchmark` uses BenchmarkDotNet; `--no-cache` (`Program.cs:246`) and in-process hooks let you measure cold vs warm dispatch. See `eng-docs/spec/benchmark-workflows.md`.
 
 <a name="p3-19"></a>
 
@@ -894,7 +894,7 @@ When a change "doesn't take," check whether you're reading the file you think yo
 - **Don't:** revert the DI-composition-root pattern to manual `new`; bypass `ProcessorContext` to reach services; add a raw config-key string instead of a typed option; trust the stale prose docs over the code.
 - **Do:** cite `file:line` in PR descriptions when explaining behavior; update inline XML doc comments when you change design-bearing code.
 
-CI lives in `.azure-pipelines/` and `.github/`; see `docs/spec/ci.md`.
+CI lives in `.azure-pipelines/` and `.github/`; see `eng-docs/spec/ci.md`.
 
 ### 21.1 Your first PR checklist
 
@@ -1008,7 +1008,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 - `openspec/changes/profile-management/` — proposal/design/tasks/specs for the profile feature.
 - `docs/spec/` — agent-experience, auth-context, extension-framework, telemetry, config-implementation, ci, benchmark-workflows.
 
-> Reminder: `README.md`, `AGENTS.md`, and `docs/spec/ARCHITECTURE.md` contain stale architecture claims (.NET 9, `Bootstrapper`/`OrchestratorEngine`, Azure OpenAI, `.azclips`). When they disagree with the files above, the files win.
+> Reminder: `README.md`, `AGENTS.md`, and `eng-docs/spec/ARCHITECTURE.md` contain stale architecture claims (.NET 9, `Bootstrapper`/`OrchestratorEngine`, Azure OpenAI, `.azclips`). When they disagree with the files above, the files win.
 
 ---
 

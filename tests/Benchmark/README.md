@@ -60,23 +60,24 @@ Configured via BenchmarkDotNet attributes on `CLIBenchmarkBase` / `PSBenchmarkBa
 | Setting | Value | Attribute |
 |---------|-------|-----------|
 | Invocations per iteration | 1 (unroll factor 1) | `[InvocationCount(1, 1)]` |
-| Measurement iterations | 10,000 (fixed) | `[IterationCount(10000)]` |
+| Warmup iterations | 5,000 | `[WarmupCount(5000)]` |
+| Measurement iterations | 5,000 | `[IterationCount(5000)]` |
 | Outlier handling | Remove all | `[Outliers(OutlierMode.RemoveAll)]` |
 | Memory diagnostics | Enabled (allocations tracked) | `[MemoryDiagnoser]` |
 
-Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`), giving cold-start semantics, and a fixed 10,000 measurement iterations are collected per benchmark (`[IterationCount(10000)]`). Per-iteration setup keeps every run isolated:
+Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`); 5,000 warmup and 5,000 measurement iterations are collected per benchmark. The two products are configured to measure the same thing — the warm, in-process per-command pipeline — excluding the cost of standing up their respective execution environments (process launch is excluded by running in-process; extension/module loading is excluded from the measured region on both sides). Per-iteration setup keeps every run isolated:
 
-- `[GlobalSetup]` (once per class): discovers the repo root; for CLI it also stages the required extensions into a benchmark-scoped `artifacts/Benchmark/home/extensions` layout.
-- `[IterationSetup]` (before each run): re-registers stub HTTP/auth/telemetry services, and for CLI re-registers the extension loaders + registry store pointed at the staged home.
-- `[IterationCleanup]` (after each run): disposes the DI container (which clears all registrations).
+- `[GlobalSetup]` (once per class): discovers the repo root; for CLI it also stages the required extensions into a benchmark-scoped `artifacts/Benchmark/home/extensions` layout; for PS it stages the module manifest closure under `artifacts/Benchmark/PS`.
+- `[IterationSetup]` (before each run): re-registers stub HTTP/auth/telemetry services; for CLI it also re-registers the extension loaders + registry store pointed at the staged home; for PS it creates and opens a fresh runspace and imports the module (both excluded from the measurement, so only the cmdlet invocation is measured).
+- `[IterationCleanup]` (after each run): disposes the DI container (which clears all registrations); for PS it also closes and disposes the runspace created in setup.
 - `[GlobalCleanup]` (once per class): removes the staged extensions home (best-effort).
 
 ### Product Implementations
 
 | Product | Implementation | Measures |
 |---------|----------------|----------|
-| CLI | In-process `Core.Cli.Program.Main(args)` | Full CLI command pipeline, cold start per call |
-| PS | Fresh runspace + `Import-Module` per invocation (PowerShell SDK) | Cmdlet execution, cold start per call |
+| CLI | In-process `Core.Cli.Program.Main(args)` | Warm CLI command pipeline (extension loaded once into a process-wide ALC) |
+| PS | Cmdlet invocation on a runspace + module imported in `[IterationSetup]` (PowerShell SDK) | Warm cmdlet execution (runspace creation + module import excluded) |
 
 HTTP is short-circuited by a stub terminate handler (returns `{}` 200 OK), so benchmarks measure the local CLI/PS pipeline only and never call Azure.
 
@@ -96,7 +97,7 @@ tests/Benchmark/
 │   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
 │   └── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG
 └── PS/
-    ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + module-import helper
+    ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + import setup, cmdlet-invoke helper
     └── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG
 ```
 

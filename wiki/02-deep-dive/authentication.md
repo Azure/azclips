@@ -276,7 +276,7 @@ array, keeping the returned record fully decoupled (`AuthResultExtensions.cs:17`
 ## From `AuthContext`/`context.json` to `Profile` on `ProcessorContext`
 
 Historically the signed-in session was represented by an `AuthContext` object persisted to
-`context.json` (still described by the now-stale spec `docs/spec/auth-context.md`). That model was
+`context.json` (still described by the now-stale spec `eng-docs/spec/auth-context.md`). That model was
 **removed**. Per **Decision 5** of the profile-management design, `AuthContext`,
 `IAuthContextService`/`AuthContextService`, and `context.json` were deleted, and the resolved
 **`Profile`** became the single connection-state object flowing through the runtime
@@ -338,4 +338,4 @@ the auth subsystem.
 - `src/Extensions/Login/Processors/LoginProcessor.cs:90` — login → profile save + activate
 - `src/Extensions/Login/Processors/LogoutProcessor.cs:21` — active-profile logout orchestration
 - `openspec/changes/profile-management/design.md:70` — Decisions 5 & 6 (Profile replaces AuthContext; scoped logout)
-- `docs/spec/auth-context.md` — **stale** legacy spec; the `AuthContext`/`context.json` model it describes was removed
+- `eng-docs/spec/auth-context.md` — **stale** legacy spec; the `AuthContext`/`context.json` model it describes was removed
