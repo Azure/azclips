@@ -57,7 +57,7 @@ Consequences today:
 
 - Remove the Core-tier package-id filter from `DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences` so Core/Bundled entries flow through the same projection as Installed.
 - Add a `Location` (absolute DLL path) to each row emitted by `extension list` (and, for symmetry, `extension show`).
-- Best-effort: if a Core-tier entry from `BuiltInExtensions.Map` is not discovered on disk (broken install), still emit a row for it with `Location = null` and `Version = null` so users see it exists. **Open question — see §6.**
+- **List/show only what is actually discovered on disk.** Do **not** synthesize rows from `BuiltInExtensions.Map` for Core-tier verbs that lack a DLL — being in the compile-time map is not evidence the extension is accessible to the running system. The output should reflect what the system can actually load right now.
 
 ### 3.2 Output shape (additive, back-compat)
 
@@ -92,19 +92,11 @@ New row (JSON):
 
 `--by-verb` mode: same additive change — the nested `ContributorRow` records gain `Location`.
 
-## 4. Where the DLL path has to come from
+## 4. Where the DLL path comes from
 
 Assemblies are loaded via `AssemblyLoadContext.LoadFromStream` in both [`BuiltinExtensionLoader.ExtensionLoadContext.LoadManagedAssembly`](src/CLI/AssemblyLoading/ExtensionLoader.cs#L63) and [`MultiVersionExtensionLoader.ExtensionLoadContext.LoadManagedAssembly`](src/CLI/AssemblyLoading/ExtensionLoader.cs#L347) (deliberate — enables shadow-copy). That makes `Assembly.Location` an **empty string** at runtime, so we cannot read it off the loaded assembly.
 
-Options considered:
-
-| Option                                                                                                                                                                    | Pros                                                                                         | Cons                                                                                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A**: Extend `IExtensionLoader.GetInstalledExtensions()` to yield `(Name, Version, Path)` and thread `Path` through `InstalledExtensionRef` → `DiscoveredExtensionInfo`. | Single, honest source of truth. Path is known exactly at the point the loader enumerates it. | Touches `Core.Abstractions.InstalledExtensionRef` (public record) and the `IExtensionLoader` interface — minor API break for any downstream loader impl.                                     |
-| **B**: Have `LoadExtension` return `(Assembly, Path)` and capture during discovery load.                                                                                  | Symmetric with A.                                                                            | Bigger blast radius: every caller of `LoadExtension` changes.                                                                                                                                |
-| **C**: Scrape `ExtensionLoadTracker` records.                                                                                                                             | Zero API change.                                                                             | Side-effect based; tracker is a Debug-only log aggregator, not a queryable store; would require restructuring `ExtensionLoadTracker` and coupling `List.cs` to CLI-internal state. Rejected. |
-
-**Pick: Option A**. It's the smallest surface change with the clearest ownership: the loader is already the authority on where a package lives on disk. Concrete edits below.
+**Approach:** extend `IExtensionLoader.GetInstalledExtensions()` to yield `(Name, Version, Path)` and thread `Path` through `InstalledExtensionRef` → `DiscoveredExtensionInfo`. The loader is already the authority on where a package lives on disk, and it computes the DLL path internally during enumeration. Since the tool is in private preview (§6.5), we widen the tuple directly — no parallel method / back-compat shim needed.
 
 ## 5. Implementation plan (proposed file-by-file)
 
@@ -113,7 +105,7 @@ Options considered:
 ### 5.1 Core abstractions
 
 - [`src/Core/Core.Abstractions/Models/InstalledExtensionRef.cs`](src/Core/Core.Abstractions/Models/InstalledExtensionRef.cs)
-    - Add `string? Location` to the record: `sealed record InstalledExtensionRef(string Name, string Version, string? Location = null)`. Default `null` preserves back-compat with any external impls.
+    - Add `string? Location` to the record: `sealed record InstalledExtensionRef(string Name, string Version, string? Location)`. `null` when the loader cannot report a path.
 - [`src/Core/Core.Abstractions/Models/DiscoveredExtensionInfo.cs`](src/Core/Core.Abstractions/Models/DiscoveredExtensionInfo.cs)
     - Add `string? Location` to the record. Update the XML `<param>` block.
 
@@ -129,11 +121,8 @@ Options considered:
 - [`src/Core/Core.Engine/DiscoverySession.cs`](src/Core/Core.Engine/DiscoverySession.cs)
     - In the "all installed extensions" branch of `RunAsync`, propagate `info.Location` into the emitted `DiscoveredExtensionInfo`.
 - [`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs`](src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs)
-    - **Remove** the `s_builtInPackageIds.Contains(info.PackageId)` skip so Core/Bundled rows flow through. Keep the field but only use it if we decide to tag rows differently (we're not, per §1 decision — safe to delete).
-    - Thread `Location` into whatever we hand to `ListExtensionsProcessor`. Options:
-        - Add `Location` to `ExtensionRegistryEntry` **as a `[JsonIgnore(WhenWriting)]` runtime-only field** (do not persist — path is derived per-invocation and installs can move).
-        - OR bypass the registry entry and thread a parallel `Dictionary<packageId, Location>` down to `List.cs` via a new return type. Simpler but adds surface.
-    - Recommend: runtime-only field on `ExtensionRegistryEntry` with `[JsonIgnore(Condition = JsonIgnoreCondition.Always)]` writer-side; the entry class is already the shared carrier for `Show` + `List`.
+    - **Remove** the `s_builtInPackageIds.Contains(info.PackageId)` skip so Core/Bundled rows flow through. The static field and its imports become dead — delete them.
+    - Add `Location` to `ExtensionRegistryEntry` as a runtime-only property annotated `[JsonIgnore(Condition = JsonIgnoreCondition.Always)]` on the writer side so it never lands in `registry.json` (see §6.2). The entry class is already the shared carrier for `Show` + `List`, so this keeps the projection surface simple.
 
 ### 5.4 List/Show processors
 
@@ -157,21 +146,19 @@ Options considered:
 - Add a loader-level test that `GetInstalledExtensions()` populates `Location` correctly for both bundled and installed roots.
 - Search for and update any snapshot/JSON-shape assertions for `extension list` output (grep pending during impl).
 
-## 6. Open decisions
+## 6. Decisions
 
-1. **Compile-time-only Core rows** — if `Login` is in `BuiltInExtensions.Map` but no `Login.dll` is discovered on disk (broken install), do we synthesize a row with `Location = null`? Currently leaning **yes**, because the user said "every extension the CLI can dispatch" and dispatch does still route to a Core seed even without a DLL (unclear — worth verifying whether dispatch actually works when DLL is missing).
-2. **Persistence** — confirm we do **not** persist `Location` into `registry.json` (paths shift between installs; the file is portable). Plan above assumes runtime-only.
-3. **PowerShell surface parity** — the `Cmdlets` project mirrors CLI verbs. Need to check whether `Get-AzExtension` (or equivalent) also needs the `Location` property added. TBD during impl.
-4. **OpenSpec** — this repo uses OpenSpec for change-tracking (see [openspec/](openspec/)). Should we author a delta spec under `openspec/changes/list-extension-location/` before writing code, or is the impl small enough to skip and just update `docs/spec/extension-framework.md` in the PR? Deferring the call to the requester.
+1. **Compile-time-only Core rows** — `list` and `show` reflect only what the system can actually load from disk. Do not synthesize rows from `BuiltInExtensions.Map`; being in the compile-time command map is not proof the extension exists in the current build. See §3.1.
+2. **Persistence** — `Location` is runtime-only. Never written to `registry.json`; no schema bump.
+3. **PowerShell surface parity** — no cmdlet equivalent exists, so nothing to mirror.
+4. **OpenSpec** — skip. OpenSpec is a spec-driven change workflow (proposal + task list + spec deltas under `openspec/changes/<name>/` written before code, then archived). This repo has the tooling configured ([openspec/config.yaml](openspec/config.yaml) and the `.github/skills/openspec-*` skills) and one prior change (`openspec/changes/profile-management/`), but it is a process convention, not a build gate. For a change this small and additive, a good PR description plus code comments is sufficient.
+5. **Public-facing API impact** — the tool is in private preview and not considered production; breaking changes are acceptable. Still worth enumerating what we touch so nothing is surprising:
+    - **CLI response**: `az extension list` / `... --by-verb` / `az extension show` gain an additive `Location` field.
+    - **Cross-language contracts**: `Core.Abstractions.InstalledExtensionRef` and `Core.Abstractions.DiscoveredExtensionInfo` (both `public sealed record`) gain a positional `Location` parameter. Grep all constructor call sites and update every one.
+    - **Loader interface**: `IExtensionLoader.GetInstalledExtensions()` return tuple widens directly from `(string Name, string Version)` to `(string Name, string Version, string? Location)`.
+    - **Registry schema**: unchanged (§6.2).
 
-## 7. Out of scope
-
-- Changing the physical layout of bundled extensions.
-- Changing what `az extension add` writes to `registry.json` (schema stays v2).
-- Adding a filter flag like `--source bundled|installed` — worth a follow-up but not required by the issue.
-- Renaming the `BuiltIn*` types to `Bundled*` (pre-existing tech debt called out in `BuiltInExtensions.cs`; separate PR per its own comments).
-
-## 8. Validation checklist (to run before opening PR)
+## 7. Validation checklist (to run before opening PR)
 
 - [ ] `dotnet build azclips.slnx`
 - [ ] `dotnet test tests/Cli.Tests/Cli.Tests.csproj`
