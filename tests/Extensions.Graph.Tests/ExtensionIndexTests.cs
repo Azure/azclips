@@ -65,8 +65,6 @@ public class ExtensionIndexTests
     [Fact]
     public void CliTable_ListParameters_ShouldMatchAzAdUserList()
     {
-        // Locked to exactly the three params `az ad user list` ships. Guards against
-        // silently widening the CLI surface.
         var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
 
         Assert.Equal(3, metadata.Parameters.Count);
@@ -111,7 +109,7 @@ public class ExtensionIndexTests
     [InlineData("Get-AzMsGraphUser_SignedIn")]
     public void PsTable_EverySet_ShouldExposeAllProjectionParams(string psKey)
     {
-        // Select/Expand/AppendSelected are Get-AzADUser's (All) params — must appear on every set.
+        // Select/Expand/AppendSelected are the (All) projection params — must appear on every set.
         var metadata = s_index.GetCommandMetadata(psKey, ClientType.PowerShell);
 
         Assert.True(metadata.Parameters.ContainsKey("Select"), $"'{psKey}' missing Select");
@@ -127,7 +125,7 @@ public class ExtensionIndexTests
     [Fact]
     public void PsTable_ListSet_ShouldExposeAdvancedODataParams()
     {
-        // Orderby/Search/ConsistencyLevel are List-only per Get-AzADUser.
+        // Orderby/Search/ConsistencyLevel are List-only.
         var metadata = s_index.GetCommandMetadata("Get-AzMsGraphUser_List", ClientType.PowerShell);
 
         Assert.True(metadata.Parameters.ContainsKey("Orderby"));
@@ -142,5 +140,132 @@ public class ExtensionIndexTests
     public void GetCommandMetadata_UnknownCommand_ShouldThrow()
     {
         Assert.Throws<KeyNotFoundException>(() => s_index.GetCommandMetadata("msgraph not-a-real-command", ClientType.CLI));
+    }
+
+    // ── Group commands ──────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("msgraph group show", typeof(GetGroupProcessor))]
+    [InlineData("msgraph group list", typeof(ListGroupProcessor))]
+    [InlineData("msgraph group member list", typeof(ListGroupMemberProcessor))]
+    [InlineData("msgraph group member check", typeof(CheckGroupMemberProcessor))]
+    public void CliTable_ShouldExposeMsGraphGroupCommands(string key, Type expectedProcessor)
+    {
+        var table = s_index.GetCommandTable(ClientType.CLI);
+
+        Assert.True(table.ContainsKey(key), $"missing CLI dispatch key '{key}'");
+        Assert.Equal(expectedProcessor, table[key].ProcessorType);
+    }
+
+    [Theory]
+    [InlineData("Get-AzMsGraphGroup_Get", typeof(GetGroupProcessor))]
+    [InlineData("Get-AzMsGraphGroup_List", typeof(ListGroupProcessor))]
+    [InlineData("Get-AzMsGraphGroup_DisplayName", typeof(ListGroupProcessor))]
+    [InlineData("Get-AzMsGraphGroup_DisplayNameStartsWith", typeof(ListGroupProcessor))]
+    [InlineData("Get-AzMsGraphGroupMember_ObjectId", typeof(ListGroupMemberProcessor))]
+    [InlineData("Get-AzMsGraphGroupMember_DisplayName", typeof(ListGroupMemberProcessor))]
+    [InlineData("Test-AzMsGraphGroupMembership", typeof(CheckGroupMemberProcessor))]
+    public void PsTable_ShouldRouteGroupCommands(string key, Type expectedProcessor)
+    {
+        var table = s_index.GetCommandTable(ClientType.PowerShell);
+
+        Assert.True(table.ContainsKey(key), $"missing PS dispatch key '{key}'");
+        Assert.Equal(expectedProcessor, table[key].ProcessorType);
+    }
+
+    [Fact]
+    public void CliTable_GroupShowGroupParameter_ShouldBeRequiredWithGShortAlias()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph group show", ClientType.CLI);
+
+        Assert.True(metadata.Parameters.ContainsKey("group"));
+        ParameterMetadata group = metadata.Parameters["group"];
+        Assert.Equal("Group", group.Name);
+        Assert.True(group.IsRequired);
+        Assert.Equal(typeof(string), group.ParameterType);
+        Assert.Contains("g", group.Aliases);
+    }
+
+    [Fact]
+    public void CliTable_GroupListParameters_ShouldMatchAzAdGroupList()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph group list", ClientType.CLI);
+
+        Assert.Equal(2, metadata.Parameters.Count);
+        foreach (var expected in new[] { "display-name", "filter" })
+        {
+            Assert.True(metadata.Parameters.ContainsKey(expected), $"missing '{expected}' parameter");
+            Assert.False(metadata.Parameters[expected].IsRequired, $"'{expected}' should be optional");
+            Assert.Equal(typeof(string), metadata.Parameters[expected].ParameterType);
+        }
+    }
+
+    [Fact]
+    public void CliTable_GroupListDisplayName_ShouldMapToPrefixSemantics()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph group list", ClientType.CLI);
+
+        Assert.Equal("DisplayNamePrefix", metadata.Parameters["display-name"].Name);
+    }
+
+    [Fact]
+    public void CliTable_GroupMemberList_ShouldExposeGroupParamWithGAlias()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph group member list", ClientType.CLI);
+
+        Assert.True(metadata.Parameters.ContainsKey("group"));
+        ParameterMetadata group = metadata.Parameters["group"];
+        Assert.Equal("Group", group.Name);
+        Assert.True(group.IsRequired);
+        Assert.Contains("g", group.Aliases);
+    }
+
+    [Fact]
+    public void CliTable_GroupMemberCheck_ShouldRequireBothIdsWithGAlias()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph group member check", ClientType.CLI);
+
+        Assert.Equal(2, metadata.Parameters.Count);
+        Assert.True(metadata.Parameters["group"].IsRequired);
+        Assert.Contains("g", metadata.Parameters["group"].Aliases);
+        Assert.True(metadata.Parameters["member-id"].IsRequired);
+    }
+
+    [Theory]
+    [InlineData("Get-AzMsGraphGroup_Get", "ObjectId")]
+    [InlineData("Get-AzMsGraphGroup_DisplayName", "DisplayName")]
+    [InlineData("Get-AzMsGraphGroup_DisplayNameStartsWith", "DisplayNameStartsWith")]
+    public void PsTable_GroupConvenienceSets_ShouldRequireTheirDiscriminator(string psKey, string requiredParameter)
+    {
+        var metadata = s_index.GetCommandMetadata(psKey, ClientType.PowerShell);
+
+        Assert.True(metadata.Parameters.ContainsKey(requiredParameter), $"'{psKey}' missing '{requiredParameter}'");
+        Assert.True(metadata.Parameters[requiredParameter].IsRequired, $"'{psKey}': '{requiredParameter}' should be required");
+    }
+
+    [Fact]
+    public void PsTable_GetAzMsGraphGroup_ObjectId_HasIdAlias()
+    {
+        var metadata = s_index.GetCommandMetadata("Get-AzMsGraphGroup_Get", ClientType.PowerShell);
+
+        Assert.Contains("Id", metadata.Parameters["ObjectId"].Aliases);
+    }
+
+    [Fact]
+    public void PsTable_GetAzMsGraphGroup_StartsWith_HasSearchStringAlias()
+    {
+        var metadata = s_index.GetCommandMetadata("Get-AzMsGraphGroup_DisplayNameStartsWith", ClientType.PowerShell);
+
+        Assert.Contains("SearchString", metadata.Parameters["DisplayNameStartsWith"].Aliases);
+    }
+
+    [Fact]
+    public void PsTable_GetAzMsGraphGroupMember_ObjectId_HasIdAndObjectIdAliases()
+    {
+        var metadata = s_index.GetCommandMetadata("Get-AzMsGraphGroupMember_ObjectId", ClientType.PowerShell);
+
+        var aliases = metadata.Parameters["GroupObjectId"].Aliases;
+        Assert.Contains("Id", aliases);
+        Assert.Contains("ObjectId", aliases);
     }
 }
