@@ -40,7 +40,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
 
         foreach (var loader in _extensionLoaders)
         {
-            foreach (var (name, version) in loader.GetInstalledExtensions())
+            foreach (var (name, version, location) in loader.GetInstalledExtensions())
             {
                 var effectiveVersion = version;
                 if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion))
@@ -48,7 +48,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
                     effectiveVersion = pinnedVersion;
                 }
 
-                result.Add(new InstalledExtensionRef(name, effectiveVersion));
+                result.Add(new InstalledExtensionRef(name, effectiveVersion, location));
             }
         }
 

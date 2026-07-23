@@ -68,7 +68,8 @@ public sealed class CliExtensionServiceRegistrationTests
             {
                 ["vm create"] = metadata,
                 ["vm delete"] = metadata with { Name = "delete", InvocationName = "vm delete", FullName = "vm delete" },
-            });
+            },
+            Location: null);
 
         var projection = CliExtensionServiceRegistration.BuildContributionProjection(info);
 
@@ -85,7 +86,8 @@ public sealed class CliExtensionServiceRegistrationTests
             PackageId: "Contoso.Foo",
             ResolvedVersion: "1.0.0",
             Verbs: ["foo"],
-            Commands: new Dictionary<string, CommandMetadata>());
+            Commands: new Dictionary<string, CommandMetadata>(),
+            Location: null);
 
         var projection = CliExtensionServiceRegistration.BuildContributionProjection(info);
 
@@ -117,7 +119,8 @@ public sealed class CliExtensionServiceRegistrationTests
                 Commands: new Dictionary<string, CommandMetadata>
                 {
                     ["vm create"] = metadata,
-                }),
+                },
+                Location: null),
             new DiscoveredExtensionInfo(
                 PackageId: "Contoso.Azure.Azclips.Extensions.ComputeFork",
                 ResolvedVersion: "1.0.0",
@@ -129,7 +132,8 @@ public sealed class CliExtensionServiceRegistrationTests
                         AssemblyName = "Contoso.Azure.Azclips.Extensions.ComputeFork",
                         FullName = "Contoso vm create",
                     },
-                }),
+                },
+                Location: null),
         };
 
         var registry = new ExtensionRegistry();

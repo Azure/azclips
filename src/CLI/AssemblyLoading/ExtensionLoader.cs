@@ -17,12 +17,14 @@ public interface IExtensionLoader
     Assembly? LoadExtension(string extensionName, string? version = null);
 
     /// <summary>
-    /// Enumerates all extensions this loader knows about on disk. Returns (folderName, version)
-    /// pairs where <c>folderName</c> can be passed verbatim back to
-    /// <see cref="LoadExtension"/>. Default returns empty — loaders that cannot enumerate
-    /// (e.g. built-in loaders without a static manifest) simply do not contribute.
+    /// Enumerates all extensions this loader knows about on disk. Returns
+    /// <c>(folderName, version, location)</c> triples where <c>folderName</c> can be passed
+    /// verbatim back to <see cref="LoadExtension"/> and <c>location</c> is the absolute path
+    /// to the primary DLL that would be loaded (or <c>null</c> if this loader cannot report
+    /// one). Default returns empty — loaders that cannot enumerate (e.g. built-in loaders
+    /// without a static manifest) simply do not contribute.
     /// </summary>
-    IEnumerable<(string Name, string Version)> GetInstalledExtensions() => [];
+    IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions() => [];
 }
 
 /// <summary>
@@ -222,7 +224,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
     }
 
     /// <inheritdoc/>
-    public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
+    public IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions()
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -252,11 +254,11 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                     continue;
                 }
 
-                var hasAssembly = GetCandidateAssemblyNames(shortName)
+                var assemblyPath = GetCandidateAssemblyNames(shortName)
                     .Select(assemblyName => Path.Combine(packageDir, $"{assemblyName}.dll"))
-                    .Any(File.Exists);
+                    .FirstOrDefault(File.Exists);
 
-                if (!hasAssembly)
+                if (assemblyPath is null)
                 {
                     continue;
                 }
@@ -264,7 +266,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                 var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId, _loggingService);
 
                 seen.Add(shortName);
-                yield return (shortName, discoveredVersion);
+                yield return (shortName, discoveredVersion, assemblyPath);
             }
         }
     }
@@ -510,7 +512,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
     }
 
     /// <inheritdoc/>
-    public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
+    public IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions()
     {
         if (!Directory.Exists(_options.VersionedInstallationDir))
         {
@@ -518,7 +520,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
         }
 
         var packageDirs = Directory.GetDirectories(_options.VersionedInstallationDir);
-        
+
         foreach (var packageDir in packageDirs)
         {
             var fullPackageName = Path.GetFileName(packageDir);
@@ -542,10 +544,17 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
                 .Select(item => item.versionName)
                 .FirstOrDefault();
 
-            if (!string.IsNullOrWhiteSpace(latestVersion))
+            if (string.IsNullOrWhiteSpace(latestVersion))
             {
-                yield return (shortName, latestVersion);
+                continue;
             }
+
+            var latestVersionDir = Path.Combine(packageDir, latestVersion);
+            var assemblyPath = GetCandidateAssemblyNames(shortName)
+                .Select(assemblyName => Path.Combine(latestVersionDir, $"{assemblyName}.dll"))
+                .FirstOrDefault(File.Exists);
+
+            yield return (shortName, latestVersion, assemblyPath);
         }
     }
 }

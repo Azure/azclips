@@ -98,6 +98,38 @@ public class BuiltinExtensionLoaderTests
         }
     }
 
+    [Fact]
+    public void GetInstalledExtensions_ShouldReportAbsoluteDllLocation_ForBundledPackage()
+    {
+        // CLIPS#478: `az extension list` surfaces the on-disk `Location` of each discovered
+        // extension. Verify the built-in loader emits the actual DLL path (not just the
+        // package directory or a null placeholder).
+        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        var packageDir = Path.Combine(root, packageId);
+        var expectedDllPath = Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll");
+        Directory.CreateDirectory(packageDir);
+
+        try
+        {
+            File.WriteAllText(expectedDllPath, string.Empty);
+
+            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+
+            var installed = Assert.Single(loader.GetInstalledExtensions());
+
+            Assert.Equal("Compute", installed.Name);
+            Assert.Equal(expectedDllPath, installed.Location);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // LoadExtension — versioned-load behavior (fix for Azure/CLIPS#522).
     //

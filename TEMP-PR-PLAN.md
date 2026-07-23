@@ -157,6 +157,13 @@ Assemblies are loaded via `AssemblyLoadContext.LoadFromStream` in both [`Builtin
     - **Cross-language contracts**: `Core.Abstractions.InstalledExtensionRef` and `Core.Abstractions.DiscoveredExtensionInfo` (both `public sealed record`) gain a positional `Location` parameter. Grep all constructor call sites and update every one.
     - **Loader interface**: `IExtensionLoader.GetInstalledExtensions()` return tuple widens directly from `(string Name, string Version)` to `(string Name, string Version, string? Location)`.
     - **Registry schema**: unchanged (§6.2).
+    - **Changelog / release-note entry**: this IS a customer-facing CLI behavior change, so it must land under the release-note process documented in [CONTRIBUTING.md#release-note-guidance](CONTRIBUTING.md) and the [.github/pull_request_template.md](.github/pull_request_template.md). Release notes are auto-generated from PR metadata during weekly private-preview release prep — **do not hand-edit the top-level [CHANGELOG.md](CHANGELOG.md)**. Requirements:
+        - **Component tag: `[Extension]`.** [CHANGELOG.md](CHANGELOG.md) groups notes by feature-area (Resources, Compute, Login, …), not by surface. `[CLI]` is reserved for CLI-framework-wide changes (e.g. the parameter-name reporting fix in v0.0.6). `az extension` is owned by the `Microsoft.Azure.Azclips.Extensions.Extension` package (see [extension-hints.json](src/CLI/obj/Debug/extension-hints.json) and [BuiltInExtensions.Map](src/Core/Core.Extensions/BuiltInExtensions.cs)), so `[Extension]` matches the pattern and will land under a `#### Extension` section.
+        - Suggested title: ``[Extension] `az extension list`: Include bundled extensions and expose on-disk `Location` field``
+        - Curly braces `{...}` are reserved for internal/docs-only changes and would hide the note from release notes — do not use here.
+        - If a second entry is warranted (e.g. one for `list` and one for `show`), add them under the `History Notes` section of the PR description, one per line, same `[Component] message` format.
+        - No `BREAKING CHANGE:` prefix needed — the record/interface signature changes are internal cross-project contracts, and the CLI JSON change is purely additive.
+        - The per-module `src/PS/<Module>/ChangeLog.md` files are PowerShell-module-scoped and do not apply to this CLI-only change (see §6.3).
 
 ## 7. Validation checklist (to run before opening PR)
 

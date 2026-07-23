@@ -14,7 +14,7 @@ namespace Cli.Tests;
 public class ExtensionListByVerbTests
 {
     private static LiveContributor C(string packageId, params string[] namespaces) =>
-        new(packageId, Version: "1.0.0", Pinned: false, Source: null, InstalledAt: DateTimeOffset.UtcNow, Namespaces: namespaces);
+        new(packageId, Version: "1.0.0", Pinned: false, Source: null, InstalledAt: DateTimeOffset.UtcNow, Location: null, Namespaces: namespaces);
 
     [Fact]
     public void PivotByVerb_ShouldGroupSingleNamespaceContributor()
@@ -78,5 +78,48 @@ public class ExtensionListByVerbTests
         var result = ListExtensionsProcessor.PivotByVerb(new[] { C("Orphan.Pkg" /* no namespaces */) });
 
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public void PivotByVerb_ShouldPropagateLocation_FromContributorToRow()
+    {
+        // CLIPS#478: `Location` (absolute DLL path) surfaces on each contributor row so users can
+        // see exactly which on-disk file backs a listed extension, including bundled packages
+        // that previously would not appear at all.
+        const string bundledLocation = @"C:\Program Files\azclips\Extensions\Microsoft.Azure.Azclips.Extensions.Login\Microsoft.Azure.Azclips.Extensions.Login.dll";
+        const string installedLocation = @"C:\Users\example\.azclips\extensions\Microsoft.Azure.Azclips.Extensions.Compute\1.2.3\Microsoft.Azure.Azclips.Extensions.Compute.dll";
+
+        var bundled = new LiveContributor(
+            PackageId: "Microsoft.Azure.Azclips.Extensions.Login",
+            Version: "0.1.0",
+            Pinned: false,
+            Source: null,
+            InstalledAt: DateTimeOffset.UtcNow,
+            Location: bundledLocation,
+            Namespaces: new[] { "login" });
+
+        var installed = new LiveContributor(
+            PackageId: "Microsoft.Azure.Azclips.Extensions.Compute",
+            Version: "1.2.3",
+            Pinned: false,
+            Source: null,
+            InstalledAt: DateTimeOffset.UtcNow,
+            Location: installedLocation,
+            Namespaces: new[] { "vm" });
+
+        var result = ListExtensionsProcessor.PivotByVerb(new[] { bundled, installed });
+
+        Assert.Equal(bundledLocation, result["login"].Single().Location);
+        Assert.Equal(installedLocation, result["vm"].Single().Location);
+    }
+
+    [Fact]
+    public void PivotByVerb_ShouldPreserveNullLocation_WhenLoaderCannotReportPath()
+    {
+        // Discovery paths that bypass on-disk enumeration (e.g. named-extension lookups) leave
+        // Location null. The projection must not synthesize a path or crash.
+        var result = ListExtensionsProcessor.PivotByVerb(new[] { C("Some.Pkg", "verb") });
+
+        Assert.Null(result["verb"].Single().Location);
     }
 }

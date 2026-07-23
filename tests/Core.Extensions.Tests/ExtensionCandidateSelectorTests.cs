@@ -392,6 +392,6 @@ public sealed class ExtensionCandidateSelectorTests
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        return new DiscoveredExtensionInfo(packageId, version, verbs, commands);
+        return new DiscoveredExtensionInfo(packageId, version, verbs, commands, Location: null);
     }
 }

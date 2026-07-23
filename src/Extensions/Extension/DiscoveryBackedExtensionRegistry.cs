@@ -7,10 +7,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 internal static class DiscoveryBackedExtensionRegistry
 {
-    private static readonly HashSet<string> s_builtInPackageIds = BuiltInExtensions.Map.Values
-        .Select(static value => value.PackageId)
-        .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
     public static ExtensionRegistry BuildDiscoveredWithPreferences(ExtensionRegistry fileRegistry)
     {
         ArgumentNullException.ThrowIfNull(fileRegistry);
@@ -40,11 +36,10 @@ internal static class DiscoveryBackedExtensionRegistry
             ExtensionCandidateSelector.ReportUnresolvablePin(group.Key, selection, fileEntry, loggingService);
             var info = selection.Selected;
 
-            if (s_builtInPackageIds.Contains(info.PackageId))
-            {
-                continue;
-            }
-
+            // CLIPS#478: Core-tier packages are no longer filtered out. `az extension list`
+            // now reflects everything discovery can actually load off disk (Core, Bundled, and
+            // Installed alike) instead of hiding the compile-time-seeded verbs. `Location`
+            // (populated below) is the user-visible hint about which tier each row came from.
             var entry = new ExtensionRegistryEntry
             {
                 Verb = info.Verbs.FirstOrDefault(),
@@ -52,6 +47,7 @@ internal static class DiscoveryBackedExtensionRegistry
                 Pinned = false,
                 Source = null,
                 InstalledAt = DateTimeOffset.UtcNow,
+                Location = info.Location,
             };
 
             foreach (var ns in info.Verbs.Distinct(StringComparer.OrdinalIgnoreCase))

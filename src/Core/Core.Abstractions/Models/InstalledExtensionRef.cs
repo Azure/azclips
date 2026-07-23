@@ -20,5 +20,12 @@ namespace Core.Abstractions
     /// (for example, <c>Compute</c>).
     /// </param>
     /// <param name="Version">The version directory name (e.g. <c>1.1.0</c>).</param>
-    public sealed record InstalledExtensionRef(string Name, string Version);
+    /// <param name="Location">
+    /// Absolute filesystem path to the extension's primary DLL as reported by the loader that
+    /// enumerated it. Surfaced by <c>az extension list</c>/<c>show</c> so users can see exactly
+    /// which on-disk file backs a listed extension. May be <c>null</c> when the loader cannot
+    /// report a path (e.g. in-memory / synthetic providers used by tests). Runtime-only —
+    /// never persisted to <c>registry.json</c>.
+    /// </param>
+    public sealed record InstalledExtensionRef(string Name, string Version, string? Location);
 }
