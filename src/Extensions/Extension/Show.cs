@@ -86,6 +86,7 @@ public class ShowExtensionProcessor : IProcessor
             Pinned = entry.Pinned,
             Source = entry.Source,
             InstalledAt = entry.InstalledAt,
+            Location = entry.Location,
         };
     }
 
