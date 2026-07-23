@@ -4,15 +4,13 @@
 namespace Microsoft.Azure.Azclips.Extensions.Graph;
 
 /// <summary>
-/// Shared helpers for Microsoft Graph <c>/users</c> cmdlets. Mirrors Az.Resources
-/// <c>Get-AzADUser</c> so callers get identical output.
+/// Shared helpers for Microsoft Graph <c>/users</c> cmdlets.
 /// </summary>
 public static class GraphUserDefaults
 {
     /// <summary>
-    /// Default Microsoft Graph user property set injected by <c>-AppendSelected</c>. Copied
-    /// verbatim from Az.Resources <c>Get-AzADUser -AppendSelected</c>, in the camelCase form
-    /// Microsoft Graph accepts in <c>$select</c>.
+    /// Default Microsoft Graph user property set injected by <c>-AppendSelected</c>, in the
+    /// camelCase form Microsoft Graph accepts in <c>$select</c>.
     /// </summary>
     public static readonly string[] DefaultSelectProperties =
     [
@@ -30,47 +28,8 @@ public static class GraphUserDefaults
 
     /// <summary>
     /// Builds the value for the OData <c>$select</c> query parameter from a caller-supplied
-    /// property list and the <c>-AppendSelected</c> switch. Returns <c>null</c> when nothing
-    /// should be emitted. When <paramref name="appendSelected"/> is true the defaults are
-    /// prepended; duplicates are removed case-insensitively; the first spelling wins.
+    /// property list and the <c>-AppendSelected</c> switch.
     /// </summary>
-    public static string? BuildSelectClause(IReadOnlyList<string>? select, bool appendSelected)
-    {
-        var hasSelect = select is { Count: > 0 };
-        if (!hasSelect && !appendSelected)
-        {
-            return null;
-        }
-
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var ordered = new List<string>();
-
-        void Add(string candidate)
-        {
-            if (string.IsNullOrWhiteSpace(candidate)) return;
-            var trimmed = candidate.Trim();
-            if (seen.Add(trimmed))
-            {
-                ordered.Add(trimmed);
-            }
-        }
-
-        if (appendSelected)
-        {
-            foreach (var def in DefaultSelectProperties)
-            {
-                Add(def);
-            }
-        }
-
-        if (hasSelect)
-        {
-            foreach (var extra in select!)
-            {
-                Add(extra);
-            }
-        }
-
-        return ordered.Count == 0 ? null : string.Join(',', ordered);
-    }
+    public static string? BuildSelectClause(IReadOnlyList<string>? select, bool appendSelected) =>
+        GraphSelectClause.Build(DefaultSelectProperties, select, appendSelected);
 }
