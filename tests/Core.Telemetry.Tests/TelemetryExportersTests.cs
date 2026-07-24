@@ -20,4 +20,13 @@ public class TelemetryExportersTests
         using var provider = builder.Build();
         Assert.NotNull(provider);
     }
+
+    [Fact]
+    public void AddTraceExporter_UnknownTarget_Throws()
+    {
+        var builder = Sdk.CreateTracerProviderBuilder();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            TelemetryExporters.AddTraceExporter(builder, (TelemetryTarget)999));
+    }
 }

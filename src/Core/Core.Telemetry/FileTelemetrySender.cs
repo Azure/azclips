@@ -12,7 +12,8 @@ namespace Core.Telemetry;
 
 /// <summary>
 /// Telemetry sender for CLI: buffers traces to local files via FileExporter,
-/// then replays them to Azure Monitor in a background process.
+/// then replays them to the resolved telemetry target (local OTLP or Azure Monitor)
+/// in a background process.
 /// Also used by CLI's --upload-telemetry spawned process.
 /// </summary>
 public class FileTelemetrySender : ITelemetrySender
@@ -37,7 +38,8 @@ public class FileTelemetrySender : ITelemetrySender
     Task ITelemetrySender.SendPendingAsync() => SendPendingStatic();
 
     /// <summary>
-    /// Sends all pending trace files to Azure Monitor, then deletes them.
+    /// Sends all pending trace files to the resolved telemetry target
+    /// (local OTLP or Azure Monitor), then deletes them.
     /// Static entry point for CLI's --upload-telemetry spawned process.
     /// </summary>
     public static Task SendPendingStatic()
