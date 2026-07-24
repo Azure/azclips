@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Retrieve a single application registration from Microsoft Graph by its object ID via `GET /applications/{id}`.
+Description: Retrieve a single application registration from Microsoft Graph by its object ID.
 
 ### Show an application by object ID
 

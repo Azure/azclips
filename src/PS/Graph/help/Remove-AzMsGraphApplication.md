@@ -25,7 +25,7 @@ Remove-AzMsGraphApplication -Id <string> [<CommonParameters>]
 
 ## DESCRIPTION
 
-Deletes an application registration from Microsoft Graph via `DELETE /applications/{id}` using the active Azure profile (see `Connect-AzAccount`). The identifier is the application's object ID. Graph performs a soft delete; the application is recoverable for 30 days.
+Deletes an application registration from Microsoft Graph using the active Azure profile (see `Connect-AzAccount`). The identifier is the application's object ID. Graph performs a soft delete; the application is recoverable for 30 days.
 
 ## EXAMPLES
 

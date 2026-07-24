@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Register a new application via the Microsoft Graph `POST /applications` endpoint. Only `--display-name` is required; the created application, including its object ID and app ID, is returned.
+Description: Register a new Microsoft Entra application. Only `--display-name` is required; the created application, including its object ID and app ID, is returned.
 
 ### Create an application registration
 

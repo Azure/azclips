@@ -42,9 +42,9 @@ Get-AzMsGraphApplication -Id <string> [<CommonParameters>]
 
 Queries Microsoft Graph for application registrations using the active Azure profile (see `Connect-AzAccount`). The available parameter sets are:
 
-- **List (Default)**: `GET /applications` — returns the first page of applications. Combine with `-Filter`, `-Orderby`, `-Search`, and `-ConsistencyLevel` for raw OData queries. Pagination via `@odata.nextLink` is not followed in this preview.
+- **List (Default)**: returns the first page of applications. Combine with `-Filter`, `-Orderby`, `-Search`, and `-ConsistencyLevel` for raw OData queries. Pagination is not followed in this preview.
 - **DisplayName**: shortcut that translates to the OData filter `displayName eq '<value>'`.
-- **Get**: `GET /applications/{id}` — retrieves a single application by object ID.
+- **Get**: retrieves a single application by object ID.
 
 `-Select` controls OData projection and is available in the list-based parameter sets.
 

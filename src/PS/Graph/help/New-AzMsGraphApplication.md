@@ -25,7 +25,7 @@ New-AzMsGraphApplication -DisplayName <string> [-SignInAudience <string>] [<Comm
 
 ## DESCRIPTION
 
-Creates a new application registration via the Microsoft Graph `POST /applications` endpoint using the active Azure profile (see `Connect-AzAccount`). Only a display name is required; the created application, including its generated object ID and app ID, is returned.
+Creates a new application registration in Microsoft Graph using the active Azure profile (see `Connect-AzAccount`). Only a display name is required; the created application, including its generated object ID and app ID, is returned.
 
 ## EXAMPLES
 

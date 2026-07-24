@@ -30,3 +30,21 @@ az msgraph user show --id 00000000-0000-0000-0000-000000000000
 ```bash
 az msgraph app create --display-name my-app
 ```
+
+### List application registrations
+
+```bash
+az msgraph app list
+```
+
+### Show an application registration by object ID
+
+```bash
+az msgraph app show --id 00000000-0000-0000-0000-000000000000
+```
+
+### Delete an application registration
+
+```bash
+az msgraph app delete --id 00000000-0000-0000-0000-000000000000
+```
