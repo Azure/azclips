@@ -21,12 +21,16 @@ internal static class TelemetryExporters
         {
             builder.AddOtlpExporter(options => options.Endpoint = new Uri(WellKnownEndpoints.LocalOtlp));
         }
-        else
+        else if (target == TelemetryTarget.Remote)
         {
             builder.AddAzureMonitorTraceExporter(options =>
             {
                 options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
             });
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(target), target, null);
         }
     }
 }
