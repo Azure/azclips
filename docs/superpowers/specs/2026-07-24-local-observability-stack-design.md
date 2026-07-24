@@ -147,7 +147,7 @@ Home: `tools/observability/` — a `docker-compose.yml` plus a short `README.md`
 # tools/observability/docker-compose.yml
 services:
   jaeger:
-    image: jaegertracing/all-in-one:1.62.0   # pinned; exact tag confirmed during implementation
+    image: jaegertracing/all-in-one:1.76.0   # pinned; latest multi-arch stable (verified on Docker Hub)
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
