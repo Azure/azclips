@@ -41,6 +41,8 @@ internal sealed class FakeAuthHandler : IAuthHandler
 
     public bool ApplyOverride { get; set; }
 
+    public IRequestAuthProvider? RequestAuthProvider { get; set; }
+
     public SendAsyncStep SendAsync => (request, callback, next) => next.SendAsync(request, callback);
 }
 

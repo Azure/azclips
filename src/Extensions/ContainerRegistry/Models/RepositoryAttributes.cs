@@ -3,6 +3,7 @@
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
 
+/// <summary>Repository properties — maps to RepositoryAttributes in swagger.</summary>
 public class RepositoryAttributes
 {
     public string? Registry { get; set; }
@@ -14,6 +15,7 @@ public class RepositoryAttributes
     public ChangeableAttributes? ChangeableAttributes { get; set; }
 }
 
+/// <summary>Paginated repositories list response.</summary>
 public class RepositoryList
 {
     public string[]? Repositories { get; set; }

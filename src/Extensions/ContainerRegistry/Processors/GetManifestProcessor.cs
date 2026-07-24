@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
@@ -19,9 +20,14 @@ public class GetManifestProcessor : AcrProcessorBase<ManifestAttributes>
     [ArgumentInfo(Required = true, Description = "The manifest reference (tag or digest).", SerializedName = "Reference")]
     public string Reference { get; set; } = "";
 
-    protected override Task<(HttpMethod Method, string Path, string Scope, HttpContent? Body)> CreateAcrRequest()
+    protected override string GetScope() => $"repository:{RepositoryName}:metadata_read";
+
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        return Task.FromResult<(HttpMethod, string, string, HttpContent?)>(
-            (HttpMethod.Get, $"/acr/v1/{RepositoryName}/_manifests/{Reference}", $"repository:{RepositoryName}:metadata_read", null));
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        string loginServer = GetLoginServer();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://{loginServer}/acr/v1/{RepositoryName}/_manifests/{Reference}");
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+        return request;
     }
 }

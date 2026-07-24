@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
@@ -20,25 +20,31 @@ public class RemoveRepositoryProcessor : AcrProcessorBase
     [ArgumentInfo(Required = true, Description = "The name of the repository to delete.", SerializedName = "Repository")]
     public string Repository { get; set; } = "";
 
+    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
+    protected override string GetScope() => $"repository:{Repository}:delete,metadata_read";
+
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
+    {
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        string loginServer = GetLoginServer();
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://{loginServer}/acr/v1/{Repository}");
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+        return request;
+    }
+
     public override async Task ProcessAsync()
     {
-        EnsureRuntimeContext();
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            string loginServer = ResolveLoginServer(RegistryName);
-            string scope = $"repository:{Repository}:delete,metadata_read";
+            using HttpResponseMessage response = await SendAsync();
 
-            using var response = await SendAcrRequestAsync(
-                HttpMethod.Delete, loginServer, $"/acr/v1/{Repository}", scope);
-
-            // DELETE returns the list of deleted manifests/tags
             if (response.Content is not null)
             {
                 string body = await response.Content.ReadAsStringAsync();
                 if (!string.IsNullOrWhiteSpace(body))
                 {
-                    var result = System.Text.Json.JsonSerializer.Deserialize<object>(body, JsonOptions);
+                    var result = JsonSerializer.Deserialize<object>(body, JsonOptions);
                     if (result is not null)
                     {
                         await WriteOutput(result);

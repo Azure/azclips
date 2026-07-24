@@ -16,17 +16,25 @@ public class ConnectAcrProcessor : AcrProcessorBase
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "Name")]
     public string Name { get; set; } = "";
 
+    protected override string GetLoginServer() => ResolveLoginServer(Name);
+    protected override string GetScope() => "registry:catalog:*";
+
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
+    {
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        string loginServer = GetLoginServer();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://{loginServer}/acr/v1/_catalog?n=1");
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+        return request;
+    }
+
     public override async Task ProcessAsync()
     {
-        EnsureRuntimeContext();
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            string loginServer = ResolveLoginServer(Name);
-            // Validate by acquiring a token for catalog scope
-            string scope = "registry:catalog:*";
-            await AcquireAcrAccessTokenAsync(loginServer, scope);
-
+            using HttpResponseMessage response = await SendAsync();
+            string loginServer = GetLoginServer();
             await WriteOutput(new { LoginServer = loginServer, Authenticated = true });
         }
         finally

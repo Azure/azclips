@@ -6,29 +6,39 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
-using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
+using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
 /// <summary>
-/// Base class for ACR data-plane processors. Handles:
-/// 1. Resolving the login server from registry name.
-/// 2. OAuth2 token exchange (AAD token → ACR refresh token → ACR access token).
-/// 3. Sending authenticated requests to the ACR data-plane.
+/// Non-generic base for ACR data-plane processors. Mirrors the structure of
+/// <c>ComputeProcessorBase</c>:
+/// <list type="bullet">
+///   <item><see cref="CreateRequestMessage"/> — builds the outgoing HTTP request.</item>
+///   <item><see cref="GetScope"/> — returns the ACR scope required for the request.</item>
+///   <item><see cref="SendAsync"/> — acquires the ACR token and sends the request.</item>
+/// </list>
 /// </summary>
 public abstract class AcrProcessorBase : IProcessor
 {
-    protected IRuntimeHttpPipeline HttpPipeline = null!;
-    protected IEventPublisher Publisher = null!;
-    protected IAuthHandler AuthHandler = null!;
-    protected JsonSerializerOptions JsonOptions = null!;
+    public IRuntimeHttpPipeline HttpPipeline = null!;
+    public IEventPublisher Publisher = null!;
+    public IAuthHandler AuthHandler = null!;
+    public JsonSerializerOptions JsonOptions = null!;
     protected OutputStreamDelegate WriteOutput = null!;
+
+    private AcrAuthOrchestrator _authOrchestrator = null!;
+
+    protected virtual void BeforeInit() { }
+    protected virtual void AfterInit() { }
 
     public CancellationToken Token => CancellationToken.None;
     public Action Cancel => throw new NotImplementedException();
 
     public IProcessor Init(ProcessorContext context)
     {
+        BeforeInit();
+
         HttpPipeline = context.HttpPipeline;
         Publisher = context.Publisher;
         AuthHandler = context.AuthHandler;
@@ -38,6 +48,12 @@ public abstract class AcrProcessorBase : IProcessor
             PropertyNameCaseInsensitive = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
+
+        // Wire the orchestrator as the per-request auth provider
+        _authOrchestrator = new AcrAuthOrchestrator(AuthHandler, HttpPipeline, Publisher, JsonOptions);
+        AuthHandler.RequestAuthProvider = _authOrchestrator;
+
+        AfterInit();
         return this;
     }
 
@@ -50,122 +66,44 @@ public abstract class AcrProcessorBase : IProcessor
     {
         if (registryName.Contains('.'))
         {
-            // Already a FQDN
             return registryName;
         }
         return $"{registryName}.azurecr.io";
     }
 
     /// <summary>
-    /// Acquires an ACR access token for the given scope by exchanging the AAD token.
-    /// Flow: AAD token → ACR refresh token → ACR access token.
+    /// Processors override to build the outgoing <see cref="HttpRequestMessage"/>.
     /// </summary>
-    protected async Task<string> AcquireAcrAccessTokenAsync(string loginServer, string scope)
-    {
-        // Step 1: Get AAD token via the default auth delegate
-        var authResult = await AuthHandler.AcquireTokenAsyncDefault(
-            scopes: ["https://management.azure.com/.default"],
-            tenantId: null);
-
-        string aadToken = authResult.AccessToken;
-
-        // Step 2: Exchange AAD token for ACR refresh token (pipeline adds ARM Bearer header; ACR tolerates it)
-        string refreshToken = await ExchangeForRefreshTokenAsync(loginServer, aadToken);
-
-        // Step 3: Exchange refresh token for ACR access token with scope
-        string accessToken = await ExchangeForAccessTokenAsync(loginServer, refreshToken, scope);
-
-        return accessToken;
-    }
+    protected virtual Task<HttpRequestMessage> CreateRequestMessage() =>
+        throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
 
     /// <summary>
-    /// Activates the ACR access token as the auth override so subsequent pipeline calls
-    /// use it as the Bearer token instead of the ARM token.
+    /// Returns the ACR OAuth scope required for the current request (e.g. "repository:myrepo:metadata_read").
     /// </summary>
-    private void ApplyAcrTokenOverride(string acrAccessToken)
-    {
-        AuthHandler.AcquireTokenAsyncOverride = (scopes, tenantId, promptOnError, ct, profile) =>
-            Task.FromResult(new AuthResult
-            {
-                AccessToken = acrAccessToken,
-                ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(5),
-                Scopes = [],
-                TenantId = tenantId ?? string.Empty
-            });
-        AuthHandler.ApplyOverride = true;
-    }
-
-    private async Task<string> ExchangeForRefreshTokenAsync(string loginServer, string aadToken)
-    {
-        string url = $"https://{loginServer}/oauth2/exchange";
-        var content = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "access_token",
-            ["service"] = loginServer,
-            ["access_token"] = aadToken
-        });
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        using var response = await HttpPipeline.SendAsync(request, Publisher);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            string errorBody = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"ACR token exchange failed ({response.StatusCode}): {errorBody}");
-        }
-
-        string body = await response.Content.ReadAsStringAsync();
-        var tokenResponse = JsonSerializer.Deserialize<AcrTokenResponse>(body, JsonOptions)
-            ?? throw new InvalidOperationException("Failed to exchange AAD token for ACR refresh token.");
-
-        return tokenResponse.Refresh_token
-            ?? throw new InvalidOperationException("ACR refresh token was null in exchange response.");
-    }
-
-    private async Task<string> ExchangeForAccessTokenAsync(string loginServer, string refreshToken, string scope)
-    {
-        string url = $"https://{loginServer}/oauth2/token";
-        var content = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "refresh_token",
-            ["service"] = loginServer,
-            ["scope"] = scope,
-            ["refresh_token"] = refreshToken
-        });
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        using var response = await HttpPipeline.SendAsync(request, Publisher);
-        response.EnsureSuccessStatusCode();
-
-        string body = await response.Content.ReadAsStringAsync();
-        var tokenResponse = JsonSerializer.Deserialize<AcrTokenResponse>(body, JsonOptions)
-            ?? throw new InvalidOperationException("Failed to exchange refresh token for ACR access token.");
-
-        return tokenResponse.Access_token
-            ?? throw new InvalidOperationException("ACR access token was null in exchange response.");
-    }
+    protected virtual string GetScope() =>
+        throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(GetScope)}");
 
     /// <summary>
-    /// Sends an authenticated request to the ACR data-plane API.
-    /// Acquires the ACR access token and activates it as the auth override before sending.
+    /// Returns the login server FQDN for the current request.
     /// </summary>
-    protected async Task<HttpResponseMessage> SendAcrRequestAsync(HttpMethod method, string loginServer, string path, string scope, HttpContent? body = null)
+    protected virtual string GetLoginServer() =>
+        throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(GetLoginServer)}");
+
+    /// <summary>
+    /// Internal transport primitive. Acquires an ACR access token for <see cref="GetScope"/>,
+    /// then sends the request built by <see cref="CreateRequestMessage"/> through the pipeline.
+    /// </summary>
+    internal virtual async Task<HttpResponseMessage> SendAsync()
     {
-        // Acquire scoped ACR token and switch the pipeline's auth to use it
-        string accessToken = await AcquireAcrAccessTokenAsync(loginServer, scope);
-        ApplyAcrTokenOverride(accessToken);
+        string loginServer = GetLoginServer();
+        string scope = GetScope();
 
-        string url = path.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-            ? path
-            : $"https://{loginServer}{path}";
+        // Acquire scoped ACR token — orchestrator caches per (loginServer, scope)
+        await _authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
 
-        using var request = new HttpRequestMessage(method, url);
-        if (body is not null)
-        {
-            request.Content = body;
-        }
-
-        var response = await HttpPipeline.SendAsync(request, Publisher);
+        using HttpRequestMessage request = await CreateRequestMessage();
+        HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
 
         try
         {
@@ -181,17 +119,24 @@ public abstract class AcrProcessorBase : IProcessor
     }
 
     /// <summary>
-    /// Sends a paginated GET request, following the <c>Link</c> header until all pages are fetched.
-    /// Returns all raw JSON response bodies concatenated into a list.
+    /// Sends a paginated GET, following the Link header. Each page is deserialized and accumulated.
     /// </summary>
-    protected async Task<List<string>> SendAcrPagedGetAsync(string loginServer, string path, string scope)
+    internal async Task<List<string>> SendAsyncPaged(string loginServer, string path, string scope)
     {
+        await _authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
+
         var pages = new List<string>();
         string? currentPath = path;
 
         while (currentPath is not null)
         {
-            using HttpResponseMessage response = await SendAcrRequestAsync(HttpMethod.Get, loginServer, currentPath, scope);
+            string url = currentPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                ? currentPath
+                : $"https://{loginServer}{currentPath}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+            response.EnsureSuccessStatusCode();
 
             if (response.Content is not null)
             {
@@ -202,7 +147,6 @@ public abstract class AcrProcessorBase : IProcessor
                 }
             }
 
-            // Parse Link header for next page: </acr/v1/_catalog?last=foo&n=100>; rel="next"
             currentPath = GetNextLinkPath(response);
         }
 
@@ -210,84 +154,86 @@ public abstract class AcrProcessorBase : IProcessor
     }
 
     /// <summary>
-    /// Extracts the next page path from the HTTP Link header.
-    /// Format: &lt;/acr/v1/_catalog?last=foo&amp;n=100&gt;; rel="next"
+    /// Creates a child processor initialized with the same runtime context.
     /// </summary>
+    protected T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : AcrProcessorBase, new()
+    {
+        T child = new T
+        {
+            HttpPipeline = HttpPipeline,
+            Publisher = Publisher,
+            AuthHandler = AuthHandler,
+            JsonOptions = JsonOptions,
+        };
+        child.WriteOutput = WriteOutput;
+        configure?.Invoke(child);
+        return child;
+    }
+
     private static string? GetNextLinkPath(HttpResponseMessage response)
     {
         if (!response.Headers.TryGetValues("Link", out var linkValues))
-        {
             return null;
-        }
 
         string? linkHeader = linkValues.FirstOrDefault();
         if (string.IsNullOrEmpty(linkHeader))
-        {
             return null;
-        }
 
-        // Extract URL between < and >
         int start = linkHeader.IndexOf('<');
         int end = linkHeader.IndexOf('>');
         if (start < 0 || end < 0 || end <= start)
-        {
             return null;
-        }
 
         return linkHeader.Substring(start + 1, end - start - 1);
-    }
-
-    protected void EnsureRuntimeContext()
-    {
-        if (HttpPipeline is null)
-            throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-        if (Publisher is null)
-            throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-        if (WriteOutput is null)
-            throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(WriteOutput)}.");
     }
 }
 
 /// <summary>
-/// Generic ACR processor base with typed deserialization.
+/// Generic ACR processor base. Default <see cref="ProcessAsync"/> pipeline:
+/// 1) Publish start, 2) <see cref="AcrProcessorBase.SendAsync"/>,
+/// 3) deserialize into <typeparamref name="TResponse"/>, 4) <see cref="SelectOutput"/>, 5) write output, 6) Publish end.
+/// <para>
+/// Leaf processors only need to implement <see cref="AcrProcessorBase.CreateRequestMessage"/>,
+/// <see cref="AcrProcessorBase.GetScope"/>, and <see cref="AcrProcessorBase.GetLoginServer"/>.
+/// </para>
 /// </summary>
-public abstract class AcrProcessorBase<TResponse> : AcrProcessorBase where TResponse : class
+public class AcrProcessorBase<TResponse> : AcrProcessorBase where TResponse : class
 {
-    /// <summary>Registry name (short name or FQDN).</summary>
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
     public string RegistryName { get; set; } = "";
 
+    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
+
     /// <summary>
-    /// Derived processors implement this to define the HTTP method, path, scope, and optional body.
+    /// Projects the deserialized response before writing to output.
+    /// Override to unwrap envelopes or select sub-properties.
     /// </summary>
-    protected abstract Task<(HttpMethod Method, string Path, string Scope, HttpContent? Body)> CreateAcrRequest();
+    protected virtual object SelectOutput(TResponse body) => body;
 
     public override async Task ProcessAsync()
     {
-        EnsureRuntimeContext();
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+        using HttpResponseMessage response = await SendAsync();
+
+        if (response.Content is null)
+        {
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            return;
+        }
+
+        string rawBody = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            return;
+        }
+
         try
         {
-            string loginServer = ResolveLoginServer(RegistryName);
-            var (method, path, scope, body) = await CreateAcrRequest();
-
-            using HttpResponseMessage response = await SendAcrRequestAsync(method, loginServer, path, scope, body);
-
-            if (response.Content is null)
+            TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+            if (body is not null)
             {
-                return;
-            }
-
-            string rawBody = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(rawBody))
-            {
-                return;
-            }
-
-            TResponse? result = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
-            if (result is not null)
-            {
-                await WriteOutput(result);
+                await WriteOutput(SelectOutput(body));
             }
         }
         finally

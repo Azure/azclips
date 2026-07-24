@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
@@ -16,9 +17,14 @@ public class GetRepositoryProcessor : AcrProcessorBase<RepositoryAttributes>
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "Repository")]
     public string Repository { get; set; } = "";
 
-    protected override Task<(HttpMethod Method, string Path, string Scope, HttpContent? Body)> CreateAcrRequest()
+    protected override string GetScope() => $"repository:{Repository}:metadata_read";
+
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        return Task.FromResult<(HttpMethod, string, string, HttpContent?)>(
-            (HttpMethod.Get, $"/acr/v1/{Repository}", $"repository:{Repository}:metadata_read", null));
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        string loginServer = GetLoginServer();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://{loginServer}/acr/v1/{Repository}");
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+        return request;
     }
 }

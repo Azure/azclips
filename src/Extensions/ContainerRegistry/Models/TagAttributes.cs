@@ -3,6 +3,7 @@
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
 
+/// <summary>Single tag attributes (response for show).</summary>
 public class TagAttributes
 {
     public string? Registry { get; set; }
@@ -10,6 +11,7 @@ public class TagAttributes
     public TagAttributeBase? Tag { get; set; }
 }
 
+/// <summary>Tag detail — maps to TagAttributesBase in swagger.</summary>
 public class TagAttributeBase
 {
     public string? Name { get; set; }
@@ -20,6 +22,7 @@ public class TagAttributeBase
     public ChangeableAttributes? ChangeableAttributes { get; set; }
 }
 
+/// <summary>Paginated tags list response.</summary>
 public class TagList
 {
     public string? Registry { get; set; }

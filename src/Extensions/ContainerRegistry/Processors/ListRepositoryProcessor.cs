@@ -20,14 +20,13 @@ public class ListRepositoryProcessor : AcrProcessorBase
 
     public override async Task ProcessAsync()
     {
-        EnsureRuntimeContext();
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
             string loginServer = ResolveLoginServer(RegistryName);
             string scope = "registry:catalog:*";
 
-            List<string> pages = await SendAcrPagedGetAsync(loginServer, "/acr/v1/_catalog", scope);
+            List<string> pages = await SendAsyncPaged(loginServer, "/acr/v1/_catalog", scope);
 
             var allRepositories = new List<string>();
             foreach (string page in pages)

@@ -23,14 +23,13 @@ public class ListTagProcessor : AcrProcessorBase
 
     public override async Task ProcessAsync()
     {
-        EnsureRuntimeContext();
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
             string loginServer = ResolveLoginServer(RegistryName);
             string scope = $"repository:{RepositoryName}:metadata_read";
 
-            List<string> pages = await SendAcrPagedGetAsync(loginServer, $"/acr/v1/{RepositoryName}/_tags", scope);
+            List<string> pages = await SendAsyncPaged(loginServer, $"/acr/v1/{RepositoryName}/_tags", scope);
 
             var allTags = new List<TagAttributeBase>();
             string? registry = null;
