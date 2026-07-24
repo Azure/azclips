@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using System.Text.Json;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
@@ -107,17 +106,17 @@ public class FileTelemetrySender : ITelemetrySender
 
         var replayedFiles = new List<string>();
 
+        // Resolve once so every service group in this replay uses the same destination.
+        var target = TelemetryTargetResolver.Resolve();
+
         foreach (var (serviceName, fileGroup) in tracesByService)
         {
             using var source = new ActivitySource(serviceName);
-            using var provider = Sdk.CreateTracerProviderBuilder()
+            var builder = Sdk.CreateTracerProviderBuilder()
                 .AddSource(serviceName)
-                .ConfigureResource(r => r.AddService(serviceName: serviceName))
-                .AddAzureMonitorTraceExporter(options =>
-                {
-                    options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
-                })
-                .Build()!;
+                .ConfigureResource(r => r.AddService(serviceName: serviceName));
+            TelemetryExporters.AddTraceExporter(builder, target);
+            using var provider = builder.Build()!;
 
             // Flatten across all files in the group so the topological replay can
             // resolve parent/child links even when they live in different files.
