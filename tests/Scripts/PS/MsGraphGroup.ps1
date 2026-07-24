@@ -29,7 +29,7 @@ $groupId          = $env:AZCLIPS_MSGRAPH_GROUP_ID          ?? 'e311fa4a-a740-4a3
 $groupName        = $env:AZCLIPS_MSGRAPH_GROUP_NAME        ?? 'GroupA'
 $groupPrefix      = $env:AZCLIPS_MSGRAPH_GROUP_PREFIX      ?? 'GroupA'
 $groupPrefixMany  = $env:AZCLIPS_MSGRAPH_GROUP_PREFIX_MANY ?? 'Group'
-$memberId         = $env:AZCLIPS_MSGRAPH_MEMBER_ID         ?? 'afd8668e-c1e4-476b-ab09-87c81ee9b936'
+$memberId         = $env:AZCLIPS_MSGRAPH_MEMBER_ID         ?? '4c7fe051-c052-4557-94e8-a13ed4d5fd38'
 
 function Section($title) {
     Write-Host ""
@@ -74,11 +74,11 @@ Get-AzMsGraphGroupMember -GroupDisplayName $groupName | Out-Host
 
 Section 'Test-AzMsGraphGroupMembership -Group <guid>'
 $r1 = Test-AzMsGraphGroupMembership -Group $groupId -MemberId $memberId
-Write-Host "  Value = $($r1.Value)"
+Write-Host "  Result = $r1"
 
 Section 'Test-AzMsGraphGroupMembership -Group <name-prefix>'
 $r2 = Test-AzMsGraphGroupMembership -Group $groupName -MemberId $memberId
-Write-Host "  Value = $($r2.Value)"
+Write-Host "  Result = $r2"
 
 Section 'Negative: ambiguous prefix on -ObjectId should throw with "more than one group matched"'
 try {
