@@ -57,10 +57,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
         }
 
         protected override object SelectOutput(CheckMemberGroupsResponse body) =>
-            new GroupMembershipResult
-            {
-                Value = body.Value is not null
-                    && body.Value.Any(id => string.Equals(id, _resolvedGroupId, StringComparison.OrdinalIgnoreCase)),
-            };
+            body.Value is not null
+                && body.Value.Any(id => string.Equals(id, _resolvedGroupId, StringComparison.OrdinalIgnoreCase));
     }
 }

@@ -72,12 +72,12 @@ public class CheckGroupMemberProcessorTests
         // Run request build so the resolver stores the resolved group id used by SelectOutput.
         _ = await processor.BuildRequestAsync();
 
-        var result = processor.ProjectOutput(new CheckMemberGroupsResponse
+        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
         {
             Value = new[] { GroupId, "another-group-id" },
         });
 
-        Assert.True(result.Value);
+        Assert.True(result);
     }
 
     [Fact]
@@ -86,12 +86,12 @@ public class CheckGroupMemberProcessorTests
         var processor = CreateProcessor();
         _ = await processor.BuildRequestAsync();
 
-        var result = processor.ProjectOutput(new CheckMemberGroupsResponse
+        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
         {
             Value = new[] { "some-other-group" },
         });
 
-        Assert.False(result.Value);
+        Assert.False(result);
     }
 
     [Fact]
@@ -100,9 +100,9 @@ public class CheckGroupMemberProcessorTests
         var processor = CreateProcessor();
         _ = await processor.BuildRequestAsync();
 
-        var result = processor.ProjectOutput(new CheckMemberGroupsResponse { Value = null });
+        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse { Value = null });
 
-        Assert.False(result.Value);
+        Assert.False(result);
     }
 
     [Fact]
@@ -121,12 +121,12 @@ public class CheckGroupMemberProcessorTests
         processor.WithPublisher(publisher.Object);
         _ = await processor.BuildRequestAsync();
 
-        var result = processor.ProjectOutput(new CheckMemberGroupsResponse
+        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
         {
             Value = new[] { mixedCaseGroupId.ToUpperInvariant() },
         });
 
-        Assert.True(result.Value);
+        Assert.True(result);
         Assert.NotEqual(mixedCaseGroupId, mixedCaseGroupId.ToUpperInvariant());
     }
 }
