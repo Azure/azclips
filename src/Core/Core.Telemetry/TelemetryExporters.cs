@@ -9,9 +9,7 @@ namespace Core.Telemetry;
 
 /// <summary>
 /// The single decision point that maps a resolved <see cref="TelemetryTarget"/> to
-/// the trace exporter added to a <see cref="TracerProviderBuilder"/>. Future signals
-/// (metrics, logs) add sibling methods here so the "given target → exporter" choice
-/// lives in exactly one place.
+/// the trace exporter added to a <see cref="TracerProviderBuilder"/>.
 /// </summary>
 internal static class TelemetryExporters
 {

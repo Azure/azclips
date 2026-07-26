@@ -20,10 +20,6 @@ internal static class TelemetryTargetResolver
     internal static TelemetryTarget Resolve() =>
         Resolve(CompileTimeDefault, Environment.GetEnvironmentVariable);
 
-    /// <summary>
-    /// Pure resolution logic. <paramref name="environmentReader"/> is injected so this
-    /// can be unit-tested independently of the ambient process environment and build config.
-    /// </summary>
     internal static TelemetryTarget Resolve(TelemetryTarget compileDefault, Func<string, string?> environmentReader)
     {
         var raw = environmentReader(TargetEnvironmentVariable)?.Trim();
