@@ -21,6 +21,8 @@ namespace Benchmark.CLI;
 /// </para>
 /// </summary>
 [BenchmarkExtension("Login")]
+[WarmupCount(50)]
+[IterationCount(50)]
 public class LoginBenchmarks : CLIBenchmarkBase
 {
     // Arbitrary well-formed GUID for the user-assigned managed identity selector.

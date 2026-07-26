@@ -14,6 +14,8 @@ namespace Benchmark.PS;
 /// contacting Azure or IMDS.
 /// </summary>
 [BenchmarkExtension("Login")]
+[WarmupCount(50)]
+[IterationCount(50)]
 public class LoginBenchmarks : PSBenchmarkBase
 {
     private const string UserAssignedClientId = "e5f6a7b8-4567-4def-b234-56789abcdef0";
