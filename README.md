@@ -30,6 +30,10 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 1. **Install** — see the [Azure CLI install overview](docs/azure-cli/docs-conceptual/install-overview.md) and the [Azure PowerShell modules install guide](docs/azure-powershell/docs-conceptual/install-powershell-modules.md) for the single-command install (Windows, Linux, macOS). Packages ship via [GitHub Releases](https://github.com/Azure/azclips/releases).
 2. **Verify** — run `az --version`.
 3. **Sign in** — run `az login`.
+4. **Explore supported commands**
+   - CLI: `config`, `deployment`, `disk`, `extension`, `group`, `login`, `logout`, `profile`, `rest`, and `vm`
+   - PowerShell: **Login**, **Resources**, **Compute**, and **Config**
+   - Additional commands will continue to be added in weekly iterations.
 
 > `az` installs side-by-side with the classic `azure-cli` and does **not** modify your `PATH` by default. See the [install overview](docs/azure-cli/docs-conceptual/install-overview.md) for PATH and offline options.
 
