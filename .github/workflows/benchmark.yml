@@ -145,7 +145,7 @@ jobs:
       - name: Run CLI benchmarks (with retry)
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 20
+          timeout_minutes: 40
           max_attempts: 2
           retry_wait_seconds: 30
           command: dotnet artifacts/Release/Benchmark/Benchmark.dll --ci --extension ${{ matrix.extension }} --product CLI
