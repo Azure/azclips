@@ -253,20 +253,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_checkGroupMember_PS = new(
-            Name: "CheckGroupMemberProcessor",
-            InvocationName: "Test-AzMsGraphGroupMembership",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.CheckGroupMemberProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
-            ProcessorType: typeof(Processors.CheckGroupMemberProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["Group"]    = new("Group", "Group", typeof(string), GroupDescription, IsRequired: true, Aliases: [], AllowedValues: []),
-                ["MemberId"] = new("MemberId", "MemberId", typeof(string), MemberIdDescription, IsRequired: true, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
 
         // ── CLI User Command Metadata ──
         private static readonly CommandMetadata s_getUser_CLI = new(
@@ -374,7 +360,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph
             // Group member
             ["Get-AzMsGraphGroupMember_ObjectId"]         = s_listGroupMembersByObjectId_PS,
             ["Get-AzMsGraphGroupMember_DisplayName"]      = s_listGroupMembersByDisplayName_PS,
-            ["Test-AzMsGraphGroupMembership"]             = s_checkGroupMember_PS,
         };
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {

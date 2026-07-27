@@ -164,7 +164,6 @@ public class ExtensionIndexTests
     [InlineData("Get-AzMsGraphGroup_DisplayNameStartsWith", typeof(ListGroupProcessor))]
     [InlineData("Get-AzMsGraphGroupMember_ObjectId", typeof(ListGroupMemberProcessor))]
     [InlineData("Get-AzMsGraphGroupMember_DisplayName", typeof(ListGroupMemberProcessor))]
-    [InlineData("Test-AzMsGraphGroupMembership", typeof(CheckGroupMemberProcessor))]
     public void PsTable_ShouldRouteGroupCommands(string key, Type expectedProcessor)
     {
         var table = s_index.GetCommandTable(ClientType.PowerShell);

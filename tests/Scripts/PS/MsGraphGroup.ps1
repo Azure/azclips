@@ -1,9 +1,8 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 #
-# Smoke test for the Get-AzMsGraphGroup, Get-AzMsGraphGroupMember, and
-# Test-AzMsGraphGroupMembership cmdlets. Exercises every parameter set and their aliases,
-# plus the resolver error paths.
+# Smoke test for the Get-AzMsGraphGroup and Get-AzMsGraphGroupMember cmdlets. Exercises every
+# parameter set and their aliases, plus the resolver error paths.
 #
 # Prereqs:
 #   1. Build the solution:   pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
@@ -15,7 +14,6 @@
 #   AZCLIPS_MSGRAPH_GROUP_NAME         - the same group's exact display name
 #   AZCLIPS_MSGRAPH_GROUP_PREFIX       - a name prefix that matches exactly one group
 #   AZCLIPS_MSGRAPH_GROUP_PREFIX_MANY  - a name prefix that matches >1 groups
-#   AZCLIPS_MSGRAPH_MEMBER_ID          - object ID of a user known not to be in the group above
 #
 # Usage: pwsh -NoProfile -File .\tests\Scripts\PS\MsGraphGroup.ps1
 
@@ -29,7 +27,6 @@ $groupId          = $env:AZCLIPS_MSGRAPH_GROUP_ID          ?? 'e311fa4a-a740-4a3
 $groupName        = $env:AZCLIPS_MSGRAPH_GROUP_NAME        ?? 'GroupA'
 $groupPrefix      = $env:AZCLIPS_MSGRAPH_GROUP_PREFIX      ?? 'GroupA'
 $groupPrefixMany  = $env:AZCLIPS_MSGRAPH_GROUP_PREFIX_MANY ?? 'Group'
-$memberId         = $env:AZCLIPS_MSGRAPH_MEMBER_ID         ?? '4c7fe051-c052-4557-94e8-a13ed4d5fd38'
 
 function Section($title) {
     Write-Host ""
@@ -72,14 +69,6 @@ Get-AzMsGraphGroupMember -ObjectId $groupId | Out-Host
 Section 'Get-AzMsGraphGroupMember -GroupDisplayName (DisplayName parameter set)'
 Get-AzMsGraphGroupMember -GroupDisplayName $groupName | Out-Host
 
-Section 'Test-AzMsGraphGroupMembership -Group <guid>'
-$r1 = Test-AzMsGraphGroupMembership -Group $groupId -MemberId $memberId
-Write-Host "  Result = $r1"
-
-Section 'Test-AzMsGraphGroupMembership -Group <name-prefix>'
-$r2 = Test-AzMsGraphGroupMembership -Group $groupName -MemberId $memberId
-Write-Host "  Result = $r2"
-
 Section 'Negative: ambiguous prefix on -ObjectId should throw with "more than one group matched"'
 try {
     Get-AzMsGraphGroup -ObjectId $groupPrefixMany -ErrorAction Stop | Out-Null
@@ -97,4 +86,4 @@ try {
 }
 
 Write-Host ""
-Write-Host "All Get-AzMsGraphGroup / Get-AzMsGraphGroupMember / Test-AzMsGraphGroupMembership smoke checks completed." -ForegroundColor Green
+Write-Host "All Get-AzMsGraphGroup / Get-AzMsGraphGroupMember smoke checks completed." -ForegroundColor Green
