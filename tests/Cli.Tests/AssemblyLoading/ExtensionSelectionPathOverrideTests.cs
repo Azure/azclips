@@ -31,6 +31,7 @@ public sealed class ExtensionSelectionPathOverrideTests
 
             var versionedPackageDir = Path.Combine(versionedRoot, packageId, "1.3.0");
             Directory.CreateDirectory(versionedPackageDir);
+            File.WriteAllText(Path.Combine(versionedPackageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
 
             var configuration = new TestConfigurationService(builtinRoot, versionedRoot);
             var logging = new NullLoggingService();
@@ -125,6 +126,183 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
     }
 
+    [Fact]
+    public void GetAllInstalledExtensions_ShouldPropagateLoaderLocation_IntoInstalledExtensionRef()
+    {
+        // Both loaders' DLL paths must flow through the provider without being dropped or overwritten.
+        var root = Path.Combine(Path.GetTempPath(), $"location-flow-{Guid.NewGuid():N}");
+        var builtinRoot = Path.Combine(root, "builtin");
+        var versionedRoot = Path.Combine(root, "versioned");
+        var builtinPackageId = "Microsoft.Azure.Azclips.Extensions.Login";
+        var versionedPackageId = "Microsoft.Azure.Azclips.Extensions.Resources";
+
+        Directory.CreateDirectory(builtinRoot);
+        Directory.CreateDirectory(versionedRoot);
+
+        try
+        {
+            var builtinPackageDir = Path.Combine(builtinRoot, builtinPackageId);
+            Directory.CreateDirectory(builtinPackageDir);
+            var expectedBuiltinDll = Path.Combine(builtinPackageDir, "Microsoft.Azure.Azclips.Extensions.Login.dll");
+            File.WriteAllText(expectedBuiltinDll, string.Empty);
+
+            var versionedPackageDir = Path.Combine(versionedRoot, versionedPackageId, "2.0.0");
+            Directory.CreateDirectory(versionedPackageDir);
+            var expectedVersionedDll = Path.Combine(versionedPackageDir, "Microsoft.Azure.Azclips.Extensions.Resources.dll");
+            File.WriteAllText(expectedVersionedDll, string.Empty);
+
+            var configuration = new TestConfigurationService(builtinRoot, versionedRoot);
+            var logging = new NullLoggingService();
+
+            var provider = new CLIAssemblyLoadingProvider(
+                [
+                    new BuiltinExtensionLoader(logging, configuration),
+                    new MultiVersionExtensionLoader(logging, configuration),
+                ],
+                logging,
+                new InMemoryRegistryStore(new ExtensionRegistry()));
+
+            var installed = provider.GetAllInstalledExtensions();
+
+            Assert.NotNull(installed);
+            var login = Assert.Single(installed!, item => item.Name == "Login");
+            Assert.Equal(expectedBuiltinDll, login.Location);
+            var resources = Assert.Single(installed!, item => item.Name == "Resources");
+            Assert.Equal(expectedVersionedDll, resources.Location);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void GetAllInstalledExtensions_ShouldNullLocation_WhenPinRoutesToDifferentVersion()
+    {
+        // When the registry pins a version different from what the loader reports as latest,
+        // the discovered `Location` came from the *unpinned* version's folder. Emit null rather
+        // than a path that disagrees with what dispatch will actually load.
+        var root = Path.Combine(Path.GetTempPath(), $"pin-location-{Guid.NewGuid():N}");
+        var versionedRoot = Path.Combine(root, "versioned");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        Directory.CreateDirectory(versionedRoot);
+
+        try
+        {
+            foreach (var version in new[] { "1.2.0", "1.3.0" })
+            {
+                var versionDir = Path.Combine(versionedRoot, packageId, version);
+                Directory.CreateDirectory(versionDir);
+                File.WriteAllText(Path.Combine(versionDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
+            }
+
+            var configuration = new TestConfigurationService(builtinRoot: Path.Combine(root, "builtin"), versionedRoot);
+            var logging = new NullLoggingService();
+            var versionedLoader = new MultiVersionExtensionLoader(logging, configuration);
+
+            var registry = new ExtensionRegistry();
+            registry.Extensions[packageId] = new ExtensionRegistryEntry
+            {
+                Version = "1.2.0",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            var provider = new CLIAssemblyLoadingProvider(
+                [versionedLoader],
+                logging,
+                new InMemoryRegistryStore(registry));
+
+            var single = Assert.Single(provider.GetAllInstalledExtensions()!);
+            Assert.Equal("Compute", single.Name);
+            Assert.Equal("1.2.0", single.Version);
+            Assert.Null(single.Location);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void MultiVersionExtensionLoader_GetInstalledExtensions_ShouldSkipVersionDirWithoutDll()
+    {
+        // Corrupt/partial install: version subdir exists but no DLL. Enumeration must skip it —
+        // dispatch couldn't load it anyway, so surfacing it in `az extension list` misleads users.
+        var root = Path.Combine(Path.GetTempPath(), $"missing-dll-{Guid.NewGuid():N}");
+        var versionedRoot = Path.Combine(root, "versioned");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        var versionDir = Path.Combine(versionedRoot, packageId, "1.0.0");
+        Directory.CreateDirectory(versionDir);
+
+        try
+        {
+            var configuration = new TestConfigurationService(builtinRoot: Path.Combine(root, "builtin"), versionedRoot);
+            var loader = new MultiVersionExtensionLoader(new NullLoggingService(), configuration);
+
+            Assert.Empty(loader.GetInstalledExtensions());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void GetAllInstalledExtensions_ShouldKeepLocation_WhenPinMatchesDiscoveredVersion()
+    {
+        // When a pin resolves to the same version the loader already reports, the discovered
+        // Location is exactly what dispatch will load — don't null it out.
+        var root = Path.Combine(Path.GetTempPath(), $"pin-match-{Guid.NewGuid():N}");
+        var versionedRoot = Path.Combine(root, "versioned");
+        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
+        var versionDir = Path.Combine(versionedRoot, packageId, "1.2.0");
+        Directory.CreateDirectory(versionDir);
+        var expectedDll = Path.Combine(versionDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll");
+        File.WriteAllText(expectedDll, string.Empty);
+
+        try
+        {
+            var configuration = new TestConfigurationService(builtinRoot: Path.Combine(root, "builtin"), versionedRoot);
+            var logging = new NullLoggingService();
+            var versionedLoader = new MultiVersionExtensionLoader(logging, configuration);
+
+            var registry = new ExtensionRegistry();
+            registry.Extensions[packageId] = new ExtensionRegistryEntry
+            {
+                Version = "1.2.0",
+                Pinned = true,
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            var provider = new CLIAssemblyLoadingProvider(
+                [versionedLoader],
+                logging,
+                new InMemoryRegistryStore(registry));
+
+            var single = Assert.Single(provider.GetAllInstalledExtensions()!);
+            Assert.Equal("Compute", single.Name);
+            Assert.Equal("1.2.0", single.Version);
+            Assert.Equal(expectedDll, single.Location);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static DiscoveredExtensionInfo CreateInfo(string packageId, string version, IEnumerable<string> commandNames)
     {
         var commands = commandNames.ToDictionary(
@@ -145,7 +323,7 @@ public sealed class ExtensionSelectionPathOverrideTests
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        return new DiscoveredExtensionInfo(packageId, version, verbs, commands);
+        return new DiscoveredExtensionInfo(packageId, version, verbs, commands, Location: null);
     }
 
     private sealed class TestConfigurationService(string builtinRoot, string versionedRoot) : IConfigurationService
