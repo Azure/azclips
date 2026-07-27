@@ -4,7 +4,7 @@
 # error cases (ambiguous prefix, no match).
 #
 # Prereqs:
-#   1. Build the solution:            dotnet build .\azclips.slnx
+#   1. Build the solution:            dotnet build azclips.slnx
 #   2. Install/refresh the extension: az extension add --path artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Graph/Microsoft.Azure.Azclips.Extensions.Graph.0.1.0.nupkg
 #   3. Sign in:                       az login --tenant-id <tenant>
 #
