@@ -310,7 +310,18 @@ stages:
         git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$release_branch"
 
         pr_title="{DevOps} Trigger stable release $target_version"
-        pr_body="Updates src/CLI/Core.Cli.csproj to $target_version and aggregates module ChangeLog.md entries into CHANGELOG.md and PowerShell module manifests. After this PR merges to $target_branch, azclips-trigger-stable-release will run again from the main version change, tag the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain."
+        pr_body="$(printf '%s\n' \
+          '**Description**' \
+          '' \
+          "Prepare stable release $target_version." \
+          '' \
+          '- Updates src/CLI/Core.Cli.csproj' \
+          '- Updates the root CHANGELOG.md' \
+          '- Updates PowerShell module changelogs and manifests' \
+          '' \
+          '**After merge**' \
+          '' \
+          "The release trigger validates the version-only change on $target_branch, tags the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and starts the stable build, signing, and publishing flow.")"
 
         gh pr create \
           --repo "$repo" \
