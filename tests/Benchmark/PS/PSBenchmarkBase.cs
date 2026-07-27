@@ -21,9 +21,11 @@ public abstract class PSBenchmarkBase : BenchmarkBase
 {
     /// <summary>
     /// The PowerShell module this benchmark exercises. Only this module and its
-    /// <c>RequiredModules</c> dependency closure are staged for the run.
+    /// <c>RequiredModules</c> dependency closure are staged for the run. Defaults to the
+    /// extension named by the class's <c>[BenchmarkExtension]</c> attribute; override only if
+    /// the module name differs from the extension name.
     /// </summary>
-    protected abstract string ModuleName { get; }
+    protected virtual string ModuleName => ExtensionName;
 
     private string _psModuleManifestPath = null!;
     private Runspace _runspace = null!;

@@ -27,9 +27,11 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
     /// <summary>
     /// Short extension names (the segment after <see cref="PackageIdPrefix"/>) whose verbs this
-    /// benchmark's CLI invocations need staged. Override per benchmark class; empty stages nothing.
+    /// benchmark's CLI invocations need staged. Defaults to the single extension named by the
+    /// class's <c>[BenchmarkExtension]</c> attribute; override only in the rare case a benchmark
+    /// must stage additional extensions.
     /// </summary>
-    protected virtual IReadOnlyList<string> RequiredExtensions => Array.Empty<string>();
+    protected virtual IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
 
@@ -74,6 +76,20 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         // Best-effort: MultiVersionExtensionLoader caches the extension ALC for the process
         // lifetime, so the staged DLL may still be locked here. A leftover home is harmless.
         TryDeleteDirectory(Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
+    }
+
+    /// <summary>
+    /// Runs the CLI in-process with <paramref name="args"/> and throws if it returns a
+    /// non-zero exit code. Returns the (zero) exit code so a benchmark method can return it.
+    /// </summary>
+    protected static int RunCli(params string[] args)
+    {
+        var exitCode = Core.Cli.Program.Main(args).GetAwaiter().GetResult();
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException($"CLI exited with code {exitCode}");
+        }
+        return exitCode;
     }
 
     private void RegisterExtensionResolution()
