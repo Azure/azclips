@@ -24,9 +24,19 @@ steps:
     pwsh: true
     ScriptType: InlineScript
     Inline: |
-      $ghToken = Get-AzKeyVaultSecret -VaultName "${{ parameters.keyVaultName }}" -Name "${{ parameters.secretName }}" -AsPlainText
-      if ([string]::IsNullOrWhiteSpace($ghToken)) {
-        throw "GitHub PAT secret '${{ parameters.secretName }}' in vault '${{ parameters.keyVaultName }}' was empty or not found."
+      $keyVaultName = '${{ parameters.keyVaultName }}'
+      $secretName = '${{ parameters.secretName }}'
+      $outputVariable = '${{ parameters.outputVariable }}'
+
+      try {
+        $ghToken = Get-AzKeyVaultSecret -VaultName $keyVaultName -Name $secretName -AsPlainText
+      }
+      catch {
+        throw "Failed to retrieve GitHub PAT secret '$secretName' from vault '$keyVaultName'. $($_.Exception.Message)"
       }
 
-      Write-Host "##vso[task.setvariable variable=${{ parameters.outputVariable }};issecret=true]$ghToken"
+      if ([string]::IsNullOrWhiteSpace($ghToken)) {
+        throw "GitHub PAT secret '$secretName' in vault '$keyVaultName' was empty or not found."
+      }
+
+      Write-Host "##vso[task.setvariable variable=$outputVariable;issecret=true]$ghToken"
