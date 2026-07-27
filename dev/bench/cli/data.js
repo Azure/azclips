@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785116464244,
+  "lastUpdate": 1785123310580,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Benchmarks": [
@@ -4620,6 +4620,50 @@ window.BENCHMARK_DATA = {
             "value": 809304.3041195477,
             "unit": "ns",
             "range": "± 18727.549367583808"
+          }
+        ]
+      }
+    ],
+    "Azclips Compute CLI Benchmarks": [
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fbb38eb060fef1ac573e322efa914be6791b3ba0",
+          "message": "{Benchmark} Compute extension benchmarks (#589)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nAdd benchmarks for compute extension covering CRUD scenarios\nBenchmark filtering based on file changes\nParallelize benchmark runs between extensions\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCopilot-Session: 57a95271-c097-4e9e-a319-e63a70ff8c25",
+          "timestamp": "2026-07-27T13:23:26+10:00",
+          "tree_id": "e7bb471d2db93f88ac364aada41fa4de09c5810b",
+          "url": "https://github.com/Azure/azclips/commit/fbb38eb060fef1ac573e322efa914be6791b3ba0"
+        },
+        "date": 1785123308854,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 1054601.1361800928,
+            "unit": "ns",
+            "range": "± 25237.552013364948"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 1791898.4712259371,
+            "unit": "ns",
+            "range": "± 37829.39279707255"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 1029226.6419816139,
+            "unit": "ns",
+            "range": "± 25173.458694735647"
           }
         ]
       }
