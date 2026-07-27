@@ -90,6 +90,7 @@ function paramOf(
     ...(cf !== undefined ? { collectionFormat: cf } : {}),
     ...(format !== undefined ? { format } : {}),
     ...(p.doc !== undefined ? { docs: p.doc } : {}),
+    ...(p.summary !== undefined ? { summary: p.summary } : {}),
   };
 }
 
@@ -173,6 +174,7 @@ export function bodyFrom(
     type: irType,
     contentType,
     ...(b.doc !== undefined ? { docs: b.doc } : {}),
+    ...(b.summary !== undefined ? { summary: b.summary } : {}),
   };
   return { ok: true, body };
 }
@@ -200,6 +202,7 @@ function responseHeaderFrom(
     type: irType,
     ...(format !== undefined ? { format } : {}),
     ...(h.doc !== undefined ? { docs: h.doc } : {}),
+    ...(h.summary !== undefined ? { summary: h.summary } : {}),
   };
 }
 

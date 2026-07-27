@@ -19,9 +19,14 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
+  type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
+
+import { resolveToolchain, type ResolvedToolchain } from "./toolchain.js";
+import { stageLocalProject, type StagedProject } from "./staging.js";
+import { createSubprocessEmitProducer } from "./tsp-compile.js";
 
 /** Render a diagnostic for the terminal. */
 function formatDiagnostic(d: CompilerDiagnostic): string {
@@ -57,20 +62,23 @@ function usage(): string {
     "ace — TypeSpec -> C# extension compiler",
     "",
     "Usage:",
-    "  ace compile --tsp-location <path> [--config <path>] [--out-dir <path>] [--capture-ir]",
+    "  ace compile --tsp-location <path> [--config <path>] [--api-version <v>] [--out-dir <path>] [--capture-ir]",
     "",
     "Options:",
     "  --tsp-location <path>  Path to the TypeSpec project dir or entry .tsp file (required)",
     "  --config <path>        Path to a JSON file of generation-time settings,",
-    "                         passed through as CompileInput.extensions (optional)",
-    "  --out-dir <path>       Directory to write generated files to (default: cwd)",
+    "                         loaded as CompileInput.config (CompileConfig) (optional)",
+    "  --api-version <v>      API version to compile at: a specific version,",
+    "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
+    "  --out-dir <path>       Directory to write generated files to (default: cwd).",
+    "                         The spec is staged under <out-dir>/source before compiling.",
     "  --capture-ir           Also write each pipeline IR to <out-dir>/ir (optional)",
     "",
   ].join("\n");
 }
 
 /**
- * `ace compile --tsp-location <path> [--config <path>]`.
+ * `ace compile --tsp-location <path> [--config <path>] [--api-version <v>]`.
  *
  * Parses the flags, hands them to the backbone's `compile()`, then maps the
  * structured result onto stdout/stderr and an exit code. No pipeline logic
@@ -79,6 +87,7 @@ function usage(): string {
 async function runCompile(args: string[]): Promise<number> {
   let tspLocation: string | undefined;
   let configPath: string | undefined;
+  let apiVersionArg: string | undefined;
   let outDirArg: string | undefined;
   let captureIr = false;
   try {
@@ -87,6 +96,7 @@ async function runCompile(args: string[]): Promise<number> {
       options: {
         "tsp-location": { type: "string" },
         config: { type: "string" },
+        "api-version": { type: "string" },
         "out-dir": { type: "string" },
         "capture-ir": { type: "boolean" },
       },
@@ -94,6 +104,7 @@ async function runCompile(args: string[]): Promise<number> {
     });
     tspLocation = values["tsp-location"];
     configPath = values.config;
+    apiVersionArg = values["api-version"];
     outDirArg = values["out-dir"];
     captureIr = values["capture-ir"] === true;
   } catch (err) {
@@ -108,24 +119,44 @@ async function runCompile(args: string[]): Promise<number> {
 
   // --config points at a JSON file of app-resolved, generation-time settings.
   // The backbone is host-agnostic and never reads from disk, so the CLI loads
-  // the file here and threads it in as CompileInput.extensions.
-  let extensions: Record<string, unknown> | undefined;
+  // the file here as CompileInput.config (a CompileConfig). --api-version is
+  // sugar for config.apiVersion and takes precedence when both are given.
+  let config: Record<string, unknown> | undefined;
   if (configPath !== undefined) {
     const loaded = await loadConfig(configPath);
     if (loaded === undefined) return 2; // diagnostic already written
-    extensions = loaded;
+    config = loaded;
   }
-
+  if (apiVersionArg !== undefined) {
+    config = { ...(config ?? {}), apiVersion: apiVersionArg };
+  }
   // The backbone streams every artifact (generated files, and each IR snapshot
   // when --capture-ir is set) to this filesystem sink as it is produced, so the
   // compiler never touches disk itself.
   const outDir = outDirArg ?? process.cwd();
+
+  // Host responsibilities (design Part II §18): acquire the source and provision
+  // its toolchain *before* the TypeSpec-free orchestrator runs. Stage a pristine
+  // copy under <out-dir>/source, then resolve which compiler + emitter it
+  // compiles against. Emit then runs out of process against that toolchain, so
+  // ace itself never loads @typespec/compiler.
+  let staged: StagedProject;
+  let toolchain: ResolvedToolchain;
+  try {
+    staged = await stageLocalProject(tspLocation, outDir);
+    toolchain = resolveToolchain(staged.entrypoint);
+  } catch (err) {
+    process.stderr.write(`compile: ${err instanceof Error ? err.message : String(err)}\n`);
+    return 1;
+  }
+
   const result = await compile(
     {
-      entrypoint: tspLocation,
-      ...(extensions !== undefined ? { extensions } : {}),
+      entrypoint: staged.entrypoint,
+      ...(config !== undefined ? { config: config as CompileConfig } : {}),
     },
     {
+      emit: createSubprocessEmitProducer(toolchain),
       captureIR: captureIr,
       output: createFsSink(outDir),
     },
@@ -140,7 +171,7 @@ async function runCompile(args: string[]): Promise<number> {
 }
 
 /**
- * Read and parse the `--config` JSON file into an extensions dictionary.
+ * Read and parse the `--config` JSON file into a `CompileConfig` object.
  * Returns `undefined` (after writing a diagnostic to stderr) when the file
  * cannot be read, is not valid JSON, or is not a JSON object.
  */

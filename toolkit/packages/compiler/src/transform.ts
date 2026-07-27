@@ -9,7 +9,7 @@
  */
 
 import type { IR } from "@azure-client-engine/ir";
-import type { CompilerDiagnostic } from "./types.js";
+import type { CompileConfig, CompilerDiagnostic } from "./types.js";
 
 /** Per-run services handed to every step. */
 export interface TransformContext {
@@ -17,8 +17,11 @@ export interface TransformContext {
   reportDiagnostic(diagnostic: CompilerDiagnostic): void;
   /** Cooperative cancellation shared with the enclosing compile run. */
   readonly signal?: AbortSignal;
-  /** App-resolved free-form settings (`CompileInput.extensions`); `{}` if none. */
-  readonly extensions: Record<string, unknown>;
+  /**
+   * App-resolved compile configuration (`CompileInput.config`); `{}` if none.
+   * Steps read their own named fields off it (there is no free-form bag).
+   */
+  readonly config: CompileConfig;
 }
 
 /**
