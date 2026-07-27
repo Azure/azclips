@@ -5,24 +5,15 @@ This directory contains the configuration for the azclips development container.
 ## Files
 
 - **devcontainer.json**: Main dev container configuration
-- **docker-compose.yml**: Docker Compose configuration for multi-container setup
+- **docker-compose.yml**: Docker Compose configuration for the dev container
 - **Dockerfile**: Custom Docker image with .NET 10.0 SDK
 - **post-create.sh**: Post-creation setup script
 - **post-start.sh**: Post-start setup script
 
 ## Services
 
-The dev container uses Docker Compose to run multiple services:
-
-### App Container
-The main development container with .NET 10.0 SDK and all required tools.
-
-### Zipkin Container
-A local OpenTelemetry trace collector and UI for development and debugging. Zipkin automatically starts with the dev container and is accessible at:
-- **URL**: http://localhost:9411
-- **Service Name**: Look for traces from the AzureCLI service
-
-The application is configured to automatically export telemetry to Zipkin when running in DEBUG mode. No manual setup required!
+The dev container runs a single `app` service via Docker Compose: the main
+development container with the .NET 10.0 SDK and all required tools.
 
 ## npm Registry Configuration
 
@@ -127,27 +118,6 @@ The devcontainer sets the following environment variables:
 - `PATH`: Includes the built `az` CLI binary locations
 - `BROWSER`: VS Code's browser helper (automatically set by VS Code)
 - `NPM_CONFIG_REGISTRY`: npm registry used inside the container (see [npm Registry Configuration](#npm-registry-configuration))
-- `ZIPKIN_ENDPOINT`: Points to the Zipkin container (`http://zipkin:9411/api/v2/spans`)
-
-## Using Zipkin for Trace Visualization
-
-Zipkin is automatically started when you open the dev container. To view traces:
-
-1. Build and run the application in DEBUG mode:
-   ```bash
-   dotnet build -c Debug azclips.slnx
-   ./artifacts/Debug/Core.Cli/az group create --Name mygroup --Location eastus --SubscriptionId <your-subscription-id>
-   ```
-   
-   > **Note**: For authentication, use `az login` or other secure methods instead of passing tokens via command-line arguments.
-
-2. Open the Zipkin UI at http://localhost:9411
-
-3. Click "Run Query" or search for traces from the "AzureCLI" service
-
-4. Click on any trace to see detailed timing and spans
-
-The Zipkin exporter is only enabled in DEBUG builds, so make sure to build with `-c Debug` to see traces.
 
 ## Troubleshooting
 
@@ -170,44 +140,6 @@ If you see errors about browser tools not being available:
    ls -la /usr/local/bin/xdg-open
    ls -la /usr/local/bin/gnome-open
    ls -la /usr/local/bin/kfmclient
-   ```
-
-### Zipkin Not Accessible
-
-If you cannot access Zipkin at http://localhost:9411:
-
-1. Check that the Zipkin container is running:
-   ```bash
-   docker ps | grep zipkin
-   ```
-
-2. Verify port forwarding is configured:
-   ```bash
-   # In VS Code, check the "Ports" tab in the terminal panel
-   ```
-
-3. Restart the dev container if needed:
-   - Press `F1` or `Ctrl+Shift+P`
-   - Select "Dev Containers: Rebuild Container"
-
-### No Traces Appearing in Zipkin
-
-If Zipkin is running but you don't see any traces:
-
-1. Make sure you built the application in DEBUG mode:
-   ```bash
-   dotnet build -c Debug azclips.slnx
-   ```
-
-2. Verify the ZIPKIN_ENDPOINT environment variable:
-   ```bash
-   echo $ZIPKIN_ENDPOINT
-   # Should output: http://zipkin:9411/api/v2/spans
-   ```
-
-3. Check that you're running the DEBUG build:
-   ```bash
-   ./artifacts/Debug/Core.Cli/az --version
    ```
 
 ## Post-Create Setup
