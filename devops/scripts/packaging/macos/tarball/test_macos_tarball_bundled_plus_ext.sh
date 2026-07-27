@@ -186,7 +186,7 @@ if [[ -z "$version_output" ]]; then
   echo "FAIL: az --version returned no output"
   exit 1
 fi
-printf '%s\n' "$version_output" | head -n 20
+printf '%s\n' "$version_output"
 
 echo ""
 echo "[2/5] CLI help (bundled install)"
@@ -195,7 +195,7 @@ if [[ -z "$help_output" ]]; then
   echo "FAIL: az --help returned no output"
   exit 1
 fi
-printf '%s\n' "$help_output" | head -n 20
+printf '%s\n' "$help_output"
 
 echo ""
 echo "[3/5] Verify built-in extension manager is available"
