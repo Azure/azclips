@@ -12,11 +12,11 @@ namespace Core.Tui.Telemetry;
 
 public class TUITelemetryProvider : DefaultTelemetryProvider
 {
-    public TUITelemetryProvider(IConfigurationService configurationService, IEnumerable<BaseProcessor<Activity>> filterProcessors)
+    // The Enabled check no longer lives here — TelemetryService gates every
+    // Start*Activity call at runtime so telemetry.enabled changes take effect on
+    // the next command without requiring a TUI restart.
+    public TUITelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
     {
-        var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
-        if (!isTelemetryEnabled) return;
-
         FileTelemetrySender sender = new();
         ActivitySource = new ActivitySource(ClientType.TUI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()

@@ -15,11 +15,13 @@ namespace Core.Cli.Telemetry;
 
 public class CLITelemetryProvider : DefaultTelemetryProvider
 {
-    public CLITelemetryProvider(IConfigurationService configurationService, IEnumerable<BaseProcessor<Activity>> filterProcessors)
+    // Kept for parity with PSTelemetryProvider / TUITelemetryProvider. The
+    // TelemetryService.Start*Activity gate is the single source of truth for
+    // whether spans are recorded; the CLI process is single-shot so the runtime
+    // toggle is largely a no-op here, but the shared pattern keeps the three
+    // providers uniform.
+    public CLITelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
     {
-        var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
-        if (!isTelemetryEnabled) return;
-
         FileTelemetrySender sender = new();
         ActivitySource = new ActivitySource(ClientType.CLI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
