@@ -3,6 +3,20 @@ name: azclips-live-package-test-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+parameters:
+- name: use_device_code_login
+  displayName: Authenticate with device code before ARM validation
+  type: boolean
+  default: false
+- name: subscription_id
+  displayName: Subscription ID for device-code login
+  type: string
+  default: 'f758ac53-3e63-4317-a956-0997793808d7'
+- name: tenant_id
+  displayName: Tenant ID for device-code login
+  type: string
+  default: '4f00b3b6-2940-4f2c-b037-94637c180d30'
+
 resources:
   pipelines:
   - pipeline: sourceBuild
@@ -27,7 +41,7 @@ stages:
   jobs:
   - job: ValidateWindowsPackage
     displayName: Install and Validate Windows Package
-    timeoutInMinutes: 30
+    timeoutInMinutes: 45
     pool:
       vmImage: $(windows_pool)
     steps:
@@ -58,9 +72,20 @@ stages:
           $archivesRoot = Join-Path $sourceRoot 'archives'
           $extensionsRoot = Join-Path $sourceRoot 'CLIextensions'
           $simulationRoot = "$(Agent.TempDirectory)/azclips-live-package-test"
+          $useDeviceCodeLogin = $env:LIVE_TEST_USE_DEVICE_CODE_LOGIN -eq 'true'
+          [string]$subscriptionId = $env:LIVE_TEST_SUBSCRIPTION_ID
+          $subscriptionId = $subscriptionId.Trim()
+          [string]$tenantId = $env:LIVE_TEST_TENANT_ID
+          $tenantId = $tenantId.Trim()
 
           if (-not '$(resources.pipeline.sourceBuild.runID)' -match '^[0-9]+$') {
             throw 'Select a completed azclips-beta-build run when queueing this pipeline.'
+          }
+          if ($useDeviceCodeLogin -and [string]::IsNullOrWhiteSpace($subscriptionId)) {
+            throw 'subscription_id is required when use_device_code_login is enabled.'
+          }
+          if ($useDeviceCodeLogin -and [string]::IsNullOrWhiteSpace($tenantId)) {
+            throw 'tenant_id is required when use_device_code_login is enabled.'
           }
           if (-not (Test-Path -Path $archivesRoot -PathType Container)) {
             throw "Build artifact does not contain an archives directory: $archivesRoot"
@@ -135,12 +160,34 @@ stages:
             throw 'az extension add did not report installedExtensionPath.'
           }
 
+          if ($useDeviceCodeLogin) {
+            Write-Host 'Complete the device-code sign-in shown below to continue this live test.'
+            & $azExe login --subscription-id $subscriptionId --tenant-id $tenantId --use-device-code 2>&1 |
+              ForEach-Object { $_ | Out-Host }
+            if ($LASTEXITCODE -ne 0) {
+              throw "az login --use-device-code exited with code $LASTEXITCODE."
+            }
+          }
+
           $groupOutput = & $azExe group list 2>&1
+          $groupExitCode = $LASTEXITCODE
           $groupText = $groupOutput | Out-String
           $groupText.Trim() | Out-Host
           if ($groupText -match 'could not be found') {
             throw 'az group list did not resolve after installing the Resources extension.'
           }
+          if ($useDeviceCodeLogin) {
+            if ($groupExitCode -ne 0) {
+              throw "az group list exited with code $groupExitCode after device-code login."
+            }
+            Write-Host 'PASS: az group list completed with the device-code authenticated account.'
+          }
 
           Write-Host 'PASS: The selected Windows package launched, loaded built-in commands, installed the Resources extension, and resolved az group list.'
-          Write-Host 'NOTE: This pipeline does not run az login because the current CLI has no noninteractive identity flow.'
+          if (-not $useDeviceCodeLogin) {
+            Write-Host 'NOTE: Device-code login was not selected; az group list was validated only for command resolution.'
+          }
+      env:
+        LIVE_TEST_USE_DEVICE_CODE_LOGIN: ${{ parameters.use_device_code_login }}
+        LIVE_TEST_SUBSCRIPTION_ID: ${{ parameters.subscription_id }}
+        LIVE_TEST_TENANT_ID: ${{ parameters.tenant_id }}
