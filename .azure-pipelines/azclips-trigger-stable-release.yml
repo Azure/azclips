@@ -29,6 +29,7 @@ parameters:
   default: main
 
 variables:
+- group: 'get-github-pat-token'
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
 - name: GitHubTargetRepo
