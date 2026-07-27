@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784794098709,
+  "lastUpdate": 1785116470804,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -1116,6 +1116,42 @@ window.BENCHMARK_DATA = {
             "value": 284236165.76,
             "unit": "ns",
             "range": "± 4252644.358386178"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "088027bf6672da1880260d1fe26bb147644485d0",
+          "message": "[Telemetry] Honor telemetry.enabled changes mid-session (#592)\n\n**Related command**\n\n`Set-AzConfig -Key telemetry.enabled`, `az config set --key\ntelemetry.enabled`, plus every cmdlet / `az` command that emits\ntelemetry.\n\n**Description**\n\nFixes #470.\n\n`PSTelemetryProvider` (and its CLI/TUI siblings) read\n`TelemetryOptions.Enabled` in the constructor and cached the decision by\neither building the OpenTelemetry pipeline or short-circuiting. Because\nthe PS DI container lives from `Import-Module` to `Remove-Module`, that\ndecision was frozen for the whole session — so `Set-AzConfig\ntelemetry.enabled false` had no effect on subsequent cmdlets until the\nmodule was reloaded. The mirror direction (start disabled → enable\nmid-session) was equally broken.\n\nThe check now lives in `TelemetryService.StartActivity` /\n`StartRootActivity`, which read `TelemetryOptions.Enabled` via\n`IConfigurationService` on every call. The three provider ctors always\nbuild the pipeline; the runtime gate is the single source of truth. Both\ntoggle directions now take effect on the very next invocation without a\nmodule reload.\n\nNothing else can leak: the existing `DefaultActivityNameFilterProcessor`\nallowlist already drops any span (e.g. HTTP-client instrumentation)\nwhose OperationName isn't produced by our own `ITelemetryService.Start*`\nmethods, so gating those methods is a complete fix.\n\nPer-call cost is one\n`IConfigurationService.GetConfiguration<TelemetryOptions>()` call\n(warm-cache ~5–15 µs), well under 1 % of any cmdlet that touches the\nnetwork.\n\n**Scope**\n\n| Host | Container lifetime | Observable before | After fix |\n| --- | --- | --- | --- |\n| PowerShell | `Import-Module` → `Remove-Module` (hours+) | **Yes** —\nthis issue | Live toggle both directions |\n| TUI | Interactive REPL (long) | Latent (same code shape) | Live toggle\nboth directions |\n| CLI | One process per `az` invocation | No — new process = fresh\nconfig read | Parity change (see manual repro) |\n| Agent | Medium-lived, inherits CLI provider | Latent | Parity change |\n\n**Testing Guide**\n\nAutomated:\n\n```powershell\ndotnet build azclips.slnx -c Debug\ndotnet test tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj  # 119 pass, incl. 6 new gate tests\ndotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj                # 85 pass\ndotnet test tests/Cli.Tests/Cli.Tests.csproj                        # 508 pass (1 pre-existing E2E failure requires packaged az binary; identical on main)\n```\n\nNew coverage in\n`tests/Core.Telemetry.Tests/TelemetryServiceEnabledGateTests.cs`:\n\n- `StartActivity` / `StartRootActivity` return `null` when\n`Enabled=false`, non-null when `true`.\n- Toggle `true → false` mid-life takes effect on the next call (Teresa's\nscenario).\n- Toggle `false → true` mid-life takes effect on the next call (mirror\nscenario).\n\nManual repro (PS, with a temporary\n`Console.Error.WriteLine(\"[TELEMETRY-PROBE] recorded {name}\")` in\n`TelemetryService.StartActivity` for observability):\n\nBefore the fix, Teresa's scenario:\n\n```text\nPS> Get-AzConfig -Key telemetry.enabled\n[TELEMETRY-PROBE] recorded PowerShell.Activity.Root\n[TELEMETRY-PROBE] recorded SessionCreated\n[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync\ntelemetry.enabled = true [global config]\n\nPS> Set-AzConfig -Key telemetry.enabled -Value false\n[TELEMETRY-PROBE] recorded PowerShell.Activity.Root\n[TELEMETRY-PROBE] recorded SessionCreated\n[TELEMETRY-PROBE] recorded SetConfigCommand.ProcessAsync\n\nPS> Get-AzConfig -Key telemetry.enabled\n[TELEMETRY-PROBE] recorded PowerShell.Activity.Root      # ← BUG: probe still fires\n[TELEMETRY-PROBE] recorded SessionCreated\n[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync\ntelemetry.enabled = false [global config]\n```\n\nAfter the fix, same sequence:\n\n```text\nPS> Get-AzConfig -Key telemetry.enabled\n[TELEMETRY-PROBE] recorded PowerShell.Activity.Root\n[TELEMETRY-PROBE] recorded SessionCreated\n[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync\ntelemetry.enabled = true [global config]\n\nPS> Set-AzConfig -Key telemetry.enabled -Value false\n[TELEMETRY-PROBE] recorded PowerShell.Activity.Root\n[TELEMETRY-PROBE] recorded SessionCreated\n[TELEMETRY-PROBE] recorded SetConfigCommand.ProcessAsync\n\nPS> Get-AzConfig -Key telemetry.enabled\ntelemetry.enabled = false [global config]                # ← FIXED: no probe lines\n```\n\nMirror direction (fresh session, config already `false`):\n\n```text\nPS> Get-AzConfig -Key telemetry.enabled                   # no probe (gate short-circuits)\ntelemetry.enabled = false [global config]\nPS> Set-AzConfig -Key telemetry.enabled -Value true       # no probe (Set ran while disabled)\nPS> Get-AzConfig -Key telemetry.enabled\n[TELEMETRY-PROBE] recorded PowerShell.Activity.Root       # ← FIXED: mirror direction also live\n[TELEMETRY-PROBE] recorded SessionCreated\n[TELEMETRY-PROBE] recorded GetConfigCommand.ProcessAsync\ntelemetry.enabled = true [global config]\n```\n\nCLI verification (three consecutive `az` invocations with the same\nprobe) confirms the CLI change is parity-only, not load-bearing: after\n`az config set --key telemetry.enabled --value false`, the very next\n`az` invocation is a fresh process and its `CLITelemetryProvider` ctor\nreads the new value at startup — no probe output. The bug never had time\nto manifest in a single-shot CLI process.\n\n**History Notes**\n\n[Telemetry] Honor `telemetry.enabled` config changes without requiring a\nPowerShell module reload\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-27T11:30:36+10:00",
+          "tree_id": "d38e04cd6803ab981031a781aa817bc6051bb224",
+          "url": "https://github.com/Azure/azclips/commit/088027bf6672da1880260d1fe26bb147644485d0"
+        },
+        "date": 1785116470707,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 271172366.86,
+            "unit": "ns",
+            "range": "± 3527950.9611033313"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 265064226.13,
+            "unit": "ns",
+            "range": "± 7240377.993069437"
           }
         ]
       }
