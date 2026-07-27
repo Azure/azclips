@@ -1,0 +1,146 @@
+name: azclips-live-package-test-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+  - pipeline: sourceBuild
+    project: public
+    source: azclips-beta-build
+    trigger: none
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- name: SourceProject
+  value: ${{ variables.public_project }}
+- name: SourcePipelineName
+  value: ${{ variables.beta_build_pipeline_name }}
+- name: SourceArtifactName
+  value: Final_Build_Distribution
+
+stages:
+- stage: LivePackageTest
+  displayName: Live Windows Package Test
+  condition: and(succeeded(), eq(variables['Build.Reason'], 'Manual'))
+  jobs:
+  - job: ValidateWindowsPackage
+    displayName: Install and Validate Windows Package
+    timeoutInMinutes: 30
+    pool:
+      vmImage: $(windows_pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Selected Build Distribution
+      inputs:
+        buildType: specific
+        project: $(SourceProject)
+        definition: $(SourcePipelineName)
+        buildVersionToDownload: specific
+        pipelineId: $(resources.pipeline.sourceBuild.runID)
+        artifact: $(SourceArtifactName)
+        path: $(Pipeline.Workspace)/source-build
+
+    - task: PowerShell@2
+      displayName: Run Windows Package Live Test
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+
+          $sourceRoot = "$(Pipeline.Workspace)/source-build"
+          $archivesRoot = Join-Path $sourceRoot 'archives'
+          $extensionsRoot = Join-Path $sourceRoot 'CLIextensions'
+          $simulationRoot = "$(Agent.TempDirectory)/azclips-live-package-test"
+
+          if (-not '$(resources.pipeline.sourceBuild.runID)' -match '^[0-9]+$') {
+            throw 'Select a completed azclips-beta-build run when queueing this pipeline.'
+          }
+          if (-not (Test-Path -Path $archivesRoot -PathType Container)) {
+            throw "Build artifact does not contain an archives directory: $archivesRoot"
+          }
+          if (-not (Test-Path -Path $extensionsRoot -PathType Container)) {
+            throw "Build artifact does not contain a CLIextensions directory: $extensionsRoot"
+          }
+
+          $windowsPackage = Get-ChildItem -Path $archivesRoot -Filter 'azcli-lean-*-win-x64.zip' -File |
+            Sort-Object -Property Name |
+            Select-Object -First 1
+          if (-not $windowsPackage) {
+            throw "No lean win-x64 package was found in $archivesRoot"
+          }
+
+          $resourcesPackage = Get-ChildItem -Path $extensionsRoot -Filter 'azcli.extensions.resources*.nupkg' -File |
+            Sort-Object -Property Name |
+            Select-Object -First 1
+          if (-not $resourcesPackage) {
+            throw "No Resources extension package was found in $extensionsRoot"
+          }
+
+          Remove-Item -Path $simulationRoot -Recurse -Force -ErrorAction SilentlyContinue
+          $installRoot = Join-Path $simulationRoot 'install'
+          $homeRoot = Join-Path $simulationRoot 'home'
+          New-Item -Path $installRoot -ItemType Directory -Force | Out-Null
+          New-Item -Path $homeRoot -ItemType Directory -Force | Out-Null
+          Expand-Archive -Path $windowsPackage.FullName -DestinationPath $installRoot -Force
+
+          $azExe = Join-Path $installRoot 'az.exe'
+          if (-not (Test-Path -Path $azExe -PathType Leaf)) {
+            throw "az.exe was not found after extracting $($windowsPackage.Name)"
+          }
+
+          $env:USERPROFILE = $homeRoot
+
+          function Invoke-AzCommand {
+            param([string[]]$Arguments)
+
+            $output = & $azExe @Arguments 2>&1
+            $exitCode = $LASTEXITCODE
+            $text = $output | Out-String
+            $text.Trim() | Out-Host
+
+            if ($exitCode -ne 0) {
+              throw "az $($Arguments -join ' ') exited with code $exitCode."
+            }
+            if ([string]::IsNullOrWhiteSpace($text)) {
+              throw "az $($Arguments -join ' ') returned no output."
+            }
+
+            return $text
+          }
+
+          Write-Host "Testing package: $($windowsPackage.Name)"
+          [void](Invoke-AzCommand -Arguments @('--version'))
+          [void](Invoke-AzCommand -Arguments @('--help'))
+          [void](Invoke-AzCommand -Arguments @('login', '--help'))
+
+          & $azExe config set --key core.logging.level --value debug --force | Out-Host
+          if ($LASTEXITCODE -ne 0) {
+            throw "az config set exited with code $LASTEXITCODE."
+          }
+
+          $configOutput = Invoke-AzCommand -Arguments @('config', 'get', '--key', 'core.logging.level')
+          if ($configOutput -notmatch 'core\.logging\.level\s*=\s*debug') {
+            throw 'az config get did not confirm the configured debug value.'
+          }
+
+          $extensionOutput = Invoke-AzCommand -Arguments @('extension', 'add', '--path', $resourcesPackage.FullName)
+          if ($extensionOutput -notmatch 'installedExtensionPath') {
+            throw 'az extension add did not report installedExtensionPath.'
+          }
+
+          $groupOutput = & $azExe group list 2>&1
+          $groupText = $groupOutput | Out-String
+          $groupText.Trim() | Out-Host
+          if ($groupText -match 'could not be found') {
+            throw 'az group list did not resolve after installing the Resources extension.'
+          }
+
+          Write-Host 'PASS: The selected Windows package launched, loaded built-in commands, installed the Resources extension, and resolved az group list.'
+          Write-Host 'NOTE: This pipeline does not run az login because the current CLI has no noninteractive identity flow.'
