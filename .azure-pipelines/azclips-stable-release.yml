@@ -17,6 +17,7 @@ variables:
 - template: templates/dist/variables/release.yml
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
+  - group: 'azclips-esrp-signing-codes'
 - name: ReleasePipelineName
   value: ${{ variables.stable_release_pipeline_name }}
 - name: SourceProject
