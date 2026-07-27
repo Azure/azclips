@@ -6,7 +6,7 @@ This directory contains the configuration for the azclips development container.
 
 - **devcontainer.json**: Main dev container configuration
 - **docker-compose.yml**: Docker Compose configuration for multi-container setup
-- **Dockerfile**: Custom Docker image with .NET 9.0 SDK
+- **Dockerfile**: Custom Docker image with .NET 10.0 SDK
 - **post-create.sh**: Post-creation setup script
 - **post-start.sh**: Post-start setup script
 
@@ -15,7 +15,7 @@ This directory contains the configuration for the azclips development container.
 The dev container uses Docker Compose to run multiple services:
 
 ### App Container
-The main development container with .NET 9.0 SDK and all required tools.
+The main development container with .NET 10.0 SDK and all required tools.
 
 ### Zipkin Container
 A local OpenTelemetry trace collector and UI for development and debugging. Zipkin automatically starts with the dev container and is accessible at:

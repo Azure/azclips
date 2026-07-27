@@ -1,6 +1,7 @@
 # Dockerfile for Azure PowerShell devcontainer
-# Use official .NET 9.0 image (supports multi-arch: amd64, arm64)
-FROM mcr.microsoft.com/devcontainers/dotnet:9.0
+# Use official .NET 10.0 image (supports multi-arch: amd64, arm64)
+# Must satisfy the SDK version pinned in global.json.
+FROM mcr.microsoft.com/devcontainers/dotnet:10.0
 
 # Registry used by npm inside the container. Defaults to the public registry so a
 # plain clone builds anywhere; override via NPM_REGISTRY (see .devcontainer/README.md)
