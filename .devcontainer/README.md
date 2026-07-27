@@ -24,6 +24,59 @@ A local OpenTelemetry trace collector and UI for development and debugging. Zipk
 
 The application is configured to automatically export telemetry to Zipkin when running in DEBUG mode. No manual setup required!
 
+## npm Registry Configuration
+
+The container installs Node tooling (pnpm and yarn are installed by the `node`
+dev container feature) and the repo itself contains npm workspaces under
+`toolkit/` and `wiki/`. All of that requires a reachable npm registry.
+
+By default the container uses the public registry, so a plain clone works with
+no extra setup:
+
+```
+https://registry.npmjs.org/
+```
+
+### Using a proxy feed
+
+Some networks block direct access to `registry.npmjs.org`. The symptom is a
+container build that fails while installing the `node` feature:
+
+```
+npm error code ERR_SSL_SSL/TLS_ALERT_HANDSHAKE_FAILURE
+ERROR: Feature "Node.js (via nvm), yarn and pnpm." (ghcr.io/devcontainers/features/node) failed
+```
+
+Note that Node itself installs fine in this case — it is downloaded from
+`nodejs.org`, not from the npm registry. The failure happens on the next step,
+when the feature runs `npm install -g` for pnpm and yarn.
+
+To point the container at a different registry, create an untracked
+`.devcontainer/.env` file:
+
+```
+NPM_REGISTRY=https://your-proxy-feed.example.com/npm/
+```
+
+Docker Compose loads this file automatically, and it is already covered by the
+repository `.gitignore`. Then rebuild the container:
+
+1. Press `F1` or `Ctrl+Shift+P`
+2. Select "Dev Containers: Rebuild Container"
+
+The value is applied as the `NPM_REGISTRY` build argument, which sets
+`NPM_CONFIG_REGISTRY` in the image — so it applies both while dev container
+features install and later when you run `npm` inside the container.
+
+Configuring the host's own npm is not sufficient. The container does not inherit
+host npm configuration, and on machines where the registry is set by policy the
+setting typically lives in a global `npmrc` rather than in `~/.npmrc`, so
+bind-mounting `~/.npmrc` does not help either.
+
+> **Note**: This is intentionally not committed to the repository. Proxy feeds
+> are usually organization-specific and unreachable from other networks, so
+> hard-coding one would break builds for everyone outside that network.
+
 ## Browser Authentication Setup
 
 The dev container is configured to handle browser-based authentication flows (like Azure login) by forwarding browser requests to the host machine's default browser.
@@ -73,6 +126,7 @@ The devcontainer sets the following environment variables:
 
 - `PATH`: Includes the built `az` CLI binary locations
 - `BROWSER`: VS Code's browser helper (automatically set by VS Code)
+- `NPM_CONFIG_REGISTRY`: npm registry used inside the container (see [npm Registry Configuration](#npm-registry-configuration))
 - `ZIPKIN_ENDPOINT`: Points to the Zipkin container (`http://zipkin:9411/api/v2/spans`)
 
 ## Using Zipkin for Trace Visualization
@@ -160,9 +214,9 @@ If Zipkin is running but you don't see any traces:
 
 The `post-create.sh` script runs after the container is created and:
 
-- Builds the solution
-- Sets up PowerShell modules
-- Configures any additional tools
+- Installs the `Microsoft.PowerShell.PlatyPS` and `Az.Accounts` PowerShell modules
+- Adds the built `az` CLI location to `PATH` in `~/.bashrc`
+- Creates the browser symlinks used for authentication
 
 To re-run the post-create script manually:
 

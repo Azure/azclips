@@ -3,6 +3,9 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+      args:
+        # Set NPM_REGISTRY in .devcontainer/.env (untracked) to use a proxy feed.
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     volumes:
       - ..:/workspaces/azclips:cached
     # Set environment variables
