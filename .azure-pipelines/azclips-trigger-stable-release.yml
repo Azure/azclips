@@ -29,7 +29,8 @@ parameters:
   default: main
 
 variables:
-- group: 'get-github-pat-token'
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'get-github-pat-token'
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
 - name: GitHubTargetRepo

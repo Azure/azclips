@@ -28,6 +28,10 @@ steps:
       $secretName = '${{ parameters.secretName }}'
       $outputVariable = '${{ parameters.outputVariable }}'
 
+      if ($outputVariable -notmatch '^[A-Za-z_][A-Za-z0-9_.]*$') {
+        throw "outputVariable must be an Azure Pipelines variable name. Got: '$outputVariable'"
+      }
+
       try {
         $ghToken = Get-AzKeyVaultSecret -VaultName $keyVaultName -Name $secretName -AsPlainText
       }
