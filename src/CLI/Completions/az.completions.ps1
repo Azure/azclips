@@ -301,9 +301,9 @@ function global:TabExpansion2 {
                     $replIndex = $lastSpace + 1
                     $replLength = $cursor - $replIndex
 
-$completionResultMatches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
-foreach ($r in $results) { $completionResultMatches.Add($r) }
-return [System.Management.Automation.CommandCompletion]::new($completionResultMatches, 0, $replIndex, $replLength)
+                    $completionResultMatches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
+                    foreach ($r in $results) { $completionResultMatches.Add($r) }
+                    return [System.Management.Automation.CommandCompletion]::new($completionResultMatches, 0, $replIndex, $replLength)
                 }
                 # isAzclips is $false after query → not azclips, fall through
             }
