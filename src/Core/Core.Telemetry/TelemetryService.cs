@@ -28,7 +28,7 @@ public class TelemetryService : ITelemetryService
     }
 
     // Read live on every call so Set-AzConfig / az config set take effect on
-    // the very next cmdlet without requiring a module reload. See issue #470.
+    // the very next cmdlet without requiring a module reload.
     // ConfigurationService.GetConfiguration<T>() re-parses ~/.azclips/config.json
     // per call — cheap enough for the interactive command rate we ship at.
     private bool IsTelemetryEnabled() =>
@@ -42,7 +42,7 @@ public class TelemetryService : ITelemetryService
 
     public Activity? StartRootActivity()
     {
-        if (!IsTelemetryEnabled()) return null;
+        // No redundant IsTelemetryEnabled() here — StartActivity below is the single gate.
         var activity = StartActivity($"{_clientType.ToString()}.Activity.Root", ActivityKind.Server);
         if (activity is null) return null;
         activity.SetTag(TelemetryTags.InstallationId, TelemetryPropertyResolver.InstallationId);        

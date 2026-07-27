@@ -3,13 +3,14 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using OpenTelemetry;
 using OpenTelemetry.Trace;
 
 namespace Core.Telemetry.Tests;
 
 /// <summary>
-/// Regression coverage for issue #470: the telemetry.enabled config value must
-/// take effect on the very next Start*Activity call, without requiring a
+/// Regression coverage for the telemetry.enabled runtime gate: the config value
+/// must take effect on the very next Start*Activity call, without requiring a
 /// module reload. The check lives in TelemetryService and consults
 /// IConfigurationService on every call — so the ITelemetryProvider singleton
 /// no longer freezes the decision at ctor time.
@@ -127,7 +128,10 @@ public class TelemetryServiceEnabledGateTests : IDisposable
         public StubTelemetryProvider(ActivitySource source)
         {
             ActivitySource = source;
-            TracerProvider = TracerProvider.Default;
+            // Build a dedicated TracerProvider so TelemetryService.Dispose() does
+            // not dispose the shared TracerProvider.Default instance — that would
+            // affect other tests running in the same process.
+            TracerProvider = Sdk.CreateTracerProviderBuilder().Build()!;
         }
 
         public ActivitySource ActivitySource { get; }

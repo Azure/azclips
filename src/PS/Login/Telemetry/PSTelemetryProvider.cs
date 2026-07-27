@@ -17,7 +17,7 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
 {
     // The Enabled check no longer lives here — TelemetryService gates every
     // Start*Activity call at runtime so telemetry.enabled changes take effect on
-    // the next cmdlet without requiring a module reload. See issue #470.
+    // the next cmdlet without requiring a module reload.
     public PSTelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
     {
         var sender = new DirectTelemetrySender();

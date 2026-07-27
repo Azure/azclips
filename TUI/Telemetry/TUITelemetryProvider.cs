@@ -14,7 +14,7 @@ public class TUITelemetryProvider : DefaultTelemetryProvider
 {
     // The Enabled check no longer lives here — TelemetryService gates every
     // Start*Activity call at runtime so telemetry.enabled changes take effect on
-    // the next command without requiring a TUI restart. See issue #470.
+    // the next command without requiring a TUI restart.
     public TUITelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
     {
         FileTelemetrySender sender = new();

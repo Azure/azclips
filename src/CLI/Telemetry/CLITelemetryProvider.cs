@@ -15,9 +15,11 @@ namespace Core.Cli.Telemetry;
 
 public class CLITelemetryProvider : DefaultTelemetryProvider
 {
-    // The Enabled check no longer lives here — TelemetryService gates every
-    // Start*Activity call at runtime so telemetry.enabled changes take effect on
-    // the next command without requiring a fresh process. See issue #470.
+    // Kept for parity with PSTelemetryProvider / TUITelemetryProvider. The
+    // TelemetryService.Start*Activity gate is the single source of truth for
+    // whether spans are recorded; the CLI process is single-shot so the runtime
+    // toggle is largely a no-op here, but the shared pattern keeps the three
+    // providers uniform.
     public CLITelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
     {
         FileTelemetrySender sender = new();
