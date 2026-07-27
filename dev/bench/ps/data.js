@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785125701672,
+  "lastUpdate": 1785125755761,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -4498,6 +4498,48 @@ window.BENCHMARK_DATA = {
             "value": 808466.6674747475,
             "unit": "ns",
             "range": "± 21129.786829672496"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aryasadeghi@microsoft.com",
+            "name": "aryasadeghi1",
+            "username": "aryasadeghi1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6506ee39d8d5b51f42ab9ef6c6f98a69457bd77b",
+          "message": "{Tests} Add scenario test HTTP record/playback foundation (#562)\n\nRecordPlaybackInterceptor fills the tracing-step slot `Engine.cs`\nreserves for record/playback. Record mode captures each request/response\ninto a `SessionRecord` (Authorization is never stored); playback serves\nrecorded responses with no network and fails unmatched requests with a\ndiagnostic listing the remaining entries.\n\n`ScenarioHost` runs commands in-process through the real dispatcher and\nargument binders for both surfaces with stubbed auth.\n\nPOC: The parity tests show group create and `New-AzResourceGroup` emit\nidentical HTTP, so a single recording covers both CLI and PowerShell,\nincluding record-on-CLI then replay-on-PowerShell.\n\nPart of the scenario testing framework work (Addresses #470).\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-27T14:02:11+10:00",
+          "tree_id": "8cafcf51d4b077c6d1d19e3179f14c83be373ea7",
+          "url": "https://github.com/Azure/azclips/commit/6506ee39d8d5b51f42ab9ef6c6f98a69457bd77b"
+        },
+        "date": 1785125753401,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 858350.9404040404,
+            "unit": "ns",
+            "range": "± 23788.24449988319"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 839554.4319050492,
+            "unit": "ns",
+            "range": "± 24785.241906751657"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 818646.9524096386,
+            "unit": "ns",
+            "range": "± 20749.166355742305"
           }
         ]
       }
