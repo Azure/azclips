@@ -1,5 +1,20 @@
 ## Upcoming Release
 
+## v0.1.1 - 2026-07-27 01:53 UTC
+
+#### CLI
+- Argument parser: Use the flag or alias the user typed in error messages and verbose logs instead of the internal processor property name (#594)
+
+#### Extension
+- `az extension list`: Include bundled extensions and expose on-disk `Location` field (#590)
+- `az extension show`: Expose on-disk `Location` field (#590)
+
+#### PowerShell
+- Argument parser: Route cmdlet parameters to their processor property name so parameters whose PS name differs from the backing property no longer fail with a missing-property error (#594)
+
+#### Telemetry
+- Honor `telemetry.enabled` config changes without requiring a PowerShell module reload (#592)
+
 ## v0.1.0 - 2026-07-20 23:15 UTC
 
 #### Resources
