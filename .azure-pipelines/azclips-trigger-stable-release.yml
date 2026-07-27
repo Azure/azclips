@@ -317,6 +317,7 @@ stages:
           '' \
           '- Updates src/CLI/Core.Cli.csproj' \
           '- Updates the root CHANGELOG.md' \
+          '- Updates src/PS/Az/Az.psd1' \
           '- Updates PowerShell module changelogs and manifests' \
           '' \
           '**After merge**' \
