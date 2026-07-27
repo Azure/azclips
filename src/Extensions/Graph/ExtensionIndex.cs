@@ -150,6 +150,137 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        // ── Application: PS Command Metadata ──
+        private static readonly CommandMetadata s_newApplication_PS = new(
+            Name: "NewApplicationProcessor",
+            InvocationName: "New-AzMsGraphApplication",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.NewApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.NewApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["DisplayName"]    = new("DisplayName", "DisplayName", typeof(string), "The display name of the application registration.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["SignInAudience"] = new("SignInAudience", "SignInAudience", typeof(string), "The Microsoft account types supported for sign-in.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_getApplication_PS = new(
+            Name: "GetApplicationProcessor",
+            InvocationName: "Get-AzMsGraphApplication_Get",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.GetApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.GetApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Id"] = new("Id", "Id", typeof(string), "The object ID of the application registration.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_removeApplication_PS = new(
+            Name: "DeleteApplicationProcessor",
+            InvocationName: "Remove-AzMsGraphApplication",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.DeleteApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.DeleteApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Id"] = new("Id", "Id", typeof(string), "The object ID of the application registration to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listApplications_PS = new(
+            Name: "ListApplicationProcessor",
+            InvocationName: "Get-AzMsGraphApplication_List",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.ListApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Filter"]           = new("Filter", "Filter", typeof(string), "OData $filter expression applied by Microsoft Graph.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Select"]           = new("Select", "Select", typeof(string[]), "Properties to project via OData $select.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Orderby"]          = new("Orderby", "Orderby", typeof(string[]), "Property paths to sort by via OData $orderby.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Search"]           = new("Search", "Search", typeof(string), "Free-text search expression mapped to OData $search.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ConsistencyLevel"] = new("ConsistencyLevel", "ConsistencyLevel", typeof(string), "Value sent as the ConsistencyLevel HTTP header for advanced queries.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listApplicationsByDisplayName_PS = new(
+            Name: "ListApplicationProcessor",
+            InvocationName: "Get-AzMsGraphApplication_DisplayName",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.ListApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["DisplayName"] = new("DisplayName", "DisplayName", typeof(string), "Exact display name to match. Translated to the OData filter displayName eq 'value'.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Select"]      = new("Select", "Select", typeof(string[]), "Properties to project via OData $select.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        // ── Application: CLI Command Metadata ──
+        private static readonly CommandMetadata s_newApplication_CLI = new(
+            Name: "NewApplicationProcessor",
+            InvocationName: "msgraph app create",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.NewApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.NewApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["display-name"]     = new("DisplayName", "display-name", typeof(string), "The display name of the application registration.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["sign-in-audience"] = new("SignInAudience", "sign-in-audience", typeof(string), "The Microsoft account types supported for sign-in.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_getApplication_CLI = new(
+            Name: "GetApplicationProcessor",
+            InvocationName: "msgraph app show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.GetApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.GetApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["id"] = new("Id", "id", typeof(string), "The object ID of the application registration.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteApplication_CLI = new(
+            Name: "DeleteApplicationProcessor",
+            InvocationName: "msgraph app delete",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.DeleteApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.DeleteApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["id"] = new("Id", "id", typeof(string), "The object ID of the application registration to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listApplication_CLI = new(
+            Name: "ListApplicationProcessor",
+            InvocationName: "msgraph app list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Graph.Processors.ListApplicationProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Graph",
+            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["filter"]            = new("Filter", "filter", typeof(string), "OData $filter expression applied by Microsoft Graph.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["display-name"]      = new("DisplayName", "display-name", typeof(string), "Exact display name to match.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["select"]            = new("Select", "select", typeof(string[]), "Properties to project via OData $select.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["orderby"]           = new("Orderby", "orderby", typeof(string[]), "Property paths to sort by via OData $orderby.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["search"]            = new("Search", "search", typeof(string), "Free-text search expression mapped to OData $search.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), "Value sent as the ConsistencyLevel HTTP header.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
@@ -159,11 +290,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Graph
             ["Get-AzMsGraphUser_StartsWith"]  = s_listUsersByStartsWith_PS,
             ["Get-AzMsGraphUser_Get"]         = s_getUser_PS,
             ["Get-AzMsGraphUser_SignedIn"]    = s_getSignedInUser_PS,
+            ["New-AzMsGraphApplication"]             = s_newApplication_PS,
+            ["Get-AzMsGraphApplication_Get"]         = s_getApplication_PS,
+            ["Get-AzMsGraphApplication_List"]        = s_listApplications_PS,
+            ["Get-AzMsGraphApplication_DisplayName"] = s_listApplicationsByDisplayName_PS,
+            ["Remove-AzMsGraphApplication"]          = s_removeApplication_PS,
         };
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["msgraph user show"] = s_getUser_CLI,
             ["msgraph user list"] = s_listUsers_CLI,
+            ["msgraph app create"] = s_newApplication_CLI,
+            ["msgraph app show"] = s_getApplication_CLI,
+            ["msgraph app list"] = s_listApplication_CLI,
+            ["msgraph app delete"] = s_deleteApplication_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
