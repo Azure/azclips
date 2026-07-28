@@ -22,36 +22,37 @@ has npm workspaces under `toolkit/` and `wiki/`, so the container needs a
 reachable npm registry. It defaults to the public one, so a plain clone works
 with no setup.
 
-To use a proxy feed, create an untracked `.devcontainer/.env` file.
+To use a proxy feed, create an untracked `.devcontainer/.env` file (copy `.env.example`).
 
 ```
 NPM_REGISTRY=https://your-proxy-feed.example.com/npm/
 ```
+
 ## Browser Authentication Setup
 
 The dev container is configured to handle browser-based authentication flows (like Azure login) by forwarding browser requests to the host machine's default browser.
 
 ### How It Works
 
-1. **VS Code Browser Helper**: VS Code automatically sets the `BROWSER` environment variable to a helper script that can open URLs on the host machine
-2. **System Browser Symlinks**: The `postStartCommand` creates symlinks so common browser launchers (`xdg-open`, `gnome-open`, `kfmclient`) point directly to VS Code's browser helper
-3. **MSAL Integration**: The Microsoft Authentication Library (MSAL) uses these system browsers to open authentication URLs
+1. **VS Code Browser Helper**: VS Code sets `BROWSER` in its integrated terminals to a helper script that opens URLs on the host machine
+2. **Browser Launcher Shims**: `postStartCommand` installs `xdg-open`, `gnome-open`, `kfmclient` and `wslview` into `/usr/local/bin`, each forwarding to that helper
+3. **MSAL Integration**: MSAL invokes those four tools *by name* to open sign-in URLs. It never reads `BROWSER` itself, which is why the shims are required
 
 ### Why This Approach?
 
 - **No Device Code Flow**: Avoids the cumbersome device code authentication flow
 - **Host Browser**: Opens authentication pages in your host machine's default browser
 - **Seamless**: Works transparently with MSAL's `AcquireTokenInteractive` flow
-- **No Extra Files**: Uses VS Code's built-in browser helper directly via symlinks
-- **Automatic Setup**: Symlinks are created on container start via `postStartCommand`
+- **Resilient**: The shims resolve the helper when called, so they survive a VS Code server update changing its path
+- **Automatic Setup**: Installed on every container start via `postStartCommand`
 
 ### Testing
 
-To verify the browser proxy is working:
+Run this **from a VS Code integrated terminal**:
 
 ```bash
-# Check that xdg-open is available
-which xdg-open
+# Check that the launchers are installed
+which xdg-open gnome-open kfmclient wslview
 
 # Check the BROWSER environment variable
 echo $BROWSER
@@ -59,6 +60,10 @@ echo $BROWSER
 # Test opening a URL (will open in host browser)
 xdg-open https://www.bing.com
 ```
+
+The same commands run through `docker exec` will report `Command is only
+available in WSL or inside a Visual Studio Code terminal`, because the helper
+also needs `VSCODE_IPC_HOOK_CLI`, which only integrated terminals set.
 
 ### Rebuilding the Container
 
@@ -68,7 +73,7 @@ If you make changes to the Dockerfile, rebuild the container:
 2. Select "Dev Containers: Rebuild Container"
 3. Wait for the rebuild to complete
 
-Note: The browser symlinks are set up automatically on container start, so you don't need to rebuild for authentication to work.
+Note: The browser launchers are installed automatically on container start, so you don't need to rebuild for authentication to work.
 
 ## Environment Variables
 
@@ -87,19 +92,19 @@ If authentication doesn't open a browser:
 1. Check that `xdg-open` is available: `which xdg-open`
 2. Verify BROWSER is set: `echo $BROWSER`
 3. Test the proxy manually: `xdg-open https://www.bing.com`
-4. Rebuild the container if symlinks are missing
+4. Re-run `./.devcontainer/post-start.sh` if the launchers are missing
 
 ### Authentication Errors
 
-If you see errors about browser tools not being available:
+If `az login` fails with `Unable to open a web page using xdg-open, gnome-open,
+kfmclient or wslview tools`:
 
-1. The container may need to be rebuilt
-2. Check that the symlinks exist:
+1. Confirm the launchers exist:
    ```bash
-   ls -la /usr/local/bin/xdg-open
-   ls -la /usr/local/bin/gnome-open
-   ls -la /usr/local/bin/kfmclient
+   ls -l /usr/local/bin/xdg-open /usr/local/bin/wslview
    ```
+2. If they are missing, re-run the setup: `./.devcontainer/post-start.sh`
+3. Run `az login` from a VS Code integrated terminal, not `docker exec`.
 
 ## Post-Create Setup
 
@@ -107,7 +112,6 @@ The `post-create.sh` script runs after the container is created and:
 
 - Installs the `Microsoft.PowerShell.PlatyPS` and `Az.Accounts` PowerShell modules
 - Adds the built `az` CLI location to `PATH` in `~/.bashrc`
-- Creates the browser symlinks used for authentication
 
 To re-run the post-create script manually:
 

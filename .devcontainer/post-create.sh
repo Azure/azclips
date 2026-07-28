@@ -19,13 +19,5 @@ fi
 # Also export for current session
 export PATH="/workspaces/azclips/artifacts/Release/Core.Cli:$PATH"
 
-echo "🌐 Setting up browser symlinks for authentication..."
-# Check if BROWSER environment variable is set
-if [ -n "$BROWSER" ]; then
-    sudo ln -sf "$BROWSER" /usr/local/bin/xdg-open
-    sudo ln -sf "$BROWSER" /usr/local/bin/gnome-open
-    sudo ln -sf "$BROWSER" /usr/local/bin/kfmclient
-    echo "✓ Browser symlinks created successfully"
-else
-    echo "⚠ BROWSER environment variable not set, skipping browser setup"
-fi
+# Browser launchers for interactive auth are installed by post-start.sh, which
+# runs on every container start rather than only at creation.
