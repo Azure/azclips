@@ -3,9 +3,9 @@
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.Extensions.Graph.Models;
+using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
+namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
     /// Lists Microsoft Graph groups. GET <c>/groups</c> returns an envelope

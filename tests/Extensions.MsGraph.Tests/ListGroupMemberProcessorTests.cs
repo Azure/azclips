@@ -4,7 +4,7 @@
 using Core.Abstractions.Runtime;
 using Moq;
 
-namespace Extensions.Graph.Tests;
+namespace Extensions.MsGraph.Tests;
 
 public class ListGroupMemberProcessorTests
 {

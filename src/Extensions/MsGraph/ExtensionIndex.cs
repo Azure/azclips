@@ -529,7 +529,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ["msgraph app list"]           = s_listApplication_CLI,
             ["msgraph app delete"]         = s_deleteApplication_CLI,
         };
-        };
 
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)

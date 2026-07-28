@@ -3,10 +3,10 @@
 
 using System.Text.Json;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.Extensions.Graph.Models;
+using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 using Moq;
 
-namespace Extensions.Graph.Tests;
+namespace Extensions.MsGraph.Tests;
 
 public class CheckGroupMemberProcessorTests
 {

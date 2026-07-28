@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.Extensions.Graph.Processors;
+using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 
-namespace Extensions.Graph.Tests;
+namespace Extensions.MsGraph.Tests;
 
 /// <summary>
 /// Test-only subclass that exposes the protected request-building seam and the inherited

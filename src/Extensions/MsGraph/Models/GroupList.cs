@@ -4,7 +4,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
-namespace Microsoft.Azure.Azclips.Extensions.Graph.Models;
+namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
 /// <summary>
 /// Envelope for the Microsoft Graph <c>GET /groups</c> response. Graph returns

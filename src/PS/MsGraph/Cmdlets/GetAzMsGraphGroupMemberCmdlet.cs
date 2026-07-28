@@ -6,7 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Graph;
+namespace Microsoft.Azure.Azclips.Cmdlets.MsGraph;
 
 [Cmdlet(VerbsCommon.Get, "AzMsGraphGroupMember", DefaultParameterSetName = ObjectIdParameterSet)]
 public class GetAzMsGraphGroupMemberCmdlet : PSCmdlet
@@ -67,7 +67,7 @@ public class GetAzMsGraphGroupMemberCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Graph", commandName, parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("MsGraph", commandName, parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

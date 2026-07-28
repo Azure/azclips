@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
-namespace Microsoft.Azure.Azclips.Extensions.Graph.Models;
+namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
 /// <summary>
 /// Base shape for any object returned by a Microsoft Graph directory collection —

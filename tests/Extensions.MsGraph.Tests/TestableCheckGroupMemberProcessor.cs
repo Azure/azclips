@@ -2,10 +2,10 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
-using Microsoft.Azure.Azclips.Extensions.Graph.Models;
-using Microsoft.Azure.Azclips.Extensions.Graph.Processors;
+using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
+using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 
-namespace Extensions.Graph.Tests;
+namespace Extensions.MsGraph.Tests;
 
 /// <summary>
 /// Test-only subclass that exposes the protected request-building + SelectOutput seams and

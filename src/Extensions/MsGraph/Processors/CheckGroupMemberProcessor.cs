@@ -5,9 +5,9 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.Extensions.Graph.Models;
+using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Graph.Processors
+namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
     /// Checks whether a directory object (user, group, service principal, or device) is a

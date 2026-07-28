@@ -3,7 +3,7 @@
 
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
-namespace Microsoft.Azure.Azclips.Extensions.Graph.Models;
+namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
 /// <summary>
 /// Wire response from <c>POST /directoryObjects/{id}/checkMemberGroups</c>. Graph

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Azclips.Extensions.Graph;
+namespace Microsoft.Azure.Azclips.Extensions.MsGraph;
 
 /// <summary>
 /// Shared helpers for Microsoft Graph <c>/groups</c> cmdlets.

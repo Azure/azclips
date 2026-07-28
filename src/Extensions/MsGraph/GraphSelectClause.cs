@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Azclips.Extensions.Graph;
+namespace Microsoft.Azure.Azclips.Extensions.MsGraph;
 
 /// <summary>
 /// Shared algorithm for composing the OData <c>$select</c> query parameter value from a
