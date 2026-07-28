@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Query Microsoft Entra directory objects — such as users and groups — through Microsoft Graph. Use subcommands to look up, list, or check resources in the signed-in tenant.
+Description: Query Microsoft Entra directory objects — such as users, groups, and application registrations — through Microsoft Graph. Use subcommands to look up, list, check, or manage resources in the signed-in tenant.
 
 ### List users in the signed-in tenant
 
@@ -47,4 +47,28 @@ az msgraph group member list --group 11111111-2222-3333-4444-555555555555
 
 ```bash
 az msgraph group member check --group 11111111-2222-3333-4444-555555555555 --member-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+```
+
+### Create an application registration
+
+```bash
+az msgraph app create --display-name my-app
+```
+
+### List application registrations
+
+```bash
+az msgraph app list
+```
+
+### Show an application registration by object ID
+
+```bash
+az msgraph app show --id 00000000-0000-0000-0000-000000000000
+```
+
+### Delete an application registration
+
+```bash
+az msgraph app delete --id 00000000-0000-0000-0000-000000000000
 ```
