@@ -17,56 +17,28 @@ development container with the .NET 10.0 SDK and all required tools.
 
 ## npm Registry Configuration
 
-The container installs Node tooling (pnpm and yarn are installed by the `node`
-dev container feature) and the repo itself contains npm workspaces under
-`toolkit/` and `wiki/`. All of that requires a reachable npm registry.
+The `node` dev container feature installs pnpm and yarn via npm, and the repo
+has npm workspaces under `toolkit/` and `wiki/`, so the container needs a
+reachable npm registry. It defaults to the public one, so a plain clone works
+with no setup.
 
-By default the container uses the public registry, so a plain clone works with
-no extra setup:
+If your network blocks `registry.npmjs.org`, the build fails while installing
+the `node` feature with `ERR_SSL_SSL/TLS_ALERT_HANDSHAKE_FAILURE`. (Node itself
+installs fine — it comes from `nodejs.org`; the failure is the next step, where
+the feature runs `npm install -g` for pnpm and yarn.)
 
-```
-https://registry.npmjs.org/
-```
-
-### Using a proxy feed
-
-Some networks block direct access to `registry.npmjs.org`. The symptom is a
-container build that fails while installing the `node` feature:
-
-```
-npm error code ERR_SSL_SSL/TLS_ALERT_HANDSHAKE_FAILURE
-ERROR: Feature "Node.js (via nvm), yarn and pnpm." (ghcr.io/devcontainers/features/node) failed
-```
-
-Note that Node itself installs fine in this case — it is downloaded from
-`nodejs.org`, not from the npm registry. The failure happens on the next step,
-when the feature runs `npm install -g` for pnpm and yarn.
-
-To point the container at a different registry, create an untracked
-`.devcontainer/.env` file:
+To use a proxy feed, create an untracked `.devcontainer/.env` file — already
+covered by `.gitignore` — and rebuild the container:
 
 ```
 NPM_REGISTRY=https://your-proxy-feed.example.com/npm/
 ```
 
-Docker Compose loads this file automatically, and it is already covered by the
-repository `.gitignore`. Then rebuild the container:
-
-1. Press `F1` or `Ctrl+Shift+P`
-2. Select "Dev Containers: Rebuild Container"
-
-The value is applied as the `NPM_REGISTRY` build argument, which sets
-`NPM_CONFIG_REGISTRY` in the image — so it applies both while dev container
-features install and later when you run `npm` inside the container.
-
-Configuring the host's own npm is not sufficient. The container does not inherit
-host npm configuration, and on machines where the registry is set by policy the
-setting typically lives in a global `npmrc` rather than in `~/.npmrc`, so
-bind-mounting `~/.npmrc` does not help either.
-
-> **Note**: This is intentionally not committed to the repository. Proxy feeds
-> are usually organization-specific and unreachable from other networks, so
-> hard-coding one would break builds for everyone outside that network.
+Compose passes this as the `NPM_REGISTRY` build argument, which sets
+`NPM_CONFIG_REGISTRY` in the image, so it applies both while features install
+and when you run `npm` later. Configuring npm on the host has no effect — the
+container inherits none of it. No proxy URL is committed, since feeds are
+organization-specific and unreachable from other networks.
 
 ## Browser Authentication Setup
 
