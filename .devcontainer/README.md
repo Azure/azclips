@@ -22,24 +22,11 @@ has npm workspaces under `toolkit/` and `wiki/`, so the container needs a
 reachable npm registry. It defaults to the public one, so a plain clone works
 with no setup.
 
-If your network blocks `registry.npmjs.org`, the build fails while installing
-the `node` feature with `ERR_SSL_SSL/TLS_ALERT_HANDSHAKE_FAILURE`. (Node itself
-installs fine — it comes from `nodejs.org`; the failure is the next step, where
-the feature runs `npm install -g` for pnpm and yarn.)
-
-To use a proxy feed, create an untracked `.devcontainer/.env` file — already
-covered by `.gitignore` — and rebuild the container:
+To use a proxy feed, create an untracked `.devcontainer/.env` file.
 
 ```
 NPM_REGISTRY=https://your-proxy-feed.example.com/npm/
 ```
-
-Compose passes this as the `NPM_REGISTRY` build argument, which sets
-`NPM_CONFIG_REGISTRY` in the image, so it applies both while features install
-and when you run `npm` later. Configuring npm on the host has no effect — the
-container inherits none of it. No proxy URL is committed, since feeds are
-organization-specific and unreachable from other networks.
-
 ## Browser Authentication Setup
 
 The dev container is configured to handle browser-based authentication flows (like Azure login) by forwarding browser requests to the host machine's default browser.
