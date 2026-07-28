@@ -30,6 +30,27 @@ whether telemetry is emitted at all.
 > traces appear within the per-command replay cadence (near-real-time).
 > PowerShell/Agent export inline (immediate).
 
+## Overriding ports
+
+Two host ports can be overridden if they're already in use:
+
+| Variable | Default | What it changes |
+|---|---|---|
+| `AZCLIPS_OTLP_PORT` | `4317` | The gRPC port the app exports to **and** the stack publishes — one var drives both sides so they can't drift. |
+| `AZCLIPS_JAEGER_UI_PORT` | `16686` | The host port the rebranded UI is served on. |
+
+```bash
+export AZCLIPS_OTLP_PORT=14317
+export AZCLIPS_JAEGER_UI_PORT=26686
+docker compose -f tools/observability/docker-compose.yml up -d
+az group list                 # app exports to http://localhost:14317
+# then open the UI at http://localhost:26686
+```
+
+Both default to their standard values and, like the telemetry switch, are
+developer-only — they never appear in `az config`. The stack always talks to
+`localhost`; the OTLP HTTP ingest port stays fixed at `4318`.
+
 ## Branding
 
 The UI on `localhost:16686` is served through a small nginx reverse proxy (`ui`

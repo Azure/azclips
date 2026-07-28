@@ -17,7 +17,7 @@ internal static class TelemetryExporters
     {
         if (target == TelemetryTarget.Local)
         {
-            builder.AddOtlpExporter(options => options.Endpoint = new Uri(WellKnownEndpoints.LocalOtlp));
+            builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());
         }
         else if (target == TelemetryTarget.Remote)
         {
