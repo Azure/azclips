@@ -36,6 +36,21 @@ dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product CLI
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --ci --product CLI
 ```
 
+> **Charts — run all products for the comparison.** The local grouped-bar chart
+> (`benchmark-comparison-*.html`) plots CLI vs PowerShell side by side, so populate
+> both series by running all products (the default):
+>
+> ```bash
+> # Both series populated (recommended for the comparison chart):
+> dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL
+>
+> # Scope to one extension while keeping the CLI-vs-PS comparison:
+> dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL --extension Compute
+> ```
+>
+> Running a single product (`--product CLI` or `--product PS`) leaves the other series
+> as zero-height bars — handy for a quick single-product check, not for comparison.
+
 ### Output
 
 Results are saved to `artifacts/Benchmark/<timestamp>/` (or `artifacts/Benchmark/ci/<PRODUCT>/` in `--ci` mode):
@@ -79,7 +94,7 @@ Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`
 | CLI | In-process `Core.Cli.Program.Main(args)` | Warm CLI command pipeline (extension loaded once into a process-wide ALC) |
 | PS | Cmdlet invocation on a runspace + module imported in `[IterationSetup]` (PowerShell SDK) | Warm cmdlet execution (runspace creation + module import excluded) |
 
-HTTP is short-circuited by a stub terminate handler (returns `{}` 200 OK), so benchmarks measure the local CLI/PS pipeline only and never call Azure.
+HTTP is short-circuited by a resource-aware stub terminate handler (`StubHttpTerminateHandler`, backed by `StubResponseMappings` + `Stubs/Fixtures/*.json`): it returns a minimal, correctly-shaped ARM body per resource type (or `{}` for unmapped paths) plus a `Retry-After: 0` header, so benchmarks measure the local CLI/PS pipeline only, never call Azure, and orchestrated long-running creates complete without real polling.
 
 ---
 
@@ -90,15 +105,18 @@ tests/Benchmark/
 ├── Program.cs                  # Entry point: arg parsing, BDN config, exit-code aggregation
 ├── BenchmarkBase.cs            # Shared setup: repo root, stub DI registration, cleanup
 ├── BenchmarkEventListener.cs   # BenchmarkEventPublisher: no-op IEventPublisher stub
+├── BenchmarkExtensionAttribute.cs  # [BenchmarkExtension("Name")] discovery marker
 ├── ChartGenerator.cs           # HTML/JSON chart generation
 ├── AppInsightsExporter.cs      # Benchmark metrics upload to App Insights
 ├── CLI/
 │   ├── CLIBenchmarkBase.cs                       # BDN attributes, extension staging + DI overrides
 │   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
-│   └── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG
+│   ├── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG  [Resources]
+│   └── VirtualMachineBenchmarks.cs               # CLI: List / Create / Get VM  [Compute]
 └── PS/
-    ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + import setup, cmdlet-invoke helper
-    └── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG
+    ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + module-import helper
+    ├── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG   [Resources]
+    └── VirtualMachineBenchmarks.cs               # PS: List / Create / Get VM   [Compute]
 ```
 
 ---
@@ -109,7 +127,9 @@ tests/Benchmark/
 |--------|-------------|---------|
 | `--local`, `-l` | Skip App Insights upload | `-- --local` |
 | `--product <name>` | Run a specific product only (`CLI`, `PS`, or `ALL`) | `-- --product CLI` |
-| `--ci` | CI mode: implies `--local` and writes to a stable `artifacts/Benchmark/ci/<PRODUCT>/` path | `-- --ci --product CLI` |
+| `--ci` | CI mode: implies `--local` and writes to a stable `artifacts/Benchmark/ci/<EXTENSION>/<PRODUCT>/` path | `-- --ci --product CLI` |
+| `--extension <name>` | Run a specific extension only (`Compute`, `Resources`, or `ALL`) | `-- --extension Compute` |
+| `--list` | Print the discovered benchmark classes (extension / product / name) and exit | `-- --list` |
 
 ---
 
@@ -122,6 +142,20 @@ Azure Resource Group operations, run against stubbed HTTP (no real Azure calls):
 | List | `group list` | `Get-AzResourceGroup` | `GET /subscriptions/{id}/resourcegroups` |
 | Create | `group create` | `New-AzResourceGroup` | `PUT /subscriptions/{id}/resourcegroups/{name}` |
 | Get | `group show` | `Get-AzResourceGroup -Name` | `GET /subscriptions/{id}/resourcegroups/{name}` |
+
+### Compute (Virtual Machine)
+
+Azure Virtual Machine operations, run against the resource-aware stubbed HTTP (no real Azure calls):
+
+| Operation | CLI command | PowerShell cmdlet | Notes |
+|-----------|-------------|-------------------|-------|
+| List | `vm list` | `Get-AzVM` (by resource group) | GET, non-LRO |
+| Create | `vm create` | `New-AzVM` | Orchestrated: VNet -> NSG -> NIC -> VM (LRO) |
+| Get | `vm show` | `Get-AzVM -Name` | GET, non-LRO |
+
+Create is a long-running operation; the benchmark stub returns `Retry-After: 0` and a
+minimally-shaped virtual-network body so the orchestrated create completes without
+real polling. See "Project Structure" and `tests/Common/Stubs/`.
 
 ---
 
@@ -138,6 +172,28 @@ Unless `--local`/`--ci` is set, each run uploads aggregated benchmark metrics to
 2. **`BenchmarkResult`** custom event - duration (s/ms) plus `Product`, `Operation`, `Resource`, and `Timestamp` dimensions for Grafana filtering
 
 Command-level telemetry is stubbed out during benchmarks (`StubTelemetryService`) to keep measurements isolated, so only these aggregated results are exported. Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
+
+---
+
+## Adding a New Extension
+
+1. Add `CLI/<Resource>Benchmarks.cs` and `PS/<Resource>Benchmarks.cs`, each tagged
+   `[BenchmarkExtension("<Name>")]`. Use a single, title-cased `<Name>` (e.g. `Compute`,
+   `Login`) — it becomes the dashboard title (`Azclips <Name> CLI Benchmarks`).
+   `RequiredExtensions` (CLI) and `ModuleName` (PS) are derived from the attribute, so
+   there is nothing else to wire up on the class.
+2. Keep the product source under `src/Extensions/<Name>/` (and/or `src/PS/<Name>/`) —
+   the standard folder convention CI uses to detect which extension changed.
+3. If the extension makes orchestrated/LRO calls that read response fields, add the
+   minimal shape to `tests/Common/Stubs/StubResponseMappings.cs` + a fixture file.
+
+That's it — **no workflow or `Program.cs` edits are required.** The extension universe,
+the CI run matrix, per-extension change detection, the publish dashboards, and the
+fork-PR comment are all derived at runtime from the `[BenchmarkExtension]` attribute
+(see `.github/scripts/detect-benchmark-changes.sh`). Changes to shared code
+(`src/Core`, benchmark base classes, the workflow, the detection script, …) re-run
+every extension; a change confined to one extension's source or benchmark class runs
+only that extension.
 
 ---
 
