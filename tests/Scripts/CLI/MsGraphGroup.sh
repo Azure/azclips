@@ -5,7 +5,7 @@
 #
 # Prereqs:
 #   1. Build the solution:            dotnet build azclips.slnx
-#   2. Install/refresh the extension: az extension add --path artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Graph/Microsoft.Azure.Azclips.Extensions.Graph.0.1.0.nupkg
+#   2. Install/refresh the extension: az extension add --path artifacts/Debug/Microsoft.Azure.Azclips.Extensions.MsGraph/Microsoft.Azure.Azclips.Extensions.MsGraph.0.1.0.nupkg
 #   3. Sign in:                       az login --tenant-id <tenant>
 #
 # Override the test-tenant fixtures via env vars if running against a different tenant:

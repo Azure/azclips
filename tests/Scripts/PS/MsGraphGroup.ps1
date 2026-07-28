@@ -6,7 +6,7 @@
 #
 # Prereqs:
 #   1. Build the solution:   pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
-#   2. Import the Login + Graph modules (below).
+#   2. Import the Login + MsGraph modules (below).
 #   3. Sign in:              Connect-AzAccount -TenantId <tenant>
 #
 # Override the test-tenant fixtures via env vars if running against a different tenant:
@@ -20,7 +20,7 @@
 $ErrorActionPreference = 'Continue'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Login\Login.psd1') -Force
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Graph\Graph.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\MsGraph\MsGraph.psd1') -Force
 
 # Defaults match the shared test tenant (azclitools20260430.onmicrosoft.com).
 $groupId          = $env:AZCLIPS_MSGRAPH_GROUP_ID          ?? 'e311fa4a-a740-4a3b-af0d-e538e2b01926'

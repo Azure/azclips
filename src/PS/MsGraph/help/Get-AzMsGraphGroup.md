@@ -3,7 +3,7 @@ document type: cmdlet
 external help file: Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll-Help.xml
 HelpUri: ''
 Locale: en-US
-Module Name: Graph
+Module Name: MsGraph
 ms.date: 07/21/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzMsGraphGroup
