@@ -33,12 +33,35 @@ namespace Core.Extensions
         private readonly IReadOnlyDictionary<(string Verb, string Path), LeafEntry> _entries;
         private readonly HashSet<string> _verbs;
 
+        // Every (verb, path) that is a proper prefix of some leaf — i.e. a command group with no
+        // runnable leaf of its own (e.g. (agent, "") and (agent, "tool") when (agent, "tool env")
+        // exists). Precomputed so IsCommandGroup is an O(1) set lookup instead of scanning entries.
+        private readonly HashSet<(string Verb, string Path)> _groups;
+
         private LeafIndex(IReadOnlyDictionary<(string Verb, string Path), LeafEntry> entries)
         {
             _entries = entries;
             _verbs = entries.Keys
                 .Select(k => k.Verb)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            _groups = new HashSet<(string, string)>(s_keyComparer);
+            foreach (var (verb, path) in entries.Keys)
+            {
+                // A leaf marks all of its proper-prefix ancestors as groups, never itself.
+                // "tool resource find" contributes ancestors "", "tool", "tool resource".
+                // A root leaf like (login, "") has no ancestors, so login stays runnable.
+                if (path.Length == 0)
+                {
+                    continue;
+                }
+                var segments = path.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                _groups.Add((verb, string.Empty));
+                for (int i = 1; i < segments.Length; i++)
+                {
+                    _groups.Add((verb, string.Join(" ", segments, 0, i)));
+                }
+            }
         }
 
         /// <summary>
@@ -75,6 +98,26 @@ namespace Core.Extensions
             }
 
             return _verbs.Contains(verb);
+        }
+
+        /// <summary>
+        /// True if <c>(verb, path)</c> names a command group rather than a runnable leaf. A leaf is
+        /// runnable only when it has no children: <c>login</c> (whose sole leaf is its root) is
+        /// runnable, whereas a group root like <c>agent</c> or an intermediate group like
+        /// <c>agent tool</c> owns longer leaves and so is a group. The dispatcher uses this to surface
+        /// a <c>CommandNotFound</c> hint instead of handing a non-runnable group to the extension,
+        /// which would misreport it as an unknown command and fall through to the AI agent.
+        /// </summary>
+        public bool IsCommandGroup(string verb, string path)
+        {
+            if (string.IsNullOrEmpty(verb))
+            {
+                return false;
+            }
+
+            // O(1): _groups holds every (verb, path) that is a proper prefix of some leaf, computed
+            // once at construction. A runnable root/leaf is never in it (see the ctor).
+            return _groups.Contains((verb, path ?? string.Empty));
         }
 
         /// <summary>

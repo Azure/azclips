@@ -347,6 +347,75 @@ public class ExtensionDispatcherTests
         Assert.Contains("az group --help", ex.Message, StringComparison.Ordinal);
     }
 
+    // A resolved built-in verb whose invocation lands on a command group (no runnable leaf) must
+    // surface CommandNotFound with a `--help` hint, not be dispatched to the extension — otherwise
+    // the extension throws a generic "not found" that falls through to the AI agent. Covers the
+    // built-in path that #525 (verb-only fallback) does not reach because built-ins always resolve.
+
+    [Theory]
+    [InlineData(new[] { "agent" }, "agent", new string[0])]
+    [InlineData(new[] { "agent", "tool" }, "agent", new[] { "tool" })]
+    [InlineData(new[] { "agent", "tool", "resource" }, "agent", new[] { "tool", "resource" })]
+    public void Parse_ShouldThrowCommandNotFound_WhenResolvedVerbLandsOnCommandGroup(
+        string[] args, string expectedVerb, string[] expectedPath)
+    {
+        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["agent"] = new("agent", "Microsoft.Azure.Azclips.Extensions.Agent")
+            {
+                Leaves = new[] { "tool env", "tool resource find", "tool resource show" },
+            },
+        };
+        var registry = new ExtensionRegistry();
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(builtIns, registry));
+
+        var ex = Assert.Throws<CommandNotFoundException>(() => dispatcher.Parse(args));
+
+        Assert.Equal("CommandNotFound", ex.Code);
+        Assert.Equal(4, ex.ExitCode);
+        Assert.Equal(expectedVerb, ex.Verb);
+        Assert.Equal(expectedPath, ex.Path);
+        Assert.Contains("az agent --help", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_ShouldRouteRunnableLeaf_UnderCommandGroupVerb()
+    {
+        // The group gate must not swallow a valid leaf under the same verb.
+        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["agent"] = new("agent", "Microsoft.Azure.Azclips.Extensions.Agent")
+            {
+                Leaves = new[] { "tool env", "tool resource find" },
+            },
+        };
+        var registry = new ExtensionRegistry();
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(builtIns, registry));
+
+        var invocation = dispatcher.Parse(["agent", "tool", "env"]);
+
+        Assert.Equal("agent tool env", invocation.CommandName);
+    }
+
+    [Fact]
+    public void Parse_ShouldRouteRunnableRootVerb_WhenBuiltInHasNoChildren()
+    {
+        // A built-in whose only leaf is its root (login) stays runnable — the gate must not fire.
+        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
+        };
+        var registry = new ExtensionRegistry();
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
+        var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(builtIns, registry));
+
+        var invocation = dispatcher.Parse(["login", "--subscription-id", "abc"]);
+
+        Assert.Equal("login", invocation.CommandName);
+    }
+
     [Fact]
     public void Parse_ShouldStillThrowExtensionNotInstalled_WhenVerbAbsentFromLeafIndex_ButHinted()
     {
