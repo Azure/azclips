@@ -51,8 +51,8 @@ if awk '$1 == "::1" { for (i = 2; i <= NF; i++) if ($i == "localhost") found = 1
              print line
              next
          }
-         { print }' /etc/hosts > "${tmp}"
-    sudo cp "${tmp}" /etc/hosts
+        { print }' /etc/hosts > "${tmp}"
+    sudo tee /etc/hosts >/dev/null < "${tmp}"
     rm -f "${tmp}"
     echo "✓ localhost pinned to IPv4 (required for interactive az login)"
 else
