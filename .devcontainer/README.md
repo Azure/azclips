@@ -37,6 +37,8 @@ The dev container is configured to handle browser-based authentication flows (li
 1. **VS Code Browser Helper**: VS Code sets `BROWSER` in its integrated terminals to a helper script that opens URLs on the host machine
 2. **Browser Launcher Shims**: `postStartCommand` installs `xdg-open`, `gnome-open`, `kfmclient` and `wslview` into `/usr/local/bin`, each forwarding to that helper
 3. **MSAL Integration**: MSAL invokes those four tools *by name* to open sign-in URLs. It never reads `BROWSER` itself, which is why the shims are required
+4. **Redirect Back**: MSAL listens on a loopback port and the browser redirects to it after sign-in. VS Code auto-forwards that port to the host within a second or two, so the redirect reaches the container
+5. **IPv4 Loopback**: `postStartCommand` drops the `localhost` alias from the `::1` line in `/etc/hosts`. Without this MSAL binds `[::1]` only, and since VS Code's forwarder connects over IPv4 the sign-in page hangs forever after you authenticate
 
 ### Why This Approach?
 
@@ -105,6 +107,19 @@ kfmclient or wslview tools`:
    ```
 2. If they are missing, re-run the setup: `./.devcontainer/post-start.sh`
 3. Run `az login` from a VS Code integrated terminal, not `docker exec`.
+
+### Login Hangs After Signing In
+
+If the browser opens, you sign in, and the page then loads forever without
+returning to the terminal, the redirect is not reaching MSAL's loopback
+listener. Check that `localhost` resolves to IPv4 only:
+
+```bash
+getent ahosts localhost | head -n 1   # expect 127.0.0.1, not ::1
+```
+
+If it returns `::1`, re-run `./.devcontainer/post-start.sh`. Docker rewrites
+`/etc/hosts` on every container start, so this is reapplied each time.
 
 ## Post-Create Setup
 
