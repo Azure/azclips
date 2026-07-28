@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785201533507,
+  "lastUpdate": 1785201537385,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -2900,6 +2900,48 @@ window.BENCHMARK_DATA = {
             "value": 283437927.88,
             "unit": "ns",
             "range": "± 5514027.418784189"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22f669f323c85efd6764ee0d885277da58be1535",
+          "message": "{Core} Command not found error message adjustments (#554)\n\n**Related command**\n\n`az agent`, `az agent tool`, `az agent tool resource`\n\n**Description**\n\nTyping an Agent command group that has no runnable leaf produced the raw\ninternal error and then handed off to the AI agent:\n\n```\n$ az agent\n[ERROR] Command 'agent' not found for client type 'CLI'.\n  ⠋ Analyzing error root cause using AI ...\n```\n\ninstead of the standard, fast `CommandNotFound` that other groups (`az\ndeployment`, `az vm`, `az group`) already return:\n\n```\n$ az agent\nerror: [CommandNotFound] 'az agent' is not a recognized command. Run 'az agent --help' to see available commands.\n```\n\n**Cause.** Built-in verbs always resolve in `ExtensionDispatcher`, so\nthey skip the verb-only fallback that #525 added for installed\nextensions. The dispatcher then dispatched the non-runnable group to the\nextension, whose `ExtensionIndex` threw a generic `KeyNotFoundException`\nthat the orchestrator routes to the AI agent.\n\n**Fix.** A Core-level change to the dispatcher, mirroring #525. Add\n`LeafIndex.IsCommandGroup(verb, path)` — true when a longer leaf exists\nunder `(verb, path)` but the exact leaf does not — and gate dispatch on\nit, throwing `CommandNotFoundException` (`code=CommandNotFound`, exit 4)\nfor command groups. This now covers the built-in path that #525 could\nnot reach. A runnable root verb like `az login` (whose only leaf is its\nroot) is unaffected. No Agent extension code is touched; `az agent` is\nthe observable symptom because it is the built-in group exercised here.\n\n**Scope of the behavior change.** This is a general Core fix, not\nAgent-specific. The gate fires for any resolved built-in verb whose\ninvocation lands on a command group with no runnable root leaf — today\nthat is `agent`, `config`, `extension`, and `profile` (each seeded with\nchild leaves, none exposing a runnable root command). All four now\nreturn the standard `CommandNotFound` instead of falling through to the\nAI agent, which is the intended consistency fix (mirrors #525 for the\nbuilt-in path). `az agent` is simply the group reported in the bug.\nRunnable root verbs like `az login` / `az logout` (whose only leaf is\nthe root) are unaffected. Config-owned command *behavior* is untouched —\nonly the not-found routing is unified.\n\n**Testing Guide**\n\nBuilt from `azclips.slnx` and run against\n`artifacts/Release/Core.Cli/az.exe`:\n\n| Command | Result |\n| --- | --- |\n| `az agent` | `[CommandNotFound] 'az agent' ... Run 'az agent --help'`\n|\n| `az agent tool` | `[CommandNotFound] 'az agent tool' ...` |\n| `az agent tool resource` | `[CommandNotFound] 'az agent tool resource'\n...` |\n| `az agent tool env` (valid leaf) | executes normally, returns JSON |\n| `az agent tool resource find --name test --top 1` (valid leaf) |\nexecutes normally |\n| `az login --subscription-id ...` | resolves to the command (not a\ngroup); no regression |\n| `az logout` | executes normally |\n\nAutomated:\n\n- `dotnet test tests/Core.Extensions.Tests` — `LeafIndexTests` +6\n(`IsCommandGroup`)\n- `dotnet test tests/Cli.Tests --filter ExtensionDispatcher` — +5 (group\ngate, valid leaf, runnable root)\n\n**Known follow-up (out of scope):** a typo on a full leaf, e.g. `az\nagent tool resource findxxx`, still returns the old `client type 'CLI'`\nerror. That is a leaf-typo path, distinct from the command-group case\nfixed here, and applies to all extensions.",
+          "timestamp": "2026-07-28T11:05:30+10:00",
+          "tree_id": "343f9a5546daeca221cf7caf9fc40cb757e8eeaf",
+          "url": "https://github.com/Azure/azclips/commit/22f669f323c85efd6764ee0d885277da58be1535"
+        },
+        "date": 1785201537287,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 352340422.49,
+            "unit": "ns",
+            "range": "± 88682067.71963122"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 345875251.5,
+            "unit": "ns",
+            "range": "± 88380236.26713233"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 293472579.73,
+            "unit": "ns",
+            "range": "± 3753882.4814544674"
           }
         ]
       }
