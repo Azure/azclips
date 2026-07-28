@@ -18,6 +18,3 @@ fi
 
 # Also export for current session
 export PATH="/workspaces/azclips/artifacts/Release/Core.Cli:$PATH"
-
-# Browser launchers for interactive auth are installed by post-start.sh, which
-# runs on every container start rather than only at creation.
