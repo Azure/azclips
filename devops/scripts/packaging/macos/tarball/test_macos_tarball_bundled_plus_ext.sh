@@ -181,21 +181,29 @@ fi
 
 echo ""
 echo "[1/5] CLI version (bundled install)"
-version_output="$(HOME="$SIM_ROOT/home" "$AZ" --version 2>&1)"
-if [[ -z "$version_output" ]]; then
+if ! version_output="$(HOME="$SIM_ROOT/home" "$AZ" --version 2>&1)"; then
+  echo "FAIL: az --version exited with a non-zero status"
+  printf '%s\n' "$version_output" | sed -n '1,20p'
+  exit 1
+fi
+if [[ -z "${version_output//[[:space:]]/}" ]]; then
   echo "FAIL: az --version returned no output"
   exit 1
 fi
-printf '%s\n' "$version_output"
+printf '%s\n' "$version_output" | sed -n '1,20p'
 
 echo ""
 echo "[2/5] CLI help (bundled install)"
-help_output="$(HOME="$SIM_ROOT/home" "$AZ" --help 2>&1)"
-if [[ -z "$help_output" ]]; then
+if ! help_output="$(HOME="$SIM_ROOT/home" "$AZ" --help 2>&1)"; then
+  echo "FAIL: az --help exited with a non-zero status"
+  printf '%s\n' "$help_output" | sed -n '1,20p'
+  exit 1
+fi
+if [[ -z "${help_output//[[:space:]]/}" ]]; then
   echo "FAIL: az --help returned no output"
   exit 1
 fi
-printf '%s\n' "$help_output"
+printf '%s\n' "$help_output" | sed -n '1,20p'
 
 echo ""
 echo "[3/5] Verify built-in extension manager is available"
