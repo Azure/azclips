@@ -95,7 +95,7 @@ public class GetUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        // Defaults come before caller extras — matches Az.Resources Get-AzADUser ordering.
+        // Defaults come before caller extras.
         var uri = request.RequestUri!.ToString();
         Assert.Contains("$select=", uri, StringComparison.Ordinal);
         Assert.Contains(Uri.EscapeDataString("displayName,id,deletedDateTime,userPrincipalName,usageLocation,givenName,surname,accountEnabled,mailNickname,mail,city"), uri, StringComparison.Ordinal);

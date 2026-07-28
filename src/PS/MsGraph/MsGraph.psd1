@@ -55,7 +55,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'Get-AzMsGraphUser', 'New-AzMsGraphApplication', 'Get-AzMsGraphApplication', 'Remove-AzMsGraphApplication'
+CmdletsToExport = @('Get-AzMsGraphUser', 'Get-AzMsGraphGroup', 'Get-AzMsGraphGroupMember', 'New-AzMsGraphApplication', 'Get-AzMsGraphApplication', 'Remove-AzMsGraphApplication')
 
 # Variables to export from this module
 VariablesToExport = '*'

@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
@@ -18,6 +20,9 @@ public class User
     public string? OfficeLocation { get; set; }
     public string? PreferredLanguage { get; set; }
     public string[]? BusinessPhones { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }

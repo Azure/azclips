@@ -125,7 +125,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
             if (!string.IsNullOrWhiteSpace(ConsistencyLevel))
             {
-                // Graph-specific header; TryAddWithoutValidation bypasses .NET's built-in allow-list.
                 request.Headers.TryAddWithoutValidation(ConsistencyLevelHeaderName, ConsistencyLevel);
             }
 
@@ -133,8 +132,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             return request;
         }
 
-        // Combines the raw Filter with any set convenience shortcuts via OData 'and'.
-        // Single quotes inside shortcut values are doubled per OData string-literal rules.
         private string? BuildFilterClause()
         {
             var clauses = new List<string>();
@@ -163,6 +160,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             return clauses.Count == 0 ? null : string.Join(" and ", clauses);
         }
 
+        // OData string literal escape: single quotes are doubled.
         private static string EscapeODataString(string value) => value.Replace("'", "''");
 
         protected override object SelectOutput(UserList body) => body.Value ?? [];
