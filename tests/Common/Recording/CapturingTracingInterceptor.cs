@@ -11,7 +11,7 @@ namespace Tests.Common.Recording;
 /// tracing step ("trace every http request message, record/playback request during test").
 /// The step runs after the auth step and before the retry/wire steps, so it sees the request
 /// exactly as it would hit the network. It snapshots every request into <see cref="Captured"/>
-/// and answers from <paramref name="responder"/> without calling the next step — the network
+/// and answers from <paramref name="responder"/> without calling the next step, so the network
 /// and the retry handlers are never touched. Register it as the <see cref="ITracingInterceptor"/>
 /// singleton before <c>AzclipsServiceProvider.Initialize</c>.
 /// </summary>

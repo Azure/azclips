@@ -8,7 +8,7 @@ namespace Scenario.Tests;
 
 /// <summary>
 /// Acceptance tests for the record/playback <c>SendAsyncStep</c> (#470), run through the full
-/// engine — real dispatcher, binder, auth step, and pipeline. The "wire" behind the pipeline's
+/// engine: real dispatcher, binder, auth step, and pipeline. The "wire" behind the pipeline's
 /// terminal <c>HttpClient</c> is a fake handler, so record mode is exercised end-to-end with no
 /// real network and no credentials.
 /// </summary>
@@ -133,7 +133,7 @@ public class RecordPlaybackTests
     public void Playback_ServesRecordedResponse_WithoutNetwork()
     {
         // Record once on the CLI surface, then replay the same session on the PowerShell
-        // surface — the author-once model end-to-end. The backend throws if playback leaks
+        // surface, the author-once model end-to-end. The backend throws if playback leaks
         // a request past the interceptor.
         var record = RecordCliGroupCreate(out _);
 
