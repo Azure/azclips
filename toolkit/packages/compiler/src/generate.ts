@@ -8,7 +8,7 @@
  */
 
 import type { IR } from "@azure-client-engine/ir";
-import type { CompilerDiagnostic } from "./types.js";
+import type { CompileConfig, CompilerDiagnostic } from "./types.js";
 
 /** Per-run services handed to a generator. */
 export interface GeneratorContext {
@@ -16,8 +16,11 @@ export interface GeneratorContext {
   reportDiagnostic(diagnostic: CompilerDiagnostic): void;
   /** Cooperative cancellation shared with the enclosing compile run. */
   readonly signal?: AbortSignal;
-  /** App-resolved free-form settings (`CompileInput.extensions`); `{}` if none. */
-  readonly extensions: Record<string, unknown>;
+  /**
+   * App-resolved compile configuration (`CompileInput.config`); `{}` if none.
+   * The generator reads its own named fields off it (there is no free-form bag).
+   */
+  readonly config: CompileConfig;
 }
 
 export interface GeneratorOutput {

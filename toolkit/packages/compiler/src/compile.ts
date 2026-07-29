@@ -7,17 +7,19 @@
  * Diagnostics are structured data. Cancellable via `AbortSignal`, checked at
  * every stage boundary.
  *
- * The pipeline is configurable, not hard-coded: transform steps and the
- * generator are resolved from `CompileConfig.pipeline` / `.generator` against a
- * `CompilerRegistry`, or overridden directly via `CompileOptions`. The backbone
+ * The pipeline is configurable, not hard-coded: the emit producer, transform
+ * steps, and the generator are all injectable seams. Emit has no built-in
+ * default — the orchestrator is TypeSpec-free, so the host supplies a producer
+ * (`CompileOptions.emit`, e.g. the CLI's out-of-process tsp-compile). Transforms
+ * and the generator resolve from `CompileConfig.pipeline` / `.generator` against
+ * a `CompilerRegistry`, or are overridden via `CompileOptions`. The backbone
  * owns the step loop, so with `captureIR` it emits a labeled `IRSnapshot` after
  * emit and after each transform step.
  */
 
 import type { IR } from "@azure-client-engine/ir";
 
-import { emitIR } from "./emit.js";
-import { toCompilerDiagnostic } from "./diagnostics.js";
+import type { EmitContext } from "./emit-producer.js";
 import {
   createTransformPipeline,
   identityPipeline,
@@ -49,7 +51,6 @@ export async function compile(
   };
 
   const config = input.config ?? {};
-  const extensions = input.extensions ?? {};
   const captureIR = options.captureIR === true;
 
   // Output sink: a caller-provided delegate, or the default in-memory collector
@@ -82,26 +83,39 @@ export async function compile(
     }
   };
 
-  // ── Stage 1 + 2: compile TypeSpec and emit IR ──────────────────────────
-  const emitted = await emitIR({
-    entrypoint: input.entrypoint,
-    ...(config.emitter !== undefined ? { emitterOptions: config.emitter } : {}),
-    ...(config.additionalImports !== undefined
-      ? { additionalImports: config.additionalImports }
-      : {}),
-    ...(config.warnAsError !== undefined ? { warnAsError: config.warnAsError } : {}),
-    ...(config.trace !== undefined ? { trace: config.trace } : {}),
-    ...(config.nostdlib !== undefined ? { nostdlib: config.nostdlib } : {}),
-  });
-  for (const d of emitted.diagnostics) diagnostics.push(toCompilerDiagnostic(d));
+  // ── Stage 1 + 2: emit IR (injected seam; no built-in TypeSpec default) ──
+  const emitProducer = options.emit;
+  if (emitProducer === undefined) {
+    reportDiagnostic({
+      severity: "error",
+      code: "@azure-client-engine/compiler/no-emit-producer",
+      message:
+        "No emit producer was provided. compile() is TypeSpec-free and requires " +
+        "an injected source -> IR producer via CompileOptions.emit (e.g. the CLI's " +
+        "out-of-process tsp-compile producer).",
+    });
+    return finish(false);
+  }
+  const emitContext: EmitContext = {
+    reportDiagnostic,
+    ...(signal !== undefined ? { signal } : {}),
+  };
+  let emittedIr: IR | undefined;
+  try {
+    ({ ir: emittedIr } = await emitProducer.produce(input, emitContext));
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    reportDiagnostic(stageError("emit", emitProducer.name, error));
+    return finish(false);
+  }
 
-  if (emitted.ir === undefined || hasError()) {
+  if (emittedIr === undefined || hasError()) {
     return finish(false);
   }
 
   // Snapshot 0: the IR straight from the emitter.
   throwIfAborted(signal);
-  if (!(await captureSnapshot(0, "emit", emitted.ir))) return finish(false);
+  if (!(await captureSnapshot(0, "emit", emittedIr))) return finish(false);
 
   // ── Stage 3: transform (identity unless configured/injected) ────────────
   const pipeline = resolvePipeline(options, config, reportDiagnostic);
@@ -109,10 +123,10 @@ export async function compile(
 
   const transformContext: TransformContext = {
     reportDiagnostic,
-    extensions,
+    config,
     ...(signal !== undefined ? { signal } : {}),
   };
-  let ir: IR = emitted.ir;
+  let ir: IR = emittedIr;
   let index = 1;
   for (const step of pipeline.steps) {
     throwIfAborted(signal);
@@ -134,7 +148,7 @@ export async function compile(
 
   const generatorContext: GeneratorContext = {
     reportDiagnostic,
-    extensions,
+    config,
     ...(signal !== undefined ? { signal } : {}),
   };
   let files: Map<string, string>;

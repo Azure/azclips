@@ -1,30 +1,133 @@
 /**
  * Extension-seam tests.
  *
- * Prove that `compile()` threads the emitted IR through an injected
- * `TransformPipeline` and routes the transformed IR to an injected
- * `Generator`, returning the generator's files. These are the seams the
- * future transform passes and the Roslyn C# back end plug into.
+ * Prove that `compile()` requires an injected emit producer, threads the emitted
+ * IR through an injected `TransformPipeline`, and routes the transformed IR to an
+ * injected `Generator`. The orchestrator is TypeSpec-free, so these tests feed IR
+ * from a stub emit producer backed by the committed `pets.ir.json` fixture rather
+ * than running a real TypeSpec compile — the real compile+emit path is covered in
+ * @azure-client-engine/cli's tsp-compile tests.
  */
 
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { normalizePath } from "@typespec/compiler";
 
 import {
   compile,
   createRegistry,
   createTransformPipeline,
+  type EmitProducer,
   type Generator,
   type OutputDelegate,
   type TransformStep,
 } from "../src/index.js";
 
-const PETS_TSP = normalizePath(
-  resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "ir", "examples", "pets.tsp"),
+import { emptyIR, parseIR, type IR } from "@azure-client-engine/ir";
+
+// A real, schema-valid IR fixture (models incl. "Pet"; operations incl. "list" /
+// "rename"). Feeding it through a stub producer keeps the orchestrator tests free
+// of any TypeSpec dependency while still exercising realistic IR.
+const PETS_IR: IR = parseIR(
+  JSON.parse(
+    readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "ir", "examples", "pets.ir.json"),
+      "utf8",
+    ),
+  ),
 );
+
+// Fresh clone per call so a mutating transform in one test can't leak into
+// another test that shares this producer.
+const petsEmit: EmitProducer = {
+  name: "stub-pets",
+  produce: () => ({ ir: structuredClone(PETS_IR) }),
+};
+
+// The stub ignores the entrypoint; this is just a readable placeholder.
+const ENTRYPOINT = "pets.tsp";
+
+describe("compiler backbone: emit seam", () => {
+  const stubIR = (id: string): IR => ({
+    ...emptyIR(),
+    sources: [
+      {
+        id,
+        entrypoint: "stub.tsp",
+        apiVersion: { value: "2024-01-01", location: "query", parameterName: "api-version" },
+        server: { kind: "literal", url: "https://stub.example/" },
+        rootNamespace: [id],
+      },
+    ],
+  });
+
+  it("fails with no-emit-producer when no emit seam is injected", async () => {
+    // The orchestrator is TypeSpec-free: with no injected producer there is no
+    // source -> IR step, so it reports a structured error instead of running one.
+    const result = await compile({ entrypoint: ENTRYPOINT });
+
+    expect(result.success).toBe(false);
+    expect(
+      result.diagnostics.some((d) => d.code === "@azure-client-engine/compiler/no-emit-producer"),
+    ).toBe(true);
+  });
+
+  it("uses the injected EmitProducer and never touches the entrypoint", async () => {
+    // A stub producer returns IR directly — no TypeSpec compile — proving emit
+    // is an injectable seam. The entrypoint is never read.
+    const stub: EmitProducer = {
+      name: "stub",
+      produce: () => ({ ir: stubIR("Stub") }),
+    };
+
+    const result = await compile({ entrypoint: "does-not-exist.tsp" }, { emit: stub });
+
+    expect(result.success).toBe(true);
+    expect(result.ir?.sources[0]?.id).toBe("Stub");
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("reports a stage-failed diagnostic when the producer throws", async () => {
+    const boom: EmitProducer = {
+      name: "boom",
+      produce: () => {
+        throw new Error("kaboom");
+      },
+    };
+
+    const result = await compile({ entrypoint: "x.tsp" }, { emit: boom });
+
+    expect(result.success).toBe(false);
+    expect(
+      result.diagnostics.some((d) => d.code === "@azure-client-engine/compiler/emit-stage-failed"),
+    ).toBe(true);
+  });
+
+  it("feeds the injected producer's IR through transform and capture", async () => {
+    const stub: EmitProducer = {
+      name: "stub",
+      produce: () => ({ ir: stubIR("Stub") }),
+    };
+    const rename = createTransformPipeline("t", [
+      {
+        name: "tag",
+        run: (ir) => ({ ...ir, sources: ir.sources.map((s) => ({ ...s, id: `${s.id}!` })) }),
+      },
+    ]);
+
+    const result = await compile(
+      { entrypoint: "x.tsp" },
+      { emit: stub, transform: rename, captureIR: true },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.ir?.sources[0]?.id).toBe("Stub!");
+    expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "tag"]);
+    expect(result.snapshots?.[0]?.ir.sources[0]?.id).toBe("Stub");
+  });
+});
 
 describe("compiler backbone: extension seams", () => {
   it("threads IR through an injected TransformPipeline", async () => {
@@ -38,7 +141,10 @@ describe("compiler backbone: extension seams", () => {
       },
     ]);
 
-    const result = await compile({ entrypoint: PETS_TSP }, { transform: renamePet });
+    const result = await compile(
+      { entrypoint: ENTRYPOINT },
+      { emit: petsEmit, transform: renamePet },
+    );
 
     expect(result.success).toBe(true);
     expect(result.ir?.models.some((m) => m.name === "Animal")).toBe(true);
@@ -55,54 +161,42 @@ describe("compiler backbone: extension seams", () => {
       }),
     };
 
-    const result = await compile({ entrypoint: PETS_TSP }, { generator });
+    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, generator });
 
     expect(result.success).toBe(true);
     expect(result.files.get("summary.txt")).toMatch(/^models=\d+;operations=\d+$/);
   });
 
-  it("forwards emitter options via config.emitter (sourceId overrides the module)", async () => {
-    const result = await compile({
-      entrypoint: PETS_TSP,
-      config: { emitter: { sourceId: "CustomSource" } },
-    });
-
-    expect(result.success).toBe(true);
-    const pet = result.ir?.models.find((m) => m.name === "Pet");
-    expect(pet?.source).toBe("CustomSource");
-    expect(pet?.id.module).toBe("CustomSource");
-  });
-
-  it("threads CompileInput.extensions into transform and generator contexts", async () => {
+  it("threads CompileInput.config into transform and generator contexts", async () => {
     const seen: Record<string, unknown> = {};
-    const transform = createTransformPipeline("capture-extensions", [
+    const transform = createTransformPipeline("capture-config", [
       {
         name: "capture",
         run: (ir, ctx) => {
-          seen.marker = ctx.extensions.marker;
+          seen.apiVersion = ctx.config.apiVersion;
           return ir;
         },
       },
     ]);
     const generator: Generator = {
-      name: "capture-extensions-generator",
-      generate: (ir, ctx) => ({ files: new Map([["ext.txt", String(ctx.extensions.marker)]]) }),
+      name: "capture-config-generator",
+      generate: (ir, ctx) => ({ files: new Map([["cfg.txt", String(ctx.config.apiVersion)]]) }),
     };
 
     const result = await compile(
-      { entrypoint: PETS_TSP, extensions: { marker: "hello" } },
-      { transform, generator },
+      { entrypoint: ENTRYPOINT, config: { apiVersion: "2025-09-01" } },
+      { emit: petsEmit, transform, generator },
     );
 
     expect(result.success).toBe(true);
-    expect(seen.marker).toBe("hello");
-    expect(result.files.get("ext.txt")).toBe("hello");
+    expect(seen.apiVersion).toBe("2025-09-01");
+    expect(result.files.get("cfg.txt")).toBe("2025-09-01");
   });
 });
 
 describe("compiler backbone: IR capture", () => {
   it("captures emit as snapshot 0 (default collector)", async () => {
-    const result = await compile({ entrypoint: PETS_TSP }, { captureIR: true });
+    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, captureIR: true });
     expect(result.success).toBe(true);
     expect(result.snapshots?.[0]?.index).toBe(0);
     expect(result.snapshots?.[0]?.step).toBe("emit");
@@ -120,8 +214,8 @@ describe("compiler backbone: IR capture", () => {
       },
     ]);
     const result = await compile(
-      { entrypoint: PETS_TSP },
-      { captureIR: true, transform: renamePet },
+      { entrypoint: ENTRYPOINT },
+      { emit: petsEmit, captureIR: true, transform: renamePet },
     );
     expect(result.success).toBe(true);
     expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "rename-pet"]);
@@ -131,7 +225,7 @@ describe("compiler backbone: IR capture", () => {
   });
 
   it("omits snapshots when captureIR is not set", async () => {
-    const result = await compile({ entrypoint: PETS_TSP });
+    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit });
     expect(result.snapshots).toBeUndefined();
   });
 
@@ -140,7 +234,10 @@ describe("compiler backbone: IR capture", () => {
     const output: OutputDelegate = (a) => {
       seen.push(a.kind === "ir-snapshot" ? `ir:${a.index}-${a.step}` : `file:${a.path}`);
     };
-    const result = await compile({ entrypoint: PETS_TSP }, { captureIR: true, output });
+    const result = await compile(
+      { entrypoint: ENTRYPOINT },
+      { emit: petsEmit, captureIR: true, output },
+    );
     expect(result.success).toBe(true);
     expect(seen).toContain("ir:0-emit");
     expect(result.snapshots).toBeUndefined();
@@ -165,10 +262,10 @@ describe("compiler backbone: configurable pipeline (registry + config)", () => {
     const registry = createRegistry({ transforms: { rename: renameFactory } });
     const result = await compile(
       {
-        entrypoint: PETS_TSP,
+        entrypoint: ENTRYPOINT,
         config: { pipeline: [{ use: "rename", options: { from: "Pet", to: "Animal" } }] },
       },
-      { registry, captureIR: true },
+      { emit: petsEmit, registry, captureIR: true },
     );
     expect(result.success).toBe(true);
     expect(result.ir?.models.some((m) => m.name === "Animal")).toBe(true);
@@ -179,7 +276,7 @@ describe("compiler backbone: configurable pipeline (registry + config)", () => {
     const registry = createRegistry({ transforms: { rename: renameFactory } });
     const result = await compile(
       {
-        entrypoint: PETS_TSP,
+        entrypoint: ENTRYPOINT,
         config: {
           pipeline: [
             { use: "rename", options: { from: "Pet", to: "Animal" } },
@@ -187,7 +284,7 @@ describe("compiler backbone: configurable pipeline (registry + config)", () => {
           ],
         },
       },
-      { registry, captureIR: true },
+      { emit: petsEmit, registry, captureIR: true },
     );
     expect(result.success).toBe(true);
     expect(result.ir?.models.some((m) => m.name === "Creature")).toBe(true);
@@ -196,8 +293,8 @@ describe("compiler backbone: configurable pipeline (registry + config)", () => {
 
   it("fails with a diagnostic when a step id is not registered", async () => {
     const result = await compile(
-      { entrypoint: PETS_TSP, config: { pipeline: [{ use: "does-not-exist" }] } },
-      { registry: createRegistry() },
+      { entrypoint: ENTRYPOINT, config: { pipeline: [{ use: "does-not-exist" }] } },
+      { emit: petsEmit, registry: createRegistry() },
     );
     expect(result.success).toBe(false);
     expect(

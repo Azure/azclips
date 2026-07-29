@@ -43,6 +43,12 @@ import {
 } from "./type-ref.js";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
 import {
+  AccessKinds,
+  UsageKinds,
+  type IRAccess,
+  type IRUsage,
+} from "./primitives.js";
+import {
   CollectionPropertyHintsSchema,
   ModelHintsSchema,
   ObjectPropertyHintsSchema,
@@ -52,6 +58,19 @@ import {
   type ObjectPropertyHints,
   type ValuePropertyHints,
 } from "./hints.js";
+
+// ─── Property visibility (lifecycle phases) ─────────────────────────────
+
+/**
+ * Lifecycle visibility phase, mirroring TypeSpec's `TypeSpec.Lifecycle`
+ * visibility class (`@visibility(Lifecycle.Read | Create | Update | Delete |
+ * Query)`). ace preserves the full phase set instead of collapsing to
+ * read/write-only, so downstream generators keep the source's create- vs
+ * update-only distinction.
+ */
+export type IRVisibility = "read" | "create" | "update" | "delete" | "query";
+
+export const IRVisibilitySchema = z.enum(["read", "create", "update", "delete", "query"]);
 
 // ─── Shared property base ───────────────────────────────────────────────
 
@@ -63,8 +82,13 @@ type IRPropertyCommon = {
   wireName: string;
   optional: boolean;
   nullable: boolean;
-  readOnly: boolean;
-  writeOnly: boolean;
+  /**
+   * Lifecycle phases in which the property is visible, mirroring the source's
+   * `@visibility(Lifecycle.*)`. **Omitted when unconstrained** (visible in
+   * every phase — TypeSpec's default when no `@visibility` is declared): an
+   * absent field means "all phases", not "no phases".
+   */
+  visibility?: IRVisibility[] | undefined;
   /**
    * Defining model id for inherited copies. Undefined on the own/defining
    * copy. The rematerialize pass uses this to identify which properties
@@ -79,6 +103,10 @@ type IRPropertyCommon = {
   overrides?: IRId | undefined;
   defaultValue?: IRLiteralValue | undefined;
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
+  /** Generated-code visibility (`@access`). Omitted when `public` (the default). */
+  access?: IRAccess | undefined;
 };
 
 const propertyCommon = {
@@ -87,12 +115,13 @@ const propertyCommon = {
   wireName: z.string().min(1),
   optional: z.boolean(),
   nullable: z.boolean(),
-  readOnly: z.boolean(),
-  writeOnly: z.boolean(),
+  visibility: IRVisibilitySchema.array().optional(),
   inheritedFrom: IRIdSchema.optional(),
   overrides: IRIdSchema.optional(),
   defaultValue: IRLiteralValueSchema.optional(),
   docs: z.string().optional(),
+  summary: z.string().optional(),
+  access: z.enum(AccessKinds).optional(),
 };
 
 // ─── Property variants by type kind ─────────────────────────────────────
@@ -253,6 +282,12 @@ export type IRModel = {
    */
   source: string;
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
+  /** Data-flow usage (`@usage`/derived). Omitted when empty (`Usage.None`). */
+  usage?: IRUsage[] | undefined;
+  /** Generated-code visibility (`@access`). Omitted when `public` (the default). */
+  access?: IRAccess | undefined;
   rendering?: ModelHints | undefined;
 };
 
@@ -267,6 +302,9 @@ export const IRModelSchema: z.ZodType<IRModel> = z
     additionalProperties: IRTypeRefSchema.optional(),
     source: z.string().min(1),
     docs: z.string().optional(),
+    summary: z.string().optional(),
+    usage: z.enum(UsageKinds).array().optional(),
+    access: z.enum(AccessKinds).optional(),
     rendering: ModelHintsSchema.optional(),
   })
   .strict();
