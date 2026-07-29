@@ -13,16 +13,13 @@ using Tests.Common.Utilities;
 namespace Scenario.Tests;
 
 /// <summary>
-/// Boots the full Azclips host (DI container + engine) for one client surface and executes
-/// commands subcutaneously: through the real dispatcher/binder and engine session, with the
-/// supplied interceptor occupying the pipeline's record/playback seam. Auth is stubbed — no
-/// credentials are needed in either mode. Pass <paramref name="backendHandler"/> to stand in
-/// for the network behind the pipeline's terminal <c>HttpClient</c> (record-mode tests);
-/// leave it null when the interceptor short-circuits (playback / canned responses).
+/// Boots the full Azclips host for one client surface and runs commands subcutaneously, through
+/// the real dispatcher/binder and engine, with the supplied interceptor filling the record/playback
+/// seam. <paramref name="backendHandler"/> stands in for the network in record-mode tests; leave it
+/// null when the interceptor short-circuits (playback).
 /// <para>
-/// <see cref="AzclipsServiceProvider"/> is process-wide and <c>ClientType</c> is fixed at
-/// initialization, so one host serves one surface; dispose it before booting the other.
-/// Tests using this type must live in the non-parallel "Scenario Tests" collection.
+/// <see cref="AzclipsServiceProvider"/> is process-wide and the client type is fixed at init, so one
+/// host serves one surface. Tests that use it must live in the non-parallel "Scenario Tests" collection.
 /// </para>
 /// </summary>
 internal sealed class ScenarioHost : IDisposable
@@ -45,7 +42,11 @@ internal sealed class ScenarioHost : IDisposable
     private readonly List<object> _outputs = [];
     private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
-    public ScenarioHost(ClientType clientType, ITracingInterceptor interceptor, HttpMessageHandler? backendHandler = null)
+    /// <param name="useLiveAuth">
+    /// Record mode needs a real token, so it keeps the host's real profile/auth/config and the
+    /// signed-in profile. Playback stubs them and needs no credentials.
+    /// </param>
+    public ScenarioHost(ClientType clientType, ITracingInterceptor interceptor, HttpMessageHandler? backendHandler = null, bool useLiveAuth = false)
     {
         _clientType = clientType;
 
@@ -60,17 +61,22 @@ internal sealed class ScenarioHost : IDisposable
         {
             services.AddSingleton<IAssemblyLoadingProvider>(
                 new StubExtensionLoader(typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly, "Resources"));
-            services.AddSingleton<IConfigurationProvider>(new InMemoryConfigurationProvider());
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IProfileService>(new StubProfileService());
-            services.AddSingleton<IAuthService, StubAuthService>();
             services.AddSingleton(interceptor);
+
+            // Stubbing auth in record mode would send a fake token and get a 401 instead of a recording.
+            if (!useLiveAuth)
+            {
+                services.AddSingleton<IConfigurationProvider>(new InMemoryConfigurationProvider());
+                services.AddSingleton<IProfileService>(new StubProfileService());
+                services.AddSingleton<IAuthService, StubAuthService>();
+            }
             if (backendHandler is not null)
             {
                 services.AddSingleton(new HttpClient(backendHandler));
             }
 
-            // Each surface binds arguments with its real provider — that binding difference
+            // Each surface binds arguments with its real provider; that binding difference
             // is exactly what the parity tests exercise.
             if (clientType == ClientType.CLI)
             {
@@ -106,8 +112,8 @@ internal sealed class ScenarioHost : IDisposable
     }
 
     /// <summary>
-    /// Runs the invocation a cmdlet's <c>ProcessRecord</c> would build — same extension name,
-    /// command name, and parameter dictionary shape as e.g. <c>NewResourceGroupCmdlet</c> —
+    /// Runs the invocation a cmdlet's <c>ProcessRecord</c> would build (same extension name,
+    /// command name, and parameter dictionary shape as e.g. <c>NewResourceGroupCmdlet</c>)
     /// through the engine's synchronous session path, as PowerShell hosts do.
     /// </summary>
     public IReadOnlyList<object> RunPowerShell(string commandName, IDictionary<string, object> parameters)
