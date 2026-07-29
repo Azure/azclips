@@ -5,7 +5,7 @@ By default the installer keeps preview `az` isolated and off your `PATH`, so it 
 `azure-cli` in every new shell.
 
 If you want to keep both installed and flip between them **within the same session** — for example to
-compare behaviour or fall back to the classic CLI — add one of the helper functions below to your shell
+compare behavior or fall back to the classic CLI — add one of the helper functions below to your shell
 profile. Calling `switch` (bash / zsh) or `Switch-Az` (PowerShell) toggles the azcli directory on and
 off the front of `PATH` and prints which `az` is now active.
 
