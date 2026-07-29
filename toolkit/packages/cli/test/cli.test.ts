@@ -10,7 +10,7 @@
  * emitted text without polluting the test reporter.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -142,6 +142,8 @@ describe("ace compile: --config loading", () => {
       PETS_TSP,
       "--config",
       join(dir, "bom.json"),
+      "--out-dir",
+      join(dir, "bom-out"),
     ]);
     expect(code).toBe(0);
   });
@@ -149,7 +151,13 @@ describe("ace compile: --config loading", () => {
 
 describe("ace compile: happy path", () => {
   it("compiles pets.tsp and exits 0", async () => {
-    const { code, err } = await captureRun(["compile", "--tsp-location", PETS_TSP]);
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--out-dir",
+      join(dir, "hp-plain"),
+    ]);
     expect(err).not.toMatch(/^error:/m);
     expect(code).toBe(0);
   });
@@ -161,13 +169,29 @@ describe("ace compile: happy path", () => {
       PETS_TSP,
       "--config",
       join(dir, "good.json"),
+      "--out-dir",
+      join(dir, "hp-config"),
     ]);
+    expect(code).toBe(0);
+  });
+
+  it("compiles pets.tsp with --api-version and exits 0", async () => {
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--api-version",
+      "2025-01-01",
+      "--out-dir",
+      join(dir, "hp-apiver"),
+    ]);
+    expect(err).not.toMatch(/^error:/m);
     expect(code).toBe(0);
   });
 });
 
 describe("ace compile: --out-dir", () => {
-  it("accepts --out-dir and, with the no-op generator, writes nothing", async () => {
+  it("stages the spec under <out-dir>/source and, with the no-op generator, writes no output", async () => {
     const outDir = join(dir, "gen-none");
     const { code } = await captureRun([
       "compile",
@@ -177,8 +201,10 @@ describe("ace compile: --out-dir", () => {
       outDir,
     ]);
     expect(code).toBe(0);
-    // The default generator produces no files, so the directory is never created.
-    expect(existsSync(outDir)).toBe(false);
+    // The spec is always staged under <out-dir>/source; the default no-op
+    // generator produces no files, so that is the only thing in <out-dir>.
+    expect(existsSync(join(outDir, "source", "pets.tsp"))).toBe(true);
+    expect(readdirSync(outDir)).toEqual(["source"]);
   });
 });
 

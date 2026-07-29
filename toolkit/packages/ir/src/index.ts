@@ -18,8 +18,12 @@ export {
 export {
   PrimitiveKinds,
   FormatKinds,
+  AccessKinds,
+  UsageKinds,
   type PrimitiveKind,
   type FormatKind,
+  type IRAccess,
+  type IRUsage,
 } from "./primitives.js";
 
 export {
@@ -85,6 +89,7 @@ export {
   IRModelSchema,
   IRPolymorphismSchema,
   IRPropertySchema,
+  IRVisibilitySchema,
   type IRModel,
   type IRPolymorphism,
   type IRProperty,
@@ -93,6 +98,7 @@ export {
   type IRPropertyCollection,
   type IRPropertyEnum,
   type IRPropertyUnion,
+  type IRVisibility,
 } from "./model.js";
 
 export {
@@ -130,6 +136,19 @@ export {
   IRSourceSchema,
   type IRSource,
 } from "./source.js";
+
+export {
+  IRAuthSchema,
+  IRAuthOptionSchema,
+  IRAuthSchemeSchema,
+  IROAuth2FlowSchema,
+  IROAuth2ScopeSchema,
+  type IRAuth,
+  type IRAuthOption,
+  type IRAuthScheme,
+  type IROAuth2Flow,
+  type IROAuth2Scope,
+} from "./auth.js";
 
 export {
   IRSchema,

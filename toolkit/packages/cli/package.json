@@ -14,7 +14,9 @@
     }
   },
   "dependencies": {
-    "@azure-client-engine/compiler": "*"
+    "@azure-client-engine/compiler": "*",
+    "@azure-client-engine/typespec-emitter": "*",
+    "@typespec/compiler": "^1.13.0"
   },
   "devDependencies": {
     "@types/node": "~20.14.0",

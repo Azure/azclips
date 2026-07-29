@@ -5,7 +5,8 @@
  * `IRProperty`'s discriminated union. Each path resolves:
  *   - logical/wire names (TCGC's `getPropertyNames`)
  *   - nullability (from unwrapping SdkNullableType)
- *   - readOnly/writeOnly (from `visibility[]`)
+ *   - visibility lifecycle phases (from TCGC's `visibility[]`, omitted when unconstrained)
+ *   - flatten intent (from TCGC's `flatten`, recorded as an object-property hint)
  *   - default value (from SdkConstantType — wireType narrow + literal)
  *   - inheritedFrom / overrides (populated by `models.ts`, not here)
  */
@@ -29,25 +30,45 @@ import type {
   IRTypeRefModel,
   IRTypeRefPrimitive,
   IRTypeRefUnion,
+  IRVisibility,
+  FlattenHint,
 } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { pascalCase } from "./naming.js";
+import { accessFrom } from "./annotations.js";
 import { typeRefFor, unwrapNullable } from "./types.js";
 
-/** Lift the read/write visibility flags onto IR's boolean pair. */
-function visibilityFlags(prop: SdkModelPropertyType): { readOnly: boolean; writeOnly: boolean } {
+/** Map TCGC's resolved visibility (a `@typespec/http` `Visibility` flags array)
+ * onto IR's lifecycle phases. Returns `undefined` when the property is
+ * *unconstrained* — visible in every phase (TypeSpec's default when no
+ * `@visibility` is declared) — or has no visibility, so the IR omits the field
+ * (absent = all phases). TCGC only ever surfaces the five lifecycle flags here. */
+function visibilityPhases(prop: SdkModelPropertyType): IRVisibility[] | undefined {
   const vis = prop.visibility;
-  if (!vis || vis.length === 0) {
-    return { readOnly: false, writeOnly: false };
-  }
+  if (!vis || vis.length === 0) return undefined;
   // `Visibility` is a numeric flags enum from @typespec/http; compare by value, not string form.
-  const hasRead = vis.includes(Visibility.Read);
-  const hasCreate = vis.includes(Visibility.Create);
-  const hasUpdate = vis.includes(Visibility.Update);
-  const readOnly = hasRead && !hasCreate && !hasUpdate;
-  const writeOnly = (hasCreate || hasUpdate) && !hasRead;
-  return { readOnly, writeOnly };
+  const phases: IRVisibility[] = [];
+  if (vis.includes(Visibility.Read)) phases.push("read");
+  if (vis.includes(Visibility.Create)) phases.push("create");
+  if (vis.includes(Visibility.Update)) phases.push("update");
+  if (vis.includes(Visibility.Delete)) phases.push("delete");
+  if (vis.includes(Visibility.Query)) phases.push("query");
+  // Unconstrained (all five phases) carries no information relative to the
+  // default, so omit it and keep the IR terse.
+  if (phases.length === 0 || phases.length === 5) return undefined;
+  return phases;
+}
+
+/**
+ * Lift TCGC's `@Legacy.flattenProperty` intent onto the IR flatten hint.
+ * `prop.flatten` is TCGC's scope-resolved boolean (true when the decorator
+ * applies to ace's client scope). We record the source's *intent* only —
+ * `{ into: "self" }` — and never actually hoist here; a later transform/generator
+ * decides the rendering. Omitted when false so absent = "not flattened".
+ */
+function flattenHintFor(prop: SdkModelPropertyType): FlattenHint | undefined {
+  return prop.flatten ? { into: "self" } : undefined;
 }
 
 /** Build a literal value from a `SdkConstantType`. Returns undefined if not representable. */
@@ -128,7 +149,9 @@ export function propertyFrom(
   const irType = typeRefFor(ctx, valueType, `${containingModelId.name}.${libName}`);
 
   const id = propertyIdFor(ctx, containingModelId, prop, libName);
-  const { readOnly, writeOnly } = visibilityFlags(prop);
+  const visibility = visibilityPhases(prop);
+  const flatten = flattenHintFor(prop);
+  const access = accessFrom(prop.access);
 
   const common = {
     id,
@@ -136,28 +159,33 @@ export function propertyFrom(
     wireName,
     optional: prop.optional,
     nullable,
-    readOnly,
-    writeOnly,
+    ...(visibility !== undefined ? { visibility } : {}),
     ...(defaultValue !== undefined ? { defaultValue } : {}),
     ...(prop.doc !== undefined ? { docs: prop.doc } : {}),
+    ...(prop.summary !== undefined ? { summary: prop.summary } : {}),
+    ...(access !== undefined ? { access } : {}),
   };
 
   // Dispatch on the IR type-kind so the right discriminant lands on the
   // property. The narrowing here mirrors `IRProperty`'s 5 variants.
-  return dispatchByTypeKind(common, irType);
+  return dispatchByTypeKind(common, irType, flatten);
 }
 
 function dispatchByTypeKind(
   common: Omit<IRProperty, "typeKind" | "type" | "rendering">,
   irType: IRTypeRef,
+  flatten: FlattenHint | undefined,
 ): IRProperty | undefined {
+  // Flatten is an object-property hint (the ARM `properties` bag); only the
+  // object variants carry `ObjectPropertyHints`. Omitted entirely when unset.
+  const objectRendering = flatten !== undefined ? { rendering: { flatten } } : {};
   switch (irType.kind) {
     case "primitive":
       return { ...common, typeKind: "primitive", type: irType as IRTypeRefPrimitive };
     case "model":
-      return { ...common, typeKind: "object", type: irType as IRTypeRefModel };
+      return { ...common, typeKind: "object", type: irType as IRTypeRefModel, ...objectRendering };
     case "dictionary":
-      return { ...common, typeKind: "object", type: irType as IRTypeRefDictionary };
+      return { ...common, typeKind: "object", type: irType as IRTypeRefDictionary, ...objectRendering };
     case "array":
       return { ...common, typeKind: "collection", type: irType as IRTypeRefArray };
     case "enum":
