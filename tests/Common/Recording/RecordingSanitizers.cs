@@ -41,7 +41,7 @@ public sealed class RecordingSanitizers
 
     /// <summary>Returns a copy with extra sanitisers and removed headers added.</summary>
     public RecordingSanitizers With(IEnumerable<IRecordingSanitizer>? sanitizers = null, IEnumerable<string>? removedHeaders = null)
-        => new([.. Sanitizers, .. sanitizers ?? []], [.. RemovedHeaders, .. removedHeaders ?? []]);
+        => new([.. Sanitizers, .. (sanitizers ?? [])], [.. RemovedHeaders, .. (removedHeaders ?? [])]);
 
     /// <summary>Runs every value sanitiser over a single string.</summary>
     public string Apply(string? value)
