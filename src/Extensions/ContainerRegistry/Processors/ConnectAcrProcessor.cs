@@ -11,35 +11,24 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr connect --name myregistry
 /// PS:  Connect-AzContainerRegistry -Name myregistry
 /// </summary>
-public class ConnectAcrProcessor : AcrProcessorBase
+public class ConnectAcrProcessor : AcrDataPlaneProcessorBase
 {
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "Name")]
     public string Name { get; set; } = "";
 
-    protected override string GetLoginServer() => ResolveLoginServer(Name);
-    protected override string GetScope() => "registry:catalog:*";
-
-    protected override async Task<HttpRequestMessage> CreateRequestMessage()
-    {
-        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string loginServer = GetLoginServer();
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://{loginServer}/acr/v1/_catalog?n=1");
-        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-        return request;
-    }
+    public string UserName { get; private set; } = "";
+    public string Password { get; private set; } = "";
 
     public override async Task ProcessAsync()
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-        try
-        {
-            using HttpResponseMessage response = await SendAsync();
-            string loginServer = GetLoginServer();
-            await WriteOutput(new { LoginServer = loginServer, Authenticated = true });
-        }
-        finally
-        {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-        }
+        /*
+            from Yabo:
+            TODO: 
+            1) Calculate endpoint from registry name (Parameter: Name)
+            2) For Yabo: Expose singleton registry from Engine
+            3) init token cache (implemented by a separate class)
+            4) Replicate https://github.com/Azure/azure-powershell/blob/main/src/ContainerRegistry/ContainerRegistry/Commands/ConnectAzureContainerRegistry.cs#L56-L80
+        */
     }
 }

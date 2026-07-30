@@ -13,7 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr manifest list --registry myregistry --repository myrepo
 /// PS:  Get-AzContainerRegistryManifest -RegistryName myregistry -RepositoryName myrepo
 /// </summary>
-public class ListManifestProcessor : AcrProcessorBase
+public class ListManifestProcessor : AcrDataPlaneProcessorBase
 {
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
     public string RegistryName { get; set; } = "";

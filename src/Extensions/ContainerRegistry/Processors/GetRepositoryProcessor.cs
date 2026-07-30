@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr repository show --name myregistry --repository myrepo
 /// PS:  Get-AzContainerRegistryRepository -RegistryName myregistry -Repository myrepo
 /// </summary>
-public class GetRepositoryProcessor : AcrProcessorBase<RepositoryAttributes>
+public class GetRepositoryProcessor : AcrDataPlaneProcessorBase<RepositoryAttributes>
 {
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "Repository")]
     public string Repository { get; set; } = "";

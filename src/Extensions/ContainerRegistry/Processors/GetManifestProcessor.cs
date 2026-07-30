@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr manifest show --name myregistry --repository myrepo --reference sha256:abc123
 /// PS:  Get-AzContainerRegistryManifest -RegistryName myregistry -RepositoryName myrepo -Reference sha256:abc123
 /// </summary>
-public class GetManifestProcessor : AcrProcessorBase<ManifestAttributes>
+public class GetManifestProcessor : AcrDataPlaneProcessorBase<ManifestAttributes>
 {
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "RepositoryName")]
     public string RepositoryName { get; set; } = "";

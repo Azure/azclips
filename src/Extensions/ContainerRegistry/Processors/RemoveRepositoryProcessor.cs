@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr repository delete --name myregistry --repository myrepo
 /// PS:  Remove-AzContainerRegistryRepository -RegistryName myregistry -Repository myrepo
 /// </summary>
-public class RemoveRepositoryProcessor : AcrProcessorBase
+public class RemoveRepositoryProcessor : AcrDataPlaneProcessorBase
 {
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
     public string RegistryName { get; set; } = "";

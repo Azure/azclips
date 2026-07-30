@@ -1,244 +1,365 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net.Http.Json;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Abstractions.Runtime.Handler;
+using System.Net;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
-using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
+using ProfileModel = Core.Abstractions.Profile;
 
-namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
-
-/// <summary>
-/// Non-generic base for ACR data-plane processors. Mirrors the structure of
-/// <c>ComputeProcessorBase</c>:
-/// <list type="bullet">
-///   <item><see cref="CreateRequestMessage"/> — builds the outgoing HTTP request.</item>
-///   <item><see cref="GetScope"/> — returns the ACR scope required for the request.</item>
-///   <item><see cref="SendAsync"/> — acquires the ACR token and sends the request.</item>
-/// </list>
-/// </summary>
-public abstract class AcrProcessorBase : IProcessor
+namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors
 {
-    public IRuntimeHttpPipeline HttpPipeline = null!;
-    public IEventPublisher Publisher = null!;
-    public IAuthHandler AuthHandler = null!;
-    public JsonSerializerOptions JsonOptions = null!;
-    protected OutputStreamDelegate WriteOutput = null!;
-
-    private AcrAuthOrchestrator _authOrchestrator = null!;
-
-    protected virtual void BeforeInit() { }
-    protected virtual void AfterInit() { }
-
-    public CancellationToken Token => CancellationToken.None;
-    public Action Cancel => throw new NotImplementedException();
-
-    public IProcessor Init(ProcessorContext context)
+    /// <summary>
+    /// Non-generic base used as a marker so that <see cref="CreateExtendedProcessor{T}"/> and
+    /// any code that needs to reference "any ACR processor" stays type-safe.
+    /// All real processors should derive from <see cref="AcrProcessorBase{TResponse}"/>.
+    /// </summary>
+    /// <remarks>
+    /// TODO(Yabo): no rollback / compensation story yet. If an orchestrator's first child
+    /// succeeds and a later child fails, earlier resources are orphaned. Document as a non-goal
+    /// for now; revisit with an OnFailureAsync hook or a saga-style step list when needed.
+    /// </remarks>
+    public abstract class AcrProcessorBase : IProcessor
     {
-        BeforeInit();
+        public IRuntimeHttpPipeline HttpPipeline = null!;
+        public IEventPublisher Publisher = null!;
+        public JsonSerializerOptions JsonOptions = null!;
+        protected OutputStreamDelegate WriteOutput = null!;
 
-        HttpPipeline = context.HttpPipeline;
-        Publisher = context.Publisher;
-        AuthHandler = context.AuthHandler;
-        WriteOutput = context.OutputHandler.WriteOutput;
-        JsonOptions = new JsonSerializerOptions
+        /// <summary>The resolved connection profile from the processor context; null when none is available.</summary>
+        protected ProfileModel? ResolvedProfile;
+
+        /// <summary>
+        /// Bound <c>--profile</c>/<c>-Profile</c> parameter. The Engine resolves the named profile into
+        /// <see cref="ResolvedProfile"/> before the processor runs, so this property exists only to accept
+        /// the value during argument binding (per-processor workaround until a global-parameter framework exists).
+        /// </summary>
+        public string? Profile { get; set; }
+
+        protected virtual void BeforeInit() { }
+        protected virtual void AfterInit() { }
+
+        public CancellationToken Token => CancellationToken.None;
+
+        public Action Cancel => throw new NotImplementedException();
+
+        public IProcessor Init(ProcessorContext context)
         {
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
+            BeforeInit();
 
-        // Wire the orchestrator as the per-request auth provider
-        _authOrchestrator = new AcrAuthOrchestrator(AuthHandler, HttpPipeline, Publisher, JsonOptions);
-        AuthHandler.RequestAuthProvider = _authOrchestrator;
-
-        AfterInit();
-        return this;
-    }
-
-    public virtual Task ProcessAsync() => Task.CompletedTask;
-
-    /// <summary>
-    /// Resolves the login server FQDN from a registry name (e.g., "myregistry" → "myregistry.azurecr.io").
-    /// </summary>
-    protected static string ResolveLoginServer(string registryName)
-    {
-        if (registryName.Contains('.'))
-        {
-            return registryName;
-        }
-        return $"{registryName}.azurecr.io";
-    }
-
-    /// <summary>
-    /// Processors override to build the outgoing <see cref="HttpRequestMessage"/>.
-    /// </summary>
-    protected virtual Task<HttpRequestMessage> CreateRequestMessage() =>
-        throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
-
-    /// <summary>
-    /// Returns the ACR OAuth scope required for the current request (e.g. "repository:myrepo:metadata_read").
-    /// </summary>
-    protected virtual string GetScope() =>
-        throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(GetScope)}");
-
-    /// <summary>
-    /// Returns the login server FQDN for the current request.
-    /// </summary>
-    protected virtual string GetLoginServer() =>
-        throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(GetLoginServer)}");
-
-    /// <summary>
-    /// Internal transport primitive. Acquires an ACR access token for <see cref="GetScope"/>,
-    /// then sends the request built by <see cref="CreateRequestMessage"/> through the pipeline.
-    /// </summary>
-    internal virtual async Task<HttpResponseMessage> SendAsync()
-    {
-        string loginServer = GetLoginServer();
-        string scope = GetScope();
-
-        // Acquire scoped ACR token — orchestrator caches per (loginServer, scope)
-        await _authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
-
-        using HttpRequestMessage request = await CreateRequestMessage();
-        HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
-        await Publisher.Publish(Events.TracingHttpResponseMessage, response);
-
-        try
-        {
-            response.EnsureSuccessStatusCode();
-        }
-        catch
-        {
-            response.Dispose();
-            throw;
-        }
-
-        return response;
-    }
-
-    /// <summary>
-    /// Sends a paginated GET, following the Link header. Each page is deserialized and accumulated.
-    /// </summary>
-    internal async Task<List<string>> SendAsyncPaged(string loginServer, string path, string scope)
-    {
-        await _authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
-
-        var pages = new List<string>();
-        string? currentPath = path;
-
-        while (currentPath is not null)
-        {
-            string url = currentPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                ? currentPath
-                : $"https://{loginServer}{currentPath}";
-
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
-            response.EnsureSuccessStatusCode();
-
-            if (response.Content is not null)
+            // TODO(Yabo): temporarily initialize arbitrary json options here, get from context in the future
+            JsonOptions = new JsonSerializerOptions
             {
-                string body = await response.Content.ReadAsStringAsync();
-                if (!string.IsNullOrWhiteSpace(body))
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            HttpPipeline = context.HttpPipeline;
+            Publisher = context.Publisher;
+            WriteOutput = context.OutputHandler.WriteOutput;
+            ResolvedProfile = context.Profile;
+
+            AfterInit();
+            return this;
+        }
+        public virtual Task ProcessAsync() => Task.CompletedTask;
+        protected virtual Task<HttpRequestMessage> CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+
+        /// <summary>
+        /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile)
+        /// as this processor. Use the optional <paramref name="configure"/> action to set the
+        /// extended processor's own properties.
+        /// </summary>
+        protected T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : AcrProcessorBase, new()
+        {
+            T child = new T
+            {
+                HttpPipeline = HttpPipeline,
+                Publisher = Publisher,
+                JsonOptions = JsonOptions,
+            };
+            child.WriteOutput = WriteOutput;
+            child.ResolvedProfile = ResolvedProfile;
+            configure?.Invoke(child);
+            return child;
+        }
+
+        /*
+            For LRO API has
+                "x-ms-long-running-operation-options": {
+                "final-state-via": "location/azure-async-operation"
+                }
+            "finaluri" is response.headers["Location"]
+            "operationLocationUri" is response.headers["Operation-Location"]
+            otherwise both null
+        */
+        protected virtual Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetOperationLocationUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetAsyncOperationUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
+
+        internal async virtual Task<HttpResponseMessage> SendAsync()
+        {
+            IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+            IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
+            using HttpRequestMessage _request = await CreateRequestMessage();
+            HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
+            await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+            try
+            {
+                await _response.EnsureSuccessAsync(_publisher);
+            }
+            catch
+            {
+                _response.Dispose();
+                throw;
+            }
+            return _response;
+        }
+
+        internal async virtual Task<HttpResponseMessage> SendAsyncLRO()
+        {
+            HttpRequestMessage _request = await CreateRequestMessage();
+            try
+            {
+                IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+                IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
+                string _originalUri = _request.RequestUri!.AbsoluteUri;
+                HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
+                await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+                // declared final-state-via: location
+                var _finalUri = string.IsNullOrEmpty(GetFinalUri(_response)) ? _originalUri : GetFinalUri(_response);
+                var _asyncOperationUri = GetAsyncOperationUri(_response);
+                var _locationUri = GetLocationUri(_response);
+                var _operationLocationUri = GetOperationLocationUri(_response);
+
+                //polling
+                while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
                 {
-                    pages.Add(body);
+                    // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
+                    int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
+                    await _publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
+                    Task delayTask = Task.Delay(delay*1000, _publisher.Token);
+
+                    // while we wait, let's grab the headers and get ready to poll.
+                    if (!string.IsNullOrEmpty(GetAsyncOperationUri(_response)))
+                    {
+                        _asyncOperationUri = GetAsyncOperationUri(_response);
+                    }
+                    if (!string.IsNullOrEmpty(GetLocationUri(_response)))
+                    {
+                        _locationUri = GetLocationUri(_response);
+                    }
+                    if (!string.IsNullOrEmpty(GetOperationLocationUri(_response)))
+                    {
+                        _operationLocationUri = GetOperationLocationUri(_response);
+                    }
+                    var _uri = string.IsNullOrEmpty(_asyncOperationUri) ? string.IsNullOrEmpty(_locationUri) ? string.IsNullOrEmpty(_operationLocationUri) ? _originalUri : _operationLocationUri : _locationUri : _asyncOperationUri;
+
+                    // drop the old response
+                    _response?.Dispose();
+
+                    await delayTask;
+
+                    _request = _request.CloneAndDispose(new Uri(_uri), HttpMethod.Get);
+                    await _publisher.Publish(Events.BeforePollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
+                    // make the polling call
+                    _response = await _httpPipeline.SendAsync(_request, _publisher);
+                    await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+                    await _publisher.Publish(Events.AfterPollingCall);
+
+                    // if we got back an OK, take a peek inside and see if it's done
+                    if (_response.StatusCode == global::System.Net.HttpStatusCode.OK)
+                    {
+                        var error = false;
+                        try
+                        {
+                            if (JsonNode.Parse(await _response.Content.ReadAsStringAsync()) is JsonObject json)
+                            {
+                                var state = json.Property("properties")?.PropertyT<JsonString>("provisioningState") ?? json.PropertyT<JsonString>("status");
+                                if (state is null)
+                                {
+                                    // the body doesn't contain any information that has the state of the LRO
+                                    // we're going to just get out, and let the consumer have the result
+                                    break;
+                                }
+
+                                switch (state?.ToString()?.ToLower())
+                                {
+                                    case "failed":
+                                        error = true;
+                                        break;
+                                    case "succeeded":
+                                    case "canceled":
+                                        // we're done polling.
+                                        break;
+
+                                    default:
+                                        // need to keep polling!
+                                        _response.StatusCode = HttpStatusCode.Created;
+                                        continue;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // if we run into a problem peeking into the result,
+                            // we really don't want to do anything special.
+                        }
+                        if (error)
+                        {
+                            //TODO(Yabo): redesign exceptions for extension runtime
+                            throw new Exception($"Long running operation failed with response: {_response}");
+                        }
+                    }
+
+                    // check for terminal status code
+                    if (_response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
+                    {
+                        continue;
+                    }
+                    // we are done polling, do a request on final target?
+                    // create a new request with the final uri
+                    if (!string.IsNullOrEmpty(_finalUri))
+                    {
+                        // drop the old response
+                        _response?.Dispose();
+                        _request = _request.CloneAndDispose(new Uri(_finalUri), HttpMethod.Get);
+                        await _publisher.Publish(Events.BeforeFinalPollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
+                        // make the final call
+                        _response = await _httpPipeline.SendAsync(_request, _publisher);
+                        await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+                        await _publisher.Publish(Events.AfterFinalPollingCall);
+                        break;
+                    }
+                }
+                switch (_response.StatusCode)
+                {
+                    case HttpStatusCode.OK:
+                    case HttpStatusCode.NoContent:
+                    {
+                        await _publisher.Publish(Events.PollingFinished);
+                        break;
+                    }
+                    default:
+                    {
+                        await _publisher.Publish(Events.PollingFailed);
+                        try
+                        {
+                            await _response.EnsureSuccessAsync(_publisher);
+                        }
+                        catch
+                        {
+                            _response.Dispose();
+                            throw;
+                        }
+                        break;
+                    }
+                }
+                return _response;
+            }
+            finally
+            {
+                _request?.Dispose();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Generic ACR processor base. The default <see cref="ProcessAsync"/> pipeline:
+    /// 1) Publishs start, 2) calls <see cref="SendAsync"/>,
+    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishs end.
+    /// <para>
+    /// <see cref="SendAsync"/> is the internal "give me the final response" transport primitive.
+    /// Atomic LRO processors override it as a one-liner that delegates to <see cref="AcrProcessorBase.SendAsyncLRO"/>.
+    /// Atomic non-LRO processors don't override at all (the inherited <see cref="SendAsync"/>
+    /// resolves <see cref="SubscriptionId"/> then dispatches a single HTTP request).
+    /// Orchestrators override <see cref="SendAsync"/> to compose children.
+    /// </para>
+    /// <para>
+    /// <see cref="SubscriptionId"/> is resolved lazily inside <see cref="SendAsync"/> /
+    /// <see cref="SendAsyncLRO"/>, so internal composition paths that call these helpers directly still get a
+    /// populated value via <see cref="ResolvedProfile"/> fallback. Orchestrators don't need to copy
+    /// <see cref="SubscriptionId"/> into children since each child resolves from the shared
+    /// <see cref="ResolvedProfile"/>.
+    /// </para>
+    /// </summary>
+    public class AcrProcessorBase<TResponse> : AcrProcessorBase where TResponse : class
+    {
+        public string SubscriptionId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="ResolvedProfile"/>.
+        /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport;
+        /// custom <see cref="SendAsync"/>/<see cref="SendAsyncLRO"/> overrides that don't call <c>base</c>
+        /// are responsible for invoking this themselves if they build URIs from <see cref="SubscriptionId"/>.
+        /// </summary>
+        protected void ResolveSubscriptionId() =>
+            SubscriptionId = !string.IsNullOrEmpty(SubscriptionId)
+                ? SubscriptionId
+                : ResolvedProfile?.SubscriptionId
+                  ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.");
+
+        internal override Task<HttpResponseMessage> SendAsync()
+        {
+            ResolveSubscriptionId();
+            return base.SendAsync();
+        }
+
+        internal override Task<HttpResponseMessage> SendAsyncLRO()
+        {
+            ResolveSubscriptionId();
+            return base.SendAsyncLRO();
+        }
+
+        /// <summary>
+        /// Projects the deserialized response into the value written to output. Default writes the
+        /// response as-is; list processors override this to unwrap the ARM envelope and write its
+        /// <c>value</c> collection (a flat array), which PowerShell enumerates and the CLI serializes.
+        /// </summary>
+        protected virtual object SelectOutput(TResponse body) => body;
+
+        public override async Task ProcessAsync()
+        {
+            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+            using HttpResponseMessage response = await SendAsync();
+
+            if (response.Content is null)
+            {
+                await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+                return;
+            }
+
+            string rawBody = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(rawBody))
+            {
+                await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+                return;
+            }
+
+            try
+            {
+                TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                if (body is not null)
+                {
+                    await WriteOutput(SelectOutput(body));
                 }
             }
-
-            currentPath = GetNextLinkPath(response);
-        }
-
-        return pages;
-    }
-
-    /// <summary>
-    /// Creates a child processor initialized with the same runtime context.
-    /// </summary>
-    protected T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : AcrProcessorBase, new()
-    {
-        T child = new T
-        {
-            HttpPipeline = HttpPipeline,
-            Publisher = Publisher,
-            AuthHandler = AuthHandler,
-            JsonOptions = JsonOptions,
-        };
-        child.WriteOutput = WriteOutput;
-        configure?.Invoke(child);
-        return child;
-    }
-
-    private static string? GetNextLinkPath(HttpResponseMessage response)
-    {
-        if (!response.Headers.TryGetValues("Link", out var linkValues))
-            return null;
-
-        string? linkHeader = linkValues.FirstOrDefault();
-        if (string.IsNullOrEmpty(linkHeader))
-            return null;
-
-        int start = linkHeader.IndexOf('<');
-        int end = linkHeader.IndexOf('>');
-        if (start < 0 || end < 0 || end <= start)
-            return null;
-
-        return linkHeader.Substring(start + 1, end - start - 1);
-    }
-}
-
-/// <summary>
-/// Generic ACR processor base. Default <see cref="ProcessAsync"/> pipeline:
-/// 1) Publish start, 2) <see cref="AcrProcessorBase.SendAsync"/>,
-/// 3) deserialize into <typeparamref name="TResponse"/>, 4) <see cref="SelectOutput"/>, 5) write output, 6) Publish end.
-/// <para>
-/// Leaf processors only need to implement <see cref="AcrProcessorBase.CreateRequestMessage"/>,
-/// <see cref="AcrProcessorBase.GetScope"/>, and <see cref="AcrProcessorBase.GetLoginServer"/>.
-/// </para>
-/// </summary>
-public class AcrProcessorBase<TResponse> : AcrProcessorBase where TResponse : class
-{
-    [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
-    public string RegistryName { get; set; } = "";
-
-    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
-
-    /// <summary>
-    /// Projects the deserialized response before writing to output.
-    /// Override to unwrap envelopes or select sub-properties.
-    /// </summary>
-    protected virtual object SelectOutput(TResponse body) => body;
-
-    public override async Task ProcessAsync()
-    {
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-        using HttpResponseMessage response = await SendAsync();
-
-        if (response.Content is null)
-        {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-            return;
-        }
-
-        string rawBody = await response.Content.ReadAsStringAsync();
-        if (string.IsNullOrWhiteSpace(rawBody))
-        {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-            return;
-        }
-
-        try
-        {
-            TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
-            if (body is not null)
+            catch (JsonException)
             {
-                await WriteOutput(SelectOutput(body));
+                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
             }
-        }
-        finally
-        {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            finally
+            {
+                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            }
         }
     }
 }

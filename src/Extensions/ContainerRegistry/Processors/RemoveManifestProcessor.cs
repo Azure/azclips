@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr manifest delete --name myregistry --repository myrepo --reference sha256:abc123
 /// PS:  Remove-AzContainerRegistryManifest -RegistryName myregistry -RepositoryName myrepo -Reference sha256:abc123
 /// </summary>
-public class RemoveManifestProcessor : AcrProcessorBase
+public class RemoveManifestProcessor : AcrDataPlaneProcessorBase
 {
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
     public string RegistryName { get; set; } = "";

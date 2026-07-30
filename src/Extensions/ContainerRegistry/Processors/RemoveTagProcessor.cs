@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr tag delete --name myregistry --repository myrepo --tag latest
 /// PS:  Remove-AzContainerRegistryTag -RegistryName myregistry -RepositoryName myrepo -Tag latest
 /// </summary>
-public class RemoveTagProcessor : AcrProcessorBase
+public class RemoveTagProcessor : AcrDataPlaneProcessorBase
 {
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
     public string RegistryName { get; set; } = "";
