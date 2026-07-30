@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785228647541,
+  "lastUpdate": 1785383884276,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -1296,6 +1296,42 @@ window.BENCHMARK_DATA = {
             "value": 263265771.13,
             "unit": "ns",
             "range": "± 2716653.455189328"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd8b8efc3cdbfc3fbc6eb9005453c6b077a890ba",
+          "message": "{DevOps} Remove dev branch references from CI workflows (#625)\n\n**Related command**\n\nN/A\n\n**Original PR**\n\n- #563 (https://github.com/Azure/azclips/pull/563)\n\n**Description**\n\nRemoves CI branch targeting that still referenced `dev` after the branch\nretirement.\n\nChanges in this PR:\n- Removed `dev` from GitHub Actions PR triggers in `build.yml`,\n`build-and-test.yml`, and `benchmark.yml`.\n- Removed `dev` from Azure Pipelines trigger include list in\n`azclips-beta-build.yml`.\n- Deleted `.github/workflows/backport-pr.yml`, which was designed around\nmain/dev backport directions.\n\n**Testing Guide**\n\n- Ran `git diff --check` on the resulting patch.\n\n**History Notes**\n\n{DevOps} Remove dev branch references from CI workflows\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCopilot-Session: 234beeee-b64b-41b9-b3fd-cdeea2bf0416",
+          "timestamp": "2026-07-30T13:43:50+10:00",
+          "tree_id": "bf643e5f502a411aaaafa892fefe608d27948e3e",
+          "url": "https://github.com/Azure/azclips/commit/cd8b8efc3cdbfc3fbc6eb9005453c6b077a890ba"
+        },
+        "date": 1785383884165,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 288844495.79,
+            "unit": "ns",
+            "range": "± 4667117.822564944"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 282310016.69,
+            "unit": "ns",
+            "range": "± 4525800.935771575"
           }
         ]
       }
