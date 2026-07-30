@@ -155,11 +155,33 @@ if [[ "$SKIP_RUNTIME" == "true" ]]; then
 fi
 
 echo ""
-echo "[1/5] CLI help (bundled install)"
-HOME="$SIM_ROOT/home" "$AZ" --help 2>&1 | head -n 20 || true
+echo "[1/6] CLI version (bundled install)"
+if ! version_output="$(HOME="$SIM_ROOT/home" "$AZ" --version 2>&1)"; then
+  echo "FAIL: az --version exited with a non-zero status"
+  printf '%s\n' "$version_output" | sed -n '1,20p'
+  exit 1
+fi
+if [[ -z "${version_output//[[:space:]]/}" ]]; then
+  echo "FAIL: az --version returned no output"
+  exit 1
+fi
+printf '%s\n' "$version_output" | sed -n '1,20p'
 
 echo ""
-echo "[2/5] Verify built-in extension manager is available"
+echo "[2/6] CLI help (bundled install)"
+if ! help_output="$(HOME="$SIM_ROOT/home" "$AZ" --help 2>&1)"; then
+  echo "FAIL: az --help exited with a non-zero status"
+  printf '%s\n' "$help_output" | sed -n '1,20p'
+  exit 1
+fi
+if [[ -z "${help_output//[[:space:]]/}" ]]; then
+  echo "FAIL: az --help returned no output"
+  exit 1
+fi
+printf '%s\n' "$help_output" | sed -n '1,20p'
+
+echo ""
+echo "[3/6] Verify built-in extension manager is available"
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -qi "Extension.*could not be found"; then
@@ -173,7 +195,7 @@ else
 fi
 
 echo ""
-echo "[3/5] Verify bundled Config commands work"
+echo "[4/6] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
 get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
 echo "  $set_output"
@@ -186,7 +208,7 @@ else
 fi
 
 echo ""
-echo "[4/5] Install Resources extension via 'extension add'"
+echo "[5/6] Install Resources extension via 'extension add'"
 RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
@@ -203,7 +225,7 @@ else
 fi
 
 echo ""
-echo "[5/5] Verify Resources command resolves"
+echo "[6/6] Verify Resources command resolves"
 output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -q "could not be found"; then

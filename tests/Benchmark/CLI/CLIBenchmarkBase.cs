@@ -26,14 +26,28 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private const string PackageIdPrefix = "Microsoft.Azure.Azclips.Extensions.";
 
     /// <summary>
-    /// Short extension names (the segment after <see cref="PackageIdPrefix"/>) whose verbs this
-    /// benchmark's CLI invocations need staged. Defaults to the single extension named by the
-    /// class's <c>[BenchmarkExtension]</c> attribute; override only in the rare case a benchmark
-    /// must stage additional extensions.
+    /// Package ids of the Core built-in extensions, derived from <see cref="BuiltInExtensions.Map"/>.
     /// </summary>
-    protected virtual IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
+    private static readonly HashSet<string> s_builtInPackageIds =
+        new(BuiltInExtensions.Map.Values.Select(builtIn => builtIn.PackageId), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Short extension names (the segment after <see cref="PackageIdPrefix"/>) whose verbs this
+    /// benchmark's CLI invocations need available. Defaults to the single extension named by the
+    /// class's <c>[BenchmarkExtension]</c> attribute; override only in the rare case a benchmark
+    /// needs additional extensions.
+    /// </summary>
+    /// <remarks>
+    /// Each required extension is set up in one of two ways, based on <see cref="s_builtInPackageIds"/>:
+    /// <list type="bullet">
+    ///   <item><b>Installed</b> — copied to the benchmark extensions home, added to <c>registry.json</c>, and loaded by <c>MultiVersionExtensionLoader</c>.</item>
+    ///   <item><b>Core built-in</b> — kept in <c>artifacts/Release</c> and loaded by <c>BuiltinExtensionLoader</c>; built-ins are not added to the registry.</item>
+    /// </list>
+    /// </remarks>
+    private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
+    private string _builtinInstallationDir = null!;
 
     protected virtual string BuiltinInstallationDir => _extensionsRoot;
 
@@ -48,15 +62,37 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         TryDeleteDirectory(_extensionsRoot);
         Directory.CreateDirectory(_extensionsRoot);
 
+        // Fallback path for Core built-in extensions: the Release output of the build
+        var releaseRoot = Path.Combine(RepoRoot, "artifacts", "Release");
+        var stagedCount = 0;
+        var builtInCount = 0;
+
         foreach (var shortName in RequiredExtensions)
         {
             var packageId = PackageIdPrefix + shortName;
-            var sourceBuildDir = Path.Combine(RepoRoot, "artifacts", "Release", packageId);
+            var sourceBuildDir = Path.Combine(releaseRoot, packageId);
+
+            // Core built-ins can't be registry-staged: ExtensionAddPlanner rejects a root leaf on
+            // a built-in verb, mirroring `extension add`. Verify the payload is on disk and let
+            // BuiltinExtensionLoader serve it from the Release output instead.
+            if (s_builtInPackageIds.Contains(packageId))
+            {
+                EnsureBuiltInPayload(sourceBuildDir, packageId);
+                builtInCount++;
+                continue;
+            }
+
             var version = ReadPackageVersion(sourceBuildDir, packageId);
             LocalExtensionStager.Stage(packageId, version, sourceBuildDir, _extensionsRoot);
+            stagedCount++;
         }
 
-        Console.WriteLine($"[Setup] CLI benchmarks ready (stub HTTP); staged {RequiredExtensions.Count} extension(s)");
+        // Only redirect the built-in loader when a built-in is actually in play; otherwise keep the
+        // staged home as the first candidate root so the installed-extension path is unchanged.
+        _builtinInstallationDir = builtInCount > 0 ? releaseRoot : _extensionsRoot;
+
+        Console.WriteLine(
+            $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} installed, {builtInCount} built-in extension(s)");
     }
 
     [IterationSetup]
@@ -96,30 +132,48 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
     private void RegisterExtensionResolution()
     {
-        var extensionsRoot = _extensionsRoot;
-
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             // Loaders read the staged versioned payload (<root>/<pkg>/<ver>/<dll>).
             services.RemoveAll<IExtensionLoader>();
             services.AddSingleton<IExtensionLoader>(sp => new BuiltinExtensionLoader(
                 sp.GetRequiredService<ILoggingService>(),
-                new BenchmarkAssemblyConfigurationService(BuiltinInstallationDir, extensionsRoot)));
+                new BenchmarkAssemblyConfigurationService(_builtinInstallationDir, _extensionsRoot)));
             services.AddSingleton<IExtensionLoader>(sp => new MultiVersionExtensionLoader(
                 sp.GetRequiredService<ILoggingService>(),
-                new BenchmarkAssemblyConfigurationService(BuiltinInstallationDir, extensionsRoot)));
+                new BenchmarkAssemblyConfigurationService(_builtinInstallationDir, _extensionsRoot)));
 
             // Resolver reads the staged registry (the layer that fails today).
             services.RemoveAll<IExtensionRegistryStore>();
             services.AddSingleton<IExtensionRegistryStore>(_ =>
-                new FileExtensionRegistryStore(Path.Combine(extensionsRoot, "registry.json")));
+                new FileExtensionRegistryStore(Path.Combine(_extensionsRoot, "registry.json")));
         });
+    }
+
+    /// <summary>
+    /// Fail fast if a Core built-in's Release output is missing.
+    /// </summary>
+    private static void EnsureBuiltInPayload(string sourceBuildDir, string packageId)
+    {
+        if (!Directory.Exists(sourceBuildDir))
+        {
+            throw new DirectoryNotFoundException(
+                $"Built-in extension build output not found: '{sourceBuildDir}'. Run `dotnet build azclips.slnx -c Release`.");
+        }
+
+        // Matches what BuiltinExtensionLoader probes for; no .nupkg is needed because dispatch
+        // resolves built-ins with a null version and the loader takes its unversioned branch.
+        var assemblyPath = Path.Combine(sourceBuildDir, packageId + ".dll");
+        if (!File.Exists(assemblyPath))
+        {
+            throw new FileNotFoundException(
+                $"Built-in extension assembly not found: '{assemblyPath}'. Run `dotnet build azclips.slnx -c Release`.");
+        }
     }
 
     // GeneratePackageOnBuild emits <packageId>.<version>.nupkg next to the dll. Parse the version
     // off the known package-id prefix (the id itself contains dots, so split-on-dot is wrong).
-    private static string ReadPackageVersion(string sourceBuildDir, string packageId)
-    {
+    private static string ReadPackageVersion(string sourceBuildDir, string packageId)    {
         if (!Directory.Exists(sourceBuildDir))
         {
             throw new DirectoryNotFoundException(

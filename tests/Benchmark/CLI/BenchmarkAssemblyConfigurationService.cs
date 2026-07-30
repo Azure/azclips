@@ -13,12 +13,12 @@ internal sealed class BenchmarkAssemblyConfigurationService : IConfigurationServ
 {
     private readonly AssemblyLoadingOptions _options;
 
-    public BenchmarkAssemblyConfigurationService(string builtinInstallationDir, string versionedInstallationDir)
+    public BenchmarkAssemblyConfigurationService(string builtInInstallDir, string versionedInstallDir)
     {
         _options = new AssemblyLoadingOptions
         {
-            BuiltinInstallationDir = builtinInstallationDir,
-            VersionedInstallationDir = versionedInstallationDir,
+            BuiltinInstallationDir = builtInInstallDir,
+            VersionedInstallationDir = versionedInstallDir,
         };
     }
 
