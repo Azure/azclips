@@ -18,8 +18,8 @@ namespace Benchmark.CLI;
 
 [MemoryDiagnoser]
 [InvocationCount(invocationCount: 1, unrollFactor: 1)]
-[WarmupCount(0)]
-[IterationCount(1)]
+[WarmupCount(5000)]
+[IterationCount(5000)]
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class CLIBenchmarkBase : BenchmarkBase
 {
