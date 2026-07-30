@@ -65,7 +65,7 @@ This allows you to:
 - Continue using existing scripts and automation
 - Roll back to your existing workflow at any time
 
-To flip `az` between the classic CLI and the preview build within the same session, see
+To switch between the classic Azure CLI and the preview build within the same session, see
 [Switch between the classic Azure CLI and the preview build](./switch-cli-versions.md).
 
 ## Supported environments
