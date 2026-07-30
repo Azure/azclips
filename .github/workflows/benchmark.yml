@@ -12,7 +12,7 @@ on:
       - '.github/workflows/benchmark.yml'
       - '.github/scripts/detect-benchmark-changes.sh'
   pull_request:
-    branches: [main, dev]
+    branches: [main]
     paths:
       - 'src/**'
       - 'tests/Benchmark/**'
