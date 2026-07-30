@@ -35,6 +35,8 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
     private string _extensionsRoot = null!;
 
+    protected virtual string BuiltinInstallationDir => _extensionsRoot;
+
     [GlobalSetup]
     public void GlobalSetup()
     {
@@ -102,10 +104,10 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             services.RemoveAll<IExtensionLoader>();
             services.AddSingleton<IExtensionLoader>(sp => new BuiltinExtensionLoader(
                 sp.GetRequiredService<ILoggingService>(),
-                new BenchmarkAssemblyConfigurationService(extensionsRoot)));
+                new BenchmarkAssemblyConfigurationService(BuiltinInstallationDir, extensionsRoot)));
             services.AddSingleton<IExtensionLoader>(sp => new MultiVersionExtensionLoader(
                 sp.GetRequiredService<ILoggingService>(),
-                new BenchmarkAssemblyConfigurationService(extensionsRoot)));
+                new BenchmarkAssemblyConfigurationService(BuiltinInstallationDir, extensionsRoot)));
 
             // Resolver reads the staged registry (the layer that fails today).
             services.RemoveAll<IExtensionRegistryStore>();
