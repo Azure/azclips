@@ -21,15 +21,10 @@ namespace Benchmark.CLI;
 /// </para>
 /// </summary>
 [BenchmarkExtension("Login")]
-[WarmupCount(50)]
-[IterationCount(50)]
 public class LoginBenchmarks : CLIBenchmarkBase
 {
     // Arbitrary well-formed GUID for the user-assigned managed identity selector.
     private const string UserAssignedClientId = "e5f6a7b8-4567-4def-b234-56789abcdef0";
-
-    // Built-in verbs (login/logout/profile) can't be registry-staged; probe the real build output.
-    protected override string BuiltinInstallationDir => Path.Combine(RepoRoot, "artifacts", "Release");
 
     [Benchmark(Description = "CLI: Login - MI system-assigned")]
     public int ManagedIdentitySystemAssigned()
