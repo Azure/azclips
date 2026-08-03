@@ -193,7 +193,6 @@ public class RecordingSanitizerTests
     [InlineData("https://management.azure.com/subscriptions/3f2a91c4-7b6d-4e18-9a05-c1d83e77b204/rg", "/subscriptions/00000000-0000-0000-0000-000000000000/rg")]
     [InlineData("https://login.microsoftonline.com/8c41d0be-2f95-4a37-b6e1-59d7a0c42f18/oauth2", "login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2")]
     [InlineData("Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.payload", "Bearer [redacted]")]
-    // Design §7.1 also calls for OpenAI keys and endpoints.
     [InlineData("{\"key\":\"sk-proj-A1b2C3d4E5f6G7h8I9j0K1l2\"}", "[redacted-openai-key]")]
     [InlineData("https://contoso-aoai.openai.azure.com/openai/deployments/gpt", "https://[resource].openai.azure.com/openai/deployments/gpt")]
     public void DefaultSanitizers_ReplaceKnownSecretShapes(string input, string expectedFragment)

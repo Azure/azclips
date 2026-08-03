@@ -1,7 +1,7 @@
 # Scenario tests
 
-Scenario tests exercise a command end to end — through the real dispatcher, argument binders, and
-engine pipeline — while the HTTP traffic to Azure is served from a recorded file instead of the
+Scenario tests exercise a command end to end, through the real dispatcher, argument binders, and
+engine pipeline, while the HTTP traffic to Azure is served from a recorded file instead of the
 network. They run with no credentials and gate every PR.
 
 ## Record vs. playback
@@ -23,16 +23,19 @@ credentials and no network. Record mode is never enabled in a PR run.
 
 ### Locally
 
-Normal runs need nothing — the default is playback:
+Normal runs need nothing; the default is playback:
 
 ```
 dotnet test tests/Scenario.Tests
 ```
 
-To refresh a recording, sign in to a test subscription and run the single scenario in record mode:
+To refresh a recording, sign in with the azclips CLI (not the classic Azure CLI; record mode reads
+the azclips profile store) and run the single scenario in record mode. The subscription comes from
+the signed-in profile; the sanitisers replace it with a placeholder before the file is written.
 
 ```
 # PowerShell
+az login --tenant-id <test-tenant> --subscription-id <test-subscription>
 $env:AZURE_TEST_MODE = "Record"
 dotnet test tests/Scenario.Tests --filter FullyQualifiedName~GroupCreateScenarioTests
 $env:AZURE_TEST_MODE = $null
@@ -43,9 +46,10 @@ $env:AZURE_TEST_MODE = $null
 AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests --filter FullyQualifiedName~GroupCreateScenarioTests
 ```
 
-The recording under `SessionRecords/<TestClass>/<TestName>.json` is rewritten; review and commit it.
-Record from a single surface — the recording is shared by both the CLI and PowerShell runs on
-playback.
+The recording under `SessionRecords/<TestClass>/<TestName>.json` is rewritten; review it (no live
+ids or tokens should appear, the sanitisers scrub them) and commit it. Record from a single
+surface: the recording is shared by both the CLI and PowerShell runs on playback. Clean up any
+real resources the scenario created.
 
 ## Authoring a scenario
 
@@ -54,7 +58,8 @@ var recording = RecordingSession.Open(typeof(MyScenarioTests), nameof(MyTest));
 
 if (recording.Mode == RecorderMode.Record)
 {
-    using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor());
+    // useLiveAuth keeps the real profile and token; the stubs would 401 against real ARM.
+    using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true);
     // run the command against the live pipeline
     recording.Save();
     return;
