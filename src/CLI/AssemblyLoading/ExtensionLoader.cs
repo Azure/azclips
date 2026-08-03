@@ -53,6 +53,17 @@ public interface IExtensionLoader
 /// </remarks>
 public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
+    /// <summary>
+    /// Process-wide cache of loaded Bundled extensions, keyed by the absolute assembly path.
+    /// Mirrors <see cref="MultiVersionExtensionLoader"/>'s cache: without it every
+    /// <see cref="LoadExtension"/> call builds a fresh <see cref="AssemblyLoadContext"/> and
+    /// re-reads the assembly bytes, so the returned <see cref="Assembly"/> is a new instance each
+    /// time and all downstream type loading, attribute reflection, and JIT is cold again.
+    /// The <see cref="ExtensionLoadContext"/> is held alongside the assembly so it is not collected.
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
+        new(StringComparer.OrdinalIgnoreCase);
+
     internal class ExtensionLoadContext(string extensionPath, ILoggingService? loggingService = null) : AssemblyLoadContext
     {
         private readonly AssemblyDependencyResolver _resolver = new(extensionPath);
@@ -205,8 +216,24 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                         continue;
                     }
 
-                    var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-                    var assembly = loadContext.LoadManagedAssembly(extensionPath);
+                    Assembly assembly;
+                    if (_options.BypassExtensionCache)
+                    {
+                        var freshCtx = new ExtensionLoadContext(extensionPath, _loggingService);
+                        assembly = freshCtx.LoadManagedAssembly(extensionPath);
+                    }
+                    else
+                    {
+                        var entry = s_cache.GetOrAdd(
+                            extensionPath,
+                            key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+                            {
+                                var ctx = new ExtensionLoadContext(key, _loggingService);
+                                return (ctx, ctx.LoadManagedAssembly(key));
+                            }));
+                        assembly = entry.Value.Assembly;
+                    }
+
                     stopwatch.Stop();
 
                     var loadedVersion = string.IsNullOrEmpty(version)
