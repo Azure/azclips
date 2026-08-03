@@ -63,8 +63,8 @@ Findings report file, line and rule only, never the value.
 Run it locally the same way:
 
 ```
-python devops/scripts/ci/scan_recordings.py --all
-python devops/scripts/ci/scan_recordings.py --base origin/main
+python3 devops/scripts/ci/scan_recordings.py --all
+python3 devops/scripts/ci/scan_recordings.py --base origin/main
 ```
 
 Azure CLI runs an incremental secret scan over its recordings; we keep that approach (scan only

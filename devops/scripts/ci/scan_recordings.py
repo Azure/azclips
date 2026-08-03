@@ -25,6 +25,10 @@ import sys
 PLACEHOLDER_GUID = "00000000-0000-0000-0000-000000000000"
 GUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 
+# A double quote as it can appear inside a recorded body: bare, backslash-escaped,
+# or unicode-escaped the way System.Text.Json writes it (backslash-u0022).
+Q = r'(?:\\u0022|\\"|")'
+
 RECORDING_PATH = re.compile(r"^tests/.+/SessionRecords/.+\.json$")
 
 # Rule name -> pattern that must not appear in a sanitised recording. Patterns
@@ -40,9 +44,9 @@ RULES = {
     "aad authority tenant": re.compile(r"login\.microsoftonline\.com/(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "storage account key": re.compile(r"AccountKey=", re.IGNORECASE),
     "shared access signature": re.compile(r"SharedAccessSignature|[?&]sig=", re.IGNORECASE),
-    "client secret": re.compile(r'\\?"client_secret\\?"\s*:\s*\\?"[^"\\]+', re.IGNORECASE),
-    "password": re.compile(r'\\?"(adminPassword|password)\\?"\s*:\s*\\?"(?!\[redacted\])[^"\\]+', re.IGNORECASE),
-    "access token field": re.compile(r'\\?"(access_token|accessToken)\\?"\s*:\s*\\?"[^"\\]+', re.IGNORECASE),
+    "client secret": re.compile(Q + "client_secret" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),
+    "password": re.compile(Q + "(adminPassword|password)" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),
+    "access token field": re.compile(Q + "(access_token|accessToken)" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),
     "openai key": re.compile(r"sk-[A-Za-z0-9_\-]{16,}"),
     "openai endpoint": re.compile(r"https://[a-z0-9][a-z0-9-]*\.openai\.azure\.com", re.IGNORECASE),
 }
@@ -54,14 +58,14 @@ def error(message):
 
 def changed_recordings(base):
     diff = subprocess.run(
-        ["git", "diff", "--name-only", "--diff-filter=AM", f"{base}...HEAD"],
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", f"{base}...HEAD"],
         capture_output=True, text=True, check=True)
     return [f for f in diff.stdout.splitlines() if RECORDING_PATH.match(f)]
 
 
 def all_recordings():
     files = subprocess.run(
-        ["git", "ls-files", "tests/*.json"],
+        ["git", "ls-files", "--", "tests"],
         capture_output=True, text=True, check=True)
     return [f for f in files.stdout.splitlines() if RECORDING_PATH.match(f)]
 
@@ -71,7 +75,7 @@ def scan(path):
     try:
         with open(path, encoding="utf-8") as f:
             lines = f.readlines()
-    except OSError as e:
+    except (OSError, UnicodeError) as e:
         error(f"{path}: cannot read: {e}")
         return 1
 
