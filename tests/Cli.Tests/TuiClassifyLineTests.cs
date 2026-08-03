@@ -32,6 +32,7 @@ public class TuiClassifyLineTests
 
         Assert.NotNull(result);
         Assert.Equal(HistoryItemType.Warn, result.Value.type);
+        Assert.Equal("WARNING: something noteworthy", result.Value.text);
     }
 
     [Fact]
@@ -41,6 +42,7 @@ public class TuiClassifyLineTests
 
         Assert.NotNull(result);
         Assert.Equal(HistoryItemType.Info, result.Value.type);
+        Assert.Equal("INFO: something informational", result.Value.text);
     }
 
     [Theory]
