@@ -8,7 +8,6 @@ using Tests.Common.Recording;
 namespace Scenario.Tests;
 
 /// <summary>
-/// Task 0 of the scenario-test plan (the fail-fast "author once, replay both" spike, RISK-1):
 /// <c>az group create</c> and <c>New-AzResourceGroup</c> resolve to the same
 /// <c>NewResourceGroupProcessor</c>, so for one recording to serve both surfaces the HTTP
 /// they emit must be identical. These tests drive both surfaces subcutaneously (the real
@@ -123,8 +122,6 @@ public class GroupCreateParityTests
         Assert.Equal("PUT", request.Method);
         Assert.Equal(s_expectedUri, request.Uri);
 
-        // The auth step already ran when the tracing seam sees the request; recordings will
-        // carry a real token here, which is why sanitizers (#473) scrub Authorization.
         Assert.True(request.Headers.ContainsKey("Authorization"),
             "The capture seam sits after the auth step, so the request must carry a bearer token.");
 

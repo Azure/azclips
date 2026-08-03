@@ -7,7 +7,7 @@ using Tests.Common.Recording;
 namespace Scenario.Tests;
 
 /// <summary>
-/// Acceptance tests for the record/playback <c>SendAsyncStep</c> (#470), run through the full
+/// Acceptance tests for the record/playback <c>SendAsyncStep</c>, run through the full
 /// engine: real dispatcher, binder, auth step, and pipeline. The "wire" behind the pipeline's
 /// terminal <c>HttpClient</c> is a fake handler, so record mode is exercised end-to-end with no
 /// real network and no credentials.
