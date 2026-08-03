@@ -68,7 +68,10 @@ container in the resource group. Do not run this environment concurrently with
 another developer; Terraform protects the shared state with a lock, but both
 runs target the same VM and bundle storage.
 
-## Run the full test
+## Run manually from your local machine
+
+Run commands from the repository root. The first run should include
+`--provision` so Terraform creates or updates the Azure resources:
 
 ```bash
 scripts/mi-e2e-test.sh --provision
@@ -109,6 +112,77 @@ To reuse an already-built bundle:
 ```bash
 scripts/mi-e2e-test.sh --skip-publish
 ```
+
+## Run the GitHub Actions pipeline manually
+
+The workflow is `.github/workflows/mi-e2e.yml` in the `xuming-ms/cirrus`
+repository. It authenticates to Azure with GitHub OIDC and runs the same script
+with `--provision`. Terraform skips the apply when the shared infrastructure is
+already up to date.
+
+The selected branch must:
+
+- Contain the workflow file.
+- Be pushed to `origin` (`xuming-ms/cirrus`).
+- Have a matching federated credential on the `cirrus-mi-e2e-github` Entra
+  application. `main` is permanently trusted; feature-branch credentials should
+  be temporary.
+
+### From the GitHub website
+
+1. Open <https://github.com/xuming-ms/cirrus/actions>.
+2. Select **Managed Identity E2E**.
+3. Select **Run workflow**.
+4. Choose the trusted branch, normally `main`.
+5. Select **Run workflow** and wait for the `mi-e2e` job to finish.
+
+The run is successful only when the job is green and its log contains
+`MI_E2E_RESULT:PASS`.
+
+### From the GitHub CLI
+
+Confirm that `gh` is authenticated:
+
+```bash
+gh auth status
+```
+
+Trigger the workflow on `main`:
+
+```bash
+gh workflow run mi-e2e.yml \
+  --repo xuming-ms/cirrus \
+  --ref main
+```
+
+Find and monitor the run:
+
+```bash
+RUN_ID="$(gh run list \
+  --repo xuming-ms/cirrus \
+  --workflow mi-e2e.yml \
+  --branch main \
+  --limit 1 \
+  --json databaseId \
+  --jq '.[0].databaseId')"
+
+gh run watch "$RUN_ID" \
+  --repo xuming-ms/cirrus \
+  --exit-status
+```
+
+To inspect the final MI results:
+
+```bash
+gh run view "$RUN_ID" \
+  --repo xuming-ms/cirrus \
+  --log |
+  grep -E 'MI_E2E_RESULT|End-to-end MI test|assigned.*OK'
+```
+
+To test a trusted feature branch, replace `main` in the commands above with the
+branch name. Do not trigger this workflow in `Azure/azclips`: its repository
+identity does not match the `xuming-ms/cirrus` OIDC credential.
 
 ## Optional SSH access
 
