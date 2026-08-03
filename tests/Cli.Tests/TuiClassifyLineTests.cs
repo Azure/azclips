@@ -23,13 +23,21 @@ public class TuiClassifyLineTests
         Assert.Equal("ERROR: something bad", result.Value.text);
     }
 
-    [Theory]
-    [InlineData("WARNING: something noteworthy")]
-    [InlineData("INFO: something informational")]
-    public void ClassifyLine_WarningOrInfoPrefix_MapsToInfo(string line)
+    [Fact]
+    public void ClassifyLine_WarningPrefix_MapsToWarn()
     {
-        // Default under RunCliAsync is Error — this verifies warnings/info escape that stamping.
-        var result = ProcessService.ClassifyLine(line, HistoryItemType.Error);
+        // Default under RunCliAsync is Error — verifies WARNING: escapes error stamping
+        // and gets its own severity bucket rather than being downgraded to Info.
+        var result = ProcessService.ClassifyLine("WARNING: something noteworthy", HistoryItemType.Error);
+
+        Assert.NotNull(result);
+        Assert.Equal(HistoryItemType.Warn, result.Value.type);
+    }
+
+    [Fact]
+    public void ClassifyLine_InfoPrefix_MapsToInfo()
+    {
+        var result = ProcessService.ClassifyLine("INFO: something informational", HistoryItemType.Error);
 
         Assert.NotNull(result);
         Assert.Equal(HistoryItemType.Info, result.Value.type);
