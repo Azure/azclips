@@ -9,8 +9,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * 1" # weekly, Monday 03:00 UTC
-  push:
-    branches: [ming/test-sp-mi-au] # TEMP: test the pipeline on this branch; remove before merge
 
 concurrency:
   group: mi-e2e
@@ -21,7 +19,7 @@ permissions:
   contents: read
 
 env:
-  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_ID: 4398110c-3531-444b-8be4-47b1050e3716
   AZURE_TENANT_ID: 4f00b3b6-2940-4f2c-b037-94637c180d30
   AZURE_SUBSCRIPTION_ID: f758ac53-3e63-4317-a956-0997793808d7
   AZURE_RESOURCE_GROUP: ManagedIdentityLiveTest
