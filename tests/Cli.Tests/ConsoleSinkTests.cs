@@ -11,6 +11,7 @@ namespace Cli.Tests;
 /// the stderr-vs-stdout routing that <see cref="StreamRoutingIntegrationTests"/> covers
 /// at the subprocess level.
 /// </summary>
+[Collection("Azclips Service Provider Tests")]
 public class ConsoleSinkTests
 {
     [Fact]

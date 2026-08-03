@@ -23,11 +23,15 @@ public static class ConsoleSink
     /// </summary>
     public static void EmitStderr(ConsoleColor color, string line)
     {
-        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
+        if (!ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected))
+        {
+            Console.Error.WriteLine(line);
+            return;
+        }
         var originalColor = Console.ForegroundColor;
-        if (emitColor) Console.ForegroundColor = color;
-        Console.Error.WriteLine(line);
-        if (emitColor) Console.ForegroundColor = originalColor;
+        Console.ForegroundColor = color;
+        try     { Console.Error.WriteLine(line); }
+        finally { Console.ForegroundColor = originalColor; }
     }
 
     /// <summary>
@@ -42,12 +46,20 @@ public static class ConsoleSink
     /// <param name="newline">When <c>true</c>, uses <see cref="Console.WriteLine(string)"/>; otherwise <see cref="Console.Write(string)"/>.</param>
     public static void EmitStdout(ConsoleColor color, string text, bool newline = false)
     {
-        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
+        if (!ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected))
+        {
+            if (newline) Console.WriteLine(text);
+            else Console.Write(text);
+            return;
+        }
         var originalColor = Console.ForegroundColor;
-        if (emitColor) Console.ForegroundColor = color;
-        if (newline) Console.WriteLine(text);
-        else Console.Write(text);
-        if (emitColor) Console.ForegroundColor = originalColor;
+        Console.ForegroundColor = color;
+        try
+        {
+            if (newline) Console.WriteLine(text);
+            else Console.Write(text);
+        }
+        finally { Console.ForegroundColor = originalColor; }
     }
 
     /// <summary>Emits an <c>ERROR:</c>-prefixed diagnostic in red on stderr.</summary>
