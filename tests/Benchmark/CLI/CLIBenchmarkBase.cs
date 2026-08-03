@@ -17,9 +17,8 @@ using Tests.Common.Utilities;
 namespace Benchmark.CLI;
 
 [MemoryDiagnoser]
-[SimpleJob(launchCount: 7000, warmupCount:1, iterationCount: 1, invocationCount: 1)]
-// [WarmupCount(5000)]
-// [IterationCount(5000)]
+[WarmupCount(5000)]
+[IterationCount(5000)]
 [InvocationCount(invocationCount: 1, unrollFactor: 1)]
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class CLIBenchmarkBase : BenchmarkBase
