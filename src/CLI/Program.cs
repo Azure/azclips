@@ -215,18 +215,14 @@ public class Program
             },
             WriteError: (value, ct) =>
             {
-                var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-                var originalColor = Console.ForegroundColor;
-                if (emitColor) Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine($"ERROR: {value}");
-                if (emitColor) Console.ForegroundColor = originalColor;
+                ConsoleSink.Error(value?.ToString() ?? string.Empty);
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, ct) =>
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
                 {
-                    Console.Error.WriteLine($"VERBOSE: {value}");
+                    ConsoleSink.Verbose(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             },
@@ -234,7 +230,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
                 {
-                    Console.Error.WriteLine($"DEBUG: {value}");
+                    ConsoleSink.Debug(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             },
@@ -242,7 +238,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
                 {
-                    Console.Error.WriteLine($"WARNING: {value}");
+                    ConsoleSink.Warn(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             },
@@ -250,7 +246,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
                 {
-                    Console.Error.WriteLine($"INFO: {value}");
+                    ConsoleSink.Info(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             }
