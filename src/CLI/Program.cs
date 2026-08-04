@@ -88,16 +88,28 @@ public class Program
         {
             using var activity = telemetryService.StartRootActivity();
             var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
-            args = ParseDebugFlag(args, out var debugOverride);
-            var coreOptions = configurationService.GetConfiguration<CoreOptions>();
-            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, debugOverride);
-            ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
-            streams = BuildStreams(effectiveLogLevel);
-            args = ParseOutputFlag(args, out var outputJson);
-            args = ParseNoCacheFlag(args);
+
+            // Safe defaults so error handlers have values even if GlobalArgParser.Parse throws
+            // (invalid --output value → AzclipsErrorException.UsageError).
+            var outputJson = false;
+            var positional = args;
             try
             {
-                CommandInvocation invocation = dispatcher.Parse(args);
+                var globalArgs = GlobalArgParser.Parse(args);
+                if (globalArgs.NoCache)
+                {
+                    // AssemblyLoadingOptions.BypassExtensionCache reads this via IConfigurationService.
+                    Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
+                }
+
+                var coreOptions = configurationService.GetConfiguration<CoreOptions>();
+                var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
+                ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
+                streams = BuildStreams(effectiveLogLevel);
+                outputJson = globalArgs.Output == OutputFormat.Json;
+                positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
+
+                CommandInvocation invocation = dispatcher.Parse(positional);
                 telemetryService.TagInvocation(invocation);
 
                 using var commandActivity =
@@ -162,7 +174,7 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args, ex.Message);
+                return await TryAgentFallbackAsync(positional, ex.Message);
             }
             catch (AzclipsErrorException ex)
             {
@@ -179,7 +191,7 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args, ex.Message);
+                return await TryAgentFallbackAsync(positional, ex.Message);
             }
         }
         finally
@@ -192,19 +204,6 @@ public class Program
             AzclipsServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
-    }
-
-    // TODO(Yabo): Q&P squad to refactor global parameter handling
-    // this method is temporary and is for ease of debugging
-    private static string[] ParseDebugFlag(string[] args, out bool debugOverride)
-    {
-        debugOverride = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
-        if (!debugOverride)
-        {
-            return args;
-        }
-
-        return args.Where(a => !a.Equals("--debug", StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 
     private static OutputStreams BuildStreams(CliLogLevel level)
@@ -253,45 +252,6 @@ public class Program
                 return Task.CompletedTask;
             }
         );
-    }
-
-    // Strips `--output json` / `--output plain` (and `--output=json`) from args and reports
-    // whether JSON shape was requested. When `--output json` is active, errors render as
-    // { "error": { code, message, details } }.
-    private static string[] ParseOutputFlag(string[] args, out bool outputJson)
-    {
-        outputJson = false;
-        var result = new List<string>(args.Length);
-        for (int i = 0; i < args.Length; i++)
-        {
-            var a = args[i];
-            if (a.Equals("--output", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
-            {
-                outputJson = args[i + 1].Equals("json", StringComparison.OrdinalIgnoreCase);
-                i++;
-                continue;
-            }
-            if (a.StartsWith("--output=", StringComparison.OrdinalIgnoreCase))
-            {
-                outputJson = a.Substring("--output=".Length).Equals("json", StringComparison.OrdinalIgnoreCase);
-                continue;
-            }
-            result.Add(a);
-        }
-        return result.ToArray();
-    }
-
-    // Strips `--no-cache` and propagates the bypass via AZCLIPS_NO_EXTENSION_CACHE env var,
-    // which AssemblyLoadingOptions.BypassExtensionCache reads through ConfigurationService.
-    // Test hook for benchmarking.
-    private static string[] ParseNoCacheFlag(string[] args)
-    {
-        if (!args.Contains("--no-cache", StringComparer.OrdinalIgnoreCase))
-        {
-            return args;
-        }
-        Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
-        return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 
     private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
