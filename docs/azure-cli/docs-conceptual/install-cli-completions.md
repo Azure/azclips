@@ -1,3 +1,8 @@
+---
+title: Enable azcli tab completion
+description: Learn how to enable shell tab completion for azcli in bash, zsh, and PowerShell.
+---
+
 # Enable azcli tab completion
 
 azcli ships shell completion scripts for **bash**, **zsh**, and **PowerShell**. Once enabled, pressing `<Tab>` completes command groups, subcommands, and parameters for the `az` command. Completions are resolved by calling `az` at tab-time, so they always match the installed CLI.

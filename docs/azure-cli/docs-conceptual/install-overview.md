@@ -1,3 +1,8 @@
+---
+title: Install the Azure CLI private preview
+description: Learn how to install azcli and azps from the Azure CLI private preview release.
+---
+
 # Installing azcli and azps
 
 A release delivers two products:

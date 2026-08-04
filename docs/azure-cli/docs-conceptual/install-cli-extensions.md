@@ -1,3 +1,8 @@
+---
+title: Install azcli extensions
+description: Learn how to install add-on extensions for lean installs or to pin a specific extension version.
+---
+
 # Install azcli Extensions
 
 > **Most users should start with the [install guide](install-overview.md).** This page covers add-on extensions, which you only need on **lean** installs or to pin a specific extension version.
