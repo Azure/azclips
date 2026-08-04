@@ -97,8 +97,8 @@ Two hooks in the CLI entrypoint exist specifically so BenchmarkDotNet can drive 
 
 | Hook | Location | Purpose |
 | --- | --- | --- |
-| `--no-cache` flag | `src/CLI/Program.cs:246` | `ParseNoCacheFlag` strips the flag and sets `AZCLIPS_NO_EXTENSION_CACHE=true`, which `AssemblyLoadingOptions.BypassExtensionCache` reads — forcing a cold extension load each run |
-| In-process guard | `src/CLI/Program.cs:417` | `SpawnTelemetryUploader` returns early unless the process is a real `az`/`az.exe`, so the benchmark host process never spawns a detached telemetry uploader |
+| `--no-cache` flag | [`src/CLI/Parser/GlobalArgParser.cs`](../../src/CLI/Parser/GlobalArgParser.cs) | Parser classifies the flag into `GlobalArgs.NoCache`; `Program.Main` sets `AZCLIPS_NO_EXTENSION_CACHE=true`, which `AssemblyLoadingOptions.BypassExtensionCache` reads — forcing a cold extension load each run |
+| In-process guard | `src/CLI/Program.cs` (`SpawnTelemetryUploader`) | Returns early unless the process is a real `az`/`az.exe`, so the benchmark host process never spawns a detached telemetry uploader |
 
 ```mermaid
 flowchart LR
@@ -107,7 +107,7 @@ flowchart LR
         BASE["BenchmarkBase<br>RegisterBenchmarkStubs()"]
     end
     subgraph cli["az entrypoint (in-process)"]
-        NC["ParseNoCacheFlag<br>--no-cache to AZCLIPS_NO_EXTENSION_CACHE"]
+        NC["GlobalArgParser<br>--no-cache to AZCLIPS_NO_EXTENSION_CACHE"]
         RUN["Command execution"]
         TEL["SpawnTelemetryUploader<br>early-return if not real az"]
     end
@@ -154,6 +154,6 @@ Coverlet is wired in via the `coverlet.collector` package reference in the share
 - `tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj:4-11` — fixture extension assembly
 - `tests/Benchmark/Benchmark.csproj:4-25` — BenchmarkDotNet project references
 - `tests/Benchmark/BenchmarkBase.cs:41-55` — stub DI registration for benchmark isolation
-- `src/CLI/Program.cs:246,417` — `--no-cache` and in-process benchmark hooks
+- [`src/CLI/Parser/GlobalArgParser.cs`](../../src/CLI/Parser/GlobalArgParser.cs), `src/CLI/Program.cs` (`SpawnTelemetryUploader`) — `--no-cache` and in-process benchmark hooks
 - `eng-docs/spec/benchmark-workflows.md:5-8` — 115% regression gate and dashboards
 - `AGENTS.md:38` — `MethodName_ShouldBehavior_WhenCondition` naming convention

@@ -459,12 +459,10 @@ Notice the four patterns you'll copy for every command: `[ArgumentInfo]` on publ
 
 ### 9.1 The failure path (and why the agent sometimes appears)
 
-The happy path above returns `0`. The interesting behavior is what happens when a command _throws_. `Program.Main` wraps execution in a catch ladder (`src/CLI/Program.cs:91-144`), and the _type_ of exception decides everything:
+The happy path above returns `0`. The interesting behavior is what happens when a command _throws_. Help and version are dispatched from the `GlobalArgs` record before `Program.Main`'s catch ladder runs, so the ladder itself is a small triage of real failures (`src/CLI/Program.cs`):
 
 | Thrown                          | Meaning                                     | What happens                                                                    |
 | ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
-| `DispatchHelpException`         | user asked for root help (or ran bare `az`) | render help, exit (bare `az` also prints a welcome banner)                      |
-| `RuntimeExtensionHelpException` | user asked for a command's help             | render that help, exit                                                          |
 | `AzclipsErrorException`         | a known, structured error                   | print it (`ERROR: [code] message` or JSON), return its exit code — **no agent** |
 | `HttpRequestException`          | network/ARM failure                         | `TryAgentFallbackAsync`                                                         |
 | any other `Exception`           | unknown failure                             | `TryAgentFallbackAsync`                                                         |
@@ -802,7 +800,7 @@ public class ConfigCommandTests
 
 **Agent tests** are worth a peek even if you're not on the agent: `ClosingToolPredicateTests`, `ProposePlanValidationTests`, and the snapshot tests (`EventRendererSnapshotTests`, `SnapshotTesting/`) show how a tool-driven agent is tested deterministically.
 
-**Benchmarks.** `tests/Benchmark` uses BenchmarkDotNet; `--no-cache` (`Program.cs:246`) and in-process hooks let you measure cold vs warm dispatch. See `eng-docs/spec/benchmark-workflows.md`.
+**Benchmarks.** `tests/Benchmark` uses BenchmarkDotNet; `--no-cache` (classified by `GlobalArgParser`) and in-process hooks let you measure cold vs warm dispatch. See `eng-docs/spec/benchmark-workflows.md`.
 
 <a name="p3-19"></a>
 
@@ -853,11 +851,11 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 
 ## 20. Debugging playbook
 
-- **See what's happening:** run with `--debug` (`Program.cs:155`) to raise the log level; add `--output json` (`:220`) to get structured error payloads.
+- **See what's happening:** run with `--debug` to raise the log level; add `--output json` to get structured error payloads. Both are classified by `GlobalArgParser` (`src/CLI/Parser/GlobalArgParser.cs`).
 - **A command "hangs" or spawns the agent unexpectedly:** check `agent.enabled` (`az config list`) — the agent only engages when it's true _and_ you're on a TTY. In CI/pipes it's suppressed by design (`:308`).
 - **"Profile 'x' does not exist" errors:** an explicit `--profile` must name a real profile; a stale _active_ pointer silently resolves to null instead (`Engine.cs:156`). Check `az profile list` and `active-profile`.
 - **Auth failures:** the token cache is shared at `{LocalAppData}/.azclips/MSAL.cache`; `az logout` removes only the active profile's account. Re-run `az login --profile <name>` to refresh.
-- **Extension not found / stale:** the engine caches extension indices; bypass with `--no-cache` (`Program.cs:246`) to rule out a stale cache.
+- **Extension not found / stale:** the engine caches extension indices; bypass with `--no-cache` (classified by `GlobalArgParser`, sets `AZCLIPS_NO_EXTENSION_CACHE`) to rule out a stale cache.
 - **Attach a debugger:** in VS/VS Code, set the startup project to `Core.Cli`, set args in `launchSettings`/`launch.json`, and breakpoint `Program.Main`, `Engine.CreateProcessorContext`, or your processor's `ProcessAsync`.
 - **Trace the agent:** `az config set --key agent.trace.enabled --value true` writes a JSONL trace under `agent.trace.path` (default `~/.azclips/trace`) — invaluable for understanding a turn.
 - **Telemetry noise:** set `telemetry.enabled=false` while debugging to avoid the background uploader spawning.
