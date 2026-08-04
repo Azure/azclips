@@ -1,3 +1,8 @@
+---
+title: Configuration management
+description: Learn how to manage Azure PowerShell private preview configuration settings, including keys, environment variables, and file locations.
+---
+
 # Configuration Management
 
 Azure PowerShell private preview stores user-scope configuration in a global JSON file.
