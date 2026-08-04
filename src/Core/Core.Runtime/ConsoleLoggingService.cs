@@ -17,47 +17,31 @@ public class ConsoleLoggingService : ILoggingService
 
     public void Info(string message)
     {
-        Console.Error.WriteLine($"INFO: {message}");
+        ConsoleSink.Info(message);
         RecordTelemetry("Info", message);
     }
 
     public void Error(string message)
     {
-        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-        var originalColor = Console.ForegroundColor;
-        if (emitColor) Console.ForegroundColor = ConsoleColor.Red;
-        Console.Error.WriteLine($"ERROR: {message}");
-        if (emitColor) Console.ForegroundColor = originalColor;
+        ConsoleSink.Error(message);
         RecordTelemetry("Error", message);
     }
 
     public void Warn(string message)
     {
-        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-        var originalColor = Console.ForegroundColor;
-        if (emitColor) Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.Error.WriteLine($"WARNING: {message}");
-        if (emitColor) Console.ForegroundColor = originalColor;
+        ConsoleSink.Warn(message);
         RecordTelemetry("Warning", message);
     }
 
     public void Verbose(string message)
     {
-        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-        var originalColor = Console.ForegroundColor;
-        if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.Error.WriteLine($"VERBOSE: {message}");
-        if (emitColor) Console.ForegroundColor = originalColor;
+        ConsoleSink.Verbose(message);
         RecordTelemetry("Verbose", message);
     }
 
     public void Debug(string message)
     {
-        var emitColor = ColorPolicy.ShouldEmitColor(Console.IsErrorRedirected);
-        var originalColor = Console.ForegroundColor;
-        if (emitColor) Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.Error.WriteLine($"DEBUG: {message}");
-        if (emitColor) Console.ForegroundColor = originalColor;
+        ConsoleSink.Debug(message);
         RecordTelemetry("Debug", message);
     }
 

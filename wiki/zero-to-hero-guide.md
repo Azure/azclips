@@ -465,7 +465,7 @@ The happy path above returns `0`. The interesting behavior is what happens when 
 | ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
 | `DispatchHelpException`         | user asked for root help (or ran bare `az`) | render help, exit (bare `az` also prints a welcome banner)                      |
 | `RuntimeExtensionHelpException` | user asked for a command's help             | render that help, exit                                                          |
-| `AzclipsErrorException`         | a known, structured error                   | print it (`error: [code] message` or JSON), return its exit code — **no agent** |
+| `AzclipsErrorException`         | a known, structured error                   | print it (`ERROR: [code] message` or JSON), return its exit code — **no agent** |
 | `HttpRequestException`          | network/ARM failure                         | `TryAgentFallbackAsync`                                                         |
 | any other `Exception`           | unknown failure                             | `TryAgentFallbackAsync`                                                         |
 
