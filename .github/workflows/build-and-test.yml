@@ -52,6 +52,18 @@ jobs:
           }
           Write-Host "Found $($commands.Count) commands in Login module"
 
+  recording-secret-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan changed recordings for secrets
+        run: python3 devops/scripts/ci/scan_recordings.py --base "origin/${{ github.base_ref || 'main' }}"
+
   help-validate:
     runs-on: ubuntu-latest
 

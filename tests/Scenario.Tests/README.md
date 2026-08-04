@@ -51,6 +51,28 @@ ids or tokens should appear, the sanitisers scrub them) and commit it. Record fr
 surface: the recording is shared by both the CLI and PowerShell runs on playback. Clean up any
 real resources the scenario created.
 
+## Secret scanning
+
+The sanitisers are the first line of defence; a PR gate is the second. The
+`recording-secret-scan` job in `build-and-test.yml` runs
+`devops/scripts/ci/scan_recordings.py` against the recordings a PR adds or changes and fails on
+anything that looks like a leak: auth headers, bearer tokens or JWTs, non-placeholder
+subscription/tenant ids, key material (storage keys, SAS, client secrets, OpenAI keys), passwords.
+Findings report file, line and rule only, never the value.
+
+Run it locally the same way:
+
+```
+python3 devops/scripts/ci/scan_recordings.py --all
+python3 devops/scripts/ci/scan_recordings.py --base origin/main
+```
+
+Azure CLI runs an incremental secret scan over its recordings; we keep that approach (scan only
+what the PR touched) but not their implementation, which is built around vcrpy YAML recordings and
+their credential handler. Our recordings are our own JSON, so the rules live in the script above
+and grow alongside `RecordingSanitizers`: when a sanitiser learns a new secret shape, the scan
+should learn it too.
+
 ## Authoring a scenario
 
 ```csharp
