@@ -26,7 +26,7 @@ Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShel
 
 All steps below run in **PowerShell 7.6+**.
 
-Download the bundle from the latest release using your authenticated GitHub CLI (`gh`) — the same session the azcli installer uses, which works on the private repo. (Or download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.)
+Download the bundle from the latest release using your authenticated GitHub CLI (`gh`), which works on the private repo. (Or download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.)
 
 ```powershell
 gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber

@@ -100,16 +100,14 @@ Removes the install directory. Pass `--force` / `-Force` to remove a folder that
 | Add an add-on azcli extension (lean installs, or a specific version) | [install-cli-extensions.md](./install-cli-extensions.md) |
 | Enable `az` tab completion (bash / zsh / PowerShell) | [install-cli-completions.md](./install-cli-completions.md) |
 | Enable AI-based error recovery in Azure CLI | [ai-based-error-recovery.md](./ai-based-error-recovery.md) |
-| Install azps (Az PowerShell modules) | [install-powershell-modules.md](../../azure-powershell/docs-conceptual/install-powershell-modules.md) |
 
 ## What's in a release
 
 | Category | Files | Platforms | Notes |
 | --- | --- | --- | --- |
 | CLI archives | `azcli-lean-…` and `azcli-…` | 6 (Win/Linux/macOS × x64/Arm64) | Lean = built-in extensions only; Full = built-in + add-on extensions bundled. Self-contained, no .NET SDK needed. |
-| Component roll-ups | `azcli-extensions-<version>.tar.gz`, `azps-cmdlets-<version>.tar.gz` | agnostic | Convenience bundles of all extension / all PowerShell module packages. |
+| Extension roll-up | `azcli-extensions-<version>.tar.gz` | agnostic | Convenience bundle of all extension packages. |
 | CLI extension packages | `azcli.extensions.*.nupkg` | agnostic | Install into an existing CLI with `az extension add`. |
-| PowerShell module packages | `Az.*.nupkg` | agnostic | Install with the bundled `InstallModule.ps1`. Requires PowerShell 7.6+. |
 
 ## Supported platforms
 

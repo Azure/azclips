@@ -42,3 +42,10 @@ Get-Module Az.* -ListAvailable | Select-Object Name, Version
 | --- | --- |
 | Install a single module, pin a version, or install machine-wide | [install-powershell-modules.md](./install-powershell-modules.md) |
 | Install the Azure CLI private preview | [install-overview.md](../../azure-cli/docs-conceptual/install-overview.md) |
+
+## What's in a release
+
+| Category | Files | Platforms | Notes |
+| --- | --- | --- | --- |
+| Module roll-up | `azps-cmdlets-<version>.tar.gz` | agnostic | Convenience bundle of all PowerShell module packages. |
+| PowerShell module packages | `Az.*.nupkg` | agnostic | Install with the bundled `InstallModule.ps1`. Requires PowerShell 7.6+. |
