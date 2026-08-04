@@ -313,7 +313,7 @@ public class Program
         }
         else
         {
-            Console.Error.WriteLine($"error: [{ex.Code}] {ex.Message}");
+            ConsoleSink.Error($"[{ex.Code}] {ex.Message}");
         }
     }
 
