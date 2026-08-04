@@ -38,9 +38,16 @@ version numbers appear in the same list.
 
 ## Load a specific version
 
-Use `Import-Module` with `-RequiredVersion` to choose which version loads in the current session.
+Use `Import-Module` with a version constraint to choose which version loads in the current session.
 
-Load the **preview**:
+Load the **preview**. Preview builds ship frequently (`0.1.0`, `0.1.1`, `0.1.2`, and so on), so pin
+the `0.1.*` range instead of a fixed number to always load the newest preview:
+
+```powershell
+Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
+```
+
+To load one exact build instead, use `-RequiredVersion` with its version number:
 
 ```powershell
 Import-Module Az -RequiredVersion 0.1.0
@@ -53,9 +60,9 @@ Import-Module Az -RequiredVersion 15.6.0
 ```
 
 > [!NOTE]
-> If you run `Import-Module Az` without `-RequiredVersion`, PowerShell loads the **highest**
-> installed version. When classic Azure PowerShell is present, that means the classic modules load,
-> not the preview. Always pass `-RequiredVersion 0.1.0` to load the preview.
+> If you run `Import-Module Az` without a version, PowerShell loads the **highest** installed
+> version. When classic Azure PowerShell is present, that means the classic modules load, not the
+> preview. Pass the `0.1.*` range (or a specific `-RequiredVersion`) to load the preview.
 
 ## Confirm which version is active
 
@@ -65,8 +72,9 @@ Check the version of the `Az` module loaded in the current session:
 Get-Module Az | Select-Object Name, Version
 ```
 
-A version of `0.1.0` means the preview is active. A higher version means the classic modules are
-active. If nothing is returned, no `Az` module is loaded yet in this session.
+A version in the `0.1.*` range (for example `0.1.0`) means the preview is active. A higher version
+means the classic modules are active. If nothing is returned, no `Az` module is loaded yet in this
+session.
 
 ## Switch between versions
 
@@ -86,7 +94,7 @@ in the process. To switch, close the current session and start a new one — for
 and then launch `pwsh` again. In the new session, load the version you want:
 
 ```powershell
-Import-Module Az -RequiredVersion 0.1.0
+Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
 ```
 
 ### Optional: helper functions
@@ -95,7 +103,7 @@ To make switching feel seamless, add functions to your PowerShell profile that e
 session in the version you want:
 
 ```powershell
-function az-preview { pwsh -NoExit -Command 'Import-Module Az -RequiredVersion 0.1.0' }
+function az-preview { pwsh -NoExit -Command 'Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999' }
 function az-classic { pwsh -NoExit -Command 'Import-Module Az' }
 ```
 
