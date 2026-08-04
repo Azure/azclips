@@ -2,7 +2,7 @@ window.BENCHMARK_DATA = {
   "lastUpdate": 1785803950433,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
-    "Azclips CLI Benchmarks": [
+    "Azclips Resources CLI Benchmarks": [
       {
         "commit": {
           "author": {
@@ -4622,6 +4622,468 @@ window.BENCHMARK_DATA = {
             "range": "± 18727.549367583808"
           }
         ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fbb38eb060fef1ac573e322efa914be6791b3ba0",
+          "message": "{Benchmark} Compute extension benchmarks (#589)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nAdd benchmarks for compute extension covering CRUD scenarios\nBenchmark filtering based on file changes\nParallelize benchmark runs between extensions\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCopilot-Session: 57a95271-c097-4e9e-a319-e63a70ff8c25",
+          "timestamp": "2026-07-27T13:23:26+10:00",
+          "tree_id": "e7bb471d2db93f88ac364aada41fa4de09c5810b",
+          "url": "https://github.com/Azure/azclips/commit/fbb38eb060fef1ac573e322efa914be6791b3ba0"
+        },
+        "date": 1785123356943,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 854392.2392988178,
+            "unit": "ns",
+            "range": "± 17255.289006335533"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 827164.8379226564,
+            "unit": "ns",
+            "range": "± 17455.698735335773"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 814877.9220072551,
+            "unit": "ns",
+            "range": "± 18182.649229811817"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aryasadeghi@microsoft.com",
+            "name": "aryasadeghi1",
+            "username": "aryasadeghi1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6506ee39d8d5b51f42ab9ef6c6f98a69457bd77b",
+          "message": "{Tests} Add scenario test HTTP record/playback foundation (#562)\n\nRecordPlaybackInterceptor fills the tracing-step slot `Engine.cs`\nreserves for record/playback. Record mode captures each request/response\ninto a `SessionRecord` (Authorization is never stored); playback serves\nrecorded responses with no network and fails unmatched requests with a\ndiagnostic listing the remaining entries.\n\n`ScenarioHost` runs commands in-process through the real dispatcher and\nargument binders for both surfaces with stubbed auth.\n\nPOC: The parity tests show group create and `New-AzResourceGroup` emit\nidentical HTTP, so a single recording covers both CLI and PowerShell,\nincluding record-on-CLI then replay-on-PowerShell.\n\nPart of the scenario testing framework work (Addresses #470).\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-27T14:02:11+10:00",
+          "tree_id": "8cafcf51d4b077c6d1d19e3179f14c83be373ea7",
+          "url": "https://github.com/Azure/azclips/commit/6506ee39d8d5b51f42ab9ef6c6f98a69457bd77b"
+        },
+        "date": 1785125727261,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 904128.81202931,
+            "unit": "ns",
+            "range": "± 20834.466425358"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 867636.4335074327,
+            "unit": "ns",
+            "range": "± 26328.736737593546"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 860603.0852947093,
+            "unit": "ns",
+            "range": "± 23911.12908196965"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22f669f323c85efd6764ee0d885277da58be1535",
+          "message": "{Core} Command not found error message adjustments (#554)\n\n**Related command**\n\n`az agent`, `az agent tool`, `az agent tool resource`\n\n**Description**\n\nTyping an Agent command group that has no runnable leaf produced the raw\ninternal error and then handed off to the AI agent:\n\n```\n$ az agent\n[ERROR] Command 'agent' not found for client type 'CLI'.\n  ⠋ Analyzing error root cause using AI ...\n```\n\ninstead of the standard, fast `CommandNotFound` that other groups (`az\ndeployment`, `az vm`, `az group`) already return:\n\n```\n$ az agent\nerror: [CommandNotFound] 'az agent' is not a recognized command. Run 'az agent --help' to see available commands.\n```\n\n**Cause.** Built-in verbs always resolve in `ExtensionDispatcher`, so\nthey skip the verb-only fallback that #525 added for installed\nextensions. The dispatcher then dispatched the non-runnable group to the\nextension, whose `ExtensionIndex` threw a generic `KeyNotFoundException`\nthat the orchestrator routes to the AI agent.\n\n**Fix.** A Core-level change to the dispatcher, mirroring #525. Add\n`LeafIndex.IsCommandGroup(verb, path)` — true when a longer leaf exists\nunder `(verb, path)` but the exact leaf does not — and gate dispatch on\nit, throwing `CommandNotFoundException` (`code=CommandNotFound`, exit 4)\nfor command groups. This now covers the built-in path that #525 could\nnot reach. A runnable root verb like `az login` (whose only leaf is its\nroot) is unaffected. No Agent extension code is touched; `az agent` is\nthe observable symptom because it is the built-in group exercised here.\n\n**Scope of the behavior change.** This is a general Core fix, not\nAgent-specific. The gate fires for any resolved built-in verb whose\ninvocation lands on a command group with no runnable root leaf — today\nthat is `agent`, `config`, `extension`, and `profile` (each seeded with\nchild leaves, none exposing a runnable root command). All four now\nreturn the standard `CommandNotFound` instead of falling through to the\nAI agent, which is the intended consistency fix (mirrors #525 for the\nbuilt-in path). `az agent` is simply the group reported in the bug.\nRunnable root verbs like `az login` / `az logout` (whose only leaf is\nthe root) are unaffected. Config-owned command *behavior* is untouched —\nonly the not-found routing is unified.\n\n**Testing Guide**\n\nBuilt from `azclips.slnx` and run against\n`artifacts/Release/Core.Cli/az.exe`:\n\n| Command | Result |\n| --- | --- |\n| `az agent` | `[CommandNotFound] 'az agent' ... Run 'az agent --help'`\n|\n| `az agent tool` | `[CommandNotFound] 'az agent tool' ...` |\n| `az agent tool resource` | `[CommandNotFound] 'az agent tool resource'\n...` |\n| `az agent tool env` (valid leaf) | executes normally, returns JSON |\n| `az agent tool resource find --name test --top 1` (valid leaf) |\nexecutes normally |\n| `az login --subscription-id ...` | resolves to the command (not a\ngroup); no regression |\n| `az logout` | executes normally |\n\nAutomated:\n\n- `dotnet test tests/Core.Extensions.Tests` — `LeafIndexTests` +6\n(`IsCommandGroup`)\n- `dotnet test tests/Cli.Tests --filter ExtensionDispatcher` — +5 (group\ngate, valid leaf, runnable root)\n\n**Known follow-up (out of scope):** a typo on a full leaf, e.g. `az\nagent tool resource findxxx`, still returns the old `client type 'CLI'`\nerror. That is a leaf-typo path, distinct from the command-group case\nfixed here, and applies to all extensions.",
+          "timestamp": "2026-07-28T11:05:30+10:00",
+          "tree_id": "343f9a5546daeca221cf7caf9fc40cb757e8eeaf",
+          "url": "https://github.com/Azure/azclips/commit/22f669f323c85efd6764ee0d885277da58be1535"
+        },
+        "date": 1785201477600,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 858930.4541800643,
+            "unit": "ns",
+            "range": "± 20615.874736212525"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 831162.1659053157,
+            "unit": "ns",
+            "range": "± 17045.230478320726"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 835485.9119838872,
+            "unit": "ns",
+            "range": "± 22159.48327410021"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "662ed09b05d145e320f50aff2c1cd6a2928a0da9",
+          "message": "{Autocompletion} rename $matches to $completionResultMatches in completion script (#616)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nThis PR fixes https://github.com/Azure/azclips/issues/613 by renaming\nthe $matches variable to a non built in variable name. No remaining\nPSScriptAnalyzer warnings in this script.\n\nCo-author [bjompen](https://github.com/bjompen)\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-28T18:36:22+10:00",
+          "tree_id": "9983161b00ee15eb64492a6c079f1cc57a9efa5e",
+          "url": "https://github.com/Azure/azclips/commit/662ed09b05d145e320f50aff2c1cd6a2928a0da9"
+        },
+        "date": 1785228582743,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 850214.9639018455,
+            "unit": "ns",
+            "range": "± 18141.76704023915"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 834042.5944737912,
+            "unit": "ns",
+            "range": "± 18156.119707382677"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 819218.7655618432,
+            "unit": "ns",
+            "range": "± 19687.318332816907"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd8b8efc3cdbfc3fbc6eb9005453c6b077a890ba",
+          "message": "{DevOps} Remove dev branch references from CI workflows (#625)\n\n**Related command**\n\nN/A\n\n**Original PR**\n\n- #563 (https://github.com/Azure/azclips/pull/563)\n\n**Description**\n\nRemoves CI branch targeting that still referenced `dev` after the branch\nretirement.\n\nChanges in this PR:\n- Removed `dev` from GitHub Actions PR triggers in `build.yml`,\n`build-and-test.yml`, and `benchmark.yml`.\n- Removed `dev` from Azure Pipelines trigger include list in\n`azclips-beta-build.yml`.\n- Deleted `.github/workflows/backport-pr.yml`, which was designed around\nmain/dev backport directions.\n\n**Testing Guide**\n\n- Ran `git diff --check` on the resulting patch.\n\n**History Notes**\n\n{DevOps} Remove dev branch references from CI workflows\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCopilot-Session: 234beeee-b64b-41b9-b3fd-cdeea2bf0416",
+          "timestamp": "2026-07-30T13:43:50+10:00",
+          "tree_id": "bf643e5f502a411aaaafa892fefe608d27948e3e",
+          "url": "https://github.com/Azure/azclips/commit/cd8b8efc3cdbfc3fbc6eb9005453c6b077a890ba"
+        },
+        "date": 1785383809187,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 858341.3104985813,
+            "unit": "ns",
+            "range": "± 18541.45961027032"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 837825.8861476239,
+            "unit": "ns",
+            "range": "± 17981.447730199252"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 819789.3460606061,
+            "unit": "ns",
+            "range": "± 18618.96851783563"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aryasadeghi@microsoft.com",
+            "name": "aryasadeghi1",
+            "username": "aryasadeghi1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd1f7edf63f96ceefd4443c86bda5eef522bdc49",
+          "message": "{Test} Add recording sanitisers and playback normalisation (#622)\n\nRecordings are scrubbed before they reach disk: subscription and tenant\nids become a fixed placeholder, bearer tokens are redacted, and the\nAuthorization and api-key headers are dropped. The same rewrites run on\noutgoing requests during playback so sanitised recordings still match,\nincluding under a different subscription. The list is central and\nextensible per scenario.\n\nAlso makes the interceptor safe for orchestrators that fan out requests\nin parallel, with tests driving record and playback from many threads.\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-30T15:14:44+10:00",
+          "tree_id": "d7b7512572a774a8e3e93ed2dd260856a1b9bf19",
+          "url": "https://github.com/Azure/azclips/commit/dd1f7edf63f96ceefd4443c86bda5eef522bdc49"
+        },
+        "date": 1785389219785,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 898696.2905011069,
+            "unit": "ns",
+            "range": "± 28336.935864063184"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 877219.4998990918,
+            "unit": "ns",
+            "range": "± 29017.069885913337"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 864072.7718592965,
+            "unit": "ns",
+            "range": "± 29323.94366006148"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9cf355ae687974088e427ec06e499786e26a8cf3",
+          "message": "{Benchmark} Skip extension loading for builtin extensions (#626)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n- Skip attempting to staging builtin extensions during benchmarking and\nuse binary built-in binaries only.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-30T16:14:44+10:00",
+          "tree_id": "3a29c8d5149b8a84f6ee8998e1493cd75740cb17",
+          "url": "https://github.com/Azure/azclips/commit/9cf355ae687974088e427ec06e499786e26a8cf3"
+        },
+        "date": 1785392858058,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 852518.2539256199,
+            "unit": "ns",
+            "range": "± 15005.938497402753"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 828990.6788868351,
+            "unit": "ns",
+            "range": "± 15338.115985271714"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 825983.2179074447,
+            "unit": "ns",
+            "range": "± 22033.142551769175"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c369859c0da432878ff9a979590b48b2d429fbc",
+          "message": "{Help} Add help tools to solution file (#629)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- Fixes IDE not building tools project\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-07-31T08:41:01+10:00",
+          "tree_id": "dde5f716e8dab937e4be6b131f9bd480ffe0bb94",
+          "url": "https://github.com/Azure/azclips/commit/9c369859c0da432878ff9a979590b48b2d429fbc"
+        },
+        "date": 1785452037165,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 915804.054700162,
+            "unit": "ns",
+            "range": "± 25817.030930725934"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 866298.4874873864,
+            "unit": "ns",
+            "range": "± 24825.271844734398"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 849576.9673781715,
+            "unit": "ns",
+            "range": "± 24338.113656314366"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a0869b9c09226d742455a2982ae58dcca4614d48",
+          "message": "{Core} Adjust raw console call sites to use output streams (#638)\n\n**Related command**\n\nExtension discovery / help path — affects the diagnostic surface any\nconsumer of `IEngine.OpenDiscoverySession` sees on extension-load\nfailure.\n\n**Description**\n\nFixes [Azure/CLIPS#545](https://github.com/Azure/CLIPS/issues/545) —\nfollow-up from PR #575 (issue #493). Was §6 bullet 3 of that PR's\nplanning doc.\n\nPR #575 harmonized diagnostic prefixes to `LEVEL: message`, routed\nwarn/info/verbose/debug to stderr, and level-gated everything through\n[`core.logging.level`](docs/azure-cli/docs-conceptual/config.md)\n(default: `warn`). A handful of `Console.*` sites were left unaddressed\nand still write raw to stdout/stderr regardless of `core.logging.level`\nor the caller's `OutputStreams` binding.\n\nChanges:\n\n- **[`DiscoverySession.cs`](src/Core/Core.Engine/DiscoverySession.cs)**\n— three `Console.Error.WriteLine` catch sites (L87, L116, L141) now\nroute through the session's `outputStreamAdapter.Warn(...)`. Prefix\nfollows PR #575 D6 (`[{nameof(DiscoverySession)}]`, matches\n[`MsalAuthService`](src/Core/Core.Authentication/MsalAuthService.cs#L52)).\nSeverity is `Warn` because the session degrades gracefully: it\naccumulates successfully-loaded extensions and returns them even when\none fails — the textbook definition of a warning. Matches\n[azure-cli-python\nprecedent](https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/__init__.py)\n(extension-load failures at `WARNING`). Under the new `warn` default\nthey surface; under `error` they stay silent.\n- **[`FileExporter.cs`](src/Core/Core.Telemetry/FileExporter.cs#L93)** —\nstays raw, comment added. `Core.Telemetry` sits below `Core.Runtime` in\nthe layer stack; routing through `ILoggingService` would invert the\ndependency and risk recursion if any future logger path opens a\ntelemetry activity. Matches OpenTelemetry `SelfLog` / Serilog `SelfLog`\nconvention.\n-\n**[`CompletionGenerator.cs`](src/CLI/Completions/CompletionGenerator.cs)**\n— stays raw, class-level `<remarks>` added covering all five\n`Console.WriteLine` sites. Output is shell-completion protocol payload\nconsumed by tab-completion scripts, not diagnostic logging; must not be\nprefixed, level-gated, or stream-routed.\n\n**Behavior shift worth noting**\n\nThree of the four `DiscoverySession` call sites deliberately bind every\ndiagnostic stream to a no-op sink for silent internal probing:\n\n| Caller | `WriteWarning` binding | Post-change surface |\n| --- | --- | --- |\n|\n[`CompletionGenerator.cs`](src/CLI/Completions/CompletionGenerator.cs#L395)\n| no-op | silent |\n|\n[`DiscoveryBackedExtensionRegistry.cs`](src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs#L127)\n| no-op | silent |\n|\n[`CliExtensionServiceRegistration.cs`](src/CLI/CliExtensionServiceRegistration.cs#L128)\n| no-op | silent |\n|\n[`RuntimeHelpDispatcher.cs`](src/CLI/Help/RuntimeHelpDispatcher.cs#L263)\n| `_streams.WriteWarning` | visible on stderr |\n\nBefore this PR, the raw `Console.Error.WriteLine` fired unconditionally\nand leaked past every caller's \"stay quiet\" contract. After this PR,\nextension-load failures at the three no-op call sites become silent, and\nonly the help dispatcher's discovery path surfaces the line. This is the\nintended outcome of CLIPS#545 — routing through `ILoggingService` puts\ndiagnostic control back in each caller's hands.\n\n**Testing Guide**\n\n- `dotnet build azclips.slnx` — clean.\n- `dotnet test tests/Core.Engine.Tests/Core.Engine.Tests.csproj` — 2/2\npass.\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — 516/524 pass, 7\nskipped, 1 pre-existing E2E failure\n(`ManagedIdentityE2ETests.ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail`\n— CLI-binary path resolution on Windows) confirmed unrelated by stashing\nmy changes and reproducing on clean tree.\n- **Manual**: corrupted `Microsoft.Azure.Azclips.Extensions.Compute.dll`\nin-place (4 null bytes, keeping the filename so `BuiltinExtensionLoader`\nstill enumerates it) and ran `az vm --help`. Result: `WARNING:\n[DiscoverySession] Failed to load extension: Bad IL format.` on stderr,\nfollowed by `ExtensionNotFound` from dispatch. Other extensions loaded\nfine; graceful-degradation preserved.\n\n**History Notes**\n\n{Core} Route DiscoverySession extension-load failures through\nILoggingService.Warn\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-08-03T14:21:59+10:00",
+          "tree_id": "85c674846d0a2cf3dbc46142c1233f2cd81b2720",
+          "url": "https://github.com/Azure/azclips/commit/a0869b9c09226d742455a2982ae58dcca4614d48"
+        },
+        "date": 1785731680094,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 895073.4106776181,
+            "unit": "ns",
+            "range": "± 25646.458774944644"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 856659.9103861243,
+            "unit": "ns",
+            "range": "± 18716.51296059696"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 846319.2149783372,
+            "unit": "ns",
+            "range": "± 19625.924719159782"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a1ab50be4b53ef1cde61530d9f25e2892a3179c4",
+          "message": "{Telemetry} Add Jaeger for local telemetry monitoring (#605)\n\n- Add Jaeger for local telemetry monitoring\n- Debug build emits to local by default \n- Release build emits to remote by default\n- `AZCLIPS_TELEMETRY_TARGET` env variable overrides which telemetry sink\nto emit to regardless of build\n\n<img width=\"3836\" height=\"1867\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/8887a671-c6b9-4d68-8c6c-28b75c2ea35d\"\n/>\n<img width=\"3838\" height=\"1859\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/3f573fb1-5644-4996-a882-9e154ce15de3\"\n/>\n<img width=\"3836\" height=\"1873\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/e8897778-b5bf-4f1f-a997-f9e834e3e235\"\n/>\n<img width=\"3833\" height=\"1858\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/d69a3b27-0762-4a3f-9ad9-eee109735810\"\n/>\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>\nCopilot-Session: f8b1e1b9-860e-4341-9317-fddc46f8bbc9",
+          "timestamp": "2026-08-04T10:02:13+10:00",
+          "tree_id": "7a1442a0cc650dd708d1324844b0cb774a0617c9",
+          "url": "https://github.com/Azure/azclips/commit/a1ab50be4b53ef1cde61530d9f25e2892a3179c4"
+        },
+        "date": 1785802470583,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 849572.7458552365,
+            "unit": "ns",
+            "range": "± 19622.54322834169"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 843977.4526273077,
+            "unit": "ns",
+            "range": "± 21477.678519842477"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 844317.5311228641,
+            "unit": "ns",
+            "range": "± 16905.37141144038"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "776cba576b3b747e16f4d5bca469cff641a6d6c7",
+          "message": "{Extensions} Add process caching for builtin extension loader (#642)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- Add caching for builtin extension loader while loading managed\nassembly.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCopilot-Session: 32164222-c594-431a-b78d-7a1bc7bce947",
+          "timestamp": "2026-08-04T00:25:23Z",
+          "tree_id": "e24837e3d7bceaa789a265a623532ec90e8a15e3",
+          "url": "https://github.com/Azure/azclips/commit/776cba576b3b747e16f4d5bca469cff641a6d6c7"
+        },
+        "date": 1785803948697,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 874186.7095366715,
+            "unit": "ns",
+            "range": "± 20847.025854265106"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 867836.7727828746,
+            "unit": "ns",
+            "range": "± 17700.528386961018"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 848148.3912022862,
+            "unit": "ns",
+            "range": "± 23246.27400662089"
+          }
+        ]
       }
     ],
     "Azclips Compute CLI Benchmarks": [
@@ -5084,470 +5546,6 @@ window.BENCHMARK_DATA = {
             "value": 1008715.8046384444,
             "unit": "ns",
             "range": "± 17288.251427385465"
-          }
-        ]
-      }
-    ],
-    "Azclips Resources CLI Benchmarks": [
-      {
-        "commit": {
-          "author": {
-            "email": "jaysontai@microsoft.com",
-            "name": "JaysonTaiMicrosoft",
-            "username": "JaysonTaiMicrosoft"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fbb38eb060fef1ac573e322efa914be6791b3ba0",
-          "message": "{Benchmark} Compute extension benchmarks (#589)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nAdd benchmarks for compute extension covering CRUD scenarios\nBenchmark filtering based on file changes\nParallelize benchmark runs between extensions\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCopilot-Session: 57a95271-c097-4e9e-a319-e63a70ff8c25",
-          "timestamp": "2026-07-27T13:23:26+10:00",
-          "tree_id": "e7bb471d2db93f88ac364aada41fa4de09c5810b",
-          "url": "https://github.com/Azure/azclips/commit/fbb38eb060fef1ac573e322efa914be6791b3ba0"
-        },
-        "date": 1785123356943,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 854392.2392988178,
-            "unit": "ns",
-            "range": "± 17255.289006335533"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 827164.8379226564,
-            "unit": "ns",
-            "range": "± 17455.698735335773"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 814877.9220072551,
-            "unit": "ns",
-            "range": "± 18182.649229811817"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "aryasadeghi@microsoft.com",
-            "name": "aryasadeghi1",
-            "username": "aryasadeghi1"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6506ee39d8d5b51f42ab9ef6c6f98a69457bd77b",
-          "message": "{Tests} Add scenario test HTTP record/playback foundation (#562)\n\nRecordPlaybackInterceptor fills the tracing-step slot `Engine.cs`\nreserves for record/playback. Record mode captures each request/response\ninto a `SessionRecord` (Authorization is never stored); playback serves\nrecorded responses with no network and fails unmatched requests with a\ndiagnostic listing the remaining entries.\n\n`ScenarioHost` runs commands in-process through the real dispatcher and\nargument binders for both surfaces with stubbed auth.\n\nPOC: The parity tests show group create and `New-AzResourceGroup` emit\nidentical HTTP, so a single recording covers both CLI and PowerShell,\nincluding record-on-CLI then replay-on-PowerShell.\n\nPart of the scenario testing framework work (Addresses #470).\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
-          "timestamp": "2026-07-27T14:02:11+10:00",
-          "tree_id": "8cafcf51d4b077c6d1d19e3179f14c83be373ea7",
-          "url": "https://github.com/Azure/azclips/commit/6506ee39d8d5b51f42ab9ef6c6f98a69457bd77b"
-        },
-        "date": 1785125727261,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 904128.81202931,
-            "unit": "ns",
-            "range": "± 20834.466425358"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 867636.4335074327,
-            "unit": "ns",
-            "range": "± 26328.736737593546"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 860603.0852947093,
-            "unit": "ns",
-            "range": "± 23911.12908196965"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "zelinwang@microsoft.com",
-            "name": "ZelinWang",
-            "username": "wangzelin007"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "22f669f323c85efd6764ee0d885277da58be1535",
-          "message": "{Core} Command not found error message adjustments (#554)\n\n**Related command**\n\n`az agent`, `az agent tool`, `az agent tool resource`\n\n**Description**\n\nTyping an Agent command group that has no runnable leaf produced the raw\ninternal error and then handed off to the AI agent:\n\n```\n$ az agent\n[ERROR] Command 'agent' not found for client type 'CLI'.\n  ⠋ Analyzing error root cause using AI ...\n```\n\ninstead of the standard, fast `CommandNotFound` that other groups (`az\ndeployment`, `az vm`, `az group`) already return:\n\n```\n$ az agent\nerror: [CommandNotFound] 'az agent' is not a recognized command. Run 'az agent --help' to see available commands.\n```\n\n**Cause.** Built-in verbs always resolve in `ExtensionDispatcher`, so\nthey skip the verb-only fallback that #525 added for installed\nextensions. The dispatcher then dispatched the non-runnable group to the\nextension, whose `ExtensionIndex` threw a generic `KeyNotFoundException`\nthat the orchestrator routes to the AI agent.\n\n**Fix.** A Core-level change to the dispatcher, mirroring #525. Add\n`LeafIndex.IsCommandGroup(verb, path)` — true when a longer leaf exists\nunder `(verb, path)` but the exact leaf does not — and gate dispatch on\nit, throwing `CommandNotFoundException` (`code=CommandNotFound`, exit 4)\nfor command groups. This now covers the built-in path that #525 could\nnot reach. A runnable root verb like `az login` (whose only leaf is its\nroot) is unaffected. No Agent extension code is touched; `az agent` is\nthe observable symptom because it is the built-in group exercised here.\n\n**Scope of the behavior change.** This is a general Core fix, not\nAgent-specific. The gate fires for any resolved built-in verb whose\ninvocation lands on a command group with no runnable root leaf — today\nthat is `agent`, `config`, `extension`, and `profile` (each seeded with\nchild leaves, none exposing a runnable root command). All four now\nreturn the standard `CommandNotFound` instead of falling through to the\nAI agent, which is the intended consistency fix (mirrors #525 for the\nbuilt-in path). `az agent` is simply the group reported in the bug.\nRunnable root verbs like `az login` / `az logout` (whose only leaf is\nthe root) are unaffected. Config-owned command *behavior* is untouched —\nonly the not-found routing is unified.\n\n**Testing Guide**\n\nBuilt from `azclips.slnx` and run against\n`artifacts/Release/Core.Cli/az.exe`:\n\n| Command | Result |\n| --- | --- |\n| `az agent` | `[CommandNotFound] 'az agent' ... Run 'az agent --help'`\n|\n| `az agent tool` | `[CommandNotFound] 'az agent tool' ...` |\n| `az agent tool resource` | `[CommandNotFound] 'az agent tool resource'\n...` |\n| `az agent tool env` (valid leaf) | executes normally, returns JSON |\n| `az agent tool resource find --name test --top 1` (valid leaf) |\nexecutes normally |\n| `az login --subscription-id ...` | resolves to the command (not a\ngroup); no regression |\n| `az logout` | executes normally |\n\nAutomated:\n\n- `dotnet test tests/Core.Extensions.Tests` — `LeafIndexTests` +6\n(`IsCommandGroup`)\n- `dotnet test tests/Cli.Tests --filter ExtensionDispatcher` — +5 (group\ngate, valid leaf, runnable root)\n\n**Known follow-up (out of scope):** a typo on a full leaf, e.g. `az\nagent tool resource findxxx`, still returns the old `client type 'CLI'`\nerror. That is a leaf-typo path, distinct from the command-group case\nfixed here, and applies to all extensions.",
-          "timestamp": "2026-07-28T11:05:30+10:00",
-          "tree_id": "343f9a5546daeca221cf7caf9fc40cb757e8eeaf",
-          "url": "https://github.com/Azure/azclips/commit/22f669f323c85efd6764ee0d885277da58be1535"
-        },
-        "date": 1785201477600,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 858930.4541800643,
-            "unit": "ns",
-            "range": "± 20615.874736212525"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 831162.1659053157,
-            "unit": "ns",
-            "range": "± 17045.230478320726"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 835485.9119838872,
-            "unit": "ns",
-            "range": "± 22159.48327410021"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "110961157+NoriZC@users.noreply.github.com",
-            "name": "NoriZC",
-            "username": "NoriZC"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "662ed09b05d145e320f50aff2c1cd6a2928a0da9",
-          "message": "{Autocompletion} rename $matches to $completionResultMatches in completion script (#616)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nThis PR fixes https://github.com/Azure/azclips/issues/613 by renaming\nthe $matches variable to a non built in variable name. No remaining\nPSScriptAnalyzer warnings in this script.\n\nCo-author [bjompen](https://github.com/bjompen)\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
-          "timestamp": "2026-07-28T18:36:22+10:00",
-          "tree_id": "9983161b00ee15eb64492a6c079f1cc57a9efa5e",
-          "url": "https://github.com/Azure/azclips/commit/662ed09b05d145e320f50aff2c1cd6a2928a0da9"
-        },
-        "date": 1785228582743,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 850214.9639018455,
-            "unit": "ns",
-            "range": "± 18141.76704023915"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 834042.5944737912,
-            "unit": "ns",
-            "range": "± 18156.119707382677"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 819218.7655618432,
-            "unit": "ns",
-            "range": "± 19687.318332816907"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "naga.s.p.nandyala@gmail.com",
-            "name": "Naga Nandyala",
-            "username": "naga-nandyala"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cd8b8efc3cdbfc3fbc6eb9005453c6b077a890ba",
-          "message": "{DevOps} Remove dev branch references from CI workflows (#625)\n\n**Related command**\n\nN/A\n\n**Original PR**\n\n- #563 (https://github.com/Azure/azclips/pull/563)\n\n**Description**\n\nRemoves CI branch targeting that still referenced `dev` after the branch\nretirement.\n\nChanges in this PR:\n- Removed `dev` from GitHub Actions PR triggers in `build.yml`,\n`build-and-test.yml`, and `benchmark.yml`.\n- Removed `dev` from Azure Pipelines trigger include list in\n`azclips-beta-build.yml`.\n- Deleted `.github/workflows/backport-pr.yml`, which was designed around\nmain/dev backport directions.\n\n**Testing Guide**\n\n- Ran `git diff --check` on the resulting patch.\n\n**History Notes**\n\n{DevOps} Remove dev branch references from CI workflows\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCopilot-Session: 234beeee-b64b-41b9-b3fd-cdeea2bf0416",
-          "timestamp": "2026-07-30T13:43:50+10:00",
-          "tree_id": "bf643e5f502a411aaaafa892fefe608d27948e3e",
-          "url": "https://github.com/Azure/azclips/commit/cd8b8efc3cdbfc3fbc6eb9005453c6b077a890ba"
-        },
-        "date": 1785383809187,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 858341.3104985813,
-            "unit": "ns",
-            "range": "± 18541.45961027032"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 837825.8861476239,
-            "unit": "ns",
-            "range": "± 17981.447730199252"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 819789.3460606061,
-            "unit": "ns",
-            "range": "± 18618.96851783563"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "aryasadeghi@microsoft.com",
-            "name": "aryasadeghi1",
-            "username": "aryasadeghi1"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dd1f7edf63f96ceefd4443c86bda5eef522bdc49",
-          "message": "{Test} Add recording sanitisers and playback normalisation (#622)\n\nRecordings are scrubbed before they reach disk: subscription and tenant\nids become a fixed placeholder, bearer tokens are redacted, and the\nAuthorization and api-key headers are dropped. The same rewrites run on\noutgoing requests during playback so sanitised recordings still match,\nincluding under a different subscription. The list is central and\nextensible per scenario.\n\nAlso makes the interceptor safe for orchestrators that fan out requests\nin parallel, with tests driving record and playback from many threads.\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
-          "timestamp": "2026-07-30T15:14:44+10:00",
-          "tree_id": "d7b7512572a774a8e3e93ed2dd260856a1b9bf19",
-          "url": "https://github.com/Azure/azclips/commit/dd1f7edf63f96ceefd4443c86bda5eef522bdc49"
-        },
-        "date": 1785389219785,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 898696.2905011069,
-            "unit": "ns",
-            "range": "± 28336.935864063184"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 877219.4998990918,
-            "unit": "ns",
-            "range": "± 29017.069885913337"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 864072.7718592965,
-            "unit": "ns",
-            "range": "± 29323.94366006148"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "jaysontai@microsoft.com",
-            "name": "JaysonTaiMicrosoft",
-            "username": "JaysonTaiMicrosoft"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9cf355ae687974088e427ec06e499786e26a8cf3",
-          "message": "{Benchmark} Skip extension loading for builtin extensions (#626)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n- Skip attempting to staging builtin extensions during benchmarking and\nuse binary built-in binaries only.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
-          "timestamp": "2026-07-30T16:14:44+10:00",
-          "tree_id": "3a29c8d5149b8a84f6ee8998e1493cd75740cb17",
-          "url": "https://github.com/Azure/azclips/commit/9cf355ae687974088e427ec06e499786e26a8cf3"
-        },
-        "date": 1785392858058,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 852518.2539256199,
-            "unit": "ns",
-            "range": "± 15005.938497402753"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 828990.6788868351,
-            "unit": "ns",
-            "range": "± 15338.115985271714"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 825983.2179074447,
-            "unit": "ns",
-            "range": "± 22033.142551769175"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "jaysontai@microsoft.com",
-            "name": "JaysonTaiMicrosoft",
-            "username": "JaysonTaiMicrosoft"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9c369859c0da432878ff9a979590b48b2d429fbc",
-          "message": "{Help} Add help tools to solution file (#629)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- Fixes IDE not building tools project\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
-          "timestamp": "2026-07-31T08:41:01+10:00",
-          "tree_id": "dde5f716e8dab937e4be6b131f9bd480ffe0bb94",
-          "url": "https://github.com/Azure/azclips/commit/9c369859c0da432878ff9a979590b48b2d429fbc"
-        },
-        "date": 1785452037165,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 915804.054700162,
-            "unit": "ns",
-            "range": "± 25817.030930725934"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 866298.4874873864,
-            "unit": "ns",
-            "range": "± 24825.271844734398"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 849576.9673781715,
-            "unit": "ns",
-            "range": "± 24338.113656314366"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "dlanguiller@microsoft.com",
-            "name": "DanielMicrosoft",
-            "username": "DanielMicrosoft"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a0869b9c09226d742455a2982ae58dcca4614d48",
-          "message": "{Core} Adjust raw console call sites to use output streams (#638)\n\n**Related command**\n\nExtension discovery / help path — affects the diagnostic surface any\nconsumer of `IEngine.OpenDiscoverySession` sees on extension-load\nfailure.\n\n**Description**\n\nFixes [Azure/CLIPS#545](https://github.com/Azure/CLIPS/issues/545) —\nfollow-up from PR #575 (issue #493). Was §6 bullet 3 of that PR's\nplanning doc.\n\nPR #575 harmonized diagnostic prefixes to `LEVEL: message`, routed\nwarn/info/verbose/debug to stderr, and level-gated everything through\n[`core.logging.level`](docs/azure-cli/docs-conceptual/config.md)\n(default: `warn`). A handful of `Console.*` sites were left unaddressed\nand still write raw to stdout/stderr regardless of `core.logging.level`\nor the caller's `OutputStreams` binding.\n\nChanges:\n\n- **[`DiscoverySession.cs`](src/Core/Core.Engine/DiscoverySession.cs)**\n— three `Console.Error.WriteLine` catch sites (L87, L116, L141) now\nroute through the session's `outputStreamAdapter.Warn(...)`. Prefix\nfollows PR #575 D6 (`[{nameof(DiscoverySession)}]`, matches\n[`MsalAuthService`](src/Core/Core.Authentication/MsalAuthService.cs#L52)).\nSeverity is `Warn` because the session degrades gracefully: it\naccumulates successfully-loaded extensions and returns them even when\none fails — the textbook definition of a warning. Matches\n[azure-cli-python\nprecedent](https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/__init__.py)\n(extension-load failures at `WARNING`). Under the new `warn` default\nthey surface; under `error` they stay silent.\n- **[`FileExporter.cs`](src/Core/Core.Telemetry/FileExporter.cs#L93)** —\nstays raw, comment added. `Core.Telemetry` sits below `Core.Runtime` in\nthe layer stack; routing through `ILoggingService` would invert the\ndependency and risk recursion if any future logger path opens a\ntelemetry activity. Matches OpenTelemetry `SelfLog` / Serilog `SelfLog`\nconvention.\n-\n**[`CompletionGenerator.cs`](src/CLI/Completions/CompletionGenerator.cs)**\n— stays raw, class-level `<remarks>` added covering all five\n`Console.WriteLine` sites. Output is shell-completion protocol payload\nconsumed by tab-completion scripts, not diagnostic logging; must not be\nprefixed, level-gated, or stream-routed.\n\n**Behavior shift worth noting**\n\nThree of the four `DiscoverySession` call sites deliberately bind every\ndiagnostic stream to a no-op sink for silent internal probing:\n\n| Caller | `WriteWarning` binding | Post-change surface |\n| --- | --- | --- |\n|\n[`CompletionGenerator.cs`](src/CLI/Completions/CompletionGenerator.cs#L395)\n| no-op | silent |\n|\n[`DiscoveryBackedExtensionRegistry.cs`](src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs#L127)\n| no-op | silent |\n|\n[`CliExtensionServiceRegistration.cs`](src/CLI/CliExtensionServiceRegistration.cs#L128)\n| no-op | silent |\n|\n[`RuntimeHelpDispatcher.cs`](src/CLI/Help/RuntimeHelpDispatcher.cs#L263)\n| `_streams.WriteWarning` | visible on stderr |\n\nBefore this PR, the raw `Console.Error.WriteLine` fired unconditionally\nand leaked past every caller's \"stay quiet\" contract. After this PR,\nextension-load failures at the three no-op call sites become silent, and\nonly the help dispatcher's discovery path surfaces the line. This is the\nintended outcome of CLIPS#545 — routing through `ILoggingService` puts\ndiagnostic control back in each caller's hands.\n\n**Testing Guide**\n\n- `dotnet build azclips.slnx` — clean.\n- `dotnet test tests/Core.Engine.Tests/Core.Engine.Tests.csproj` — 2/2\npass.\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — 516/524 pass, 7\nskipped, 1 pre-existing E2E failure\n(`ManagedIdentityE2ETests.ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail`\n— CLI-binary path resolution on Windows) confirmed unrelated by stashing\nmy changes and reproducing on clean tree.\n- **Manual**: corrupted `Microsoft.Azure.Azclips.Extensions.Compute.dll`\nin-place (4 null bytes, keeping the filename so `BuiltinExtensionLoader`\nstill enumerates it) and ran `az vm --help`. Result: `WARNING:\n[DiscoverySession] Failed to load extension: Bad IL format.` on stderr,\nfollowed by `ExtensionNotFound` from dispatch. Other extensions loaded\nfine; graceful-degradation preserved.\n\n**History Notes**\n\n{Core} Route DiscoverySession extension-load failures through\nILoggingService.Warn\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
-          "timestamp": "2026-08-03T14:21:59+10:00",
-          "tree_id": "85c674846d0a2cf3dbc46142c1233f2cd81b2720",
-          "url": "https://github.com/Azure/azclips/commit/a0869b9c09226d742455a2982ae58dcca4614d48"
-        },
-        "date": 1785731680094,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 895073.4106776181,
-            "unit": "ns",
-            "range": "± 25646.458774944644"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 856659.9103861243,
-            "unit": "ns",
-            "range": "± 18716.51296059696"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 846319.2149783372,
-            "unit": "ns",
-            "range": "± 19625.924719159782"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "jaysontai@microsoft.com",
-            "name": "JaysonTaiMicrosoft",
-            "username": "JaysonTaiMicrosoft"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a1ab50be4b53ef1cde61530d9f25e2892a3179c4",
-          "message": "{Telemetry} Add Jaeger for local telemetry monitoring (#605)\n\n- Add Jaeger for local telemetry monitoring\n- Debug build emits to local by default \n- Release build emits to remote by default\n- `AZCLIPS_TELEMETRY_TARGET` env variable overrides which telemetry sink\nto emit to regardless of build\n\n<img width=\"3836\" height=\"1867\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/8887a671-c6b9-4d68-8c6c-28b75c2ea35d\"\n/>\n<img width=\"3838\" height=\"1859\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/3f573fb1-5644-4996-a882-9e154ce15de3\"\n/>\n<img width=\"3836\" height=\"1873\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/e8897778-b5bf-4f1f-a997-f9e834e3e235\"\n/>\n<img width=\"3833\" height=\"1858\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/d69a3b27-0762-4a3f-9ad9-eee109735810\"\n/>\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>\nCopilot-Session: f8b1e1b9-860e-4341-9317-fddc46f8bbc9",
-          "timestamp": "2026-08-04T10:02:13+10:00",
-          "tree_id": "7a1442a0cc650dd708d1324844b0cb774a0617c9",
-          "url": "https://github.com/Azure/azclips/commit/a1ab50be4b53ef1cde61530d9f25e2892a3179c4"
-        },
-        "date": 1785802470583,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 849572.7458552365,
-            "unit": "ns",
-            "range": "± 19622.54322834169"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 843977.4526273077,
-            "unit": "ns",
-            "range": "± 21477.678519842477"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 844317.5311228641,
-            "unit": "ns",
-            "range": "± 16905.37141144038"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "jaysontai@microsoft.com",
-            "name": "JaysonTaiMicrosoft",
-            "username": "JaysonTaiMicrosoft"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "776cba576b3b747e16f4d5bca469cff641a6d6c7",
-          "message": "{Extensions} Add process caching for builtin extension loader (#642)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- Add caching for builtin extension loader while loading managed\nassembly.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCopilot-Session: 32164222-c594-431a-b78d-7a1bc7bce947",
-          "timestamp": "2026-08-04T00:25:23Z",
-          "tree_id": "e24837e3d7bceaa789a265a623532ec90e8a15e3",
-          "url": "https://github.com/Azure/azclips/commit/776cba576b3b747e16f4d5bca469cff641a6d6c7"
-        },
-        "date": 1785803948697,
-        "tool": "benchmarkdotnet",
-        "benches": [
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
-            "value": 874186.7095366715,
-            "unit": "ns",
-            "range": "± 20847.025854265106"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
-            "value": 867836.7727828746,
-            "unit": "ns",
-            "range": "± 17700.528386961018"
-          },
-          {
-            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
-            "value": 848148.3912022862,
-            "unit": "ns",
-            "range": "± 23246.27400662089"
           }
         ]
       }
