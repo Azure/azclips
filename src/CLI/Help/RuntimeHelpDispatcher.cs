@@ -75,15 +75,23 @@ public sealed class RuntimeHelpDispatcher
         return 0;
     }
 
-    /// <summary>Renders help for a group or command path raised via <see cref="RuntimeExtensionHelpException"/>.</summary>
-    public int RenderExtensionHelp(RuntimeExtensionHelpException helpException)
+    /// <summary>Renders help for a group or command path. <paramref name="path"/>[0] is the verb; extra
+    /// tokens indicate a command-help request (the caller supplies whatever tokens the user typed after
+    /// <c>--help</c> / <c>help</c>).</summary>
+    public int RenderExtensionHelp(IReadOnlyList<string> path)
     {
+        var verb = path[0];
+        // Syntactic proxy: extra tokens after the verb indicate command help; the actual group-vs-command
+        // fallback below still tries both against the leaf index in case the user asked about an
+        // intermediate group.
+        var isCommandHelp = path.Count > 1;
+
         var discovered = DiscoverInstalledExtensions();
-        if (!TryResolveExtension(discovered, helpException.Verb, out var extensionInfo))
+        if (!TryResolveExtension(discovered, verb, out var extensionInfo))
         {
             // Intrinsic host verbs (e.g. `version`) are not owned by any installed extension, but
             // their help still lives in the markdown corpus so `az <verb> --help` keeps working.
-            if (TryRenderIntrinsicHelp(helpException.Verb, out var intrinsicExitCode))
+            if (TryRenderIntrinsicHelp(verb, out var intrinsicExitCode))
             {
                 return intrinsicExitCode;
             }
@@ -91,9 +99,9 @@ public sealed class RuntimeHelpDispatcher
             // No discovered owner for this verb. If the embedded hint table knows it,
             // surface the structured "extension not installed" message — same UX as
             // the execute path (see ExtensionDispatcher.Parse).
-            if (_hintTable.TryGetPackageId(helpException.Verb, out var hintedPackage))
+            if (_hintTable.TryGetPackageId(verb, out var hintedPackage))
             {
-                throw new ExtensionNotInstalledException(helpException.Verb, hintedPackage);
+                throw new ExtensionNotInstalledException(verb, hintedPackage);
             }
 
             // Truly unknown verb (no install hint either). Surface as a structured error so the
@@ -101,43 +109,43 @@ public sealed class RuntimeHelpDispatcher
             throw new AzclipsErrorException(
                 code: "VerbNotFound",
                 exitCode: 4,
-                message: $"No installed extension owns verb '{helpException.Verb}'. Run 'az extension list' to see installed extensions.",
-                details: new Dictionary<string, object?> { ["verb"] = helpException.Verb });
+                message: $"No installed extension owns verb '{verb}'. Run 'az extension list' to see installed extensions.",
+                details: new Dictionary<string, object?> { ["verb"] = verb });
         }
 
-        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, helpException.Verb);
+        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, verb);
 
         IEnumerable<string> lines;
-        if (helpException.IsCommandHelp)
+        if (isCommandHelp)
         {
-            // The parser flags any path with extra tokens as a command-help request, but the
+            // The caller flags any path with extra tokens as a command-help request, but the
             // user may have asked about an intermediate group (e.g. `az deployment group --help`
             // when the only leaf is `deployment group create`). Try the command first; fall back
             // to group help so partial paths don't crash the renderer.
-            var command = helpProvider.GetCommandHelp(helpException.Path);
+            var command = helpProvider.GetCommandHelp(path);
             if (command != null)
             {
                 lines = _renderer.RenderCommand(command, TerminalWidth());
             }
             else
             {
-                var group = helpProvider.GetGroupHelp(helpException.Path)
-                    ?? throw new KeyNotFoundException($"No help found for path '{string.Join(" ", helpException.Path)}'.");
+                var group = helpProvider.GetGroupHelp(path)
+                    ?? throw new KeyNotFoundException($"No help found for path '{string.Join(" ", path)}'.");
                 lines = _renderer.RenderGroup(group, TerminalWidth());
             }
         }
         else
         {
             // A verb root can also be a runnable command (e.g. "az login" is both).
-            var rootCommand = helpProvider.GetCommandHelp(helpException.Path);
+            var rootCommand = helpProvider.GetCommandHelp(path);
             if (rootCommand != null)
             {
                 lines = _renderer.RenderCommand(rootCommand, TerminalWidth());
             }
             else
             {
-                var group = helpProvider.GetGroupHelp(helpException.Path)
-                    ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", helpException.Path)}'.");
+                var group = helpProvider.GetGroupHelp(path)
+                    ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", path)}'.");
                 lines = _renderer.RenderGroup(group, TerminalWidth());
             }
         }

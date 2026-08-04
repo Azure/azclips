@@ -5,7 +5,6 @@ using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
-using Core.Cli.Version;
 using Core.Extensions;
 using Microsoft.Azure.Azclips.Extensions.Config;
 using Tests.Common.Utilities;
@@ -15,19 +14,20 @@ namespace Cli.Tests;
 
 /// <summary>
 /// Tests for ExtensionDispatcher - the core router that loads extension assemblies
-/// and dispatches commands to them.
+/// and dispatches commands to them. Help / version classification is covered by
+/// <see cref="Parser.GlobalArgParserTests"/>; those shapes never reach this parser after CLIPS-519.
 /// </summary>
 public class ExtensionDispatcherTests
 {
 
     [Fact]
-    public void Parse_ShouldThrowDispatchHelpException_WhenArgsEmpty()
+    public void Parse_ShouldThrowArgumentException_WhenArgsEmpty()
     {
-        // Bare `az` dispatches as help; Program.Main layers on the banner separately.
+        // Post-CLIPS-519: bare `az` is dispatched as root help by GlobalArgParser / Program.Main;
+        // reaching the dispatcher with no args is a programmer error, surfaced as ArgumentException.
         var dispatcher = new ExtensionDispatcher();
-        var emptyArgs = Array.Empty<string>();
 
-        Assert.Throws<DispatchHelpException>(() => dispatcher.Parse(emptyArgs));
+        Assert.Throws<ArgumentException>(() => dispatcher.Parse(Array.Empty<string>()));
     }
 
     [Theory]
@@ -48,64 +48,14 @@ public class ExtensionDispatcherTests
     [InlineData("help", "   ")]
     public void Parse_ShouldNotThrowIndexOutOfRange_WhenHelpSubcommandFollowedByEmptyGroupToken(string firstToken, string secondToken)
     {
-        // `az help ""` previously crashed inside TryCreateHelpRequest at groupToken[0].
-        // The guard now causes the help-request path to bail out; the dispatcher falls through
-        // to the standard command path, which raises a descriptive error instead.
+        // `az help ""` previously crashed inside the pre-CLIPS-519 help classifier. GlobalArgParser
+        // now guards it (Help stays null, positional passes through); the dispatcher then treats
+        // "help" as a normal verb and raises a descriptive not-found error.
         var dispatcher = new ExtensionDispatcher();
 
         var exception = Record.Exception(() => dispatcher.Parse([firstToken, secondToken]));
         Assert.NotNull(exception);
         Assert.IsNotType<IndexOutOfRangeException>(exception);
-    }
-
-    [Theory]
-    [InlineData("--help")]
-    [InlineData("-h")]
-    [InlineData("help")]
-    [InlineData("?")]
-    [InlineData("-?")]
-    public void Parse_ShouldThrowDispatchHelpException_WhenHelpFlagProvided(string helpFlag)
-    {
-        // Arrange
-        var dispatcher = new ExtensionDispatcher();
-        var args = new[] { helpFlag };
-
-        // Act & Assert
-        Assert.Throws<DispatchHelpException>(() => dispatcher.Parse(args));
-    }
-
-    [Fact]
-    public void Parse_ShouldThrowDispatchVersionException_WithJson_ForBareVersionVerb()
-    {
-        // `az version` is a host cold-path command → structured JSON, mirroring the command it replaced.
-        var dispatcher = new ExtensionDispatcher();
-
-        var exception = Assert.Throws<DispatchVersionException>(() => dispatcher.Parse(["version"]));
-        Assert.Equal(VersionOutputFormat.Json, exception.Format);
-    }
-
-    [Fact]
-    public void Parse_ShouldThrowDispatchVersionException_WithText_ForVersionFlag()
-    {
-        // `az --version` is a top-level flag (peer of `az --help`) → human-readable text.
-        var dispatcher = new ExtensionDispatcher();
-
-        var exception = Assert.Throws<DispatchVersionException>(() => dispatcher.Parse(["--version"]));
-        Assert.Equal(VersionOutputFormat.Text, exception.Format);
-    }
-
-    [Fact]
-    public void Parse_ShouldNotDispatchVersion_WhenVersionFlagHasTrailingTokens()
-    {
-        // `az --version foo` is not a version request: the trailing token is invalid, so it must fall
-        // through to normal resolution/error handling instead of being silently ignored. This mirrors
-        // the `az version` verb path, which only dispatches for the exact single-token shape.
-        var dispatcher = new ExtensionDispatcher();
-
-        var exception = Record.Exception(() => dispatcher.Parse(["--version", "foo"]));
-
-        Assert.NotNull(exception);
-        Assert.IsNotType<DispatchVersionException>(exception);
     }
 
     [Theory]
@@ -115,7 +65,8 @@ public class ExtensionDispatcherTests
     {
         // `az version <junk>` / `az --version <junk>` are neither valid version requests nor unknown
         // command groups: `version` is a real intrinsic, the trailing token is just invalid. Report a
-        // precise usage error (exit 2) rather than the misleading "command group not found".
+        // precise usage error (exit 2) rather than the misleading "command group not found". Bare
+        // `az version` / `az --version` are dispatched by GlobalArgParser before the dispatcher runs.
         var dispatcher = new ExtensionDispatcher();
 
         var exception = Assert.Throws<AzclipsErrorException>(() => dispatcher.Parse([verbToken, trailing]));
@@ -124,51 +75,6 @@ public class ExtensionDispatcherTests
         Assert.Equal(2, exception.ExitCode);
         Assert.Contains("version", exception.Message, StringComparison.Ordinal);
         Assert.Contains(trailing, exception.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Parse_ShouldRouteToHelp_ForVersionHelp_NotVersionDispatch()
-    {
-        // `az version --help` is a help request, not a version request: help detection runs first.
-        var dispatcher = new ExtensionDispatcher();
-
-        Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["version", "--help"]));
-    }
-
-    [Fact]
-    public void Parse_ShouldThrowRuntimeExtensionHelpException_WhenGroupHelpRequested()
-    {
-        var dispatcher = new ExtensionDispatcher();
-
-        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["login", "--help"]));
-
-        Assert.Equal("login", exception.Verb);
-        Assert.False(exception.IsCommandHelp);
-        Assert.Equal(["login"], exception.Path);
-    }
-
-    [Fact]
-    public void Parse_ShouldThrowRuntimeExtensionHelpException_WhenHelpSubcommandUsedForCommand()
-    {
-        var dispatcher = new ExtensionDispatcher();
-
-        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["help", "login", "show"]));
-
-        Assert.Equal("login", exception.Verb);
-        Assert.True(exception.IsCommandHelp);
-        Assert.Equal(["login", "show"], exception.Path);
-    }
-
-    [Fact]
-    public void Parse_ShouldShortCircuitToHelp_BeforeCommandExecutionPath()
-    {
-        var dispatcher = new ExtensionDispatcher();
-
-        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["login", "--help", "--subscription-id", "missing"]));
-
-        Assert.Equal("login", exception.Verb);
-        Assert.False(exception.IsCommandHelp);
-        Assert.Equal(["login"], exception.Path);
     }
 
     [Fact]
@@ -526,20 +432,6 @@ public class ExtensionDispatcherTests
     // so `deployment group` is an intermediate group, not a command. The help dispatcher must
     // fall back to GetGroupHelp on a GetCommandHelp miss instead of throwing
     // KeyNotFoundException, which used to bubble out as an unhandled exception.
-
-    [Fact]
-    public void Parse_ShouldFlagIsCommandHelp_ForIntermediateGroupPath()
-    {
-        // Locks down the parser side of the contract: tokens past the verb cause IsCommandHelp=true.
-        var dispatcher = CreateLeafDispatcher(
-            ("deployment", "group create", "Microsoft.Azure.Azclips.Extensions.Resources", false, "1.0.0"));
-
-        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["deployment", "group", "--help"]));
-
-        Assert.Equal("deployment", exception.Verb);
-        Assert.True(exception.IsCommandHelp);
-        Assert.Equal(["deployment", "group"], exception.Path);
-    }
 
     [Fact]
     public void ExtensionIndexHelpAdapter_ShouldReturnNullCommand_AndNonNullGroup_ForIntermediatePath()

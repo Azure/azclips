@@ -109,6 +109,38 @@ public class Program
                 outputJson = globalArgs.Output == OutputFormat.Json;
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
+                if (globalArgs.Version is not null)
+                {
+                    // Cold-path host command: rendered from local data, no engine session or extension load.
+                    var versionExit = new RuntimeVersionDispatcher(configurationService, Console.Out)
+                        .Render(globalArgs.Version.Format);
+                    activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
+                    return versionExit;
+                }
+
+                if (globalArgs.Help is not null)
+                {
+                    var helpEngine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+                    var helpRenderer = new RuntimeHelpDispatcher(helpEngine, streams);
+                    if (globalArgs.Help.Path.Count == 0)
+                    {
+                        // Banner only for truly bare `az`, not for `az --help` / `az -h` / `az help` etc. —
+                        // keeps scripted help-output grepping unaffected.
+                        if (isBareInvocation)
+                        {
+                            WelcomeBanner.Write(Console.Out);
+                        }
+                        var rootExit = helpRenderer.RenderRoot();
+                        activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
+                        return rootExit;
+                    }
+                    // Uninstalled-package smart-suggestion path throws AzclipsErrorException; the outer
+                    // AzclipsErrorException catch renders it via EmitStructuredError.
+                    var extHelpExit = helpRenderer.RenderExtensionHelp(globalArgs.Help.Path);
+                    activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
+                    return extHelpExit;
+                }
+
                 CommandInvocation invocation = dispatcher.Parse(positional);
                 telemetryService.TagInvocation(invocation);
 
@@ -123,51 +155,6 @@ public class Program
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
-            }
-            catch (DispatchHelpException)
-            {
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-                // Banner only for bare `az`, not for top-level flags like `az --help` —
-                // keeps scripted help-output grepping unaffected.
-                if (isBareInvocation)
-                {
-                    WelcomeBanner.Write(Console.Out);
-                }
-                var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderRoot();
-
-                activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
-                return exitCode;
-            }
-            catch (RuntimeExtensionHelpException helpException)
-            {
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-                try
-                {
-                    var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderExtensionHelp(helpException);
-
-                    activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
-                    return exitCode;
-                }
-                catch (AzclipsErrorException structured)
-                {
-                    // RenderExtensionHelp surfaces ExtensionNotInstalledException when the user asks
-                    // for help on a verb owned by an uninstalled package (smart-suggestion path).
-                    // Funnel through the same renderer the execute path uses so the UX matches.
-                    EmitStructuredError(structured, outputJson);
-                    activity?.SetStatus(ActivityStatusCode.Error, structured.Message);
-                    return structured.ExitCode;
-                }
-            }
-            catch (DispatchVersionException versionException)
-            {
-                // Version is a host cold-path command (like help): gather locally and render without
-                // an engine session or extension load. JSON reuses the same formatter the old
-                // `az version` command used; text serves `az --version`.
-                var exitCode = new RuntimeVersionDispatcher(configurationService, Console.Out)
-                    .Render(versionException.Format);
-
-                activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
-                return exitCode;
             }
             catch (HttpRequestException ex)
             {
