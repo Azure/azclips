@@ -28,6 +28,7 @@ This article provides links to the conceptual documentation for the preview vers
 
 - [AI-based error recovery][09]
 - [Troubleshooting][10]
+- [Switch between classic Azure CLI and the preview build][11]
 
 <!-- link references -->
 
@@ -41,3 +42,4 @@ This article provides links to the conceptual documentation for the preview vers
 [08]: ./profile-base-login.md
 [09]: ./ai-based-error-recovery.md
 [10]: ./troubleshooting.md
+[11]: ./switch-cli-versions.md

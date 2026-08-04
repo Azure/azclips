@@ -11,22 +11,26 @@ PowerShell.
 ## Get started
 
 - [Getting started][01]
+- [Configuration][02]
 
 ## Install Azure PowerShell
 
-- [Install Azure PowerShell modules][02]
+- [Installation overview][03]
+  - [Install Azure PowerShell modules][04]
 
 ## Sign in
 
-- [Profile-based login][03]
+- [Profile-based login][05]
 
 ## Troubleshoot
 
-- [Troubleshooting][04]
+- [Troubleshooting][06]
 
 <!-- link references -->
 
 [01]: ./getting-started.md
-[02]: ./install-powershell-modules.md
-[03]: ./profile-base-login.md
-[04]: ./troubleshooting.md
+[02]: ./config.md
+[03]: ./install-overview.md
+[04]: ./install-powershell-modules.md
+[05]: ./profile-base-login.md
+[06]: ./troubleshooting.md
