@@ -108,6 +108,24 @@ public class ExtensionDispatcherTests
         Assert.IsNotType<DispatchVersionException>(exception);
     }
 
+    [Theory]
+    [InlineData("version", "--definitely-not-real")]
+    [InlineData("--version", "foo")]
+    public void Parse_ShouldThrowUsageError_WhenIntrinsicVerbHasTrailingTokens(string verbToken, string trailing)
+    {
+        // `az version <junk>` / `az --version <junk>` are neither valid version requests nor unknown
+        // command groups: `version` is a real intrinsic, the trailing token is just invalid. Report a
+        // precise usage error (exit 2) rather than the misleading "command group not found".
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<AzclipsErrorException>(() => dispatcher.Parse([verbToken, trailing]));
+
+        Assert.Equal("UsageError", exception.Code);
+        Assert.Equal(2, exception.ExitCode);
+        Assert.Contains("version", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(trailing, exception.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Parse_ShouldRouteToHelp_ForVersionHelp_NotVersionDispatch()
     {
