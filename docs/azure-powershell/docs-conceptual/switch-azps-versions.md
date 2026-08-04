@@ -82,11 +82,10 @@ Import-Module: Could not load file or assembly '...'. Assembly with same name is
 ```
 
 `Remove-Module` doesn't help either: it removes the PowerShell module, but the loaded assemblies stay
-in the process. To switch, exit and start a new session:
+in the process. To switch, close the current session and start a new one — for example, run `exit`
+and then launch `pwsh` again. In the new session, load the version you want:
 
 ```powershell
-exit
-pwsh
 Import-Module Az -RequiredVersion 0.1.0
 ```
 
