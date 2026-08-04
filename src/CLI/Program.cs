@@ -90,6 +90,7 @@ public class Program
             var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
             args = ParseDebugFlag(args, out var debugOverride);
             var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(configurationService, debugOverride);
+            ColorPolicy.Initialize(ColorPolicy.Parse(configurationService.GetConfiguration<CoreOptions>().Output.Color));
             streams = BuildStreams(effectiveLogLevel);
             args = ParseOutputFlag(args, out var outputJson);
             args = ParseNoCacheFlag(args);
