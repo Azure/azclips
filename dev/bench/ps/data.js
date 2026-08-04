@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785818137771,
+  "lastUpdate": 1785818192996,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -5422,6 +5422,48 @@ window.BENCHMARK_DATA = {
             "value": 860979.9177292046,
             "unit": "ns",
             "range": "± 27241.544626307175"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2280c10f017e705318be61f21c4a8e3f397af66",
+          "message": "{core} version error fixed for unrecognized arguments (#648)\n\nError message updated for unrecognized arguments\n<img width=\"743\" height=\"148\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/966ff2f0-1aa0-4b0a-8e44-8967cb21eb64\"\n/>\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>",
+          "timestamp": "2026-08-04T14:22:57+10:00",
+          "tree_id": "c35be5a5fea0d0109e8acf2200139d7d929a3ffa",
+          "url": "https://github.com/Azure/azclips/commit/b2280c10f017e705318be61f21c4a8e3f397af66"
+        },
+        "date": 1785818190902,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 862478.7232286634,
+            "unit": "ns",
+            "range": "± 24361.609378918172"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 835817.7302353651,
+            "unit": "ns",
+            "range": "± 24490.421511889643"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 828285.301860089,
+            "unit": "ns",
+            "range": "± 21778.816607685738"
           }
         ]
       }
