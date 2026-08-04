@@ -86,9 +86,7 @@ When `extension add --name <token>` misses every configured feed, the resulting 
 
     ```
     > az extension add Contoso.Foo
-    error: [LeafConflict] Extension 'Contoso.Foo' has 2 leaf conflicts with already-installed extensions.
-      - leaf 'vm contoso-magic' is already owned by 'Microsoft.Azure.Azclips.Extensions.Compute'
-      - leaf 'disk contoso-extra' is already owned by 'Microsoft.Azure.Azclips.Extensions.Compute'
+    ERROR: [LeafConflict] Extension 'Contoso.Foo' has 2 leaf conflicts with already-installed extensions.
     Remove the conflicting extension(s) first or rename the offending leaves.
     ```
 

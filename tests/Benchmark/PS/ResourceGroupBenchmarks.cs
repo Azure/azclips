@@ -14,10 +14,9 @@ namespace Benchmark.PS;
 /// (both excluded from the measurement); each measured run invokes only the cmdlet, so the
 /// result is comparable to the CLI benchmark's warm dispatch.
 /// </summary>
+[BenchmarkExtension("Resources")]
 public class ResourceGroupBenchmarks : PSBenchmarkBase
 {
-    protected override string ModuleName => "Resources";
-
     [Benchmark(Description = "PS: List RG")]
     public object? ListResourceGroups()
     {

@@ -2,7 +2,7 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/dotnet
 {
 	"name": "C# (.NET)",
-	// Use Docker Compose for multi-container setup (app + Zipkin)
+	// Use Docker Compose to define the dev container service
 
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "app",
@@ -36,31 +36,26 @@
 		}
 	},
 
-	// Forward ports for MSAL authentication redirect and Zipkin UI
-	"forwardPorts": [50000, 50001, 50002, 50003, 50004, 50005, 50006, 50007, 50008, 50009, 9411],
+	// Forward ports for MSAL authentication redirect
+	"forwardPorts": [50000, 50001, 50002, 50003, 50004, 50005, 50006, 50007, 50008, 50009],
 	"portsAttributes": {
 		"5*": {
 			"onAutoForward": "openBrowserOnce"
-		},
-		"9411": {
-			"label": "Zipkin UI",
-			"onAutoForward": "notify"
 		}
 	},
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "./.devcontainer/post-create.sh",
 	
-	// Use 'postStartCommand' to set up browser symlinks after VS Code environment is ready
+	// Use 'postStartCommand' to install browser launchers after VS Code environment is ready
 	"postStartCommand": "./.devcontainer/post-start.sh",
 
-	// Add az CLI to PATH for both Debug and Release builds
-	// Set BROWSER to use VS Code's built-in browser opener for authentication flows
-	// Set ZIPKIN_ENDPOINT to point to the Zipkin container
+	// Add az CLI to PATH for both Debug and Release builds.
+	// BROWSER is deliberately not set here: VS Code injects it into integrated
+	// terminals on its own, and "${containerEnv:BROWSER}" would only shadow that
+	// with an empty value.
 	"remoteEnv": {
-		"PATH": "${containerWorkspaceFolder}/artifacts/Debug/Core.Cli:${containerWorkspaceFolder}/artifacts/Release/Core.Cli:${containerEnv:PATH}",
-		"BROWSER": "${containerEnv:BROWSER}",
-		"ZIPKIN_ENDPOINT": "http://zipkin:9411/api/v2/spans"
+		"PATH": "${containerWorkspaceFolder}/artifacts/Debug/Core.Cli:${containerWorkspaceFolder}/artifacts/Release/Core.Cli:${containerEnv:PATH}"
 	},
 
 	// Configure tool-specific properties.

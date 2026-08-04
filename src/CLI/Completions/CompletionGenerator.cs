@@ -14,6 +14,12 @@ namespace Core.Cli.Completions;
 /// Used by shell tab-completion scripts (e.g. az.completions.ps1).
 /// Supports both full tree generation and context-aware discovery for specific command groups.
 /// </summary>
+/// <remarks>
+/// Raw <see cref="Console.WriteLine(string)"/> is intentional throughout this class:
+/// the output is the shell-completion protocol payload consumed by completion scripts,
+/// not diagnostic logging, so it must not be routed through <c>ILoggingService</c>
+/// (which would prefix, level-gate, and stream-route it).
+/// </remarks>
 internal static class CompletionGenerator
 {
     /// <summary>
