@@ -1,9 +1,9 @@
 ---
-title: Install Az PowerShell modules
+title: Install the Azure PowerShell private preview release
 description: Learn how to install the Az PowerShell modules from the Azure PowerShell private preview release.
 ---
 
-# Install azps (Az PowerShell Modules)
+# Install the Azure PowerShell private preview release
 
 > This page covers **azps** (the Az PowerShell modules) — a separate product from azcli. For the CLI, see the [Install Overview](../../azure-cli/docs-conceptual/install-overview.md).
 
