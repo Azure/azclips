@@ -1,16 +1,17 @@
 ---
 title: Install the Azure CLI private preview
-description: Learn how to install the Azure CLI private preview and Azure PowerShell private preview.
+description: Learn how to install the Azure CLI private preview.
 ---
 
-# Installing azcli and azps
+# Install the Azure CLI private preview
 
-A release delivers two products:
+The Azure CLI private preview ships as **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). It ships in two flavours:
 
-- **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). Ships in two flavours:
-  - **lean** — built-in extensions only.
-  - **full** — built-in + add-on extensions bundled.
-- **azps** — the Az PowerShell modules (`Az.*`).
+- **full** — built-in + add-on extensions bundled.
+- **lean** — built-in extensions only.
+
+> [!NOTE]
+> For the Az PowerShell modules, see the [Azure PowerShell private preview install overview](../../azure-powershell/docs-conceptual/install-overview.md).
 
 ## Install azcli (one command)
 
