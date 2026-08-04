@@ -14,23 +14,14 @@ public class BuiltinExtensionLoaderTests
     [Fact]
     public void GetInstalledExtensions_ShouldEnumerateBuiltinExtensionsFromConfiguredRoot()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
-        var extensionPackage = Path.Combine(root, "Microsoft.Azure.Azclips.Extensions.Extension");
-        var loginPackage = Path.Combine(root, "Microsoft.Azure.Azclips.Extensions.Login");
-        var configPackage = Path.Combine(root, "Microsoft.Azure.Azclips.Extensions.Config");
-
-        Directory.CreateDirectory(extensionPackage);
-        Directory.CreateDirectory(loginPackage);
-        Directory.CreateDirectory(configPackage);
-
+        var root = CreateRoot();
         try
         {
-            File.WriteAllText(Path.Combine(extensionPackage, "Microsoft.Azure.Azclips.Extensions.Extension.dll"), string.Empty);
-            File.WriteAllText(Path.Combine(loginPackage, "Microsoft.Azure.Azclips.Extensions.Login.dll"), string.Empty);
-            File.WriteAllText(Path.Combine(configPackage, "Microsoft.Azure.Azclips.Extensions.Config.dll"), string.Empty);
+            CreatePackage(root, "Extension", realDll: false);
+            CreatePackage(root, "Login", realDll: false);
+            CreatePackage(root, "Config", realDll: false);
 
-            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
-            var installed = loader.GetInstalledExtensions().ToArray();
+            var installed = CreateLoader(root).GetInstalledExtensions().ToArray();
 
             Assert.Contains(installed, x => x.Name == "Extension" && x.Version == string.Empty);
             Assert.Contains(installed, x => x.Name == "Login" && x.Version == string.Empty);
@@ -38,64 +29,43 @@ public class BuiltinExtensionLoaderTests
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            SafeDelete(root);
         }
     }
 
     [Fact]
     public void GetInstalledExtensions_ShouldEnumerateInstallRootPackages_NotInBuiltInMap()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
-        var packageDir = Path.Combine(root, "Microsoft.Azure.Azclips.Extensions.Foo");
-        Directory.CreateDirectory(packageDir);
-
+        var root = CreateRoot();
         try
         {
-            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Foo.dll"), string.Empty);
-            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+            CreatePackage(root, "Foo", realDll: false);
 
-            var installed = loader.GetInstalledExtensions().ToArray();
+            var installed = CreateLoader(root).GetInstalledExtensions().ToArray();
 
             Assert.Contains(installed, x => x.Name == "Foo" && x.Version == string.Empty);
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            SafeDelete(root);
         }
     }
 
     [Fact]
     public void GetInstalledExtensions_ShouldUseHighestNupkgVersion_WhenAvailableInInstallRoot()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
-        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-        var packageDir = Path.Combine(root, packageId);
-        Directory.CreateDirectory(packageDir);
-
+        var root = CreateRoot();
         try
         {
-            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
-            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.0.1.1.nupkg"), string.Empty);
-            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.0.1.2.nupkg"), string.Empty);
+            CreatePackage(root, "Compute", realDll: false, nupkgVersions: ["0.1.1", "0.1.2"]);
 
-            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
-
-            var installed = loader.GetInstalledExtensions().ToArray();
+            var installed = CreateLoader(root).GetInstalledExtensions().ToArray();
 
             Assert.Contains(installed, x => x.Name == "Compute" && x.Version == "0.1.2");
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            SafeDelete(root);
         }
     }
 
@@ -103,29 +73,19 @@ public class BuiltinExtensionLoaderTests
     public void GetInstalledExtensions_ShouldReportAbsoluteDllLocation_ForBundledPackage()
     {
         // Location must be the absolute DLL path, not just the package directory or null.
-        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
-        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-        var packageDir = Path.Combine(root, packageId);
-        var expectedDllPath = Path.Combine(packageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll");
-        Directory.CreateDirectory(packageDir);
-
+        var root = CreateRoot();
         try
         {
-            File.WriteAllText(expectedDllPath, string.Empty);
+            var expectedDllPath = CreatePackage(root, "Compute", realDll: false);
 
-            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
-
-            var installed = Assert.Single(loader.GetInstalledExtensions());
+            var installed = Assert.Single(CreateLoader(root).GetInstalledExtensions());
 
             Assert.Equal("Compute", installed.Name);
             Assert.Equal(expectedDllPath, installed.Location);
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            SafeDelete(root);
         }
     }
 
@@ -145,12 +105,12 @@ public class BuiltinExtensionLoaderTests
     [Fact]
     public void LoadExtension_ShouldReturnAssembly_WhenVersionMatchesNupkg()
     {
-        var (root, packageDir) = CreateFakePackage("Foo", "1.2.3", includeNupkg: true, includeRealDll: true);
+        var root = CreateRoot();
         try
         {
-            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+            CreatePackage(root, "Foo", nupkgVersions: ["1.2.3"]);
 
-            var assembly = loader.LoadExtension("Foo", "1.2.3");
+            var assembly = CreateLoader(root).LoadExtension("Foo", "1.2.3");
 
             Assert.NotNull(assembly);
         }
@@ -163,12 +123,12 @@ public class BuiltinExtensionLoaderTests
     [Fact]
     public void LoadExtension_ShouldReturnNull_WhenVersionDoesNotMatchNupkg()
     {
-        var (root, packageDir) = CreateFakePackage("Foo", "1.2.3", includeNupkg: true, includeRealDll: true);
+        var root = CreateRoot();
         try
         {
-            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+            CreatePackage(root, "Foo", nupkgVersions: ["1.2.3"]);
 
-            var assembly = loader.LoadExtension("Foo", "9.9.9");
+            var assembly = CreateLoader(root).LoadExtension("Foo", "9.9.9");
 
             Assert.Null(assembly);
         }
@@ -183,12 +143,12 @@ public class BuiltinExtensionLoaderTests
     {
         // Package folder has a DLL but no .nupkg (the packaged-install shape). A versioned request
         // cannot confirm identity here, so the loader must defer to the next one in the chain.
-        var (root, packageDir) = CreateFakePackage("Foo", version: null, includeNupkg: false, includeRealDll: true);
+        var root = CreateRoot();
         try
         {
-            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+            CreatePackage(root, "Foo");
 
-            var assembly = loader.LoadExtension("Foo", "1.2.3");
+            var assembly = CreateLoader(root).LoadExtension("Foo", "1.2.3");
 
             Assert.Null(assembly);
         }
@@ -202,12 +162,12 @@ public class BuiltinExtensionLoaderTests
     public void LoadExtension_ShouldReturnAssembly_WhenUnversionedRequest()
     {
         // Regression guard on the pre-existing unversioned load path.
-        var (root, packageDir) = CreateFakePackage("Foo", version: null, includeNupkg: false, includeRealDll: true);
+        var root = CreateRoot();
         try
         {
-            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+            CreatePackage(root, "Foo");
 
-            var assembly = loader.LoadExtension("Foo");
+            var assembly = CreateLoader(root).LoadExtension("Foo");
 
             Assert.NotNull(assembly);
         }
@@ -216,6 +176,23 @@ public class BuiltinExtensionLoaderTests
             SafeDelete(root);
         }
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // LoadExtension — process-wide assembly cache.
+    //
+    // The loader keeps a static ConcurrentDictionary of
+    // extensionPath -> Lazy<(ExtensionLoadContext, Assembly)> so a Bundled extension is read off
+    // disk and materialised into an AssemblyLoadContext at most once per process. Repeat loads must
+    // hand back the very same Assembly instance — a second load would otherwise produce a distinct
+    // Type identity for every extension type and re-pay the file read plus ALC construction cost.
+    //
+    // AssemblyLoadingOptions.BypassExtensionCache (the --no-cache flag / AZCLIPS_NO_EXTENSION_CACHE
+    // env var) is the benchmark/test escape hatch and must force a cold load every time, never
+    // reading from nor writing to the shared cache.
+    //
+    // Each test stages its package under a fresh GUID temp root, so the process-wide cache — which
+    // is keyed by absolute path and intentionally has no reset hook — is always cold for that key.
+    // ---------------------------------------------------------------------------------------------
 
     [Fact]
     public void LoadExtension_ShouldReturnSameAssemblyInstance_OnRepeatedLoads()
@@ -346,7 +323,7 @@ public class BuiltinExtensionLoaderTests
         var root = CreateRoot();
         try
         {
-            CreatePackage(root, "CacheProbe", version: "1.2.3");
+            CreatePackage(root, "CacheProbe", nupkgVersions: ["1.2.3"]);
             var loader = CreateLoader(root);
 
             var unversioned = loader.LoadExtension("CacheProbe");
@@ -465,24 +442,49 @@ public class BuiltinExtensionLoaderTests
     private static BuiltinExtensionLoader CreateLoader(string root, bool bypassExtensionCache = false)
         => new(new NullLoggingService(), new TestConfigurationService(root, bypassExtensionCache));
 
+    /// <summary>
+    /// Allocates a unique temp root. Every test gets its own so the loader's process-wide,
+    /// absolute-path-keyed assembly cache is always cold for the packages staged beneath it.
+    /// </summary>
     private static string CreateRoot()
-        => Path.Combine(Path.GetTempPath(), $"az-ext-cache-{Guid.NewGuid():N}");
+        => Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
 
     /// <summary>
-    /// Stages a loadable Bundled package under <paramref name="root"/> and returns the DLL path.
-    /// The test assembly is copied in as the payload because it is the cheapest real assembly
-    /// guaranteed to exist at test time — <c>LoadManagedAssembly</c> needs valid PE content.
+    /// Stages a Bundled package at <c>&lt;root&gt;/Microsoft.Azure.Azclips.Extensions.&lt;shortName&gt;/</c>
+    /// and returns the absolute path of its primary DLL.
     /// </summary>
-    private static string CreatePackage(string root, string shortName, string? version = null)
+    /// <param name="realDll">
+    /// When <c>true</c> (default) the test assembly is copied in as the payload — the cheapest real
+    /// assembly guaranteed to exist at test time, and required by any test that actually calls
+    /// <c>LoadExtension</c> because <c>LoadManagedAssembly</c> needs valid PE content. Enumeration-only
+    /// tests pass <c>false</c> for an empty placeholder, which still satisfies the loader's
+    /// <c>File.Exists</c> probe.
+    /// </param>
+    /// <param name="nupkgVersions">
+    /// Versions to stamp as sibling <c>.nupkg</c> files. Pass none for the packaged-install shape,
+    /// where packaging strips the <c>.nupkg</c> and version resolution reports empty.
+    /// </param>
+    private static string CreatePackage(
+        string root,
+        string shortName,
+        bool realDll = true,
+        params string[] nupkgVersions)
     {
         var packageId = $"Microsoft.Azure.Azclips.Extensions.{shortName}";
         var packageDir = Path.Combine(root, packageId);
         Directory.CreateDirectory(packageDir);
 
         var dllPath = Path.Combine(packageDir, $"{packageId}.dll");
-        File.Copy(typeof(BuiltinExtensionLoaderTests).Assembly.Location, dllPath, overwrite: true);
+        if (realDll)
+        {
+            File.Copy(typeof(BuiltinExtensionLoaderTests).Assembly.Location, dllPath, overwrite: true);
+        }
+        else
+        {
+            File.WriteAllText(dllPath, string.Empty);
+        }
 
-        if (!string.IsNullOrEmpty(version))
+        foreach (var version in nupkgVersions)
         {
             File.WriteAllText(Path.Combine(packageDir, $"{packageId}.{version}.nupkg"), string.Empty);
         }
@@ -490,40 +492,12 @@ public class BuiltinExtensionLoaderTests
         return dllPath;
     }
 
-
-    private static (string Root, string PackageDir) CreateFakePackage(
-        string shortName,
-        string? version,
-        bool includeNupkg,
-        bool includeRealDll)
-    {
-        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
-        var packageId = $"Microsoft.Azure.Azclips.Extensions.{shortName}";
-        var packageDir = Path.Combine(root, packageId);
-        Directory.CreateDirectory(packageDir);
-
-        var dllPath = Path.Combine(packageDir, $"{packageId}.dll");
-        if (includeRealDll)
-        {
-            // Copy a real, load-able assembly so ExtensionLoadContext.LoadManagedAssembly succeeds.
-            // The test assembly is the cheapest one that is guaranteed to exist at test time.
-            var sourceAssembly = typeof(BuiltinExtensionLoaderTests).Assembly.Location;
-            File.Copy(sourceAssembly, dllPath, overwrite: true);
-        }
-        else
-        {
-            File.WriteAllText(dllPath, string.Empty);
-        }
-
-        if (includeNupkg && !string.IsNullOrEmpty(version))
-        {
-            File.WriteAllText(
-                Path.Combine(packageDir, $"{packageId}.{version}.nupkg"),
-                string.Empty);
-        }
-
-        return (root, packageDir);
-    }
+    /// <summary>
+    /// Replaces the staged DLL with non-PE content. Safe to do mid-test: the loader streams the
+    /// file into memory and loads from that stream, so it never holds a handle on the file.
+    /// </summary>
+    private static void Corrupt(string dllPath)
+        => File.WriteAllText(dllPath, "not a portable executable");
 
     private static void SafeDelete(string root)
     {
@@ -544,13 +518,6 @@ public class BuiltinExtensionLoaderTests
             }
         }
     }
-
-    /// <summary>
-    /// Replaces the staged DLL with non-PE content. Safe to do mid-test: the loader streams the
-    /// file into memory and loads from that stream, so it never holds a handle on the file.
-    /// </summary>
-    private static void Corrupt(string dllPath)
-        => File.WriteAllText(dllPath, "not a portable executable");
 
     private sealed class TestConfigurationService(string installationRoot, bool bypassExtensionCache = false) : IConfigurationService
     {
