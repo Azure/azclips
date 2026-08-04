@@ -1,6 +1,6 @@
 # Configuration Management
 
-Azclips stores user-scope configuration in a global JSON file.
+Azure CLI private preview stores user-scope configuration in a global JSON file.
 
 Configuration follows strict precedence: **command args > environment variables > global config > defaults**.
 
