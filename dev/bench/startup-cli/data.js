@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785818218581,
+  "lastUpdate": 1785818222181,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -3740,6 +3740,48 @@ window.BENCHMARK_DATA = {
             "value": 281401225.19,
             "unit": "ns",
             "range": "± 8111159.985019964"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2280c10f017e705318be61f21c4a8e3f397af66",
+          "message": "{core} version error fixed for unrecognized arguments (#648)\n\nError message updated for unrecognized arguments\n<img width=\"743\" height=\"148\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/966ff2f0-1aa0-4b0a-8e44-8967cb21eb64\"\n/>\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>",
+          "timestamp": "2026-08-04T14:22:57+10:00",
+          "tree_id": "c35be5a5fea0d0109e8acf2200139d7d929a3ffa",
+          "url": "https://github.com/Azure/azclips/commit/b2280c10f017e705318be61f21c4a8e3f397af66"
+        },
+        "date": 1785818222059,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 279987725.4,
+            "unit": "ns",
+            "range": "± 4672707.956767795"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 280795925.19,
+            "unit": "ns",
+            "range": "± 5468423.21745367"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 280114412.14,
+            "unit": "ns",
+            "range": "± 5198528.626733625"
           }
         ]
       }
