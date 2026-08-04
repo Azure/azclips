@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785802529701,
+  "lastUpdate": 1785802533765,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -3488,6 +3488,48 @@ window.BENCHMARK_DATA = {
             "value": 275595097.73,
             "unit": "ns",
             "range": "± 3116909.4807872577"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a1ab50be4b53ef1cde61530d9f25e2892a3179c4",
+          "message": "{Telemetry} Add Jaeger for local telemetry monitoring (#605)\n\n- Add Jaeger for local telemetry monitoring\n- Debug build emits to local by default \n- Release build emits to remote by default\n- `AZCLIPS_TELEMETRY_TARGET` env variable overrides which telemetry sink\nto emit to regardless of build\n\n<img width=\"3836\" height=\"1867\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/8887a671-c6b9-4d68-8c6c-28b75c2ea35d\"\n/>\n<img width=\"3838\" height=\"1859\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/3f573fb1-5644-4996-a882-9e154ce15de3\"\n/>\n<img width=\"3836\" height=\"1873\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/e8897778-b5bf-4f1f-a997-f9e834e3e235\"\n/>\n<img width=\"3833\" height=\"1858\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/d69a3b27-0762-4a3f-9ad9-eee109735810\"\n/>\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>\nCopilot-Session: f8b1e1b9-860e-4341-9317-fddc46f8bbc9",
+          "timestamp": "2026-08-04T10:02:13+10:00",
+          "tree_id": "7a1442a0cc650dd708d1324844b0cb774a0617c9",
+          "url": "https://github.com/Azure/azclips/commit/a1ab50be4b53ef1cde61530d9f25e2892a3179c4"
+        },
+        "date": 1785802533604,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 279068114.4,
+            "unit": "ns",
+            "range": "± 5762127.326769806"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 278039977.64,
+            "unit": "ns",
+            "range": "± 4255053.969685251"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 277661116,
+            "unit": "ns",
+            "range": "± 19663983.689705245"
           }
         ]
       }
