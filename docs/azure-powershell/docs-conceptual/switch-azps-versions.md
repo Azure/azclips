@@ -109,6 +109,8 @@ function az-classic { pwsh -NoExit -Command 'Import-Module Az' }
 
 Run `az-preview` or `az-classic` to open a fresh session with that version loaded.
 
+For steps on adding these functions to your profile, see [How to edit a profile](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.6#how-to-edit-a-profile).
+
 ## Related content
 
 - [Install Azure PowerShell modules][01]
