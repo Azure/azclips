@@ -115,6 +115,23 @@ public class ExtensionDispatcher //: IParser
                     }
                 }
 
+                // An intrinsic host verb (e.g. `version`) that reached this point necessarily carries
+                // trailing tokens — the exact single-token shapes already dispatched via
+                // TryCreateVersionRequest, and any real subcommand would have matched the leaf index
+                // above. So report the precise usage error instead of the misleading "command group
+                // not found" (which would also wrongly hand off to the AI fallback).
+                if (IntrinsicVerbs.TryResolve(verb, out var intrinsicVerb))
+                {
+                    var trailing = string.Join(" ", args.Skip(1));
+                    throw AzclipsErrorException.UsageError(
+                        $"Unrecognized arguments for '{intrinsicVerb}': {trailing}",
+                        new Dictionary<string, object?>
+                        {
+                            ["verb"] = intrinsicVerb,
+                            ["arguments"] = args.Skip(1).ToArray(),
+                        });
+                }
+
                 // Generic miss → OrchestratorEngine hands off to AI fallback.
                 throw new KeyNotFoundException(
                     $"Command group '{verb}' not found. Run 'az extension list' to see installed extensions.");
