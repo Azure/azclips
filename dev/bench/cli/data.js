@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785808495443,
+  "lastUpdate": 1785818108540,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -5630,6 +5630,48 @@ window.BENCHMARK_DATA = {
             "value": 1006378.215220455,
             "unit": "ns",
             "range": "± 24545.82651523337"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "msarfraz@microsoft.com",
+            "name": "mansoor sarfraz",
+            "username": "msarfraz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2280c10f017e705318be61f21c4a8e3f397af66",
+          "message": "{core} version error fixed for unrecognized arguments (#648)\n\nError message updated for unrecognized arguments\n<img width=\"743\" height=\"148\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/966ff2f0-1aa0-4b0a-8e44-8967cb21eb64\"\n/>\n\nCo-authored-by: Mansoor Sarfraz <msarfraz+microsoft@microsoft.com>",
+          "timestamp": "2026-08-04T14:22:57+10:00",
+          "tree_id": "c35be5a5fea0d0109e8acf2200139d7d929a3ffa",
+          "url": "https://github.com/Azure/azclips/commit/b2280c10f017e705318be61f21c4a8e3f397af66"
+        },
+        "date": 1785818106743,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 1027654.8062602291,
+            "unit": "ns",
+            "range": "± 16875.42865749982"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 1743988.8802029407,
+            "unit": "ns",
+            "range": "± 22737.029233652847"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 1016283.0606372046,
+            "unit": "ns",
+            "range": "± 14643.748543569758"
           }
         ]
       }
