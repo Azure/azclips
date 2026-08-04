@@ -1,6 +1,6 @@
 ---
-title: Enable azcli tab completion
-description: Learn how to enable shell tab completion for azcli in bash, zsh, and PowerShell.
+title: Enable Azure CLI private preview tab completion
+description: Learn how to enable shell tab completion for the Azure CLI private preview in bash, zsh, and PowerShell.
 ---
 
 # Enable azcli tab completion

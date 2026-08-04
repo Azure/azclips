@@ -1,6 +1,6 @@
 ---
-title: Install azcli manually or offline
-description: Learn how to install azcli manually or offline when the one-command installer isn't available.
+title: Install the Azure CLI private preview manually or offline
+description: Learn how to install the Azure CLI private preview manually or offline when the one-command installer isn't available.
 ---
 
 # Install azcli (manual / offline)

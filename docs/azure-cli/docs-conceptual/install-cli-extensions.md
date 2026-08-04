@@ -1,6 +1,6 @@
 ---
-title: Install azcli extensions
-description: Learn how to install add-on extensions for lean installs or to pin a specific extension version.
+title: Install Azure CLI private preview extensions
+description: Learn how to install add-on extensions for the Azure CLI private preview.
 ---
 
 # Install azcli Extensions
