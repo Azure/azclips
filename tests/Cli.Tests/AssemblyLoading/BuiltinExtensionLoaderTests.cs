@@ -454,15 +454,12 @@ public class BuiltinExtensionLoaderTests
     /// and returns the absolute path of its primary DLL.
     /// </summary>
     /// <param name="realDll">
-    /// When <c>true</c> (default) the test assembly is copied in as the payload — the cheapest real
-    /// assembly guaranteed to exist at test time, and required by any test that actually calls
-    /// <c>LoadExtension</c> because <c>LoadManagedAssembly</c> needs valid PE content. Enumeration-only
-    /// tests pass <c>false</c> for an empty placeholder, which still satisfies the loader's
-    /// <c>File.Exists</c> probe.
+    /// <c>true</c> (default) copies the test assembly in as a loadable payload; <c>false</c> writes an
+    /// empty placeholder, which is enough for enumeration-only tests.
     /// </param>
     /// <param name="nupkgVersions">
-    /// Versions to stamp as sibling <c>.nupkg</c> files. Pass none for the packaged-install shape,
-    /// where packaging strips the <c>.nupkg</c> and version resolution reports empty.
+    /// Versions to stamp as sibling <c>.nupkg</c> files. Pass none to model a packaged install, where
+    /// version resolution reports empty.
     /// </param>
     private static string CreatePackage(
         string root,
