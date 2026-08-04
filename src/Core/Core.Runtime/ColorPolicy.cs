@@ -40,6 +40,9 @@ public static class ColorPolicy
     // behavior for tests and hosts that never call Initialize.
     private static ColorMode _mode = ColorMode.Auto;
 
+    /// <summary>Current cached mode. Exposed internal for test scoping.</summary>
+    internal static ColorMode CurrentMode => _mode;
+
     /// <summary>
     /// Sets the persistent color mode. Called once at process startup after config is resolved.
     /// </summary>

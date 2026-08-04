@@ -121,7 +121,14 @@ public class ColorPolicyTests
     // Saves and restores ColorPolicy._mode via Initialize.
     private sealed class ModeScope : IDisposable
     {
-        public ModeScope(ColorMode mode) => ColorPolicy.Initialize(mode);
-        public void Dispose() => ColorPolicy.Initialize(ColorMode.Auto);
+        private readonly ColorMode _previous;
+
+        public ModeScope(ColorMode mode)
+        {
+            _previous = ColorPolicy.CurrentMode;
+            ColorPolicy.Initialize(mode);
+        }
+
+        public void Dispose() => ColorPolicy.Initialize(_previous);
     }
 }
