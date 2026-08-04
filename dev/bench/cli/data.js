@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785808421822,
+  "lastUpdate": 1785808495443,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -5082,6 +5082,48 @@ window.BENCHMARK_DATA = {
             "value": 848148.3912022862,
             "unit": "ns",
             "range": "± 23246.27400662089"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d32e45c6b500af660d79a50958575434021be431",
+          "message": "{Core} Centralize console diagnostic rendering into `ConsoleSink` (#639)\n\n**Related command**\n\nConsole diagnostic rendering — internal.\n\n**Description**\n\nFixes [Azure/CLIPS#543](https://github.com/Azure/CLIPS/issues/543)\n(follow-up to PR #575).\n\nThree surfaces (`ConsoleLoggingService`, `ConsoleOutputAdapter`,\n`BuildStreams` in `Program.cs`) each independently picked a color,\nstream, and redirection guard. Refactor: introduce `ConsoleSink` as the\nsingle owner, delegate all three surfaces to it. Byte-preserving for\nexisting diagnostic paths; one intentional visual delta on the\nstructured-error path (see below).\n\n- **New** [`ConsoleSink.cs`](src/Core/Core.Runtime/ConsoleSink.cs) —\nlow-level primitives (`EmitStderr` / `EmitStdout`) + high-level\ndiagnostic methods (`Error` / `Warn` / `Info` / `Verbose` / `Debug`)\nwith canonical `LEVEL:` prefix.\n- All three surfaces collapse to one-line sink calls. `ColorPolicy` →\n`internal`.\n- `RecordTelemetry` **preserved verbatim** inside\n`ConsoleLoggingService` — not moved into the sink. Wiring it uniformly\nwould silently change telemetry semantics; keep for a separate design\ndiscussion.\n\n**One intentional visual delta**\n\n`Program.EmitStructuredError` previously wrote raw `error: [code]\nmessage` (lowercase, no color) directly to `Console.Error`. Routed\nthrough `ConsoleSink.Error`, so it now renders as `ERROR: [code]\nmessage` (red on non-redirected stderr, `NO_COLOR` / `FORCE_COLOR` /\nredirection guard respected via `ColorPolicy`).\n\nDocumentation is updated in the same PR to match — six pre-existing\nreferences to `error:` / `Error:` in\n[`eng-docs/spec/extension-management.md`](eng-docs/spec/extension-management.md),\n[`eng-docs/howto/extension-management.md`](eng-docs/howto/extension-management.md),\n[`wiki/onboarding-guide.md`](wiki/onboarding-guide.md), and\n[`wiki/zero-to-hero-guide.md`](wiki/zero-to-hero-guide.md) all move to\n`ERROR:`. Also resolves a pre-existing internal drift in\n`extension-management.md` (`error:` vs `Error:` on different lines).\nJSON output (`--output json`) is **unchanged** — that's the public\npayload shape, not a diagnostic prefix.\n\n**Testing Guide**\n\n- `dotnet build azclips.slnx` — clean.\n- New: `ConsoleSinkTests` — 9/9 pass.\n- Safety net (byte-preserving for diagnostic paths):\n`StreamRoutingIntegrationTests` 4/4, `TuiClassifyLineTests` 11/11,\n`CliLoggingPolicyTests` 11/11.\n- Full `Cli.Tests`: 525/533 pass (1 pre-existing unrelated failure).\n- Manual: reproduced CLIPS#545 corrupt-DLL test — `WARNING:` line\nbyte-identical to pre-refactor; `az vmss --help` now shows `ERROR:` red\n(previously `error:` white).\n\n**History Notes**\n\n{Core} Centralize console diagnostic rendering into `ConsoleSink`\n\n---\n\n- [x] Title prefix / release note conventions.\n- [x] Tests added for behavior changes.\n- [x] Docs updated where relevant.",
+          "timestamp": "2026-08-04T11:41:35+10:00",
+          "tree_id": "ec4397a0239b1aa19bc6a34a74a2a795f8f8c3b5",
+          "url": "https://github.com/Azure/azclips/commit/d32e45c6b500af660d79a50958575434021be431"
+        },
+        "date": 1785808493236,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 860605.7154373237,
+            "unit": "ns",
+            "range": "± 20485.240470676497"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 837847.7471636953,
+            "unit": "ns",
+            "range": "± 21677.837574137106"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 824250.4409987918,
+            "unit": "ns",
+            "range": "± 20707.00779838993"
           }
         ]
       }
