@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785819672773,
+  "lastUpdate": 1785819676343,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -3278,6 +3278,42 @@ window.BENCHMARK_DATA = {
             "value": 467579645.91,
             "unit": "ns",
             "range": "± 126165993.62137862"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7f017417140445116c6eeee33dd1903ca15e33c6",
+          "message": "[CLI] Add `core.output.color` config option (auto/always/never) (#649)\n\n**Related command**\n\n`az config set core.output.color`, `az config get core.output.color`,\n`az config list --all`.\n\n**Description**\n\nFixes [Azure/CLIPS#604](https://github.com/Azure/CLIPS/issues/604)\n(follow-up to PR #639 / CLIPS#543, child of CLIPS#542).\n\nAdds `core.output.color` — three-state persistent color preference for\nCLI diagnostic rendering, matching `git config color.ui` / `cargo\nterm.color` shape (`auto | always | never`).\n\n- **New config key** in\n[`ConfigurationSchema.cs`](src/Core/Core.Configuration/Schema/ConfigurationSchema.cs)\nwith `AllowedValues=[auto,always,never]`, default `auto`.\n- **`ColorMode` enum + `Parse` + `Initialize`** in\n[`ColorPolicy.cs`](src/Core/Core.Runtime/ColorPolicy.cs). `Program.Main`\nresolves the mode once from config after DI init and calls\n`ColorPolicy.Initialize(mode)` before `BuildStreams`. No per-emission\nconfig lookup.\n- **Precedence** (top to bottom): `NO_COLOR` env → `FORCE_COLOR` env →\n`core.output.color = always` → `core.output.color = never` → `TERM=dumb`\n→ target-stream redirected → color on. Env sits above config because env\nis per-invocation override; config is persistent policy. Standard\nconvention (git / cargo / npm).\n- **`auto` (default)** preserves pre-config behavior byte-for-byte.\nUsers who never touch the setting see no change.\n- **CLI-scoped**. PowerShell coloring is controlled by the PS host\n(`$PSStyle` / `$Host.PrivateData`) and is not affected by this setting;\nseparate CLIPS issue if wanted later.\n- **Docs updated**: user-facing table in\n[`docs/azure-cli/docs-conceptual/config.md`](docs/azure-cli/docs-conceptual/config.md)\nand design notes in\n[`eng-docs/spec/config-implementation.md`](eng-docs/spec/config-implementation.md)\n§10.\n\n**Testing Guide**\n\n- `dotnet build azclips.slnx` — clean.\n- New: `ColorPolicyTests` — 16/16 pass (9 `Parse` cases + 7\nprecedence-matrix cases).\n- Safety net: `ConsoleSinkTests` 9/9, `StreamRoutingIntegrationTests`\n4/4, `TuiClassifyLineTests` 11/11, `CliLoggingPolicyTests` 11/11 — 51/51\ncombined.\n- Full `Cli.Tests`: 551/559 pass (1 pre-existing unrelated\n`ManagedIdentityE2ETests` failure).\n- Manual (CLI):\n- `az config set core.output.color=never; az vm --help` → no color even\non a live terminal.\n- `az config set core.output.color=always; az vm --help 2> log.txt` →\ncolor present in `log.txt` (redirection bypassed).\n- `NO_COLOR=1 az vm --help` with `core.output.color=always` → no color\n(env wins).\n- `az config unset core.output.color; az vm --help` → colors return to\nauto-detected behavior.\n\n**History Notes**\n\n[CLI] `az config set core.output.color`: Add `auto` | `always` | `never`\nfor persistent color preference\n\n---\n\n- [x] Title prefix / release note conventions.\n- [x] Tests added for behavior changes.\n- [x] Docs updated where relevant.",
+          "timestamp": "2026-08-04T14:47:20+10:00",
+          "tree_id": "13a6e4d1236a17508b5245c23a748c0747774074",
+          "url": "https://github.com/Azure/azclips/commit/7f017417140445116c6eeee33dd1903ca15e33c6"
+        },
+        "date": 1785819676247,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 368183113.7,
+            "unit": "ns",
+            "range": "± 5887191.346549689"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 356448105.71,
+            "unit": "ns",
+            "range": "± 5015489.145352186"
           }
         ]
       }
