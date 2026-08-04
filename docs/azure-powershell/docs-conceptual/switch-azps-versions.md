@@ -1,0 +1,113 @@
+---
+title: Switch between classic and preview Azure PowerShell (Private preview)
+description: Learn how the preview Az modules coexist with your classic Az installation and how to choose which version loads in a PowerShell session.
+ms.topic: conceptual
+---
+
+# Switch between classic and preview Azure PowerShell (Private preview)
+
+The preview Az modules install side by side with your existing (classic) Az modules. Both use the
+same module names (`Az`, `Az.Compute`, and so on), so a single PowerShell session can load only one
+of them at a time. This article explains how to choose which version loads and how to switch between
+them.
+
+## How coexistence works
+
+When you install the preview, its modules land in the same module path as the classic modules, just
+at a different version number. The preview ships as version `0.1.0`; classic releases use higher
+version numbers (for example, `15.6.0`).
+
+| Product | Example version | Notes |
+| --- | --- | --- |
+| Classic Azure PowerShell | `15.6.0` | Your existing, full Az installation. |
+| Preview (azclips) | `0.1.0` | The private-preview modules. |
+
+Because both versions are available, PowerShell decides which one to load based on the version you
+request. See [Install Azure PowerShell modules][01] for how the preview is installed.
+
+## Check which versions are installed
+
+List every installed version of the `Az` module:
+
+```powershell
+Get-Module Az -ListAvailable | Select-Object Name, Version, ModuleBase
+```
+
+The preview appears as version `0.1.0`. If you also have classic Azure PowerShell, its higher
+version numbers appear in the same list.
+
+## Load a specific version
+
+Use `Import-Module` with `-RequiredVersion` to choose which version loads in the current session.
+
+Load the **preview**:
+
+```powershell
+Import-Module Az -RequiredVersion 0.1.0
+```
+
+Load the **classic** version (use the version number from the previous step):
+
+```powershell
+Import-Module Az -RequiredVersion 15.6.0
+```
+
+> [!NOTE]
+> If you run `Import-Module Az` without `-RequiredVersion`, PowerShell loads the **highest**
+> installed version. When classic Azure PowerShell is present, that means the classic modules load,
+> not the preview. Always pass `-RequiredVersion 0.1.0` to load the preview.
+
+## Confirm which version is active
+
+Check the version of the `Az` module loaded in the current session:
+
+```powershell
+Get-Module Az | Select-Object Name, Version
+```
+
+A version of `0.1.0` means the preview is active. A higher version means the classic modules are
+active. If nothing is returned, no `Az` module is loaded yet in this session.
+
+## Switch between versions
+
+**Each PowerShell session can use only one version.** Decide which version you want before you run
+your first `Import-Module Az`, and start a new session to switch.
+
+You can't switch versions inside a running session. The Az modules load binary (.NET) components,
+and once those are loaded, PowerShell can't replace them with a different version. Attempting to
+import the other version fails with an error such as:
+
+```
+Import-Module: Could not load file or assembly '...'. Assembly with same name is already loaded
+```
+
+`Remove-Module` doesn't help either: it removes the PowerShell module, but the loaded assemblies stay
+in the process. To switch, exit and start a new session:
+
+```powershell
+exit
+pwsh
+Import-Module Az -RequiredVersion 0.1.0
+```
+
+### Optional: helper functions
+
+To make switching feel seamless, add functions to your PowerShell profile that each start a clean
+session in the version you want:
+
+```powershell
+function az-preview { pwsh -NoExit -Command 'Import-Module Az -RequiredVersion 0.1.0' }
+function az-classic { pwsh -NoExit -Command 'Import-Module Az' }
+```
+
+Run `az-preview` or `az-classic` to open a fresh session with that version loaded.
+
+## Related content
+
+- [Install Azure PowerShell modules][01]
+- [Get started with Azure PowerShell][02]
+
+<!-- link references -->
+
+[01]: ./install-powershell-modules.md
+[02]: ./getting-started.md
