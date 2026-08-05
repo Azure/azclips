@@ -19,7 +19,7 @@ namespace Core.Cli.Parser;
 /// <list type="bullet">
 ///   <item><c>--upload-telemetry</c> — pre-DI process-shape flag; the detached telemetry uploader
 ///     child skips DI entirely, so it short-circuits before this parser runs.</item>
-///   <item><c>--print-probe</c> / <c>--meow</c> — diagnostic with its own mini-grammar
+///   <item><c>--print-probe</c> — diagnostic with its own mini-grammar
 ///     (<c>--list</c>, <c>&lt;name&gt;</c>). See <see cref="PrintProbe"/>.</item>
 ///   <item>Shell tab-completion generation — needs DI-resolved services.</item>
 /// </list>
