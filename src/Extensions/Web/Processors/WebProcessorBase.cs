@@ -1,9 +1,10 @@
 ﻿using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using ProfileModel = Core.Abstractions.Profile;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Web.Processors
 {
     public abstract class WebProcessorBase : IProcessor
     {
@@ -11,7 +12,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors
         protected IEventPublisher Publisher = null!;
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
-        protected AuthContext AuthContext = null!;
+
+        /// <summary>The resolved connection profile from the processor context; null when none is available.</summary>
+        protected ProfileModel? ResolvedProfile;
 
         protected virtual void BeforeInit()
         {
@@ -38,7 +41,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            AuthContext = context.AuthHandler.AuthContext;
+            ResolvedProfile = context.Profile;
 
             AfterInit();
             return this;
@@ -52,7 +55,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
-        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, AuthContext)
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile)
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
@@ -60,7 +63,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors
         {
             T child = new T { HttpPipeline = HttpPipeline, Publisher = Publisher, JsonOptions = JsonOptions, };
             child.WriteOutput = WriteOutput;
-            child.AuthContext = AuthContext;
+            child.ResolvedProfile = ResolvedProfile;
             configure?.Invoke(child);
             return child;
         }
@@ -88,6 +91,31 @@ namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors
 
             return _response;
         }
+
+        /// <summary>
+        /// Verifies the processor was initialized with the runtime context required to issue requests
+        /// and publish events. Throws a deterministic <see cref="InvalidOperationException"/> (rather
+        /// than letting a later access throw <see cref="NullReferenceException"/>) when it was not.
+        /// </summary>
+        private protected void EnsureRuntimeContext()
+        {
+            if (HttpPipeline is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+            }
+            if (Publisher is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
+            }
+            if (WriteOutput is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(WriteOutput)}.");
+            }
+            if (JsonOptions is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(JsonOptions)}.");
+            }
+        }
     }
 
     /// <summary>
@@ -105,10 +133,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors
         public string SubscriptionId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="AuthContext"/>.
+        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="ResolvedProfile"/>.
         /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport.
         /// </summary>
-        /// TODO: update processor context to accept tenantId and subscriptionId instead of auth context
         protected void ResolveSubscriptionId()
         {
             if (!string.IsNullOrWhiteSpace(SubscriptionId))
@@ -116,19 +143,19 @@ namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors
                 return;
             }
 
-            if (AuthContext is null)
+            if (ResolvedProfile is null)
             {
                 throw new InvalidOperationException(
-                    $"Processor {GetType().Name} was not initialized with {nameof(AuthContext)}, so SubscriptionId cannot be resolved. Provide it via the property instead.");
+                    $"Processor {GetType().Name} has no profile, so SubscriptionId cannot be resolved. Sign in with 'login' or pass --subscription-id / --profile.");
             }
 
-            if (string.IsNullOrWhiteSpace(AuthContext.SubscriptionId))
+            if (string.IsNullOrWhiteSpace(ResolvedProfile.SubscriptionId))
             {
                 throw new InvalidOperationException(
-                    "SubscriptionId must be provided either via property or auth context.");
+                    "SubscriptionId must be provided either via property or an active profile.");
             }
 
-            SubscriptionId = AuthContext.SubscriptionId;
+            SubscriptionId = ResolvedProfile.SubscriptionId;
         }
 
         internal override Task<HttpResponseMessage> SendAsync()

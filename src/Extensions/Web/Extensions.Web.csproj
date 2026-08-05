@@ -1,15 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <AssemblyName>Microsoft.Azure.Cirrus.Extensions.Web</AssemblyName>
+    <AssemblyName>Microsoft.Azure.Azclips.Extensions.Web</AssemblyName>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <RootNamespace>Microsoft.Azure.Cirrus.Extensions.Web</RootNamespace>
-    <ExtName>Microsoft.Azure.Cirrus.Extensions.Web</ExtName>
+    <RootNamespace>Microsoft.Azure.Azclips.Extensions.Web</RootNamespace>
+    <ExtName>Microsoft.Azure.Azclips.Extensions.Web</ExtName>
 
-    <Description>Web Extension for Cirrus CLI</Description>
+    <Description>Web Extension for Azclips CLI</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/Azure/cirrus</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
-    <PackageId>Microsoft.Azure.Cirrus.Extensions.Web</PackageId>
+    <PackageId>Microsoft.Azure.Azclips.Extensions.Web</PackageId>
     <Version>1.0.0-alpha</Version>
     <Authors>Microsoft Corporation</Authors>
     <Company>Microsoft Corporation</Company>

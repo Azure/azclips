@@ -30,7 +30,7 @@ CompanyName = 'Microsoft Corporation'
 Copyright = 'Microsoft Corporation. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Cirrus - Web'
+Description = 'Azclips - Web'
 
 # Minimum version of the PowerShell engine required by this module
 PowerShellVersion = '5.1'
@@ -51,10 +51,10 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
                         '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
                         '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Web/Microsoft.Azure.Cirrus.Extensions.Web.dll'
+                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Web/Microsoft.Azure.Azclips.Extensions.Web.dll'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Web.dll')
+NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Web.dll')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()
@@ -74,13 +74,13 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = 'Azure', 'ResourceManager', 'ARM', 'Provider', 'Web', 'Webapp', 'Cirrus'
+        Tags = 'Azure', 'ResourceManager', 'ARM', 'Provider', 'Web', 'Webapp', 'Azclips'
 
         # A URL to the license for this module.
         LicenseUri = 'https://aka.ms/azps-license'
 
         # A URL to the main website for this project.
-        ProjectUri = 'https://github.com/Azure/cirrus'
+        ProjectUri = 'https://github.com/Azure/azclips'
 
         # ReleaseNotes of this module
         ReleaseNotes = '* First preview'

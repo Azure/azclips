@@ -1,4 +1,4 @@
-﻿namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors;
+﻿namespace Microsoft.Azure.Azclips.Extensions.Web.Processors;
 
 public class DeleteWebappProcessor_Orchestrator : WebProcessorBase<object>
 {

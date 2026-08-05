@@ -1,8 +1,6 @@
 ﻿using Core.Abstractions.Runtime;
-// using Microsoft.Azure.Cirrus.ExtensionRuntime;
-// using Microsoft.Azure.Cirrus.Extensions.Web.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Web.Processors;
 
 public class DeleteWebappProcessor : WebProcessorBase<object>
 {

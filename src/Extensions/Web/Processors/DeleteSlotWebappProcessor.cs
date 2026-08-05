@@ -1,11 +1,10 @@
 ﻿using Core.Abstractions.Runtime;
-// using Microsoft.Azure.Cirrus.ExtensionRuntime;
-// using Microsoft.Azure.Cirrus.Extensions.Web.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Web.Processors;
 
 public class DeleteSlotWebappProcessor : WebProcessorBase<object>
 {
+    private const string apiVersion = "2024-11-01";
     public string Name { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
     public string Slot { get; set; } = string.Empty;
@@ -16,7 +15,6 @@ public class DeleteSlotWebappProcessor : WebProcessorBase<object>
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
-        const string apiVersion = "2024-11-01";
         string uri = $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Web/sites/{Name}/slots/{Slot}?";
         if (DeleteMetrics.HasValue)
             uri += $"deleteMetrics={DeleteMetrics}&";

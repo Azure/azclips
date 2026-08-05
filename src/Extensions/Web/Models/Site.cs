@@ -1,7 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-namespace Microsoft.Azure.Cirrus.Extensions.Web.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Web.Models;
 
 /// <summary>
 /// A web app, a mobile app backend, or an API app.

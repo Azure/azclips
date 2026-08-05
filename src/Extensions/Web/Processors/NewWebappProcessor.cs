@@ -1,9 +1,11 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Microsoft.Azure.Cirrus.Extensions.Web.Models;
+using System.Net.Http.Json;
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.Extensions.Web.Models;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Web.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.Web.Processors;
 
 public class NewWebappProcessor : WebProcessorBase<Site>
 {
@@ -113,61 +115,72 @@ public class NewWebappProcessor : WebProcessorBase<Site>
 
 	public ExtendedLocation? ExtendedLocation { get; set; }
 
+	private const string ApiVersion = "2024-11-01";
+
 	protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-            string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
-            VirtualMachine body = new VirtualMachine
-            {
-                Location = Location,
-                Properties = new VirtualMachineProperties
-                {
-                    HardwareProfile = new HardwareProfile(VmSize),
-                    StorageProfile = new StorageProfile
-                    {
-                        ImageReference = new ImageReference
-                        {
-                            Publisher = ImagePublisher,
-                            Offer = ImageOffer,
-                            Sku = ImageSku,
-                            Version = ImageVersion
-                        }
-                    },
-                    OSProfile = new OSProfile
-                    {
-                        ComputerName = Name,
-                        AdminUsername = AdminUsername,
-                        AdminPassword = AdminPassword,
-                        WindowsConfiguration = new WindowsConfiguration()
-                    },
-                    NetworkProfile = new NetworkProfile
-                    {
-                        NetworkInterfaces =
-                        [
-                            new NetworkInterfaceReference { Id = NetworkInterfaceId }
-                        ]
-                    },
-                    SecurityProfile = new SecurityProfile
-                    {
-                        SecurityType = SecurityType,
-                        UefiSettings = new UefiSettings
-                        {
-                            SecureBootEnabled = SecureBootEnabled,
-                            VTpmEnabled = VTpmEnabled
-                        }
-                    },
-                    DiagnosticsProfile = new DiagnosticsProfile
-                    {
-                        BootDiagnostics = new BootDiagnostics { Enabled = BootDiagnosticsEnabled }
-                    }
-                }
-            };
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
-            {
-                Content = JsonContent.Create(body, options: JsonOptions)
-            };
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-                      }
+	{
+		await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+		string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Web/sites/{Name}?api-version={ApiVersion}";
+		Site body = new Site
+		{
+			Location = Location,
+			Kind = Kind,
+			Tags = Tags,
+			State = State,
+			HostNames = HostNames,
+			RepositorySiteName = RepositorySiteName,
+			UsageState = UsageState,
+			Enabled = Enabled,
+			EnabledHostNames = EnabledHostNames,
+			AvailabilityState = AvailabilityState,
+			HostNameSslStates = HostNameSslStates,
+			ServerFarmId = ServerFarmId,
+			Reserved = Reserved,
+			IsXenon = IsXenon,
+			HyperV = HyperV,
+			LastModifiedTimeUtc = LastModifiedTimeUtc,
+			VnetRouteAllEnabled = VnetRouteAllEnabled,
+			VnetImagePullEnabled = VnetImagePullEnabled,
+			VnetContentShareEnabled = VnetContentShareEnabled,
+			SiteConfig = SiteConfig,
+			TrafficManagerHostNames = TrafficManagerHostNames,
+			ScmSiteAlsoStopped = ScmSiteAlsoStopped,
+			TargetSwapSlot = TargetSwapSlot,
+			HostingEnvironmentProfile = HostingEnvironmentProfile,
+			ClientAffinityEnabled = ClientAffinityEnabled,
+			ClientCertEnabled = ClientCertEnabled,
+			ClientCertMode = ClientCertMode,
+			ClientCertExclusionPaths = ClientCertExclusionPaths,
+			HostNamesDisabled = HostNamesDisabled,
+			CustomDomainVerificationId = CustomDomainVerificationId,
+			OutboundIpAddresses = OutboundIpAddresses,
+			PossibleOutboundIpAddresses = PossibleOutboundIpAddresses,
+			ContainerSize = ContainerSize,
+			DailyMemoryTimeQuota = DailyMemoryTimeQuota,
+			SuspendedTill = SuspendedTill,
+			MaxNumberOfWorkers = MaxNumberOfWorkers,
+			CloningInfo = CloningInfo,
+			ResourceGroup = ResourceGroup,
+			IsDefaultContainer = IsDefaultContainer,
+			DefaultHostName = DefaultHostName,
+			SlotSwapStatus = SlotSwapStatus,
+			HttpsOnly = HttpsOnly,
+			RedundancyMode = RedundancyMode,
+			InProgressOperationId = InProgressOperationId,
+			PublicNetworkAccess = PublicNetworkAccess,
+			StorageAccountRequired = StorageAccountRequired,
+			KeyVaultReferenceIdentity = KeyVaultReferenceIdentity,
+			VirtualNetworkSubnetId = VirtualNetworkSubnetId,
+			ManagedEnvironmentId = ManagedEnvironmentId,
+			Identity = Identity,
+			ExtendedLocation = ExtendedLocation,
+		};
+		HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
+		{
+			Content = JsonContent.Create(body, options: JsonOptions)
+		};
+		await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+		return request;
+	}
 
 }
