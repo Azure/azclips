@@ -88,9 +88,7 @@ public sealed class RuntimeHelpDispatcher
         }
 
         var verb = path[0];
-        // Syntactic proxy: extra tokens after the verb indicate command help; the actual group-vs-command
-        // fallback below still tries both against the leaf index in case the user asked about an
-        // intermediate group.
+        // Command-help hint; branches below still fall back to group help if no command matches.
         var isCommandHelp = path.Count > 1;
 
         var discovered = DiscoverInstalledExtensions();
@@ -103,9 +101,7 @@ public sealed class RuntimeHelpDispatcher
                 return intrinsicExitCode;
             }
 
-            // No discovered owner for this verb. If the embedded hint table knows it,
-            // surface the structured "extension not installed" message — same UX as
-            // the execute path (see ExtensionDispatcher.Parse).
+            // Matches the execute-path UX in ExtensionDispatcher.Parse.
             if (_hintTable.TryGetPackageId(verb, out var hintedPackage))
             {
                 throw new ExtensionNotInstalledException(verb, hintedPackage);
@@ -125,10 +121,7 @@ public sealed class RuntimeHelpDispatcher
         IEnumerable<string> lines;
         if (isCommandHelp)
         {
-            // The caller flags any path with extra tokens as a command-help request, but the
-            // user may have asked about an intermediate group (e.g. `az deployment group --help`
-            // when the only leaf is `deployment group create`). Try the command first; fall back
-            // to group help so partial paths don't crash the renderer.
+            // Extra tokens may name an intermediate group; fall back to group help if no command matches.
             var command = helpProvider.GetCommandHelp(path);
             if (command != null)
             {

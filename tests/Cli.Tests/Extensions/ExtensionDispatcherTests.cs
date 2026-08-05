@@ -23,8 +23,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldThrowArgumentException_WhenArgsEmpty()
     {
-        // Post-CLIPS-519: bare `az` is dispatched as root help by GlobalArgParser / Program.Main;
-        // reaching the dispatcher with no args is a programmer error, surfaced as ArgumentException.
+        // Bare `az` is dispatched by GlobalArgParser; reaching the dispatcher with no args is a programmer error.
         var dispatcher = new ExtensionDispatcher();
 
         Assert.Throws<ArgumentException>(() => dispatcher.Parse(Array.Empty<string>()));

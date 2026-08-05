@@ -89,11 +89,7 @@ public class ExtensionDispatcher //: IParser
                     }
                 }
 
-                // An intrinsic host verb (e.g. `version`) that reached this point necessarily carries
-                // trailing tokens — the exact single-token shapes already dispatched via
-                // GlobalArgParser, and any real subcommand would have matched the leaf index
-                // above. So report the precise usage error instead of the misleading "command group
-                // not found" (which would also wrongly hand off to the AI fallback).
+                // Intrinsic verb with trailing tokens: precise usage error instead of "command group not found".
                 if (IntrinsicVerbs.TryResolve(verb, out var intrinsicVerb))
                 {
                     var trailing = string.Join(" ", args.Skip(1));

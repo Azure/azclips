@@ -89,8 +89,7 @@ public class Program
             using var activity = telemetryService.StartRootActivity();
             var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
 
-            // Safe defaults so error handlers have values even if GlobalArgParser.Parse throws
-            // (invalid --output value → AzclipsErrorException.UsageError).
+            // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
             var outputJson = false;
             var positional = args;
             try

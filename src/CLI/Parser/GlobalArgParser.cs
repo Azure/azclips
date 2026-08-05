@@ -19,7 +19,7 @@ namespace Core.Cli.Parser;
 /// <list type="bullet">
 ///   <item><c>--upload-telemetry</c> — pre-DI process-shape flag; the detached telemetry uploader
 ///     child skips DI entirely, so it short-circuits before this parser runs.</item>
-///   <item><c>--print-probe</c> / <c>--meow</c> — diagnostic easter-egg with its own mini-grammar
+///   <item><c>--print-probe</c> / <c>--meow</c> — diagnostic with its own mini-grammar
 ///     (<c>--list</c>, <c>&lt;name&gt;</c>). See <see cref="PrintProbe"/>.</item>
 ///   <item>Shell tab-completion generation — needs DI-resolved services.</item>
 /// </list>
@@ -132,18 +132,12 @@ internal static class GlobalArgParser
             });
     }
 
-    // Mirrors ExtensionDispatcher's pre-refactor help classification exactly. Two recognized shapes:
-    //   1. `az help [group [cmd ...]]` — args[0] is the "help" subcommand
-    //   2. `az <group> [cmd ...] --help [...]` — a help flag appears at index >= 1
-    // A help flag at args[0] (`az --help group`) with trailing tokens is intentionally not matched
-    // here; the pre-refactor code let it fall through to the "unknown verb '--help'" error path.
+    // Recognized shapes: `az help ...` or `az <verb> ... --help`. `az --help <trailing>` intentionally falls through.
     private static HelpRequest? TryClassifyHelp(IReadOnlyList<string> positional)
     {
         if (positional.Count == 0)
         {
-            // Post-strip empty positional (e.g. `az --debug` alone) rendered as root help by
-            // Program.Main. Preserves pre-refactor behavior where an all-globals invocation still
-            // showed help.
+            // `az --debug` alone → root help; preserves pre-refactor behavior.
             return new HelpRequest(Array.Empty<string>());
         }
 
@@ -153,9 +147,7 @@ internal static class GlobalArgParser
             {
                 return new HelpRequest(Array.Empty<string>());
             }
-            // Guard: `az help ""` — pre-refactor threw ArgumentException from
-            // ExtensionDispatcher.Parse's whitespace check. Preserve by falling through here so
-            // the dispatcher's guard still fires downstream.
+            // `az help ""` falls through to the dispatcher's whitespace guard.
             if (string.IsNullOrWhiteSpace(positional[1]))
             {
                 return null;
@@ -220,9 +212,7 @@ internal static class GlobalArgParser
         return new HelpRequest(path);
     }
 
-    // Version is a host cold-path command like help. Only the exact single-token shapes dispatch;
-    // trailing tokens (e.g. `az version foo`) fall through so the dispatcher can raise its
-    // "unrecognized arguments for 'version'" usage error.
+    // Only exact single-token shapes dispatch; trailing tokens fall through to the dispatcher's usage error.
     private static VersionRequest? TryClassifyVersion(IReadOnlyList<string> positional)
     {
         if (positional.Count != 1)
