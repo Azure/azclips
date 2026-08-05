@@ -6,7 +6,6 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
-using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;

@@ -156,6 +156,11 @@ internal static class GlobalArgParser
             for (int i = 1; i < positional.Count; i++)
             {
                 var token = positional[i];
+                // `?` is a help token pre-refactor; skip it here (don't treat it as a path segment).
+                if (IsHelpFlag(token))
+                {
+                    continue;
+                }
                 if (token.StartsWith('-'))
                 {
                     break;

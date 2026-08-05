@@ -79,6 +79,22 @@ public class GlobalArgParserTests
         Assert.Equal(new[] { "group", "cmd" }, result.Help!.Path);
     }
 
+    [Theory]
+    [InlineData("?")]
+    [InlineData("-?")]
+    [InlineData("-h")]
+    [InlineData("--help")]
+    public void Parse_HelpSubcommandSkipsHelpTokensInsteadOfTreatingThemAsPath(string helpToken)
+    {
+        // Pre-refactor `StripHelpFlags` removed all help tokens (`?`, `-?`, `-h`, `--help`) from the
+        // tail of an `az help ...` subcommand invocation. `az help group ?` must yield group help
+        // for "group", not a bogus command-help request for "group ?".
+        var result = GlobalArgParser.Parse(new[] { "help", "group", helpToken });
+
+        Assert.NotNull(result.Help);
+        Assert.Equal(new[] { "group" }, result.Help!.Path);
+    }
+
     [Fact]
     public void Parse_TrailingHelpFlagOnGroup_YieldsGroupHelpPath()
     {
