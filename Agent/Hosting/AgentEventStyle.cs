@@ -89,12 +89,12 @@ public static class AgentEventStyle
 
         HostLogEmitted h when h.Level == HostLogLevel.Error => new[]
         {
-            new Segment(AgentColorRole.Error, "  ✗ [ERROR] "),
+            new Segment(AgentColorRole.Error, "  ✗ ERROR: "),
             new Segment(AgentColorRole.Default, h.Message),
         },
         HostLogEmitted h => new[]
         {
-            new Segment(AgentColorRole.Warning, "  ⚠ [WARN] "),
+            new Segment(AgentColorRole.Warning, "  ⚠ WARNING: "),
             new Segment(AgentColorRole.Default, h.Message),
         },
 

@@ -5,4 +5,11 @@
     <ProjectReference Include="..\..\src\Core\Core.Extensions\Core.Extensions.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Stubs\Fixtures\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Stubs\Fixtures\%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
 </Project>

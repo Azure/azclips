@@ -60,12 +60,6 @@ public static class ExtensionCandidateSelector
     /// (drives <c>az extension list</c>/<c>show</c>/<c>pin</c>). Keeping the diagnostic in one place ensures
     /// both surfaces report the same drift.
     /// </para>
-    /// <para>
-    /// <b>TODO(FU-4-followup):</b> Demote to <see cref="ILoggingService.Warn"/> once the CLI default log
-    /// level moves to <c>Info</c>. Today the default is <c>Error</c>
-    /// (<c>src/CLI/CliLoggingPolicy.cs:42</c>), so a <c>Warn</c> would be swallowed for anyone who
-    /// hasn't explicitly raised the log level.
-    /// </para>
     /// </remarks>
     public static void ReportUnresolvablePin(
         string packageId,

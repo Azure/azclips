@@ -40,7 +40,7 @@ The root span is enriched with per-process invariants — a machine-derived `Id`
 
 ### Per-client providers
 
-`ITelemetryProvider` owns the `ActivitySource` and the configured `TracerProvider`. Each client subclasses `DefaultTelemetryProvider` and builds its own pipeline, honouring the opt-out flag first (`src/Core/Core.Telemetry/DefaultTelemetryProvider.cs:13-22`):
+`ITelemetryProvider` owns the `ActivitySource` and the configured `TracerProvider`. Each client subclasses `DefaultTelemetryProvider` and builds its own pipeline (`src/Core/Core.Telemetry/DefaultTelemetryProvider.cs:13-22`):
 
 | Provider | Client | Exporter | Source |
 | --- | --- | --- | --- |
@@ -48,7 +48,7 @@ The root span is enriched with per-process invariants — a machine-derived `Id`
 | `TUITelemetryProvider` | `ClientType.TUI` | `FileTelemetrySender` (file buffer) | `TUI/Telemetry/TUITelemetryProvider.cs:14-45` |
 | `DirectTelemetrySender` (PowerShell) | — | Azure Monitor inline, no buffering | `src/Core/Core.Telemetry/DirectTelemetrySender.cs:14-27` |
 
-Each provider reads `TelemetryOptions.Enabled` and **returns immediately** when telemetry is disabled, leaving the base `DefaultTelemetryProvider` (a no-op `"Default"` source) in place (`src/CLI/Telemetry/CLITelemetryProvider.cs:20-21`; `src/Core/Core.Abstractions/TelemetryOptions.cs:6-8`). All providers register the same filter processors, HTTP-client instrumentation, and resource service name via `ProcessUtils.GetRunningProcess()` (`src/CLI/Telemetry/CLITelemetryProvider.cs:25-44`).
+The `telemetry.enabled` opt-out is enforced in `TelemetryService.StartActivity` / `StartRootActivity` at call time — the service reads `TelemetryOptions.Enabled` via `IConfigurationService` on every span and returns `null` when disabled, so `Set-AzConfig` / `az config set` take effect on the very next cmdlet without a module reload (`src/Core/Core.Telemetry/TelemetryService.cs`, `src/Core/Core.Abstractions/TelemetryOptions.cs:6-8`). Providers always build the full pipeline regardless of the config value, so the opt-out is symmetric in both directions. All providers register the same filter processors, HTTP-client instrumentation, and resource service name via `ProcessUtils.GetRunningProcess()` (`src/CLI/Telemetry/CLITelemetryProvider.cs:25-44`).
 
 ## Privacy model — the allow-list processors
 

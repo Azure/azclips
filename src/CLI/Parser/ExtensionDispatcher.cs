@@ -115,6 +115,23 @@ public class ExtensionDispatcher //: IParser
                     }
                 }
 
+                // An intrinsic host verb (e.g. `version`) that reached this point necessarily carries
+                // trailing tokens — the exact single-token shapes already dispatched via
+                // TryCreateVersionRequest, and any real subcommand would have matched the leaf index
+                // above. So report the precise usage error instead of the misleading "command group
+                // not found" (which would also wrongly hand off to the AI fallback).
+                if (IntrinsicVerbs.TryResolve(verb, out var intrinsicVerb))
+                {
+                    var trailing = string.Join(" ", args.Skip(1));
+                    throw AzclipsErrorException.UsageError(
+                        $"Unrecognized arguments for '{intrinsicVerb}': {trailing}",
+                        new Dictionary<string, object?>
+                        {
+                            ["verb"] = intrinsicVerb,
+                            ["arguments"] = args.Skip(1).ToArray(),
+                        });
+                }
+
                 // Generic miss → OrchestratorEngine hands off to AI fallback.
                 throw new KeyNotFoundException(
                     $"Command group '{verb}' not found. Run 'az extension list' to see installed extensions.");
@@ -150,6 +167,18 @@ public class ExtensionDispatcher //: IParser
         {
             (string subCommand, parameters) = extensionParser.Parse(extensionArgs);
             commandName = string.IsNullOrEmpty(subCommand) ? verb : $"{verb} {subCommand}";
+
+            // matchedPathTokens == 0 means longest-prefix matched only the root leaf (verb, "")
+            // — no deeper path leaf — so the invocation may name a command group (a root like
+            // `agent`, or an intermediate group like `agent tool`) that has no runnable leaf.
+            // Surface CommandNotFound with a `--help` hint rather than dispatching it to the
+            // extension, which would throw a generic "command not found" and fall through to the AI
+            // agent. The matchedPathTokens > 0 branch above hit an exact deeper leaf and can't reach
+            // here. Mirrors the verb-only fallback above.
+            if (_leafIndex.Value.IsCommandGroup(verb, string.Join(" ", nonFlagLeadingArgs)))
+            {
+                throw new CommandNotFoundException(verb, nonFlagLeadingArgs);
+            }
         }
 
         return new CommandInvocation(

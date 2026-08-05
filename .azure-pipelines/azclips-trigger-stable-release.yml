@@ -29,6 +29,8 @@ parameters:
   default: main
 
 variables:
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'get-github-pat-token'
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
 - name: GitHubTargetRepo
@@ -63,6 +65,12 @@ stages:
       fetchDepth: 0
       persistCredentials: true
 
+    - template: templates/dist/steps/get-github-pat-token.yml
+      parameters:
+        azureSubscription: $(AzureSubscription)
+        keyVaultName: $(GitHubPatKeyVault)
+        secretName: $(GitHubPatSecretName)
+
     - task: UseDotNet@2
       displayName: .NET SDK
       inputs:
@@ -80,7 +88,7 @@ stages:
         changelog_file='CHANGELOG.md'
 
         if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
-          echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the release PR branch and create the PR."
+          echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
           exit 1
         fi
 
@@ -266,7 +274,7 @@ stages:
         echo "##vso[task.setvariable variable=StableReleaseTimestamp]$changelog_release_timestamp"
       displayName: Prepare Stable Release Branch
       env:
-        GH_TOKEN: $(GitHubToken)
+        GH_TOKEN: $(GH_TOKEN)
 
     - task: PowerShell@2
       displayName: Update Release Changelog
@@ -275,7 +283,7 @@ stages:
         filePath: devops/scripts/publishing/Update-ReleaseChangelog.ps1
         arguments: -RepoRoot "$(Build.SourcesDirectory)" -Version "$(StableVersion)" -ReleaseTimestamp "$(StableReleaseTimestamp)" -GitHubRepository "$(GitHubTargetRepo)" -AllowEmpty
       env:
-        GH_TOKEN: $(GitHubToken)
+        GH_TOKEN: $(GH_TOKEN)
 
     - bash: |
         set -euo pipefail
@@ -302,7 +310,19 @@ stages:
         git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$release_branch"
 
         pr_title="{DevOps} Trigger stable release $target_version"
-        pr_body="Updates src/CLI/Core.Cli.csproj to $target_version and aggregates module ChangeLog.md entries into CHANGELOG.md and PowerShell module manifests. After this PR merges to $target_branch, azclips-trigger-stable-release will run again from the main version change, tag the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and start the stable build/sign/publish chain."
+        pr_body="$(printf '%s\n' \
+          '**Description**' \
+          '' \
+          "Prepare stable release $target_version." \
+          '' \
+          '- Updates src/CLI/Core.Cli.csproj' \
+          '- Updates the root CHANGELOG.md' \
+          '- Updates src/PS/Az/Az.psd1' \
+          '- Updates PowerShell module changelogs and manifests' \
+          '' \
+          '**After merge**' \
+          '' \
+          "The release trigger validates the version-only change on $target_branch, tags the merged commit as v$target_version.<UTC yyyyMMddTHHmmssZ>, and starts the stable build, signing, and publishing flow.")"
 
         gh pr create \
           --repo "$repo" \
@@ -317,7 +337,7 @@ stages:
       name: CreateStableReleasePr
       displayName: Commit Stable Release Changes And Open PR
       env:
-        GH_TOKEN: $(GitHubToken)
+        GH_TOKEN: $(GH_TOKEN)
 
 - stage: CreateStableTag
   displayName: Create Stable Tag
@@ -334,6 +354,12 @@ stages:
       fetchDepth: 0
       persistCredentials: true
 
+    - template: templates/dist/steps/get-github-pat-token.yml
+      parameters:
+        azureSubscription: $(AzureSubscription)
+        keyVaultName: $(GitHubPatKeyVault)
+        secretName: $(GitHubPatSecretName)
+
     - bash: |
         set -euo pipefail
 
@@ -343,7 +369,7 @@ stages:
         repo='$(GitHubTargetRepo)'
 
         if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
-          echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the stable tag."
+          echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
           exit 1
         fi
 
@@ -504,4 +530,4 @@ stages:
         echo "##vso[task.setvariable variable=StableSourceCommit]$source_commit"
       displayName: Validate And Create Stable Tag
       env:
-        GH_TOKEN: $(GitHubToken)
+        GH_TOKEN: $(GH_TOKEN)

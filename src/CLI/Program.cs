@@ -89,7 +89,9 @@ public class Program
             using var activity = telemetryService.StartRootActivity();
             var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
             args = ParseDebugFlag(args, out var debugOverride);
-            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(configurationService, debugOverride);
+            var coreOptions = configurationService.GetConfiguration<CoreOptions>();
+            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, debugOverride);
+            ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
             streams = BuildStreams(effectiveLogLevel);
             args = ParseOutputFlag(args, out var outputJson);
             args = ParseNoCacheFlag(args);
@@ -182,6 +184,11 @@ public class Program
         }
         finally
         {
+            // Route through streams.WriteDebug (level-gated) so the aggregate table stays
+            // silent under warn/error and only surfaces under --debug. Routing through
+            // _logger would fall back to ConsoleLoggingService here (session's UseScope
+            // was already disposed) and leak the table regardless of level.
+            ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
             AzclipsServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
@@ -210,17 +217,14 @@ public class Program
             },
             WriteError: (value, ct) =>
             {
-                var originalColor = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine($"[ERROR] {value}");
-                Console.ForegroundColor = originalColor;
+                ConsoleSink.Error(value?.ToString() ?? string.Empty);
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, ct) =>
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
                 {
-                    Console.WriteLine($"VERBOSE: {value}");
+                    ConsoleSink.Verbose(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             },
@@ -228,7 +232,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
                 {
-                    Console.WriteLine($"DEBUG: {value}");
+                    ConsoleSink.Debug(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             },
@@ -236,7 +240,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
                 {
-                    Console.WriteLine($"WARNING: {value}");
+                    ConsoleSink.Warn(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             },
@@ -244,7 +248,7 @@ public class Program
             {
                 if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
                 {
-                    Console.WriteLine($"INFO: {value}");
+                    ConsoleSink.Info(value?.ToString() ?? string.Empty);
                 }
                 return Task.CompletedTask;
             }
@@ -311,7 +315,7 @@ public class Program
         }
         else
         {
-            Console.Error.WriteLine($"error: [{ex.Code}] {ex.Message}");
+            ConsoleSink.Error($"[{ex.Code}] {ex.Message}");
         }
     }
 

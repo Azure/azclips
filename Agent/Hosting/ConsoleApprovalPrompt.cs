@@ -66,8 +66,9 @@ public sealed class ConsoleApprovalPrompt
     // StepMeta so the hook owns the JSON parsing. Destructive drives the red marker.
     public sealed record PlanStep(int Id, string Label, string Cmd, bool Destructive = false);
 
-    // A secret only the user can supply — rendered with <Name> as a placeholder.
-    public sealed record UserInputNeed(string Name, string Description);
+    // A secret only the user can supply — Flag names the flag (e.g. --admin-password);
+    // its value appears as a <placeholder> alongside the flag in the step command.
+    public sealed record UserInputNeed(string Flag, string Description);
 
     // A flag the agent chose/derived for the user. Value is NOT stored — it's read
     // from the matching flag in the plan's step command at render time, so the
@@ -245,14 +246,14 @@ public sealed class ConsoleApprovalPrompt
         if (hasPlaceholders)
             foreach (var p in placeholders!)
             {
-                // Show the flag as it appears in the command (e.g.
-                // "--admin-password <admin-password>") so it lines up with the
-                // default rows above, instead of a bare "<admin-password>".
-                var token = FindFlagToken(steps, p.Name);
-                // If the flag wasn't found in any step, FindFlagToken returns just
-                // the flag (no value) — fall back to the <name> form so the
-                // "you must fill this in" cue isn't lost.
-                var display = token.Contains('<') ? token : $"--{OneLine(p.Name.TrimStart('-'))} <{OneLine(p.Name.TrimStart('-'))}>";
+                // Show the flag with its value as it appears in the step command (e.g.
+                // "--admin-password <admin-password>"). If the step didn't include the flag,
+                // FindFlagToken returns the bare flag; append a <flag-derived> placeholder so
+                // the "you must fill this in" cue isn't lost.
+                var token = FindFlagToken(steps, p.Flag);
+                var display = token.Contains(' ') || token.Contains('<')
+                    ? token
+                    : $"{token} <{OneLine(token.TrimStart('-'))}>";
                 Console.WriteLine($"• {OneLine(display)}: {OneLine(p.Description)}");
             }
     }
