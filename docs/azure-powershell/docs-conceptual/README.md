@@ -16,7 +16,8 @@ PowerShell.
 ## Install Azure PowerShell
 
 - [Installation overview][03]
-  - [Install Azure PowerShell modules][04]
+- [Install Azure PowerShell modules][04]
+- [Switch between classic and preview Azure PowerShell][05]
 
 ## Sign in
 
@@ -34,3 +35,4 @@ PowerShell.
 [04]: ./install-powershell-modules.md
 [05]: ./profile-base-login.md
 [06]: ./troubleshooting.md
+[07]: ./switch-azps-versions.md

@@ -417,7 +417,7 @@ sequenceDiagram
 
 `Main` first special-cases the telemetry uploader (`Program.cs:34`) — a re-entrant `az --upload-telemetry` used by the detached flush process (see §10). Then it registers CLI providers and calls `Initialize` (`:40-53`). Completion generation gets a chance to short-circuit (`:56`), because shell tab-completion must resolve `IEngine` directly and exit before we do "real" work.
 
-`ExtensionDispatcher.Parse` (`:76`, impl at `ExtensionDispatcher.cs:44`) turns `argv` into a `CommandInvocation`. It distinguishes help forms (bare `az`, `--help`, `-h`, `az help <group>`), throwing typed `DispatchHelpException`/`RuntimeExtensionHelpException` that `Main` catches to render help rather than execute. Bare `az` is treated as a top-level help request and additionally triggers the ASCII welcome banner in `Program.Main` (`WelcomeBanner.cs`). It resolves the verb against a merged **leaf index** of built-in extensions (`BuiltInExtensions.Map`) plus the user's installed registry (`FileExtensionRegistryStore`).
+`ExtensionDispatcher.Parse` (`:76`, impl at `ExtensionDispatcher.cs:44`) turns `argv` into a `CommandInvocation`. Help / version are classified upstream by `GlobalArgParser.Parse` (`src/CLI/Parser/GlobalArgParser.cs`) into `GlobalArgs.Help` / `GlobalArgs.Version` and dispatched directly through `RuntimeHelpDispatcher` / `RuntimeVersionDispatcher` — no control-flow-via-exceptions on the cold path. Bare `az` produces `Help.Path == []` **and** triggers the ASCII welcome banner in `Program.Main` (`WelcomeBanner.cs`); user-typed help (`az --help`, `az -h`, `az help`) skips the banner. `ExtensionDispatcher` resolves the verb against a merged **leaf index** of built-in extensions (`BuiltInExtensions.Map`) plus the user's installed registry (`FileExtensionRegistryStore`).
 
 ### 5.2 Open the session, resolve the profile, build the context
 
@@ -478,15 +478,13 @@ The payoff of the single-container design is that the PowerShell path is _the sa
 
 Now the interesting path: what happens when §5 throws.
 
-`Main`'s catch ladder (`Program.cs:91-144`) is a deliberate triage:
+`Main`'s catch ladder (`Program.cs`) is a deliberate triage. Help and version are handled _before_ the ladder — they're record fields on `GlobalArgs`, dispatched inline. The catches themselves only run on real command failures:
 
-| Exception                       | Handling                                                                   | Fallback?                      |
-| ------------------------------- | -------------------------------------------------------------------------- | ------------------------------ |
-| `DispatchHelpException`         | Render root help via `RuntimeHelpDispatcher`                               | No                             |
-| `RuntimeExtensionHelpException` | Render extension help                                                      | No                             |
-| `AzclipsErrorException`         | Structured, well-known error → `EmitStructuredError`, return `ex.ExitCode` | **No** — intent is unambiguous |
-| `HttpRequestException`          | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
-| `Exception` (any other)         | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
+| Exception               | Handling                                                                   | Fallback?                      |
+| ----------------------- | -------------------------------------------------------------------------- | ------------------------------ |
+| `AzclipsErrorException` | Structured, well-known error → `EmitStructuredError`, return `ex.ExitCode` | **No** — intent is unambiguous |
+| `HttpRequestException`  | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
+| `Exception` (any other) | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
 
 The key judgment call: **structured errors never trigger the agent.** If the failure is well-known (`AzclipsErrorException` at `:128`), the user's intent was understood and the answer is "here's the specific problem." Spending an LLM round-trip there would be worse UX, not better. The agent is reserved for the cases where parsing or execution failed in a way that suggests the user's _intent_ itself needs reinterpreting (a typo, a natural-language phrasing, a "how do I…" question).
 
@@ -711,7 +709,7 @@ The through-line: **degrade to the plain error, never to a hang or a hallucinati
 ## 10. Performance characteristics
 
 - **DI init is on the hot path** and is measured — the TUI logs `[startup] DI init: {ms}` at `TUI/Program.cs:41`. Because init is idempotent and singleton-heavy, it runs once; the cost is registration + `BuildServiceProvider`, not per-command.
-- **Extension index caching.** Loading and reflecting over an extension DLL is expensive, so `Engine` caches `IExtensionIndex` in an `LFUCache<Lazy<IExtensionIndex>>` (`Engine.cs:36,81`), sized by `CoreOptions.Engine.ExtensionIndexCacheSize`. `Lazy<T>` guarantees a single initialization per key even under concurrent access. `--no-cache` (`Program.cs:246`, via `AZCLIPS_NO_EXTENSION_CACHE`) bypasses this for benchmarking.
+- **Extension index caching.** Loading and reflecting over an extension DLL is expensive, so `Engine` caches `IExtensionIndex` in an `LFUCache<Lazy<IExtensionIndex>>` (`Engine.cs:36,81`), sized by `CoreOptions.Engine.ExtensionIndexCacheSize`. `Lazy<T>` guarantees a single initialization per key even under concurrent access. `--no-cache` (classified by `GlobalArgParser` into `GlobalArgs.NoCache`; `Program.Main` sets `AZCLIPS_NO_EXTENSION_CACHE=true`) bypasses this for benchmarking.
 - **Transient vs cached sessions.** `OpenDiscoverySession(..., isTransient)` and `Invocation.IsTransient` (`ExecutionSession.cs:48`) let one-off/help paths skip the cache entirely.
 - **HTTP retries.** Pipeline retry counts (`MaxRetries`, `MaxRetriesFor429`) and a 15s polling interval come from config (`Engine.cs:117-121`), so throttling behavior is tunable without a rebuild.
 - **Telemetry never blocks the user.** Traces buffer to a `FileExporter`; the flush is a _detached_ background `az --upload-telemetry` (`Program.cs:410`). The foreground command returns as soon as its work is done.
