@@ -141,8 +141,9 @@ internal static class GlobalArgParser
     {
         if (positional.Count == 0)
         {
-            // Post-strip empty positional (e.g. `az --debug` alone) — today's dispatcher throws
-            // DispatchHelpException from its args.Length == 0 branch. Preserve.
+            // Post-strip empty positional (e.g. `az --debug` alone) rendered as root help by
+            // Program.Main. Preserves pre-refactor behavior where an all-globals invocation still
+            // showed help.
             return new HelpRequest(Array.Empty<string>());
         }
 
