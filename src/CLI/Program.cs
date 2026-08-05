@@ -109,34 +109,12 @@ public class Program
 
                 if (globalArgs.Version is not null)
                 {
-                    // Cold-path host command: rendered from local data, no engine session or extension load.
-                    var versionExit = new RuntimeVersionDispatcher(configurationService, Console.Out)
-                        .Render(globalArgs.Version.Format);
-                    activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
-                    return versionExit;
+                    return DispatchVersion(globalArgs.Version, configurationService, activity);
                 }
 
                 if (globalArgs.Help is not null)
                 {
-                    var helpEngine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-                    var helpRenderer = new RuntimeHelpDispatcher(helpEngine, streams);
-                    if (globalArgs.Help.Path.Count == 0)
-                    {
-                        // Banner only for truly bare `az`, not for `az --help` / `az -h` / `az help` etc. —
-                        // keeps scripted help-output grepping unaffected.
-                        if (isBareInvocation)
-                        {
-                            WelcomeBanner.Write(Console.Out);
-                        }
-                        var rootExit = helpRenderer.RenderRoot();
-                        activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
-                        return rootExit;
-                    }
-                    // Uninstalled-package smart-suggestion path throws AzclipsErrorException; the outer
-                    // AzclipsErrorException catch renders it via EmitStructuredError.
-                    var extHelpExit = helpRenderer.RenderExtensionHelp(globalArgs.Help.Path);
-                    activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
-                    return extHelpExit;
+                    return DispatchHelp(globalArgs.Help, isBareInvocation, streams, activity);
                 }
 
                 CommandInvocation invocation = dispatcher.Parse(positional);
@@ -237,6 +215,36 @@ public class Program
                 return Task.CompletedTask;
             }
         );
+    }
+
+    // Cold-path host command: rendered from local data, no engine session or extension load.
+    private static int DispatchVersion(VersionRequest version, IConfigurationService config, Activity? activity)
+    {
+        var exit = new RuntimeVersionDispatcher(config, Console.Out).Render(version.Format);
+        activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
+        return exit;
+    }
+
+    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity)
+    {
+        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        var renderer = new RuntimeHelpDispatcher(engine, streams);
+        if (help.Path.Count == 0)
+        {
+            // Banner only for truly bare `az`; user-typed help forms stay grep-friendly.
+            if (isBareInvocation)
+            {
+                WelcomeBanner.Write(Console.Out);
+            }
+            var rootExit = renderer.RenderRoot();
+            activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
+            return rootExit;
+        }
+        // Uninstalled-package smart-suggestion path throws AzclipsErrorException; the outer
+        // AzclipsErrorException catch renders it via EmitStructuredError.
+        var extExit = renderer.RenderExtensionHelp(help.Path);
+        activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
+        return extExit;
     }
 
     private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
