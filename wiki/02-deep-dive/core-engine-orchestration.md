@@ -192,18 +192,18 @@ Every processor implements the tiny `IProcessor` contract — `Init(ProcessorCon
 
 ## 4. Orchestration & fallback in `Program.Main`
 
-The CLI `Main` (`src/CLI/Program.cs:31`) is the outer orchestrator. After DI setup and flag parsing, its inner `try` executes the command and its `catch` blocks _classify_ failures (`src/CLI/Program.cs:65-145`). The classification is the whole point: not every failure deserves an AI fallback.
+The CLI `Main` (`src/CLI/Program.cs`) is the outer orchestrator. `GlobalArgParser.Parse` classifies the invocation into a `GlobalArgs` record; version and help are dispatched from that record before `ExtensionDispatcher.Parse` runs (no more control-flow-via-exceptions on the cold path). The inner `try`'s `catch` blocks _classify_ real failures. The classification is the whole point: not every failure deserves an AI fallback.
 
-| Caught exception                | Handling                                                                   | Fallback? | Citation             |
-| ------------------------------- | -------------------------------------------------------------------------- | --------- | -------------------- |
-| _(success)_                     | `RunAsync()` returns, exit `0`                                             | —         | `Program.cs:84-89`   |
-| `DispatchHelpException`         | Render root help (plus a welcome banner when the invocation was bare `az`) | No        | `Program.cs`         |
-| `RuntimeExtensionHelpException` | Render extension help                                                      | No        | `Program.cs:100-120` |
-| `HttpRequestException`          | Network failure → try agent                                                | **Yes**   | `Program.cs:121-127` |
-| `AzclipsErrorException`         | Structured, well-known error → render + symbolic exit code                 | **No**    | `Program.cs:128-135` |
-| `Exception` (generic)           | Unknown failure → try agent                                                | **Yes**   | `Program.cs:136-144` |
+| Caught exception        | Handling                                                   | Fallback? |
+| ----------------------- | ---------------------------------------------------------- | --------- |
+| _(success)_             | `RunAsync()` returns, exit `0`                             | —         |
+| `HttpRequestException`  | Network failure → try agent                                | **Yes**   |
+| `AzclipsErrorException` | Structured, well-known error → render + symbolic exit code | **No**    |
+| `Exception` (generic)   | Unknown failure → try agent                                | **Yes**   |
 
-The design intent is explicit in the source: a structured `AzclipsErrorException` means "the failure is well-known and the user's intent is unambiguous", so there is **no AI fallback** (`Program.cs:130-131`). Only network faults and _unclassified_ exceptions route into `TryAgentFallbackAsync` (`Program.cs:281`).
+Help and version return before this ladder runs — they read from `globalArgs.Help` / `globalArgs.Version` and dispatch through [`RuntimeHelpDispatcher`](../../src/CLI/Help/RuntimeHelpDispatcher.cs) / [`RuntimeVersionDispatcher`](../../src/CLI/Version/RuntimeVersionDispatcher.cs) directly.
+
+The design intent is explicit in the source: a structured `AzclipsErrorException` means "the failure is well-known and the user's intent is unambiguous", so there is **no AI fallback**. Only network faults and _unclassified_ exceptions route into `TryAgentFallbackAsync`.
 
 ### ⚠️ Fact vs. stale doc: the fallback is out-of-process
 

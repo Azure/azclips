@@ -6,7 +6,6 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
-using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
@@ -88,16 +87,37 @@ public class Program
         {
             using var activity = telemetryService.StartRootActivity();
             var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
-            args = ParseDebugFlag(args, out var debugOverride);
-            var coreOptions = configurationService.GetConfiguration<CoreOptions>();
-            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, debugOverride);
-            ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
-            streams = BuildStreams(effectiveLogLevel);
-            args = ParseOutputFlag(args, out var outputJson);
-            args = ParseNoCacheFlag(args);
+
+            // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
+            var outputJson = false;
+            var positional = args;
             try
             {
-                CommandInvocation invocation = dispatcher.Parse(args);
+                var globalArgs = GlobalArgParser.Parse(args);
+                if (globalArgs.NoCache)
+                {
+                    // AssemblyLoadingOptions.BypassExtensionCache reads this via IConfigurationService.
+                    Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
+                }
+
+                var coreOptions = configurationService.GetConfiguration<CoreOptions>();
+                var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
+                ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
+                streams = BuildStreams(effectiveLogLevel);
+                outputJson = globalArgs.Output == OutputFormat.Json;
+                positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
+
+                if (globalArgs.Version is not null)
+                {
+                    return DispatchVersion(globalArgs.Version, configurationService, activity);
+                }
+
+                if (globalArgs.Help is not null)
+                {
+                    return DispatchHelp(globalArgs.Help, isBareInvocation, streams, activity);
+                }
+
+                CommandInvocation invocation = dispatcher.Parse(positional);
                 telemetryService.TagInvocation(invocation);
 
                 using var commandActivity =
@@ -112,57 +132,12 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
-            catch (DispatchHelpException)
-            {
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-                // Banner only for bare `az`, not for top-level flags like `az --help` —
-                // keeps scripted help-output grepping unaffected.
-                if (isBareInvocation)
-                {
-                    WelcomeBanner.Write(Console.Out);
-                }
-                var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderRoot();
-
-                activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
-                return exitCode;
-            }
-            catch (RuntimeExtensionHelpException helpException)
-            {
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-                try
-                {
-                    var exitCode = new RuntimeHelpDispatcher(engine, streams).RenderExtensionHelp(helpException);
-
-                    activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
-                    return exitCode;
-                }
-                catch (AzclipsErrorException structured)
-                {
-                    // RenderExtensionHelp surfaces ExtensionNotInstalledException when the user asks
-                    // for help on a verb owned by an uninstalled package (smart-suggestion path).
-                    // Funnel through the same renderer the execute path uses so the UX matches.
-                    EmitStructuredError(structured, outputJson);
-                    activity?.SetStatus(ActivityStatusCode.Error, structured.Message);
-                    return structured.ExitCode;
-                }
-            }
-            catch (DispatchVersionException versionException)
-            {
-                // Version is a host cold-path command (like help): gather locally and render without
-                // an engine session or extension load. JSON reuses the same formatter the old
-                // `az version` command used; text serves `az --version`.
-                var exitCode = new RuntimeVersionDispatcher(configurationService, Console.Out)
-                    .Render(versionException.Format);
-
-                activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
-                return exitCode;
-            }
             catch (HttpRequestException ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args, ex.Message);
+                return await TryAgentFallbackAsync(positional, ex.Message);
             }
             catch (AzclipsErrorException ex)
             {
@@ -179,7 +154,7 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args, ex.Message);
+                return await TryAgentFallbackAsync(positional, ex.Message);
             }
         }
         finally
@@ -192,19 +167,6 @@ public class Program
             AzclipsServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
-    }
-
-    // TODO(Yabo): Q&P squad to refactor global parameter handling
-    // this method is temporary and is for ease of debugging
-    private static string[] ParseDebugFlag(string[] args, out bool debugOverride)
-    {
-        debugOverride = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
-        if (!debugOverride)
-        {
-            return args;
-        }
-
-        return args.Where(a => !a.Equals("--debug", StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 
     private static OutputStreams BuildStreams(CliLogLevel level)
@@ -255,43 +217,34 @@ public class Program
         );
     }
 
-    // Strips `--output json` / `--output plain` (and `--output=json`) from args and reports
-    // whether JSON shape was requested. When `--output json` is active, errors render as
-    // { "error": { code, message, details } }.
-    private static string[] ParseOutputFlag(string[] args, out bool outputJson)
+    // Cold-path host command: rendered from local data, no engine session or extension load.
+    private static int DispatchVersion(VersionRequest version, IConfigurationService config, Activity? activity)
     {
-        outputJson = false;
-        var result = new List<string>(args.Length);
-        for (int i = 0; i < args.Length; i++)
-        {
-            var a = args[i];
-            if (a.Equals("--output", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
-            {
-                outputJson = args[i + 1].Equals("json", StringComparison.OrdinalIgnoreCase);
-                i++;
-                continue;
-            }
-            if (a.StartsWith("--output=", StringComparison.OrdinalIgnoreCase))
-            {
-                outputJson = a.Substring("--output=".Length).Equals("json", StringComparison.OrdinalIgnoreCase);
-                continue;
-            }
-            result.Add(a);
-        }
-        return result.ToArray();
+        var exit = new RuntimeVersionDispatcher(config, Console.Out).Render(version.Format);
+        activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
+        return exit;
     }
 
-    // Strips `--no-cache` and propagates the bypass via AZCLIPS_NO_EXTENSION_CACHE env var,
-    // which AssemblyLoadingOptions.BypassExtensionCache reads through ConfigurationService.
-    // Test hook for benchmarking.
-    private static string[] ParseNoCacheFlag(string[] args)
+    private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity)
     {
-        if (!args.Contains("--no-cache", StringComparer.OrdinalIgnoreCase))
+        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+        var renderer = new RuntimeHelpDispatcher(engine, streams);
+        if (help.Path.Count == 0)
         {
-            return args;
+            // Banner only for truly bare `az`; user-typed help forms stay grep-friendly.
+            if (isBareInvocation)
+            {
+                WelcomeBanner.Write(Console.Out);
+            }
+            var rootExit = renderer.RenderRoot();
+            activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
+            return rootExit;
         }
-        Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
-        return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
+        // Uninstalled-package smart-suggestion path throws AzclipsErrorException; the outer
+        // AzclipsErrorException catch renders it via EmitStructuredError.
+        var extExit = renderer.RenderExtensionHelp(help.Path);
+        activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
+        return extExit;
     }
 
     private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
