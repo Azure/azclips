@@ -80,6 +80,13 @@ public sealed class RuntimeHelpDispatcher
     /// <c>--help</c> / <c>help</c>).</summary>
     public int RenderExtensionHelp(IReadOnlyList<string> path)
     {
+        ArgumentNullException.ThrowIfNull(path);
+        if (path.Count == 0)
+        {
+            // Root help is handled by RenderRoot; reaching here with an empty path is a programmer error.
+            throw new ArgumentException("Path must be non-empty; root help is handled by RenderRoot.", nameof(path));
+        }
+
         var verb = path[0];
         // Syntactic proxy: extra tokens after the verb indicate command help; the actual group-vs-command
         // fallback below still tries both against the leaf index in case the user asked about an

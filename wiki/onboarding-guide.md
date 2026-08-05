@@ -478,13 +478,13 @@ The payoff of the single-container design is that the PowerShell path is _the sa
 
 Now the interesting path: what happens when §5 throws.
 
-`Main`'s catch ladder (`Program.cs`) is a deliberate triage. Help and version are handled *before* the ladder — they're record fields on `GlobalArgs`, dispatched inline. The catches themselves only run on real command failures:
+`Main`'s catch ladder (`Program.cs`) is a deliberate triage. Help and version are handled _before_ the ladder — they're record fields on `GlobalArgs`, dispatched inline. The catches themselves only run on real command failures:
 
-| Exception                       | Handling                                                                   | Fallback?                      |
-| ------------------------------- | -------------------------------------------------------------------------- | ------------------------------ |
-| `AzclipsErrorException`         | Structured, well-known error → `EmitStructuredError`, return `ex.ExitCode` | **No** — intent is unambiguous |
-| `HttpRequestException`          | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
-| `Exception` (any other)         | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
+| Exception               | Handling                                                                   | Fallback?                      |
+| ----------------------- | -------------------------------------------------------------------------- | ------------------------------ |
+| `AzclipsErrorException` | Structured, well-known error → `EmitStructuredError`, return `ex.ExitCode` | **No** — intent is unambiguous |
+| `HttpRequestException`  | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
+| `Exception` (any other) | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
 
 The key judgment call: **structured errors never trigger the agent.** If the failure is well-known (`AzclipsErrorException` at `:128`), the user's intent was understood and the answer is "here's the specific problem." Spending an LLM round-trip there would be worse UX, not better. The agent is reserved for the cases where parsing or execution failed in a way that suggests the user's _intent_ itself needs reinterpreting (a typo, a natural-language phrasing, a "how do I…" question).
 

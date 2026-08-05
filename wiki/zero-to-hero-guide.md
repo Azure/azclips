@@ -461,11 +461,11 @@ Notice the four patterns you'll copy for every command: `[ArgumentInfo]` on publ
 
 The happy path above returns `0`. The interesting behavior is what happens when a command _throws_. Help and version are dispatched from the `GlobalArgs` record before `Program.Main`'s catch ladder runs, so the ladder itself is a small triage of real failures (`src/CLI/Program.cs`):
 
-| Thrown                          | Meaning                                     | What happens                                                                    |
-| ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
-| `AzclipsErrorException`         | a known, structured error                   | print it (`ERROR: [code] message` or JSON), return its exit code — **no agent** |
-| `HttpRequestException`          | network/ARM failure                         | `TryAgentFallbackAsync`                                                         |
-| any other `Exception`           | unknown failure                             | `TryAgentFallbackAsync`                                                         |
+| Thrown                  | Meaning                   | What happens                                                                    |
+| ----------------------- | ------------------------- | ------------------------------------------------------------------------------- |
+| `AzclipsErrorException` | a known, structured error | print it (`ERROR: [code] message` or JSON), return its exit code — **no agent** |
+| `HttpRequestException`  | network/ARM failure       | `TryAgentFallbackAsync`                                                         |
+| any other `Exception`   | unknown failure           | `TryAgentFallbackAsync`                                                         |
 
 The key idea: **structured, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures where the command ran but broke in a way a fix could recover (a typo, a missing required flag, an unexpected runtime error). And even then, `TryAgentFallbackAsync` (`:304`) only proceeds if three gates pass:
 

@@ -170,11 +170,12 @@ public class GlobalArgParserTests
     [Fact]
     public void Parse_HelpAndVersionPresent_HelpWins()
     {
-        // Matches pre-refactor precedence: DispatchHelpException fires before
-        // DispatchVersionException in ExtensionDispatcher.Parse.
-        var result = GlobalArgParser.Parse(new[] { "--help" });
+        // `az version --help` carries both the version verb and a help flag. Pre-refactor the
+        // dispatcher checked help before version; the parser must preserve that precedence.
+        var result = GlobalArgParser.Parse(new[] { "version", "--help" });
 
         Assert.NotNull(result.Help);
+        Assert.Equal(new[] { "version" }, result.Help!.Path);
         Assert.Null(result.Version);
     }
 
