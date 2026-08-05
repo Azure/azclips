@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785904916954,
+  "lastUpdate": 1785904920511,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -3350,6 +3350,42 @@ window.BENCHMARK_DATA = {
             "value": 356448105.71,
             "unit": "ns",
             "range": "± 5015489.145352186"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0b437ec242e2e393a78e5980e2e7f54fd169e33c",
+          "message": "{CLI} Add global params handler (#651)\n\nFixes [Azure/CLIPS#519](https://github.com/Azure/CLIPS/issues/519). \n\nConsolidates six ad-hoc global-flag parsing sites into a single\n`GlobalArgParser`, and removes control-flow-via-exceptions from the CLI\ncold path.\n\n## What ships\n\n- **New**: `GlobalArgParser.Parse(ReadOnlySpan<string>) -> GlobalArgs`\n(`src/CLI/Parser/`). One pass, classifies `--debug`, `--output[=]`,\n`--no-cache`, the `--help` family, and the `--version` family into a\nrecord.\n- **Deleted**: `ParseDebugFlag`, `ParseOutputFlag`, `ParseNoCacheFlag`\n(Program.cs); `DispatchHelpException`, `DispatchVersionException`,\n`RuntimeExtensionHelpException`.\n- **`Program.Main`**: three `catch` blocks -> two `if` branches\n(`globalArgs.Version`, `globalArgs.Help`). `AZCLIPS_NO_EXTENSION_CACHE`\nenv-var mutation moved to the call site.\n- **`ExtensionDispatcher.Parse`**: help/version classification helpers\ndeleted (~90 lines). Single-purpose: extension routing.\n- **`RuntimeHelpDispatcher.RenderExtensionHelp`**: signature\n`(RuntimeExtensionHelpException)` -> `(IReadOnlyList<string> path)`.\nRenderer no longer depends on parser types.\n- **Tests**: 46 new `GlobalArgParserTests` covering the full precedence\nmatrix; ~13 obsolete `ExtensionDispatcherTests` removed (behavior\ncovered upstream).\n- **Docs**: 7 wiki files refreshed; line-number citations replaced with\nsymbol-name refs.\n\n## Design decisions\n\n- **`GlobalArgParser` is `internal static`**, not a DI singleton. Zero\ndeps, no host-swappable interface -- same shape as `IntrinsicVerbs`,\n`PrintProbe`, `WelcomeBanner`, `ColorPolicy`. Convert only if a real\ndependency shows up.\n- **`HelpRequest` carries only `Path`** (no `Verb` / `IsCommandHelp`).\nVerb = `Path[0]`; the group-vs-command hint (`Path.Count > 1`) is\nderived inside the renderer. Keeps `Core.Cli.Help` decoupled from\n`Core.Cli.Parser`.\n- **`OutputFormat` is a strict enum.** Unknown values (`--output yaml`)\nraise `UsageError` (exit 2) at parse time instead of silently falling\nback to plain. **Behavior change** -- arguably a bug fix.\n- **`--upload-telemetry` and `--print-probe` / `--meow` stay outside the\nparser.** Both are pre-DI process-shape short-circuits, not user-facing\nglobals. Their `if`-blocks at the top of `Program.Main` are kept with a\ncomment explaining why.\n- **Position-insensitive flag matching preserved.** `az group --debug\ncreate` still works. Switching to git-style leading-only is a policy\ndecision for a follow-up.\n- **`--no-cache` env-var mutation lives at the call site**, not in the\nparser. Parser stays pure; the env var is the real mechanism and the\nflag is just sugar for it.\n\n## Validation\n\n- Full solution build: 0 warnings, 0 errors.\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj`: all real tests pass (1\npre-existing E2E failure unrelated).\n- End-to-end smoke covers: bare `az`, `az --help`, `az --version`, `az\nversion`, `az extension --help`, `az help extension list`, `az\n--output=badvalue ...`, `az --version foo`.",
+          "timestamp": "2026-08-05T14:26:36+10:00",
+          "tree_id": "e0bfb372d32393fb7a1589913707c57a10049aeb",
+          "url": "https://github.com/Azure/azclips/commit/0b437ec242e2e393a78e5980e2e7f54fd169e33c"
+        },
+        "date": 1785904920380,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 374824256.01,
+            "unit": "ns",
+            "range": "± 7170060.05191167"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 362616909.34,
+            "unit": "ns",
+            "range": "± 6293102.818737911"
           }
         ]
       }
