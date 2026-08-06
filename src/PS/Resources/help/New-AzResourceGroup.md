@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Resources
-ms.date: 06/03/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzResourceGroup
 ---
@@ -20,14 +20,11 @@ Create a new resource group.
 ### \_\_AllParameterSets
 
 ```
-New-AzResourceGroup -Name <string> -Location <string> [-SubscriptionId <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+New-AzResourceGroup -Name <string> -Location <string> [-SubscriptionId <string>] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -120,6 +117,27 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
+### -Profile
+
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
 ### -SubscriptionId
 
 Azure Subscription Id.
@@ -145,6 +163,7 @@ HelpMessage: ""
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -174,6 +193,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ## OUTPUTS
+
+### System.String
+
+Formatted details for the newly-created resource group as text, including its ARM resource ID and provisioning state.
 
 ## NOTES
 

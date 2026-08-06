@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Resources
-ms.date: 06/18/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzResourceGroupDeploymentWhatIf
 ---
@@ -20,16 +20,14 @@ Preview the changes an ARM or Bicep deployment would make to a resource group wi
 ### \_\_AllParameterSets
 
 ```
-New-AzResourceGroupDeploymentWhatIf -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
+New-AzResourceGroupDeploymentWhatIf -ResourceGroupName <string> -Name <string>
  [-TemplateUri <string>] [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
  [-ParametersUri <string>] [-ParametersFile <string>] [-Mode <string>] [-Parameter <string[]>]
- [-ValidationLevel <string>] [-ResultFormat <string>] [<CommonParameters>]
+ [-ValidationLevel <string>] [-ResultFormat <string>] [-SubscriptionId <string>]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -337,6 +335,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ### System.Object
 
 Returns the what-if result describing the predicted resource changes (create, modify, delete, ignore, no-change) for the deployment.
+
+### System.String
+
+Formatted preview of the changes the deployment would make, as text. No resources are created or modified; the output describes deltas the ARM engine would apply if the same call were made without What-If.
 
 ## NOTES
 

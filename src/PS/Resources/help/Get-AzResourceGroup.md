@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Resources
-ms.date: 06/03/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzResourceGroup
 ---
@@ -20,19 +20,16 @@ Show details of a specific resource group.
 ### List (Default)
 
 ```
-Get-AzResourceGroup -SubscriptionId <string> [<CommonParameters>]
+Get-AzResourceGroup -SubscriptionId <string> [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzResourceGroup -SubscriptionId <string> -Name <string> [<CommonParameters>]
+Get-AzResourceGroup -SubscriptionId <string> -Name <string> [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -80,6 +77,27 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
+### -Profile
+
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
 ### -SubscriptionId
 
 Azure Subscription Id.
@@ -117,6 +135,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ## OUTPUTS
+
+### System.String
+
+Formatted resource-group details as text. In list mode (default parameter set), returns one entry per resource group in the subscription; when a name is supplied, returns a single resource-group entry.
 
 ## NOTES
 
