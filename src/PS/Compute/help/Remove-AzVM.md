@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Compute
-ms.date: 06/16/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzVM
 ---
@@ -20,14 +20,11 @@ Delete a virtual machine.
 ### \_\_AllParameterSets
 
 ```
-Remove-AzVM -SubscriptionId <string> -Name <string> -ResourceGroupName <string> [-WhatIf] [-Confirm]
- [<CommonParameters>]
+Remove-AzVM -SubscriptionId <string> -Name <string> -ResourceGroupName <string> [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -89,6 +86,27 @@ AcceptedValues: []
 HelpMessage: ""
 ```
 
+### -Profile
+
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
 ### -ResourceGroupName
 
 The resource group name.
@@ -135,6 +153,7 @@ HelpMessage: ""
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -164,6 +183,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ## OUTPUTS
+
+### System.Void
+
+This cmdlet does not emit an object on the pipeline; it only writes progress and status messages via the Information and Verbose streams.
 
 ## NOTES
 

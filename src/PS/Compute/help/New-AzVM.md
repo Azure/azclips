@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Compute
-ms.date: 06/16/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVM
 ---
@@ -27,13 +27,10 @@ New-AzVM -SubscriptionId <string> -Name <string> -Location <string> -ResourceGro
  [-RuleDirections <string[]>] [-RuleProtocols <string[]>] [-RulePriorities <int[]>]
  [-RuleSourceAddressPrefixes <string[]>] [-RuleSourcePortRanges <string[]>]
  [-RuleDestinationPortRanges <string[]>] [-RuleDestinationAddressPrefixes <string[]>]
- [-RuleAccesses <string[]>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-RuleAccesses <string[]>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -216,6 +213,28 @@ ParameterSets:
     - Name: (All)
       Position: Named
       IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -Profile
+
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
@@ -543,6 +562,7 @@ HelpMessage: ""
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -572,6 +592,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ## OUTPUTS
+
+### System.String
+
+Formatted details for the newly-created VM as text. Includes the assigned ARM resource ID, provisioning state, and network information.
+Formatted details for the newly-created VM as text. Includes the assigned ARM resource ID, provisioning state, and network information
 
 ## NOTES
 
