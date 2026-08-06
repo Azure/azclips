@@ -32,6 +32,12 @@ if (-not $ModuleRoot)
 }
 $ModuleRoot = (Resolve-Path $ModuleRoot).Path
 
+# PathRoot anchors the relative paths emitted in PSL records. Prefer the repo root when the caller
+# is validating the checked-in src/PS tree; fall back to $ModuleRoot for smoke fixtures pointing at
+# an out-of-tree temp dir so records still show a short readable path.
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$pathRoot = if ($ModuleRoot.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) { $repoRoot } else { $ModuleRoot }
+
 $discovered = @(
     Get-ChildItem -Path $ModuleRoot -Directory -ErrorAction SilentlyContinue |
         Where-Object { Test-Path (Join-Path $_.FullName "$($_.Name).psd1") } |
@@ -78,7 +84,7 @@ foreach ($moduleName in $modules)
     # Run PlatyPS in an isolated child pwsh (mirrors Publish-AzclipsHelpArtifacts in build.ps1) to
     # avoid YamlDotNet assembly conflicts and to guarantee a clean module unload between iterations.
     pwsh -NoProfile -Command {
-        param($manifest, $helpDir, $moduleName)
+        param($manifest, $helpDir, $pathRoot)
         $ErrorActionPreference = 'Continue'
 
         Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1 -ErrorAction Stop
@@ -97,7 +103,7 @@ foreach ($moduleName in $modules)
         foreach ($file in $mdFiles)
         {
             $md      = $file.FullName
-            $relPath = "$moduleName/help/$($file.Name)"
+            $relPath = [System.IO.Path]::GetRelativePath($pathRoot, $md).Replace('\', '/')
 
             try
             {
@@ -175,7 +181,7 @@ foreach ($moduleName in $modules)
         }
 
         exit $errorCount
-    } -Args $manifest, $helpDir, $moduleName
+    } -Args $manifest, $helpDir, $pathRoot
 
     # $LASTEXITCODE from a child pwsh block is the child's exit code = its error count.
     $totalErrors += [int]$LASTEXITCODE
