@@ -81,9 +81,24 @@ foreach ($moduleName in $modules)
 
     Write-Host "Validating help drift for module '$moduleName' ..."
 
-    # Run PlatyPS in an isolated child pwsh (mirrors Publish-AzclipsHelpArtifacts in build.ps1) to
-    # avoid YamlDotNet assembly conflicts and to guarantee a clean module unload between iterations.
-    pwsh -NoProfile -Command {
+    # Locally-built MAML (src/PS/<Module>/en-US/*.dll-Help.xml) is gitignored and absent in CI.
+    # If present, Update-CommandHelp reads Outputs/Inputs/etc. from it and reports different
+    # CommandHelp shape than a CI runner sees on a fresh checkout — producing false negatives
+    # ("no drift" locally while CI stays red). Hide the folder for the pipeline duration and
+    # restore it in finally so contributors' MAML survives across runs.
+    $enUsDir    = Join-Path $moduleDir 'en-US'
+    $enUsHidden = $null
+    if (Test-Path $enUsDir)
+    {
+        $enUsHidden = "$enUsDir.hidden-$([Guid]::NewGuid().ToString('N').Substring(0, 8))"
+        Move-Item -Path $enUsDir -Destination $enUsHidden -Force
+    }
+
+    try
+    {
+        # Run PlatyPS in an isolated child pwsh (mirrors Publish-AzclipsHelpArtifacts in build.ps1) to
+        # avoid YamlDotNet assembly conflicts and to guarantee a clean module unload between iterations.
+        pwsh -NoProfile -Command {
         param($manifest, $helpDir, $pathRoot)
         $ErrorActionPreference = 'Continue'
 
@@ -187,8 +202,16 @@ foreach ($moduleName in $modules)
         exit $errorCount
     } -Args $manifest, $helpDir, $pathRoot
 
-    # $LASTEXITCODE from a child pwsh block is the child's exit code = its error count.
-    $totalErrors += [int]$LASTEXITCODE
+        # $LASTEXITCODE from a child pwsh block is the child's exit code = its error count.
+        $totalErrors += [int]$LASTEXITCODE
+    }
+    finally
+    {
+        if ($enUsHidden -and (Test-Path $enUsHidden))
+        {
+            Move-Item -Path $enUsHidden -Destination $enUsDir -Force
+        }
+    }
 }
 
 if ($totalErrors -gt 0)
