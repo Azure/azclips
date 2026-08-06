@@ -9,14 +9,12 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 [Cmdlet(VerbsCommon.New, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine")]
 public class NewVMCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
-
-    [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
 
     [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
@@ -83,6 +81,9 @@ public class NewVMCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public string[]? RuleAccesses { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     protected override void BeginProcessing()
     {
