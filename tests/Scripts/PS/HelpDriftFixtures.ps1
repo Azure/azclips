@@ -211,3 +211,7 @@ Invoke-Scenario -Name 'schema-corrupt' `
     -ExpectPsl 'PSL1[34]_'
 
 Write-Host "All HelpDrift scenarios passed."
+# Explicit exit 0: the last Invoke-Scenario invokes the gate which exits 1 on the schema-corrupt
+# scenario (asserted-away as expected). Without this, $LASTEXITCODE bleeds into the script's own
+# exit code and GitHub Actions marks the step failed despite the visible PASS lines.
+exit 0
