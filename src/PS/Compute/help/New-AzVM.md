@@ -593,10 +593,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.String
-
-Formatted details for the newly-created VM as text. Includes the assigned ARM resource ID, provisioning state, and network information.
-
 ### Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine
 
 The newly-created `VirtualMachine` object, including its assigned ARM resource ID, provisioning state, size, and network configuration.

@@ -122,10 +122,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.String
-
-A formatted list of the configured profiles, including tenant, subscription, cloud, and authentication mode for each. Emitted as text on the pipeline.
-
 ### Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileSummary
 
 One `ProfileSummary` per configured profile: name, whether it is currently active, tenant ID, subscription ID, cloud, authentication method, and user principal name.

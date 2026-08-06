@@ -164,10 +164,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.String
-
-Formatted VM details as text. In list mode (default parameter set), returns one entry per VM in the subscription; when a name is supplied, returns a single VM entry.
-
 ### Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine
 
 One `VirtualMachine` object per matching VM — a single result when `-Name` is supplied (Get mode), an array of results otherwise (List mode). Each includes the ARM resource ID, provisioning state, VM size, and network configuration.

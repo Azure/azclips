@@ -136,10 +136,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.String
-
-Formatted resource-group details as text. In list mode (default parameter set), returns one entry per resource group in the subscription; when a name is supplied, returns a single resource-group entry.
-
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.ResourceGroup
 
 One `ResourceGroup` object per matching group — a single result when `-Name` is supplied (Get mode), an array of results otherwise (List mode). Includes the name, location, provisioning state, and tags.

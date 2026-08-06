@@ -195,10 +195,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.String
-
-Formatted details for the newly-created resource group as text, including its ARM resource ID and provisioning state.
-
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.ResourceGroup
 
 The newly-created `ResourceGroup` object, including its ARM resource ID and provisioning state.

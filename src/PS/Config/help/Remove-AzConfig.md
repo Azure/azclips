@@ -151,10 +151,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Void
-
-This cmdlet does not emit an object on the pipeline; it only writes progress and status messages via the Information and Verbose streams.
-
 ### System.String
 
 Status string confirming the operation, in the form `Deleted <key>`.

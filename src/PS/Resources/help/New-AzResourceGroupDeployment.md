@@ -416,14 +416,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
-
-Returns the deployment object describing the deployment name, provisioning state, and any output values declared by the template.
-
-### System.String
-
-Formatted deployment result as text, including the deployment name, provisioning state, and any output values declared by the template.
-
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
 The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.

@@ -300,10 +300,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Void
-
-This cmdlet does not emit an object on the pipeline; it only writes sign-in progress and status messages via the Information and Verbose streams. The resulting account context is persisted to the active profile (or the one named by `-OutProfile`).
-
 ### Core.Abstractions.Profile
 
 The activated profile object (name, tenant ID, subscription ID, cloud, authentication method) after successful sign-in. Also persisted to the on-disk profile store; use `Get-AzProfile` later to enumerate saved profiles.

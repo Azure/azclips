@@ -306,14 +306,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
-
-Returns the raw REST response object: the HTTP status code, the response headers, and the response content. When the response body is JSON, a parsed `Json` representation is included alongside the raw content.
-
-### System.String
-
-The raw HTTP response body from the ARM endpoint as text. Typically JSON; pipe into `ConvertFrom-Json` for structured downstream processing.
-
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse
 
 A `RestResponse` object containing the HTTP status code, response headers, parsed JSON body (when applicable), and raw body text.
