@@ -92,6 +92,10 @@ jobs:
         shell: pwsh
         run: ./build/Install-BuildDependencies.ps1
 
+      - name: Smoke-test help drift gate
+        shell: pwsh
+        run: ./tests/Scripts/PS/HelpDriftFixtures.ps1
+
       - name: Validate PS help drift
         shell: pwsh
         run: ./build/Test-PSHelpMarkdown.ps1

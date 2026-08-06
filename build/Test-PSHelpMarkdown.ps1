@@ -145,8 +145,8 @@ foreach ($moduleName in $modules)
 
             try
             {
-                $old   = Import-MarkdownCommandHelp -Path $md
-                $new   = Update-CommandHelp         -Path $md
+                $old   = Import-MarkdownCommandHelp -Path $md -ErrorAction Stop 2>$null
+                $new   = Update-CommandHelp         -Path $md -ErrorAction Stop 2>$null
                 # *>&1 folds Compare-CommandHelp's Information/Verbose trace into $trace as strings.
                 $trace = Compare-CommandHelp `
                     -ReferenceCommandHelp $old `
@@ -175,7 +175,11 @@ foreach ($moduleName in $modules)
             }
             catch
             {
-                Write-Output "PSL14_ParameterDrift|$relPath|drift check failed: $($_.Exception.Message)"
+                # Classify schema-shaped errors (missing metadata, invalid YAML, unparseable md) as
+                # PSL13 for triage accuracy; everything else stays PSL14.
+                $errMsg = $_.Exception.Message
+                $psl = if ($errMsg -match 'metadata|schema|frontmatter|YAML|parse') { 'PSL13_SchemaFailure' } else { 'PSL14_ParameterDrift' }
+                Write-Output "$psl|$relPath|$errMsg"
                 $errorCount++
             }
         }
