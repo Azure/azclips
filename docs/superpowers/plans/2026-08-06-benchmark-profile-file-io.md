@@ -12,7 +12,21 @@
 
 ## Global Constraints
 
-- Use the .NET SDK pinned in `global.json`. Build with `dotnet build azclips.slnx`.
+- Use the .NET SDK pinned in `global.json`.
+- **Every full-solution build and every `dotnet test` in this plan must pass
+  `-p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/`.** `azclips.slnx`
+  includes `Agent/Core.Agent`, which downloads a GitHub Copilot npm package at build time;
+  without this property the restore reaches `registry.npmjs.org` and fails with an
+  `MSB3923` / TLS handshake error. `Cli.Tests` references `Agent.Commands`, so its
+  `dotnet test` needs it as well. A TLS failure here is a missing property, not a broken
+  build — add the property, do not "fix" anything else.
+- The commands are therefore:
+  ```powershell
+  dotnet build azclips.slnx -c Release -p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/
+  dotnet test <project>.csproj -c Release -p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/
+  ```
+  `tests/Benchmark/Benchmark.csproj` does **not** pull in `Core.Agent`, so `dotnet run`
+  against it needs no property.
 - C# with `nullable` enabled and `ImplicitUsings` enabled (`Benchmark.csproj` sets both), so `System`, `System.IO`, `System.Threading.Tasks`, and `System.Linq` need no `using` directives.
 - Every new `.cs` file starts with the repo's two-line copyright header:
   ```csharp
@@ -301,7 +315,7 @@ with:
 
 - [ ] **Step 6: Build and confirm it compiles**
 
-Run: `dotnet build azclips.slnx -c Release`
+Run: `dotnet build azclips.slnx -c Release -p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/`
 Expected: build succeeds, 0 errors.
 
 If you see `CS0119` or `CS1955` mentioning `Directory`, you named the property `Directory` instead of `RootDirectory` and it is shadowing `System.IO.Directory`. Rename it.
@@ -312,8 +326,8 @@ If you see `CS0119` or `CS1955` mentioning `Directory`, you named the property `
 
 Run:
 ```powershell
-dotnet test tests\Cli.Tests\Cli.Tests.csproj -c Release
-dotnet test tests\Scenario.Tests\Scenario.Tests.csproj -c Release
+dotnet test tests\Cli.Tests\Cli.Tests.csproj -c Release -p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/
+dotnet test tests\Scenario.Tests\Scenario.Tests.csproj -c Release -p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/
 ```
 Expected: both suites pass, with the same results as before the change.
 
@@ -452,7 +466,7 @@ Insert this immediately after it:
 
 - [ ] **Step 2: Build**
 
-Run: `dotnet build azclips.slnx -c Release`
+Run: `dotnet build azclips.slnx -c Release -p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/`
 Expected: build succeeds, 0 errors.
 
 A BenchmarkDotNet validation error mentioning multiple `[GlobalCleanup]` methods means one was added to `BenchmarkBase` or `CLIBenchmarkBase` by mistake — it belongs only on `PSBenchmarkBase`.
@@ -612,7 +626,7 @@ Profile persistence is **not** stubbed. Benchmarks use the real `ProfileService`
 
 - [ ] **Step 5: Build**
 
-Run: `dotnet build azclips.slnx -c Release`
+Run: `dotnet build azclips.slnx -c Release -p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/`
 Expected: build succeeds, 0 errors. (Only the XML doc comment is code-adjacent, but confirm nothing broke.)
 
 - [ ] **Step 6: Run the full benchmark smoke test**
