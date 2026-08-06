@@ -53,14 +53,6 @@ public interface IExtensionLoader
 /// </remarks>
 public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
-    /// <summary>
-    /// Process-wide cache of loaded Bundled extensions, keyed by the absolute assembly path.
-    /// Mirrors <see cref="MultiVersionExtensionLoader"/>'s cache: without it every
-    /// <see cref="LoadExtension"/> call builds a fresh <see cref="AssemblyLoadContext"/> and
-    /// re-reads the assembly bytes, so the returned <see cref="Assembly"/> is a new instance each
-    /// time and all downstream type loading, attribute reflection, and JIT is cold again.
-    /// The <see cref="ExtensionLoadContext"/> is held alongside the assembly so it is not collected.
-    /// </summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -233,7 +225,6 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                             }));
                         assembly = entry.Value.Assembly;
                     }
-
                     stopwatch.Stop();
 
                     var loadedVersion = string.IsNullOrEmpty(version)

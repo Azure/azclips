@@ -70,7 +70,7 @@ A verb token is rejected with a usage error:
 
 ```
 > az extension add --name vm
-Error: [UsageError] '--name vm' is a verb, not a package identifier.
+ERROR: [UsageError] '--name vm' is a verb, not a package identifier.
   Use '--name Compute' to install the package that provides 'vm'.
 ```
 
@@ -81,7 +81,7 @@ The same rule applies to `remove`, `show`, `update`, `pin`, and `unpin` — only
 When `--name` misses every configured feed and you're inside the repo root, the error message includes a `--path` hint pointing at your most recent local build:
 
 ```
-Error: [ExtensionNotFound] ...
+ERROR: [ExtensionNotFound] ...
 A local build artifact was found. Try:
   az extension add --path "C:\src\azclips\artifacts\Debug\Microsoft.Azure.Azclips.Extensions.Compute\Microsoft.Azure.Azclips.Extensions.Compute.1.0.0-alpha.nupkg"
 ```
@@ -190,7 +190,7 @@ You typed a verb that IS owned by an installed extension, but the specific comma
 A `(verb, path)` you're trying to add is already owned by another installed extension. The error enumerates **every** colliding leaf in one shot:
 
 ```
-error: [LeafConflict] Extension 'Contoso.Foo' has 2 leaf conflicts with already-installed extensions.
+ERROR: [LeafConflict] Extension 'Contoso.Foo' has 2 leaf conflicts with already-installed extensions.
   - leaf 'vm contoso-magic' is already owned by 'Microsoft.Azure.Azclips.Extensions.Compute'
   - leaf 'disk contoso-extra' is already owned by 'Microsoft.Azure.Azclips.Extensions.Compute'
 Remove the conflicting extension(s) first or rename the offending leaves.

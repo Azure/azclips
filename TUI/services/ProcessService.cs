@@ -203,12 +203,9 @@ class ProcessService
             return (HistoryItemType.Error, stripped);
         }
 
-        // No dedicated Warn value in HistoryItemType — render warnings as Info (dim
-        // gray) so they don't inherit red-error styling. A proper Warn type is a
-        // follow-up.
         if (clean.StartsWith("WARNING:", StringComparison.Ordinal))
         {
-            return (HistoryItemType.Info, stripped);
+            return (HistoryItemType.Warn, stripped);
         }
 
         if (clean.StartsWith("INFO:", StringComparison.Ordinal))

@@ -84,7 +84,7 @@ internal class DiscoverySession : ISession
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Failed to load extension in discovery session {Id}: {ex.Message}");
+                    outputStreamAdapter.Warn($"[{nameof(DiscoverySession)}] Session {Id} failed to load extension '{info.Name}': {ex.Message}");
                 }
             }
         }
@@ -113,7 +113,7 @@ internal class DiscoverySession : ISession
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Failed to load extension '{name}' in discovery session {Id}: {ex.Message}");
+                    outputStreamAdapter.Warn($"[{nameof(DiscoverySession)}] Session {Id} failed to load extension '{name}': {ex.Message}");
                 }
             }
         }
@@ -138,7 +138,7 @@ internal class DiscoverySession : ISession
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Failed to load extension '{extensionNames[0]}' in discovery session {Id}: {ex.Message}");
+                outputStreamAdapter.Warn($"[{nameof(DiscoverySession)}] Session {Id} failed to load extension '{extensionNames[0]}': {ex.Message}");
             }
         }
 

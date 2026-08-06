@@ -25,14 +25,16 @@ internal enum CliLogSeverity
 internal static class CliLoggingPolicy
 {
     public static CliLogLevel ResolveEffectiveLevel(IConfigurationService configurationService, bool debugOverride)
+        => ResolveEffectiveLevel(configurationService.GetConfiguration<CoreOptions>(), debugOverride);
+
+    public static CliLogLevel ResolveEffectiveLevel(CoreOptions options, bool debugOverride)
     {
         if (debugOverride)
         {
             return CliLogLevel.Debug;
         }
 
-        var configured = configurationService.GetConfiguration<CoreOptions>().Logging.Level;
-        return Parse(configured);
+        return Parse(options.Logging.Level);
     }
 
     public static CliLogLevel Parse(string? value)

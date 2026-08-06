@@ -128,11 +128,12 @@ and each full `(verb, path)` leaf is owned by exactly one extension
 built-in map **and** the on-disk store (`src/CLI/Parser/ExtensionDispatcher.cs:28`). Resolution
 proceeds in stages:
 
-1. **Help short-circuits** — bare `az`, `az --help`, `az help <group>`, and `az <group> … --help` are
-   detected and turned into help exceptions before routing
-   (`src/CLI/Parser/ExtensionDispatcher.cs`). The empty-args case raises the same
-   `DispatchHelpException` as `az --help`; `Program.Main` layers a welcome banner on top when the
-   invocation was truly bare.
+1. **Help / version handled upstream** — `GlobalArgParser.Parse` classifies bare `az`, `az --help`,
+   `az help <group>`, `az <group> … --help`, `az version`, and `az --version` into `GlobalArgs.Help` /
+   `GlobalArgs.Version` before `ExtensionDispatcher.Parse` runs; `Program.Main` dispatches them
+   directly through `RuntimeHelpDispatcher` / `RuntimeVersionDispatcher`. Bare `az` additionally
+   triggers the welcome banner in `Program.Main`. The dispatcher itself only sees real
+   extension-routing invocations.
 2. **Longest-prefix leaf match** — the leading non-flag tokens after the verb are matched against
    the `LeafIndex` from the longest prefix down; the first hit wins and yields a `ResolvedExtension`
    (`src/CLI/Parser/ExtensionDispatcher.cs:71`).
