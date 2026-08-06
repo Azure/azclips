@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785904860448,
+  "lastUpdate": 1786001281040,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -5882,6 +5882,48 @@ window.BENCHMARK_DATA = {
             "value": 1050154.9632124351,
             "unit": "ns",
             "range": "± 17335.29450436334"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ecc27f0c7cd5bf371e1ce102450d6070d21ddaf2",
+          "message": "{Help} Validate in CI for PS Help drift (#655)\n\nFixes https://github.com/azure/azclips/issues/652\n\n## What\n\n- **CI gate** — new `build/Test-PSHelpMarkdown.ps1` diffs every\n`src/PS/<Module>/help/*.md` against live cmdlet reflection via PlatyPS\n1.0.1 `Test-` / `Import-` / `Update-` / `Compare-CommandHelp`. Fires\n`PSL13_SchemaFailure` (unparseable md) and `PSL14_ParameterDrift`\n(missing/orphan params, wrong `IsMandatory`, wrong SyntaxParameters\norder, missing Outputs). Wired into the existing `help-validate` job.\n- **Remediation** — `pwsh -File build/New-PSHelpMarkdown.ps1 -Module\n<name> -Refresh` regenerates any drifted `.md` in place. Gate error\nfooter points at this exact command.\n- **Content backfill** — every PS cmdlet now declares\n`[OutputType(...)]`; every `.md` refreshed. Closes #652\n(Connect-AzAccount had 6 undocumented parameters and `-SubscriptionId`\nmis-declared as required).\n- **Smoke fixtures** — `tests/Scripts/PS/HelpDriftFixtures.ps1` builds a\nscratch cmdlet + module in a temp dir and asserts on gate output across\n5 scenarios (clean, missing param, orphan param, required flipped,\nschema corrupt). Runs before the real-repo check in CI so a gate\nregression fails cleanly.\n\n## Notes on observable changes\n\n- Optional `-Profile` / `-SubscriptionId` parameters reordered to the\nend of declaration on VM and Resource cmdlets so the reflected SYNTAX\nmatches the docs' \"mandatory first\" convention. **No impact on\nnamed-parameter binding**; only affects `Get-Command | Select\nParameterSets` enumeration order.\n- Cmdlet `OutputType` now surfaces via reflection where it previously\ndefaulted to `System.Object`. Scripts that inspect `(Get-Command\n<name>).OutputType` will now see the real type name.\n- No public CLI surface touched.\n\n## History Notes\n\n- [Help] `Get-Help Connect-AzAccount` now documents all 11 parameters\nwith `-SubscriptionId` correctly marked optional (closes #652).\n- [Help] Every PS cmdlet advertises a real output type via\n`[OutputType]`; `Get-Help -Full` shows accurate `OUTPUTS` sections\ninstead of `System.Object`.\n\n## Validation\n\n- `pwsh -File build/Test-PSHelpMarkdown.ps1` — exit 0 across all 4\nmodules (Config, Login, Compute, Resources).\n- `pwsh -NoProfile -File tests/Scripts/PS/HelpDriftFixtures.ps1` — all 5\nscenarios green.\n- `dotnet run Azclips.Help.Tool` — no issues.\n- `Get-Help Connect-AzAccount -Full` spot-check: all 11 parameters,\ncorrect required flags, `System.Void` OUTPUTS with prose.",
+          "timestamp": "2026-08-06T17:14:44+10:00",
+          "tree_id": "39a74ce077bec2727e15c48fc8a3f495598ee509",
+          "url": "https://github.com/Azure/azclips/commit/ecc27f0c7cd5bf371e1ce102450d6070d21ddaf2"
+        },
+        "date": 1786001279128,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 1058015.7379550904,
+            "unit": "ns",
+            "range": "± 15299.43798486216"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 1812224.071822077,
+            "unit": "ns",
+            "range": "± 24661.3219592565"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 1062800.1959624796,
+            "unit": "ns",
+            "range": "± 14285.814772686048"
           }
         ]
       }
