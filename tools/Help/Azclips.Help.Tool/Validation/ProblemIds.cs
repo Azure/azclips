@@ -66,6 +66,12 @@ namespace Azclips.Help.Tool.Validation
         // PlatyPS `{{ Fill ... }}` scaffold markers. Symmetric with PS_TodoPlaceholder.
         public const string PSL12_FillPlaceholder = "PSL12_FillPlaceholder";
 
+        // PlatyPS refresh-and-diff (build/Test-PSHelpMarkdown.ps1). Emitted by that script, not by
+        // this C# tool; declared here so PSL* IDs share one grep-able registry.
+        public const string PSL13_SchemaFailure = "PSL13_SchemaFailure";
+        public const string PSL14_ParameterDrift = "PSL14_ParameterDrift";
+        public const string PSL15_MetadataDrift = "PSL15_MetadataDrift";
+
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";
         public const string ExtensionIndexLoadFailed = "Tool_ExtensionIndexLoadFailed";

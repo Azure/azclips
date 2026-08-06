@@ -88,6 +88,14 @@ jobs:
             --artifacts-root artifacts/Debug \
             --output-root artifacts/help
 
+      - name: Install PlatyPS
+        shell: pwsh
+        run: ./build/Install-BuildDependencies.ps1
+
+      - name: Validate PS help drift
+        shell: pwsh
+        run: ./build/Test-PSHelpMarkdown.ps1
+
   help-tool-tests:
     runs-on: ubuntu-latest
 
