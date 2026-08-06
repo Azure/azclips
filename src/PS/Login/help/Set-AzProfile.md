@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Login
-ms.date: 07/02/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Set-AzProfile
 ---
@@ -73,9 +73,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
+### System.Void
 
-The activated profile containing information about the tenant, subscription, etc..
+This cmdlet does not emit an object on the pipeline; it only writes progress and status messages via the Information and Verbose streams.
 
 ## NOTES
 

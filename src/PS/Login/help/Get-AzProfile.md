@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Login
-ms.date: 07/02/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzProfile
 ---
@@ -122,10 +122,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
+### System.String
 
-The profile containing information about the tenant, subscription, etc..
+A formatted list of the configured profiles, including tenant, subscription, cloud, and authentication mode for each. Emitted as text on the pipeline.
 
 ## NOTES
 
 ## RELATED LINKS
+
