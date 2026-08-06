@@ -1,9 +1,7 @@
 # Scaffolds src/PS/<Module>/help/<Cmdlet>.md for every module via PlatyPS.
-# Default mode: idempotent — only files that don't already exist are copied; hand-edited markdown is never touched.
-# `-Refresh`: re-syncs every existing .md against the live cmdlet via Update-MarkdownCommandHelp (drops the BOM PlatyPS
-#             injects on write and reruns the {{ Fill in ... }} placeholder normalizer). Use this to clear PSL14/PSL15
-#             drift reported by build/Test-PSHelpMarkdown.ps1.
-# Post-processes PlatyPS's `{{ Fill in ... }}` placeholders into TODO defaults derived from the cmdlet binary.
+# Default: idempotent — only writes files that don't exist yet.
+# -Refresh: re-syncs existing .md against the live cmdlet, strips PlatyPS's UTF-8 BOM,
+#           and re-normalizes {{ Fill in ... }} placeholders. Use to clear PSL14 drift from Test-PSHelpMarkdown.ps1.
 [CmdletBinding()]
 param(
     [string]$Configuration = 'Debug',

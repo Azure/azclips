@@ -224,7 +224,6 @@ HelpMessage: ""
 ### -Profile
 
 Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
-Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -596,7 +595,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ### System.String
 
 Formatted details for the newly-created VM as text. Includes the assigned ARM resource ID, provisioning state, and network information.
-Formatted details for the newly-created VM as text. Includes the assigned ARM resource ID, provisioning state, and network information
 
 ## NOTES
 

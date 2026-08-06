@@ -32,9 +32,8 @@ if (-not $ModuleRoot)
 }
 $ModuleRoot = (Resolve-Path $ModuleRoot).Path
 
-# PathRoot anchors the relative paths emitted in PSL records. Prefer the repo root when the caller
-# is validating the checked-in src/PS tree; fall back to $ModuleRoot for smoke fixtures pointing at
-# an out-of-tree temp dir so records still show a short readable path.
+# Anchor for PSL record paths. Prefer repo root for the checked-in tree; fall back to the given
+# ModuleRoot for out-of-tree smoke fixtures.
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $pathRoot = if ($ModuleRoot.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) { $repoRoot } else { $ModuleRoot }
 
@@ -81,11 +80,8 @@ foreach ($moduleName in $modules)
 
     Write-Host "Validating help drift for module '$moduleName' ..."
 
-    # Locally-built MAML (src/PS/<Module>/en-US/*.dll-Help.xml) is gitignored and absent in CI.
-    # If present, Update-CommandHelp reads Outputs/Inputs/etc. from it and reports different
-    # CommandHelp shape than a CI runner sees on a fresh checkout — producing false negatives
-    # ("no drift" locally while CI stays red). Hide the folder for the pipeline duration and
-    # restore it in finally so contributors' MAML survives across runs.
+    # Hide locally-built MAML (gitignored, absent in CI) so Update-CommandHelp reflects on the DLL
+    # alone — avoids false-negative "no drift" locally while CI stays red. Restored in finally.
     $enUsDir    = Join-Path $moduleDir 'en-US'
     $enUsHidden = $null
     if (Test-Path $enUsDir)
@@ -105,9 +101,8 @@ foreach ($moduleName in $modules)
         Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1 -ErrorAction Stop
         Import-Module $manifest -Force -ErrorAction Stop
 
-        # See scratch/CLIPS-652-TEMP-PR-PLAN.md §4.1 for why each exclusion is here. Passing this
-        # list REPLACES Compare-CommandHelp's built-in defaults, so Diagnostics, AliasHeaderFound,
-        # and ParameterNames are re-listed even though they'd be auto-excluded otherwise.
+        # See scratch/CLIPS-652-TEMP-PR-PLAN.md §4.1. Passing this list REPLACES Compare-CommandHelp's
+        # built-in defaults, hence Diagnostics/AliasHeaderFound/ParameterNames re-listed.
         $excludes = @(
             'Description', 'Synopsis', 'Examples', 'Notes', 'RelatedLinks',
             'Metadata', 'Diagnostics', 'AliasHeaderFound', 'ParameterNames'
@@ -122,10 +117,7 @@ foreach ($moduleName in $modules)
 
             try
             {
-                # Test-MarkdownCommandHelp returns $null / nothing on a clean file. It emits
-                # a bool (or MarkdownCommandHelpValidationResult with -DetailView) only when
-                # there is something to complain about. We treat: null => pass; false => fail;
-                # object => inspect IsValid.
+                # Test-MarkdownCommandHelp emits nothing on a clean file; null => pass.
                 $schema = Test-MarkdownCommandHelp -LiteralPath $md -DetailView
                 $isValid = $true
                 if ($null -ne $schema)
@@ -190,8 +182,7 @@ foreach ($moduleName in $modules)
             }
             catch
             {
-                # Classify schema-shaped errors (missing metadata, invalid YAML, unparseable md) as
-                # PSL13 for triage accuracy; everything else stays PSL14.
+                # Schema-shaped errors -> PSL13 for triage accuracy; everything else -> PSL14.
                 $errMsg = $_.Exception.Message
                 $psl = if ($errMsg -match 'metadata|schema|frontmatter|YAML|parse') { 'PSL13_SchemaFailure' } else { 'PSL14_ParameterDrift' }
                 Write-Output "$psl|$relPath|$errMsg"
