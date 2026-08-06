@@ -9,6 +9,12 @@ namespace Tests.Common.Stubs;
 /// In-memory <see cref="IProfileService"/> stub seeded with a single active "default" profile,
 /// preserving the connection state previously provided by the removed AuthContext stub.
 /// </summary>
+/// <remarks>
+/// Used by the unit and scenario test suites, where profile persistence is incidental and
+/// file I/O would only add cost and flakiness. Benchmarks deliberately do <b>not</b> use this
+/// stub: they register the real file-backed <c>ProfileService</c> against a scoped directory
+/// (see <c>BenchmarkProfileStore</c>) so profile persistence is actually measured.
+/// </remarks>
 public class StubProfileService : IProfileService
 {
     private readonly Dictionary<string, Profile> _profiles;
