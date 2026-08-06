@@ -1,5 +1,8 @@
 # Scaffolds src/PS/<Module>/help/<Cmdlet>.md for every module via PlatyPS.
-# Idempotent — only files that don't already exist are copied; hand-edited markdown is never touched.
+# Default mode: idempotent — only files that don't already exist are copied; hand-edited markdown is never touched.
+# `-Refresh`: re-syncs every existing .md against the live cmdlet via Update-MarkdownCommandHelp (drops the BOM PlatyPS
+#             injects on write and reruns the {{ Fill in ... }} placeholder normalizer). Use this to clear PSL14/PSL15
+#             drift reported by build/Test-PSHelpMarkdown.ps1.
 # Post-processes PlatyPS's `{{ Fill in ... }}` placeholders into TODO defaults derived from the cmdlet binary.
 [CmdletBinding()]
 param(
@@ -15,7 +18,9 @@ param(
             Where-Object { (Test-Path (Join-Path $_.FullName "$($_.Name).psd1")) -and $_.Name -like "$wordToComplete*" } |
             ForEach-Object { $_.Name }
     })]
-    [string[]]$Module
+    [string[]]$Module,
+
+    [switch]$Refresh
 )
 
 $ErrorActionPreference = 'Stop'
@@ -185,6 +190,92 @@ foreach ($name in $modules)
     if (-not (Test-Path $manifestPath))
     {
         Write-Warning "Skipping $name : manifest not found at $manifestPath"
+        continue
+    }
+
+    if ($Refresh)
+    {
+        if (-not (Test-Path $helpDir))
+        {
+            Write-Warning "Skipping refresh for $name : $helpDir does not exist. Drop -Refresh to scaffold from scratch."
+            continue
+        }
+
+        $mdFiles = @(Get-ChildItem -Path $helpDir -Filter '*.md' -File -ErrorAction SilentlyContinue)
+        if ($mdFiles.Count -eq 0)
+        {
+            Write-Warning "Skipping refresh for $name : no .md files under $helpDir."
+            continue
+        }
+
+        Write-Host "Refreshing markdown for module '$name' ($($mdFiles.Count) file(s)) -> $helpDir"
+
+        $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("AzclipsHelpRefresh-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+
+        try
+        {
+            # Isolated child pwsh: same YamlDotNet isolation as the scaffold path. Runs
+            # Update-MarkdownCommandHelp against each existing md, then reflects on the module
+            # to capture required parameters as JSON for the placeholder post-processor.
+            pwsh -NoProfile -Command {
+                param($manifestPath, $mdPaths, $tempDir, $moduleName)
+                Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
+                $mod = Import-Module $manifestPath -Force -PassThru
+                foreach ($p in $mdPaths)
+                {
+                    Update-MarkdownCommandHelp -Path $p -NoBackup | Out-Null
+                }
+
+                $cmdletInfo = @{}
+                foreach ($cmd in (Get-Command -Module $moduleName -CommandType Cmdlet,Function))
+                {
+                    $required = @()
+                    foreach ($paramSet in $cmd.ParameterSets)
+                    {
+                        foreach ($p in $paramSet.Parameters)
+                        {
+                            if ($p.IsMandatory -and $required -notcontains $p.Name -and
+                                $p.Name -notin @('Verbose','Debug','ErrorAction','ErrorVariable','WarningAction','WarningVariable','OutBuffer','OutVariable','PipelineVariable','InformationAction','InformationVariable','WhatIf','Confirm','ProgressAction'))
+                            {
+                                $required += $p.Name
+                            }
+                        }
+                    }
+                    $cmdletInfo[$cmd.Name] = $required
+                }
+
+                $cmdletInfo | ConvertTo-Json -Depth 3 | Set-Content -Path (Join-Path $tempDir '_cmdlet-info.json') -Encoding utf8
+            } -Args $manifestPath, $mdFiles.FullName, $tempDir, $name
+
+            $cmdletInfoPath = Join-Path $tempDir '_cmdlet-info.json'
+            $cmdletInfo = if (Test-Path $cmdletInfoPath) {
+                Get-Content $cmdletInfoPath -Raw | ConvertFrom-Json -AsHashtable
+            } else { @{} }
+
+            # PlatyPS 1.0.1 writes with a UTF-8 BOM; re-emit each file BOM-free (matches
+            # the repo convention used by the scaffold path and build.ps1's Write-Utf8NoBomFile)
+            # and run the same placeholder normalizer so new params inherit the TODO defaults.
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            $refreshed = 0
+            foreach ($file in $mdFiles)
+            {
+                $content = [System.IO.File]::ReadAllText($file.FullName)
+                $cmdletName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+                $required = if ($cmdletInfo.ContainsKey($cmdletName)) { $cmdletInfo[$cmdletName] } else { @() }
+
+                $content = Convert-PlatyPSPlaceholders -Content $content -CmdletName $cmdletName -RequiredParameters $required
+                [System.IO.File]::WriteAllText($file.FullName, $content, $utf8NoBom)
+                $refreshed++
+            }
+
+            Write-Host "  $refreshed refreshed"
+        }
+        finally
+        {
+            Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
         continue
     }
 

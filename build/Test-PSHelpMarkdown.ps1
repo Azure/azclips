@@ -195,7 +195,9 @@ if ($totalErrors -gt 0)
 {
     Write-Host ""
     Write-Host "Help drift validation failed: $totalErrors record(s) across $($modules.Count) module(s)."
-    Write-Host "Fix each drifted file with:"
+    Write-Host "Fix a whole module in one shot:"
+    Write-Host "    pwsh -File build/New-PSHelpMarkdown.ps1 -Module <name> -Refresh"
+    Write-Host "Or fix a single file:"
     Write-Host "    pwsh -c ""Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1; Update-MarkdownCommandHelp -Path <file>"""
     exit 1
 }
