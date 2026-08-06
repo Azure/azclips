@@ -75,6 +75,17 @@ public abstract class PSBenchmarkBase : BenchmarkBase
         _runspace = null!;
     }
 
+    /// <summary>
+    /// Removes the benchmark profile store. The CLI base cleans the whole
+    /// <c>artifacts/Benchmark/home</c> tree in its own <c>[GlobalCleanup]</c>; the PS base
+    /// had none, so without this a PS-only run leaves the store behind.
+    /// </summary>
+    [GlobalCleanup]
+    public void GlobalCleanup()
+    {
+        ProfileStore.Delete();
+    }
+
     protected object? RunPowerShellCommand(
         string command,
         params (string Name, object Value)[] parameters)
