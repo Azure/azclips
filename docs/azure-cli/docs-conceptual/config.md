@@ -1,6 +1,11 @@
-# Configuration Management
+---
+title: Configuration management
+description: Learn how to manage Azure CLI private preview configuration settings, including keys, environment variables, and file locations.
+---
 
-Azclips stores user-scope configuration in a global JSON file.
+# Configuration management
+
+Azure CLI private preview stores user-scope configuration in a global JSON file.
 
 Configuration follows strict precedence: **command args > environment variables > global config > defaults**.
 
@@ -26,7 +31,6 @@ Configuration follows strict precedence: **command args > environment variables 
 | `completion.enabled`                          | bool   | `true`             | Enable `az` shell tab-completion; set `false` to stop suggestions even while the completion script stays sourced                                                                                                                                                        |
 | `extensions.resources.arm.apiVersionOverride` | string | (empty)            | Override ARM API version                                                                                                                                                                                                                                                |
 | `clients.cli.output.format`                   | string | `table`            | CLI output format: `json`, `table`, `tsv`, `yaml`                                                                                                                                                                                                                       |
-| `clients.powershell.output.format`            | string | `object`           | PowerShell output format: `object`, `json`, `table`                                                                                                                                                                                                                     |
 | `defaults.group`                              | string | (empty)            | Default resource group                                                                                                                                                                                                                                                  |
 | `defaults.location`                           | string | (empty)            | Default location                                                                                                                                                                                                                                                        |
 | `defaults.web`                                | string | (empty)            | Default web app name                                                                                                                                                                                                                                                    |
@@ -132,77 +136,6 @@ az config info
 az config info --keys-only
 ```
 
-## PowerShell Usage
-
-### Import the Config module
-
-```powershell
-Import-Module ./src/PS/Config/Config.psd1
-```
-
-### Get configuration values or sections
-
-```powershell
-Get-AzConfig -Key core.logging.level
-# Output: core.logging.level = warn [default]
-
-Get-AzConfig -Key core.logging.level -AsJson
-# Output: {"Key":"core.logging.level","Value":"warn","Source":"default"}
-
-# Retrieve a section (text output)
-Get-AzConfig -Key core
-
-# Retrieve a subsection as JSON
-Get-AzConfig -Key core.logging -AsJson
-# Output: {"level":"warn"}
-
-# Retrieve a section as nested JSON
-Get-AzConfig -Key core -AsJson
-```
-
-### Set a configuration value
-
-```powershell
-# Set a key (will prompt for confirmation)
-Set-AzConfig -Key core.logging.level -Value debug
-
-# Set with force (allows unknown keys)
-Set-AzConfig -Key core.logging.level -Value debug -Force
-```
-
-### List all configuration
-
-```powershell
-# List user config only
-Get-AzConfigList
-
-# List with defaults
-Get-AzConfigList -IncludeDefaults
-
-# Output as JSON
-Get-AzConfigList -IncludeDefaults -AsJson
-```
-
-### Delete a configuration value
-
-```powershell
-# Delete a key (will prompt for confirmation)
-Remove-AzConfig -Key core.logging.level
-
-# Delete with force (allows unknown keys)
-Remove-AzConfig -Key core.logging.level -Force
-```
-
-### View schema information
-
-```powershell
-# List all valid configuration keys
-Get-AzConfigInfo
-
-# Output only key names
-Get-AzConfigInfo -KeysOnly
-```
-
 ## Environment Variable Mappings
 
 You can override configuration using environment variables:
@@ -210,8 +143,6 @@ You can override configuration using environment variables:
 | Environment Variable                                                | Maps to                      |
 | ------------------------------------------------------------------- | ---------------------------- |
 | `AZCLIPS_LOG_LEVEL`                                                 | `core.logging.level`         |
-| `PS_HTTP_MAX_RETRIES` / `AZURE_PS_HTTP_MAX_RETRIES`                 | `core.http.maxRetries`       |
-| `PS_HTTP_MAX_RETRIES_FOR_429` / `AZURE_PS_HTTP_MAX_RETRIES_FOR_429` | `core.http.maxRetriesFor429` |
 
 ## Configuration File Location
 
@@ -244,50 +175,22 @@ This confirms defaults handling and command-surface regressions as a bundle.
 
 ### Workflow: Enable debug logging
 
-**CLI:**
-
 ```bash
 az config set --key core.logging.level --value debug --force
 az config get --key core.logging.level
 ```
 
-**PowerShell:**
-
-```powershell
-Set-AzConfig -Key core.logging.level -Value debug -Force
-Get-AzConfig -Key core.logging.level
-```
-
 ### Workflow: Check all settings with defaults
-
-**CLI:**
 
 ```bash
 az config list --all
 ```
 
-**PowerShell:**
-
-```powershell
-Get-AzConfigList -IncludeDefaults
-```
-
 ### Workflow: Reset to defaults
-
-**CLI:**
 
 ```bash
 # Delete all user-set config
 az config list | grep -v '\[default\]' | awk '{print $1}' | while read key; do
   az config delete --key "$key" --force
 done
-```
-
-**PowerShell:**
-
-```powershell
-Get-AzConfigList | Where-Object { $_ -notmatch '\[default\]' } | ForEach-Object {
-  $key = ($_ -split ' = ')[0]
-  Remove-AzConfig -Key $key -Force
-}
 ```
