@@ -88,7 +88,9 @@ serialize, and two atomic writes.
 
 A small class in the `Benchmark` project owning the benchmark's profile directory.
 
-- `Directory` resolves to `<repoRoot>/artifacts/Benchmark/home/.azclips-{Environment.ProcessId}`.
+- `RootDirectory` resolves to `<repoRoot>/artifacts/Benchmark/home/.azclips-{Environment.ProcessId}`.
+  (Named `RootDirectory`, not `Directory`, because a `Directory` property would shadow
+  `System.IO.Directory` inside the class and break `Directory.CreateDirectory` calls.)
   It sits under the existing `artifacts/Benchmark/home` tree that `CLIBenchmarkBase` already
   creates and cleans. The process-id suffix guarantees each BenchmarkDotNet child process gets
   clean seeded state and that two concurrent benchmark invocations can never collide on the
@@ -121,7 +123,7 @@ A small class in the `Benchmark` project owning the benchmark's profile director
 
   ```csharp
   services.AddSingleton<IProfileService>(sp =>
-      new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStore.Directory));
+      new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStore.RootDirectory));
   ```
 
   The other three stub registrations are unchanged.
