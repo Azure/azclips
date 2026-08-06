@@ -9,14 +9,12 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.Get, "AzResourceGroup", DefaultParameterSetName = "List")]
+[OutputType(typeof(string))]
 public class GetResourceGroupCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
-
-    [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     [Parameter(ParameterSetName = "List", Mandatory = true)]
@@ -24,6 +22,9 @@ public class GetResourceGroupCmdlet : PSCmdlet
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     public string? Name { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     protected override void BeginProcessing()
     {
