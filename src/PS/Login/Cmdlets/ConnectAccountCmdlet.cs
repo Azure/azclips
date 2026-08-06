@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
 [Cmdlet(VerbsCommunications.Connect, CommandNoun, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType(typeof(void))]
+[OutputType(typeof(Profile))]
 public class ConnectAccountCmdlet : PSCmdlet
 {
     private const string CommandNoun = Constants.CommandPrefix + "Account";

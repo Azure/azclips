@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 [Cmdlet(VerbsCommon.New, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType(typeof(string))]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine")]
 public class NewVMCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();

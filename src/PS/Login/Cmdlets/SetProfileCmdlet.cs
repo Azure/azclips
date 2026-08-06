@@ -6,7 +6,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
 /// <summary>Sets the active profile persistently (no re-authentication).</summary>
 [Cmdlet(VerbsCommon.Set, CommandNoun)]
-[OutputType(typeof(void))]
+[OutputType(typeof(Profile))]
 public class SetProfileCmdlet : PSCmdlet
 {
     private const string CommandNoun = Constants.CommandPrefix + "Profile";

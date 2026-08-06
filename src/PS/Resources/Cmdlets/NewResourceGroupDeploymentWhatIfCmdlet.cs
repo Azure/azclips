@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 // What-if is a read-only preview: it never creates or modifies resources, so it intentionally
 // does NOT declare SupportsShouldProcess/ConfirmImpact (there is nothing to confirm).
 [Cmdlet(VerbsCommon.New, "AzResourceGroupDeploymentWhatIf")]
-[OutputType(typeof(string))]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult")]
 public class NewResourceGroupDeploymentWhatIfCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();

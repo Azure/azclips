@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 /// profile when <c>-Active</c> is supplied.
 /// </summary>
 [Cmdlet(VerbsCommon.Get, CommandNoun, DefaultParameterSetName = "List")]
-[OutputType(typeof(string))]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileSummary")]
 public class GetProfileCmdlet : PSCmdlet
 {
     private const string CommandNoun = Constants.CommandPrefix + "Profile";

@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "AzResourceGroup", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[OutputType(typeof(string))]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.ResourceGroup")]
 public class NewResourceGroupCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
