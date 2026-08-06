@@ -210,6 +210,19 @@ foreach ($name in $modules)
 
         Write-Host "Refreshing markdown for module '$name' ($($mdFiles.Count) file(s)) -> $helpDir"
 
+        # Hide any locally-built MAML so Update-MarkdownCommandHelp reflects on the DLL alone,
+        # matching CI conditions. If MAML is present, PlatyPS pulls Outputs/Inputs/etc. from it
+        # and produces an md that stays in drift against fresh-checkout CI. Mirrors the same
+        # dance in build/Test-PSHelpMarkdown.ps1.
+        $moduleDir  = Split-Path $manifestPath -Parent
+        $enUsDir    = Join-Path $moduleDir 'en-US'
+        $enUsHidden = $null
+        if (Test-Path $enUsDir)
+        {
+            $enUsHidden = "$enUsDir.hidden-$([Guid]::NewGuid().ToString('N').Substring(0, 8))"
+            Move-Item -Path $enUsDir -Destination $enUsHidden -Force
+        }
+
         $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("AzclipsHelpRefresh-" + [Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
@@ -274,6 +287,10 @@ foreach ($name in $modules)
         finally
         {
             Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+            if ($enUsHidden -and (Test-Path $enUsHidden))
+            {
+                Move-Item -Path $enUsHidden -Destination $enUsDir -Force
+            }
         }
 
         continue
