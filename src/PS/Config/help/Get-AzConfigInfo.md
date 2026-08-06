@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Config.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Config
-ms.date: 06/03/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzConfigInfo
 ---
@@ -24,9 +24,6 @@ Get-AzConfigInfo [-KeysOnly] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -84,6 +81,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ## OUTPUTS
+
+### System.String
+
+Descriptive text listing available configuration keys, their purpose, and default values. When `-KeysOnly` is supplied, only the key names are emitted (one per line).
 
 ## NOTES
 

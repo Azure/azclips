@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Config.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Config
-ms.date: 06/03/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzConfig
 ---
@@ -24,9 +24,6 @@ Get-AzConfig -Key <string> [-AsJson] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -106,6 +103,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ## OUTPUTS
+
+### System.String
+
+The current value of the configuration setting identified by `-Key`. Returned as plain text by default, or as a JSON string when `-AsJson` is supplied (pipe into `ConvertFrom-Json` for structured downstream processing).
 
 ## NOTES
 
