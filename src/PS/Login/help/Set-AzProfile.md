@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Login
 ms.date: 08/06/2026
@@ -17,7 +17,7 @@ Sets the active profile by name.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 Set-AzProfile [-Name] <string> [<CommonParameters>]
@@ -47,19 +47,19 @@ The name of the saved profile to activate.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: 0
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: 0
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -77,7 +77,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 This cmdlet does not emit an object on the pipeline; it only writes progress and status messages via the Information and Verbose streams.
 
+### Core.Abstractions.Profile
+
+The activated profile object with its tenant ID, subscription ID, cloud, and authentication method after the switch.
+
 ## NOTES
 
 ## RELATED LINKS
-

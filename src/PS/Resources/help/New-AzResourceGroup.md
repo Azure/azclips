@@ -164,6 +164,7 @@ HelpMessage: ""
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
 Runs the command in a mode that only reports what would happen without performing the actions.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -197,6 +198,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ### System.String
 
 Formatted details for the newly-created resource group as text, including its ARM resource ID and provisioning state.
+
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.ResourceGroup
+
+The newly-created `ResourceGroup` object, including its ARM resource ID and provisioning state.
 
 ## NOTES
 

@@ -424,6 +424,10 @@ Returns the deployment object describing the deployment name, provisioning state
 
 Formatted deployment result as text, including the deployment name, provisioning state, and any output values declared by the template.
 
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+
+The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.
+
 ## NOTES
 
 The target resource group must already exist. Use `New-AzResourceGroup` to create it first when bootstrapping a new environment.

@@ -340,6 +340,10 @@ Returns the what-if result describing the predicted resource changes (create, mo
 
 Formatted preview of the changes the deployment would make, as text. No resources are created or modified; the output describes deltas the ARM engine would apply if the same call were made without What-If.
 
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult
+
+A `WhatIfOperationResult` describing the changes the deployment would apply if executed. No resources are created or modified; the caller can inspect the change list before running the real deployment.
+
 ## NOTES
 
 What-if is a read-only preview: it never creates or modifies resources. Use `New-AzResourceGroupDeployment` to apply the changes once the preview looks correct.

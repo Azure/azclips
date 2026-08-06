@@ -141,6 +141,7 @@ HelpMessage: ""
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
 Runs the command in a mode that only reports what would happen without performing the actions.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -174,6 +175,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ### System.Void
 
 This cmdlet does not emit an object on the pipeline; it only writes progress and status messages via the Information and Verbose streams.
+
+### System.String
+
+Status string confirming the operation, in the form `Set <key> = <value>`.
 
 ## NOTES
 

@@ -314,6 +314,10 @@ Returns the raw REST response object: the HTTP status code, the response headers
 
 The raw HTTP response body from the ARM endpoint as text. Typically JSON; pipe into `ConvertFrom-Json` for structured downstream processing.
 
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse
+
+A `RestResponse` object containing the HTTP status code, response headers, parsed JSON body (when applicable), and raw body text.
+
 ## NOTES
 
 This cmdlet targets the Azure Resource Manager audience only. It does not poll long-running operations and does not page through `nextLink` results; for paged endpoints, follow the returned `nextLink` yourself with another call.
