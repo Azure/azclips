@@ -114,6 +114,26 @@ public class CompletionGeneratorTests
         return new KeyValuePair<string, CommandMetadata>(invocationName, metadata);
     }
 
+    [Fact]
+    public void GetScanRoots_PrependsConfiguredBundledRoot_WhenSet()
+    {
+        var roots = CompletionGenerator.GetScanRoots("/custom/bundled/root").ToArray();
+
+        Assert.Equal("/custom/bundled/root", roots[0]);
+        Assert.Contains(Path.Combine(AppContext.BaseDirectory, "Extensions"), roots);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void GetScanRoots_SkipsConfiguredBundledRoot_WhenNullOrWhitespace(string? configured)
+    {
+        var roots = CompletionGenerator.GetScanRoots(configured).ToArray();
+
+        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "Extensions"), roots[0]);
+    }
+
     //TODO: rewrite with mocking framework when introduced.
     private sealed class StubConfigurationService(CompletionOptions completion) : IConfigurationService
     {

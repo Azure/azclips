@@ -3,6 +3,7 @@
 
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Configuration.Options;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
@@ -326,21 +327,25 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
-    /// Scans the same candidate roots used by <c>BundledExtensionLoader</c> for directories
+    /// Scans the same candidate roots used by <c>BundledExtensionLoader</c> — including the
+    /// user-configurable <see cref="AssemblyLoadingOptions.BundledExtensionsRoot"/> — for directories
     /// matching the extension naming convention and returns short extension names (e.g. "Resources").
     /// </summary>
     private static IEnumerable<string> ScanLocalExtensionNames()
     {
-        var roots = new[]
+        string? configuredBundledRoot = null;
+        try
         {
-            Path.Combine(AppContext.BaseDirectory, "Extensions"),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release")),
-        };
+            configuredBundledRoot = AzclipsServiceProvider.GetRequiredService<IConfigurationService>()
+                .GetConfiguration<AssemblyLoadingOptions>()?.BundledExtensionsRoot;
+        }
+        catch
+        {
+            // DI not initialised (e.g. isolated unit tests) — fall through to the fixed fallbacks.
+        }
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in roots.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (var root in GetScanRoots(configuredBundledRoot).Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             foreach (var dir in Directory.EnumerateDirectories(root))
             {
@@ -357,6 +362,24 @@ internal static class CompletionGenerator
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Candidate directory roots for the extension scan, in priority order. Kept in sync with
+    /// <c>BundledExtensionLoader.GetCandidateRoots</c> so tab-completion never suggests extensions
+    /// dispatch can't actually load.
+    /// </summary>
+    internal static IEnumerable<string> GetScanRoots(string? configuredBundledRoot)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredBundledRoot))
+        {
+            yield return configuredBundledRoot;
+        }
+
+        yield return Path.Combine(AppContext.BaseDirectory, "Extensions");
+        yield return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+        yield return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug"));
+        yield return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release"));
     }
 
     private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames)
