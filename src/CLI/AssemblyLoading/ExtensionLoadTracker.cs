@@ -8,8 +8,8 @@ namespace Core.Cli;
 /// and emits an aggregated timing table on shutdown.
 /// </summary>
 /// <remarks>
-/// Instrumented only from CLI extension loaders (<see cref="BuiltinExtensionLoader"/>,
-/// <see cref="MultiVersionExtensionLoader"/>) which probe the filesystem. PS cmdlets use
+/// Instrumented only from CLI extension loaders (<see cref="BundledExtensionLoader"/>,
+/// <see cref="InstalledExtensionLoader"/>) which probe the filesystem. PS cmdlets use
 /// <c>DefaultAssemblyLoadingProvider</c> which resolves against already-loaded assemblies —
 /// there's nothing to time or aggregate on that surface, so the tracker stays quiet there.
 /// <para>

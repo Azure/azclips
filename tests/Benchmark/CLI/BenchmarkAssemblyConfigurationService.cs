@@ -17,8 +17,8 @@ internal sealed class BenchmarkAssemblyConfigurationService : IConfigurationServ
     {
         _options = new AssemblyLoadingOptions
         {
-            BuiltinInstallationDir = builtInInstallDir,
-            VersionedInstallationDir = versionedInstallDir,
+            BundledExtensionsRoot = builtInInstallDir,
+            InstalledExtensionsRoot = versionedInstallDir,
         };
     }
 

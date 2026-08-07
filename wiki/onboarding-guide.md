@@ -83,8 +83,8 @@ The CLI, for example, prepends its extension-dispatch services and _overrides_ t
 // src/CLI/Program.cs:40
 AzclipsServiceProvider.PrependRegistration(services =>
 {
-    services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
-    services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
+    services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();
+    services.AddSingleton<IExtensionLoader, InstalledExtensionLoader>();
     services.AddSingleton<PropertyParser>();
     services.AddCliExtensionDispatch();
 });
@@ -787,7 +787,7 @@ Seams you must not cross: don't reach into the DI container for connection/HTTP/
 2. Implement `IExtensionIndex` as the command registry and one `IProcessor` per verb.
 3. Use `ExtensionRuntime` (`src/Extensions/ExtensionRuntime/`) for ARM payload (de)serialization rather than hand-rolling `JsonConverter`s — its `Conversions/Instances/*` cover the primitive and collection cases, and `JsonConverterAttribute` lets you register custom ones.
 4. Decide built-in vs installable: built-ins are compiled into the `BuiltInExtensions.Map`; installable ones ship as packages resolved by the extension-management commands (`add`/`update`/`pin`) and the user registry.
-5. Version deliberately: the loader supports side-by-side versions (`MultiVersionExtensionLoader`), and the engine caches indices per `name-version` key (`Engine.cs:84`).
+5. Version deliberately: the loader supports side-by-side versions (`InstalledExtensionLoader`), and the engine caches indices per `name-version` key (`Engine.cs:84`).
 
 ### 14.3 State on disk — the reference you'll want at 2am
 

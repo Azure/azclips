@@ -55,8 +55,8 @@ public class Program
 
         AzclipsServiceProvider.PrependRegistration(services =>
         {
-            services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
-            services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
+            services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();
+            services.AddSingleton<IExtensionLoader, InstalledExtensionLoader>();
             services.AddSingleton<PropertyParser>();
             services.AddCliExtensionDispatch();
         });

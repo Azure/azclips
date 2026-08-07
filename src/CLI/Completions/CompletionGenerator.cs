@@ -176,7 +176,7 @@ internal static class CompletionGenerator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // Also discover extensions available on disk (same roots the BuiltinExtensionLoader scans)
+        // Also discover extensions available on disk (same roots the BundledExtensionLoader scans)
         foreach (var name in ScanLocalExtensionNames())
         {
             if (!discoveryExtensionNames.Contains(name, StringComparer.OrdinalIgnoreCase))
@@ -326,7 +326,7 @@ internal static class CompletionGenerator
     }
 
     /// <summary>
-    /// Scans the same candidate roots used by <c>BuiltinExtensionLoader</c> for directories
+    /// Scans the same candidate roots used by <c>BundledExtensionLoader</c> for directories
     /// matching the extension naming convention and returns short extension names (e.g. "Resources").
     /// </summary>
     private static IEnumerable<string> ScanLocalExtensionNames()

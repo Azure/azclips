@@ -112,7 +112,7 @@ public class ConfigurationServiceTests
 
         Assert.Equal(512, values["core.engine.extensionIndexCacheSize"]);
         Assert.Equal(3, values["core.http.maxRetries"]);
-        Assert.True(values.ContainsKey("assemblyLoading.builtinInstallationDir"));
+        Assert.True(values.ContainsKey("assemblyLoading.bundledExtensionsRoot"));
     }
 
     [Fact]
