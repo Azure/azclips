@@ -17,7 +17,7 @@ PowerShell.
 
 - [Installation overview][03]
 - [Install Azure PowerShell modules][04]
-- [Switch between classic and preview Azure PowerShell][05]
+- [Switch between classic and preview Azure PowerShell][07]
 
 ## Sign in
 
