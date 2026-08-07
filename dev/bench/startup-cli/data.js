@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786065609592,
+  "lastUpdate": 1786065613651,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -3992,6 +3992,48 @@ window.BENCHMARK_DATA = {
             "value": 291679776.4,
             "unit": "ns",
             "range": "± 4428934.927514973"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d3b61011b21789d561c2144647f90e6988ea5d64",
+          "message": "{Help} Change public facing references to Azclips (#667)\n\nFixes https://github.com/azure/azclips/issues/647\n\n## Summary\n\nRemoves the internal codename `AzClips` / `Azclips` from user-visible\nhelp text on both the CLI and PowerShell surfaces, so `az help`, `az\nconfig --help`, `az version --help`, the welcome banner, and\n`Get-Module` describe the products as **Azure CLI** and **Azure\nPowerShell**.\n\n## Changes\n\n**CLI help docs**\n\n- `src/CLI/Help/Docs/config/index.md` -- `summary` + `Description` now\nreference \"Azure CLI\" instead of \"AzClips\". (This is the exact string\nshown in the reporter's screenshot on `az help`.)\n- `src/CLI/Help/Docs/version/index.md` -- `Description` on `az version\n--help` now says \"Azure CLI\".\n\n**Welcome banner** (`src/CLI/Help/WelcomeBanner.cs`)\n\n- ASCII figlet regenerated in the same `small` font, now spelling\n**Azure CLI**.\n- Tagline simplified to `Welcome to the Azure CLI.` (dropped the\nmulti-host copy since the banner only fires from the CLI).\n- `az --help` hint line preserved.\n- `tests/Cli.Tests/WelcomeBannerTests.cs` assertion updated from\n`AzCLIPS` -> `Azure CLI`; all three banner tests pass.\n\n**PowerShell module manifests** (`Description` field only -- the string\nsurfaced by `Get-Module` / `Find-Module`)\n\n- `src/PS/Az/Az.psd1`\n- `src/PS/Compute/Compute.psd1`\n- `src/PS/Config/Config.psd1`\n- `src/PS/Login/Login.psd1`\n- `src/PS/Resources/Resources.psd1`\n\n## Explicitly not touched\n\n- Anything under `Agent/` (out of my area).\n- Real identifiers: `Microsoft.Azure.Azclips.*` package/assembly ids,\nthe `~/.azclips/` on-disk paths, `ProjectUri =\n'https://github.com/Azure/azclips'`, and the auto-generated `# Module\nmanifest for module 'Azclips.<X>'` header comment in each `.psd1`.\n- PSGallery `Tags` on `Compute.psd1` / `Resources.psd1` that still\ninclude `'AzClips'` -- happy to strip in a follow-up if reviewers want\nthem gone (they're gallery-search facets, not help text).\n\n## Validation\n\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter WelcomeBanner`\n-- 3/3 pass.\n- `az help` output grep for `AzClips|Azclips|AzCLIPS` -- now empty.\n- `Import-Module .\\src\\PS\\Login\\Login.psd1 -Force; Get-Module Login | fl\nDescription` -- reports `Azure authentication cmdlets for Azure\nPowerShell`.",
+          "timestamp": "2026-08-07T00:58:24Z",
+          "tree_id": "cc90a81df4b0593c6acd2bc8feeedfc6a20e58d0",
+          "url": "https://github.com/Azure/azclips/commit/d3b61011b21789d561c2144647f90e6988ea5d64"
+        },
+        "date": 1786065613504,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 279779111.36,
+            "unit": "ns",
+            "range": "± 3816010.9396481337"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 278783612.36,
+            "unit": "ns",
+            "range": "± 3059969.4971189364"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 279052843.25,
+            "unit": "ns",
+            "range": "± 2616769.4047932783"
           }
         ]
       }
