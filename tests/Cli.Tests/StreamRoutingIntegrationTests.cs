@@ -69,7 +69,7 @@ public class StreamRoutingIntegrationTests
 
         Assert.Equal(0, exit);
         // Per-load lines from the two loaders (at least one).
-        Assert.Matches(@"\[(BuiltinExtensionLoader|MultiVersionExtensionLoader)\] Resolving extension", stderr);
+        Assert.Matches(@"\[(BundledExtensionLoader|InstalledExtensionLoader)\] Resolving extension", stderr);
         // Aggregate table header + total row from ExtensionLoadTracker.EmitSummary in finally.
         Assert.Contains("[ExtensionLoadTracker] Extension", stderr);
         Assert.Contains("[ExtensionLoadTracker] Total (", stderr);

@@ -9,10 +9,10 @@ using Xunit;
 
 namespace Cli.Tests;
 
-public class BuiltinExtensionLoaderTests
+public class BundledExtensionLoaderTests
 {
     [Fact]
-    public void GetInstalledExtensions_ShouldEnumerateBuiltinExtensionsFromConfiguredRoot()
+    public void GetInstalledExtensions_ShouldEnumerateBundledExtensionsFromConfiguredRoot()
     {
         var root = CreateRoot();
         try
@@ -92,8 +92,8 @@ public class BuiltinExtensionLoaderTests
     // ---------------------------------------------------------------------------------------------
     // LoadExtension — versioned-load behavior (fix for Azure/CLIPS#522).
     //
-    // Prior behavior: BuiltinExtensionLoader.LoadExtension short-circuited to null on any non-empty
-    // version, forcing the caller to fall through to MultiVersionExtensionLoader — which only knows
+    // Prior behavior: BundledExtensionLoader.LoadExtension short-circuited to null on any non-empty
+    // version, forcing the caller to fall through to InstalledExtensionLoader — which only knows
     // about ~/.azclips/extensions/. That broke local Debug/Release dispatch because discovery
     // stamps a real version onto Bundled candidates (from the on-disk .nupkg), so dispatch requested
     // a versioned load the built-in loader had refused to serve.
@@ -439,7 +439,7 @@ public class BuiltinExtensionLoaderTests
         }
     }
 
-    private static BuiltinExtensionLoader CreateLoader(string root, bool bypassExtensionCache = false)
+    private static BundledExtensionLoader CreateLoader(string root, bool bypassExtensionCache = false)
         => new(new NullLoggingService(), new TestConfigurationService(root, bypassExtensionCache));
 
     /// <summary>
@@ -447,7 +447,7 @@ public class BuiltinExtensionLoaderTests
     /// absolute-path-keyed assembly cache is always cold for the packages staged beneath it.
     /// </summary>
     private static string CreateRoot()
-        => Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
+        => Path.Combine(Path.GetTempPath(), $"bundled-loader-{Guid.NewGuid():N}");
 
     /// <summary>
     /// Stages a Bundled package at <c>&lt;root&gt;/Microsoft.Azure.Azclips.Extensions.&lt;shortName&gt;/</c>
@@ -474,7 +474,7 @@ public class BuiltinExtensionLoaderTests
         var dllPath = Path.Combine(packageDir, $"{packageId}.dll");
         if (realDll)
         {
-            File.Copy(typeof(BuiltinExtensionLoaderTests).Assembly.Location, dllPath, overwrite: true);
+            File.Copy(typeof(BundledExtensionLoaderTests).Assembly.Location, dllPath, overwrite: true);
         }
         else
         {
@@ -520,8 +520,8 @@ public class BuiltinExtensionLoaderTests
     {
         private readonly AssemblyLoadingOptions _options = new()
         {
-            BuiltinInstallationDir = installationRoot,
-            VersionedInstallationDir = installationRoot,
+            BundledExtensionsRoot = installationRoot,
+            InstalledExtensionsRoot = installationRoot,
             BypassExtensionCache = bypassExtensionCache
         };
 

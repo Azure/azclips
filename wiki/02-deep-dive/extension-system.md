@@ -32,8 +32,8 @@ graph TD
     ARGS["args: az extension remove Compute"] --> DISP["ExtensionDispatcher.Parse"]
     DISP -->|"CommandInvocation"| ENG["Engine / ExecutionSession"]
     ENG --> ALP["CLIAssemblyLoadingProvider"]
-    ALP --> L1["BuiltinExtensionLoader"]
-    ALP --> L2["MultiVersionExtensionLoader"]
+    ALP --> L1["BundledExtensionLoader"]
+    ALP --> L2["InstalledExtensionLoader"]
     L1 --> ASM["extension Assembly"]
     L2 --> ASM
     ASM --> IDX["IExtensionIndex"]
@@ -151,32 +151,32 @@ proceeds in stages:
 Once dispatch names an extension, `CLIAssemblyLoadingProvider` loads its assembly by trying each
 registered `IExtensionLoader` in order and taking the first non-null result
 (`src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs:11`). Two loaders are registered at startup,
-in priority order (`src/CLI/Program.cs:42`):
+in priority order (`src/CLI/Program.cs:56`):
 
 ```csharp
-services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();       // Program.cs:42
-services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();  // Program.cs:43
+services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();       // Program.cs:58
+services.AddSingleton<IExtensionLoader, InstalledExtensionLoader>();     // Program.cs:59
 ```
 
-| Loader                        | Layout it understands                       | Version selection                                           | Source                                           |
-| ----------------------------- | ------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------ |
-| `BuiltinExtensionLoader`      | Flat extension folders next to the host     | Single version                                              | `src/CLI/AssemblyLoading/ExtensionLoader.cs:26`  |
-| `MultiVersionExtensionLoader` | `…/<package>/<version>/` version subfolders | Exact version if requested, else **highest `NuGetVersion`** | `src/CLI/AssemblyLoading/ExtensionLoader.cs:197` |
+| Loader                     | Layout it understands                       | Version selection                                           | Source                                           |
+| -------------------------- | ------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------ |
+| `BundledExtensionLoader`   | Flat extension folders next to the host     | Single version                                              | `src/CLI/AssemblyLoading/ExtensionLoader.cs:52`  |
+| `InstalledExtensionLoader` | `…/<package>/<version>/` version subfolders | Exact version if requested, else **highest `NuGetVersion`** | `src/CLI/AssemblyLoading/ExtensionLoader.cs:358` |
 
 Both loaders isolate each extension in its own `AssemblyLoadContext` (ALC). The ALC's `Load`
 override deliberately **returns `null` for `Core.*` and `Microsoft.Extensions.DependencyInjection`
 assemblies** so those shared contracts come from the host rather than the extension's own copy —
 this is what lets a processor's `ProcessorContext` be the _same_ type the host created
-(`src/CLI/AssemblyLoading/ExtensionLoader.cs:42`, `:220`). Managed assemblies are read into memory
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:71`, `:377`). Managed assemblies are read into memory
 and loaded via `LoadFromStream`, so the on-disk DLL is not locked
-(`src/CLI/AssemblyLoading/ExtensionLoader.cs:33`).
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:62`).
 
-`MultiVersionExtensionLoader.ResolveExtensionDirectory` walks candidate package-folder names under
-the configured versioned-install root, and when no exact version is requested it parses each version
+`InstalledExtensionLoader.ResolveExtensionDirectory` walks candidate package-folder names under
+the configured installed extensions root, and when no exact version is requested it parses each version
 subfolder name as a `NuGetVersion` and selects the highest
-(`src/CLI/AssemblyLoading/ExtensionLoader.cs:258`). Loaded `(context, assembly)` pairs are memoised
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:419`). Loaded `(context, assembly)` pairs are memoised
 in a static `ConcurrentDictionary` so repeated invocations in a long-running host reuse the same ALC
-(`src/CLI/AssemblyLoading/ExtensionLoader.cs:199`, load entry point at `:301`).
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:360`, load entry point at `:480`).
 
 ### Index caching: `LFUCache` in the Engine
 
@@ -193,8 +193,8 @@ sequenceDiagram
     participant U as User
     participant D as ExtensionDispatcher
     participant P as CLIAssemblyLoadingProvider
-    participant B as BuiltinExtensionLoader
-    participant M as MultiVersionExtensionLoader
+    participant B as BundledExtensionLoader
+    participant M as InstalledExtensionLoader
     participant E as Engine (LFUCache)
     participant I as IExtensionIndex
 
@@ -318,8 +318,8 @@ graph LR
 - `src/Extensions/Extension/ExtensionIndex.cs:121` — a concrete CLI command table
 - `src/CLI/Parser/ExtensionDispatcher.cs:44` — arg → `CommandInvocation` dispatch
 - `src/Core/Core.Extensions/BuiltInExtensions.cs:44` — built-in verb → package map
-- `src/CLI/Program.cs:42` — loader registration order (`BuiltinExtensionLoader`, `MultiVersionExtensionLoader`)
-- `src/CLI/AssemblyLoading/ExtensionLoader.cs:197` — multi-version loader + isolated ALCs
+- `src/CLI/Program.cs:58` — loader registration order (`BundledExtensionLoader`, `InstalledExtensionLoader`)
+- `src/CLI/AssemblyLoading/ExtensionLoader.cs:358` — installed extensions loader + isolated ALCs
 - `src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs:11` — chain-of-loaders resolution
 - `src/Core/Core.Engine/Engine.cs:81` — `LFUCache` of extension indices
 - `src/Extensions/Extension/ExtensionInstaller.cs:47` — NuGet-based install

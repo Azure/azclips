@@ -86,7 +86,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         pinnedVersion = string.Empty;
 
         if (string.IsNullOrWhiteSpace(discoveredVersion) ||
-            loader is BuiltinExtensionLoader ||
+            loader is BundledExtensionLoader ||
             registry is null ||
             !RegistryLookup.TryFind(registry, extensionName, out var match) ||
             !match.Value.Pinned ||
@@ -95,8 +95,8 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
             return false;
         }
 
-        if (loader is MultiVersionExtensionLoader multiVersionLoader &&
-            !multiVersionLoader.HasInstalledVersion(extensionName, match.Value.Version))
+        if (loader is InstalledExtensionLoader installedLoader &&
+            !installedLoader.HasInstalledVersion(extensionName, match.Value.Version))
         {
             return false;
         }
