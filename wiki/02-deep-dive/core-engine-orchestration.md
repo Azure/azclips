@@ -57,7 +57,7 @@ services
 
 Two hosts drive the same container differently:
 
-- **CLI** (`src/CLI/Program.cs:40-53`) prepends the extension loaders (`BundledExtensionLoader`, `InstalledExtensionLoader`), `PropertyParser`, and the CLI dispatch services, then _overrides_ the assembly-loading, argument-parsing, and telemetry providers with CLI implementations, then calls `Initialize(ClientType.CLI)`.
+- **CLI** (`src/CLI/Program.cs:56-70`) prepends the extension loaders (`BundledExtensionLoader`, `InstalledExtensionLoader`), `PropertyParser`, and the CLI dispatch services, then _overrides_ the assembly-loading, argument-parsing, and telemetry providers with CLI implementations, then calls `Initialize(ClientType.CLI)`.
 - **TUI** (`TUI/Program.cs:23-41`) prepends its Azure/VFS/state services, then _overrides_ `ILoggingService` with a silent `TuiLoggingService` (so log lines can't corrupt the rendered UI) and swaps the telemetry provider, then calls `Initialize(ClientType.TUI)`.
 
 The `ClientType` singleton seeded at the top of `Initialize` (`AzclipsServiceProvider.cs:79`) is how downstream services (and the `Engine`) know which host they are running under.

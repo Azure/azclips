@@ -80,7 +80,7 @@ public static void RegisterAzclipsServices(this IServiceCollection services) =>
 The CLI, for example, prepends its extension-dispatch services and _overrides_ the assembly-loading / argument-parsing / telemetry providers with CLI-flavored ones:
 
 ```csharp
-// src/CLI/Program.cs:40
+// src/CLI/Program.cs:56
 AzclipsServiceProvider.PrependRegistration(services =>
 {
     services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();
@@ -93,6 +93,7 @@ AzclipsServiceProvider.OverrideRegistration(services =>
     services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
     services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
     services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
+    services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
 });
 AzclipsServiceProvider.Initialize(ClientType.CLI);   // builds the container, once
 ```
