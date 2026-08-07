@@ -32,8 +32,8 @@ tar -xzf $bundle.FullName -C azps-cmdlets
 ## Verify
 
 ```powershell
-Import-Module Az
-Get-Module Az.* -ListAvailable | Select-Object Name, Version
+Import-Module -Name Az
+Get-Module -Name Az.* -ListAvailable | Select-Object Name, Version
 ```
 
 ## Other install scenarios
