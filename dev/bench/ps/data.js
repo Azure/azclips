@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786065515759,
+  "lastUpdate": 1786087025807,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -5084,6 +5084,48 @@ window.BENCHMARK_DATA = {
             "value": 1070529.8977111606,
             "unit": "ns",
             "range": "± 30597.899034589034"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bd521582e94d0ecd9c92c41122859c897e531a3",
+          "message": "[Config] Rename assemblyLoading extension-root config keys (breaking) (#668)\n\n## Summary\n\nRenames the two user-observable `assemblyLoading.*InstallationDir`\nconfig keys to a clearer bundled/installed vocabulary, and\ncorrespondingly renames the two extension-loader classes and their\n`AssemblyLoadingOptions` property counterparts.\n\nCloses Azure/CLIPS#533.\n\n## Motivation\n\nThe `Builtin*` and `MultiVersion*` names are legacy MVP terminology that\nno longer describes what the loaders do:\n\n- `BuiltinExtensionLoader` serves extensions **bundled** in the shipped\ninstall (`<install>/Extensions/`). This is orthogonal to the\ncompile-time `BuiltInExtensions.Map` \"Core\" seed, and the naming\ncollision has been a persistent source of confusion.\n- `MultiVersionExtensionLoader` serves extensions **installed** by the\nuser via `az extension add` under `~/.azclips/extensions/`.\n\"MultiVersion\" describes its filesystem layout, not its role.\n\nBridging XML docs introducing the target Core / Bundled / Installed\nvocabulary landed earlier in #550. This PR realizes the rename.\n\nThe `assemblyLoading.builtinInstallationDir` /\n`assemblyLoading.versionedInstallationDir` config keys are\nuser-observable via `az config`, so they are renamed in the same PR to\nkeep the C# property names and the user-facing keys in sync. Introducing\nan alias layer would extend the confusion; a clean break is preferred\nwhile the project is still in preview.\n\n## Changes\n\n### User-visible\n\n- Config key `assemblyLoading.builtinInstallationDir` →\n`assemblyLoading.bundledExtensionsRoot`\n- Config key `assemblyLoading.versionedInstallationDir` →\n`assemblyLoading.installedExtensionsRoot`\n- Descriptions updated in `docs/azure-cli/docs-conceptual/config.md`\n- CHANGELOG entry under **Upcoming Release → `#### CLI`**\n\nAny existing user config referencing the old keys must be renamed\nmanually. The old spellings now fail with `unknown key` via `az config\nset`.\n\n### Internal (mechanical)\n\n- Class `BuiltinExtensionLoader` → `BundledExtensionLoader`\n- Class `MultiVersionExtensionLoader` → `InstalledExtensionLoader`\n- Property `AssemblyLoadingOptions.BuiltinInstallationDir` →\n`BundledExtensionsRoot`\n- Property `AssemblyLoadingOptions.VersionedInstallationDir` →\n`InstalledExtensionsRoot`\n- Test file `BuiltinExtensionLoaderTests.cs` →\n`BundledExtensionLoaderTests.cs` (`git mv`)\n- Comment / XML-doc / log-tag string updates in\n`ExtensionLoadTracker.cs`, `CLIAssemblyLoadingProvider.cs`,\n`Program.cs`, `VersionInformationProvider.cs`, `CompletionGenerator.cs`,\n`CLIBenchmarkBase.cs`\n- In-scope wiki updates: `wiki/02-deep-dive/extension-system.md`,\n`wiki/02-deep-dive/core-engine-orchestration.md`,\n`wiki/onboarding-guide.md`, `wiki/zero-to-hero-guide.md`\n- Log-tag regex assertion in `StreamRoutingIntegrationTests.cs` updated\nto match the new class names\n\n### Explicitly out of scope (follow-up: Azure/CLIPS#622)\n\n- Deleting `BuiltInExtensions.Map` and the drift-guard test\n- Removing `IsBuiltInVerb` / `s_builtInPackageIds` and the \"Core wins\nover registry\" rule\n- Rewriting the \"Core tier\" narrative in `eng-docs/spec/extension-*.md`\n- Making `az extension update login` (and other Core-verb extensions)\nwork\n\nScratch design plan on the branch at\n`scratch/CLIPS-533-TEMP-PR-PLAN.md`.\n\n## History Notes\n\n`BREAKING CHANGE: [Config] Renamed extension-root config keys —\n'assemblyLoading.builtinInstallationDir' →\n'assemblyLoading.bundledExtensionsRoot' and\n'assemblyLoading.versionedInstallationDir' →\n'assemblyLoading.installedExtensionsRoot'. Existing user config\nreferencing the old keys must be updated manually; the old spellings now\nfail with \"unknown key\".`\n\n`[CLI] Renamed extension-loader classes 'BuiltinExtensionLoader' →\n'BundledExtensionLoader' and 'MultiVersionExtensionLoader' →\n'InstalledExtensionLoader' to match the on-disk tier they serve.`\n\n## Validation\n\n- `dotnet build azclips.slnx` — green (3 pre-existing warnings unrelated\nto this PR).\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — 51 rename-affected\ntests pass (`BundledExtensionLoaderTests`,\n`ExtensionSelectionPathOverrideTests`,\n`ExtensionLoadContextDirectoryTests`, `StreamRoutingIntegrationTests`,\n`ConfigurationServiceTests`, `VersionInformationProviderTests`). One\npre-existing environmental failure\n(`ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail`) requires a\npublished `az` binary that isn't produced by a Debug build; not related\nto this change.\n- `dotnet test tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj`\n— 85/85 pass.\n- `git diff --stat`: 22 files, +178 / −172, all mechanical.",
+          "timestamp": "2026-08-07T17:01:56+10:00",
+          "tree_id": "58a3a98180678b00b24de8f2c46e6ba579e8d904",
+          "url": "https://github.com/Azure/azclips/commit/5bd521582e94d0ecd9c92c41122859c897e531a3"
+        },
+        "date": 1786087023841,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 1071405.5799837597,
+            "unit": "ns",
+            "range": "± 21369.176663722385"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 1834300.7237377851,
+            "unit": "ns",
+            "range": "± 29301.907101313358"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 1031664.6763636364,
+            "unit": "ns",
+            "range": "± 22839.31918534523"
           }
         ]
       }
