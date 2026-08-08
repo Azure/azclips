@@ -134,14 +134,12 @@ if [[ "$PROVISION" -eq 1 ]]; then
 fi
 
 # `terraform output` reads REMOTE state, which needs the backend initialised and
-# ARM_ACCESS_KEY exported. --provision does that via the wrapper; without it we
-# have to do it here or every output comes back empty.
-if [[ "$PROVISION" -eq 0 ]]; then
-  init_module_state "$TF_DIR" "linux-vm" || {
-    echo "!! Could not open the Terraform state for this alias." >&2
-    exit 1
-  }
-fi
+# ARM_ACCESS_KEY exported in THIS shell. Unconditional: the --provision wrapper
+# runs as a child process, so the key it exports never reaches us.
+init_module_state "$TF_DIR" "linux-vm" || {
+  echo "!! Could not open the Terraform state for this alias." >&2
+  exit 1
+}
 
 # Resolve a Terraform output value, or empty string if unavailable.
 tf_output() {
