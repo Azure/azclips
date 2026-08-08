@@ -7,7 +7,7 @@
 # It must never run in CI, because it creates the very identity CI logs in as.
 
 locals {
-  app_display_name = "${var.alias}-cirrus-live-test-mi"
+  app_display_name = "${var.alias}-azclips-live-test-mi"
 
   # GitHub's OIDC token subject for an environment-scoped job. Must match the
   # workflow's `environment:` value exactly.

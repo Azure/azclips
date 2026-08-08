@@ -64,7 +64,7 @@ echo "==> Alias: $ALIAS"
 # already lives; the group below is only used if it has to be created.
 BACKEND_STORAGE_ACCOUNT="$(state_account_name "$ALIAS")"
 BACKEND_CONTAINER="tfstate"
-BACKEND_FALLBACK_RESOURCE_GROUP="${ALIAS}-cirrus-live-test-mi-tfstate-rg"
+BACKEND_FALLBACK_RESOURCE_GROUP="${ALIAS}-azclips-live-test-mi-tfstate-rg"
 BACKEND_LOCATION="australiaeast"
 
 # Creating an app registration is not covered by Azure RBAC — it needs either a

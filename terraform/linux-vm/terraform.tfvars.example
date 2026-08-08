@@ -18,8 +18,8 @@ alias = "ming"
 
 # Optional overrides:
 # location                = "australiaeast"
-# resource_group_name     = "<alias>-cirrus-live-test-mi-rg"   # default derives from alias
-# vm_name                 = "<alias>-cirrus-live-test-mi-vm"   # default derives from alias
+# resource_group_name     = "<alias>-azclips-live-test-mi-rg"   # default derives from alias
+# vm_name                 = "<alias>-azclips-live-test-mi-vm"   # default derives from alias
 # vm_size                 = "Standard_D2s_v4"
 # admin_username          = "azureuser"
 # os_disk_type            = "Standard_LRS"

@@ -4,7 +4,7 @@ locals {
   # (VM, NIC, identity, ...) are scoped to the resource group and would not
   # strictly need the prefix, but carrying it makes subscription-wide listings
   # such as `az vm list` readable.
-  resource_prefix = "${var.alias}-cirrus-live-test-mi"
+  resource_prefix = "${var.alias}-azclips-live-test-mi"
   vm_name         = var.vm_name != "" ? var.vm_name : "${local.resource_prefix}-vm"
   uami_name       = var.user_assigned_identity_name != "" ? var.user_assigned_identity_name : "${local.resource_prefix}-uami"
 

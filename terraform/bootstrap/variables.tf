@@ -29,7 +29,7 @@ variable "github_repo" {
 
   validation {
     condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}$", var.github_repo))
-    error_message = "github_repo must be in \"owner/repo\" form, e.g. \"xuming-ms/cirrus\"."
+    error_message = "github_repo must be in \"owner/repo\" form, e.g. \"xuming-ms/azclips\"."
   }
 }
 

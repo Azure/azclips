@@ -27,10 +27,10 @@ local runs, start at stage 1.
 |---|---|
 | Subscription | `Visual Studio Enterprise Subscription` (your own MSDN subscription) |
 | Tenant / subscription ID | Taken from your active `az` context |
-| Resource group | `<alias>-cirrus-live-test-mi-rg` (created for you) |
-| VM | `<alias>-cirrus-live-test-mi-vm` |
-| CI app registration | `<alias>-cirrus-live-test-mi` |
-| Terraform state RG | `<alias>-cirrus-live-test-mi-tfstate-rg` (created for you; kept separate from the workload group so `terraform destroy` cannot delete the state) |
+| Resource group | `<alias>-azclips-live-test-mi-rg` (created for you) |
+| VM | `<alias>-azclips-live-test-mi-vm` |
+| CI app registration | `<alias>-azclips-live-test-mi` |
+| Terraform state RG | `<alias>-azclips-live-test-mi-tfstate-rg` (created for you; kept separate from the workload group so `terraform destroy` cannot delete the state) |
 | Terraform state account | `<alias>tf<first 8 of subscription id>` (created for you) |
 | Terraform state blob | `<alias>-linux-vm.tfstate`, `<alias>-bootstrap.tfstate` |
 | Region | Australia East |
@@ -204,11 +204,15 @@ Confirm that `gh` is authenticated:
 gh auth status
 ```
 
-Trigger the workflow on `main`:
+Trigger the workflow on `main` (your fork — the repository stage 0 detected
+from `origin`):
 
 ```bash
+OWNER="$(gh api user --jq .login)"
+REPO="$(basename -s .git "$(git remote get-url origin)")"
+
 gh workflow run mi-live.yml \
-  --repo xuming-ms/cirrus \
+  --repo "$OWNER/$REPO" \
   --ref main
 ```
 
@@ -216,7 +220,7 @@ Find and monitor the run:
 
 ```bash
 RUN_ID="$(gh run list \
-  --repo xuming-ms/cirrus \
+  --repo "$OWNER/$REPO" \
   --workflow mi-live.yml \
   --branch main \
   --limit 1 \
@@ -224,7 +228,7 @@ RUN_ID="$(gh run list \
   --jq '.[0].databaseId')"
 
 gh run watch "$RUN_ID" \
-  --repo xuming-ms/cirrus \
+  --repo "$OWNER/$REPO" \
   --exit-status
 ```
 
@@ -232,7 +236,7 @@ To inspect the final MI results:
 
 ```bash
 gh run view "$RUN_ID" \
-  --repo xuming-ms/cirrus \
+  --repo "$OWNER/$REPO" \
   --log |
   grep -E 'MI_LIVE_RESULT|End-to-end MI test|assigned.*OK'
 ```
@@ -253,8 +257,8 @@ public IP (replace `<alias>` with yours):
 test -f ~/.ssh/id_ed25519.pub || ssh-keygen -t ed25519
 
 az vm user update \
-  --resource-group "<alias>-cirrus-live-test-mi-rg" \
-  --name "<alias>-cirrus-live-test-mi-vm" \
+  --resource-group "<alias>-azclips-live-test-mi-rg" \
+  --name "<alias>-azclips-live-test-mi-vm" \
   --username azureuser \
   --ssh-key-value ~/.ssh/id_ed25519.pub
 
@@ -263,8 +267,8 @@ TF_VAR_allowed_ssh_source_cidr="${MY_IP}/32" \
   terraform/linux-vm/provision-infrastructure.sh
 
 VM_IP="$(az network public-ip show \
-  --resource-group "<alias>-cirrus-live-test-mi-rg" \
-  --name "<alias>-cirrus-live-test-mi-vm-pip" \
+  --resource-group "<alias>-azclips-live-test-mi-rg" \
+  --name "<alias>-azclips-live-test-mi-vm-pip" \
   --query ipAddress --output tsv)"
 
 ssh azureuser@"$VM_IP"
