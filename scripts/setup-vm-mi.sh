@@ -74,6 +74,24 @@ done
 . /etc/os-release 2>/dev/null || true
 echo "==> Detected: ${PRETTY_NAME:-unknown}"
 
+# Step timer. Lives beside this script both in the repo (scripts/lib) and in the
+# bundle (publish-vm-mi.sh copies it next to us), so try both before giving up —
+# timing is diagnostics, never a reason to fail the run.
+_SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$_SELF_DIR/timing.sh" ]]; then
+  # shellcheck source=lib/timing.sh
+  source "$_SELF_DIR/timing.sh"
+elif [[ -f "$_SELF_DIR/lib/timing.sh" ]]; then
+  # shellcheck source=lib/timing.sh
+  source "$_SELF_DIR/lib/timing.sh"
+else
+  timing_start() { echo "==> $1 ..."; }
+  timing_end() { :; }
+  timing_record() { :; }
+  timing_record_detail() { :; }
+  timing_summary() { :; }
+fi
+
 if [[ -n "$ARCHIVE" && -n "$BUNDLE" ]]; then
   echo "!! Use either --archive or --bundle, not both. See --help." >&2
   exit 1
@@ -97,7 +115,9 @@ if [[ -n "$ARCHIVE" ]]; then
   fi
 
   echo "==> Extracting $ARCHIVE -> $DEST"
+  timing_start "extract archive"
   tar -xzf "$ARCHIVE" -C "$DEST"
+  timing_end
   BUNDLE="$DEST/$TOP"
 fi
 
@@ -107,7 +127,8 @@ if [[ -z "$BUNDLE" ]]; then
 fi
 
 AZ="$BUNDLE/Core.Cli/az"
-echo "==> Wiring bundle: $BUNDLE"
+timing_start "install az (link + PATH)"
+echo "    Wiring bundle: $BUNDLE"
 if [[ ! -x "$AZ" ]]; then
   echo "    !! az not found/executable at $AZ" >&2
   exit 1
@@ -120,8 +141,8 @@ case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) echo "    Note: add ~/.local/bin to PATH (echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc)";;
 esac
-echo
 "$AZ" --help >/dev/null 2>&1 && echo "    az runs OK." || echo "    !! az failed to run; check dependencies." >&2
+timing_end
 
 # Register the bundled non-core extensions (offline) so commands like
 # 'az group' / 'az vm' work without a NuGet feed. Built-in verbs
@@ -132,7 +153,7 @@ pkgs=("$PKG_DIR"/*.nupkg)
 shopt -u nullglob
 if [[ ${#pkgs[@]} -gt 0 ]]; then
   echo
-  echo "==> Registering bundled extensions ..."
+  timing_start "register bundled extensions"
   for pkg in "${pkgs[@]}"; do
     name="$(basename "$pkg")"
     if "$AZ" extension add --path "$pkg" >/dev/null 2>&1; then
@@ -141,6 +162,7 @@ if [[ ${#pkgs[@]} -gt 0 ]]; then
       echo "    !! failed to register $name (continuing)" >&2
     fi
   done
+  timing_end
 fi
 
 echo
@@ -182,10 +204,36 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
   export AZCLIPS_LIVE_UAMI_RESOURCE_ID="$UAMI_RESOURCE_ID"
   export AZCLIPS_LIVE_UAMI_OBJECT_ID="$UAMI_OBJECT_ID"
 
-  "$RUNNER"
+  # -xml gives per-test durations, which is the only way to see which live test
+  # is actually slow — the console reporter prints just a total.
+  XML_REPORT="$(mktemp -t live-tests-XXXXXX.xml)"
+  trap 'rm -f "$XML_REPORT"' EXIT
+
+  rc=0
+  timing_start "run live tests"
+  "$RUNNER" -xml "$XML_REPORT" || rc=$?
+  timing_end
+
+  # xUnit writes the report as one long line, so split on '<' before matching.
+  # Diagnostics only: a malformed/absent report must never change the verdict.
+  if [[ -s "$XML_REPORT" ]]; then
+    while IFS= read -r el; do
+      t="$(printf '%s' "$el" | grep -o ' time="[^"]*"' | head -n1 | cut -d'"' -f2)"
+      m="$(printf '%s' "$el" | grep -o ' method="[^"]*"' | head -n1 | cut -d'"' -f2)"
+      c="$(printf '%s' "$el" | grep -o ' type="[^"]*"' | head -n1 | cut -d'"' -f2)"
+      [[ -z "$t" || -z "$m" ]] && continue
+      timing_record_detail "test: ${c##*.}.${m}" "$(awk -v s="$t" 'BEGIN { printf "%d", s * 1000 }')"
+    done < <(tr '<' '\n' < "$XML_REPORT" | grep '^test ' || true)
+  fi
+
+  if [[ $rc -ne 0 ]]; then
+    timing_summary "VM-side (setup-vm-mi.sh)"
+    exit $rc
+  fi
 
   echo "    All MI live tests passed."
   echo
 fi
 
+timing_summary "VM-side (setup-vm-mi.sh)"
 echo "==> Done."

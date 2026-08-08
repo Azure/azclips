@@ -12,6 +12,7 @@
 #     packages/*.nupkg                               <- NON-built-in extensions (offline install)
 #     Live.Tests/Live.Tests                          <- self-contained xUnit v3 live test runner
 #     setup-vm-mi.sh
+#     timing.sh                                      <- step timer sourced by setup-vm-mi.sh
 #
 # The CLI is published --self-contained so the target VM needs NO .NET runtime
 # installed. Extensions are published framework-dependent (they load into the
@@ -53,6 +54,9 @@ done
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# shellcheck source=lib/timing.sh
+source "$REPO_ROOT/scripts/lib/timing.sh"
+
 [[ -z "$OUT" ]] && OUT="$REPO_ROOT/publish/vm/${CONFIG}-${RID}"
 
 echo "==> Repo:   $REPO_ROOT"
@@ -67,10 +71,12 @@ mkdir -p "$OUT"
 # 1) Self-contained CLI host -> <out>/Core.Cli. The apphost is named 'az'
 #    (Core.Cli <AssemblyName>) and published self-contained so the target VM
 #    needs no .NET runtime installed.
-echo "==> Publishing CLI (self-contained) ..."
+echo
+timing_start "publish CLI (self-contained)"
 dotnet publish src/CLI/Core.Cli.csproj \
   -c "$CONFIG" -r "$RID" --self-contained true \
   -o "$OUT/Core.Cli"
+timing_end
 
 # Built-in (always-on) extensions. Their verbs are seeded in-memory by the host
 # (Core.Extensions.BuiltInExtensions) and loaded directly from their loose <out>/<ExtName>/
@@ -84,7 +90,7 @@ BUILTIN_IDS="Microsoft.Azure.Azclips.Extensions.Extension Microsoft.Azure.Azclip
 #    to them until they are registered from their nupkg (step 3), after which they load from
 #    the versioned install dir — so a loose folder for them would be dead weight.
 echo
-echo "==> Publishing built-in extensions ..."
+timing_start "publish built-in extensions"
 while IFS= read -r csproj; do
   ext_name="$(grep -oPm1 '(?<=<ExtName>).*?(?=</ExtName>)' "$csproj" || true)"
   if [[ -z "$ext_name" ]]; then
@@ -100,12 +106,13 @@ while IFS= read -r csproj; do
     -c "$CONFIG" -r "$RID" --no-self-contained \
     -o "$OUT/$ext_name" >/dev/null
 done < <(find src/Extensions -maxdepth 2 -name 'Extensions.*.csproj' -not -path '*/obj/*')
+timing_end
 
 # 3) Pack the NON-built-in extensions as .nupkg into <out>/packages so they can be
 #    registered offline on the VM (az extension add --path). 'extension', 'login'
 #    and 'config' are built-in (always-on) and MUST NOT be registered this way.
 echo
-echo "==> Packing extensions for offline install ..."
+timing_start "pack extensions for offline install"
 mkdir -p "$OUT/packages"
 while IFS= read -r csproj; do
   ext_name="$(grep -oPm1 '(?<=<ExtName>).*?(?=</ExtName>)' "$csproj" || true)"
@@ -120,21 +127,26 @@ while IFS= read -r csproj; do
   dotnet build "$csproj" -c "$CONFIG" >/dev/null
   dotnet pack "$csproj" -c "$CONFIG" --no-build -o "$OUT/packages" >/dev/null
 done < <(find src/Extensions -maxdepth 2 -name 'Extensions.*.csproj' -not -path '*/obj/*')
+timing_end
 
 # 4) Live test suite -> <out>/Live.Tests. Published SELF-CONTAINED because the VM
 #    has no .NET SDK and so cannot run `dotnet test`; xUnit v3 builds the project
 #    to a standalone executable, which we invoke directly on the VM.
 echo
-echo "==> Publishing live tests (self-contained) ..."
+timing_start "publish live tests (self-contained)"
 dotnet publish tests/Live.Tests/Live.Tests.csproj \
   -c "$CONFIG" -r "$RID" --self-contained true \
   -o "$OUT/Live.Tests" >/dev/null
+timing_end
 
-# 5) Include the VM setup helper so it travels with the bundle (Option D).
+# 5) Include the VM setup helper (and the timing helper it sources) so they
+#    travel with the bundle (Option D).
 echo
-echo "==> Adding setup-vm-mi.sh to bundle ..."
+timing_start "add setup-vm-mi.sh to bundle"
 cp "$(dirname "${BASH_SOURCE[0]}")/setup-vm-mi.sh" "$OUT/"
+cp "$(dirname "${BASH_SOURCE[0]}")/lib/timing.sh" "$OUT/"
 chmod +x "$OUT/setup-vm-mi.sh"
+timing_end
 
 echo
 echo "==> Bundle ready: $OUT"
@@ -143,9 +155,13 @@ echo "    Run on the VM:  $OUT/Core.Cli/az --help"
 if [[ "$MAKE_TAR" == "1" ]]; then
   TARBALL="$REPO_ROOT/publish/vm/azclips-${CONFIG}-${RID}.tar.gz"
   echo
-  echo "==> Creating tarball: $TARBALL"
+  timing_start "create tarball ($(basename "$TARBALL"))"
   tar -czf "$TARBALL" -C "$(dirname "$OUT")" "$(basename "$OUT")"
+  timing_end
+  echo "    $(du -h "$TARBALL" | cut -f1) -> $TARBALL"
   echo
   echo "    The bundle travels to the VM via Azure Storage + 'az vm run-command'"
   echo "    (no SSH). Run the full flow with: scripts/mi-live-test.sh"
 fi
+
+timing_summary "Bundle build (publish-vm-mi.sh)"

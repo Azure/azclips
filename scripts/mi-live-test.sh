@@ -87,6 +87,9 @@ TF_DIR="$REPO_ROOT/terraform/linux-vm"
 # shellcheck source=../terraform/tf-common.sh
 source "$REPO_ROOT/terraform/tf-common.sh"
 
+# shellcheck source=lib/timing.sh
+source "$SCRIPTS_DIR/lib/timing.sh"
+
 # Fail fast, before anything slow or billable: building the bundle takes minutes,
 # and every later step assumes the right subscription. This also covers az being
 # missing or signed out.
@@ -128,14 +131,18 @@ preflight
 # 0) Optionally provision/update the VM first (Stage 1). The script runs a plan
 #    and only applies when there are pending changes — a fast no-op otherwise.
 if [[ "$PROVISION" -eq 1 ]]; then
-  echo "==> --provision: running terraform/linux-vm/provision-infrastructure.sh"
+  timing_start "terraform provision (plan + apply-if-changed)"
   "$TF_DIR/provision-infrastructure.sh"
+  timing_end
   echo
+else
+  echo "==> Skipping provision (pass --provision to plan/apply the VM first)"
 fi
 
 # `terraform output` reads REMOTE state, which needs the backend initialised and
 # ARM_ACCESS_KEY exported in THIS shell. Unconditional: the --provision wrapper
 # runs as a child process, so the key it exports never reaches us.
+timing_start "terraform init backend + read outputs"
 init_module_state "$TF_DIR" "linux-vm" || {
   echo "!! Could not open the Terraform state for this alias." >&2
   exit 1
@@ -161,6 +168,7 @@ az_tsv() {
 UAMI_CLIENT_ID="$(tf_output user_assigned_identity_client_id)"
 UAMI_RESOURCE_ID="$(tf_output user_assigned_identity_resource_id)"
 UAMI_OBJECT_ID="$(tf_output user_assigned_identity_principal_id)"
+timing_end
 
 # No name fallbacks: resource names are per-developer (alias-derived), so a
 # guessed default would point at somebody else's VM or at nothing at all. Fail
@@ -211,8 +219,9 @@ if [[ "$SKIP_PUBLISH" -eq 1 ]]; then
     exit 1
   fi
 else
-  echo "==> Building bundle via publish-vm-mi.sh ..."
+  timing_start "build bundle (publish-vm-mi.sh)"
   "$SCRIPTS_DIR/publish-vm-mi.sh" --rid "$RID" --config "$CONFIG" --tar
+  timing_end
 fi
 
 # 2) Ensure a storage account + container exist IN THE RESOURCE GROUP, then upload
@@ -220,6 +229,7 @@ fi
 #    plain HTTPS GET (no identity needed for the download itself). Listing keys is
 #    covered by the same Contributor rights used to provision the VM.
 echo
+timing_start "ensure storage account + container"
 if ! az storage account show -n "$STORAGE_ACCOUNT" -g "$RESOURCE_GROUP" -o none 2>/dev/null; then
   if [[ -z "$LOCATION" ]]; then
     echo "!! Could not determine a location to create storage account '$STORAGE_ACCOUNT'." >&2
@@ -243,20 +253,25 @@ fi
 
 az storage container create \
   --name "$CONTAINER" --account-name "$STORAGE_ACCOUNT" --account-key "$STORAGE_KEY" -o none
+timing_end
 
 BLOB_NAME="azclips-${BUNDLE_NAME}-$(date -u +%Y%m%d%H%M%S).tar.gz"
-echo "==> Uploading $(basename "$TARBALL") -> ${STORAGE_ACCOUNT}/${CONTAINER}/${BLOB_NAME}"
+echo "==> Uploading $(basename "$TARBALL") ($(du -h "$TARBALL" | cut -f1)) -> ${STORAGE_ACCOUNT}/${CONTAINER}/${BLOB_NAME}"
+timing_start "upload bundle blob"
 az storage blob upload \
   --account-name "$STORAGE_ACCOUNT" --account-key "$STORAGE_KEY" \
   --container-name "$CONTAINER" --name "$BLOB_NAME" --file "$TARBALL" --overwrite -o none
+timing_end
 
 # Short-lived, read-only SAS URL (2h) so the VM can pull the bundle over HTTPS.
+timing_start "generate SAS url"
 SAS_EXPIRY="$(date -u -d '+2 hours' '+%Y-%m-%dT%H:%MZ')"
 SAS_TOKEN="$(az_tsv storage blob generate-sas \
   --account-name "$STORAGE_ACCOUNT" --account-key "$STORAGE_KEY" \
   --container-name "$CONTAINER" --name "$BLOB_NAME" \
   --permissions r --expiry "$SAS_EXPIRY" --https-only)"
 BLOB_URL="https://${STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER}/${BLOB_NAME}?${SAS_TOKEN}"
+timing_end
 
 # Clean up local temp files (and the blob unless --keep-blob) on exit. The RG's
 # CanNotDelete lock is management-plane only, so deleting the blob (data-plane) is fine.
@@ -289,7 +304,13 @@ export HOME="\${HOME:-/root}"
 WORK="\$(mktemp -d)"
 cd "\$WORK"
 
+# The bundle carries timing.sh, but it is not on disk yet — so time these two
+# steps by hand, emitting the same markers the orchestrator parses.
+export TIMING_EMIT_MARKERS=1
+mark() { echo "MI_LIVE_TIMING:\$1|\$(( ( \$(date +%s%N) - \$2 ) / 1000000 ))|0"; }
+
 echo "==> Downloading bundle from Azure Storage"
+t0=\$(date +%s%N)
 if command -v curl >/dev/null 2>&1; then
   curl -fsSL '${BLOB_URL}' -o bundle.tar.gz
 elif command -v wget >/dev/null 2>&1; then
@@ -299,9 +320,12 @@ else
   echo "MI_LIVE_RESULT:FAIL"
   exit 1
 fi
+mark "download bundle" "\$t0"
 
 echo "==> Extracting bundle"
+t0=\$(date +%s%N)
 tar -xzf bundle.tar.gz
+mark "extract bundle" "\$t0"
 BUNDLE="${BUNDLE_NAME}"
 chmod +x "\$BUNDLE/setup-vm-mi.sh" 2>/dev/null || true
 
@@ -316,21 +340,40 @@ fi
 REMOTE
 
 echo
-echo "==> Invoking az vm run-command on ${VM_NAME} (RG ${RESOURCE_GROUP}) ..."
+timing_start "az vm run-command (download + install + tests)"
 RUN_OUTPUT="$(az_tsv vm run-command invoke \
   --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" \
   --command-id RunShellScript --scripts "@$REMOTE_SCRIPT" \
   --query 'value[0].message')"
+timing_end
+RUN_COMMAND_MS="${_TIMING_MS[-1]}"
 
 echo "----- run-command output -----"
 echo "$RUN_OUTPUT"
 echo "------------------------------"
 
-if grep -q 'MI_LIVE_RESULT:PASS' <<<"$RUN_OUTPUT"; then
+# The orchestrator's own table first, then the VM's, rebuilt from the markers
+# the guest printed. Two tables rather than one because the run-command row
+# already contains every VM row.
+timing_summary "Stage 2 — orchestrator (mi-live-test.sh)"
+
+timing_reset
+while IFS='|' read -r label ms detail; do
+  [[ -z "$label" || -z "$ms" ]] && continue
+  timing_record "$label" "$ms" "${detail:-0}"
+done < <(grep -o 'MI_LIVE_TIMING:[^|]*|[0-9]*|[0-9]*' <<<"$RUN_OUTPUT" | sed 's/^MI_LIVE_TIMING://' || true)
+TIMING_EMIT_MARKERS="" timing_summary "Stage 2 — on the VM (via run-command)" "$RUN_COMMAND_MS"
+
+# run-command only returns the tail of stdout, so a very chatty guest can lose
+# the earliest markers. Say so rather than showing a silently short table.
+if ! grep -q 'MI_LIVE_TIMING:download bundle' <<<"$RUN_OUTPUT"; then
+  echo "    (note: run-command truncated its reply — earliest VM steps are missing above)"
   echo
+fi
+
+if grep -q 'MI_LIVE_RESULT:PASS' <<<"$RUN_OUTPUT"; then
   echo "==> End-to-end MI test PASSED."
 else
-  echo
   echo "!! End-to-end MI test FAILED (no PASS sentinel in run-command output)." >&2
   exit 1
 fi
