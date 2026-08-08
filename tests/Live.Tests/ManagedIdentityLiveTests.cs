@@ -20,13 +20,44 @@ namespace Live.Tests;
 /// actually running on a machine with no .NET installed.
 /// </para>
 /// </summary>
-public class ManagedIdentityLiveTests
+public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
 {
     // Role assignments are eventually consistent: a freshly created assignment can
     // take a couple of minutes to be honoured by ARM, so the first authenticated
     // call after provisioning is retried rather than treated as a failure.
     private const int MaxAttempts = 12;
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Clears any cached credential before each case. Without this a test could
+    /// pass using the identity a previous test logged in as, which would make the
+    /// selector under test irrelevant and the assertion meaningless.
+    /// </summary>
+    public async ValueTask InitializeAsync()
+    {
+        if (!LiveTestEnvironment.IsEnabled)
+        {
+            return; // skipped cases still construct the class
+        }
+
+        var logout = await AzCli.LogoutAsync();
+        Assert.True(
+            logout.Succeeded,
+            "Could not clear the existing credential before the test, so the result could "
+                + $"reflect a previously logged-in identity.{Environment.NewLine}{logout.Describe()}");
+    }
+
+    /// <summary>
+    /// Best-effort cleanup. Failures here are deliberately ignored: the fixture
+    /// logs out once more at the end, and throwing would mask the real result.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (LiveTestEnvironment.IsEnabled)
+        {
+            await AzCli.LogoutAsync();
+        }
+    }
 
     [LiveFact]
     public async Task Login_WithSystemAssignedIdentity_CanReadOwnVm()
@@ -63,8 +94,6 @@ public class ManagedIdentityLiveTests
     [LiveFact]
     public async Task Login_WithUnassignedClientId_Fails()
     {
-        await AzCli.LogoutAsync();
-
         var unassignedClientId = Guid.NewGuid().ToString();
         var login = await AzCli.LoginWithIdentityAsync("--client-id", unassignedClientId);
 
@@ -85,12 +114,6 @@ public class ManagedIdentityLiveTests
 
     private static async Task AssertIdentityCanReadOwnVmAsync(string label, params string[] selectorArgs)
     {
-        var logout = await AzCli.LogoutAsync();
-        Assert.True(
-            logout.Succeeded,
-            $"[{label}] could not clear the existing credential, so a later assertion could "
-                + $"pass using a previous identity's token.{Environment.NewLine}{logout.Describe()}");
-
         var login = await AzCli.LoginWithIdentityAsync(selectorArgs);
         Assert.True(
             login.Succeeded,
