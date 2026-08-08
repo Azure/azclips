@@ -11,6 +11,11 @@ name: Managed Identity Live
 # hardcoded, so each fork targets its own identity and resources.
 on:
   workflow_dispatch:
+  # TEMPORARY: remove before merging. Lets this branch be tested before the
+  # renamed workflow reaches the default branch, where workflow_dispatch looks
+  # for it.
+  push:
+    branches: [new-mi-live-e2e-test]
   schedule:
     - cron: "0 3 * * 1" # weekly, Monday 03:00 UTC
 
