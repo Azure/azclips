@@ -1,0 +1,22 @@
+# Example variable values for STAGE 0. Copy to terraform.tfvars and adjust:
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#   ./setup-github-identity.sh
+#
+# terraform.tfvars is gitignored (local-only, per developer).
+
+# REQUIRED — your short user alias. Prefixes every per-developer resource and
+# selects your Terraform state blob. 3-14 chars, lowercase, must start with a
+# letter, only a-z 0-9 and '-'. Use the SAME alias in terraform/linux-vm.
+alias = "ming"
+
+# Optional overrides:
+# github_environment = "dev"    # must match `environment:` in mi-live.yml
+# subscription_role  = "Contributor"
+
+# tenant_id / subscription_id are not set here: the wrapper script passes them
+# from your active `az` context, so the run always follows the subscription you
+# selected with `az account set`.
+
+# github_repo is not set here: setup-github-identity.sh derives it from your
+# `origin` remote and refuses to run against the shared upstream.

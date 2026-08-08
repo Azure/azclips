@@ -17,9 +17,11 @@
 #                   running `login --identity` + a `vm show` smoke test. Always
 #                   tests the system-assigned identity, and tests the user-assigned
 #                   identity via any of the selectors below that are supplied.
-#   --vm-name NAME  VM name for the --test-mi smoke test (default: test-vm-mi)
+#   --vm-name NAME  VM name for the --test-mi smoke test (required with --test-mi)
 #   --resource-group RG
-#                   Resource group for the --test-mi smoke test (default: ManagedIdentityLiveTest)
+#                   Resource group for the --test-mi smoke test (required with
+#                   --test-mi). Names are per-developer, so there is no default;
+#                   the orchestrator passes the Terraform outputs.
 #   --subscription-id ID
 #                   Subscription containing the VM under test
 #   --uami-client-id ID
@@ -41,8 +43,8 @@ ARCHIVE=""
 DEST=""
 BUNDLE=""
 RUN_TEST=0
-VM_NAME="test-vm-mi"
-RESOURCE_GROUP="ManagedIdentityLiveTest"
+VM_NAME=""
+RESOURCE_GROUP=""
 SUBSCRIPTION_ID=""
 UAMI_CLIENT_ID=""
 UAMI_RESOURCE_ID=""
@@ -146,6 +148,13 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
     exit 1
   fi
 
+  # No defaults: resource names are per-developer (alias-derived), so a guessed
+  # name would target somebody else's VM or nothing at all.
+  if [[ -z "$VM_NAME" || -z "$RESOURCE_GROUP" ]]; then
+    echo "!! --vm-name and --resource-group are required with --test-mi." >&2
+    exit 1
+  fi
+
   echo "==> --test-mi: verifying managed-identity auth on this VM"
 
   # Verify one MI login style end-to-end: clear context, `login --identity` with
@@ -183,7 +192,7 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
   mi_check "system-assigned"
 
   # User-assigned identity, once per selector supplied (sourced from terraform
-  # output by the orchestrator, mi-e2e-test.sh).
+  # output by the orchestrator, mi-live-test.sh).
   if [[ -n "$UAMI_CLIENT_ID" ]]; then
     mi_check "user-assigned/client-id" --client-id "$UAMI_CLIENT_ID"
   fi

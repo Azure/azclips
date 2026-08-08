@@ -1,43 +1,58 @@
-# Reference the EXISTING resource group. Using a data source (not a resource)
-# guarantees this template never creates, modifies, or deletes the group itself
-# — it only deploys resources *into* the group.
-data "azurerm_resource_group" "rg" {
-  name = var.resource_group_name
+locals {
+  # Every per-developer name derives from the alias so that multiple developers
+  # can run this module against the same subscription. Names inside the group
+  # (VM, NIC, identity, ...) are scoped to the resource group and would not
+  # strictly need the prefix, but carrying it makes subscription-wide listings
+  # such as `az vm list` readable.
+  resource_prefix = "${var.alias}-cirrus-live-test-mi"
+  vm_name         = var.vm_name != "" ? var.vm_name : "${local.resource_prefix}-vm"
+  uami_name       = var.user_assigned_identity_name != "" ? var.user_assigned_identity_name : "${local.resource_prefix}-uami"
+
+  # Desired group name. Everything else references azurerm_resource_group.rg
+  # directly rather than this string, so Terraform always orders the group's
+  # creation before its contents.
+  resource_group_name = var.resource_group_name != "" ? var.resource_group_name : "${local.resource_prefix}-rg"
 }
 
-locals {
-  resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
+# The resource group is owned by this module and is disposable: each developer
+# gets their own, and `terraform destroy` is expected to remove it. There is
+# deliberately no CanNotDelete lock — a lock only makes sense for long-lived
+# shared infrastructure, and here it would just block teardown and VM
+# replacement.
+resource "azurerm_resource_group" "rg" {
+  name     = local.resource_group_name
+  location = var.location
+  tags     = var.tags
 }
 
 resource "azurerm_virtual_network" "vnet" {
-  name                = "${var.vm_name}-vnet"
-  resource_group_name = local.resource_group_name
-  location            = local.location
+  name                = "${local.vm_name}-vnet"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   address_space       = ["10.0.0.0/16"]
   tags                = var.tags
 }
 
 resource "azurerm_subnet" "subnet" {
-  name                 = "${var.vm_name}-subnet"
-  resource_group_name  = local.resource_group_name
+  name                 = "${local.vm_name}-subnet"
+  resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
 }
 
 resource "azurerm_public_ip" "pip" {
-  name                = "${var.vm_name}-pip"
-  resource_group_name = local.resource_group_name
-  location            = local.location
+  name                = "${local.vm_name}-pip"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
   sku                 = "Standard"
   tags                = var.tags
 }
 
 resource "azurerm_network_security_group" "nsg" {
-  name                = "${var.vm_name}-nsg"
-  resource_group_name = local.resource_group_name
-  location            = local.location
+  name                = "${local.vm_name}-nsg"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   tags                = var.tags
 
   # Inbound SSH is opened only when `allowed_ssh_source_cidr` is set; otherwise no
@@ -45,7 +60,7 @@ resource "azurerm_network_security_group" "nsg" {
   # the default NSG rules deny inbound Internet traffic. `security_rule` is a computed
   # attribute, so a zero-iteration dynamic block sets it to an empty list to REMOVE any
   # pre-existing rules. Outbound to Azure Storage (to pull the test bundle) stays allowed
-  # by the default rules. When set, the E2E test can still use `az vm run-command`.
+  # by the default rules. When set, the live test can still use `az vm run-command`.
   dynamic "security_rule" {
     for_each = var.allowed_ssh_source_cidr != "" ? [1] : []
     content {
@@ -63,9 +78,9 @@ resource "azurerm_network_security_group" "nsg" {
 }
 
 resource "azurerm_network_interface" "nic" {
-  name                = "${var.vm_name}-nic"
-  resource_group_name = local.resource_group_name
-  location            = local.location
+  name                = "${local.vm_name}-nic"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   tags                = var.tags
 
   ip_configuration {
@@ -84,9 +99,9 @@ resource "azurerm_network_interface_security_group_association" "nic_nsg" {
 # create/update: terraform apply will create the VM if absent, or update it
 # in place (and recreate when an immutable field changes).
 resource "azurerm_linux_virtual_machine" "vm" {
-  name                = var.vm_name
-  resource_group_name = local.resource_group_name
-  location            = local.location
+  name                = local.vm_name
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   size                = var.vm_size
   admin_username      = var.admin_username
   tags                = var.tags
@@ -132,9 +147,9 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   # The admin SSH key is a throwaway credential that is never used to connect
   # (the test drives the VM via `az vm run-command`). Ignore changes to it so
-  # switching the key source never forces a destructive VM replacement — and so
-  # it never collides with the resource group's CanNotDelete lock. New VMs still
-  # get the generated key; existing VMs keep whatever key they were created with.
+  # switching the key source never forces a destructive VM replacement. New VMs
+  # still get the generated key; existing VMs keep whatever key they were
+  # created with.
   lifecycle {
     ignore_changes = [admin_ssh_key]
   }
@@ -153,47 +168,23 @@ resource "tls_private_key" "vm_admin" {
 # User-assigned managed identity attached to the VM (see the identity block above).
 # Logged into on the VM with: az login --identity --client-id <client_id>.
 resource "azurerm_user_assigned_identity" "uami" {
-  name                = var.user_assigned_identity_name
-  resource_group_name = local.resource_group_name
-  location            = local.location
+  name                = local.uami_name
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
 }
 
 # Grant the user-assigned identity an RBAC role at the resource-group scope so it
 # can actually read/operate on resources once authenticated (e.g. `az vm show`).
 resource "azurerm_role_assignment" "uami_role" {
-  scope                = data.azurerm_resource_group.rg.id
+  scope                = azurerm_resource_group.rg.id
   role_definition_name = var.uami_role
   principal_id         = azurerm_user_assigned_identity.uami.principal_id
 }
 
-# The system-assigned identity is also exercised by the E2E test and needs
+# The system-assigned identity is also exercised by the live test and needs
 # permission to read the VM through ARM after authenticating through IMDS.
 resource "azurerm_role_assignment" "system_assigned_identity_role" {
-  scope                = data.azurerm_resource_group.rg.id
+  scope                = azurerm_resource_group.rg.id
   role_definition_name = var.system_assigned_identity_role
   principal_id         = azurerm_linux_virtual_machine.vm.identity[0].principal_id
-}
-
-# CanNotDelete management lock on the resource group. Protects the group (and
-# everything in it) from accidental deletion. depends_on ensures Terraform removes
-# this lock before the resources it guards during a destroy/replace, avoiding the
-# 409 ScopeLocked error that an in-place lock would otherwise cause.
-resource "azurerm_management_lock" "rg_lock" {
-  name       = var.resource_lock_name
-  scope      = data.azurerm_resource_group.rg.id
-  lock_level = "CanNotDelete"
-  notes      = ""
-
-  depends_on = [
-    azurerm_linux_virtual_machine.vm,
-    azurerm_network_interface_security_group_association.nic_nsg,
-    azurerm_network_interface.nic,
-    azurerm_network_security_group.nsg,
-    azurerm_subnet.subnet,
-    azurerm_virtual_network.vnet,
-    azurerm_public_ip.pip,
-    azurerm_user_assigned_identity.uami,
-    azurerm_role_assignment.uami_role,
-    azurerm_role_assignment.system_assigned_identity_role,
-  ]
 }

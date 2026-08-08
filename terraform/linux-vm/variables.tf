@@ -1,31 +1,57 @@
+# Keep this validation in sync with:
+#   - terraform/bootstrap/variables.tf  (same variable)
+#   - terraform/tf-common.sh            (ALIAS_REGEX, the bash copy)
+variable "alias" {
+  type        = string
+  nullable    = false
+  description = <<-EOT
+    Your short user alias. Prefixes every per-developer resource so multiple
+    developers can share one subscription without colliding, and selects the
+    per-developer Terraform state blob. Use the SAME alias as in
+    terraform/bootstrap. Required — there is no default.
+  EOT
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{1,12}[a-z0-9]$", var.alias))
+    error_message = "alias must be 3-14 characters, lowercase, start with a letter, and contain only a-z, 0-9 and '-'. The 14-character limit comes from the state storage account name, which is capped at 24 characters."
+  }
+}
+
 variable "tenant_id" {
   type        = string
-  description = "Microsoft Entra tenant ID used for the managed identity E2E environment."
-  default     = "4f00b3b6-2940-4f2c-b037-94637c180d30"
+  description = "Microsoft Entra tenant ID used for the managed identity live test environment. Supplied by the wrapper script from the active az context."
 }
 
 variable "subscription_id" {
   type        = string
-  description = "Azure subscription ID used for the managed identity E2E environment."
-  default     = "f758ac53-3e63-4317-a956-0997793808d7"
+  description = "Azure subscription ID used for the managed identity live test environment. Supplied by the wrapper script from the active az context."
 }
 
 variable "resource_group_name" {
   type        = string
-  description = "Name of the EXISTING resource group to deploy into. This template only ever deploys into this group."
+  description = "Name of the resource group to create and deploy into. Defaults to an alias-prefixed, per-developer group."
+  default     = ""
   nullable    = false
+}
+
+variable "location" {
+  type        = string
+  description = "Azure region for the resource group and every resource in it."
+  default     = "australiaeast"
 }
 
 variable "vm_name" {
   type        = string
-  description = "Name of the Linux virtual machine (also used as a prefix for its network resources)."
-  default     = "cirrus-mi-e2e-vm"
+  description = "Name of the Linux virtual machine (also used as a prefix for its network resources). Defaults to an alias-prefixed name."
+  default     = ""
+  nullable    = false
 }
 
 variable "user_assigned_identity_name" {
   type        = string
-  description = "Name of the user-assigned managed identity to create and attach to the VM."
-  default     = "cirrus-mi-e2e-uami"
+  description = "Name of the user-assigned managed identity to create and attach to the VM. Defaults to an alias-prefixed name."
+  default     = ""
+  nullable    = false
 }
 
 variable "uami_role" {
@@ -38,12 +64,6 @@ variable "system_assigned_identity_role" {
   type        = string
   description = "RBAC role granted to the VM's system-assigned identity at the resource-group scope."
   default     = "Reader"
-}
-
-variable "resource_lock_name" {
-  type        = string
-  description = "Name of the CanNotDelete management lock applied to the resource group."
-  default     = "test-retension"
 }
 
 variable "vm_size" {

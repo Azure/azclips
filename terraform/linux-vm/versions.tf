@@ -12,13 +12,19 @@ terraform {
     }
   }
 
-  # Remote state so local runs and CI (mi-e2e.yml) share the same state.
-  # change.sh creates the backend when needed and supplies ARM_ACCESS_KEY.
+  # Remote state so local runs and CI (mi-live.yml) share the same state.
+  # The blob key is per-developer and supplied by provision-infrastructure.sh via
+  # -backend-config: backend blocks are evaluated before variables exist, so the
+  # key cannot interpolate var.alias here. Without that, every developer would
+  # write to one state file and overwrite each other's infrastructure.
+  # resource_group_name is intentionally omitted: the backend does not need it
+  # when ARM_ACCESS_KEY is supplied (provision-infrastructure.sh does), and
+  # omitting it means the state account can live in any group without this file
+  # having to agree.
+  # storage_account_name and key both come from -backend-config: the account is
+  # derived from the active subscription, so it cannot be written down here.
   backend "azurerm" {
-    resource_group_name  = "ManagedIdentityLiveTest"
-    storage_account_name = "cirrustfstatef758ac53"
-    container_name       = "tfstate"
-    key                  = "linux-vm.tfstate"
+    container_name = "tfstate"
   }
 }
 

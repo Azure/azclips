@@ -1,3 +1,8 @@
+output "alias" {
+  description = "Developer alias every resource name and the Terraform state key derive from."
+  value       = var.alias
+}
+
 output "vm_id" {
   description = "Resource ID of the Linux VM."
   value       = azurerm_linux_virtual_machine.vm.id
@@ -10,12 +15,12 @@ output "vm_name" {
 
 output "resource_group" {
   description = "Resource group the VM was deployed into."
-  value       = local.resource_group_name
+  value       = azurerm_resource_group.rg.name
 }
 
 output "location" {
   description = "Azure region of the deployment."
-  value       = local.location
+  value       = azurerm_resource_group.rg.location
 }
 
 output "public_ip_address" {

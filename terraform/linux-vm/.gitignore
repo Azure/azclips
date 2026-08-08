@@ -12,3 +12,6 @@ crash.*.log
 
 # Saved plans.
 *.tfplan
+
+# Alias drift marker (written after a successful apply).
+.alias

@@ -137,5 +137,5 @@ if [[ "$MAKE_TAR" == "1" ]]; then
   tar -czf "$TARBALL" -C "$(dirname "$OUT")" "$(basename "$OUT")"
   echo
   echo "    The bundle travels to the VM via Azure Storage + 'az vm run-command'"
-  echo "    (no SSH). Run the full flow with: scripts/mi-e2e-test.sh"
+  echo "    (no SSH). Run the full flow with: scripts/mi-live-test.sh"
 fi

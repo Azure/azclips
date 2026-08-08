@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# mi-e2e-test.sh — Full managed-identity end-to-end test (no SSH).
+# mi-live-test.sh — Full managed-identity live test against real Azure (no SSH).
 #
 # Drives an already-provisioned Linux VM entirely through `az vm run-command`
 # (the Azure control plane + the VM guest agent) — there is no SSH, no open
 # port 22, and no long-lived SSH key. All Azure resources it touches live in
 # your resource group.
 #
-# Flow (Stage 1, terraform/linux-vm/change.sh, must have provisioned the VM):
+# Flow (Stage 1, terraform/linux-vm/provision-infrastructure.sh, must have provisioned the VM):
 #
 #   1. publish-vm-mi.sh --tar        build the self-contained az bundle (+ .tar.gz)
 #   2. upload the tarball to a blob in a storage account IN YOUR RESOURCE GROUP,
@@ -25,27 +25,27 @@
 # CI) — the same identity that provisions the VM.
 #
 # Usage:
-#   scripts/mi-e2e-test.sh [options]
+#   scripts/mi-live-test.sh [options]
 #
 #   --rid RID              Runtime id for the bundle (default: linux-x64)
 #   --config CONFIG        Debug|Release (default: Release)
 #   --vm-name NAME         VM name to verify (default: terraform output vm_name)
 #   --resource-group RG    Resource group for ALL operations (default: terraform
-#                          output resource_group, else ManagedIdentityLiveTest)
+#                          output resource_group, which derives from your alias)
 #   --storage-account NAME Storage account for the bundle blob (default: derived
 #                          deterministically from subscription+RG; created if absent)
-#   --container NAME       Blob container name (default: mie2e-bundles)
+#   --container NAME       Blob container name (default: milive-bundles)
 #   --location LOC         Region for a newly created storage account (default:
 #                          terraform output location, else the RG's location)
-#   --provision            Run terraform/linux-vm/change.sh first (provision/update
+#   --provision            Run terraform/linux-vm/provision-infrastructure.sh first (provision/update
 #                          the VM). Fast no-op when nothing changed. Default: off.
 #   --skip-publish         Reuse the existing tarball instead of rebuilding
 #   --keep-blob            Do not delete the uploaded bundle blob afterwards
 #
 # Examples:
-#   scripts/mi-e2e-test.sh
-#   scripts/mi-e2e-test.sh --provision
-#   scripts/mi-e2e-test.sh --skip-publish
+#   scripts/mi-live-test.sh
+#   scripts/mi-live-test.sh --provision
+#   scripts/mi-live-test.sh --skip-publish
 #
 set -euo pipefail
 
@@ -54,7 +54,7 @@ CONFIG="Release"
 VM_NAME=""
 RESOURCE_GROUP=""
 STORAGE_ACCOUNT=""
-CONTAINER="mie2e-bundles"
+CONTAINER="milive-bundles"
 LOCATION=""
 PROVISION=0
 SKIP_PUBLISH=0
@@ -83,12 +83,18 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS_DIR="$REPO_ROOT/scripts"
 TF_DIR="$REPO_ROOT/terraform/linux-vm"
 
+# Shared helpers, including the pinned tenant/subscription and require_az_context.
+# shellcheck source=../terraform/tf-common.sh
+source "$REPO_ROOT/terraform/tf-common.sh"
+
+# Fail fast, before anything slow or billable: building the bundle takes minutes,
+# and every later step assumes the right subscription. This also covers az being
+# missing or signed out.
+require_az_context
+
 # Preflight: fail fast with a clear message if required tooling/config is missing.
 preflight() {
   local missing=()
-
-  # az drives everything VM-side (run-command) and the blob upload/SAS.
-  command -v az >/dev/null 2>&1 || missing+=("az (Azure CLI)")
 
   # terraform is needed to auto-discover the VM/identity/location outputs (and to provision).
   command -v terraform >/dev/null 2>&1 || missing+=("terraform")
@@ -98,9 +104,10 @@ preflight() {
     command -v dotnet >/dev/null 2>&1 || missing+=("dotnet (.NET SDK)")
   fi
 
-  # change.sh needs resource_group_name — from terraform.tfvars or TF_VAR_ env.
-  if [[ "$PROVISION" -eq 1 && ! -f "$TF_DIR/terraform.tfvars" && -z "${TF_VAR_resource_group_name:-}" ]]; then
-    missing+=("$TF_DIR/terraform.tfvars (set resource_group_name; copy from terraform.tfvars.example) or TF_VAR_resource_group_name")
+  # provision-infrastructure.sh needs `alias` — from terraform.tfvars or TF_VAR_ env.
+  # It names every resource and selects the per-developer Terraform state blob.
+  if [[ "$PROVISION" -eq 1 && ! -f "$TF_DIR/terraform.tfvars" && -z "${TF_VAR_alias:-}" ]]; then
+    missing+=("$TF_DIR/terraform.tfvars (set alias; copy from terraform.tfvars.example) or TF_VAR_alias")
   fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
@@ -115,11 +122,11 @@ preflight() {
 
 preflight
 
-# 0) Optionally provision/update the VM first (Stage 1). change.sh runs a plan
+# 0) Optionally provision/update the VM first (Stage 1). The script runs a plan
 #    and only applies when there are pending changes — a fast no-op otherwise.
 if [[ "$PROVISION" -eq 1 ]]; then
-  echo "==> --provision: running terraform/linux-vm/change.sh"
-  "$TF_DIR/change.sh"
+  echo "==> --provision: running terraform/linux-vm/provision-infrastructure.sh"
+  "$TF_DIR/provision-infrastructure.sh"
   echo
 fi
 
@@ -144,13 +151,16 @@ UAMI_CLIENT_ID="$(tf_output user_assigned_identity_client_id)"
 UAMI_RESOURCE_ID="$(tf_output user_assigned_identity_resource_id)"
 UAMI_OBJECT_ID="$(tf_output user_assigned_identity_principal_id)"
 
-# Sensible fallbacks if Terraform outputs were unavailable.
-[[ -z "$VM_NAME"        ]] && VM_NAME="test-vm-mi"
-[[ -z "$RESOURCE_GROUP" ]] && RESOURCE_GROUP="ManagedIdentityLiveTest"
-
+# No name fallbacks: resource names are per-developer (alias-derived), so a
+# guessed default would point at somebody else's VM or at nothing at all. Fail
+# with an actionable message instead.
 if [[ -z "$VM_NAME" || -z "$RESOURCE_GROUP" ]]; then
-  echo "!! Could not determine VM name / resource group. Run with --provision, or" >&2
-  echo "   pass --vm-name and --resource-group explicitly." >&2
+  echo "!! Could not determine VM name / resource group from the Terraform outputs." >&2
+  echo "   Provision first (creates them and populates the outputs):" >&2
+  echo "     scripts/mi-live-test.sh --provision" >&2
+  echo "   or pass them explicitly with --vm-name and --resource-group." >&2
+  echo "   If you have provisioned already, check that terraform/linux-vm has the" >&2
+  echo "   same alias configured — each alias has its own state and resources." >&2
   exit 1
 fi
 
@@ -169,7 +179,7 @@ fi
 # stable per subscription+RG so re-runs reuse the same account. Overridable.
 if [[ -z "$STORAGE_ACCOUNT" ]]; then
   hash="$(printf '%s' "${SUBSCRIPTION_ID}-${RESOURCE_GROUP}" | sha256sum | cut -c1-16)"
-  STORAGE_ACCOUNT="mie2e${hash}"
+  STORAGE_ACCOUNT="milive${hash}"
 fi
 
 BUNDLE_NAME="${CONFIG}-${RID}"
@@ -275,7 +285,7 @@ elif command -v wget >/dev/null 2>&1; then
   wget -q -O bundle.tar.gz '${BLOB_URL}'
 else
   echo "!! neither curl nor wget available on the VM" >&2
-  echo "MI_E2E_RESULT:FAIL"
+  echo "MI_LIVE_RESULT:FAIL"
   exit 1
 fi
 
@@ -287,9 +297,9 @@ chmod +x "\$BUNDLE/setup-vm-mi.sh" 2>/dev/null || true
 if "\$BUNDLE/setup-vm-mi.sh" --bundle "\$BUNDLE" --test-mi \
      --vm-name '${VM_NAME}' --resource-group '${RESOURCE_GROUP}' \
      --subscription-id '${SUBSCRIPTION_ID}'${UAMI_ARGS}; then
-  echo "MI_E2E_RESULT:PASS"
+  echo "MI_LIVE_RESULT:PASS"
 else
-  echo "MI_E2E_RESULT:FAIL"
+  echo "MI_LIVE_RESULT:FAIL"
   exit 1
 fi
 REMOTE
@@ -305,7 +315,7 @@ echo "----- run-command output -----"
 echo "$RUN_OUTPUT"
 echo "------------------------------"
 
-if grep -q 'MI_E2E_RESULT:PASS' <<<"$RUN_OUTPUT"; then
+if grep -q 'MI_LIVE_RESULT:PASS' <<<"$RUN_OUTPUT"; then
   echo
   echo "==> End-to-end MI test PASSED."
 else
