@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- xUnit v3 (not v2 like the other test projects): a v3 test project builds
+         to a standalone executable, so it can be published self-contained and run
+         on the live VM, which has no .NET SDK and therefore cannot run `dotnet test`. -->
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Live.Tests</RootNamespace>
+    <AssemblyName>Live.Tests</AssemblyName>
+    <!-- Publishing self-contained for a single RID; the invariant globalization
+         mode keeps the payload small since nothing here is culture-sensitive. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- tests/Directory.Build.props supplies xunit v2 for every test project.
+         Swap it for v3 here; xunit.runner.visualstudio 3.x supports both, so
+         `dotnet test` keeps working alongside the standalone executable. -->
+    <PackageReference Remove="xunit" />
+    <PackageReference Include="xunit.v3" Version="3.1.0" />
+  </ItemGroup>
+
+</Project>

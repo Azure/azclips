@@ -10,6 +10,7 @@
 #     Microsoft.Azure.Azclips.Extensions.Login/       <- (extension, login, config only)
 #     Microsoft.Azure.Azclips.Extensions.Config/
 #     packages/*.nupkg                               <- NON-built-in extensions (offline install)
+#     Live.Tests/Live.Tests                          <- self-contained xUnit v3 live test runner
 #     setup-vm-mi.sh
 #
 # The CLI is published --self-contained so the target VM needs NO .NET runtime
@@ -120,7 +121,16 @@ while IFS= read -r csproj; do
   dotnet pack "$csproj" -c "$CONFIG" --no-build -o "$OUT/packages" >/dev/null
 done < <(find src/Extensions -maxdepth 2 -name 'Extensions.*.csproj' -not -path '*/obj/*')
 
-# 4) Include the VM setup helper so it travels with the bundle (Option D).
+# 4) Live test suite -> <out>/Live.Tests. Published SELF-CONTAINED because the VM
+#    has no .NET SDK and so cannot run `dotnet test`; xUnit v3 builds the project
+#    to a standalone executable, which we invoke directly on the VM.
+echo
+echo "==> Publishing live tests (self-contained) ..."
+dotnet publish tests/Live.Tests/Live.Tests.csproj \
+  -c "$CONFIG" -r "$RID" --self-contained true \
+  -o "$OUT/Live.Tests" >/dev/null
+
+# 5) Include the VM setup helper so it travels with the bundle (Option D).
 echo
 echo "==> Adding setup-vm-mi.sh to bundle ..."
 cp "$(dirname "${BASH_SOURCE[0]}")/setup-vm-mi.sh" "$OUT/"

@@ -13,7 +13,9 @@
 #   --archive FILE  A azclips .tar.gz bundle; it is extracted, then wired up
 #   --dest DIR      Where to extract the archive (default: current directory)
 #   --bundle DIR    An already-extracted bundle; adds az to PATH via symlink
-#   --test-mi       After install, verify managed-identity auth on this VM by
+#   --test-mi       After install, run the bundled live test suite (tests/Live.Tests,
+#                   xUnit v3, published self-contained) to verify managed-identity
+#                   auth on this VM by
 #                   running `login --identity` + a `vm show` smoke test. Always
 #                   tests the system-assigned identity, and tests the user-assigned
 #                   identity via any of the selectors below that are supplied.
@@ -157,53 +159,32 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
 
   echo "==> --test-mi: verifying managed-identity auth on this VM"
 
-  # Verify one MI login style end-to-end: clear context, `login --identity` with
-  # the given selector args, then `vm show` must succeed AND return the expected
-  # VM. Any failure returns non-zero so the caller (set -e) aborts loudly.
-  mi_check() {
-    local label="$1"; shift
-    echo "    [$label] login --identity ${*:-(system-assigned)}"
-    "$AZ" login logout >/dev/null 2>&1 || true
-    if ! "$AZ" login --identity --subscription-id "$SUBSCRIPTION_ID" "$@" >/dev/null 2>&1; then
-      echo "    !! [$label] 'login --identity $*' failed" >&2
-      return 1
-    fi
-    local attempt out
-    for attempt in {1..12}; do
-      if out="$("$AZ" vm show --name "${VM_NAME}" --resource-group "${RESOURCE_GROUP}" 2>&1)"; then
-        break
-      fi
-      if [[ "$attempt" -eq 12 ]]; then
-        echo "    !! [$label] vm show failed:" >&2
-        echo "$out" | sed 's/^/       /' >&2
-        return 1
-      fi
-      sleep 10
-    done
-    if ! grep -q "\"name\": \"${VM_NAME}\"" <<<"$out"; then
-      echo "    !! [$label] vm show did not return '${VM_NAME}':" >&2
-      echo "$out" | sed 's/^/       /' >&2
-      return 1
-    fi
-    echo "    [$label] OK — vm show returned '${VM_NAME}'"
-  }
-
-  # System-assigned identity (plain `login --identity`).
-  mi_check "system-assigned"
-
-  # User-assigned identity, once per selector supplied (sourced from terraform
-  # output by the orchestrator, mi-live-test.sh).
-  if [[ -n "$UAMI_CLIENT_ID" ]]; then
-    mi_check "user-assigned/client-id" --client-id "$UAMI_CLIENT_ID"
-  fi
-  if [[ -n "$UAMI_RESOURCE_ID" ]]; then
-    mi_check "user-assigned/resource-id" --resource-id "$UAMI_RESOURCE_ID"
-  fi
-  if [[ -n "$UAMI_OBJECT_ID" ]]; then
-    mi_check "user-assigned/object-id" --object-id "$UAMI_OBJECT_ID"
+  # The assertions live in tests/Live.Tests (xUnit v3), published self-contained
+  # into the bundle. Keeping them in C# rather than here gives real assertion
+  # messages, structured JSON parsing and per-case pass/fail reporting; this
+  # script only supplies the environment and propagates the exit code.
+  RUNNER="$BUNDLE/Live.Tests/Live.Tests"
+  if [[ ! -x "$RUNNER" ]]; then
+    echo "!! Live test runner not found at $RUNNER" >&2
+    echo "   Rebuild the bundle with scripts/publish-vm-mi.sh." >&2
+    exit 1
   fi
 
-  echo "    All MI smoke tests passed."
+  export AZCLIPS_LIVE_TEST=1
+  # Absolute: the runner is started from its own directory, so a relative path
+  # (the common case, since --bundle is usually relative) would not resolve.
+  export AZCLIPS_LIVE_AZ
+  AZCLIPS_LIVE_AZ="$(readlink -f "$AZ")"
+  export AZCLIPS_LIVE_SUBSCRIPTION_ID="$SUBSCRIPTION_ID"
+  export AZCLIPS_LIVE_VM_NAME="$VM_NAME"
+  export AZCLIPS_LIVE_RESOURCE_GROUP="$RESOURCE_GROUP"
+  export AZCLIPS_LIVE_UAMI_CLIENT_ID="$UAMI_CLIENT_ID"
+  export AZCLIPS_LIVE_UAMI_RESOURCE_ID="$UAMI_RESOURCE_ID"
+  export AZCLIPS_LIVE_UAMI_OBJECT_ID="$UAMI_OBJECT_ID"
+
+  "$RUNNER"
+
+  echo "    All MI live tests passed."
   echo
 fi
 
