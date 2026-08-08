@@ -9,8 +9,21 @@ name: Managed Identity Live
 # Configuration comes from the `dev` environment variables published by
 # terraform/bootstrap/setup-github-identity.sh (stage 0). Nothing here is
 # hardcoded, so each fork targets its own identity and resources.
+#
+# The infrastructure itself is NOT provisioned by default. Developers own it:
+# it is created locally by terraform/linux-vm/provision-infrastructure.sh, and
+# CI and the developer share one Terraform state per alias. Leaving CI a
+# read-only consumer of the outputs keeps it from racing the developer for the
+# state lock, and stops a scheduled run from silently recreating (and billing
+# for) a VM that was deliberately destroyed. Set the `provision` input when the
+# infrastructure genuinely needs creating or updating.
 on:
   workflow_dispatch:
+    inputs:
+      provision:
+        description: "Provision/update the VM first (needed after a rebootstrap or destroy)"
+        type: boolean
+        default: false
   schedule:
     - cron: "0 3 * * 1" # weekly, Monday 03:00 UTC
 
@@ -65,7 +78,11 @@ jobs:
           # here. It must match the one used locally: it selects the Terraform
           # state blob and every resource name, including the resource group.
           TF_VAR_alias: ${{ vars.ALIAS }}
+          # Unset on the scheduled run, which is exactly the default we want.
+          PROVISION: ${{ inputs.provision }}
         run: |
           # No SSH: the test ships the bundle via an Azure Storage blob and runs
           # it on the VM with `az vm run-command`.
-          scripts/mi-live-test.sh --provision
+          args=()
+          [[ "${PROVISION:-false}" == "true" ]] && args+=(--provision)
+          scripts/mi-live-test.sh "${args[@]}"

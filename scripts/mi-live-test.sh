@@ -178,6 +178,9 @@ if [[ -z "$VM_NAME" || -z "$RESOURCE_GROUP" ]]; then
   echo "   Provision first (creates them and populates the outputs):" >&2
   echo "     scripts/mi-live-test.sh --provision" >&2
   echo "   or pass them explicitly with --vm-name and --resource-group." >&2
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    echo "   In CI: re-run this workflow with the 'provision' input enabled." >&2
+  fi
   echo "   If you have provisioned already, check that terraform/linux-vm has the" >&2
   echo "   same alias configured — each alias has its own state and resources." >&2
   exit 1
