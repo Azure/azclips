@@ -87,8 +87,7 @@ username is a good choice. Use the **same alias in both stages**.
 Skip this if you only run the test locally.
 
 ```bash
-cp terraform/bootstrap/terraform.tfvars.example \
-  terraform/bootstrap/terraform.tfvars
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 # edit: set `alias`
 
 terraform/bootstrap/setup-github-identity.sh
@@ -118,12 +117,13 @@ needs permissions CI deliberately does not have.
 ## Stage 1 and 2 — run locally
 
 ```bash
-cp terraform/linux-vm/terraform.tfvars.example \
-  terraform/linux-vm/terraform.tfvars
-# edit: set `alias` to the same value used in stage 0
+# Already done if you ran stage 0 — the same file configures both stages.
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+# edit: set `alias`
 ```
 
-The copied file is gitignored. `alias` is the only required setting.
+The copied file is gitignored and shared by both stages, so the alias is set once.
+`alias` is the only required setting.
 
 Run from the repository root. The first run should include `--provision` so
 Terraform creates or updates the Azure resources:

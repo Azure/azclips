@@ -1,0 +1,21 @@
+# Developer config shared by BOTH Terraform stages:
+#   terraform/bootstrap   (stage 0 — GitHub OIDC identity)
+#   terraform/linux-vm    (stage 1 — the test VM)
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# This file is gitignored (local-only, per developer).
+
+# REQUIRED — your short user alias. Prefixes every per-developer resource and
+# selects your Terraform state, so several developers can share one
+# subscription. 3-14 chars, lowercase, must start with a letter, only a-z 0-9
+# and '-', and it cannot end with '-'.
+alias = "ming"
+
+# Everything else is derived and needs no configuration:
+#   tenant_id / subscription_id   from your active `az` context
+#   github_repo                   from your `origin` remote
+#   location                      australiaeast
+#
+# Per-module overrides (vm_size, ssh_public_key, ...) can still go in a
+# terraform.tfvars inside that module's directory, which takes precedence.

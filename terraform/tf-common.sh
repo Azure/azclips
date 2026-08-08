@@ -23,7 +23,15 @@ EXPECTED_SUBSCRIPTION_NAME="${EXPECTED_SUBSCRIPTION_NAME:-Visual Studio Enterpri
 # Both names are accepted: the upstream is Azure/azclips, so a default fork is
 # named <user>/azclips, while a renamed one may be <user>/cirrus.
 EXPECTED_REPO_NAMES="cirrus azclips"
+
+# Terraform state location. Shared by every entry point so the wrappers and the
+# read-only consumers (mi-live-test.sh) cannot disagree about where state lives.
+BACKEND_CONTAINER="tfstate"
+BACKEND_LOCATION="australiaeast"
 UPSTREAM_OWNERS="Azure"
+
+# Directory holding this file (terraform/), used to locate the shared tfvars.
+TF_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Must stay in sync with the `alias` validation block in
 # terraform/bootstrap/variables.tf and terraform/linux-vm/variables.tf.
@@ -39,24 +47,37 @@ ALIAS_REGEX='^[a-z][a-z0-9-]{1,12}[a-z0-9]$'
 # blob key cannot interpolate var.alias — the wrapper script has to know the
 # alias too. Precedence:
 #   1. TF_VAR_alias  (how CI supplies it, from the ALIAS GitHub variable)
-#   2. terraform.tfvars in the module directory (how a developer supplies it)
+#   2. terraform.tfvars in the module directory (per-module override)
+#   3. terraform/terraform.tfvars (shared by both stages — the normal case)
 #
 # Echoes the alias on success; exits non-zero with a diagnostic otherwise.
 resolve_alias() {
   local module_dir="$1"
-  local tfvars="$module_dir/terraform.tfvars"
+  local shared_tfvars="${TF_COMMON_DIR}/terraform.tfvars"
+  local module_tfvars="$module_dir/terraform.tfvars"
   local alias_value="${TF_VAR_alias:-}"
   local source="TF_VAR_alias"
+  local file
 
-  if [[ -z "$alias_value" && -f "$tfvars" ]]; then
-    source="$tfvars"
-    # Take the last assignment, tolerate whitespace, strip quotes and comments.
-    alias_value="$(sed -n 's/^[[:space:]]*alias[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$tfvars" | tail -n 1)"
+  # Precedence: env (how CI supplies it) > module-local tfvars (per-module
+  # override) > shared terraform/terraform.tfvars (the normal case: configure
+  # the alias once for both stages).
+  if [[ -z "$alias_value" ]]; then
+    for file in "$module_tfvars" "$shared_tfvars"; do
+      [[ -f "$file" ]] || continue
+      # Take the last assignment, tolerate whitespace, strip quotes and comments.
+      alias_value="$(sed -n 's/^[[:space:]]*alias[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$file" | tail -n 1)"
+      if [[ -n "$alias_value" ]]; then
+        source="$file"
+        break
+      fi
+    done
   fi
 
   if [[ -z "$alias_value" ]]; then
     echo "!! No 'alias' configured." >&2
-    echo "   Set it in $tfvars (copy terraform.tfvars.example), or export TF_VAR_alias." >&2
+    echo "   Set it in $shared_tfvars (copy terraform/terraform.tfvars.example)," >&2
+    echo "   or export TF_VAR_alias." >&2
     echo "   The alias prefixes your resources and selects your Terraform state." >&2
     return 1
   fi
@@ -64,7 +85,7 @@ resolve_alias() {
   if [[ ! "$alias_value" =~ $ALIAS_REGEX ]]; then
     echo "!! Invalid alias '$alias_value' (from $source)." >&2
     echo "   Must be 3-14 characters, lowercase, start with a letter, and contain" >&2
-    echo "   only a-z, 0-9 and '-'." >&2
+    echo "   only a-z, 0-9 and '-'. It cannot end with '-'." >&2
     return 1
   fi
 
@@ -318,4 +339,27 @@ plan_and_apply() {
       return "$rc"
       ;;
   esac
+}
+
+# Resource group used only if the state account has to be created.
+backend_resource_group() {
+  echo "${1:?backend_resource_group requires an alias}-azclips-live-test-mi-tfstate-rg"
+}
+
+# Point a module at this developer's remote state without applying anything.
+# `terraform output` cannot read remote state until the backend is initialised
+# and ARM_ACCESS_KEY is set, so any script that only *reads* outputs must call
+# this first. Quiet on success.
+init_module_state() {
+  local module_dir="${1:?}" module_name="${2:?}" alias account
+  alias="$(resolve_alias "$module_dir")" || return 1
+  export TF_VAR_alias="$alias"
+  account="$(state_account_name "$alias")"
+
+  ensure_state_backend "$account" "$BACKEND_CONTAINER" \
+    "$(backend_resource_group "$alias")" "$BACKEND_LOCATION" >/dev/null
+
+  terraform -chdir="$module_dir" init -input=false -reconfigure \
+    -backend-config="storage_account_name=${account}" \
+    -backend-config="key=${alias}-${module_name}.tfstate" >/dev/null
 }

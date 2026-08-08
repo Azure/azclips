@@ -56,6 +56,7 @@ export TF_VAR_github_repo="$GH_REPO"
 echo "==> GitHub repository: $GH_REPO"
 
 ALIAS="$(resolve_alias "$MODULE_DIR")"
+export TF_VAR_alias="$ALIAS"
 check_alias_drift "$MODULE_DIR" "$ALIAS"
 echo "==> Alias: $ALIAS"
 
@@ -63,9 +64,7 @@ echo "==> Alias: $ALIAS"
 # and recognisable. The account is located by name, so it is found wherever it
 # already lives; the group below is only used if it has to be created.
 BACKEND_STORAGE_ACCOUNT="$(state_account_name "$ALIAS")"
-BACKEND_CONTAINER="tfstate"
-BACKEND_FALLBACK_RESOURCE_GROUP="${ALIAS}-azclips-live-test-mi-tfstate-rg"
-BACKEND_LOCATION="australiaeast"
+BACKEND_FALLBACK_RESOURCE_GROUP="$(backend_resource_group "$ALIAS")"
 
 # Creating an app registration is not covered by Azure RBAC — it needs either a
 # permissive tenant default or an Entra role. Check up front so the failure is

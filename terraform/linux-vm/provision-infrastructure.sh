@@ -51,9 +51,7 @@ echo "==> Alias: $ALIAS"
 # and recognisable. The account is located by name, so it is found wherever it
 # already lives; the group below is only used if it has to be created.
 BACKEND_STORAGE_ACCOUNT="$(state_account_name "$ALIAS")"
-BACKEND_CONTAINER="tfstate"
-BACKEND_FALLBACK_RESOURCE_GROUP="${ALIAS}-azclips-live-test-mi-tfstate-rg"
-BACKEND_LOCATION="australiaeast"
+BACKEND_FALLBACK_RESOURCE_GROUP="$(backend_resource_group "$ALIAS")"
 
 ensure_state_backend "$BACKEND_STORAGE_ACCOUNT" "$BACKEND_CONTAINER" "$BACKEND_FALLBACK_RESOURCE_GROUP" "$BACKEND_LOCATION"
 

@@ -104,10 +104,13 @@ preflight() {
     command -v dotnet >/dev/null 2>&1 || missing+=("dotnet (.NET SDK)")
   fi
 
-  # provision-infrastructure.sh needs `alias` — from terraform.tfvars or TF_VAR_ env.
-  # It names every resource and selects the per-developer Terraform state blob.
-  if [[ "$PROVISION" -eq 1 && ! -f "$TF_DIR/terraform.tfvars" && -z "${TF_VAR_alias:-}" ]]; then
-    missing+=("$TF_DIR/terraform.tfvars (set alias; copy from terraform.tfvars.example) or TF_VAR_alias")
+  # provision-infrastructure.sh needs `alias` — from either tfvars file or the
+  # environment. It names every resource and selects the Terraform state blob.
+  if [[ "$PROVISION" -eq 1 \
+    && ! -f "$REPO_ROOT/terraform/terraform.tfvars" \
+    && ! -f "$TF_DIR/terraform.tfvars" \
+    && -z "${TF_VAR_alias:-}" ]]; then
+    missing+=("$REPO_ROOT/terraform/terraform.tfvars (set alias; copy from terraform.tfvars.example) or TF_VAR_alias")
   fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
@@ -128,6 +131,16 @@ if [[ "$PROVISION" -eq 1 ]]; then
   echo "==> --provision: running terraform/linux-vm/provision-infrastructure.sh"
   "$TF_DIR/provision-infrastructure.sh"
   echo
+fi
+
+# `terraform output` reads REMOTE state, which needs the backend initialised and
+# ARM_ACCESS_KEY exported. --provision does that via the wrapper; without it we
+# have to do it here or every output comes back empty.
+if [[ "$PROVISION" -eq 0 ]]; then
+  init_module_state "$TF_DIR" "linux-vm" || {
+    echo "!! Could not open the Terraform state for this alias." >&2
+    exit 1
+  }
 fi
 
 # Resolve a Terraform output value, or empty string if unavailable.
