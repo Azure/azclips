@@ -1,5 +1,10 @@
 terraform {
-  required_version = ">= 1.3.0"
+  # Pinned to the 1.9 series — see the note in terraform/linux-vm/versions.tf.
+  # Stage 0 has its own state blob, but the same one-way version stamp applies
+  # to it, and it is the harder one to recover: it holds the CI identity that
+  # every later stage authenticates as. Keep in step with linux-vm and the
+  # terraform_version pin in .github/workflows/mi-live.yml.
+  required_version = "~> 1.9.0"
 
   required_providers {
     azuread = {

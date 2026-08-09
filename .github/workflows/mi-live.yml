@@ -62,6 +62,14 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
+          # Pinned, not `latest`. CI and developers share one state blob per
+          # alias, and Terraform stamps its own version into that state on every
+          # write — after which any older binary refuses to read it. An unpinned
+          # runner would silently bump the shared state the first time the
+          # `provision` input above is used, locking every developer out until
+          # they upgraded too. Keep in sync with required_version in
+          # terraform/*/versions.tf.
+          terraform_version: 1.9.8
           terraform_wrapper: false
 
       - name: Azure login (OIDC)

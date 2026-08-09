@@ -48,7 +48,7 @@ Run from Linux or WSL with:
 
 - The .NET SDK selected by the repository `global.json`
 - Azure CLI
-- Terraform
+- Terraform **1.9.x** — see below
 - GitHub CLI (`gh`) — only for stage 0
 - Bash, `curl`, `tar`, and `sha256sum`
 - Access to the tenant and subscription above
@@ -63,6 +63,26 @@ dotnet --version
 az version
 terraform version
 ```
+
+### Terraform version
+
+`required_version` in `terraform/*/versions.tf` pins the **1.9 series**, and CI
+pins the same version in `.github/workflows/mi-live.yml`. Anything outside it is
+rejected at `terraform init`:
+
+```
+Error: Unsupported Terraform Core version
+```
+
+That is deliberate. Terraform stamps the version that last wrote a state file
+into the state, and then refuses to read state written by anything newer. CI and
+every developer on the same alias share one state blob, so a single run on a
+newer binary would lock out everyone still on the old one — and there is no way
+back short of everybody upgrading. Failing at `init` is the recoverable outcome.
+
+Upgrading is therefore a coordinated change, not an individual one: bump
+`required_version` in both modules and `terraform_version` in the workflow in the
+same commit, and have everyone sharing the alias upgrade together.
 
 ## Sign in
 

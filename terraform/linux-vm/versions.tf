@@ -1,5 +1,14 @@
 terraform {
-  required_version = ">= 1.3.0"
+  # Pinned to the 1.9 series (>= 1.9.0, < 1.10.0), not just a lower bound.
+  # Terraform records the version that last wrote a state file and then refuses
+  # to read state written by anything newer, so a single run on a newer binary
+  # permanently locks out everyone still on the old one. This state is shared
+  # between CI and every developer using this alias, so the constraint has to
+  # fail fast at `init` rather than let that happen. Note `~> 1.9` would NOT
+  # do — it permits 1.15. Changing this is a deliberate, coordinated upgrade:
+  # bump it here, in terraform/bootstrap/versions.tf, and in the
+  # terraform_version pin in .github/workflows/mi-live.yml together.
+  required_version = "~> 1.9.0"
 
   required_providers {
     azurerm = {
