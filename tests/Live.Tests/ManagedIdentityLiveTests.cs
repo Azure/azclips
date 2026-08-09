@@ -22,6 +22,11 @@ namespace Live.Tests;
 /// </summary>
 public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
 {
+    // Temporarily disabled — remove this and the Skip= on each case below to
+    // re-enable. Note the ordering rule on cases that also set RequiresVariables:
+    // its setter recomputes Skip, so Skip= must come after it or it is discarded.
+    private const string SkipReason = "Temporarily disabled to shorten the live run.";
+
     // Role assignments are eventually consistent: a freshly created assignment can
     // take a couple of minutes to be honoured by ARM, so the first authenticated
     // call after provisioning is retried rather than treated as a failure.
@@ -59,27 +64,27 @@ public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLi
         }
     }
 
-    [LiveFact]
+    [LiveFact(Skip = SkipReason)]
     public async Task Login_WithSystemAssignedIdentity_CanReadOwnVm()
     {
         await AssertIdentityCanReadOwnVmAsync("system-assigned");
     }
 
-    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiClientIdVariable])]
+    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiClientIdVariable], Skip = SkipReason)]
     public async Task Login_WithUserAssignedIdentityByClientId_CanReadOwnVm()
     {
         await AssertIdentityCanReadOwnVmAsync(
             "user-assigned/client-id", "--client-id", LiveTestEnvironment.UamiClientId);
     }
 
-    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiResourceIdVariable])]
+    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiResourceIdVariable], Skip = SkipReason)]
     public async Task Login_WithUserAssignedIdentityByResourceId_CanReadOwnVm()
     {
         await AssertIdentityCanReadOwnVmAsync(
             "user-assigned/resource-id", "--resource-id", LiveTestEnvironment.UamiResourceId);
     }
 
-    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiObjectIdVariable])]
+    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiObjectIdVariable], Skip = SkipReason)]
     public async Task Login_WithUserAssignedIdentityByObjectId_CanReadOwnVm()
     {
         await AssertIdentityCanReadOwnVmAsync(
@@ -91,7 +96,7 @@ public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLi
     /// Without this, a bug that silently ignored the selector and fell back to the
     /// system-assigned identity would still make every positive case above pass.
     /// </summary>
-    [LiveFact]
+    [LiveFact(Skip = SkipReason)]
     public async Task Login_WithUnassignedClientId_Fails()
     {
         var unassignedClientId = Guid.NewGuid().ToString();

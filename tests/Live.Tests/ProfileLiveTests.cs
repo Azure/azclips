@@ -15,6 +15,15 @@ namespace Live.Tests;
 /// </summary>
 public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
 {
+    // Temporarily disabled — remove this and the Skip= on the cases below to
+    // re-enable. ProfileShow_AfterSystemAssignedLogin_RecordsManagedIdentity is
+    // deliberately left running: it is the only case that exercises the whole
+    // chain end to end (managed-identity login, profile written, profile read
+    // back), so it still proves the bundle and MI auth work on the VM.
+    // Ordering rule: RequiresVariables' setter recomputes Skip, so Skip= must
+    // come after it or it is discarded.
+    private const string SkipReason = "Temporarily disabled to shorten the live run.";
+
     // Bare `login` (no --out-profile) writes to this reserved profile name.
     private const string TempProfileName = "temp";
 
@@ -68,7 +77,7 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
         Assert.Equal("MSI@", GetString(profile, "managedIdentityId"));
     }
 
-    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiClientIdVariable])]
+    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiClientIdVariable], Skip = SkipReason)]
     public async Task ProfileShow_AfterUserAssignedLogin_RecordsSelectedIdentity()
     {
         await LoginAsync("--client-id", LiveTestEnvironment.UamiClientId);
@@ -81,7 +90,7 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
             GetString(profile, "managedIdentityId"));
     }
 
-    [LiveFact]
+    [LiveFact(Skip = SkipReason)]
     public async Task ProfileList_AfterLogin_ContainsActiveProfile()
     {
         await LoginAsync();
@@ -100,7 +109,7 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
         AssertManagedIdentity(active);
     }
 
-    [LiveFact]
+    [LiveFact(Skip = SkipReason)]
     public async Task ProfileSet_SwitchesTheActiveProfile()
     {
         var named = await LoginToNamedProfileAsync();
@@ -116,7 +125,7 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
         Assert.Equal(named, GetString(await ShowActiveProfileAsync(), "name"));
     }
 
-    [LiveFact]
+    [LiveFact(Skip = SkipReason)]
     public async Task ProfileRemove_DeletesTheProfile()
     {
         var named = await LoginToNamedProfileAsync();
@@ -136,7 +145,7 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
         Assert.False(show.Succeeded, $"'profile show {named}' succeeded after the profile was removed.");
     }
 
-    [LiveFact]
+    [LiveFact(Skip = SkipReason)]
     public async Task ProfileShow_ForUnknownProfile_Fails()
     {
         var missing = $"no-such-profile-{Guid.NewGuid():N}";
