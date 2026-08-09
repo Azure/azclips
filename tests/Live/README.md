@@ -1,13 +1,15 @@
 # Live tests
 
 Everything needed to run the managed-identity tests against **real Azure**: the test
-project, the Terraform that provisions the VM, and the scripts that drive it.
+project, the Terraform that provisions the VM, and the tool that drives it.
 
 ```
 tests/Live/
 ├── Live.Tests/   xUnit v3 assertions; published self-contained and run ON the VM
 ├── Terraform/    bootstrap (CI identity) + linux-vm (the VM under test)
-└── Scripts/      build the bundle, ship it to the VM, run the suite
+├── Tool/         the orchestrator: builds the bundle, ships it, runs the suite
+├── Tool.Tests/   unit tests for the orchestrator (no Azure; run by plain `dotnet test`)
+└── Scripts/      the parts that execute INSIDE the VM, so they stay bash
 ```
 
 Self-contained on purpose: nothing outside this directory depends on it, so it can be
@@ -39,11 +41,51 @@ writes. Only these justify the live tier:
 Live tests are skipped unless `AZCLIPS_LIVE_TEST=1`, so a plain `dotnet test` stays
 green with no Azure access. The orchestrator sets that up for you.
 
+**First time?** You need an Azure VM of your own before any of this works. Follow
+[`Terraform/linux-vm/README.md`](Terraform/linux-vm/README.md) — sign in, choose an
+alias, then run stage 0 (once per repo) and stage 1 (creates the VM).
+
+### Locally
+
+Run from the repository root, on Linux, macOS or Windows:
+
 ```bash
 dotnet run --project tests/Live/Tool                    # normal run
-dotnet run --project tests/Live/Tool -- --skip-publish  # reuse the tarball
 dotnet run --project tests/Live/Tool -- --provision     # plan/apply the VM first
+dotnet run --project tests/Live/Tool -- --skip-publish  # reuse the tarball
 ```
+
+Prerequisites are `terraform`, the .NET SDK, and `az` already signed in to the right
+tenant. Use `--provision` after changing the Terraform, or if the VM has been destroyed;
+it is a fast no-op when nothing has changed. A successful run ends with
+`End-to-end MI test PASSED.`
+
+`--help` lists the remaining options. Once you are done for the day, destroy the VM —
+it bills while it exists, and nothing shuts it down for you:
+
+```bash
+cd tests/Live/Terraform/linux-vm && terraform destroy
+```
+
+### In your own CI
+
+The workflow is `.github/workflows/mi-live.yml`, manual dispatch only. It runs this
+same tool against **your** resources, so it needs stage 0 to have been run and the
+repository variable `ALIAS` set to the same alias as your local `terraform.tfvars` —
+otherwise CI provisions a second, parallel set of infrastructure.
+
+```bash
+gh workflow run mi-live.yml --repo "<you>/<fork>" --ref "$(git branch --show-current)"
+gh run watch "$(gh run list --repo "<you>/<fork>" --workflow mi-live.yml \
+  --limit 1 --json databaseId --jq '.[0].databaseId')" --repo "<you>/<fork>"
+```
+
+Dispatch against your fork explicitly: the upstream repository has no such workflow
+and returns a bare 404. Any branch works — the OIDC credential is scoped to the `dev`
+environment, not to a branch.
+
+Full setup, website instructions and troubleshooting:
+[`Terraform/linux-vm/README.md`](Terraform/linux-vm/README.md#run-the-github-actions-pipeline-manually).
 
 The orchestrator is C# (`tests/Live/Tool`) rather than bash so it runs natively on
 Windows and macOS as well as Linux — the previous shell version depended on GNU-only
@@ -54,9 +96,8 @@ bash, because that is where it runs.
 `--skip-publish` reuses the existing bundle. After editing C# you must **not** pass it,
 or you will silently test stale code.
 
-In CI the same tool runs from `.github/workflows/mi-live.yml` (manual dispatch only).
-Only one `az vm run-command` can target a VM at a time, so do not run locally while CI
-is running.
+Only one `az vm run-command` can target a VM at a time, and local and CI runs share the
+same VM, so do not start one while the other is running.
 
 First-time setup, the VM lifecycle, and cost/teardown are documented in
 [`Terraform/linux-vm/README.md`](Terraform/linux-vm/README.md).
