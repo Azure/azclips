@@ -57,7 +57,7 @@ internal static class LiveTestEnvironment
         if (!IsEnabled)
         {
             return $"Live test: set {EnableVariable}=1 to run (needs a provisioned Azure VM). "
-                + "Use tests/Live/Scripts/mi-live-test.sh.";
+                + "Use `dotnet run --project tests/Live/Tool`.";
         }
 
         var missing = requiredVariables

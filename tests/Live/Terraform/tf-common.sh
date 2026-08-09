@@ -25,7 +25,7 @@ EXPECTED_SUBSCRIPTION_NAME="${EXPECTED_SUBSCRIPTION_NAME:-Visual Studio Enterpri
 EXPECTED_REPO_NAMES="cirrus azclips"
 
 # Terraform state location. Shared by every entry point so the wrappers and the
-# read-only consumers (mi-live-test.sh) cannot disagree about where state lives.
+# read-only consumers (tests/Live/Tool) cannot disagree about where state lives.
 BACKEND_CONTAINER="tfstate"
 BACKEND_LOCATION="australiaeast"
 UPSTREAM_OWNERS="Azure"

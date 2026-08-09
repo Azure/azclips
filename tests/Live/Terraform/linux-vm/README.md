@@ -16,7 +16,7 @@ developers can share one subscription without overwriting each other.
 |---|---|---|---|
 | 0 | `tests/Live/Terraform/bootstrap/setup-github-identity.sh` | Local only, once | Creates the Entra identity GitHub Actions logs in as, and publishes its IDs to GitHub |
 | 1 | `tests/Live/Terraform/linux-vm/provision-infrastructure.sh` | Local and CI | Creates the resource group, VM, and managed identities |
-| 2 | `tests/Live/Scripts/mi-live-test.sh` | Local and CI | Builds the bundle and runs the test on the VM |
+| 2 | `dotnet run --project tests/Live/Tool` | Local and CI | Builds the bundle and runs the test on the VM |
 
 Stage 0 is only needed if you intend to run the GitHub workflow. For purely
 local runs, start at stage 1.
@@ -149,7 +149,7 @@ Run from the repository root. The first run should include `--provision` so
 Terraform creates or updates the Azure resources:
 
 ```bash
-tests/Live/Scripts/mi-live-test.sh --provision
+dotnet run --project tests/Live/Tool -- --provision
 ```
 
 This command:
@@ -179,13 +179,13 @@ report a successful invocation even when the guest script fails.
 To rerun without changing infrastructure:
 
 ```bash
-tests/Live/Scripts/mi-live-test.sh
+dotnet run --project tests/Live/Tool
 ```
 
 To reuse an already-built bundle:
 
 ```bash
-tests/Live/Scripts/mi-live-test.sh --skip-publish
+dotnet run --project tests/Live/Tool -- --skip-publish
 ```
 
 ## Run the GitHub Actions pipeline manually
@@ -344,7 +344,7 @@ az vm list-skus \
   --query "[?length(restrictions)==\`0\`].name" \
   --output table
 
-TF_VAR_vm_size=Standard_D2s_v4 tests/Live/Scripts/mi-live-test.sh --provision
+TF_VAR_vm_size=Standard_D2s_v4 dotnet run --project tests/Live/Tool -- --provision
 ```
 
 ### Managed identity receives an authorization error

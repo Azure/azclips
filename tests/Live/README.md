@@ -37,18 +37,24 @@ writes. Only these justify the live tier:
 ## Running
 
 Live tests are skipped unless `AZCLIPS_LIVE_TEST=1`, so a plain `dotnet test` stays
-green with no Azure access. The scripts set that up for you.
+green with no Azure access. The orchestrator sets that up for you.
 
 ```bash
-tests/Live/Scripts/mi-live-test.sh                 # normal run
-tests/Live/Scripts/mi-live-test.sh --skip-publish  # reuse the tarball (script-only edits)
-tests/Live/Scripts/mi-live-test.sh --provision     # plan/apply the VM first
+dotnet run --project tests/Live/Tool                    # normal run
+dotnet run --project tests/Live/Tool -- --skip-publish  # reuse the tarball
+dotnet run --project tests/Live/Tool -- --provision     # plan/apply the VM first
 ```
+
+The orchestrator is C# (`tests/Live/Tool`) rather than bash so it runs natively on
+Windows and macOS as well as Linux — the previous shell version depended on GNU-only
+behaviour (`date +%s%N`, `grep -oP`, `sha256sum`, bash 4 features). Everything that
+executes *inside* the VM (`Scripts/setup-vm-mi.sh`, `Scripts/lib/timing.sh`) stays
+bash, because that is where it runs.
 
 `--skip-publish` reuses the existing bundle. After editing C# you must **not** pass it,
 or you will silently test stale code.
 
-In CI the same script runs from `.github/workflows/mi-live.yml` (manual dispatch only).
+In CI the same tool runs from `.github/workflows/mi-live.yml` (manual dispatch only).
 Only one `az vm run-command` can target a VM at a time, so do not run locally while CI
 is running.
 

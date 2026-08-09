@@ -98,4 +98,4 @@ jobs:
           # it on the VM with `az vm run-command`.
           args=()
           [[ "${PROVISION:-false}" == "true" ]] && args+=(--provision)
-          tests/Live/Scripts/mi-live-test.sh "${args[@]}"
+          dotnet run --project tests/Live/Tool -- "${args[@]}"

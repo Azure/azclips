@@ -75,7 +75,7 @@ done
 echo "==> Detected: ${PRETTY_NAME:-unknown}"
 
 # Step timer. Lives beside this script both in the repo (scripts/lib) and in the
-# bundle (publish-vm-mi.sh copies it next to us), so try both before giving up —
+# bundle (the Live.Tool bundler copies it next to us), so try both before giving up —
 # timing is diagnostics, never a reason to fail the run.
 _SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$_SELF_DIR/timing.sh" ]]; then
@@ -188,7 +188,7 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
   RUNNER="$BUNDLE/Live.Tests/Live.Tests"
   if [[ ! -x "$RUNNER" ]]; then
     echo "!! Live test runner not found at $RUNNER" >&2
-    echo "   Rebuild the bundle with tests/Live/Scripts/publish-vm-mi.sh." >&2
+    echo "   Rebuild the bundle with: dotnet run --project tests/Live/Tool" >&2
     exit 1
   fi
 

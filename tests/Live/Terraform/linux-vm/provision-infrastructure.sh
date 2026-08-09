@@ -7,7 +7,7 @@
 # identities the test exercises.
 #
 # Runs BOTH locally and in CI (.github/workflows/mi-live.yml invokes it through
-# tests/Live/Scripts/mi-live-test.sh --provision). Locally the alias comes from
+# `dotnet run --project tests/Live/Tool -- --provision`). Locally the alias comes from
 # terraform.tfvars; in CI it comes from TF_VAR_alias, fed by the ALIAS GitHub
 # environment variable that stage 0 published.
 #
@@ -67,5 +67,5 @@ plan_and_apply "provision.tfplan"
 
 record_alias "$MODULE_DIR" "$ALIAS"
 
-echo "==> Done. Next: build the bundle with tests/Live/Scripts/publish-vm-mi.sh, copy it to the"
+echo "==> Done. Next: run the live test with: dotnet run --project tests/Live/Tool"
 echo "    VM, then run tests/Live/Scripts/setup-vm-mi.sh --test-mi on the VM to verify MI + vm show."
