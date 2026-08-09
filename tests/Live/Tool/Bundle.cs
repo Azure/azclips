@@ -175,7 +175,7 @@ internal sealed class Bundle(string repoRoot, string liveRoot, Timing timing)
     internal static void CreateTarGz(string sourceDir, string tarballPath, bool? windows = null)
     {
         var onWindows = windows ?? OperatingSystem.IsWindows();
-        var prefix = Path.GetFileName(sourceDir.TrimEnd(Path.DirectorySeparatorChar));
+        var prefix = Path.GetFileName(sourceDir.TrimEnd('/', '\\'));
         Directory.CreateDirectory(Path.GetDirectoryName(tarballPath)!);
         if (File.Exists(tarballPath))
         {

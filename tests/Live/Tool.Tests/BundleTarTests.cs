@@ -63,16 +63,20 @@ public class BundleTarTests
         });
     }
 
-    [Fact]
-    public void CreateTarGz_UsesForwardSlashes_SoTheArchiveUnpacksOnLinux()
+    [Theory]
+    [InlineData("")]
+    [InlineData("/")]
+    public void CreateTarGz_UsesForwardSlashes_SoTheArchiveUnpacksOnLinux(string trailingSeparator)
     {
         WithBundleLayout(bundle =>
         {
             var tarball = Path.Combine(Path.GetDirectoryName(bundle)!, "bundle.tar.gz");
+            bundle += trailingSeparator;
             Bundle.CreateTarGz(bundle, tarball, windows: true);
             var names = ReadModes(tarball).Keys;
 
             // A backslash here would produce one file literally named "Core.Cli\az".
+            // Only reachable on Windows, where build.yml runs this suite.
             Assert.All(names, name => Assert.DoesNotContain('\\', name));
             Assert.Contains("Release-linux-x64/Core.Cli/az", names);
         });
