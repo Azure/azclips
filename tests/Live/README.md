@@ -96,8 +96,18 @@ bash, because that is where it runs.
 `--skip-publish` reuses the existing bundle. After editing C# you must **not** pass it,
 or you will silently test stale code.
 
-Only one `az vm run-command` can target a VM at a time, and local and CI runs share the
-same VM, so do not start one while the other is running.
+Local and CI runs share the same VM, and Azure allows only one `az vm run-command`
+against it at a time. The second caller is rejected outright:
+
+```
+(Conflict) Run command extension execution is in progress.
+Please wait for completion before invoking a run command.
+```
+
+Nothing is corrupted — the runs cannot interleave, and each uploads a
+timestamped blob of its own — but the loser fails only at the final phase, after
+having already built and uploaded its bundle. Which side loses is whichever
+arrives second, so a local run will fail CI just as readily as the reverse.
 
 First-time setup, the VM lifecycle, and cost/teardown are documented in
 [`Terraform/linux-vm/README.md`](Terraform/linux-vm/README.md).
