@@ -207,16 +207,24 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
   # -xml gives per-test durations, which is the only way to see which live test
   # is actually slow — the console reporter prints just a total.
   XML_REPORT="$(mktemp -t live-tests-XXXXXX.xml)"
-  trap 'rm -f "$XML_REPORT"' EXIT
+  RUNNER_LOG="$(mktemp -t live-tests-XXXXXX.log)"
+  trap 'rm -f "$XML_REPORT" "$RUNNER_LOG"' EXIT
 
   rc=0
   timing_start "run live tests"
-  "$RUNNER" -xml "$XML_REPORT" || rc=$?
+  # Tee'd because the caller (az vm run-command) returns only the last ~4KB of
+  # stdout, so on failure we have to reprint the diagnosis at the very end.
+  set +e
+  "$RUNNER" -xml "$XML_REPORT" 2>&1 | tee "$RUNNER_LOG"
+  rc=${PIPESTATUS[0]}
+  set -e
   timing_end
 
+  # Timings are noise once something has failed, and every line printed here
+  # costs budget in that 4KB window, so only collect them on success.
   # xUnit writes the report as one long line, so split on '<' before matching.
   # Diagnostics only: a malformed/absent report must never change the verdict.
-  if [[ -s "$XML_REPORT" ]]; then
+  if [[ $rc -eq 0 && -s "$XML_REPORT" ]]; then
     while IFS= read -r el; do
       t="$(printf '%s' "$el" | grep -o ' time="[^"]*"' | head -n1 | cut -d'"' -f2)"
       m="$(printf '%s' "$el" | grep -o ' method="[^"]*"' | head -n1 | cut -d'"' -f2)"
@@ -227,7 +235,24 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
   fi
 
   if [[ $rc -ne 0 ]]; then
-    timing_summary "VM-side (setup-vm-mi.sh)"
+    # Nothing may be printed after this block. The caller keeps only the tail,
+    # so whatever comes last is the only thing the developer will ever see —
+    # and a bare "FAILED" with the assertion truncated away is unactionable.
+    echo
+    echo "===== FAILURES (repeated last so they survive output truncation) ====="
+    if grep -q '\[FAIL\]' "$RUNNER_LOG"; then
+      # Failing blocks only. Skipped and passing entries would otherwise crowd
+      # the assertions out of the window they are competing for.
+      awk '/\[FAIL\]/ { keep = 1; print; next }
+           /\[(SKIP|PASS)\]/ { keep = 0; next }
+           keep { print }' "$RUNNER_LOG" | head -n 60
+      grep -E '^[[:space:]]+[A-Za-z0-9_.]+[[:space:]]+Total:' "$RUNNER_LOG" | tail -n 1
+    else
+      # Non-assertion failure: a crash, a bad runner invocation, or a fixture
+      # that threw before any test reported.
+      echo "  (no test-level failure; the runner exited $rc — its last output:)"
+      tail -n 25 "$RUNNER_LOG"
+    fi
     exit $rc
   fi
 
