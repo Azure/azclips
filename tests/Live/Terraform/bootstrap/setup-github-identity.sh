@@ -24,7 +24,7 @@
 # Usage:
 #   ./setup-github-identity.sh
 #
-# Afterwards, run stage 1: terraform/linux-vm/provision-infrastructure.sh
+# Afterwards, run stage 1: tests/Live/Terraform/linux-vm/provision-infrastructure.sh
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -128,6 +128,6 @@ cat <<EOF
     'environment: $GH_ENVIRONMENT' or its OIDC token will not match the subject
     above and the Azure login will fail.
 
-    Next: terraform/linux-vm/provision-infrastructure.sh (stage 1) — use the same
+    Next: tests/Live/Terraform/linux-vm/provision-infrastructure.sh (stage 1) — use the same
     alias '$ALIAS'.
 EOF

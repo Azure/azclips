@@ -7,16 +7,16 @@
 # identities the test exercises.
 #
 # Runs BOTH locally and in CI (.github/workflows/mi-live.yml invokes it through
-# scripts/mi-live-test.sh --provision). Locally the alias comes from
+# tests/Live/Scripts/mi-live-test.sh --provision). Locally the alias comes from
 # terraform.tfvars; in CI it comes from TF_VAR_alias, fed by the ALIAS GitHub
 # environment variable that stage 0 published.
 #
-# Stage 0 (terraform/bootstrap/setup-github-identity.sh) must have run first if
+# Stage 0 (tests/Live/Terraform/bootstrap/setup-github-identity.sh) must have run first if
 # you intend to use the GitHub workflow — it creates the identity CI logs in as.
 # It is not needed for purely local runs.
 #
 # This stage does NOT log in to az or run `vm show` — managed-identity auth and
-# the vm-show smoke test must run ON the VM (see scripts/setup-vm-mi.sh).
+# the vm-show smoke test must run ON the VM (see tests/Live/Scripts/setup-vm-mi.sh).
 #
 # Terraform uses its own Azure credentials (az login / ARM_* env vars), which are
 # independent of az.
@@ -67,5 +67,5 @@ plan_and_apply "provision.tfplan"
 
 record_alias "$MODULE_DIR" "$ALIAS"
 
-echo "==> Done. Next: build the bundle with scripts/publish-vm-mi.sh, copy it to the"
-echo "    VM, then run scripts/setup-vm-mi.sh --test-mi on the VM to verify MI + vm show."
+echo "==> Done. Next: build the bundle with tests/Live/Scripts/publish-vm-mi.sh, copy it to the"
+echo "    VM, then run tests/Live/Scripts/setup-vm-mi.sh --test-mi on the VM to verify MI + vm show."

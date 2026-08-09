@@ -14,9 +14,9 @@ developers can share one subscription without overwriting each other.
 
 | Stage | Location | Runs | Purpose |
 |---|---|---|---|
-| 0 | `terraform/bootstrap/setup-github-identity.sh` | Local only, once | Creates the Entra identity GitHub Actions logs in as, and publishes its IDs to GitHub |
-| 1 | `terraform/linux-vm/provision-infrastructure.sh` | Local and CI | Creates the resource group, VM, and managed identities |
-| 2 | `scripts/mi-live-test.sh` | Local and CI | Builds the bundle and runs the test on the VM |
+| 0 | `tests/Live/Terraform/bootstrap/setup-github-identity.sh` | Local only, once | Creates the Entra identity GitHub Actions logs in as, and publishes its IDs to GitHub |
+| 1 | `tests/Live/Terraform/linux-vm/provision-infrastructure.sh` | Local and CI | Creates the resource group, VM, and managed identities |
+| 2 | `tests/Live/Scripts/mi-live-test.sh` | Local and CI | Builds the bundle and runs the test on the VM |
 
 Stage 0 is only needed if you intend to run the GitHub workflow. For purely
 local runs, start at stage 1.
@@ -66,7 +66,7 @@ terraform version
 
 ### Terraform version
 
-`required_version` in `terraform/*/versions.tf` pins the **1.9 series**, and CI
+`required_version` in `tests/Live/Terraform/*/versions.tf` pins the **1.9 series**, and CI
 pins the same version in `.github/workflows/mi-live.yml`. Anything outside it is
 rejected at `terraform init`:
 
@@ -107,10 +107,10 @@ username is a good choice. Use the **same alias in both stages**.
 Skip this if you only run the test locally.
 
 ```bash
-cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+cp tests/Live/Terraform/terraform.tfvars.example tests/Live/Terraform/terraform.tfvars
 # edit: set `alias`
 
-terraform/bootstrap/setup-github-identity.sh
+tests/Live/Terraform/bootstrap/setup-github-identity.sh
 ```
 
 This creates an Entra app registration, a service principal, a federated
@@ -138,7 +138,7 @@ needs permissions CI deliberately does not have.
 
 ```bash
 # Already done if you ran stage 0 — the same file configures both stages.
-cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+cp tests/Live/Terraform/terraform.tfvars.example tests/Live/Terraform/terraform.tfvars
 # edit: set `alias`
 ```
 
@@ -149,7 +149,7 @@ Run from the repository root. The first run should include `--provision` so
 Terraform creates or updates the Azure resources:
 
 ```bash
-scripts/mi-live-test.sh --provision
+tests/Live/Scripts/mi-live-test.sh --provision
 ```
 
 This command:
@@ -179,13 +179,13 @@ report a successful invocation even when the guest script fails.
 To rerun without changing infrastructure:
 
 ```bash
-scripts/mi-live-test.sh
+tests/Live/Scripts/mi-live-test.sh
 ```
 
 To reuse an already-built bundle:
 
 ```bash
-scripts/mi-live-test.sh --skip-publish
+tests/Live/Scripts/mi-live-test.sh --skip-publish
 ```
 
 ## Run the GitHub Actions pipeline manually
@@ -284,7 +284,7 @@ az vm user update \
 
 MY_IP="$(curl -fsS https://api.ipify.org)"
 TF_VAR_allowed_ssh_source_cidr="${MY_IP}/32" \
-  terraform/linux-vm/provision-infrastructure.sh
+  tests/Live/Terraform/linux-vm/provision-infrastructure.sh
 
 VM_IP="$(az network public-ip show \
   --resource-group "<alias>-azclips-live-test-mi-rg" \
@@ -297,7 +297,7 @@ ssh azureuser@"$VM_IP"
 Close port 22 again when finished:
 
 ```bash
-TF_VAR_allowed_ssh_source_cidr="" terraform/linux-vm/provision-infrastructure.sh
+TF_VAR_allowed_ssh_source_cidr="" tests/Live/Terraform/linux-vm/provision-infrastructure.sh
 ```
 
 Never set `allowed_ssh_source_cidr` to `*`.
@@ -344,7 +344,7 @@ az vm list-skus \
   --query "[?length(restrictions)==\`0\`].name" \
   --output table
 
-TF_VAR_vm_size=Standard_D2s_v4 scripts/mi-live-test.sh --provision
+TF_VAR_vm_size=Standard_D2s_v4 tests/Live/Scripts/mi-live-test.sh --provision
 ```
 
 ### Managed identity receives an authorization error
@@ -358,7 +358,7 @@ Your resource group is yours alone and is disposable — there is no deletion
 lock. Tear it down when you are finished, so the VM stops costing money:
 
 ```bash
-cd terraform/linux-vm
+cd tests/Live/Terraform/linux-vm
 terraform destroy
 ```
 
@@ -366,6 +366,6 @@ The stage 0 Entra identity is separate and long-lived. Destroy it only if you
 are done with the GitHub workflow entirely:
 
 ```bash
-cd terraform/bootstrap
+cd tests/Live/Terraform/bootstrap
 terraform destroy
 ```

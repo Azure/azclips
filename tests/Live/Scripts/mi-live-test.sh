@@ -7,7 +7,7 @@
 # port 22, and no long-lived SSH key. All Azure resources it touches live in
 # your resource group.
 #
-# Flow (Stage 1, terraform/linux-vm/provision-infrastructure.sh, must have provisioned the VM):
+# Flow (Stage 1, tests/Live/Terraform/linux-vm/provision-infrastructure.sh, must have provisioned the VM):
 #
 #   1. publish-vm-mi.sh --tar        build the self-contained az bundle (+ .tar.gz)
 #   2. upload the tarball to a blob in a storage account IN YOUR RESOURCE GROUP,
@@ -21,11 +21,11 @@
 #      sentinel is how we turn a failed smoke test into a non-zero exit here.
 #
 # VM/identity/location details come from the Terraform outputs of
-# terraform/linux-vm. Azure auth is your `az login` (interactive locally, OIDC in
+# tests/Live/Terraform/linux-vm. Azure auth is your `az login` (interactive locally, OIDC in
 # CI) — the same identity that provisions the VM.
 #
 # Usage:
-#   scripts/mi-live-test.sh [options]
+#   tests/Live/Scripts/mi-live-test.sh [options]
 #
 #   --rid RID              Runtime id for the bundle (default: linux-x64)
 #   --config CONFIG        Debug|Release (default: Release)
@@ -37,15 +37,15 @@
 #   --container NAME       Blob container name (default: milive-bundles)
 #   --location LOC         Region for a newly created storage account (default:
 #                          terraform output location, else the RG's location)
-#   --provision            Run terraform/linux-vm/provision-infrastructure.sh first (provision/update
+#   --provision            Run tests/Live/Terraform/linux-vm/provision-infrastructure.sh first (provision/update
 #                          the VM). Fast no-op when nothing changed. Default: off.
 #   --skip-publish         Reuse the existing tarball instead of rebuilding
 #   --keep-blob            Do not delete the uploaded bundle blob afterwards
 #
 # Examples:
-#   scripts/mi-live-test.sh
-#   scripts/mi-live-test.sh --provision
-#   scripts/mi-live-test.sh --skip-publish
+#   tests/Live/Scripts/mi-live-test.sh
+#   tests/Live/Scripts/mi-live-test.sh --provision
+#   tests/Live/Scripts/mi-live-test.sh --skip-publish
 #
 set -euo pipefail
 
@@ -79,13 +79,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIPTS_DIR="$REPO_ROOT/scripts"
-TF_DIR="$REPO_ROOT/terraform/linux-vm"
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIVE_ROOT="$(cd "$SCRIPTS_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$LIVE_ROOT/../.." && pwd)"
+TF_DIR="$LIVE_ROOT/Terraform/linux-vm"
 
 # Shared helpers, including the pinned tenant/subscription and require_az_context.
-# shellcheck source=../terraform/tf-common.sh
-source "$REPO_ROOT/terraform/tf-common.sh"
+# shellcheck source=../Terraform/tf-common.sh
+source "$LIVE_ROOT/Terraform/tf-common.sh"
 
 # shellcheck source=lib/timing.sh
 source "$SCRIPTS_DIR/lib/timing.sh"
@@ -110,10 +111,10 @@ preflight() {
   # provision-infrastructure.sh needs `alias` — from either tfvars file or the
   # environment. It names every resource and selects the Terraform state blob.
   if [[ "$PROVISION" -eq 1 \
-    && ! -f "$REPO_ROOT/terraform/terraform.tfvars" \
+    && ! -f "$LIVE_ROOT/Terraform/terraform.tfvars" \
     && ! -f "$TF_DIR/terraform.tfvars" \
     && -z "${TF_VAR_alias:-}" ]]; then
-    missing+=("$REPO_ROOT/terraform/terraform.tfvars (set alias; copy from terraform.tfvars.example) or TF_VAR_alias")
+    missing+=("$LIVE_ROOT/Terraform/terraform.tfvars (set alias; copy from terraform.tfvars.example) or TF_VAR_alias")
   fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
@@ -176,12 +177,12 @@ timing_end
 if [[ -z "$VM_NAME" || -z "$RESOURCE_GROUP" ]]; then
   echo "!! Could not determine VM name / resource group from the Terraform outputs." >&2
   echo "   Provision first (creates them and populates the outputs):" >&2
-  echo "     scripts/mi-live-test.sh --provision" >&2
+  echo "     tests/Live/Scripts/mi-live-test.sh --provision" >&2
   echo "   or pass them explicitly with --vm-name and --resource-group." >&2
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     echo "   In CI: re-run this workflow with the 'provision' input enabled." >&2
   fi
-  echo "   If you have provisioned already, check that terraform/linux-vm has the" >&2
+  echo "   If you have provisioned already, check that tests/Live/Terraform/linux-vm has the" >&2
   echo "   same alias configured — each alias has its own state and resources." >&2
   exit 1
 fi

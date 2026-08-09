@@ -15,11 +15,11 @@ name: Managed Identity Live
 # sharing the developer's.
 #
 # Configuration comes from the `dev` environment variables published by
-# terraform/bootstrap/setup-github-identity.sh (stage 0). Nothing here is
+# tests/Live/Terraform/bootstrap/setup-github-identity.sh (stage 0). Nothing here is
 # hardcoded, so each fork targets its own identity and resources.
 #
 # The infrastructure itself is NOT provisioned by default. Developers own it:
-# it is created locally by terraform/linux-vm/provision-infrastructure.sh, and
+# it is created locally by tests/Live/Terraform/linux-vm/provision-infrastructure.sh, and
 # CI and the developer share one Terraform state per alias. Leaving CI a
 # read-only consumer of the outputs keeps it from racing the developer for the
 # state lock. Set the `provision` input when the infrastructure genuinely needs
@@ -47,7 +47,7 @@ jobs:
     # REQUIRED. The federated credential created by stage 0 trusts the OIDC
     # subject "repo:<owner>/<repo>:environment:dev". Removing or renaming this
     # makes the token subject stop matching and the Azure login fails. Keep it in
-    # sync with `github_environment` in terraform/bootstrap.
+    # sync with `github_environment` in tests/Live/Terraform/bootstrap.
     environment: dev
 
     steps:
@@ -68,7 +68,7 @@ jobs:
           # runner would silently bump the shared state the first time the
           # `provision` input above is used, locking every developer out until
           # they upgraded too. Keep in sync with required_version in
-          # terraform/*/versions.tf.
+          # tests/Live/Terraform/*/versions.tf.
           terraform_version: 1.9.8
           terraform_wrapper: false
 
@@ -98,4 +98,4 @@ jobs:
           # it on the VM with `az vm run-command`.
           args=()
           [[ "${PROVISION:-false}" == "true" ]] && args+=(--provision)
-          scripts/mi-live-test.sh "${args[@]}"
+          tests/Live/Scripts/mi-live-test.sh "${args[@]}"

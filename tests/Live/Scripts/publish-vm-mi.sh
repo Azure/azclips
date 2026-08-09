@@ -24,12 +24,12 @@
 # routable on the VM via `az extension add --path` (a loose folder for them is unused).
 #
 # Usage:
-#   scripts/publish-vm-mi.sh [--rid <rid>] [--config <Debug|Release>] [--out <dir>] [--tar]
+#   tests/Live/Scripts/publish-vm-mi.sh [--rid <rid>] [--config <Debug|Release>] [--out <dir>] [--tar]
 #
 # Examples:
-#   scripts/publish-vm-mi.sh                              # linux-x64, Release
-#   scripts/publish-vm-mi.sh --rid win-x64               # Windows x64
-#   scripts/publish-vm-mi.sh --rid linux-arm64 --tar     # also produce a .tar.gz
+#   tests/Live/Scripts/publish-vm-mi.sh                              # linux-x64, Release
+#   tests/Live/Scripts/publish-vm-mi.sh --rid win-x64               # Windows x64
+#   tests/Live/Scripts/publish-vm-mi.sh --rid linux-arm64 --tar     # also produce a .tar.gz
 #
 set -euo pipefail
 
@@ -51,11 +51,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 cd "$REPO_ROOT"
 
 # shellcheck source=lib/timing.sh
-source "$REPO_ROOT/scripts/lib/timing.sh"
+source "$SCRIPT_DIR/lib/timing.sh"
 
 [[ -z "$OUT" ]] && OUT="$REPO_ROOT/publish/vm/${CONFIG}-${RID}"
 
@@ -134,7 +135,7 @@ timing_end
 #    to a standalone executable, which we invoke directly on the VM.
 echo
 timing_start "publish live tests (self-contained)"
-dotnet publish tests/Live.Tests/Live.Tests.csproj \
+dotnet publish tests/Live/Live.Tests/Live.Tests.csproj \
   -c "$CONFIG" -r "$RID" --self-contained true \
   -o "$OUT/Live.Tests" >/dev/null
 timing_end
@@ -143,8 +144,8 @@ timing_end
 #    travel with the bundle (Option D).
 echo
 timing_start "add setup-vm-mi.sh to bundle"
-cp "$(dirname "${BASH_SOURCE[0]}")/setup-vm-mi.sh" "$OUT/"
-cp "$(dirname "${BASH_SOURCE[0]}")/lib/timing.sh" "$OUT/"
+cp "$SCRIPT_DIR/setup-vm-mi.sh" "$OUT/"
+cp "$SCRIPT_DIR/lib/timing.sh" "$OUT/"
 chmod +x "$OUT/setup-vm-mi.sh"
 timing_end
 
@@ -161,7 +162,7 @@ if [[ "$MAKE_TAR" == "1" ]]; then
   echo "    $(du -h "$TARBALL" | cut -f1) -> $TARBALL"
   echo
   echo "    The bundle travels to the VM via Azure Storage + 'az vm run-command'"
-  echo "    (no SSH). Run the full flow with: scripts/mi-live-test.sh"
+  echo "    (no SSH). Run the full flow with: tests/Live/Scripts/mi-live-test.sh"
 fi
 
 timing_summary "Bundle build (publish-vm-mi.sh)"

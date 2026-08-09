@@ -23,7 +23,7 @@ Then sets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, and
 **Run this only from a developer machine, never in CI.** It creates the very
 identity CI logs in as, and needs Owner on the subscription plus the right to
 create Entra applications. Its Terraform state is deliberately separate from
-`terraform/linux-vm` so CI runs never refresh or destroy their own credentials.
+`tests/Live/Terraform/linux-vm` so CI runs never refresh or destroy their own credentials.
 
 Skip this module entirely if you only run the live test locally.
 

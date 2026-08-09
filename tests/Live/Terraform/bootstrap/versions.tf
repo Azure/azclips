@@ -1,5 +1,5 @@
 terraform {
-  # Pinned to the 1.9 series — see the note in terraform/linux-vm/versions.tf.
+  # Pinned to the 1.9 series — see the note in tests/Live/Terraform/linux-vm/versions.tf.
   # Stage 0 has its own state blob, but the same one-way version stamp applies
   # to it, and it is the harder one to recover: it holds the CI identity that
   # every later stage authenticates as. Keep in step with linux-vm and the
@@ -17,7 +17,7 @@ terraform {
     }
   }
 
-  # State for stage 0 is deliberately SEPARATE from terraform/linux-vm: the CI
+  # State for stage 0 is deliberately SEPARATE from tests/Live/Terraform/linux-vm: the CI
   # identity created here must never be refreshed (or destroyed) by the CI runs
   # that authenticate as it. The blob key is per-developer and supplied by
   # setup-github-identity.sh via -backend-config, because backend blocks are

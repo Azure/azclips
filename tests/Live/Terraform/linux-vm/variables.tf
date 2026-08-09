@@ -1,5 +1,5 @@
 # Keep this validation in sync with:
-#   - terraform/bootstrap/variables.tf  (same variable)
+#   - tests/Live/Terraform/bootstrap/variables.tf  (same variable)
 #   - terraform/tf-common.sh            (ALIAS_REGEX, the bash copy)
 variable "alias" {
   type        = string
@@ -8,7 +8,7 @@ variable "alias" {
     Your short user alias. Prefixes every per-developer resource so multiple
     developers can share one subscription without colliding, and selects the
     per-developer Terraform state blob. Use the SAME alias as in
-    terraform/bootstrap. Required — there is no default.
+    tests/Live/Terraform/bootstrap. Required — there is no default.
   EOT
 
   validation {

@@ -8,7 +8,7 @@
 #
 # Sourced, never executed:
 #
-#   source "$REPO_ROOT/scripts/lib/timing.sh"
+#   source "$REPO_ROOT/tests/Live/Scripts/lib/timing.sh"
 #
 #   timing_start "Build bundle"      # ... work ...      ; timing_end
 #   timed "Upload blob" az storage blob upload ...

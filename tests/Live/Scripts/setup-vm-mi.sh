@@ -13,7 +13,7 @@
 #   --archive FILE  A azclips .tar.gz bundle; it is extracted, then wired up
 #   --dest DIR      Where to extract the archive (default: current directory)
 #   --bundle DIR    An already-extracted bundle; adds az to PATH via symlink
-#   --test-mi       After install, run the bundled live test suite (tests/Live.Tests,
+#   --test-mi       After install, run the bundled live test suite (tests/Live/Live.Tests,
 #                   xUnit v3, published self-contained) to verify managed-identity
 #                   auth on this VM by
 #                   running `login --identity` + a `vm show` smoke test. Always
@@ -181,14 +181,14 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
 
   echo "==> --test-mi: verifying managed-identity auth on this VM"
 
-  # The assertions live in tests/Live.Tests (xUnit v3), published self-contained
+  # The assertions live in tests/Live/Live.Tests (xUnit v3), published self-contained
   # into the bundle. Keeping them in C# rather than here gives real assertion
   # messages, structured JSON parsing and per-case pass/fail reporting; this
   # script only supplies the environment and propagates the exit code.
   RUNNER="$BUNDLE/Live.Tests/Live.Tests"
   if [[ ! -x "$RUNNER" ]]; then
     echo "!! Live test runner not found at $RUNNER" >&2
-    echo "   Rebuild the bundle with scripts/publish-vm-mi.sh." >&2
+    echo "   Rebuild the bundle with tests/Live/Scripts/publish-vm-mi.sh." >&2
     exit 1
   fi
 

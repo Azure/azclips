@@ -30,7 +30,7 @@ public sealed class LiveTestFixture : IAsyncLifetime
         {
             throw new InvalidOperationException(
                 $"The CLI under test was not found at '{path}' (from {LiveTestEnvironment.AzVariable}). "
-                + "Rebuild the bundle with scripts/publish-vm-mi.sh.");
+                + "Rebuild the bundle with tests/Live/Scripts/publish-vm-mi.sh.");
         }
 
         var version = await AzCli.RunAsync("--version");

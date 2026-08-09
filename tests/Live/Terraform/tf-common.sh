@@ -3,8 +3,8 @@
 # tf-common.sh — shared helpers for the stage 0 / stage 1 Terraform wrappers.
 #
 # Sourced by:
-#   terraform/bootstrap/setup-github-identity.sh      (stage 0, local only)
-#   terraform/linux-vm/provision-infrastructure.sh    (stage 1, local and CI)
+#   tests/Live/Terraform/bootstrap/setup-github-identity.sh      (stage 0, local only)
+#   tests/Live/Terraform/linux-vm/provision-infrastructure.sh    (stage 1, local and CI)
 #
 # Not executable on its own.
 
@@ -34,7 +34,7 @@ UPSTREAM_OWNERS="Azure"
 TF_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Must stay in sync with the `alias` validation block in
-# terraform/bootstrap/variables.tf and terraform/linux-vm/variables.tf.
+# tests/Live/Terraform/bootstrap/variables.tf and tests/Live/Terraform/linux-vm/variables.tf.
 #
 # 3-14 characters. The upper bound is set by the state storage account, whose
 # name is capped at 24: alias (hyphens stripped, <=14) + "tf" + 8 hex digits of
@@ -48,7 +48,7 @@ ALIAS_REGEX='^[a-z][a-z0-9-]{1,12}[a-z0-9]$'
 # alias too. Precedence:
 #   1. TF_VAR_alias  (how CI supplies it, from the ALIAS GitHub variable)
 #   2. terraform.tfvars in the module directory (per-module override)
-#   3. terraform/terraform.tfvars (shared by both stages — the normal case)
+#   3. tests/Live/Terraform/terraform.tfvars (shared by both stages — the normal case)
 #
 # Echoes the alias on success; exits non-zero with a diagnostic otherwise.
 resolve_alias() {
@@ -60,7 +60,7 @@ resolve_alias() {
   local file
 
   # Precedence: env (how CI supplies it) > module-local tfvars (per-module
-  # override) > shared terraform/terraform.tfvars (the normal case: configure
+  # override) > shared tests/Live/Terraform/terraform.tfvars (the normal case: configure
   # the alias once for both stages).
   if [[ -z "$alias_value" ]]; then
     for file in "$module_tfvars" "$shared_tfvars"; do
@@ -76,7 +76,7 @@ resolve_alias() {
 
   if [[ -z "$alias_value" ]]; then
     echo "!! No 'alias' configured." >&2
-    echo "   Set it in $shared_tfvars (copy terraform/terraform.tfvars.example)," >&2
+    echo "   Set it in $shared_tfvars (copy tests/Live/Terraform/terraform.tfvars.example)," >&2
     echo "   or export TF_VAR_alias." >&2
     echo "   The alias prefixes your resources and selects your Terraform state." >&2
     return 1

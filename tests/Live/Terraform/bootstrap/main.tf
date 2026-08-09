@@ -2,7 +2,7 @@
 #
 # Entra objects (app registration, service principal, federated credential) live
 # here; the Azure resources they are granted access to are created by stage 1
-# (terraform/linux-vm). This module is applied ONLY from a developer machine by a
+# (tests/Live/Terraform/linux-vm). This module is applied ONLY from a developer machine by a
 # human with Owner on the subscription plus rights to create Entra applications.
 # It must never run in CI, because it creates the very identity CI logs in as.
 

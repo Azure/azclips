@@ -1,7 +1,7 @@
 # Keep this validation in sync with:
-#   - terraform/linux-vm/variables.tf         (same variable)
-#   - terraform/bootstrap/setup-github-identity.sh        (bash copy of the regex)
-#   - terraform/linux-vm/provision-infrastructure.sh      (bash copy of the regex)
+#   - tests/Live/Terraform/linux-vm/variables.tf         (same variable)
+#   - tests/Live/Terraform/bootstrap/setup-github-identity.sh        (bash copy of the regex)
+#   - tests/Live/Terraform/linux-vm/provision-infrastructure.sh      (bash copy of the regex)
 variable "alias" {
   type        = string
   nullable    = false
