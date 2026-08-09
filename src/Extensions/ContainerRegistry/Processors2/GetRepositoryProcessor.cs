@@ -14,16 +14,15 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// </summary>
 public class GetRepositoryProcessor : AcrDataPlaneProcessorBase<RepositoryAttributes>
 {
+    public string Endpoint { get; set; } = string.Empty;
+    
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "Repository")]
-    public string Repository { get; set; } = "";
-
-    protected override string GetScope() => $"repository:{Repository}:metadata_read";
+    public string Name { get; set; } = "";
 
     protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string loginServer = GetLoginServer();
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://{loginServer}/acr/v1/{Repository}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://{Endpoint}/acr/v1/{Name}?api-version=2021-07-01");
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }

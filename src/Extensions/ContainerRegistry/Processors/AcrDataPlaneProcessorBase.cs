@@ -39,6 +39,12 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
     {
         BeforeInit();
 
+        /*
+        Yabo:  
+            Dataplane should not reuse default http pipeline, 
+            because it will inject ARM token to the request, 
+            which dataplane endpoint not supposed to receive.
+        */
         HttpPipeline = context.HttpPipeline;
         Publisher = context.Publisher;
         AuthHandler = context.AuthHandler;
@@ -58,7 +64,7 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
 
     /*
         From Yabo:
-        Not 100% sure for data plane in general but for ACR I think the suffix is a const from spec, while resolving the endpoint is custom logic.
+        Not 100% sure for data plane in general but for ACR Endpoint is parameter instead of fixed in spec
     */
     protected const string Server = ".azurecr.io";
 
