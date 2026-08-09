@@ -58,15 +58,14 @@ public class GroupCreateScenarioTests
         });
 
     // Asserts on the emitted object so an output regression fails the test. The id is checked only
-    // when the expected subscription is known (playback); a record run's is the developer's. No
-    // provisioning state is checked: ARM nests it under properties while ResourceGroup declares it
-    // flat, so it never deserializes (product bug).
+    // when the expected subscription is known (playback); a record run's is the developer's.
     private static void AssertCreated(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
     {
         var resourceGroup = Assert.IsType<ResourceGroup>(Assert.Single(outputs));
         Assert.Equal(ResourceGroupName, resourceGroup.Name);
         Assert.Equal(Location, resourceGroup.Location);
         Assert.Equal("Microsoft.Resources/resourceGroups", resourceGroup.Type);
+        Assert.Equal("Succeeded", resourceGroup.Properties?.ProvisioningState);
         if (expectedSubscriptionId is not null)
         {
             Assert.Equal($"/subscriptions/{expectedSubscriptionId}/resourceGroups/{ResourceGroupName}", resourceGroup.Id);
