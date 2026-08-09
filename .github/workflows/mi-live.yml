@@ -59,6 +59,20 @@ jobs:
         with:
           global-json-file: global.json
 
+      # The bundle is published --self-contained, so a cold run downloads the
+      # whole runtime pack from nuget.org. That is normally ~30s but is entirely
+      # at the mercy of nuget throughput: it has been observed taking over six
+      # minutes, which is most of the job. setup-dotnet's own `cache` input
+      # needs packages.lock.json files, which this repo does not use.
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.props', 'global.json') }}
+          # A partial hit still avoids the runtime pack download, which is the
+          # part that actually hurts.
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
