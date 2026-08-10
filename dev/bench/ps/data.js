@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786336826140,
+  "lastUpdate": 1786336882654,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -5968,6 +5968,48 @@ window.BENCHMARK_DATA = {
             "value": 890547.9593724859,
             "unit": "ns",
             "range": "± 21944.59907286705"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ea1a66d32bb7df79bf9db236f8fef1cbe0484f0",
+          "message": "[Config] Remove bundledExtensionsRoot from config (#676)\n\n## Summary\n\nRemoves the `assemblyLoading.bundledExtensionsRoot` config key. Bundled\nextensions are now resolved from a fixed candidate root list in\n`BundledExtensionLoader.GetCandidateRoots` — no runtime knob required,\npackaging always writes to `<install>/Extensions/`.\n\nCloses Azure/CLIPS#630.\n\n## Motivation\n\nThe config value was a leftover from an early env-var absorbed into the\nconfig system with no real user-facing purpose:\n\n- Packaging is hardcoded —\n[`inject_builtin_extensions.sh`](https://github.com/Azure/azclips/blob/main/devops/scripts/packaging/common/inject_builtin_extensions.sh),\nthe staging scripts, and every tarball/zip test all write bundled\nextensions to `<install>/Extensions/`. Zero references to\n`bundledExtensionsRoot` anywhere in `devops/`, `install/`, or\n`.azure-pipelines/`.\n- Users who want extra extensions already have `az extension add --path\n<nupkg>` and the Installed tier.\n- Keeping the config surface risked exactly the divergence class\ncaptured in Azure/CLIPS#624 / #629 — dispatch honors it, other consumers\ndon't.\n\nThe RELEASE default (`<install>/Extensions`) has been folded into the\nloader's candidate list, so packaged installs continue to work with no\nconfig knob.\n\n## Changes\n\n### User-visible\n\n- Config key `assemblyLoading.bundledExtensionsRoot` removed. `az config\nset assemblyLoading.bundledExtensionsRoot <path>` now fails with\n`unknown key`.\n- Doc row in `docs/azure-cli/docs-conceptual/config.md` deleted.\n- CHANGELOG entry under **Upcoming Release → `#### CLI`**.\n\n### Internal\n\n- `AssemblyLoadingOptions.BundledExtensionsRoot` property and\n`GetDefaultBundledExtensionsRoot` helper deleted.\n- New `public static string BundledExtensionLoader.GetDefaultRoot()` —\nthe same DEBUG/RELEASE computation, now sitting on the loader (its only\nconsumer).\n- `BundledExtensionLoader.GetCandidateRoots` becomes parameterless; the\nthree loader call sites (`LoadExtension`, `LoadExtension` error log,\n`GetInstalledExtensions`) updated.\n- Schema entry deleted from `ConfigurationSchema.cs`.\n\n### Tests\n\n- `BundledExtensionLoaderTests` restructured: each test stages under\n`BundledExtensionLoader.GetDefaultRoot()` with a Guid-suffixed short\nname so the process-static cache and enumeration stay isolated.\nPer-package cleanup instead of temp-root cleanup.\n- `ExtensionSelectionPathOverrideTests`: bundled fixtures moved to\n`GetDefaultRoot()`; installed fixtures still use temp dirs (that tier's\nconfig stays). Stub `TestConfigurationService` no longer sets the\nremoved property.\n- `BenchmarkAssemblyConfigurationService` and `CLIBenchmarkBase`\nupdated: `EnsureBuiltInPayload` now copies the Release Core-extension\nsource into `GetDefaultRoot()` so the benchmark's loader can discover it\nvia the fallback list.\n- `ConfigurationServiceTests`: assertion for the removed key deleted.\n\n## History Notes\n\n`BREAKING CHANGE: [Config] Removed\n'assemblyLoading.bundledExtensionsRoot'. Bundled extensions are now\ndiscovered from a fixed candidate root list ('<install>/Extensions' in\nRelease, plus the local Debug/Release build outputs). Any user config\nreferencing this key will fail with \"unknown key\".`\n\n## Validation\n\n- `dotnet build azclips.slnx` — green (3 unrelated pre-existing\n`GHCP001` warnings in `Agent/ChatAgent.cs`).\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — 586 passing, 1\npre-existing environmental failure\n(`ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail`, needs a published\n`az` binary).\n- `dotnet test tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj`\n— 85/85.\n- Local `az config list --all` confirms the key no longer appears.\n- `git diff --stat`: 10 files, +240 / −238.",
+          "timestamp": "2026-08-10T14:24:42+10:00",
+          "tree_id": "5f9859cbf02dc860f87862203f698e01b79ba57a",
+          "url": "https://github.com/Azure/azclips/commit/1ea1a66d32bb7df79bf9db236f8fef1cbe0484f0"
+        },
+        "date": 1786336879640,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1021909.0573571139,
+            "unit": "ns",
+            "range": "± 26665.20850498808"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1013948.1155009071,
+            "unit": "ns",
+            "range": "± 31426.256120732724"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 985450.7712863239,
+            "unit": "ns",
+            "range": "± 24919.177900140858"
           }
         ]
       }
