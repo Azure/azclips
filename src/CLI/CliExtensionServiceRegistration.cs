@@ -7,6 +7,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
+using Core.Configuration.Options;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,8 +26,12 @@ public static class CliExtensionServiceRegistration
 
     public static IServiceCollection AddCliExtensionDispatch(this IServiceCollection services)
     {
-        services.AddSingleton<IExtensionRegistryStore>(
-            _ => new FileExtensionRegistryStore());
+        services.AddSingleton<IExtensionRegistryStore>(sp =>
+        {
+            var config = sp.GetRequiredService<IConfigurationService>();
+            var root = config.GetConfiguration<AssemblyLoadingOptions>().InstalledExtensionsRoot;
+            return new FileExtensionRegistryStore(Path.Combine(root, HomePaths.RegistryFileName));
+        });
 
         services.AddSingleton<IExtensionResolver>(
             sp => new ExtensionResolver(sp.GetRequiredService<IExtensionRegistryStore>()));

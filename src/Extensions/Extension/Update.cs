@@ -59,7 +59,7 @@ public class UpdateExtensionProcessor : IProcessor
         var loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.StartActivity($"{nameof(UpdateExtensionProcessor)}.{nameof(Process)}");
 
-        var store = new FileExtensionRegistryStore();
+        var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
         var registry = store.Load();
 
         if (!RegistryLookup.TryFind(registry, Name, out var match))

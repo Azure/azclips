@@ -50,7 +50,7 @@ public class RemoveExtensionProcessor : IProcessor
                 new Dictionary<string, object?> { ["verb"] = Name });
         }
 
-        var store = new FileExtensionRegistryStore();
+        var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
         var fileRegistry = store.Load();
 
         // Metadata-only install lookup for remove: enumerate package/version directories without

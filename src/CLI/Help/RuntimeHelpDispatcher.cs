@@ -37,15 +37,17 @@ public sealed class RuntimeHelpDispatcher
     private readonly ExtensionHintTable _hintTable;
     private readonly TextWriter _output;
     private readonly OutputStreams _streams;
+    private readonly IExtensionRegistryStore _registryStore;
 
-    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams)
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore)
         : this(
             engine,
             BuiltInExtensions.Map,
             ExtensionHintTable.Default,
             new RuntimeHelpRenderer(),
             Console.Out,
-            streams)
+            streams,
+            registryStore)
     {
     }
 
@@ -55,7 +57,8 @@ public sealed class RuntimeHelpDispatcher
         ExtensionHintTable hintTable,
         IHelpRenderer renderer,
         TextWriter output,
-        OutputStreams streams)
+        OutputStreams streams,
+        IExtensionRegistryStore registryStore)
     {
         _engine = engine;
         _builtInPackageIds = builtIns.Values
@@ -65,6 +68,7 @@ public sealed class RuntimeHelpDispatcher
         _renderer = renderer;
         _output = output;
         _streams = streams;
+        _registryStore = registryStore;
     }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
@@ -299,7 +303,7 @@ public sealed class RuntimeHelpDispatcher
         ExtensionRegistry? registry = null;
         try
         {
-            registry = new FileExtensionRegistryStore().Load();
+            registry = _registryStore.Load();
         }
         catch (Exception ex)
         {
