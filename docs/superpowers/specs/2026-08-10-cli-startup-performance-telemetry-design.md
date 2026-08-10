@@ -105,10 +105,12 @@ preserved deliberately.
 
 ## Components
 
-### `PerformanceTimeline` (nested in `Program`, `internal sealed`)
+### `PerformanceTimeline` (`src/CLI/Telemetry/PerformanceTimeline.cs`)
 
-Records phases and replays them. Roughly 45 lines. `internal` rather than `private` so
-`Cli.Tests` can reach it through the existing `InternalsVisibleTo` grant in `Core.Cli.csproj`.
+Records phases and replays them. Roughly 45 lines, `internal sealed`, namespace
+`Core.Cli.Telemetry`, alongside `CLITelemetryProvider`. `Cli.Tests` reaches it through the existing
+`InternalsVisibleTo` grant in `Core.Cli.csproj`. It depends only on `ITelemetryService`, so it can
+move to `Core.Telemetry` later if TUI or PowerShell want the same measurement.
 
 Public surface:
 
@@ -163,10 +165,11 @@ performance.Replay(telemetryService);
 | `src/Core/Core.Telemetry/TelemetryService.cs` | forward `startTime` to `ActivitySource.StartActivity` |
 | `src/Core/Core.Telemetry/DefaultTelemetryActivityNameFilter.cs` | allow exact `CLI.Performance` and prefix `CLI.Performance.` |
 | `tests/Common/Stubs/StubTelemetryService.cs` | match the new signatures |
-| `src/CLI/Program.cs` | `PerformanceTimeline`, two `Measure` blocks, backdated root, light restructuring |
+| `src/CLI/Telemetry/PerformanceTimeline.cs` | **new** — records and replays startup phases |
+| `src/CLI/Program.cs` | two `Measure` blocks, backdated root, light restructuring |
 
 Both parameters default to `default`, which `ActivitySource` already treats as "now", so every
-existing call site is unchanged. No new files.
+existing call site is unchanged.
 
 ## Program.cs restructuring
 
@@ -177,9 +180,9 @@ Deliberately limited to the body of `Main`:
 2. Group the four early-exit handlers so the pre-DI exits (`--upload-telemetry`, `--print-probe`)
    and the post-DI exits (`--completions`, `--completion-candidates`) each read as one unit.
 
-No extractions and no new files. Larger simplifications — moving the ~145-line agent-fallback
-block, `BuildStreams`, `SpawnTelemetryUploader`, and the version/help dispatchers out of
-`Program.cs` — are recorded as follow-ups below and are explicitly out of scope.
+No extractions from `Program.cs` beyond the two items above. Larger simplifications — moving the
+~145-line agent-fallback block, `BuildStreams`, `SpawnTelemetryUploader`, and the version/help
+dispatchers out of `Program.cs` — are recorded as follow-ups below and are explicitly out of scope.
 
 ## Testing
 
