@@ -28,10 +28,13 @@ This was verified empirically, not assumed:
 | Attempt | Result |
 | --- | --- |
 | `source.StartActivity(...)` before any listener | returns `null` — no span |
-| `new Activity(...).Start()` before any listener, `Stop()` after | **is** exported, correct duration |
-| Backdated span via `startTime:` + `SetEndTime()` | correct duration, nests via `Activity.Current`, one shared `TraceId` |
+| `new Activity(...).Start()`, exported via `AddSource("")` | throws — the default source cannot be registered |
+| `new Activity(...).Start()`, exported via `AddSource("*")` | exports nothing — `Recorded` is never set |
+| Named `ActivitySource` + listener at line 1, `Stop()` deferred | works — correct duration, source, and tree |
+| Backdated span via `startTime:` + `SetEndTime()` | works — correct duration, nests via `Activity.Current`, one shared `TraceId` |
 
-The hand-made `Activity` route works but is rejected — see [Rejected alternatives](#rejected-alternatives).
+Live spans at line 1 are therefore possible, but only by installing process-wide tracing state
+before the program's first statement — see [Rejected alternatives](#rejected-alternatives).
 
 ## Approach: record, then replay
 
@@ -207,15 +210,29 @@ DI and registering the instances back in — a two-phase composition root. Worse
 piece of startup becomes permanently invisible. This is the exact trade-off Datadog's CLR profiler
 accepts, and it is the wrong one here.
 
-**Hand-made `Activity` objects started in `Main`.** Verified to work in isolation, but rejected on
-three counts. Phase spans complete before telemetry exists, so their `Stop()` finds no listener and
-is dropped — recovering them means calling `SetEndTime()` now and deferring `Stop()` until after
-DI, which is precisely the split-timing awkwardness the design set out to avoid. Hand-made
-activities also belong to the unnamed default `ActivitySource`, so `CLITelemetryProvider` would
-have to listen to `""` or `"*"`, admitting every `new Activity()` created by any dependency.
-Finally `FileExporter` writes `service.name = activity.Source.Name` and `FileTelemetrySender`
-groups traces by that value to set `cloud_RoleName`; startup spans would carry an empty service
-name and split into their own group in Application Insights.
+**Spans started live at line 1 of `Main`.** Two shapes were tested against the real OpenTelemetry
+SDK, not reasoned about.
+
+*Bare `new Activity("...").Start()`* cannot work. Such an activity belongs to the unnamed default
+`ActivitySource`, and `AddSource("")` throws `ArgumentException: Must not be null or whitespace`;
+`AddSource("*")` builds but exports nothing, because OpenTelemetry only exports activities whose
+`Recorded` flag is set, and only a listener present at `Start()` can set it. The activity can be
+handed directly to a `BaseExporter<Activity>` (verified: duration preserved), but that bypasses
+`DefaultActivityNameFilterProcessor` and `DefaultTelemetryPropertyFilterProcessor` — the privacy
+allow-lists — so it would have to be re-plumbed by hand.
+
+*A named `ActivitySource("CLI")` plus an `ActivityListener` at line 1* does work, fully: verified
+correct durations, `source.Name = "CLI"`, correct parent/child tree, and a root span genuinely
+starting at `Main` entry with no backdating. It is rejected on cost, not capability. It requires
+installing process-wide tracing state before the first statement of the program: a listener pinned
+to `AllDataAndRecorded` for the process lifetime, which overrides any sampler configured later, and
+a second `ActivitySource` named `"CLI"` alongside the provider's. Because `Stop()` cannot fire
+before the exporter exists, phases still need `SetEndTime()` now and `Stop()` later, and since
+`SetEndTime()` does not restore `Activity.Current`, each phase must also reassign it or sequential
+phases silently nest instead of becoming siblings (verified). Finally, configuration is unreadable
+that early, so the `telemetry.enabled` opt-out is bypassed and has to be re-imposed by withholding
+`Stop()` — replacing a gate that currently works by construction with one that works by
+remembering to. Replay gives the same trace tree and keeps all of that for free.
 
 **Duration tags on the root span** (`performance.containerMs`, and so on). Fewest moving parts and
 no backdating, but durations recorded as tags do not appear in a waterfall, which is the point of
