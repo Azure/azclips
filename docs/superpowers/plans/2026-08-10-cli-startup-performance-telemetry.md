@@ -31,7 +31,7 @@
 | `src/Core/Core.Telemetry/TelemetryService.cs` | Forwards `startTime` to `ActivitySource.StartActivity`. |
 | `src/Core/Core.Telemetry/DefaultTelemetryActivityNameFilter.cs` | Allows the new span names past the privacy filter. |
 | `tests/Common/Stubs/StubTelemetryService.cs` | Keeps the shared stub matching the interface. |
-| `src/CLI/Program.cs` | Wires the timeline into `Main`; then flattens `Main`'s nested `try`. |
+| `src/CLI/Program.cs` | Wires the timeline into `Main`; then splits the dispatch body into a private `RunCommandAsync` so `Main` reduces to a try/finally. |
 | `wiki/02-deep-dive/telemetry.md` | Documents the startup subtree and the replay mechanism. |
 
 ---
@@ -784,30 +784,72 @@ git commit -m "{CLI} Measure DI container and service resolution in startup tele
 
 ---
 
-### Task 4: Flatten `Main` and update the docs
+### Task 4: Flatten `Main` into `RunCommandAsync` and update the docs
 
 **Files:**
-- Modify: `src/CLI/Program.cs` — the `try` / `catch` / `finally` block in `Main` (line numbers shift after Task 3; locate by content)
+- Modify: `src/CLI/Program.cs` — `Main`'s `try` / `catch` / `finally`, extracting the dispatch body into a new private `RunCommandAsync` in the same file (line numbers shift after Task 3; locate by content)
 - Modify: `wiki/02-deep-dive/telemetry.md:19-39`
 
 **Interfaces:**
 - Consumes: everything from Task 3.
-- Produces: no API change. Exit codes and emitted spans are unchanged, with one deliberate
-  behaviour change called out in Step 1 below.
+- Produces: no public API change. `Main` keeps its signature; `RunCommandAsync` is private. Exit
+  codes and emitted spans are unchanged, with one deliberate behaviour change called out in
+  Step 1 below.
 
 - [ ] **Step 1: Collapse the nested try into one level**
 
-`Main` currently nests a `try`/`catch` inside an outer `try`/`finally`. Replace the whole outer `try { ... } finally { ... }` block with a single level.
+`Main` currently nests a `try`/`catch` inside an outer `try`/`finally`. That nesting is **load-bearing**, and naively flattening it breaks telemetry — verified against the real OpenTelemetry SDK:
 
-Two things to get right:
+| Question | Result |
+| --- | --- |
+| `using var` declared inside the `try` (today's code) | disposes **before** the enclosing `finally` |
+| `using var` hoisted to method scope | disposes **after** the `finally` — too late |
+| `TracerProvider.Dispose()` with the root span still running | span is **never exported**, even if stopped later |
+| Root span stopped before `TracerProvider.Dispose()` | exported correctly |
 
-1. The root activity **must be disposed before `AzclipsServiceProvider.Dispose()`**: disposing the container disposes the `TracerProvider`, and a span stopped after that is never exported. That ordering is why `activity` is disposed explicitly in `finally` rather than with `using`.
-2. **Deliberate behaviour change:** `GetRequiredService<ExtensionDispatcher>()` currently sits between the two `try` blocks, so a container failure there escapes `Main` as an unhandled exception. Flattening moves it inside the single `try`, where the existing `catch (Exception)` routes it to `TryAgentFallbackAsync` and returns an exit code instead of crashing. This is the one observable difference; keeping the old behaviour would require keeping the nesting.
+A processor only receives a span when the activity *stops*; a still-running activity was never handed to it, so provider disposal has nothing to flush. The inner `try` exists so the `catch` blocks can see `activity` while its `using` scope still closes before `AzclipsServiceProvider.Dispose()`.
+
+So keep `using` — and get the flattening by moving the dispatch body into a private `RunCommandAsync`. The root span then disposes when that method returns, which is before `Main`'s `finally` disposes the container. `Main` drops to a try/finally with a single statement in it.
+
+One deliberate behaviour change: `GetRequiredService<ExtensionDispatcher>()` currently sits between the two `try` blocks, so a container failure there escapes `Main` as an unhandled exception. It moves inside the `try`, where the existing `catch (Exception)` routes it to `TryAgentFallbackAsync` and returns an exit code instead of crashing.
+
+Replace the whole outer `try { ... } finally { ... }` block in `Main` with:
 
 ```csharp
-        // Disposed explicitly in the finally below — it must stop before the container
-        // is disposed, since that takes the TracerProvider (and the exporter) with it.
-        var activity = telemetryService.StartRootActivity(performance.StartedAt);
+        try
+        {
+            return await RunCommandAsync(args, isBareInvocation, performance, configurationService, telemetryService);
+        }
+        finally
+        {
+            // Route through streams.WriteDebug (level-gated) so the aggregate table stays
+            // silent under warn/error and only surfaces under --debug. Routing through
+            // _logger would fall back to ConsoleLoggingService here (session's UseScope
+            // was already disposed) and leak the table regardless of level.
+            ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
+            AzclipsServiceProvider.Dispose();
+            SpawnTelemetryUploader();
+        }
+    }
+
+    /// <summary>
+    /// Parses the invocation and runs it, owning the root telemetry activity for its lifetime.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Main"/> for span ordering, not just readability: the root
+    /// activity must stop while the exporter is still alive, and disposing the DI container
+    /// disposes the TracerProvider. Because this method's <c>using</c> runs to completion
+    /// before the awaiting caller resumes, the span is always stopped before Main's
+    /// <c>finally</c> disposes the container.
+    /// </remarks>
+    private static async Task<int> RunCommandAsync(
+        string[] args,
+        bool isBareInvocation,
+        PerformanceTimeline performance,
+        IConfigurationService configurationService,
+        ITelemetryService telemetryService)
+    {
+        using var activity = telemetryService.StartRootActivity(performance.StartedAt);
         performance.Replay(telemetryService);
 
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
@@ -882,21 +924,9 @@ Two things to get right:
 
             return await TryAgentFallbackAsync(positional, ex.Message);
         }
-        finally
-        {
-            // Stop the root span while the exporter is still alive — AzclipsServiceProvider.Dispose()
-            // below disposes the TracerProvider, after which nothing can be exported.
-            activity?.Dispose();
-
-            // Route through streams.WriteDebug (level-gated) so the aggregate table stays
-            // silent under warn/error and only surfaces under --debug. Routing through
-            // _logger would fall back to ConsoleLoggingService here (session's UseScope
-            // was already disposed) and leak the table regardless of level.
-            ExtensionLoadTracker.EmitSummary(msg => streams.WriteDebug(msg, default).GetAwaiter().GetResult());
-            AzclipsServiceProvider.Dispose();
-            SpawnTelemetryUploader();
-        }
 ```
+
+Note `_logger`, `streams`, and `_cancellationTokenSource` are `static` fields on `Program`, so the extracted method reaches them unchanged.
 
 - [ ] **Step 2: Group the early-exit handlers**
 
@@ -937,7 +967,7 @@ Get-ChildItem "$env:LocalAppData/Azclips/traces/traces-*.log" |
   Select-String -Pattern "CLI.Activity.Root|CLI.Performance"
 ```
 
-Expected: `CLI.Activity.Root` is still present. This is the regression that the explicit `activity?.Dispose()` ordering exists to prevent — if the root span is missing, the dispose is in the wrong place.
+Expected: `CLI.Activity.Root` is still present. This is the regression the `RunCommandAsync` split exists to prevent — if the root span is missing, the `using` scope is closing after the container is disposed rather than before.
 
 - [ ] **Step 5: Update the telemetry wiki**
 
@@ -995,7 +1025,7 @@ return before the root activity starts and emit nothing.
 
 ```bash
 git add src/CLI/Program.cs wiki/02-deep-dive/telemetry.md
-git commit -m "{CLI} Flatten Main's nested try and document startup telemetry"
+git commit -m "{CLI} Extract RunCommandAsync and document startup telemetry"
 ```
 
 ---
