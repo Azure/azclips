@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786087153561,
+  "lastUpdate": 1786324080070,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -5884,6 +5884,48 @@ window.BENCHMARK_DATA = {
             "value": 855240.7593787818,
             "unit": "ns",
             "range": "± 21069.789213903972"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aryasadeghi@microsoft.com",
+            "name": "aryasadeghi1",
+            "username": "aryasadeghi1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ea1f8af50aeb699f539d95b56d2131216c06ef49",
+          "message": "{Resources} Surface provisioningState from group create (#675)\n\nFix [#33832](https://github.com/Azure/azure-cli/issues/33832)\n\n`az group create` and `New-AzResourceGroup` never reported the\nprovisioning state: ARM returns it nested under properties, but the\n`ResourceGroup` model declared it as a flat property, so it silently\ndropped during deserialisation and the emitted object always carried an\nempty string. Found by replaying the recorded real ARM response in the\nscenario tests.\n\nThe model now nests it (`ResourceGroupProperties.ProvisioningState`),\nmatching the shape `DeploymentExtended` already uses. Properties is\nignored when null, so the PUT body for creates is unchanged apart from\ndropping the meaningless flat `provisioningState` field it used to send.\nThe group create scenario now asserts `provisioningState: Succeeded on\nboth surfaces, and the recording is refreshed from a live run`.\n\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-08-10T10:49:17+10:00",
+          "tree_id": "f4c8861aaf7e2efed50a4ec59cc41391001c956a",
+          "url": "https://github.com/Azure/azclips/commit/ea1f8af50aeb699f539d95b56d2131216c06ef49"
+        },
+        "date": 1786324073598,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 939043.7027950935,
+            "unit": "ns",
+            "range": "± 28358.818504521492"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 909184.6232931727,
+            "unit": "ns",
+            "range": "± 26936.96680908841"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 890547.9593724859,
+            "unit": "ns",
+            "range": "± 21944.59907286705"
           }
         ]
       }
