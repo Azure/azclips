@@ -21,6 +21,10 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // CLI entrypoint span — wraps every CLI command invocation.
         "AzureCLI.ProcessCommand",
 
+        // Startup phases, replayed by the CLI's PerformanceTimeline once telemetry
+        // is available. Encloses the CLI.Performance.* phase spans below.
+        "CLI.Performance",
+
         // Engine event-driven activities. Engine.Subscriptions wraps these
         // Events.* ids directly (i.e. evt.Id without any class/method suffix).
         // The corresponding *End/*After events Dispose the existing activity,
@@ -64,6 +68,9 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // Engine.Subscriptions writes $"{ActionStart}.{ClassName}.{FunctionName}"
         // for the ActionStart event, so we need the prefix not the exact match.
         "ActionStart.",
+
+        // Individual startup phases: CLI.Performance.Container, CLI.Performance.Services.
+        "CLI.Performance.",
     };
 
     /// <summary>Immutable snapshot of the verbatim allowed names.</summary>
