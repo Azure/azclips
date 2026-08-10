@@ -169,6 +169,13 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
         // Copy the source dir into a location the loader's default root includes.
         var stagedPackageDir = Path.Combine(BundledExtensionLoader.GetDefaultRoot(), packageId);
+        // Best-effort clear so a rename/removal in the source doesn't leave a ghost file behind.
+        if (Directory.Exists(stagedPackageDir))
+        {
+            try { Directory.Delete(stagedPackageDir, recursive: true); }
+            catch (IOException) { /* Non-fatal: transient OS locks. */ }
+            catch (UnauthorizedAccessException) { /* Non-fatal: read-only bits. */ }
+        }
         Directory.CreateDirectory(stagedPackageDir);
         // Recursive copy so runtimes/, deps folders, and any nested payload survive the staging.
         foreach (var file in Directory.EnumerateFiles(sourceBuildDir, "*", SearchOption.AllDirectories))
