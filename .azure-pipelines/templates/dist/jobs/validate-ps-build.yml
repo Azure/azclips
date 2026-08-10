@@ -1,0 +1,131 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
+- name: ps_modules_artifact_name
+  type: string
+  default: 'PSModules'
+- name: limit_testing
+  type: boolean
+  default: false
+
+jobs:
+- job: GeneratePowerShellValidationMatrix
+  displayName: Generate PS Validation Matrix
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 1
+    retryCountOnTaskFailure: 3
+
+  - task: UsePythonVersion@0
+    displayName: Use Python for PS Matrix
+    inputs:
+      versionSpec: '3.12'
+
+  - bash: |
+      set -euo pipefail
+      tools_root="$(Agent.TempDirectory)/ps-validation-tools"
+      python3 -m venv "$tools_root"
+      "$tools_root/bin/python" -m pip install --disable-pip-version-check \
+        -r devops/scripts/packaging/powershell/requirements.txt
+      echo "##vso[task.prependpath]$tools_root/bin"
+    displayName: Install PS Matrix YAML Dependency
+
+  - bash: |
+      bash devops/scripts/packaging/powershell/test_generate_ps_validation_matrix.sh
+    displayName: Test PS Validation Matrix
+
+  - pwsh: |
+      & ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1
+      exit $LASTEXITCODE
+    displayName: Test PS Validation Lifecycle and Pipeline
+
+  - bash: |
+      set -euo pipefail
+      matrix_args=()
+      if [[ "${{ parameters.limit_testing }}" == "True" || "${{ parameters.limit_testing }}" == "true" ]]; then
+        matrix_args+=(--limit-testing)
+      fi
+      bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh \
+        --pool '${{ parameters.ubuntu_pool }}' \
+        --pool-for 'macos_arm64=${{ parameters.macos_arm64_pool }}' \
+        --pool-for 'macos_x64=${{ parameters.macos_intel_pool }}' \
+        --azure-variable matrix \
+        "${matrix_args[@]}"
+    name: GenerateMatrix
+    displayName: Generate PS Validation Matrix
+
+- job: PowerShellValidation
+  dependsOn: GeneratePowerShellValidationMatrix
+  displayName: PS Validation
+  timeoutInMinutes: 60
+  strategy:
+    matrix: $[ dependencies.GeneratePowerShellValidationMatrix.outputs['GenerateMatrix.matrix'] ]
+  pool:
+    vmImage: $(DistributionPool)
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 1
+    retryCountOnTaskFailure: 3
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download PS Module Packages
+    inputs:
+      artifact: ${{ parameters.ps_modules_artifact_name }}
+      path: $(Pipeline.Workspace)/${{ parameters.ps_modules_artifact_name }}
+
+  # Validation is split into one step per phase so that a failure points straight at
+  # the phase that broke. Each distribution owns a small bootstrap script whose only
+  # responsibility is installing the PowerShell 7 dependency; every phase after that
+  # is the centralized flow that every agent shares.
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Bootstrap
+      display_name: Install PowerShell $(PowerShellVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Install
+      display_name: Install Azure PS v$(AzVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  # Placeholder. Upgrade coverage is not implemented yet, so this reports as a no-op.
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Upgrade
+      display_name: Upgrade Azure PS v$(AzVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  # Placeholder. Post-install validation coverage is not implemented yet, so this
+  # reports as a no-op.
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Validate
+      display_name: Validate Azure PS v$(AzVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Uninstall
+      display_name: Uninstall Azure PS v$(AzVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  # The container is started detached so that it survives between phase steps, so it
+  # has to be removed explicitly even when a phase failed.
+  - bash: |
+      docker rm --force "azclips-psval-$(System.JobId)" >/dev/null 2>&1 || true
+    condition: and(always(), eq(variables['ValidationMode'], 'container'))
+    displayName: Clean Up Validation Container

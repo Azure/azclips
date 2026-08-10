@@ -35,6 +35,9 @@ parameters:
 - name: ps_modules_artifact_name
   type: string
   default: 'PSModules'
+- name: limit_ps_testing
+  type: boolean
+  default: false
 
 stages:
 - template: init-resolve-version.yml
@@ -161,16 +164,19 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
-- stage: ValidatePSLinux
-  displayName: Validate (PS) Linux
+- stage: ValidatePS
+  displayName: Validate (PS)
   dependsOn:
   - BuildPSModules
   condition: succeeded()
   jobs:
-  - template: ../jobs/validate-ps-build-linux.yml
+  - template: ../jobs/validate-ps-build.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+      limit_testing: ${{ parameters.limit_ps_testing }}
 
 - stage: ValidateWindows
   displayName: Validate (CLI) Windows
@@ -217,7 +223,7 @@ stages:
   - Benchmark
   - BuildPSModules
   - ValidateLinux
-  - ValidatePSLinux
+  - ValidatePS
   - ValidateWindows
   - ValidateMacOS
   - ComponentGovernance
@@ -232,7 +238,7 @@ stages:
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
-    ValidatePSLinuxResult: $[ stageDependencies.ValidatePSLinux.PowerShellLinuxValidation.result ]
+    ValidatePSResult: $[ stageDependencies.ValidatePS.PowerShellValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
     ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]

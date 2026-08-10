@@ -10,6 +10,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ps-validation-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PowerShell matrix YAML dependency
+        run: |
+          tools_root="$RUNNER_TEMP/ps-validation-tools"
+          python3 -m venv "$tools_root"
+          "$tools_root/bin/python" -m pip install --disable-pip-version-check \
+            -r devops/scripts/packaging/powershell/requirements.txt
+          echo "$tools_root/bin" >> "$GITHUB_PATH"
+
+      - name: Test PowerShell validation matrix
+        run: bash devops/scripts/packaging/powershell/test_generate_ps_validation_matrix.sh
+
+      - name: Test PowerShell module lifecycle
+        shell: pwsh
+        run: ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
+
+      - name: Test PowerShell validation pipeline
+        shell: pwsh
+        run: ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1
+
   build-and-test:
     runs-on: ubuntu-latest
 
