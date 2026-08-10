@@ -516,6 +516,10 @@ public class BundledExtensionLoaderTests
             {
                 // Non-fatal: leftover files at the bin/Debug dir are harmless.
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Non-fatal: same as above; transient OS locks or read-only bits.
+            }
         }
     }
 

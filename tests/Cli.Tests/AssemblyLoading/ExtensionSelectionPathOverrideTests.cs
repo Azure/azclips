@@ -296,6 +296,10 @@ public sealed class ExtensionSelectionPathOverrideTests
             {
                 // Non-fatal
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Non-fatal: transient OS locks or read-only bits.
+            }
         }
     }
 
