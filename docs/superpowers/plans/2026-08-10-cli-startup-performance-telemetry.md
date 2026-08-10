@@ -422,7 +422,7 @@ public class PerformanceTimelineTests
         {
         }
 
-        timeline.Replay(new NullTelemetryService());
+        Assert.Null(Record.Exception(() => timeline.Replay(new NullTelemetryService())));
     }
 
     [Fact]
