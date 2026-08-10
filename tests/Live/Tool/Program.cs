@@ -26,8 +26,9 @@ internal static class Program
           --resource-group RG    Resource group (default: terraform output resource_group)
           --storage-account NAME Storage account for the bundle blob (default: derived)
           --container NAME       Blob container name (default: milive-bundles)
-          --location LOC         Region for a newly created storage account
           --provision            Provision/update the VM first. Fast no-op when unchanged.
+          --destroy              Destroy the VM and its resource group, then exit. Runs no test.
+          --yes                  Skip the --destroy confirmation prompt (for scripts/CI)
           --skip-publish         Reuse the existing tarball instead of rebuilding
           --keep-blob            Do not delete the uploaded bundle blob afterwards
           -h, --help             Show this help
@@ -54,8 +55,9 @@ internal static class Program
         var resourceGroup = string.Empty;
         var storageAccount = string.Empty;
         var container = "milive-bundles";
-        var location = string.Empty;
         var provision = false;
+        var destroy = false;
+        var assumeYes = false;
         var skipPublish = false;
         var keepBlob = false;
 
@@ -73,13 +75,19 @@ internal static class Program
                 case "--resource-group": resourceGroup = Next("--resource-group"); break;
                 case "--storage-account": storageAccount = Next("--storage-account"); break;
                 case "--container": container = Next("--container"); break;
-                case "--location": location = Next("--location"); break;
                 case "--provision": provision = true; break;
+                case "--destroy": destroy = true; break;
+                case "--yes": assumeYes = true; break;
                 case "--skip-publish": skipPublish = true; break;
                 case "--keep-blob": keepBlob = true; break;
                 case "-h" or "--help": Console.WriteLine(Usage); return 0;
                 default: throw new LiveToolException($"Unknown argument: {args[i]}");
             }
+        }
+
+        if (destroy && provision)
+        {
+            throw new LiveToolException("--destroy and --provision are mutually exclusive.");
         }
 
         var liveRoot = FindLiveRoot();
@@ -95,7 +103,20 @@ internal static class Program
         var ctx = AzContext.Require(az);
         var tf = new Tf(az, ctx, terraformRoot);
 
-        Preflight(provision, skipPublish, terraformRoot, tfDir);
+        // Destroying needs terraform and an alias, but never the .NET SDK — there is no
+        // bundle to build.
+        Preflight(provision || destroy, skipPublish || destroy, terraformRoot, tfDir);
+
+        // Teardown is a complete alternative to the test run, not a stage of it.
+        if (destroy)
+        {
+            timing.Timed("terraform destroy", () => tf.Destroy(tfDir, () => ConfirmDestroy(assumeYes)));
+
+            Console.WriteLine();
+            Console.WriteLine("==> Destroyed. Re-create it with:");
+            Console.WriteLine("     dotnet run --project tests/Live/Tool -- --provision");
+            return 0;
+        }
 
         // 0) Optionally provision/update the VM first (Stage 1).
         if (provision)
@@ -111,9 +132,10 @@ internal static class Program
         // `terraform output` reads REMOTE state, which needs the backend initialised and
         // the access key available. Unconditional: provisioning may not have run.
         string uamiClientId = string.Empty, uamiResourceId = string.Empty, uamiObjectId = string.Empty;
+        var alias = string.Empty;
         timing.Timed("terraform init backend + read outputs", () =>
         {
-            tf.InitModuleState(tfDir, "linux-vm");
+            alias = tf.InitModuleState(tfDir, "linux-vm");
 
             if (string.IsNullOrEmpty(vmName))
             {
@@ -123,11 +145,6 @@ internal static class Program
             if (string.IsNullOrEmpty(resourceGroup))
             {
                 resourceGroup = tf.Output(tfDir, "resource_group");
-            }
-
-            if (string.IsNullOrEmpty(location))
-            {
-                location = tf.Output(tfDir, "location");
             }
 
             uamiClientId = tf.Output(tfDir, "user_assigned_identity_client_id");
@@ -153,19 +170,14 @@ internal static class Program
                 + "   the same alias configured — each alias has its own state and resources.");
         }
 
-        // Region for a newly created storage account: TF output, else the RG's location.
-        if (string.IsNullOrEmpty(location))
-        {
-            location = az.Tsv("group", "show", "-n", resourceGroup, "--query", "location");
-        }
-
-        // Deterministic, globally-unique-ish storage account name (3-24 lowercase alnum),
-        // stable per subscription+RG so re-runs reuse the same account.
+        // Bundles live in the per-developer Terraform state account, NOT in the workload
+        // resource group. That account already exists, already has its key resolved by the
+        // backend init above, and sits outside the group — so the group holds only
+        // Terraform-managed resources and `--destroy` can delete it without tripping the
+        // provider's refusal to remove a non-empty group.
         if (string.IsNullOrEmpty(storageAccount))
         {
-            var digest = Convert.ToHexStringLower(
-                SHA256.HashData(Encoding.UTF8.GetBytes($"{ctx.SubscriptionId}-{resourceGroup}")));
-            storageAccount = $"milive{digest[..16]}";
+            storageAccount = ctx.StateAccountName(alias);
         }
 
         var bundleName = $"{config}-{rid}";
@@ -192,41 +204,15 @@ internal static class Program
             timing.Timed("build bundle", () => new Bundle(repoRoot, liveRoot, new Timing()).Build(rid, config, makeTar: true));
         }
 
-        // 2) Ensure a storage account + container exist IN THE RESOURCE GROUP, then upload
-        //    the tarball. A shared-key SAS lets the VM download with a plain HTTPS GET.
+        // 2) Ensure the bundle container exists in the state account, then upload the
+        //    tarball. A shared-key SAS lets the VM download with a plain HTTPS GET.
         Console.WriteLine();
-        var storageKey = string.Empty;
-        timing.Timed("ensure storage account + container", () =>
-        {
-            if (!az.None("storage", "account", "show", "-n", storageAccount, "-g", resourceGroup).Ok)
-            {
-                if (string.IsNullOrEmpty(location))
-                {
-                    throw new LiveToolException(
-                        $"Could not determine a location to create storage account '{storageAccount}'.\n"
-                        + "   Pass --location, or ensure the resource group exists.");
-                }
+        var storageKey = tf.ArmAccessKey
+            ?? throw new LiveToolException("Storage key unavailable — the Terraform backend was not initialised.");
 
-                Console.WriteLine($"==> Creating storage account {storageAccount} in {resourceGroup} ({location})");
-                az.NoneChecked(
-                    "storage", "account", "create",
-                    "-n", storageAccount, "-g", resourceGroup, "-l", location,
-                    "--sku", "Standard_LRS", "--kind", "StorageV2", "--min-tls-version", "TLS1_2",
-                    "--allow-blob-public-access", "false", "--allow-shared-key-access", "true");
-            }
-            else
-            {
-                Console.WriteLine($"==> Reusing storage account {storageAccount}");
-            }
-
-            storageKey = az.TsvChecked(
-                "storage", "account", "keys", "list",
-                "-n", storageAccount, "-g", resourceGroup, "--query", "[0].value");
-
-            az.NoneChecked(
-                "storage", "container", "create",
-                "--name", container, "--account-name", storageAccount, "--account-key", storageKey);
-        });
+        timing.Timed("ensure bundle container", () => az.NoneChecked(
+            "storage", "container", "create",
+            "--name", container, "--account-name", storageAccount, "--account-key", storageKey));
 
         var blobName = $"azclips-{bundleName}-{DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}.tar.gz";
         var sizeMb = new FileInfo(tarball).Length / 1024 / 1024;
@@ -307,6 +293,34 @@ internal static class Program
                     "--container-name", container, "--name", blobName);
             }
         }
+    }
+
+    /// <summary>
+    /// Ask before destroying, after the plan has already printed what would go.
+    /// <para>
+    /// Requires the literal word "yes" rather than a bare "y": the plan above it is long
+    /// enough that a single keystroke is too easy to give without reading it. Refuses to
+    /// assume consent when stdin is not a terminal, so an unattended run can never destroy
+    /// a developer's environment by accident.
+    /// </para>
+    /// </summary>
+    private static bool ConfirmDestroy(bool assumeYes)
+    {
+        if (assumeYes)
+        {
+            return true;
+        }
+
+        if (Console.IsInputRedirected)
+        {
+            throw new LiveToolException(
+                "--destroy needs confirmation, but stdin is not a terminal.\n"
+                + "   Re-run with --yes to confirm non-interactively.");
+        }
+
+        Console.WriteLine();
+        Console.Write("Destroy the resources listed above? Type 'yes' to confirm: ");
+        return string.Equals(Console.ReadLine()?.Trim(), "yes", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Fail fast with a clear message if required tooling/config is missing.</summary>

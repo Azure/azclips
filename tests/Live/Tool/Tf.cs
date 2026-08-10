@@ -234,14 +234,27 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
     /// <summary>
     /// plan + apply, skipping the apply when nothing changed.
     /// <c>-detailed-exitcode</c>: 0 = no changes, 1 = error, 2 = changes pending.
+    /// <para>
+    /// The plan is always saved and applied from the file, so what gets applied is exactly
+    /// what was shown — which is what makes <paramref name="confirm"/> meaningful for the
+    /// destroy path, where the user is approving a specific list of resources.
+    /// </para>
     /// </summary>
-    public void PlanAndApply(string moduleDir, string planFile = "provision.tfplan")
+    public void PlanAndApply(
+        string moduleDir,
+        string planFile = "provision.tfplan",
+        bool destroy = false,
+        Func<bool>? confirm = null)
     {
-        Console.WriteLine("==> terraform plan (checking for pending changes)");
-        var plan = Proc.RunStreaming(
-            "terraform",
-            [$"-chdir={moduleDir}", "plan", "-input=false", "-detailed-exitcode", $"-out={planFile}"],
-            env: BackendEnv);
+        Console.WriteLine($"==> terraform plan{(destroy ? " -destroy" : string.Empty)} (checking for pending changes)");
+
+        List<string> planArgs = [$"-chdir={moduleDir}", "plan", "-input=false", "-detailed-exitcode", $"-out={planFile}"];
+        if (destroy)
+        {
+            planArgs.Insert(2, "-destroy");
+        }
+
+        var plan = Proc.RunStreaming("terraform", planArgs, env: BackendEnv);
 
         var planPath = Path.Combine(moduleDir, planFile);
         try
@@ -249,10 +262,17 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
             switch (plan.ExitCode)
             {
                 case 0:
-                    Console.WriteLine("==> No changes — infrastructure is up to date. Skipping apply.");
+                    Console.WriteLine(destroy
+                        ? "==> Nothing to destroy — the state tracks no resources."
+                        : "==> No changes — infrastructure is up to date. Skipping apply.");
                     break;
                 case 2:
-                    Console.WriteLine("==> Applying pending changes (auto-approve)");
+                    if (confirm is not null && !confirm())
+                    {
+                        throw new LiveToolException("Aborted — nothing was destroyed.");
+                    }
+
+                    Console.WriteLine($"==> Applying the plan above ({(destroy ? "destroy" : "auto-approve")})");
                     var apply = Proc.RunStreaming(
                         "terraform",
                         [$"-chdir={moduleDir}", "apply", "-input=false", "-auto-approve", planFile],
@@ -279,6 +299,41 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
     /// <summary>Stage 1: provision or update the VM. Port of provision-infrastructure.sh.</summary>
     public void Provision(string moduleDir)
     {
+        PrepareModule(moduleDir);
+
+        Console.WriteLine("==> terraform validate");
+        Validate(moduleDir);
+
+        PlanAndApply(moduleDir);
+        RecordAlias(moduleDir, ResolveAlias(moduleDir));
+    }
+
+    /// <summary>
+    /// Tear down everything stage 1 created: the VM, both managed identities, their
+    /// resource-group-scoped role assignments, networking, and the resource group itself.
+    /// <para>
+    /// Deliberately scoped to the linux-vm module. It never touches the bootstrap identity
+    /// (an Entra object with a subscription-scoped role assignment, which no resource-group
+    /// deletion can reach) nor the state account, which lives in its own group precisely so
+    /// a destroy cannot delete the state that records it.
+    /// </para>
+    /// <para>
+    /// Prefer this over deleting the resource group by hand: the portal route leaves the
+    /// state claiming the resources still exist, which breaks the next provision.
+    /// </para>
+    /// </summary>
+    public void Destroy(string moduleDir, Func<bool> confirm)
+    {
+        PrepareModule(moduleDir);
+        PlanAndApply(moduleDir, "destroy.tfplan", destroy: true, confirm);
+    }
+
+    /// <summary>
+    /// Shared setup for both write paths: resolve the alias, point Terraform at this
+    /// developer's subscription, and initialise the matching remote state.
+    /// </summary>
+    private void PrepareModule(string moduleDir)
+    {
         var alias = ResolveAlias(moduleDir);
         CheckAliasDrift(moduleDir, alias);
 
@@ -294,11 +349,5 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
 
         Console.WriteLine($"==> terraform init (state: {alias}-linux-vm.tfstate)");
         Init(moduleDir, account, $"{alias}-linux-vm.tfstate");
-
-        Console.WriteLine("==> terraform validate");
-        Validate(moduleDir);
-
-        PlanAndApply(moduleDir);
-        RecordAlias(moduleDir, alias);
     }
 }

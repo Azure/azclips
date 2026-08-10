@@ -31,9 +31,14 @@ local runs, start at stage 1.
 | VM | `<alias>-azclips-live-test-mi-vm` |
 | CI app registration | `<alias>-azclips-live-test-mi` |
 | Terraform state RG | `<alias>-azclips-live-test-mi-tfstate-rg` (created for you; kept separate from the workload group so `terraform destroy` cannot delete the state) |
-| Terraform state account | `<alias>tf<first 8 of subscription id>` (created for you) |
+| Terraform state account | `<alias>tf<first 8 of subscription id>` (created for you; also holds the CLI bundle blobs, in a separate `milive-bundles` container) |
 | Terraform state blob | `<alias>-linux-vm.tfstate`, `<alias>-bootstrap.tfstate` |
 | Region | Australia East |
+
+The bundle blobs deliberately live in the state account rather than the workload
+resource group. That keeps the workload group holding *only* Terraform-managed
+resources, so `--destroy` can delete it — the azurerm provider refuses to delete
+a resource group that still contains anything Terraform did not create.
 
 Nothing is pinned to one person's subscription. The scripts check only that the
 **name** of the active subscription matches, then derive the tenant ID,
@@ -358,12 +363,40 @@ Your resource group is yours alone and is disposable — there is no deletion
 lock. Tear it down when you are finished, so the VM stops costing money:
 
 ```bash
-cd tests/Live/Terraform/linux-vm
-terraform destroy
+dotnet run --project tests/Live/Tool -- --destroy
 ```
 
-The stage 0 Entra identity is separate and long-lived. Destroy it only if you
-are done with the GitHub workflow entirely:
+This shows the destroy plan, asks you to confirm, and then removes the VM, both
+managed identities, their role assignments, networking, and the resource group.
+Pass `--yes` to skip the prompt in a script. Re-create everything later with
+`dotnet run --project tests/Live/Tool -- --provision`.
+
+Use this rather than deleting the resource group in the portal. Deleting it by
+hand removes the resources in Azure but leaves the Terraform state believing
+they exist, so the next `--provision` fails on resources it cannot find.
+
+`--yes` skips the prompt for unattended use. What it destroys is still bounded
+by the Terraform state — it cannot wander outside the resources this module
+created — but it does remove the one step where a human reads the target
+resource group. In CI there is no `.alias` marker file, so the alias-drift guard
+cannot fire either, and the `ALIAS` variable alone decides whose environment is
+destroyed. Check it before automating this.
+
+If you expect to run the test again within a day or two, deallocating is cheaper
+than a full rebuild — it stops all compute billing and leaves only the disk:
+
+```bash
+az vm deallocate -g <alias>-azclips-live-test-mi-rg -n <alias>-azclips-live-test-mi-vm
+az vm start      -g <alias>-azclips-live-test-mi-rg -n <alias>-azclips-live-test-mi-vm
+```
+
+Start the VM again before the next run: the test drives it with
+`az vm run-command`, which fails against a deallocated VM.
+
+The stage 0 Entra identity is separate and long-lived. Nothing above touches it:
+it is an Entra object, and its role assignment is scoped to the subscription,
+above every resource group. Destroy it only if you are done with the GitHub
+workflow entirely:
 
 ```bash
 cd tests/Live/Terraform/bootstrap

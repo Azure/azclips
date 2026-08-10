@@ -64,8 +64,13 @@ it is a fast no-op when nothing has changed. A successful run ends with
 it bills while it exists, and nothing shuts it down for you:
 
 ```bash
-cd tests/Live/Terraform/linux-vm && terraform destroy
+dotnet run --project tests/Live/Tool -- --destroy
 ```
+
+This prints the destroy plan, asks for confirmation, and then removes the VM, both
+managed identities, their role assignments, and the resource group. Add `--yes` to skip
+the prompt. Prefer it over deleting the resource group in the portal: that leaves the
+Terraform state claiming the resources still exist, which breaks the next `--provision`.
 
 ### In your own CI
 
