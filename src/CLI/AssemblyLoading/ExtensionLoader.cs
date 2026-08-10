@@ -132,11 +132,25 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
             packageId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static IEnumerable<string> GetCandidateRoots(string configuredBundledExtensionsRoot)
+    /// <summary>
+    /// Default root directory for bundled extensions: the packaging layout
+    /// (<c>&lt;install&gt;/Extensions/</c>) in Release, or <c>artifacts/&lt;Config&gt;/</c> in
+    /// local dev builds. Not user-configurable — packaging always writes here.
+    /// </summary>
+    public static string GetDefaultRoot()
+    {
+#if DEBUG
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+#else
+        return Path.Combine(AppContext.BaseDirectory, "Extensions");
+#endif
+    }
+
+    private static IEnumerable<string> GetCandidateRoots()
     {
         var roots = new[]
         {
-            configuredBundledExtensionsRoot,
+            GetDefaultRoot(),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug")),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release"))
@@ -175,7 +189,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
         _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        foreach (var root in GetCandidateRoots(_options.BundledExtensionsRoot))
+        foreach (var root in GetCandidateRoots())
         {
             foreach (var directoryName in GetCandidateDirectoryNames(extensionName, _options.ExtensionFolderPrefix))
             {
@@ -235,7 +249,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
             }
         }
 
-        _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Extension '{extensionName}' (version='{version ?? "any"}') not found; will try other loaders. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BundledExtensionsRoot))}'.");
+        _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Extension '{extensionName}' (version='{version ?? "any"}') not found; will try other loaders. Checked root(s): '{string.Join(";", GetCandidateRoots())}'.");
         return null;
     }
 
@@ -244,7 +258,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var root in GetCandidateRoots(_options.BundledExtensionsRoot))
+        foreach (var root in GetCandidateRoots())
         {
             if (!Directory.Exists(root))
             {
@@ -282,8 +296,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                 var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId, _loggingService);
 
                 seen.Add(shortName);
-                // Normalize to an absolute path — Location is documented as absolute, but a
-                // user-configured relative BundledExtensionsRoot would otherwise leak through.
+                // Normalize to an absolute path — Location is documented as absolute.
                 yield return (shortName, discoveredVersion, Path.GetFullPath(assemblyPath));
             }
         }

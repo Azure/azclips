@@ -7,8 +7,6 @@ namespace Core.Configuration.Options;
 
 public sealed class AssemblyLoadingOptions
 {
-    public string BundledExtensionsRoot { get; set; } = GetDefaultBundledExtensionsRoot();
-
     public string InstalledExtensionsRoot { get; set; } = GetDefaultInstalledExtensionsRoot();
 
     public string ExtensionFolderPrefix { get; set; } = GetDefaultExtensionFolderPrefix();
@@ -20,15 +18,6 @@ public sealed class AssemblyLoadingOptions
     /// <c>AZCLIPS_NO_EXTENSION_CACHE</c> environment variable.
     /// </summary>
     public bool BypassExtensionCache { get; set; }
-
-    private static string GetDefaultBundledExtensionsRoot()
-    {
-#if DEBUG
-        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
-#else
-        return Path.Combine(AppContext.BaseDirectory, "Extensions");
-#endif
-    }
 
     private static string GetDefaultInstalledExtensionsRoot()
     {

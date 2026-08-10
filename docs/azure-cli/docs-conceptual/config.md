@@ -19,7 +19,6 @@ Configuration follows strict precedence: **command args > environment variables 
 | `core.http.maxRetriesFor429`                  | int    | `5`                | Max retries for 429 (rate limit) responses                                                                                                                                                                                                                              |
 | `core.engine.extensionIndexCacheSize`         | int    | `512`              | LFU cache capacity for extension index (entry count)                                                                                                                                                                                                                    |
 | `assemblyLoading.installedExtensionsRoot`     | string | (system)           | Root directory for extensions installed via `az extension add` (typically `~/.azclips/extensions`).                                                                                                                                                                     |
-| `assemblyLoading.bundledExtensionsRoot`       | string | (system)           | Root directory for extensions bundled alongside `az.exe` in the packaged install.                                                                                                                                                                                       |
 | `assemblyLoading.extensionFolderPrefix`       | string | (see notes)        | Extension assembly folder prefix; `Microsoft.Azure.Azclips.Extensions.` (DEBUG), empty (Release)                                                                                                                                                                        |
 | `telemetry.enabled`                           | bool   | `true`             | Enable telemetry                                                                                                                                                                                                                                                        |
 | `agent.enabled`                               | bool   | `false`            | Enable AI agent fallback (opt-in: `az config set --key agent.enabled --value true`)                                                                                                                                                                                     |
@@ -140,9 +139,9 @@ az config info --keys-only
 
 You can override configuration using environment variables:
 
-| Environment Variable                                                | Maps to                      |
-| ------------------------------------------------------------------- | ---------------------------- |
-| `AZCLIPS_LOG_LEVEL`                                                 | `core.logging.level`         |
+| Environment Variable | Maps to              |
+| -------------------- | -------------------- |
+| `AZCLIPS_LOG_LEVEL`  | `core.logging.level` |
 
 ## Configuration File Location
 

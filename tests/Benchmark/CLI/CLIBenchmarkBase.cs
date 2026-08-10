@@ -47,7 +47,6 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
-    private string _bundledExtensionsRoot = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -87,8 +86,6 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
         // Only redirect the built-in loader when a built-in is actually in play; otherwise keep the
         // staged home as the first candidate root so the installed-extension path is unchanged.
-        _bundledExtensionsRoot = builtInCount > 0 ? releaseRoot : _extensionsRoot;
-
         Console.WriteLine(
             $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} installed, {builtInCount} built-in extension(s)");
     }
@@ -136,10 +133,10 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             services.RemoveAll<IExtensionLoader>();
             services.AddSingleton<IExtensionLoader>(sp => new BundledExtensionLoader(
                 sp.GetRequiredService<ILoggingService>(),
-                new BenchmarkAssemblyConfigurationService(_bundledExtensionsRoot, _extensionsRoot)));
+                new BenchmarkAssemblyConfigurationService(_extensionsRoot)));
             services.AddSingleton<IExtensionLoader>(sp => new InstalledExtensionLoader(
                 sp.GetRequiredService<ILoggingService>(),
-                new BenchmarkAssemblyConfigurationService(_bundledExtensionsRoot, _extensionsRoot)));
+                new BenchmarkAssemblyConfigurationService(_extensionsRoot)));
 
             // Resolver reads the staged registry (the layer that fails today).
             services.RemoveAll<IExtensionRegistryStore>();
@@ -149,7 +146,9 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     }
 
     /// <summary>
-    /// Fail fast if a Core built-in's Release output is missing.
+    /// Fail fast if a Core built-in's Release output is missing, and stage a copy under
+    /// <see cref="BundledExtensionLoader.GetDefaultRoot"/> so the loader's built-in candidate
+    /// list finds it (the benchmark bin dir is nowhere near <c>artifacts/Release</c>).
     /// </summary>
     private static void EnsureBuiltInPayload(string sourceBuildDir, string packageId)
     {
@@ -166,6 +165,14 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         {
             throw new FileNotFoundException(
                 $"Built-in extension assembly not found: '{assemblyPath}'. Run `dotnet build azclips.slnx -c Release`.");
+        }
+
+        // Copy the source dir into a location the loader's default root includes.
+        var stagedPackageDir = Path.Combine(BundledExtensionLoader.GetDefaultRoot(), packageId);
+        Directory.CreateDirectory(stagedPackageDir);
+        foreach (var file in Directory.EnumerateFiles(sourceBuildDir))
+        {
+            File.Copy(file, Path.Combine(stagedPackageDir, Path.GetFileName(file)), overwrite: true);
         }
     }
 
