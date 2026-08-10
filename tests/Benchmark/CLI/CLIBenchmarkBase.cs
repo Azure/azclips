@@ -84,8 +84,6 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             stagedCount++;
         }
 
-        // Only redirect the built-in loader when a built-in is actually in play; otherwise keep the
-        // staged home as the first candidate root so the installed-extension path is unchanged.
         Console.WriteLine(
             $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} installed, {builtInCount} built-in extension(s)");
     }

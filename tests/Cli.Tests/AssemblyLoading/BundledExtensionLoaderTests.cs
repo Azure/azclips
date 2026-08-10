@@ -297,10 +297,10 @@ public class BundledExtensionLoaderTests
     }
 
     [Fact]
-    public void LoadExtension_ShouldKeyCacheByPath_NotByExtensionName()
+    public void LoadExtension_ShouldProduceIndependentCacheEntries_ForDifferentPackages()
     {
-        // Distinct package names live at distinct absolute paths and must produce independent
-        // cache entries. Keying by short name would serve the wrong DLL for a second package.
+        // Two distinct packages must resolve to two distinct cache entries; a regression that
+        // collapsed all entries onto a shared key would return the same assembly for both.
         var suffix = UniqueSuffix();
         var nameA = $"CacheProbeA_{suffix}";
         var nameB = $"CacheProbeB_{suffix}";
