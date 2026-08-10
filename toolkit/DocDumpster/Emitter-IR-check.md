@@ -5,6 +5,7 @@ TypeSpec was compared against the emitted IR. Goal: the produced IR should lose 
 information relative to the source `.tsp`.
 
 - **Source of truth:** `C:\workspace\azure-rest-api-specs\specification\elasticsan\resource-manager\Microsoft.ElasticSan\ElasticSan\*.tsp` (all 10 files)
+  - `node C:\workspace\azclips\toolkit\packages\cli\dist\src\cli.js compile --tsp-location C:\workspace\azure-rest-api-specs\specification\elasticsan\resource-manager\Microsoft.ElasticSan\ElasticSan --out-dir . --capture-ir`
 - **Emitted IR:** `C:\workspace\playground\tsp-test\ir\0-emit.json` (schemaVersion 0.2.0; 59 models / 21 enums / 30 operations / 202 properties)
 - **Emitter:** `@azure-client-engine/typespec-emitter`; **IR schema:** `@azure-client-engine/ir`
 - **Compared against:** authored `.tsp` + TCGC-expanded program (not the swagger), api-version 2026-04-01-preview only.
