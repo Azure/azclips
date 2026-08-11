@@ -28,7 +28,8 @@
 
 - [ ] **Step 1: Add coverage for the combined handoff region**
 
-Add this test to `PerformanceTimelineTests`:
+Add this test to `PerformanceTimelineTests`. It deliberately keeps the handoff phase open while
+creating the root activity and replaying the timeline, matching `Program.Main`:
 
 ```csharp
 [Fact]
@@ -39,6 +40,7 @@ public void Replay_EmitsTelemetryHandoffPhaseWithRecordedDuration()
 
     using (timeline.Measure("CLI.Performance.Telemetry"))
     {
+        using var root = telemetry.StartRootActivity(timeline.StartedAt);
         Thread.Sleep(20);
         timeline.Replay(telemetry);
     }
@@ -59,9 +61,9 @@ Run:
 dotnet test tests\Cli.Tests\Cli.Tests.csproj --filter FullyQualifiedName~PerformanceTimelineTests.Replay_EmitsTelemetryHandoffPhaseWithRecordedDuration
 ```
 
-Expected: PASS. This test confirms that a phase which remains open while replay runs is emitted
-with a duration covering the replay operation; the application wiring change in Task 2 makes this
-the actual CLI telemetry handoff phase.
+Expected: PASS. This test confirms there is no chicken-and-egg dependency: an open phase is emitted
+using its current-time end boundary while replay runs, and its parent is the replayed
+`CLI.Performance` span beneath the test root activity.
 
 - [ ] **Step 3: Commit the regression test**
 

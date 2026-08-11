@@ -28,6 +28,11 @@ have been replayed. The existing `PerformanceTimeline` replay behavior remains u
 recorded container and service spans are emitted beneath `CLI.Performance`, and the new
 telemetry-handoff phase is a sibling in that startup timeline.
 
+The handoff phase is still open when `Replay` emits it. This is safe because `Phase.End` resolves
+an open phase to the current UTC time, so `Emit` closes the replayed activity at the replay
+boundary instead of waiting for the surrounding `using` statement to dispose the phase. The
+subsequent disposal records the same boundary for normal timeline bookkeeping.
+
 ## Error handling
 
 No new exception handling is introduced. Existing startup exceptions continue through `Main`'s
