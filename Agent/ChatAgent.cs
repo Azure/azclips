@@ -115,10 +115,17 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         var sdkLogger = logger ?? NullLogger.Instance;
+        // BYOM (builtin provider) authenticates the LLM with an Azure token, not a
+        // GitHub credential — so the daemon's default auto-login, which reads the
+        // GitHub keychain and prompts on macOS, touches a credential this path never
+        // uses. Disable it for builtin only; the github provider keeps auto-login so
+        // subscription users' stored/gh-CLI credentials still work.
+        var useBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
         var client = new CopilotClient(new CopilotClientOptions
         {
             Logger = sdkLogger,
             Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
+            UseLoggedInUser = useBuiltin ? false : null,
         });
 
         try
