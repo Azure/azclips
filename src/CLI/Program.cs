@@ -267,7 +267,7 @@ public class Program
 
     private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity)
     {
-        using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
+        using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchHelp"))
         {
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
             var renderer = new RuntimeHelpDispatcher(engine, streams);
