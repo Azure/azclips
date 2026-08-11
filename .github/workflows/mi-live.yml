@@ -15,7 +15,7 @@ name: Managed Identity Live
 # sharing the developer's.
 #
 # Configuration comes from the `dev` environment variables published by
-# tests/Live/Terraform/bootstrap/setup-github-identity.sh (stage 0). Nothing here is
+# `dotnet run --project tests/Live/Tool -- --bootstrap`. Nothing here is
 # hardcoded, so each fork targets its own identity and resources.
 #
 # The infrastructure itself is NOT provisioned by default. Developers own it:
@@ -44,10 +44,10 @@ jobs:
   mi-live:
     runs-on: ubuntu-latest
 
-    # REQUIRED. The federated credential created by stage 0 trusts the OIDC
+    # REQUIRED. The federated credential created by --bootstrap trusts the OIDC
     # subject "repo:<owner>/<repo>:environment:dev". Removing or renaming this
     # makes the token subject stop matching and the Azure login fails. Keep it in
-    # sync with `github_environment` in tests/Live/Terraform/bootstrap.
+    # sync with GitHubEnvironment in tests/Live/Tool/Bootstrap.cs.
     environment: dev
 
     steps:

@@ -9,11 +9,11 @@
 # Runs BOTH locally and in CI (.github/workflows/mi-live.yml invokes it through
 # `dotnet run --project tests/Live/Tool -- --provision`). Locally the alias comes from
 # terraform.tfvars; in CI it comes from TF_VAR_alias, fed by the ALIAS GitHub
-# environment variable that stage 0 published.
+# environment variable that the bootstrap published.
 #
-# Stage 0 (tests/Live/Terraform/bootstrap/setup-github-identity.sh) must have run first if
-# you intend to use the GitHub workflow — it creates the identity CI logs in as.
-# It is not needed for purely local runs.
+# `dotnet run --project tests/Live/Tool -- --bootstrap` must have run first if you
+# intend to use the GitHub workflow — it creates the identity CI logs in as. It is
+# not needed for purely local runs.
 #
 # This stage does NOT log in to az or run `vm show` — managed-identity auth and
 # the vm-show smoke test must run ON the VM (see tests/Live/Scripts/setup-vm-mi.sh).

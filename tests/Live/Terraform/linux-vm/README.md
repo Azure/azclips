@@ -14,7 +14,7 @@ developers can share one subscription without overwriting each other.
 
 | Stage | Location | Runs | Purpose |
 |---|---|---|---|
-| 0 | `tests/Live/Terraform/bootstrap/setup-github-identity.sh` | Local only, once | Creates the Entra identity GitHub Actions logs in as, and publishes its IDs to GitHub |
+| 0 | `dotnet run --project tests/Live/Tool -- --bootstrap` | Local only, once per tenant | Creates the Entra identity GitHub Actions logs in as, and publishes its IDs to GitHub |
 | 1 | `tests/Live/Terraform/linux-vm/provision-infrastructure.sh` | Local and CI | Creates the resource group, VM, and managed identities |
 | 2 | `dotnet run --project tests/Live/Tool` | Local and CI | Builds the bundle and runs the test on the VM |
 
@@ -32,7 +32,7 @@ local runs, start at stage 1.
 | CI app registration | `<alias>-azclips-live-test-mi` |
 | Terraform state RG | `<alias>-azclips-live-test-mi-tfstate-rg` (created for you; kept separate from the workload group so `terraform destroy` cannot delete the state) |
 | Terraform state account | `<alias>tf<first 8 of subscription id>` (created for you; also holds the CLI bundle blobs, in a separate `milive-bundles` container) |
-| Terraform state blob | `<alias>-linux-vm.tfstate` (stage 0 keeps its state locally — see below) |
+| Terraform state blob | `<alias>-linux-vm.tfstate` (stage 0 has no state — see below) |
 | Region | Australia East |
 
 The bundle blobs deliberately live in the state account rather than the workload
@@ -138,32 +138,22 @@ Pick a short identifier for yourself — 3 to 14 characters, lowercase, starting
 with a letter, containing only `a-z`, `0-9`, and `-`. Your GitHub or corporate
 username is a good choice. Use the **same alias in both stages**.
 
-## Stage 0 — create the GitHub identity (once, local only)
+## Stage 0 — create the GitHub identity (local only)
 
-Skip this if you only run the test locally.
+Skip this entirely if you only run the test locally. It exists solely to give
+GitHub Actions something to sign in as.
 
 ```bash
 cp tests/Live/Terraform/terraform.tfvars.example tests/Live/Terraform/terraform.tfvars
 # edit: set `alias`
 
-tests/Live/Terraform/bootstrap/setup-github-identity.sh
+dotnet run --project tests/Live/Tool -- --bootstrap
 ```
 
 This creates an Entra app registration, a service principal, a federated
 credential trusting your repository's `dev` environment, and a Contributor role
 assignment at subscription scope. No client secret is ever created — GitHub
 authenticates by exchanging a short-lived OIDC token.
-
-Stage 0's state is **local** (`tests/Live/Terraform/bootstrap/terraform.tfstate`,
-gitignored), unlike stage 1's. None of what it creates lives in a resource group,
-so in a tenant that deletes resource groups on a schedule the identity survives
-while a remote state blob would not — and re-running against the resulting empty
-state would create a second app registration and repoint `AZURE_CLIENT_ID` at it.
-Local state has the same lifetime as the resources it describes.
-
-Keep that file. Losing it orphans the identity from Terraform: the CI login keeps
-working, but you can no longer change or `terraform destroy` the app without
-importing it back first.
 
 It then publishes four `dev` environment variables to your repository, so
 nothing has to be configured by hand:
@@ -179,7 +169,53 @@ These are variables rather than secrets because they are identifiers, not
 credentials; the authentication itself is the OIDC exchange.
 
 This stage must never run in CI: it creates the very identity CI logs in as, and
-needs permissions CI deliberately does not have.
+needs permissions CI deliberately does not have. `--bootstrap` refuses to run
+when it detects GitHub Actions.
+
+### Why this one is not Terraform
+
+Every other stage is. This one reads what exists and creates what is missing,
+holding no state at all, for two reasons.
+
+Nothing it creates lives in a resource group — directory objects and a
+subscription-scoped role assignment — so there is nowhere natural to keep remote
+state, and the local state file the Terraform version used was the one thing that
+could not survive a tenant rotation: it described objects in a tenant that no
+longer answered, and refreshing them failed with a 401.
+
+The second reason is ownership. `az ad app create` records the caller as an
+**owner** of the application, and Entra lets an owner manage it afterwards. The
+`azuread` provider creates the application without one. In a tenant where you are
+a guest — which is normal for these rotating test tenants — that difference is
+the whole game: you can create the app and then not create its service principal,
+not add a federated credential, and not delete it. The service-principal failure
+even arrives disguised as `the backing application of the service principal being
+created must in the local tenant`, which sends you off inspecting
+`signInAudience` instead.
+
+Being stateless also makes re-running free, which is what makes rotation a
+non-event.
+
+### After a tenant rotation
+
+Entra objects are tenant-scoped, so unlike stage 1 nothing here survives a
+rotation. Sign in to the new tenant and run it again:
+
+```bash
+az login
+dotnet run --project tests/Live/Tool -- --bootstrap
+```
+
+It creates a fresh identity and repoints the `dev` variables at it. Re-running
+when nothing has changed is a safe no-op — it reports what already exists and
+mutates nothing.
+
+Do this **before** dispatching the workflow. Until it runs, CI still holds the
+previous tenant's client and tenant ids, and the OIDC exchange fails.
+
+If it stops with a permission error naming an application you do not own, that
+application was created by something that did not add an owner. Ask a tenant
+administrator to delete it, then re-run.
 
 ## Stage 1 and 2 — run locally
 
@@ -371,7 +407,7 @@ the `.alias` marker file in the module directory if it is already gone.
 
 Usually the OIDC subject does not match. Check that the job still declares
 `environment: dev`, and that the workflow is running from the repository set as
-the repository stage 0 detected from `origin`. Re-run stage 0 to see the expected subject.
+the repository stage 0 detected from `origin`. Re-run `--bootstrap` to see the expected subject.
 
 ### Terraform state is locked
 
@@ -437,10 +473,13 @@ Start the VM again before the next run: the test drives it with
 
 The stage 0 Entra identity is separate and long-lived. Nothing above touches it:
 it is an Entra object, and its role assignment is scoped to the subscription,
-above every resource group. Destroy it only if you are done with the GitHub
+above every resource group. Remove it only if you are done with the GitHub
 workflow entirely:
 
 ```bash
-cd tests/Live/Terraform/bootstrap
-terraform destroy
+APP=$(az ad app list --display-name "$ALIAS-azclips-live-test-mi" --query "[0].appId" -o tsv)
+SP=$(az ad sp list --filter "appId eq '$APP'" --query "[0].id" -o tsv)
+az role assignment delete --assignee "$SP" --role Contributor \
+  --scope "/subscriptions/$(az account show --query id -o tsv)" --yes
+az ad app delete --id "$APP"
 ```

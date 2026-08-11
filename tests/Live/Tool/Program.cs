@@ -28,6 +28,8 @@ internal static class Program
           --container NAME       Blob container name (default: milive-bundles)
           --provision            Provision/update the VM first. Fast no-op when unchanged.
           --destroy              Destroy the VM and its resource group, then exit. Runs no test.
+          --bootstrap            Create the GitHub Actions identity, then exit. Runs no test.
+                                 Only needed for CI, and only once per tenant.
           --yes                  Skip the --destroy confirmation prompt (for scripts/CI)
           --skip-publish         Reuse the existing tarball instead of rebuilding
           --keep-blob            Do not delete the uploaded bundle blob afterwards
@@ -57,6 +59,7 @@ internal static class Program
         var container = "milive-bundles";
         var provision = false;
         var destroy = false;
+        var bootstrap = false;
         var assumeYes = false;
         var skipPublish = false;
         var keepBlob = false;
@@ -77,6 +80,7 @@ internal static class Program
                 case "--container": container = Next("--container"); break;
                 case "--provision": provision = true; break;
                 case "--destroy": destroy = true; break;
+                case "--bootstrap": bootstrap = true; break;
                 case "--yes": assumeYes = true; break;
                 case "--skip-publish": skipPublish = true; break;
                 case "--keep-blob": keepBlob = true; break;
@@ -85,9 +89,11 @@ internal static class Program
             }
         }
 
-        if (destroy && provision)
+        // Each is a complete alternative to a test run rather than a stage of one, so
+        // combining them expresses nothing.
+        if (new[] { provision, destroy, bootstrap }.Count(f => f) > 1)
         {
-            throw new LiveToolException("--destroy and --provision are mutually exclusive.");
+            throw new LiveToolException("--provision, --destroy and --bootstrap are mutually exclusive.");
         }
 
         var liveRoot = FindLiveRoot();
@@ -102,6 +108,22 @@ internal static class Program
         // and every later step assumes the right subscription.
         var ctx = AzContext.Require(az);
         var tf = new Tf(az, ctx, terraformRoot);
+
+        // Creating the identity that CI signs in as cannot itself be done by CI, and
+        // needs no terraform, no bundle and no VM — so it returns before the preflight.
+        if (bootstrap)
+        {
+            if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") is { Length: > 0 })
+            {
+                throw new LiveToolException(
+                    "--bootstrap creates the identity this workflow signs in as, so it cannot run\n"
+                    + "   inside CI. Run it from a developer machine signed in with 'az login'.");
+            }
+
+            var result = Bootstrap.Run(az, ctx, tf.ResolveAlias(tfDir), GitHubRepo.Require(), timing);
+            timing.Summary("Bootstrap");
+            return result;
+        }
 
         // Destroying needs terraform and an alias, but never the .NET SDK — there is no
         // bundle to build.

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 #
-# tf-common.sh — shared helpers for the stage 0 / stage 1 Terraform wrappers.
+# tf-common.sh — shared helpers for the stage 1 Terraform wrapper.
 #
 # Sourced by:
-#   tests/Live/Terraform/bootstrap/setup-github-identity.sh      (stage 0, local only)
 #   tests/Live/Terraform/linux-vm/provision-infrastructure.sh    (stage 1, local and CI)
 #
 # Not executable on its own.
@@ -24,24 +23,16 @@
 # subscription selected", not against a determined mistake.
 EXPECTED_SUBSCRIPTION_NAME="${EXPECTED_SUBSCRIPTION_NAME:-Azure CLI/PWSH}"
 
-# The GitHub repository must be the developer's own fork. Publishing the OIDC
-# identity to the shared upstream would hand every contributor one developer's
-# Azure credentials, so those owners are rejected outright.
-# Both names are accepted: the upstream is Azure/azclips, so a default fork is
-# named <user>/azclips, while a renamed one may be <user>/cirrus.
-EXPECTED_REPO_NAMES="cirrus azclips"
-
 # Terraform state location. Shared by every entry point so the wrappers and the
 # read-only consumers (tests/Live/Tool) cannot disagree about where state lives.
 BACKEND_CONTAINER="tfstate"
 BACKEND_LOCATION="australiaeast"
-UPSTREAM_OWNERS="Azure"
 
 # Directory holding this file (terraform/), used to locate the shared tfvars.
 TF_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Must stay in sync with the `alias` validation block in
-# tests/Live/Terraform/bootstrap/variables.tf and tests/Live/Terraform/linux-vm/variables.tf.
+# tests/Live/Terraform/linux-vm/variables.tf.
 #
 # 3-14 characters. The upper bound is set by the state storage account, whose
 # name is capped at 24: alias (hyphens stripped, <=14) + "tf" + 8 hex digits of
@@ -127,37 +118,6 @@ check_alias_drift() {
 
 record_alias() {
   printf '%s\n' "$2" > "$1/.alias"
-}
-
-# Refuse to run a local-state module whose working directory was last
-# initialised against the azurerm backend (stage 0 before it moved to local
-# state).
-#
-# `terraform init -input=false` would fail here anyway, but with a generic
-# "Backend configuration changed" that does not say which of the two recoveries
-# applies. Which one depends on whether the old state blob still exists, and
-# guessing wrong silently abandons a live identity.
-ensure_local_state() {
-  local module_dir="${1:?ensure_local_state requires a module directory}"
-  local backend_state="$module_dir/.terraform/terraform.tfstate"
-
-  [[ -f "$backend_state" ]] || return 0
-  grep -q '"azurerm"' "$backend_state" || return 0
-
-  echo "!! This directory was initialised against the remote azurerm backend," >&2
-  echo "   but stage 0 now keeps state locally (see versions.tf)." >&2
-  echo >&2
-  echo "   If the old state blob still exists, migrate it down — this preserves" >&2
-  echo "   Terraform's tracking of your existing identity:" >&2
-  echo "     terraform init -migrate-state" >&2
-  echo >&2
-  echo "   If it is already gone (a tenant policy deleting resource groups will" >&2
-  echo "   take it), discard the stale backend config:" >&2
-  echo "     rm -rf $module_dir/.terraform" >&2
-  echo "   The Entra objects themselves survive that, so re-running afterwards" >&2
-  echo "   would create a DUPLICATE app registration. Import them instead, or" >&2
-  echo "   delete the old app first." >&2
-  return 1
 }
 
 # Ensure the Terraform state storage account and container exist, then export
@@ -323,77 +283,6 @@ require_az_context() {
   fi
 
   export AZ_TENANT_ID AZ_SUBSCRIPTION_ID AZ_SUBSCRIPTION_NAME AZ_SUBSCRIPTION_STATE
-}
-
-# Resolve the GitHub repository the OIDC credential should trust, and refuse to
-# touch the shared upstream.
-#
-# Deliberately reads `origin` rather than `gh repo view`: when a fork has an
-# `upstream` remote, gh resolves to the *parent* repo, which would publish this
-# developer's Azure credentials to the shared upstream instead of their fork.
-#
-# Exports GH_REPO ("owner/repo") and GH_OWNER.
-require_gh_repo() {
-  local url owner repo
-
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "!! The GitHub CLI (gh) is not installed, or is not on PATH." >&2
-    return 1
-  fi
-
-  if ! gh auth status >/dev/null 2>&1; then
-    echo "!! Not signed in to GitHub. Run: gh auth login" >&2
-    return 1
-  fi
-
-  if ! url="$(git remote get-url origin 2>/dev/null)" || [[ -z "$url" ]]; then
-    echo "!! No 'origin' git remote found; cannot tell which repository to configure." >&2
-    return 1
-  fi
-
-  # Accept both git@github.com:owner/repo.git and https://github.com/owner/repo(.git)
-  if [[ "$url" =~ ^(git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$ ]]; then
-    owner="${BASH_REMATCH[2]}"
-    repo="${BASH_REMATCH[3]%.git}"
-  else
-    echo "!! Could not parse a GitHub owner/repo out of origin: $url" >&2
-    return 1
-  fi
-
-  GH_OWNER="$owner"
-  GH_REPO="${owner}/${repo}"
-
-  local name_ok=0 candidate
-  for candidate in $EXPECTED_REPO_NAMES; do
-    [[ "${repo,,}" == "${candidate,,}" ]] && name_ok=1 && break
-  done
-  if [[ "$name_ok" -eq 0 ]]; then
-    echo "!! 'origin' does not look like your fork of this project." >&2
-    echo "   origin: $GH_REPO" >&2
-    echo "   Expected a repository named one of: $EXPECTED_REPO_NAMES" >&2
-    return 1
-  fi
-
-  # Never write to the shared upstream: the workflow identity is per developer.
-  local blocked
-  for blocked in $UPSTREAM_OWNERS; do
-    if [[ "${owner,,}" == "${blocked,,}" ]]; then
-      echo "!! Refusing to configure the shared upstream repository '$GH_REPO'." >&2
-      echo "   This creates a per-developer identity and must point at your own fork." >&2
-      echo "   Set 'origin' to your fork (upstream stays as a separate remote)." >&2
-      return 1
-    fi
-  done
-
-  local login
-  login="$(gh api user --jq .login 2>/dev/null)" || login=""
-  if [[ -n "$login" && "${login,,}" != "${owner,,}" ]]; then
-    echo "!! Signed in to GitHub as '$login', but origin belongs to '$owner'." >&2
-    echo "   Sign in as '$owner' (gh auth login), or point origin at your own fork." >&2
-    return 1
-  fi
-
-  export GH_REPO GH_OWNER
 }
 
 # Name of the state storage account: alias-prefixed so it is recognisable, with

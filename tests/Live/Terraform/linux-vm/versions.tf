@@ -6,8 +6,8 @@ terraform {
   # between CI and every developer using this alias, so the constraint has to
   # fail fast at `init` rather than let that happen. Note `~> 1.9` would NOT
   # do — it permits 1.15. Changing this is a deliberate, coordinated upgrade:
-  # bump it here, in tests/Live/Terraform/bootstrap/versions.tf, and in the
-  # terraform_version pin in .github/workflows/mi-live.yml together.
+  # bump it here and in the terraform_version pin in
+  # .github/workflows/mi-live.yml together.
   required_version = "~> 1.9.0"
 
   required_providers {
