@@ -194,6 +194,24 @@ public class PerformanceTimelineTests
             $"Enclosing span end ({enclosingEnd}) should be >= phase2 end ({phase2End})");
     }
 
+    [Fact]
+    public void Replay_WithLeakedMeasureHandle_EmitsNonNegativeDuration()
+    {
+        // A caller that measures a phase but never disposes the handle should not
+        // produce a span whose end precedes its start (End defaults to now, not MinValue).
+        using var telemetry = new RecordingTelemetryService();
+        var timeline = new PerformanceTimeline();
+
+        // Intentionally not disposed — leaked handle.
+        var _ = timeline.Measure("leaked");
+
+        Assert.Null(Record.Exception(() => timeline.Replay(telemetry)));
+
+        var leaked = Assert.Single(telemetry.Stopped, a => a.OperationName == "leaked");
+        Assert.True(leaked.Duration >= TimeSpan.Zero,
+            $"Expected non-negative duration but got {leaked.Duration}");
+    }
+
     /// <summary>ITelemetryService backed by a real ActivitySource plus a listener, so
     /// spans are actually created and their stop events can be inspected.</summary>
     private sealed class RecordingTelemetryService : ITelemetryService

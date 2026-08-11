@@ -96,7 +96,14 @@ internal sealed class PerformanceTimeline
 
         public DateTime Start { get; } = DateTime.UtcNow;
 
-        public DateTime End { get; private set; }
+        private DateTime _end;
+
+        /// <summary>
+        /// When the phase closed, or now if the handle was never disposed. A leaked
+        /// Measure would otherwise leave this at DateTime.MinValue and emit a span
+        /// whose end precedes its start.
+        /// </summary>
+        public DateTime End => _end == default ? DateTime.UtcNow : _end;
 
         public List<Phase> Children { get; } = new();
 
@@ -106,7 +113,7 @@ internal sealed class PerformanceTimeline
         {
             if (_disposed) return;
             _disposed = true;
-            End = DateTime.UtcNow;
+            _end = DateTime.UtcNow;
             // Only pop if this phase is actually on top of the stack. If disposed out of order,
             // skip the pop to avoid corrupting the stack and silently nesting under the wrong parent.
             if (_timeline._open.Count > 0 && ReferenceEquals(_timeline._open.Peek(), this))

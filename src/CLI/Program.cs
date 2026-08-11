@@ -98,10 +98,9 @@ public class Program
             telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
-        // Disposed explicitly in the finally below — it must stop before the container
-        // is disposed, since that takes the TracerProvider (and the exporter) with it.
-        var activity = telemetryService.StartRootActivity(performance.StartedAt);
-        performance.Replay(telemetryService);
+        // Declared here so the catch blocks and the finally can see it; assigned inside the
+        // try so a failure starting telemetry is handled like any other startup failure.
+        Activity? activity = null;
 
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
         var outputJson = false;
@@ -109,6 +108,11 @@ public class Program
 
         try
         {
+            // Disposed explicitly in the finally below — it must stop before the container
+            // is disposed, since that takes the TracerProvider (and the exporter) with it.
+            activity = telemetryService.StartRootActivity(performance.StartedAt);
+            performance.Replay(telemetryService);
+
             // Moved inside the try by the flattening — see the behaviour note above.
             var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
 
