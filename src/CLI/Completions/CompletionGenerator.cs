@@ -67,6 +67,7 @@ internal static class CompletionGenerator
     /// </summary>
     public static async Task<int?> TryHandleCandidatesAsync(string[] args, ClientType clientType)
     {
+        // @TODO (DanielMicrosoft) move flag to globals.
         if (args.Length == 0 || args[0] != "--completion-candidates")
         {
             return null;
