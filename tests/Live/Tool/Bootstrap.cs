@@ -76,44 +76,96 @@ internal static class Bootstrap
     }
 
     /// <summary>
-    /// Finds the app by display name, or creates it. Display names are not unique in Entra,
-    /// so an ambiguous match is an error rather than a guess — picking the wrong one would
-    /// repoint CI at another identity.
+    /// Finds an application we can actually manage, or creates one.
+    ///
+    /// <para>
+    /// Selection is by ownership, not by display name alone. Entra display names are not
+    /// unique, and ownership is what decides whether the rest of this can run at all: a
+    /// guest may manage an application they own and essentially nothing else. So a
+    /// same-named application we cannot manage is not "the" application — it is an
+    /// unrelated object that happens to share a label. CI is pointed at whatever
+    /// <c>AZURE_CLIENT_ID</c> ends up being, never at a name, so this is unambiguous
+    /// downstream.
+    /// </para>
     /// </summary>
     private static (string AppObjectId, string ClientId) EnsureApp(AzCli az, string appName)
     {
-        var existing = az.Tsv(
-            "ad", "app", "list",
-            "--display-name", appName,
-            "--query", "[].[id,appId]");
+        var candidates = az.Tsv("ad", "app", "list", "--display-name", appName, "--query", "[].[id,appId]")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(row => row.Split('\t', StringSplitOptions.TrimEntries))
+            .Where(f => f.Length >= 2)
+            .Select(f => (AppObjectId: f[0], ClientId: f[1]))
+            .ToList();
 
-        var rows = existing.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // Signing in as anything but a user (which --bootstrap does not support) leaves
+        // nothing to compare owners against; fall back to name matching alone.
+        var me = az.Tsv("ad", "signed-in-user", "show", "--query", "id");
 
-        if (rows.Length > 1)
+        var manageable = string.IsNullOrWhiteSpace(me)
+            ? candidates
+            : candidates.Where(c => IsOwnedBy(az, c.AppObjectId, me)).ToList();
+
+        if (manageable.Count > 1)
         {
             throw new LiveToolException(
-                $"{rows.Length} applications are named '{appName}'. Entra display names are not\n"
-                + "   unique, so this cannot tell which one CI should use. Delete the extras, or\n"
-                + "   choose a different alias.");
+                $"{manageable.Count} applications named '{appName}' are owned by you. This cannot\n"
+                + "   tell which one CI should use. Delete the extras, or choose a different alias.");
         }
 
-        if (rows.Length == 1)
+        if (manageable.Count == 1)
         {
-            var fields = rows[0].Split('\t', StringSplitOptions.TrimEntries);
-            var found = (fields.ElementAtOrDefault(0) ?? string.Empty, fields.ElementAtOrDefault(1) ?? string.Empty);
-            Console.WriteLine($"==> Application exists ({found.Item2})");
-            WarnIfNotOwned(az, found.Item1);
-            return found;
+            Console.WriteLine($"==> Application exists ({manageable[0].ClientId})");
+            return manageable[0];
+        }
+
+        // Same-named applications exist but none is ours. An ownerless one is usually the
+        // residue of a tool that did not record an owner; claiming it is better than
+        // duplicating it, and an administrator running this will succeed here too.
+        foreach (var candidate in candidates)
+        {
+            if (TryAdopt(az, candidate.AppObjectId, me))
+            {
+                Console.WriteLine($"==> Adopted the existing application ({candidate.ClientId})");
+                return candidate;
+            }
+        }
+
+        if (candidates.Count > 0)
+        {
+            Console.WriteLine($"==> {candidates.Count} application(s) named '{appName}' exist, but none can be");
+            Console.WriteLine("    managed by you and none would let you take ownership. Creating a");
+            Console.WriteLine("    separate one rather than failing — CI is pointed at a client id, not a");
+            Console.WriteLine("    name, so this is unambiguous. Ask a tenant administrator to delete the");
+            Console.WriteLine("    others when convenient:");
+            foreach (var candidate in candidates)
+            {
+                Console.WriteLine($"      {candidate.ClientId}");
+            }
         }
 
         Console.WriteLine("==> Creating the application registration");
 
-        // AzureADMyOrg: the credential is only ever used by this tenant's CI.
-        var created = az.TsvChecked(
-            "ad", "app", "create",
-            "--display-name", appName,
-            "--sign-in-audience", "AzureADMyOrg",
-            "--query", "[id,appId]");
+        // Graph directly, not `az ad app create`: that command treats the display name as
+        // a key and PATCHES an existing application instead of creating one, which is the
+        // opposite of what is wanted when the existing application is the unusable one.
+        //
+        // Creating it is also what makes it manageable — Graph records the calling user as
+        // an owner. AzureADMyOrg because the credential is only used by this tenant's CI.
+        var body = JsonSerializer.Serialize(new
+        {
+            displayName = appName,
+            signInAudience = "AzureADMyOrg",
+        });
+
+        var created = Proc.Check("az", [
+            "rest",
+            "--method", "POST",
+            "--url", "https://graph.microsoft.com/v1.0/applications",
+            "--headers", "Content-Type=application/json",
+            "--body", body,
+            "--query", "[id,appId]",
+            "-o", "tsv",
+        ]);
 
         // A flat projection comes back one value per line, CRLF-terminated on some
         // platforms — unlike the list query above, whose rows are tab-separated.
@@ -130,22 +182,24 @@ internal static class Bootstrap
         return (appObjectId, clientId);
     }
 
+    private static bool IsOwnedBy(AzCli az, string appObjectId, string userObjectId) =>
+        az.Tsv("ad", "app", "owner", "list", "--id", appObjectId, "--query", "[].id")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(userObjectId, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
-    /// A guest may manage an application they own and little else, so an ownerless app is
-    /// the difference between this working and a bare 403 on the next call. Only warn:
-    /// a tenant admin is not an owner either and does not need to be.
+    /// Attempts to take ownership. Succeeds for an administrator; for anyone else this is
+    /// the cheapest reliable test of whether the application is usable at all, because the
+    /// alternative is discovering it three calls later.
     /// </summary>
-    private static void WarnIfNotOwned(AzCli az, string appObjectId)
+    private static bool TryAdopt(AzCli az, string appObjectId, string userObjectId)
     {
-        var owners = az.Tsv("ad", "app", "owner", "list", "--id", appObjectId, "--query", "[].id");
-        if (!string.IsNullOrWhiteSpace(owners))
+        if (string.IsNullOrWhiteSpace(userObjectId))
         {
-            return;
+            return false;
         }
 
-        Console.WriteLine("    !! This application has no owners. If you are a guest in this tenant,");
-        Console.WriteLine("       the following steps will fail with 'Insufficient privileges'. Add");
-        Console.WriteLine("       yourself as an owner in the portal, or ask an administrator to.");
+        return az.None("ad", "app", "owner", "add", "--id", appObjectId, "--owner-object-id", userObjectId).Ok;
     }
 
     private static string EnsureServicePrincipal(AzCli az, string clientId)
