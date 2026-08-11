@@ -49,8 +49,6 @@ public static class AgentModeEntry
             // event spam; the user sees only the spinner + the final AI help.
             var quiet = !agentOpts.IsInteractive;
 
-            PrintBanner(failedCommand, errorText, quiet);
-
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var az     = FindAzExe() ?? "az";
             var consoleRenderer = new ConsoleAgentRenderer(quiet, agentOpts.Interactive.Verbose);
@@ -88,6 +86,12 @@ public static class AgentModeEntry
             // race the spinner. Verbose/Debug/Info dropped; Warn/Error become
             // HostLogEmitted events the renderer draws under its lock.
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
+
+            // Start the spinner BEFORE CreateAsync: daemon cold-start + silent auth
+            // take several seconds, and without this the screen hangs blank. The
+            // first chat turn re-Starts the spinner with the same verb (Start is
+            // idempotent — it Stops first), so this seams into the turn cleanly.
+            spinner.Start("Analyzing error root cause using AI");
 
             await using var agent = await ChatAgent.CreateAsync(
                 flavor: flavor,
@@ -328,26 +332,6 @@ public static class AgentModeEntry
         }
 
         return redirect;
-    }
-
-    private static void PrintBanner(string failedCommand, string error, bool quiet)
-    {
-        // Quiet mode (one-shot): no "agent mode" banner / AI scaffolding — the
-        // spinner ("Analyzing error root cause using AI …") is the only hint, and
-        // the AI help is the output. Keep it clean.
-        if (quiet) return;
-
-        var prev = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine();
-        Console.WriteLine("🤖 agent mode");
-        if (!string.IsNullOrWhiteSpace(failedCommand))
-            Console.WriteLine($"   triggered by failed command: {failedCommand}");
-        if (!string.IsNullOrWhiteSpace(error))
-            Console.WriteLine($"   error: {Truncate(error, 200)}");
-        Console.WriteLine("   type 'exit' or Ctrl+C to leave");
-        Console.WriteLine();
-        Console.ForegroundColor = prev;
     }
 
     // .NET does not expand a leading "~"; do it ourselves so the documented default
