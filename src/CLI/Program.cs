@@ -28,9 +28,10 @@ public class Program
     // the same literal name — rename both together.
     private const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
     private static readonly ClientType _clientType = ClientType.CLI;
-    private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+    private static ITelemetryService? _telemetryService = null;
+    private static IConfigurationService? _configurationService = null;
 
     private static OutputStreams streams = BuildStreams(CliLogLevel.Info);
 
@@ -86,16 +87,11 @@ public class Program
         if (candidatesExit.HasValue)
             return candidatesExit.Value;
 
-        // BuildServiceProvider only builds the container graph; these singletons are
-        // constructed on first touch — including CLITelemetryProvider, which builds the
-        // whole OpenTelemetry pipeline. Measured separately from the container for that reason.
-        IConfigurationService configurationService;
-        ITelemetryService telemetryService;
         using (performance.Measure("CLI.Performance.Services"))
         {
             _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-            configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-            telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+            _configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+            _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
         // Declared here so the catch blocks and the finally can see it; assigned inside the
@@ -110,50 +106,65 @@ public class Program
         {
             // Disposed explicitly in the finally below — it must stop before the container
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
-            activity = telemetryService.StartRootActivity(performance.StartedAt);
-            performance.Replay(telemetryService);
 
-            // Moved inside the try by the flattening — see the behaviour note above.
-            var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
-
-            var globalArgs = GlobalArgParser.Parse(args);
-            if (globalArgs.NoCache)
+            using (performance.Measure("CLI.Performance.Telemetry"))
             {
-                // AssemblyLoadingOptions.BypassExtensionCache reads this via IConfigurationService.
-                Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
+                activity = _telemetryService.StartRootActivity(performance.StartedAt);
+                performance.Replay(_telemetryService);
             }
 
-            var coreOptions = configurationService.GetConfiguration<CoreOptions>();
-            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
-            ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
-            streams = BuildStreams(effectiveLogLevel);
-            outputJson = globalArgs.Output == OutputFormat.Json;
-            positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
-
-            if (globalArgs.Version is not null)
+            GlobalArgs globalArgs;
+            using (var _ = _telemetryService.StartActivity("AzureCLI.ParseGlobalArgs"))
             {
-                return DispatchVersion(globalArgs.Version, configurationService, activity);
+                globalArgs = GlobalArgParser.Parse(args);
             }
 
-            if (globalArgs.Help is not null)
+            using (var _ = _telemetryService.StartActivity("AzureCLI.HandleGlobalArgs"))
             {
-                return DispatchHelp(globalArgs.Help, isBareInvocation, streams, activity);
+                if (globalArgs.NoCache)
+                {
+                    // AssemblyLoadingOptions.BypassExtensionCache reads this via IConfigurationService.
+                    Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
+                }
+
+                var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
+                var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
+                ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
+                streams = BuildStreams(effectiveLogLevel);
+                outputJson = globalArgs.Output == OutputFormat.Json;
+                positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
+
+                if (globalArgs.Version is not null)
+                {
+                    return DispatchVersion(globalArgs.Version, activity);
+                }
+
+                if (globalArgs.Help is not null)
+                {
+                    return DispatchHelp(globalArgs.Help, isBareInvocation, streams, activity);
+                }
             }
 
-            CommandInvocation invocation = dispatcher.Parse(positional);
-            telemetryService.TagInvocation(invocation);
 
-            using var commandActivity =
-                telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
+            CommandInvocation invocation;
+            using (var _ = _telemetryService.StartActivity("AzureCLI.ParseCommandInvocation"))
+            {
+                var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
+                invocation = dispatcher.Parse(positional);
+                _telemetryService.TagInvocation(invocation);
+            }
 
-            var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
-                         throw new InvalidOperationException("Engine service not found.");
-            using ISession session =
-                engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
-            await session.RunAsync();
+            using (var _ = _telemetryService.StartActivity("AzureCLI.ProcessCommand"))
+            {
+                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
+                             throw new InvalidOperationException("Engine service not found.");
+                using ISession session =
+                    engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
+                await session.RunAsync();
 
-            activity?.SetStatus(ActivityStatusCode.Ok);
-            return 0;
+                activity?.SetStatus(ActivityStatusCode.Ok);
+                return 0;
+            }
         }
         catch (HttpRequestException ex)
         {
@@ -244,33 +255,39 @@ public class Program
     }
 
     // Cold-path host command: rendered from local data, no engine session or extension load.
-    private static int DispatchVersion(VersionRequest version, IConfigurationService config, Activity? activity)
+    private static int DispatchVersion(VersionRequest version, Activity? activity)
     {
-        var exit = new RuntimeVersionDispatcher(config, Console.Out).Render(version.Format);
-        activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
-        return exit;
+        using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
+        {
+            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format);
+            activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
+            return exit;
+        }
     }
 
     private static int DispatchHelp(HelpRequest help, bool isBareInvocation, OutputStreams streams, Activity? activity)
     {
-        var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-        var renderer = new RuntimeHelpDispatcher(engine, streams);
-        if (help.Path.Count == 0)
+        using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchVersion"))
         {
-            // Banner only for truly bare `az`; user-typed help forms stay grep-friendly.
-            if (isBareInvocation)
+            var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
+            var renderer = new RuntimeHelpDispatcher(engine, streams);
+            if (help.Path.Count == 0)
             {
-                WelcomeBanner.Write(Console.Out);
+                // Banner only for truly bare `az`; user-typed help forms stay grep-friendly.
+                if (isBareInvocation)
+                {
+                    WelcomeBanner.Write(Console.Out);
+                }
+                var rootExit = renderer.RenderRoot();
+                activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
+                return rootExit;
             }
-            var rootExit = renderer.RenderRoot();
-            activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
-            return rootExit;
+            // Uninstalled-package smart-suggestion path throws AzclipsErrorException; the outer
+            // AzclipsErrorException catch renders it via EmitStructuredError.
+            var extExit = renderer.RenderExtensionHelp(help.Path);
+            activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
+            return extExit;
         }
-        // Uninstalled-package smart-suggestion path throws AzclipsErrorException; the outer
-        // AzclipsErrorException catch renders it via EmitStructuredError.
-        var extExit = renderer.RenderExtensionHelp(help.Path);
-        activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
-        return extExit;
     }
 
     private static void EmitStructuredError(AzclipsErrorException ex, bool outputJson)
