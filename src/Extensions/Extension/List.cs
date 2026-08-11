@@ -35,7 +35,7 @@ public class ListExtensionsProcessor : IProcessor
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var _ = telemetryService.StartActivity($"{nameof(ListExtensionsProcessor)}.{nameof(Process)}");
 
-        var store = new FileExtensionRegistryStore();
+        var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
         var fileRegistry = store.Load();
         var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
 

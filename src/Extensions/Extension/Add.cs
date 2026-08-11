@@ -168,7 +168,7 @@ public class AddExtensionProcessor : IProcessor
                 }
             }
 
-            var store = new FileExtensionRegistryStore();
+            var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
             var registry = store.Load();
 
             // Verbs are shared across extensions; collisions resolve per-leaf at the (verb, path)
