@@ -36,6 +36,9 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
+        // Starts the clock for startup measurement. Nothing is emitted until telemetry
+        // exists; see PerformanceTimeline.
+        var performance = new PerformanceTimeline();
         bool isBareInvocation = args.Length == 0;
 
         // Background telemetry upload mode: send pending traces and exit.
@@ -53,21 +56,24 @@ public class Program
             return printProbeExit.Value;
         }
 
-        AzclipsServiceProvider.PrependRegistration(services =>
+        using (performance.Measure("CLI.Performance.Container"))
         {
-            services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();
-            services.AddSingleton<IExtensionLoader, InstalledExtensionLoader>();
-            services.AddSingleton<PropertyParser>();
-            services.AddCliExtensionDispatch();
-        });
-        AzclipsServiceProvider.OverrideRegistration(services =>
-        {
-            services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
-            services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
-            services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
-            services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
-        });
-        AzclipsServiceProvider.Initialize(_clientType);
+            AzclipsServiceProvider.PrependRegistration(services =>
+            {
+                services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();
+                services.AddSingleton<IExtensionLoader, InstalledExtensionLoader>();
+                services.AddSingleton<PropertyParser>();
+                services.AddCliExtensionDispatch();
+            });
+            AzclipsServiceProvider.OverrideRegistration(services =>
+            {
+                services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
+                services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
+                services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
+                services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
+            });
+            AzclipsServiceProvider.Initialize(_clientType);
+        }
 
         // Shell tab-completion metadata (after DI so generator can resolve IEngine directly)
         int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
@@ -78,14 +84,22 @@ public class Program
         if (candidatesExit.HasValue)
             return candidatesExit.Value;
 
-        _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-        var configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-
-        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        // BuildServiceProvider only builds the container graph; these singletons are
+        // constructed on first touch — including CLITelemetryProvider, which builds the
+        // whole OpenTelemetry pipeline. Measured separately from the container for that reason.
+        IConfigurationService configurationService;
+        ITelemetryService telemetryService;
+        using (performance.Measure("CLI.Performance.Services"))
+        {
+            _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+            configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+            telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+        }
 
         try
         {
-            using var activity = telemetryService.StartRootActivity();
+            using var activity = telemetryService.StartRootActivity(performance.StartedAt);
+            performance.Replay(telemetryService);
             var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
 
             // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
