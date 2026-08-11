@@ -2,6 +2,7 @@
 
 #### CLI
 
+- Fixed `assemblyLoading.installedExtensionsRoot` being honored only by the loader — the config key now also drives the extension registry file location (`<root>/registry.json`) and every `az extension add/list/show/pin/remove/update` read/write path. Setting the key to a custom directory used to install DLLs there while `az extension list` kept reading the default `~/.azclips/extensions/registry.json`; installs, registry, and dispatch now agree. Default behavior (key unset) is unchanged (#629).
 - **Breaking:** Removed `assemblyLoading.bundledExtensionsRoot` config key. Bundled extensions are now discovered from a fixed candidate root list (`<install>/Extensions` in Release, plus `artifacts/{Debug,Release}` for local dev builds). The key had no user-configurable purpose — packaging always writes bundled extensions to `<install>/Extensions/`. Any config referencing this key will now fail with "unknown key" (#630).
 - **Breaking:** Renamed extension-loader configuration key `assemblyLoading.versionedInstallationDir` → `assemblyLoading.installedExtensionsRoot` to match the new Installed vocabulary. Any user config referencing the old key must be renamed manually; the old spelling will now fail with "unknown key" (#533).
 
