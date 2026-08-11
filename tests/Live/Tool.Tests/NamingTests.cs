@@ -19,7 +19,7 @@ public class NamingTests
     private const string SubscriptionId = "b813fd05-4867-4dde-9efc-5e34b5373b57";
     private const string ResourceGroup = "mxaa-azclips-live-test-mi-rg";
 
-    private static AzContext Ctx => new("tenant", SubscriptionId, "Visual Studio Enterprise Subscription");
+    private static AzContext Ctx => new("tenant", SubscriptionId, "Azure CLI/PWSH");
 
     [Theory]
     [InlineData("mxaa", "mxaatfb813fd05")]

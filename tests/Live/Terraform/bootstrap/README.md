@@ -22,8 +22,19 @@ Then sets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, and
 
 **Run this only from a developer machine, never in CI.** It creates the very
 identity CI logs in as, and needs Owner on the subscription plus the right to
-create Entra applications. Its Terraform state is deliberately separate from
-`tests/Live/Terraform/linux-vm` so CI runs never refresh or destroy their own credentials.
+create Entra applications. Its Terraform state is **local** — `terraform.tfstate`
+in this directory, gitignored — rather than in the shared state account used by
+`tests/Live/Terraform/linux-vm`, so CI runs never refresh or destroy their own
+credentials.
+
+Local state is also what makes this module safe to re-run in a tenant that
+deletes resource groups on a schedule. Nothing here lives in a resource group
+(Entra objects, plus a subscription-scoped role assignment), so the identity
+outlives the sweep — but a remote state blob would not, and re-running against
+empty state would create a duplicate app registration rather than a no-op.
+
+Keep `terraform.tfstate`: without it the identity still works, but Terraform can
+no longer manage or destroy it.
 
 Skip this module entirely if you only run the live test locally.
 

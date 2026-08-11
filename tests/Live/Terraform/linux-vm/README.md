@@ -25,14 +25,14 @@ local runs, start at stage 1.
 
 | Setting | Value |
 |---|---|
-| Subscription | `Visual Studio Enterprise Subscription` (your own MSDN subscription) |
+| Subscription | `Azure CLI/PWSH` |
 | Tenant / subscription ID | Taken from your active `az` context |
 | Resource group | `<alias>-azclips-live-test-mi-rg` (created for you) |
 | VM | `<alias>-azclips-live-test-mi-vm` |
 | CI app registration | `<alias>-azclips-live-test-mi` |
 | Terraform state RG | `<alias>-azclips-live-test-mi-tfstate-rg` (created for you; kept separate from the workload group so `terraform destroy` cannot delete the state) |
 | Terraform state account | `<alias>tf<first 8 of subscription id>` (created for you; also holds the CLI bundle blobs, in a separate `milive-bundles` container) |
-| Terraform state blob | `<alias>-linux-vm.tfstate`, `<alias>-bootstrap.tfstate` |
+| Terraform state blob | `<alias>-linux-vm.tfstate` (stage 0 keeps its state locally — see below) |
 | Region | Australia East |
 
 The bundle blobs deliberately live in the state account rather than the workload
@@ -43,9 +43,27 @@ a resource group that still contains anything Terraform did not create.
 Nothing is pinned to one person's subscription. The scripts check only that the
 **name** of the active subscription matches, then derive the tenant ID,
 subscription ID and state account from whatever is selected — so each developer
-works in their own subscription. Because that name is the MSDN default, the
-check guards against picking the wrong subscription, not against a determined
-mistake; confirm the ID it prints is yours.
+works in their own subscription.
+
+Matching on name rather than ID is deliberate. These tenants are **rotated
+periodically**: the old one is disabled and replaced by a new tenant containing a
+subscription with the same name but a new ID. Because everything downstream keys
+off the *resolved* ID, signing in to the new tenant is the only step required —
+the state account name changes with the subscription ID, the new backend is
+created on demand, and `terraform init -reconfigure` discards the stale cached
+config. Pinning an ID would need a code change every rotation.
+
+Two consequences worth knowing:
+
+- During the overlap window both subscriptions are visible, so
+  `az account set --subscription "Azure CLI/PWSH"` fails with *"has more than one
+  match"*. The scripts detect this and print the exact per-ID commands to use.
+- The new tenant starts empty. Your resources are not migrated; re-run
+  `--provision` to recreate them, and re-run stage 0 to recreate the CI identity.
+
+Because names are not unique across tenants, the check guards against picking the
+wrong subscription, not against a determined mistake; confirm the ID it prints is
+yours.
 
 ## Prerequisites
 
@@ -93,13 +111,26 @@ same commit, and have everyone sharing the alias upgrade together.
 
 ```bash
 az login
-az account set --subscription "Visual Studio Enterprise Subscription"
+az account set --subscription "Azure CLI/PWSH"
 az account show \
   --query '{tenantId:tenantId, subscriptionId:id, subscription:name}' \
   --output table
 ```
 
-The displayed tenant and subscription IDs must match the table above.
+If `az account set` reports *"has more than one match"*, a tenant rotation has
+left the old and new subscriptions both visible. List them and select the newer
+tenant by ID:
+
+```bash
+az account list --all --query "[?name=='Azure CLI/PWSH' && state=='Enabled'].[id,tenantId]" -o tsv
+az account set --subscription <id-in-the-new-tenant>
+```
+
+After a rotation you may need `az login --tenant <new-tenant-id>` first, so the
+new tenant appears at all.
+
+The displayed subscription name must match the table above; the tenant and
+subscription IDs are whatever your current tenant uses.
 
 ## Choose an alias
 
@@ -122,6 +153,17 @@ This creates an Entra app registration, a service principal, a federated
 credential trusting your repository's `dev` environment, and a Contributor role
 assignment at subscription scope. No client secret is ever created — GitHub
 authenticates by exchanging a short-lived OIDC token.
+
+Stage 0's state is **local** (`tests/Live/Terraform/bootstrap/terraform.tfstate`,
+gitignored), unlike stage 1's. None of what it creates lives in a resource group,
+so in a tenant that deletes resource groups on a schedule the identity survives
+while a remote state blob would not — and re-running against the resulting empty
+state would create a second app registration and repoint `AZURE_CLIENT_ID` at it.
+Local state has the same lifetime as the resources it describes.
+
+Keep that file. Losing it orphans the identity from Terraform: the CI login keeps
+working, but you can no longer change or `terraform destroy` the app without
+importing it back first.
 
 It then publishes four `dev` environment variables to your repository, so
 nothing has to be configured by hand:

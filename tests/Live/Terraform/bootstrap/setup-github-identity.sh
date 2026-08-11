@@ -60,12 +60,6 @@ export TF_VAR_alias="$ALIAS"
 check_alias_drift "$MODULE_DIR" "$ALIAS"
 echo "==> Alias: $ALIAS"
 
-# Terraform state, named from the alias so each developer's state is separate
-# and recognisable. The account is located by name, so it is found wherever it
-# already lives; the group below is only used if it has to be created.
-BACKEND_STORAGE_ACCOUNT="$(state_account_name "$ALIAS")"
-BACKEND_FALLBACK_RESOURCE_GROUP="$(backend_resource_group "$ALIAS")"
-
 # Creating an app registration is not covered by Azure RBAC — it needs either a
 # permissive tenant default or an Entra role. Check up front so the failure is
 # understandable rather than a bare Graph 403 mid-apply.
@@ -80,12 +74,10 @@ elif [[ "$can_create_apps" == "false" ]]; then
   echo "   Continuing — the apply will fail with a Graph 403 if you lack them." >&2
 fi
 
-ensure_state_backend "$BACKEND_STORAGE_ACCOUNT" "$BACKEND_CONTAINER" "$BACKEND_FALLBACK_RESOURCE_GROUP" "$BACKEND_LOCATION"
+ensure_local_state "$MODULE_DIR"
 
-echo "==> terraform init (state: ${ALIAS}-bootstrap.tfstate)"
-terraform init -input=false -reconfigure \
-  -backend-config="storage_account_name=${BACKEND_STORAGE_ACCOUNT}" \
-  -backend-config="key=${ALIAS}-bootstrap.tfstate"
+echo "==> terraform init (local state: bootstrap/terraform.tfstate)"
+terraform init -input=false
 
 echo "==> terraform validate"
 terraform validate

@@ -9,13 +9,20 @@
 # Not executable on its own.
 
 # The environment is identified by subscription *name*, not ID, so each
-# developer can run against their own MSDN subscription without editing this
-# file. Everything else (provider config, state account name) is derived from
+# developer can run against their own subscription without editing this file.
+# Everything else (provider config, state account name) is derived from
 # whichever subscription is active — see require_az_context.
 #
-# Caveat: this name is the MSDN default, so it is deliberately not unique. It
-# guards against "wrong subscription selected", not against a determined mistake.
-EXPECTED_SUBSCRIPTION_NAME="${EXPECTED_SUBSCRIPTION_NAME:-Visual Studio Enterprise Subscription}"
+# Name, not ID, on purpose: these tenants are rotated periodically, and the
+# replacement contains a subscription with the same name but a NEW ID. Matching
+# on name means a developer only has to sign in to the new tenant; matching on
+# ID would need a code change every rotation. Everything downstream keys off the
+# resolved ID, so the new state account and resources are created automatically.
+#
+# Caveat: names are not unique across tenants, and during a rotation both the
+# old and new subscription are visible at once. This guards against "wrong
+# subscription selected", not against a determined mistake.
+EXPECTED_SUBSCRIPTION_NAME="${EXPECTED_SUBSCRIPTION_NAME:-Azure CLI/PWSH}"
 
 # The GitHub repository must be the developer's own fork. Publishing the OIDC
 # identity to the shared upstream would hand every contributor one developer's
@@ -122,6 +129,37 @@ record_alias() {
   printf '%s\n' "$2" > "$1/.alias"
 }
 
+# Refuse to run a local-state module whose working directory was last
+# initialised against the azurerm backend (stage 0 before it moved to local
+# state).
+#
+# `terraform init -input=false` would fail here anyway, but with a generic
+# "Backend configuration changed" that does not say which of the two recoveries
+# applies. Which one depends on whether the old state blob still exists, and
+# guessing wrong silently abandons a live identity.
+ensure_local_state() {
+  local module_dir="${1:?ensure_local_state requires a module directory}"
+  local backend_state="$module_dir/.terraform/terraform.tfstate"
+
+  [[ -f "$backend_state" ]] || return 0
+  grep -q '"azurerm"' "$backend_state" || return 0
+
+  echo "!! This directory was initialised against the remote azurerm backend," >&2
+  echo "   but stage 0 now keeps state locally (see versions.tf)." >&2
+  echo >&2
+  echo "   If the old state blob still exists, migrate it down — this preserves" >&2
+  echo "   Terraform's tracking of your existing identity:" >&2
+  echo "     terraform init -migrate-state" >&2
+  echo >&2
+  echo "   If it is already gone (a tenant policy deleting resource groups will" >&2
+  echo "   take it), discard the stale backend config:" >&2
+  echo "     rm -rf $module_dir/.terraform" >&2
+  echo "   The Entra objects themselves survive that, so re-running afterwards" >&2
+  echo "   would create a DUPLICATE app registration. Import them instead, or" >&2
+  echo "   delete the old app first." >&2
+  return 1
+}
+
 # Ensure the Terraform state storage account and container exist, then export
 # ARM_ACCESS_KEY for the azurerm backend.
 #
@@ -187,6 +225,48 @@ ensure_state_backend() {
 # less obvious error.
 #
 # Defaults to the pinned EXPECTED_* values; pass overrides for other environments.
+# Print a switch command that actually works.
+#
+# `az account set --subscription <name>` fails with "has more than one match"
+# whenever the expiring tenant and its replacement are both signed in, which is
+# exactly the window in which someone needs this advice. So resolve the name to
+# concrete IDs and print those instead, ignoring subscriptions that are no
+# longer Enabled — the expired tenant's copy is never the intended target.
+suggest_subscription_switch() {
+  local expected_name="${1:?suggest_subscription_switch requires a name}"
+  local -a candidates=()
+
+  # `|| true`: callers run under `set -o pipefail`, and no match must fall
+  # through to the login hint rather than abort the script.
+  mapfile -t candidates < <(az account list --all \
+    --query "[?name=='${expected_name//\'/\'\'}' && state=='Enabled'].[id,tenantId]" \
+    -o tsv 2>/dev/null | tr -d '\r' || true)
+
+  echo "   Fix with:" >&2
+
+  if [[ ${#candidates[@]} -eq 0 ]]; then
+    echo "     az login" >&2
+    echo "   No enabled subscription named '$expected_name' is visible. If the tenant was" >&2
+    echo "   just rotated, sign in to the new one:" >&2
+    echo "     az login --tenant <new-tenant-id>" >&2
+    return 0
+  fi
+
+  local entry id tenant
+  for entry in "${candidates[@]}"; do
+    IFS=$'\t' read -r id tenant <<<"$entry"
+    echo "     az account set --subscription $id   # tenant $tenant" >&2
+  done
+
+  # Names are not unique across tenants, and during a rotation two identically
+  # named subscriptions are visible at once. Only the caller knows which tenant
+  # is current, so ask rather than guess.
+  if [[ ${#candidates[@]} -gt 1 ]]; then
+    echo "   ${#candidates[@]} enabled subscriptions share this name (a tenant rotation in" >&2
+    echo "   progress leaves both visible). Choose the NEWER tenant." >&2
+  fi
+}
+
 # Verify the CLI is signed in and pointed at a subscription with the expected
 # name, then export the resolved IDs for callers:
 #   AZ_TENANT_ID, AZ_SUBSCRIPTION_ID, AZ_SUBSCRIPTION_NAME
@@ -203,11 +283,11 @@ require_az_context() {
   fi
 
   # One az call, not three: each invocation costs ~1s under WSL interop.
-  if ! account="$(az account show --query "[tenantId,id,name]" -o tsv 2>/dev/null | tr -d '\r')" \
+  if ! account="$(az account show --query "[tenantId,id,name,state]" -o tsv 2>/dev/null | tr -d '\r')" \
     || [[ -z "$account" ]]; then
     echo "!! Not signed in to Azure. Run:" >&2
     echo "     az login" >&2
-    echo "     az account set --subscription \"$expected_name\"" >&2
+    echo "   then select the '$expected_name' subscription." >&2
     return 1
   fi
 
@@ -216,13 +296,24 @@ require_az_context() {
   AZ_TENANT_ID="${_fields[0]:-}"
   AZ_SUBSCRIPTION_ID="${_fields[1]:-}"
   AZ_SUBSCRIPTION_NAME="${_fields[2]:-}"
+  AZ_SUBSCRIPTION_STATE="${_fields[3]:-}"
 
   if [[ "$AZ_SUBSCRIPTION_NAME" != "$expected_name" ]]; then
     echo "!! Azure CLI is pointed at the wrong subscription." >&2
     echo "   Expected: $expected_name" >&2
     echo "   Current:  $AZ_SUBSCRIPTION_NAME ($AZ_SUBSCRIPTION_ID)" >&2
-    echo "   Fix with:" >&2
-    echo "     az account set --subscription \"$expected_name\"" >&2
+    suggest_subscription_switch "$expected_name"
+    return 1
+  fi
+
+  # The old tenant is disabled before it disappears, and its subscription stays
+  # selected and still matches by name. Every later call would fail with an
+  # opaque authorization error, so say plainly that a new tenant must be used.
+  if [[ -n "$AZ_SUBSCRIPTION_STATE" && "$AZ_SUBSCRIPTION_STATE" != "Enabled" ]]; then
+    echo "!! Subscription '$AZ_SUBSCRIPTION_NAME' ($AZ_SUBSCRIPTION_ID) is $AZ_SUBSCRIPTION_STATE, not Enabled." >&2
+    echo "   These tenants are rotated periodically; the old one is disabled and replaced" >&2
+    echo "   by a new tenant containing a subscription of the same name." >&2
+    suggest_subscription_switch "$expected_name"
     return 1
   fi
 
@@ -231,7 +322,7 @@ require_az_context() {
     return 1
   fi
 
-  export AZ_TENANT_ID AZ_SUBSCRIPTION_ID AZ_SUBSCRIPTION_NAME
+  export AZ_TENANT_ID AZ_SUBSCRIPTION_ID AZ_SUBSCRIPTION_NAME AZ_SUBSCRIPTION_STATE
 }
 
 # Resolve the GitHub repository the OIDC credential should trust, and refuse to
