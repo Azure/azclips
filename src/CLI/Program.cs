@@ -41,7 +41,8 @@ public class Program
         var performance = new PerformanceTimeline();
         bool isBareInvocation = args.Length == 0;
 
-        // Background telemetry upload mode: send pending traces and exit.
+        // Pre-DI utility modes. Both return before the container is built, so neither
+        // emits telemetry and neither appears in a trace.
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
             await FileTelemetrySender.SendPendingStatic();
@@ -75,7 +76,8 @@ public class Program
             AzclipsServiceProvider.Initialize(_clientType);
         }
 
-        // Shell tab-completion metadata (after DI so generator can resolve IEngine directly)
+        // Post-DI utility modes: completion generation needs the container to resolve
+        // IEngine, but still returns before the root activity starts — no telemetry.
         int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
         if (completionExit.HasValue)
             return completionExit.Value;
@@ -96,83 +98,89 @@ public class Program
             telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
+        // Disposed explicitly in the finally below — it must stop before the container
+        // is disposed, since that takes the TracerProvider (and the exporter) with it.
+        var activity = telemetryService.StartRootActivity(performance.StartedAt);
+        performance.Replay(telemetryService);
+
+        // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
+        var outputJson = false;
+        var positional = args;
+
         try
         {
-            using var activity = telemetryService.StartRootActivity(performance.StartedAt);
-            performance.Replay(telemetryService);
+            // Moved inside the try by the flattening — see the behaviour note above.
             var dispatcher = AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>();
 
-            // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
-            var outputJson = false;
-            var positional = args;
-            try
+            var globalArgs = GlobalArgParser.Parse(args);
+            if (globalArgs.NoCache)
             {
-                var globalArgs = GlobalArgParser.Parse(args);
-                if (globalArgs.NoCache)
-                {
-                    // AssemblyLoadingOptions.BypassExtensionCache reads this via IConfigurationService.
-                    Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
-                }
-
-                var coreOptions = configurationService.GetConfiguration<CoreOptions>();
-                var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
-                ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
-                streams = BuildStreams(effectiveLogLevel);
-                outputJson = globalArgs.Output == OutputFormat.Json;
-                positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
-
-                if (globalArgs.Version is not null)
-                {
-                    return DispatchVersion(globalArgs.Version, configurationService, activity);
-                }
-
-                if (globalArgs.Help is not null)
-                {
-                    return DispatchHelp(globalArgs.Help, isBareInvocation, streams, activity);
-                }
-
-                CommandInvocation invocation = dispatcher.Parse(positional);
-                telemetryService.TagInvocation(invocation);
-
-                using var commandActivity =
-                    telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-
-                var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
-                             throw new InvalidOperationException("Engine service not found.");
-                using ISession session =
-                    engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
-                await session.RunAsync();
-
-                activity?.SetStatus(ActivityStatusCode.Ok);
-                return 0;
+                // AssemblyLoadingOptions.BypassExtensionCache reads this via IConfigurationService.
+                Environment.SetEnvironmentVariable("AZCLIPS_NO_EXTENSION_CACHE", "true");
             }
-            catch (HttpRequestException ex)
+
+            var coreOptions = configurationService.GetConfiguration<CoreOptions>();
+            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
+            ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
+            streams = BuildStreams(effectiveLogLevel);
+            outputJson = globalArgs.Output == OutputFormat.Json;
+            positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
+
+            if (globalArgs.Version is not null)
             {
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                activity?.AddException(ex);
-
-                return await TryAgentFallbackAsync(positional, ex.Message);
+                return DispatchVersion(globalArgs.Version, configurationService, activity);
             }
-            catch (AzclipsErrorException ex)
+
+            if (globalArgs.Help is not null)
             {
-                // Structured AzClips error: render per --output mode and return the symbolic exit code.
-                // No AI fallback — the failure is well-known and the user's intent is unambiguous.
-                EmitStructuredError(ex, outputJson);
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                return ex.ExitCode;
+                return DispatchHelp(globalArgs.Help, isBareInvocation, streams, activity);
             }
-            catch (Exception ex)
-            {
-                _logger?.Error(ex.Message);
 
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                activity?.AddException(ex);
+            CommandInvocation invocation = dispatcher.Parse(positional);
+            telemetryService.TagInvocation(invocation);
 
-                return await TryAgentFallbackAsync(positional, ex.Message);
-            }
+            using var commandActivity =
+                telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
+
+            var engine = AzclipsServiceProvider.GetRequiredService<IEngine>() ??
+                         throw new InvalidOperationException("Engine service not found.");
+            using ISession session =
+                engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
+            await session.RunAsync();
+
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return 0;
+        }
+        catch (HttpRequestException ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+
+            return await TryAgentFallbackAsync(positional, ex.Message);
+        }
+        catch (AzclipsErrorException ex)
+        {
+            // Structured AzClips error: render per --output mode and return the symbolic exit code.
+            // No AI fallback — the failure is well-known and the user's intent is unambiguous.
+            EmitStructuredError(ex, outputJson);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            return ex.ExitCode;
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex.Message);
+
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+
+            return await TryAgentFallbackAsync(positional, ex.Message);
         }
         finally
         {
+            // Stop the root span while the exporter is still alive — AzclipsServiceProvider.Dispose()
+            // below disposes the TracerProvider, after which nothing can be exported.
+            activity?.Dispose();
+
             // Route through streams.WriteDebug (level-gated) so the aggregate table stays
             // silent under warn/error and only surfaces under --debug. Routing through
             // _logger would fall back to ConsoleLoggingService here (session's UseScope
