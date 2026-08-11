@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using System.Linq;
 
 namespace Core.Cli.Telemetry;
 
@@ -36,6 +37,12 @@ internal sealed class PerformanceTimeline
     /// </summary>
     public IDisposable Measure(string name)
     {
+        // Pop any closed phases from the stack to handle out-of-order disposal.
+        while (_open.Count > 0 && _open.Peek().IsClosed)
+        {
+            _open.Pop();
+        }
+
         var phase = new Phase(name, this);
         (_open.Count > 0 ? _open.Peek().Children : _roots).Add(phase);
         _open.Push(phase);
@@ -57,8 +64,8 @@ internal sealed class PerformanceTimeline
             Emit(telemetry, root);
         }
 
-        // The last top-level phase to be recorded is the last one to finish.
-        enclosing?.SetEndTime(_roots[^1].End);
+        // End the enclosing span at the latest end across all top-level phases.
+        enclosing?.SetEndTime(_roots.Max(p => p.End));
     }
 
     private static void Emit(ITelemetryService telemetry, Phase phase)
@@ -93,12 +100,19 @@ internal sealed class PerformanceTimeline
 
         public List<Phase> Children { get; } = new();
 
+        internal bool IsClosed => _disposed;
+
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
             End = DateTime.UtcNow;
-            _timeline._open.Pop();
+            // Only pop if this phase is actually on top of the stack. If disposed out of order,
+            // skip the pop to avoid corrupting the stack and silently nesting under the wrong parent.
+            if (_timeline._open.Count > 0 && ReferenceEquals(_timeline._open.Peek(), this))
+            {
+                _timeline._open.Pop();
+            }
         }
     }
 }

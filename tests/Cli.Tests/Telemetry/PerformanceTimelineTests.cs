@@ -123,6 +123,77 @@ public class PerformanceTimelineTests
         Assert.InRange(timeline.StartedAt, beforeConstruction, afterConstruction);
     }
 
+    [Fact]
+    public void OutOfOrderDisposal_DoesNotCorruptParenting()
+    {
+        // Test for Finding 1: out-of-order disposal should not corrupt the stack.
+        // Measure a, measure b nested in a, dispose a first (out of order), then dispose b,
+        // then measure c normally. Assert c is a sibling of a (both under CLI.Performance),
+        // not a child of a.
+        using var telemetry = new RecordingTelemetryService();
+        var timeline = new PerformanceTimeline();
+
+        var a = timeline.Measure("a");
+        var b = timeline.Measure("b");
+
+        // Dispose outer phase before inner phase (out of order)
+        a.Dispose();
+        b.Dispose();
+
+        // Measure c after the out-of-order disposal
+        using (timeline.Measure("c"))
+        {
+        }
+
+        timeline.Replay(telemetry);
+
+        var phaseA = Assert.Single(telemetry.Stopped, x => x.OperationName == "a");
+        var phaseB = Assert.Single(telemetry.Stopped, x => x.OperationName == "b");
+        var phaseC = Assert.Single(telemetry.Stopped, x => x.OperationName == "c");
+
+        // c should be a sibling of a (both under CLI.Performance), not a child of a
+        Assert.Equal("CLI.Performance", phaseA.Parent?.OperationName);
+        Assert.Equal("CLI.Performance", phaseC.Parent?.OperationName);
+        // b should be a child of a (nested inside a)
+        Assert.Equal("a", phaseB.Parent?.OperationName);
+    }
+
+    [Fact]
+    public void EnclosingSpanCoversAllPhases()
+    {
+        // Test for Finding 2: the enclosing span's end time should be the latest end
+        // across all top-level phases, not just the last one registered.
+        using var telemetry = new RecordingTelemetryService();
+        var timeline = new PerformanceTimeline();
+
+        using (timeline.Measure("phase1"))
+        {
+            Thread.Sleep(10);
+        }
+
+        using (timeline.Measure("phase2"))
+        {
+            Thread.Sleep(20);
+        }
+
+        timeline.Replay(telemetry);
+
+        var enclosing = Assert.Single(telemetry.Stopped, a => a.OperationName == "CLI.Performance");
+        var phase1 = Assert.Single(telemetry.Stopped, a => a.OperationName == "phase1");
+        var phase2 = Assert.Single(telemetry.Stopped, a => a.OperationName == "phase2");
+
+        // Calculate end times as start time + duration
+        var enclosingEnd = enclosing.StartTimeUtc + enclosing.Duration;
+        var phase1End = phase1.StartTimeUtc + phase1.Duration;
+        var phase2End = phase2.StartTimeUtc + phase2.Duration;
+
+        // The enclosing span's end should be >= the end of both phases
+        Assert.True(enclosingEnd >= phase1End, 
+            $"Enclosing span end ({enclosingEnd}) should be >= phase1 end ({phase1End})");
+        Assert.True(enclosingEnd >= phase2End, 
+            $"Enclosing span end ({enclosingEnd}) should be >= phase2 end ({phase2End})");
+    }
+
     /// <summary>ITelemetryService backed by a real ActivitySource plus a listener, so
     /// spans are actually created and their stop events can be inspected.</summary>
     private sealed class RecordingTelemetryService : ITelemetryService
