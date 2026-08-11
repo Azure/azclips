@@ -213,9 +213,18 @@ mutates nothing.
 Do this **before** dispatching the workflow. Until it runs, CI still holds the
 previous tenant's client and tenant ids, and the OIDC exchange fails.
 
-If it stops with a permission error naming an application you do not own, that
-application was created by something that did not add an owner. Ask a tenant
-administrator to delete it, then re-run.
+### If a same-named application already exists
+
+The application is chosen by **ownership**, not by name — Entra display names are
+not unique, and ownership is what decides whether you can manage it at all. So
+bootstrap prefers one you own, tries to take ownership of one you do not, and
+only creates a separate one if that is refused. An administrator adopts and never
+duplicates.
+
+If it reports creating a separate one, the existing application is residue from
+something that did not record an owner (the retired Terraform bootstrap did this)
+and only a tenant administrator can delete it. Nothing is blocked in the meantime:
+CI is pointed at a client id, not a name.
 
 ## Stage 1 and 2 — run locally
 
