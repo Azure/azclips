@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786336917872,
+  "lastUpdate": 1786425788661,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -1800,6 +1800,42 @@ window.BENCHMARK_DATA = {
             "value": 270832971.05,
             "unit": "ns",
             "range": "± 3981050.587720819"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "031ec291d73dc41c9686f9596a801af57157d493",
+          "message": "{Extensions} Honor assemblyLoading.installedExtensionsRoot in registry + install paths (#678)\n\n## Summary\n\nEvery consumer of the extension registry (the 6 `az extension *`\ncommands, tab-completion, runtime help, dispatch, the loader provider)\nnow goes through DI for `IExtensionRegistryStore`. The DI factory\nresolves the path from `assemblyLoading.installedExtensionsRoot` in\nexactly one place. `ExtensionInstaller` derives its install root the\nsame way. Paths no longer appear in any consumer code — they're a\nplumbing detail.\n\nCloses Azure/CLIPS#629.\n\n## The bug\n\n`assemblyLoading.installedExtensionsRoot` was only half-honored: the\nloader read the config, but every registry consumer\n(`FileExtensionRegistryStore`'s parameterless ctor, all six `az\nextension *` commands, `CompletionGenerator`, `RuntimeHelpDispatcher`,\n`ExtensionDispatcher`, `CLIAssemblyLoadingProvider`,\n`ExtensionInstaller.InstallPath`) reached for the hardcoded\n`~/.azclips/extensions/` default.\n\nRepro (broken before, fixed after):\n\n1. `az config set assemblyLoading.installedExtensionsRoot\n/custom/installed`\n2. `az extension add --path <pkg>.nupkg` — DLLs land under\n`/custom/installed/` (loader honored it)\n3. `az extension list` — **empty** (reads\n`~/.azclips/extensions/registry.json`)\n4. `az extension remove <pkg>` — **not found**\n5. `az <TAB>` completion — misses the extension's verbs\n\n## Design\n\nThe right shape wasn't \"sprinkle a path resolver everywhere.\" Every `new\nFileExtensionRegistryStore()` in `src/` was the actual bug — 9 sites\nbypassing DI. The fix is disciplined encapsulation:\n\n- **Delete** the parameterless `FileExtensionRegistryStore()` ctor + its\n`HomePaths.GetDefaultRegistryPath()` helper. Ctor now requires an\nexplicit path.\n- **Single seat of truth**: DI factory in\n`CliExtensionServiceRegistration` resolves\n`IConfigurationService.GetConfiguration<AssemblyLoadingOptions>().InstalledExtensionsRoot`\nand joins `HomePaths.RegistryFileName`. This is the **only** place path\nresolution happens for the registry.\n- **Consumers get `IExtensionRegistryStore` via DI**; no consumer ever\nmentions a path.\n- **`ExtensionInstaller`**: `installPath` parameter removed. Ctor\nresolves the root internally from the same config key.\n- **`HomePaths.GetDefault*` stays** — it remains the fallback the\noptions bind to when the config key is unset, so default behavior is\nunchanged.\n\n## Changes\n\n### Product code (`src/`)\n- `Core.Extensions/FileExtensionRegistryStore.cs` — required-path ctor;\ndeleted `DefaultPath()` + `HomePaths` import\n- `Core.Extensions/EmptyExtensionRegistryStore.cs` — **new**, tiny\nread-only null-object impl used by the dispatcher's test-only ctor\n- `CLI/CliExtensionServiceRegistration.cs` — DI factory resolves the\npath from config\n- `CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs` — `registryStore`\nctor param is now required\n- `CLI/Parser/ExtensionDispatcher.cs` — deleted the private\n`FileExtensionRegistryStore`-based ctor; parameterless ctor uses\n`EmptyExtensionRegistryStore`\n- `CLI/Help/RuntimeHelpDispatcher.cs` — `IExtensionRegistryStore`\nthreaded through both ctors\n- `CLI/Program.cs` — `DispatchHelp` resolves the store from DI and\npasses it\n- `CLI/Completions/CompletionGenerator.cs` — 3 sites resolve via\n`AzclipsServiceProvider`\n- `Extensions/Extension/Add.cs, List.cs, Pin.cs, Remove.cs, Show.cs,\nUpdate.cs` — 6 processors resolve via `AzclipsServiceProvider`\n- `Extensions/Extension/ExtensionInstaller.cs` — `installPath` param\nremoved; resolves internally from config\n\n### Tests\n- `Core.Extensions.Tests/FileExtensionRegistryStoreTests.cs` — removed\n`DefaultPath_ShouldPointToUserProfile` (the concept no longer exists)\n\n## Testing\n\n- Full solution build: green, 0 warnings, 0 errors\n- `Core.Extensions.Tests`: **84/84**\n- `Cli.Tests`: **586/586** (excluding the pre-existing\n`ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail` env flake unrelated\nto this change)\n\nIntegration test for the `az extension add → list → remove`\nconfig-override round-trip is a good follow-up but isn't gated on this\nPR — the DI factory is the one place a regression could re-introduce the\nbug, and it's covered by construction.\n\n## Non-goals\n\n- Not renaming the config key (already done in azclips#668).\n- Not removing `HomePaths.GetDefaultExtensionsRoot()` /\n`GetDefaultRegistryPath()` — they remain the default the options bind\nto.\n- Not touching Bundled-tier discovery (azclips#669 covered the\ntab-completion side; a broader Bundled audit belongs under a follow-up\nif #624 turns up more).\n\n## References\n\n- Investigation umbrella: Azure/CLIPS#624\n- Bundled companion fix: azclips#669 (merged)\n- Config-key rename that surfaced this: Azure/CLIPS#533 / azclips#668\n- Immediately-preceding removal of `bundledExtensionsRoot`:\nAzure/CLIPS#630 / azclips#676\n- Sub-issue of Extension framework epic: Azure/CLIPS#209",
+          "timestamp": "2026-08-11T15:06:43+10:00",
+          "tree_id": "c83a74cfd08fbdded87eb3d5714107acbe5a7c43",
+          "url": "https://github.com/Azure/azclips/commit/031ec291d73dc41c9686f9596a801af57157d493"
+        },
+        "date": 1786425788545,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Config",
+            "value": 310870771.97,
+            "unit": "ns",
+            "range": "± 7905296.260824118"
+          },
+          {
+            "name": "Benchmark.Startup.PsWarmStartupBenchmarks.Login",
+            "value": 296783439.15,
+            "unit": "ns",
+            "range": "± 4376573.403122205"
           }
         ]
       }
