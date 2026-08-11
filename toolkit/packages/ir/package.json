@@ -16,12 +16,17 @@
   "devDependencies": {
     "@types/node": "~20.14.0",
     "rimraf": "^5.0.5",
-    "vitest": "3.2.4"
+    "vitest": "3.2.4",
+    "zod-to-json-schema": "^3.25.2"
   },
   "scripts": {
     "build": "tsc -b",
     "clean": "rimraf dist",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "preschema": "npm run build",
+    "schema": "node scripts/emit-json-schema.mjs",
+    "preschema:check": "npm run build",
+    "schema:check": "node scripts/emit-json-schema.mjs --check"
   },
   "keywords": [],
   "author": "",
