@@ -212,6 +212,26 @@ public class PerformanceTimelineTests
             $"Expected non-negative duration but got {leaked.Duration}");
     }
 
+    [Fact]
+    public void Replay_EmitsTelemetryHandoffPhaseWithRecordedDuration()
+    {
+        using var telemetry = new RecordingTelemetryService();
+        var timeline = new PerformanceTimeline();
+
+        using (timeline.Measure("CLI.Performance.Telemetry"))
+        {
+            using var root = telemetry.StartRootActivity(timeline.StartedAt);
+            Thread.Sleep(20);
+            timeline.Replay(telemetry);
+        }
+
+        var handoff = Assert.Single(
+            telemetry.Stopped,
+            a => a.OperationName == "CLI.Performance.Telemetry");
+
+        Assert.InRange(handoff.Duration.TotalMilliseconds, 15d, 5000d);
+    }
+
     /// <summary>ITelemetryService backed by a real ActivitySource plus a listener, so
     /// spans are actually created and their stop events can be inspected.</summary>
     private sealed class RecordingTelemetryService : ITelemetryService
