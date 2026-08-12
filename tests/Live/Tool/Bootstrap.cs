@@ -58,8 +58,28 @@ internal static class Bootstrap
 
         string appObjectId = string.Empty, clientId = string.Empty, spObjectId = string.Empty;
 
-        timing.Timed("app registration", () => (appObjectId, clientId) = EnsureApp(az, appName));
-        timing.Timed("service principal", () => spObjectId = EnsureServicePrincipal(az, clientId));
+        var reusedExisting = false;
+        timing.Timed("app registration", () => (appObjectId, clientId, reusedExisting) = EnsureApp(az, appName));
+
+        timing.Timed("service principal", () =>
+        {
+            try
+            {
+                spObjectId = EnsureServicePrincipal(az, clientId);
+            }
+            catch (LiveToolException) when (reusedExisting)
+            {
+                // Reusing an application is a judgement call based on an ownership read,
+                // and that read is not always right — Graph will occasionally report an
+                // application as owned that we cannot in fact manage. The service
+                // principal is where that shows up, so treat it as the ownership check
+                // having been wrong rather than as fatal: a fresh application is
+                // guaranteed manageable, because creating it is what confers ownership.
+                Console.WriteLine("    The existing application cannot be used after all. Creating a new one.");
+                (appObjectId, clientId, _) = EnsureApp(az, appName, forceCreate: true);
+                spObjectId = EnsureServicePrincipal(az, clientId);
+            }
+        });
         timing.Timed("federated credential", () => EnsureFederatedCredential(az, appObjectId, subject));
         timing.Timed("role assignment", () => EnsureRoleAssignment(az, ctx, spObjectId));
         timing.Timed("publish GitHub variables", () => PublishVariables(ctx, alias, clientId, repo));
@@ -88,7 +108,10 @@ internal static class Bootstrap
     /// downstream.
     /// </para>
     /// </summary>
-    private static (string AppObjectId, string ClientId) EnsureApp(AzCli az, string appName)
+    private static (string AppObjectId, string ClientId, bool ReusedExisting) EnsureApp(
+        AzCli az,
+        string appName,
+        bool forceCreate = false)
     {
         var candidates = az.Tsv("ad", "app", "list", "--display-name", appName, "--query", "[].[id,appId]")
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -101,9 +124,11 @@ internal static class Bootstrap
         // nothing to compare owners against; fall back to name matching alone.
         var me = az.Tsv("ad", "signed-in-user", "show", "--query", "id");
 
-        var manageable = string.IsNullOrWhiteSpace(me)
-            ? candidates
-            : candidates.Where(c => IsOwnedBy(az, c.AppObjectId, me)).ToList();
+        var manageable = forceCreate
+            ? []
+            : string.IsNullOrWhiteSpace(me)
+                ? candidates
+                : candidates.Where(c => IsOwnedBy(az, c.AppObjectId, me)).ToList();
 
         if (manageable.Count > 1)
         {
@@ -115,22 +140,22 @@ internal static class Bootstrap
         if (manageable.Count == 1)
         {
             Console.WriteLine($"==> Application exists ({manageable[0].ClientId})");
-            return manageable[0];
+            return (manageable[0].AppObjectId, manageable[0].ClientId, true);
         }
 
         // Same-named applications exist but none is ours. An ownerless one is usually the
         // residue of a tool that did not record an owner; claiming it is better than
         // duplicating it, and an administrator running this will succeed here too.
-        foreach (var candidate in candidates)
+        foreach (var candidate in forceCreate ? [] : candidates)
         {
             if (TryAdopt(az, candidate.AppObjectId, me))
             {
                 Console.WriteLine($"==> Adopted the existing application ({candidate.ClientId})");
-                return candidate;
+                return (candidate.AppObjectId, candidate.ClientId, true);
             }
         }
 
-        if (candidates.Count > 0)
+        if (candidates.Count > 0 && !forceCreate)
         {
             Console.WriteLine($"==> {candidates.Count} application(s) named '{appName}' exist, but none can be");
             Console.WriteLine("    managed by you and none would let you take ownership. Creating a");
@@ -179,7 +204,7 @@ internal static class Bootstrap
         }
 
         Console.WriteLine($"    created {clientId}");
-        return (appObjectId, clientId);
+        return (appObjectId, clientId, false);
     }
 
     private static bool IsOwnedBy(AzCli az, string appObjectId, string userObjectId) =>
