@@ -72,8 +72,8 @@ put a child before its parent, which renders incorrectly in Jaeger and Applicati
 
 ```
 PowerShell.Activity.Root          importKind = cold | warm
-└── PowerShell.Performance
-    └── PowerShell.Performance.Container
+└── PowerShell.Startup
+    └── PowerShell.Startup.Container
 ```
 
 `ModuleInitializer.OnImport` records the phases with `PerformanceTimeline` and hands the
@@ -85,8 +85,8 @@ pre-warms the stack, so the first cmdlet no longer pays for it.
 
 `importKind` distinguishes the first import in a process (`cold`) from later ones (`warm`);
 PowerShell does not unload the module assembly on `Remove-Module`, so a static counter
-survives a remove/re-import cycle. `PowerShell.Performance.Container` measures the same
-work as `CLI.Performance.Container`, so DI container build cost is comparable across
+survives a remove/re-import cycle. `PowerShell.Startup.Container` measures the same
+work as `CLI.Startup.Container`, so DI container build cost is comparable across
 clients.
 
 Two limits are worth knowing. `OnImport` runs near the end of PowerShell's module load
