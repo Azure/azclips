@@ -22,9 +22,9 @@ Telemetry is built on OpenTelemetry for .NET and is **on by default**; opt out w
 
 ```mermaid
 flowchart TB
-    Root["StartRootActivity(startTime)<br>CLI.Activity.Root (Server)<br>backdated to Main entry"] --> Perf["CLI.Performance<br>replayed startup phases"]
-    Perf --> Container["CLI.Performance.Container<br>registration + BuildServiceProvider"]
-    Perf --> Services["CLI.Performance.Services<br>first-touch logger / config / telemetry"]
+    Root["StartRootActivity(startTime)<br>CLI.Activity.Root (Server)<br>backdated to Main entry"] --> Perf["AzureCLI.Startup<br>replayed startup phases"]
+    Perf --> Container["AzureCLI.Startup.Container<br>registration + BuildServiceProvider"]
+    Perf --> Services["AzureCLI.Startup.Services<br>first-touch logger / config / telemetry"]
     Root --> Tag["TagInvocation(invocation)<br>command / module / parameter tags"]
     Tag --> Cmd["StartActivity(AzureCLI.ProcessCommand)"]
     Cmd --> Engine["Engine + service activities<br>(MsalAuthService.*, ActionStart.* ...)"]
