@@ -64,6 +64,37 @@ return before the root activity starts and emit nothing.
 
 The root span is enriched with per-process invariants — a machine-derived `Id`, Microsoft-internal flag, product name/version, schema/telemetry version, and `ClientType` — resolved once by `TelemetryPropertyResolver` (`src/Core/Core.Telemetry/TelemetryService.cs:28-40`; `src/Core/Core.Telemetry/TelemetryPropertyResolver.cs:14-33`).
 
+### PowerShell module import
+
+The PowerShell client is long-lived: one process serves many cmdlets, each opening its own
+root activity. Module import happens once, before any of them, so it is emitted as its own
+trace rather than nested under a cmdlet — attaching backdated phases to a cmdlet root would
+put a child before its parent, which renders incorrectly in Jaeger and Application Insights.
+
+```
+PowerShell.Activity.Root          importKind = cold | warm
+└── PowerShell.Performance
+    └── PowerShell.Performance.Container
+```
+
+`ModuleInitializer.OnImport` records the phases with `PerformanceTimeline` and hands the
+emit to a background thread (`ImportTelemetry.EmitInBackground`). It cannot emit inline:
+resolving `ITelemetryService` builds the whole OpenTelemetry pipeline, which costs about
+84 ms against a 21.6 ms import, so inline instrumentation would roughly quadruple import
+time and report a figure inflated by its own cost. Running it in the background also
+pre-warms the stack, so the first cmdlet no longer pays for it.
+
+`importKind` distinguishes the first import in a process (`cold`) from later ones (`warm`);
+PowerShell does not unload the module assembly on `Remove-Module`, so a static counter
+survives a remove/re-import cycle. `PowerShell.Performance.Container` measures the same
+work as `CLI.Performance.Container`, so DI container build cost is comparable across
+clients.
+
+Two limits are worth knowing. `OnImport` runs near the end of PowerShell's module load
+sequence, so assembly loading, manifest processing, and cmdlet export processing are not
+captured. And because the emit is deferred, a process that exits immediately after import
+emits nothing — such a session runs no cmdlets, so it produces no telemetry either way.
+
 ### Per-client providers
 
 `ITelemetryProvider` owns the `ActivitySource` and the configured `TracerProvider`. Each client subclasses `DefaultTelemetryProvider` and builds its own pipeline (`src/Core/Core.Telemetry/DefaultTelemetryProvider.cs:13-22`):
