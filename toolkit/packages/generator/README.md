@@ -24,23 +24,26 @@ packages/generator/
       GeneratedFile.cs                  A produced artifact (relative path + contents)
       OutputPaths.cs                    Relative-path normalization + validation
       Naming.cs / CSharpStub.cs         Identifier + Roslyn stub helpers
-      Generators/                       The artifact generators (pull-based stubs for now)
+      IrTypeMapper.cs                   IRTypeRef -> C# type expression
+      ModelEmitter.cs                   Renders one IRModel as a C# class
+      Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
-        ModelGenerator.cs                 IR models  -> model classes
-        ProcessorGenerator.cs             IR operations -> processor classes (IProcessor)
-        ProcessorBaseGenerator.cs         Template-like processor base (runtime wiring)
-        ProjectStubGenerator.cs           .csproj / project metadata / resources
+        ModelGenerator.cs                 IR models  -> model classes (real emission)
+        ProcessorGenerator.cs             IR operations -> processor classes (IProcessor) [stub]
+        ProcessorBaseGenerator.cs         Template-like processor base (runtime wiring) [stub]
+        ProjectStubGenerator.cs           .csproj / project metadata / resources [stub]
     Model/                            Run-facing types + generated IR POCOs
       GenerationContext.cs              Read-only run state (IR, options, diagnostics)
-      GenerationResult.cs               Run outcome: diagnostics, file count, success
+      GenerationResult.cs               Run outcome: diagnostics, generated-class map, success
       GeneratorOptions.cs               Host-resolved options
       GeneratorDiagnostic.cs            Structured diagnostic
       Ir/
         Ir.Generated.cs                   IR POCOs, generated from ir.schema.json
         IrJson.cs                         Canonical System.Text.Json options for IR (de)serialization
-  test/Ace.Generator.Tests/           xUnit tests (incl. polymorphic round-trip)
+  test/Ace.Generator.Tests/           xUnit tests (incl. polymorphic round-trip, ElasticSan models)
     ArtifactWriter.cs                   Test handler: writes each run's output under artifacts/<test>/
     GeneratedFileCollector.cs           In-memory handler (buffers for assertions)
+    TestData/elasticsan.ir.json         Real ElasticSan IR used as a generation test case
     artifacts/                          Generated output from test runs (gitignored; for eyeballing)
   tools/AceIrModelGen/                Codegen tool (JSON Schema -> C# POCOs, via Roslyn)
     Program.cs                          Entry point (arg parsing, file I/O)
@@ -171,8 +174,17 @@ agnostic to the single async driver and output streams one file at a time:
 | base | `ProcessorBaseGenerator` | template-like processor base that wires runtime dependencies |
 | stub | `ProjectStubGenerator` | `.csproj`, assembly metadata, resources |
 
-The stages are **scaffolds** today: model/processor/base emit empty
-`partial class`es showing the intended file/namespace/type shape, and the stub
-emits a minimal `.csproj`. Each carries a `TODO` describing the real emission
-that replaces it. This split lets the model, operation, runtime-wiring, and
-project concerns evolve independently.
+The stages are at different maturity levels. **`ModelGenerator` emits real model
+classes** from the IR — one class per model with every property mapped literally
+(logical `name` → C# member, `wireName` → `[JsonPropertyName]`, `optional`/
+`nullable` → nullable type, `docs`/`summary` → XML doc). It's deliberately
+faithful ("garbage in, garbage out"): no inheritance dedup, flattening,
+polymorphism, or enum emission yet (see its `TODO`). **`ProcessorGenerator`,
+`ProcessorBaseGenerator`, and `ProjectStubGenerator` are still scaffolds** — empty
+`partial class`es and a minimal `.csproj` — each with a `TODO` for the real
+emission. This split lets the model, operation, runtime-wiring, and project
+concerns evolve independently.
+
+The `ElasticSanModelTests` emit the real ElasticSan IR
+(`TestData/elasticsan.ir.json`, 59 models) and verify the model output parses;
+run `dotnet test` and open `artifacts/ElasticSan_Models/Models/` to see it.

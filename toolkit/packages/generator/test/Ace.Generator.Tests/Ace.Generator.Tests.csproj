@@ -23,4 +23,8 @@
     <ProjectReference Include="..\..\Ace.Generator.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="TestData\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
