@@ -99,34 +99,26 @@ public class ExtensionDispatcherTests
 
     private static ExtensionDispatcher CreateLeafDispatcher(params (string Verb, string Path, string PackageId, bool IsBuiltIn, string Version)[] leaves)
     {
+        // Post-CLIPS-622: every leaf routes through the registry; IsBuiltIn is retained for
+        // caller readability only.
         var registry = new ExtensionRegistry();
-        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var leaf in leaves)
         {
-            if (leaf.IsBuiltIn)
+            if (!registry.Extensions.TryGetValue(leaf.PackageId, out var entry))
             {
-                builtIns[leaf.Verb] = new BuiltInExtension(leaf.Verb, leaf.PackageId);
-            }
-            else
-            {
-                if (!registry.Extensions.TryGetValue(leaf.PackageId, out var entry))
+                entry = new ExtensionRegistryEntry
                 {
-                    entry = new ExtensionRegistryEntry
-                    {
-                        Version = leaf.Version,
-                        InstalledAt = DateTimeOffset.UtcNow,
-                    };
-                    registry.Extensions[leaf.PackageId] = entry;
-                }
-                entry.Contributions.Add(new Contribution { Verb = leaf.Verb, Path = leaf.Path });
+                    Version = leaf.Version,
+                    InstalledAt = DateTimeOffset.UtcNow,
+                };
+                registry.Extensions[leaf.PackageId] = entry;
             }
+            entry.Contributions.Add(new Contribution { Verb = leaf.Verb, Path = leaf.Path });
         }
 
         var index = LeafIndex.Build(registry);
-        // Resolver is not consulted on exact leaf hits; supply a permissive built-in-only resolver
-        // so the verb-only fallback path still works in tests that exercise it.
-        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
         return new ExtensionDispatcher(resolver, () => index);
     }
 
@@ -200,14 +192,20 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldFallBackToVerbOnly_WhenNoLeafMatches_ButVerbIsKnown()
     {
-        // Verb is registered via the resolver (built-in seed) but no leaf with that (verb, "")
-        // path exists in the leaf index — exercises the verb-only fallback.
-        var registry = new ExtensionRegistry();
-        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+        // Verb is known via the resolver's registry lookup but no leaf with that (verb, "") path
+        // exists in the leaf index — exercises the verb-only fallback in the dispatcher.
+        var registry = new ExtensionRegistry
         {
-            ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
+            Extensions =
+            {
+                ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                {
+                    Version = "0.0.0",
+                    Verb = "login",
+                },
+            },
         };
-        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
         // Empty leaf index — forces fallback.
         var emptyIndex = LeafIndex.Build(new ExtensionRegistry());
         var dispatcher = new ExtensionDispatcher(resolver, () => emptyIndex);
