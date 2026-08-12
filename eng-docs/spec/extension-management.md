@@ -518,4 +518,3 @@ Fresh-eyes review pass against `origin/main`. Findings ordered by severity. Each
 - `Remove.cs` doesn't re-validate the registry between match and save; idempotency under racing removes is not documented.
 - `Add.cs` doesn't re-read the registry after the compat check, so a vanishingly rare race could install two extensions both "valid" against snapshots taken seconds apart.
 - The MSBuild task silently skips unreadable `.csproj` files. Should log a warning so misconfigured projects don't quietly drop from the hint catalog.
-- Built-in seed (§4.6) lives in code as a `Dictionary` literal. If the trio ever changes, the only signal is a `BuiltInExtensions.Map.Count == 3` test. A `[Flags]`-style enum or an `internal const` array would make the surface explicit.

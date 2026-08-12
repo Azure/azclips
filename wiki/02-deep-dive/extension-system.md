@@ -104,28 +104,25 @@ that compose multiple processors (see `src/Extensions/Resources/` and `src/Exten
 
 ## 2. Discovery & loading
 
-### Routing model: verbs, leaves, and the two sources
+### Routing model: verbs, leaves, and the discovery-driven registry
 
 Routing is `{(verb, path) → packageId}` with O(1) lookup; a top-level verb is a _shared namespace_
 and each full `(verb, path)` leaf is owned by exactly one extension
-(`eng-docs/spec/extension-management.md`). Command groups resolve from two merged sources:
-
-1. **Built-in map** — `BuiltInExtensions.Map`, a static seed of host-shipped extensions
-   (`src/Core/Core.Extensions/BuiltInExtensions.cs:44`). The "true core" is `extension`, `login`,
-   `logout`, `profile`, and `config` (`src/Core/Core.Extensions/BuiltInExtensions.cs:48`). Each
-   entry can declare `Leaves` (e.g. `add`, `list`, `remove` for `extension`) so the dispatcher can
-   peel positional sub-commands correctly (`src/Core/Core.Extensions/BuiltInExtensions.cs:50`).
-   Built-ins are never persisted to the registry and a built-in **always wins** over a registry
-   entry for the same verb (`src/Core/Core.Extensions/BuiltInExtensions.cs:34`).
-2. **User-installed registry** — the on-disk `registry.json` under
-   `~/.azclips/extensions/` (`src/Core/Core.Abstractions/HomePaths.cs:14`), loaded through
-   `FileExtensionRegistryStore` and merged with the built-in seed.
+(`eng-docs/spec/extension-management.md`). The runtime keeps no static verb seed — every leaf
+comes from discovery. `CliExtensionServiceRegistration.BuildLeafIndexWithDiscovery` opens an engine
+discovery session that enumerates both loaders (`BundledExtensionLoader` and
+`InstalledExtensionLoader`, `src/CLI/Program.cs:58-59`), reads each extension's
+`IExtensionIndex.GetCommandTable(CLI)`, and projects the results into an `ExtensionRegistry`. The
+on-disk `registry.json` under `~/.azclips/extensions/` (`src/Core/Core.Abstractions/HomePaths.cs:14`)
+layers preferences (pin state, source, installedAt) on top; leaves themselves come from discovery.
+When the same package id appears in both tiers, `ExtensionCandidateSelector` picks the winner (pin
+first, then highest version, then a deterministic tiebreak).
 
 ### Dispatch: `ExtensionDispatcher.Parse`
 
 `ExtensionDispatcher.Parse` turns raw `args` into a `CommandInvocation`
-(`src/CLI/Parser/ExtensionDispatcher.cs:44`). Its default constructor builds a `LeafIndex` from the
-built-in map **and** the on-disk store (`src/CLI/Parser/ExtensionDispatcher.cs:28`). Resolution
+(`src/CLI/Parser/ExtensionDispatcher.cs:44`). Its DI-injected constructor builds a `LeafIndex` from
+the discovery-driven registry (`src/CLI/CliExtensionServiceRegistration.cs`). Resolution
 proceeds in stages:
 
 1. **Help / version handled upstream** — `GlobalArgParser.Parse` classifies bare `az`, `az --help`,
@@ -199,7 +196,7 @@ sequenceDiagram
     participant I as IExtensionIndex
 
     U->>D: az vm create ...
-    D->>D: LeafIndex longest-prefix match<br>(BuiltInExtensions.Map + registry.json)
+    D->>D: LeafIndex longest-prefix match<br>(discovery-driven, both tiers)
     D-->>E: CommandInvocation(extension=Compute, cmd="vm create")
     E->>E: LFUCache.GetOrAdd("Compute")
     alt cache miss
@@ -303,8 +300,8 @@ graph LR
 - **Shared contracts come from the host, not the extension.** ALCs refuse to load `Core.*`, so
   extension and host agree on `IProcessor`/`ProcessorContext` identity
   (`src/CLI/AssemblyLoading/ExtensionLoader.cs:42`).
-- **Built-ins outrank the registry.** A verb in `BuiltInExtensions.Map` can never be overridden by an
-  installed package (`src/Core/Core.Extensions/BuiltInExtensions.cs:34`).
+- **Dispatch is uniform.** Every verb — `login`, `vm`, `group` — takes the same discovery-driven
+  code path. There is no compile-time "Core tier" that outranks discovered state.
 - **Leaf ownership is exclusive.** Many extensions may share a verb namespace, but each `(verb, path)`
   leaf is owned by one package (`eng-docs/spec/extension-management.md`).
 - **Everything expensive is cached once.** Extension indices via `LFUCache`
@@ -317,7 +314,7 @@ graph LR
 - `src/Core/Core.Abstractions/CLIContracts.cs:11` — the `IProcessor` contract + `[ArgumentInfo]`
 - `src/Extensions/Extension/ExtensionIndex.cs:121` — a concrete CLI command table
 - `src/CLI/Parser/ExtensionDispatcher.cs:44` — arg → `CommandInvocation` dispatch
-- `src/Core/Core.Extensions/BuiltInExtensions.cs:44` — built-in verb → package map
+- `src/CLI/CliExtensionServiceRegistration.cs` — discovery-driven leaf index build
 - `src/CLI/Program.cs:58` — loader registration order (`BundledExtensionLoader`, `InstalledExtensionLoader`)
 - `src/CLI/AssemblyLoading/ExtensionLoader.cs:358` — installed extensions loader + isolated ALCs
 - `src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs:11` — chain-of-loaders resolution
