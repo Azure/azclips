@@ -9,13 +9,6 @@ namespace Core.Cli.Telemetry;
 
 /// <summary>
 /// Times startup phases that run before the telemetry stack exists.
-///
-/// The <see cref="ActivitySource"/> and the listener that exports it are both created
-/// while DI resolves <c>ITelemetryProvider</c>, so <c>StartActivity</c> returns
-/// <see langword="null"/> until then — startup cannot be traced live. This type notes
-/// <see cref="DateTime.UtcNow"/>, the same clock <c>Activity.Start()</c> uses, and
-/// <see cref="Replay"/> materialises the recorded phases as spans once telemetry is
-/// available. Same clock, read early and used late.
 /// </summary>
 internal sealed class PerformanceTimeline
 {
