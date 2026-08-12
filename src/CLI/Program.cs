@@ -39,7 +39,7 @@ public class Program
     {
         // Starts the clock for startup measurement. Nothing is emitted until telemetry
         // exists; see PerformanceTimeline.
-        var performance = new PerformanceTimeline("CLI.Performance");
+        var performance = new PerformanceTimeline("AzureCLI.Startup");
         bool isBareInvocation = args.Length == 0;
 
         // Pre-DI utility modes. Both return before the container is built, so neither
@@ -58,7 +58,7 @@ public class Program
             return printProbeExit.Value;
         }
 
-        using (performance.Measure("CLI.Performance.Container"))
+        using (performance.Measure("AzureCLI.Startup.Container"))
         {
             AzclipsServiceProvider.PrependRegistration(services =>
             {
@@ -87,7 +87,7 @@ public class Program
         if (candidatesExit.HasValue)
             return candidatesExit.Value;
 
-        using (performance.Measure("CLI.Performance.Services"))
+        using (performance.Measure("AzureCLI.Startup.Services"))
         {
             _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             _configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
@@ -107,7 +107,7 @@ public class Program
             // Disposed explicitly in the finally below — it must stop before the container
             // is disposed, since that takes the TracerProvider (and the exporter) with it.
 
-            using (performance.Measure("CLI.Performance.Telemetry"))
+            using (performance.Measure("AzureCLI.Startup.Telemetry"))
             {
                 activity = _telemetryService.StartRootActivity(performance.StartedAt);
                 performance.Replay(_telemetryService);

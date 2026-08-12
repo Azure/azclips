@@ -19,8 +19,8 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
 /// </summary>
 internal static class ImportTelemetry
 {
-    internal const string PerformanceSpanName = "PowerShell.Performance";
-    internal const string ContainerSpanName = "PowerShell.Performance.Container";
+    internal const string PerformanceSpanName = "PowerShell.Startup";
+    internal const string ContainerSpanName = "PowerShell.Startup.Container";
 
     internal const string Cold = "cold";
     internal const string Warm = "warm";

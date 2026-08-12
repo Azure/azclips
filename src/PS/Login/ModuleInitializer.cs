@@ -15,8 +15,6 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 {
     public void OnImport()
     {
-        // Starts the clock. Nothing is emitted here — see ImportTelemetry for why the
-        // emit cannot happen on this thread.
         var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
         var importKind = ImportTelemetry.NextImportKind();
 

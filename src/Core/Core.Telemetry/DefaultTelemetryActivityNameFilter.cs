@@ -18,16 +18,17 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "PowerShell.Activity.Root",
         "TUI.Activity.Root",
 
-        // CLI entrypoint span — wraps every CLI command invocation.
+        // Startup phases, replayed by the CLI's PerformanceTimeline once telemetry
+        // is available. Encloses the AzureCLI.Startup.* phase spans below.
+        "AzureCLI.Startup",
+        "AzureCLI.ParseGlobalArgs",
+        "AzureCLI.HandleGlobalArgs",
+        "AzureCLI.ParseCommandInvocation",
         "AzureCLI.ProcessCommand",
 
-        // Startup phases, replayed by the CLI's PerformanceTimeline once telemetry
-        // is available. Encloses the CLI.Performance.* phase spans below.
-        "CLI.Performance",
-
         // PowerShell module import phases, replayed by ImportTelemetry on a background
-        // thread once the telemetry stack is built. Encloses PowerShell.Performance.*.
-        "PowerShell.Performance",
+        // thread once the telemetry stack is built. Encloses PowerShell.Startup.*.
+        "PowerShell.Startup",
 
         // Engine event-driven activities. Engine.Subscriptions wraps these
         // Events.* ids directly (i.e. evt.Id without any class/method suffix).
@@ -73,11 +74,11 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // for the ActionStart event, so we need the prefix not the exact match.
         "ActionStart.",
 
-        // Individual startup phases: CLI.Performance.Container, CLI.Performance.Services.
-        "CLI.Performance.",
+        // Individual startup phases: AzureCLI.Startup.Container, AzureCLI.Startup.Services.
+        "AzureCLI.Startup.",
 
-        // Individual import phases: PowerShell.Performance.Container.
-        "PowerShell.Performance.",
+        // Individual import phases: PowerShell.Startup.Container.
+        "PowerShell.Startup.",
     };
 
     /// <summary>Immutable snapshot of the verbatim allowed names.</summary>
