@@ -139,8 +139,7 @@ internal static class CompletionGenerator
     /// </summary>
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
-        // Discover across every extension on disk; filter output by verb prefix. No leafIndex
-        // — verb ownership isn't known until discovery yields each extension's Commands map.
+        // Verb ownership requires discovery; filter output post-hoc.
         var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, EnumerateOnDiskExtensionNames());
         var filteredCommands = discoveredCommands
             .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
@@ -200,9 +199,7 @@ internal static class CompletionGenerator
             return 0;
         }
 
-        // Level 1+: full discovery, then walk the command tree by prefix. Commands are keyed by
-        // their full invocation name (e.g. "deployment group create"), so a typed token may be an
-        // intermediate group (offer the next token) or a full command (offer its parameters).
+        // Commands are keyed by full invocation name; ComputeCandidates walks the tree by prefix.
         var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, extensionNames);
         var candidates = ComputeCandidates(discoveredCommands, pathContext);
 

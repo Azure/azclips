@@ -56,10 +56,10 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 
 Azclips distinguishes two tiers of extension by _how they get onto the machine_, not by their package format:
 
-| Tier          | How it gets there                                                                                                                            | Where it lives at runtime                                                          | Removable?                    |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------- |
-| **Bundled**   | Shipped alongside `az.exe` at packaging time (`<install>/Extensions/<PackageId>/`) or dropped there by a local build (`artifacts/<Config>/`) | Loaded by `BundledExtensionLoader`                                                 | No — shipped with the install |
-| **Installed** | Placed by `az extension add`                                                                                                                 | `~/.azclips/extensions/<PackageId>/<Version>/`; multi-version aware                | Yes — `az extension remove`   |
+| Tier          | How it gets there                                                                                                                            | Where it lives at runtime                                           | Removable?                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------- |
+| **Bundled**   | Shipped alongside `az.exe` at packaging time (`<install>/Extensions/<PackageId>/`) or dropped there by a local build (`artifacts/<Config>/`) | Loaded by `BundledExtensionLoader`                                  | No — shipped with the install |
+| **Installed** | Placed by `az extension add`                                                                                                                 | `~/.azclips/extensions/<PackageId>/<Version>/`; multi-version aware | Yes — `az extension remove`   |
 
 The two tiers are **independent**: an extension can appear in either or both. Dispatch is uniform across both — no runtime distinction between "Core" and other extensions. The set of extensions expected to ship in every install lives in the packaging profile ([`inject_builtin_extensions.sh`](../../devops/scripts/packaging/common/inject_builtin_extensions.sh) with `lean_package.config` / `full_package.config`), not the runtime.
 
