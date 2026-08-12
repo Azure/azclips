@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
+      Aliased to avoid CS0433. src/PS/Common/CmdletOutputStreamsFactory.cs is <Compile>-linked
+      into both Cmdlets.Login and Cmdlets.Config, and both grant InternalsVisibleTo to this
+      project, so its internal types would otherwise arrive here twice. Aliasing removes every
+      Cmdlets.Config type from the global namespace — a test that needs one must declare
+      `extern alias CmdletsConfig;` at the top of the file.
+    -->
     <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj">
       <Aliases>CmdletsConfig</Aliases>
     </ProjectReference>
