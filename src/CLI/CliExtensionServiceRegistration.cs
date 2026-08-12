@@ -74,7 +74,7 @@ public static class CliExtensionServiceRegistration
         // Merge discovered extensions with file registry, preserving preferences from file.
         MergePreferencesFromFileRegistry(discoveredRegistry, fileRegistry);
 
-        return LeafIndex.Build(BuiltInExtensions.Map, discoveredRegistry);
+        return LeafIndex.Build(discoveredRegistry);
     }
 
     /// <summary>

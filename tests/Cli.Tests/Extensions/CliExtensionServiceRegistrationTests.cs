@@ -188,7 +188,7 @@ public sealed class CliExtensionServiceRegistrationTests
             };
         }
 
-        var ex = Assert.Throws<InvalidOperationException>(() => LeafIndex.Build(BuiltInExtensions.Map, registry));
+        var ex = Assert.Throws<InvalidOperationException>(() => LeafIndex.Build(registry));
         Assert.Contains("vm", ex.Message, StringComparison.Ordinal);
         Assert.Contains("create", ex.Message, StringComparison.Ordinal);
         Assert.Contains("Microsoft.Azure.Azclips.Extensions.Compute", ex.Message, StringComparison.Ordinal);

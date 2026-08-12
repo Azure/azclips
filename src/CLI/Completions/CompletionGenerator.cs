@@ -140,7 +140,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
         var registryStore = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
+        var leafIndex = LeafIndex.Build(registryStore.Load());
         var discoveryExtensionNames = leafIndex.Entries.Values
             .Where(v => v.Verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
             .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
@@ -171,7 +171,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
         var registryStore = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
+        var leafIndex = LeafIndex.Build(registryStore.Load());
         var discoveryExtensionNames = leafIndex.Entries.Values
             .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -202,7 +202,7 @@ internal static class CompletionGenerator
     {
         var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
         var registryStore = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
+        var leafIndex = LeafIndex.Build(registryStore.Load());
 
         // The command path is the leading run of non-flag tokens. Flags (and their
         // values) never appear in the command tree, so anything from the first

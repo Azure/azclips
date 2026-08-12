@@ -15,12 +15,12 @@ public class ExtensionDispatcher //: IParser
     public ExtensionDispatcher()
         : this(
             new ExtensionResolver(new EmptyExtensionRegistryStore()),
-            () => LeafIndex.Build(BuiltInExtensions.Map, new ExtensionRegistry()))
+            () => LeafIndex.Build(new ExtensionRegistry()))
     {
     }
 
     public ExtensionDispatcher(IExtensionResolver resolver)
-        : this(resolver, () => LeafIndex.Build(BuiltInExtensions.Map, new ExtensionRegistry()))
+        : this(resolver, () => LeafIndex.Build(new ExtensionRegistry()))
     {
     }
 

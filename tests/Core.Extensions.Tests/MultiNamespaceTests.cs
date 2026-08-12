@@ -41,7 +41,7 @@ namespace Core.Extensions.Tests
             var registry = new ExtensionRegistry();
             registry.Extensions["Microsoft.Azure.Azclips.Extensions.Compute"] = MultiNamespaceEntry();
 
-            var index = LeafIndex.Build(EmptyBuiltIns, registry);
+            var index = LeafIndex.Build(registry);
 
             Assert.True(index.TryGet("vm", "create", out var vmCreate));
             Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", vmCreate!.PackageId);
