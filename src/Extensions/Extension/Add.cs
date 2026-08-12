@@ -157,25 +157,14 @@ public class AddExtensionProcessor : IProcessor
             // First declared verb is the v1 `verb` field; legacy readers see something sensible.
             var primaryVerb = verbs[0];
 
-            // Built-in collision check (§4.2): a built-in verb is non-overridable.
-            foreach (var v in verbs)
-            {
-                if (BuiltInExtensions.IsBuiltInVerb(v))
-                {
-                    throw AzclipsErrorException.VerbConflict(
-                        $"Extension '{packageId}' wants to register verb '{v}', but '{v}' is reserved for a built-in extension and cannot be claimed by an installed extension.",
-                        new Dictionary<string, object?> { ["packageId"] = packageId, ["verb"] = v });
-                }
-            }
-
             var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
             var registry = store.Load();
 
             // Verbs are shared across extensions; collisions resolve per-leaf at the (verb, path)
-            // tuple level below. Built-in roots remain reserved (rejected per-leaf).
+            // tuple level below via ExtensionAddPlanner's LeafConflict guard.
 
             // Read leaves (s_cliTable keys) from the installed DLLs and conflict-check every
-            // (verb, path) tuple against registry + built-in seed.
+            // (verb, path) tuple against the registry.
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
             activity?.SetTag("extension.contribution_count", leafKeys.Count);
             var contributions = new List<Contribution>(

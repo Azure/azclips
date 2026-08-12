@@ -26,23 +26,15 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private const string PackageIdPrefix = "Microsoft.Azure.Azclips.Extensions.";
 
     /// <summary>
-    /// Package ids of the Core built-in extensions, derived from <see cref="BuiltInExtensions.Map"/>.
-    /// </summary>
-    private static readonly HashSet<string> s_builtInPackageIds =
-        new(BuiltInExtensions.Map.Values.Select(builtIn => builtIn.PackageId), StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>
     /// Short extension names (the segment after <see cref="PackageIdPrefix"/>) whose verbs this
     /// benchmark's CLI invocations need available. Defaults to the single extension named by the
     /// class's <c>[BenchmarkExtension]</c> attribute; override only in the rare case a benchmark
     /// needs additional extensions.
     /// </summary>
     /// <remarks>
-    /// Each required extension is set up in one of two ways, based on <see cref="s_builtInPackageIds"/>:
-    /// <list type="bullet">
-    ///   <item><b>Installed</b> — copied to the benchmark extensions home, added to <c>registry.json</c>, and loaded by <c>InstalledExtensionLoader</c>.</item>
-    ///   <item><b>Core built-in</b> — kept in <c>artifacts/Release</c> and loaded by <c>BundledExtensionLoader</c>; built-ins are not added to the registry.</item>
-    /// </list>
+    /// Every required extension is staged into the benchmark extensions home via
+    /// <see cref="LocalExtensionStager"/> and loaded by <c>InstalledExtensionLoader</c>. Post-#622
+    /// there is no Core/built-in distinction — dispatch is uniform across all verbs.
     /// </remarks>
     private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
@@ -59,25 +51,14 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         TryDeleteDirectory(_extensionsRoot);
         Directory.CreateDirectory(_extensionsRoot);
 
-        // Fallback path for Core built-in extensions: the Release output of the build
+        // Fallback path for source build output.
         var releaseRoot = Path.Combine(RepoRoot, "artifacts", "Release");
         var stagedCount = 0;
-        var builtInCount = 0;
 
         foreach (var shortName in RequiredExtensions)
         {
             var packageId = PackageIdPrefix + shortName;
             var sourceBuildDir = Path.Combine(releaseRoot, packageId);
-
-            // Core built-ins can't be registry-staged: ExtensionAddPlanner rejects a root leaf on
-            // a built-in verb, mirroring `extension add`. Verify the payload is on disk and let
-            // BundledExtensionLoader serve it from the Release output instead.
-            if (s_builtInPackageIds.Contains(packageId))
-            {
-                EnsureBuiltInPayload(sourceBuildDir, packageId);
-                builtInCount++;
-                continue;
-            }
 
             var version = ReadPackageVersion(sourceBuildDir, packageId);
             LocalExtensionStager.Stage(packageId, version, sourceBuildDir, _extensionsRoot);
@@ -85,7 +66,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         }
 
         Console.WriteLine(
-            $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} installed, {builtInCount} built-in extension(s)");
+            $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} extension(s)");
     }
 
     [IterationSetup]
@@ -141,48 +122,6 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             services.AddSingleton<IExtensionRegistryStore>(_ =>
                 new FileExtensionRegistryStore(Path.Combine(_extensionsRoot, "registry.json")));
         });
-    }
-
-    /// <summary>
-    /// Fail fast if a Core built-in's Release output is missing, and stage a copy under
-    /// <see cref="BundledExtensionLoader.GetDefaultRoot"/> so the loader's built-in candidate
-    /// list finds it (the benchmark bin dir is nowhere near <c>artifacts/Release</c>).
-    /// </summary>
-    private static void EnsureBuiltInPayload(string sourceBuildDir, string packageId)
-    {
-        if (!Directory.Exists(sourceBuildDir))
-        {
-            throw new DirectoryNotFoundException(
-                $"Built-in extension build output not found: '{sourceBuildDir}'. Run `dotnet build azclips.slnx -c Release`.");
-        }
-
-        // Matches what BundledExtensionLoader probes for; no .nupkg is needed because dispatch
-        // resolves built-ins with a null version and the loader takes its unversioned branch.
-        var assemblyPath = Path.Combine(sourceBuildDir, packageId + ".dll");
-        if (!File.Exists(assemblyPath))
-        {
-            throw new FileNotFoundException(
-                $"Built-in extension assembly not found: '{assemblyPath}'. Run `dotnet build azclips.slnx -c Release`.");
-        }
-
-        // Copy the source dir into a location the loader's default root includes.
-        var stagedPackageDir = Path.Combine(BundledExtensionLoader.GetDefaultRoot(), packageId);
-        // Best-effort clear so a rename/removal in the source doesn't leave a ghost file behind.
-        if (Directory.Exists(stagedPackageDir))
-        {
-            try { Directory.Delete(stagedPackageDir, recursive: true); }
-            catch (IOException) { /* Non-fatal: transient OS locks. */ }
-            catch (UnauthorizedAccessException) { /* Non-fatal: read-only bits. */ }
-        }
-        Directory.CreateDirectory(stagedPackageDir);
-        // Recursive copy so runtimes/, deps folders, and any nested payload survive the staging.
-        foreach (var file in Directory.EnumerateFiles(sourceBuildDir, "*", SearchOption.AllDirectories))
-        {
-            var relativePath = Path.GetRelativePath(sourceBuildDir, file);
-            var destPath = Path.Combine(stagedPackageDir, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
-            File.Copy(file, destPath, overwrite: true);
-        }
     }
 
     // GeneratePackageOnBuild emits <packageId>.<version>.nupkg next to the dll. Parse the version

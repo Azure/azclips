@@ -33,13 +33,11 @@ public interface IExtensionLoader
 /// </summary>
 /// <remarks>
 /// <para>
-/// The <b>Bundled</b> tier is distinct from the <b>Core</b> tier (the compile-time seed in
-/// <see cref="Core.Extensions.BuiltInExtensions.Map"/>). Core and Bundled are orthogonal:
-/// packaging profiles (lean vs full, see <c>inject_builtin_extensions.sh</c>) can ship any
-/// subset of Core extensions, and Bundled-only extensions like <c>Resources</c> and
-/// <c>Compute</c> aren't seeded in <see cref="Core.Extensions.BuiltInExtensions.Map"/> at all.
-/// The <b>Installed</b> tier (<c>InstalledExtensionLoader</c>) covers extensions placed by
-/// <c>az extension add</c> under <c>~/.azclips/extensions/</c>.
+/// The runtime knows only two tiers: <b>Bundled</b> (this loader) and <b>Installed</b>
+/// (<c>InstalledExtensionLoader</c>, which covers extensions placed by <c>az extension add</c>
+/// under <c>~/.azclips/extensions/</c>). Dispatch is uniform across both — no Core-tier exception.
+/// The set of extensions expected to ship in every install lives in the packaging profile
+/// (<c>devops/scripts/packaging/config/lean_package.config</c>), not the runtime.
 /// </para>
 /// <para>
 /// <b>Version resolution</b> for a Bundled extension is driven by the on-disk <c>.nupkg</c>
