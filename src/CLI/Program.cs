@@ -270,7 +270,8 @@ public class Program
         using (var _ = _telemetryService?.StartActivity("AzureCLI.DispatchHelp"))
         {
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-            var renderer = new RuntimeHelpDispatcher(engine, streams);
+            var registryStore = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
+            var renderer = new RuntimeHelpDispatcher(engine, streams, registryStore);
             if (help.Path.Count == 0)
             {
                 // Banner only for truly bare `az`; user-typed help forms stay grep-friendly.

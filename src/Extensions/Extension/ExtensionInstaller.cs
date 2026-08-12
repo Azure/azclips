@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Configuration.Options;
+using Core.DependencyInjection;
 using NuGet.Common;
 using NuGet.Configuration;
 using NuGet.Frameworks;
@@ -24,10 +26,13 @@ public class ExtensionInstaller
 
     private readonly ILoggingService _logger;
 
-    public ExtensionInstaller(ILoggingService logger, string? installPath = null, string? feedUrl = null)
+    public ExtensionInstaller(ILoggingService logger, string? feedUrl = null)
     {
         _logger = logger;
-        InstallPath = installPath ?? HomePaths.GetDefaultExtensionsRoot();
+        // Install root is a plumbing detail resolved from the same config key the loaders honor
+        // (assemblyLoading.installedExtensionsRoot); callers never pass a path.
+        var config = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
+        InstallPath = config.GetConfiguration<AssemblyLoadingOptions>().InstalledExtensionsRoot;
 
         TargetFramework = new NuGetFramework(".NETCoreApp", Environment.Version);
         FeedUrl = feedUrl;

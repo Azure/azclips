@@ -106,7 +106,7 @@ internal sealed class ScenarioHost : IDisposable
         var registry = ResourcesRegistry();
         var dispatcher = new ExtensionDispatcher(
             new ExtensionResolver(new InMemoryRegistryStore(registry)),
-            () => LeafIndex.Build(BuiltInExtensions.Map, registry));
+            () => LeafIndex.Build(registry));
         var invocation = dispatcher.Parse(args);
         return Execute(invocation, useAsyncSession: true);
     }
