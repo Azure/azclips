@@ -39,7 +39,7 @@ public class Program
     {
         // Starts the clock for startup measurement. Nothing is emitted until telemetry
         // exists; see PerformanceTimeline.
-        var performance = new PerformanceTimeline();
+        var performance = new PerformanceTimeline("CLI.Performance");
         bool isBareInvocation = args.Length == 0;
 
         // Pre-DI utility modes. Both return before the container is built, so neither

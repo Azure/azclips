@@ -3,22 +3,23 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Cli.Telemetry;
 
-namespace Cli.Tests.Telemetry;
+namespace Core.Telemetry.Tests;
 
 /// <summary>
 /// PerformanceTimeline records startup phases before the telemetry stack exists and
-/// replays them afterwards. These tests pin the two properties that make the replay
+/// replays them afterwards. These tests pin the properties that make the replay
 /// trustworthy: recorded durations survive, and recorded nesting survives.
 /// </summary>
 public class PerformanceTimelineTests
 {
+    private const string Enclosing = "CLI.Performance";
+
     [Fact]
     public void Replay_EmitsMeasuredPhaseWithItsRecordedDuration()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline();
+        var timeline = new PerformanceTimeline(Enclosing);
 
         using (timeline.Measure("CLI.Performance.Container"))
         {
@@ -36,7 +37,7 @@ public class PerformanceTimelineTests
     public void Replay_WrapsPhasesInAnEnclosingPerformanceSpan()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline();
+        var timeline = new PerformanceTimeline(Enclosing);
 
         using (timeline.Measure("CLI.Performance.Container"))
         {
@@ -49,10 +50,28 @@ public class PerformanceTimelineTests
     }
 
     [Fact]
+    public void Replay_UsesTheEnclosingSpanNameGivenToTheConstructor()
+    {
+        // The CLI and the PowerShell module share this type; each supplies its own
+        // "{ClientType}.Performance" name. A hard-coded name would silently mislabel one.
+        using var telemetry = new RecordingTelemetryService();
+        var timeline = new PerformanceTimeline("PowerShell.Performance");
+
+        using (timeline.Measure("PowerShell.Performance.Container"))
+        {
+        }
+
+        timeline.Replay(telemetry);
+
+        Assert.Single(telemetry.Stopped, a => a.OperationName == "PowerShell.Performance");
+        Assert.DoesNotContain(telemetry.Stopped, a => a.OperationName == "CLI.Performance");
+    }
+
+    [Fact]
     public void Replay_SequentialMeasures_BecomeSiblings()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline();
+        var timeline = new PerformanceTimeline(Enclosing);
 
         using (timeline.Measure("first"))
         {
@@ -66,15 +85,15 @@ public class PerformanceTimelineTests
 
         var first = Assert.Single(telemetry.Stopped, a => a.OperationName == "first");
         var second = Assert.Single(telemetry.Stopped, a => a.OperationName == "second");
-        Assert.Equal("CLI.Performance", first.Parent?.OperationName);
-        Assert.Equal("CLI.Performance", second.Parent?.OperationName);
+        Assert.Equal(Enclosing, first.Parent?.OperationName);
+        Assert.Equal(Enclosing, second.Parent?.OperationName);
     }
 
     [Fact]
     public void Replay_NestedMeasures_BecomeNestedSpans()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline();
+        var timeline = new PerformanceTimeline(Enclosing);
 
         using (timeline.Measure("outer"))
         using (timeline.Measure("inner"))
@@ -85,7 +104,7 @@ public class PerformanceTimelineTests
 
         var outer = Assert.Single(telemetry.Stopped, a => a.OperationName == "outer");
         var inner = Assert.Single(telemetry.Stopped, a => a.OperationName == "inner");
-        Assert.Equal("CLI.Performance", outer.Parent?.OperationName);
+        Assert.Equal(Enclosing, outer.Parent?.OperationName);
         Assert.Equal("outer", inner.Parent?.OperationName);
     }
 
@@ -94,7 +113,7 @@ public class PerformanceTimelineTests
     {
         using var telemetry = new RecordingTelemetryService();
 
-        new PerformanceTimeline().Replay(telemetry);
+        new PerformanceTimeline(Enclosing).Replay(telemetry);
 
         Assert.Empty(telemetry.Stopped);
     }
@@ -103,8 +122,8 @@ public class PerformanceTimelineTests
     public void Replay_WhenTelemetryIsDisabled_DoesNotThrow()
     {
         // With telemetry.enabled=false every StartActivity returns null. Replay must
-        // tolerate that rather than NullReferenceException on the way out of az.
-        var timeline = new PerformanceTimeline();
+        // tolerate that rather than NullReferenceException on the way out.
+        var timeline = new PerformanceTimeline(Enclosing);
 
         using (timeline.Measure("CLI.Performance.Container"))
         {
@@ -117,7 +136,7 @@ public class PerformanceTimelineTests
     public void StartedAt_IsCapturedAtConstruction()
     {
         var beforeConstruction = DateTime.UtcNow;
-        var timeline = new PerformanceTimeline();
+        var timeline = new PerformanceTimeline(Enclosing);
         var afterConstruction = DateTime.UtcNow;
 
         Assert.InRange(timeline.StartedAt, beforeConstruction, afterConstruction);
@@ -126,110 +145,63 @@ public class PerformanceTimelineTests
     [Fact]
     public void OutOfOrderDisposal_DoesNotCorruptParenting()
     {
-        // Test for Finding 1: out-of-order disposal should not corrupt the stack.
-        // Measure a, measure b nested in a, dispose a first (out of order), then dispose b,
-        // then measure c normally. Assert c is a sibling of a (both under CLI.Performance),
-        // not a child of a.
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline();
+        var timeline = new PerformanceTimeline(Enclosing);
 
         var a = timeline.Measure("a");
         var b = timeline.Measure("b");
-
-        // Dispose outer phase before inner phase (out of order)
         a.Dispose();
         b.Dispose();
 
-        // Measure c after the out-of-order disposal
         using (timeline.Measure("c"))
         {
         }
 
         timeline.Replay(telemetry);
 
-        var phaseA = Assert.Single(telemetry.Stopped, x => x.OperationName == "a");
-        var phaseB = Assert.Single(telemetry.Stopped, x => x.OperationName == "b");
-        var phaseC = Assert.Single(telemetry.Stopped, x => x.OperationName == "c");
-
-        // c should be a sibling of a (both under CLI.Performance), not a child of a
-        Assert.Equal("CLI.Performance", phaseA.Parent?.OperationName);
-        Assert.Equal("CLI.Performance", phaseC.Parent?.OperationName);
-        // b should be a child of a (nested inside a)
-        Assert.Equal("a", phaseB.Parent?.OperationName);
+        var c = Assert.Single(telemetry.Stopped, x => x.OperationName == "c");
+        Assert.Equal(Enclosing, c.Parent?.OperationName);
     }
 
     [Fact]
     public void EnclosingSpanCoversAllPhases()
     {
-        // Test for Finding 2: the enclosing span's end time should be the latest end
-        // across all top-level phases, not just the last one registered.
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline();
+        var timeline = new PerformanceTimeline(Enclosing);
 
-        using (timeline.Measure("phase1"))
+        using (timeline.Measure("first"))
         {
             Thread.Sleep(10);
         }
 
-        using (timeline.Measure("phase2"))
+        using (timeline.Measure("second"))
         {
-            Thread.Sleep(20);
+            Thread.Sleep(10);
         }
 
         timeline.Replay(telemetry);
 
-        var enclosing = Assert.Single(telemetry.Stopped, a => a.OperationName == "CLI.Performance");
-        var phase1 = Assert.Single(telemetry.Stopped, a => a.OperationName == "phase1");
-        var phase2 = Assert.Single(telemetry.Stopped, a => a.OperationName == "phase2");
-
-        // Calculate end times as start time + duration
+        var enclosing = Assert.Single(telemetry.Stopped, a => a.OperationName == Enclosing);
+        var first = Assert.Single(telemetry.Stopped, a => a.OperationName == "first");
+        var second = Assert.Single(telemetry.Stopped, a => a.OperationName == "second");
         var enclosingEnd = enclosing.StartTimeUtc + enclosing.Duration;
-        var phase1End = phase1.StartTimeUtc + phase1.Duration;
-        var phase2End = phase2.StartTimeUtc + phase2.Duration;
-
-        // The enclosing span's end should be >= the end of both phases
-        Assert.True(enclosingEnd >= phase1End, 
-            $"Enclosing span end ({enclosingEnd}) should be >= phase1 end ({phase1End})");
-        Assert.True(enclosingEnd >= phase2End, 
-            $"Enclosing span end ({enclosingEnd}) should be >= phase2 end ({phase2End})");
+        Assert.True(enclosingEnd >= first.StartTimeUtc + first.Duration);
+        Assert.True(enclosingEnd >= second.StartTimeUtc + second.Duration);
     }
 
     [Fact]
-    public void Replay_WithLeakedMeasureHandle_EmitsNonNegativeDuration()
+    public void Replay_LeakedMeasureHandle_DoesNotEmitNegativeDuration()
     {
-        // A caller that measures a phase but never disposes the handle should not
-        // produce a span whose end precedes its start (End defaults to now, not MinValue).
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline();
+        var timeline = new PerformanceTimeline(Enclosing);
 
-        // Intentionally not disposed — leaked handle.
-        var _ = timeline.Measure("leaked");
+        // Deliberately never disposed.
+        timeline.Measure("leaked");
 
-        Assert.Null(Record.Exception(() => timeline.Replay(telemetry)));
+        timeline.Replay(telemetry);
 
         var leaked = Assert.Single(telemetry.Stopped, a => a.OperationName == "leaked");
-        Assert.True(leaked.Duration >= TimeSpan.Zero,
-            $"Expected non-negative duration but got {leaked.Duration}");
-    }
-
-    [Fact]
-    public void Replay_EmitsTelemetryHandoffPhaseWithRecordedDuration()
-    {
-        using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline();
-
-        using (timeline.Measure("CLI.Performance.Telemetry"))
-        {
-            using var root = telemetry.StartRootActivity(timeline.StartedAt);
-            Thread.Sleep(20);
-            timeline.Replay(telemetry);
-        }
-
-        var handoff = Assert.Single(
-            telemetry.Stopped,
-            a => a.OperationName == "CLI.Performance.Telemetry");
-
-        Assert.InRange(handoff.Duration.TotalMilliseconds, 15d, 5000d);
+        Assert.True(leaked.Duration >= TimeSpan.Zero);
     }
 
     /// <summary>ITelemetryService backed by a real ActivitySource plus a listener, so

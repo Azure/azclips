@@ -3,20 +3,37 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
-using System.Linq;
 
-namespace Core.Cli.Telemetry;
+namespace Core.Telemetry;
 
 /// <summary>
-/// Times startup phases that run before the telemetry stack exists.
+/// Times startup phases that run before the telemetry stack exists, and replays them
+/// as spans once it does.
+///
+/// Both clients need this for different reasons. In the CLI the ActivitySource and its
+/// listener are created during DI resolution, so nothing can be traced live before that.
+/// In the PowerShell module the stack could be built during import, but constructing it
+/// costs more than the import being measured. Either way the remedy is the same: note
+/// <see cref="DateTime.UtcNow"/> — the same clock <c>Activity.Start()</c> uses — and pass
+/// the recorded times to <c>StartActivity</c> through the OpenTelemetry <c>startTime</c>
+/// parameter, which exists for work that has already happened.
 /// </summary>
-internal sealed class PerformanceTimeline
+public sealed class PerformanceTimeline
 {
-    /// <summary>Name of the span that encloses every recorded phase.</summary>
-    private const string EnclosingSpanName = "CLI.Performance";
-
+    private readonly string _enclosingSpanName;
     private readonly List<Phase> _roots = new();
     private readonly Stack<Phase> _open = new();
+
+    /// <param name="enclosingSpanName">
+    /// Name of the span that encloses every recorded phase. By convention
+    /// <c>"{ClientType}.Performance"</c> — <c>"CLI.Performance"</c>,
+    /// <c>"PowerShell.Performance"</c>. Deliberately has no default: a shared default
+    /// would silently mislabel whichever client forgot to override it.
+    /// </param>
+    public PerformanceTimeline(string enclosingSpanName)
+    {
+        _enclosingSpanName = enclosingSpanName;
+    }
 
     /// <summary>
     /// When the timeline began. Used to backdate the root activity so the replayed
@@ -51,7 +68,7 @@ internal sealed class PerformanceTimeline
     {
         if (_roots.Count == 0) return;
 
-        using var enclosing = telemetry.StartActivity(EnclosingSpanName, ActivityKind.Internal, StartedAt);
+        using var enclosing = telemetry.StartActivity(_enclosingSpanName, ActivityKind.Internal, StartedAt);
         foreach (var root in _roots)
         {
             Emit(telemetry, root);
@@ -78,6 +95,7 @@ internal sealed class PerformanceTimeline
     {
         private readonly PerformanceTimeline _timeline;
         private bool _disposed;
+        private DateTime _end;
 
         public Phase(string name, PerformanceTimeline timeline)
         {
@@ -88,8 +106,6 @@ internal sealed class PerformanceTimeline
         public string Name { get; }
 
         public DateTime Start { get; } = DateTime.UtcNow;
-
-        private DateTime _end;
 
         /// <summary>
         /// When the phase closed, or now if the handle was never disposed. A leaked
