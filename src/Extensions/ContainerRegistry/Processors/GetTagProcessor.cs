@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr tag show --name myregistry --repository myrepo --tag latest
 /// PS:  Get-AzContainerRegistryTag -RegistryName myregistry -RepositoryName myrepo -Tag latest
 /// </summary>
-public class GetTagProcessor : AcrProcessorBase<TagAttributes>
+public class GetTagProcessor : AcrDataPlaneProcessorBase<TagAttributes>
 {
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "RepositoryName")]
     public string RepositoryName { get; set; } = "";
