@@ -20,10 +20,6 @@ namespace Core.Cli;
 /// </summary>
 public static class CliExtensionServiceRegistration
 {
-    private static readonly HashSet<string> s_builtInPackageIds = BuiltInExtensions.Map.Values
-        .Select(static value => value.PackageId)
-        .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
     public static IServiceCollection AddCliExtensionDispatch(this IServiceCollection services)
     {
         services.AddSingleton<IExtensionRegistryStore>(sp =>
@@ -74,7 +70,7 @@ public static class CliExtensionServiceRegistration
         // Merge discovered extensions with file registry, preserving preferences from file.
         MergePreferencesFromFileRegistry(discoveredRegistry, fileRegistry);
 
-        return LeafIndex.Build(BuiltInExtensions.Map, discoveredRegistry);
+        return LeafIndex.Build(discoveredRegistry);
     }
 
     /// <summary>
@@ -100,11 +96,6 @@ public static class CliExtensionServiceRegistration
                     {
                         foreach (var info in SelectInstalledCandidates(infos, currentRegistry, loggingService))
                         {
-                            if (s_builtInPackageIds.Contains(info.PackageId))
-                            {
-                                continue;
-                            }
-
                             // Each discovered extension gets one entry with Contributions built from Verbs.
                             var entry = new ExtensionRegistryEntry
                             {
