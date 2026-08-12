@@ -355,12 +355,17 @@ public sealed class RuntimeHelpDispatcher
     }
 
     private bool TryResolveExtension(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)
+        => TryResolveExtensionCore(discovered, verb, out extensionInfo);
+
+    // Prefer the root-leaf owner so `az <verb> --help` matches where `az <verb>` dispatches.
+    internal static bool TryResolveExtensionCore(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(verb);
 
         var match = discovered
             .Where(info => OwnsVerb(info, verb))
-            .OrderBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(info => OwnsRootLeaf(info, verb))
+            .ThenBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault();
 
         if (match is null)
@@ -372,6 +377,9 @@ public sealed class RuntimeHelpDispatcher
         extensionInfo = match;
         return true;
     }
+
+    private static bool OwnsRootLeaf(DiscoveredExtensionInfo info, string verb)
+        => info.Commands.Keys.Any(command => command.Equals(verb, StringComparison.OrdinalIgnoreCase));
 
     private static IReadOnlyList<string> GetOwnedVerbs(DiscoveredExtensionInfo info)
     {
