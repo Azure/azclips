@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786514654968,
+  "lastUpdate": 1786514742805,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -6136,6 +6136,48 @@ window.BENCHMARK_DATA = {
             "value": 899412.8455645161,
             "unit": "ns",
             "range": "± 22416.90231185089"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bc608d1a5d7d888b61154d85dc5cf472dedacd34",
+          "message": "{Extensions} Delete BuiltInExtensions.Map and treat all extensions as bundled or installed (#683)\n\n## Summary\n\nDeletes the compile-time \"Core\" tier from the runtime. Login, Config,\nExtension, and Agent become ordinary extensions — same discovery, same\ndispatch, same install/remove/update semantics as Compute, Resources, or\nany third-party extension.\n\nCloses Azure/CLIPS#622.\n\n## What actually changes for users\n\n- **`az extension add`, `remove`, `update` work for former Core verbs.**\nTrying to `az extension update login` used to fail with a `VerbConflict`\nrefusal (\"`login` is a built-in verb…\"); it now upgrades the shipped\nLogin extension in place. Same for `remove` and `add` when a package\nlegitimately declares one of these verbs.\n- **Tab completion sees installed-tier extensions.** `az\n--completion-candidates` and `az --completions` now enumerate through\nthe same loader chain the runtime uses, so an extension installed via\n`az extension add` under a config-overridden root surfaces in\ncompletions at every depth. Previously the completion generator only\nscanned bundled roots — the exact gap I flagged in the [#622\ncomment](https://github.com/Azure/CLIPS/issues/622#issuecomment-5247698834)\nafter CLIPS-629's runbook.\n- **`(verb, path)` collision protection stays.** The classic-Azure-CLI\nshadowing-gap guards (`LeafConflict` at install time, duplicate-leaf\nhard-fail at index build) are untouched. #622 removes only the\nCore-specific refusals; general conflict detection between independent\nextensions still fires.\n\n## Design in one line\n\nRuntime knows two tiers (Bundled + Installed). Every leaf comes from\ndiscovery over both loaders. No static seed, no \"Core wins\" precedence,\nno verb-refusal in `az extension *`. Dispatch is uniform.\n\n## Implications\n\n- **Bootstrap paradox left as-is.** `az extension remove extension`\n(removing the extension-management extension itself) is a self-inflicted\ncorruption with no clean in-band recovery. Same class of problem as `apt\nremove dpkg`. Treated as manual CLI reinstall, per the issue's explicit\nnon-goal.\n- **Packaging profile is now the sole source of truth for \"what ships in\nevery install.\"**\n[`devops/scripts/packaging/config/{lean,full}_package.config`](devops/scripts/packaging/config/)\ndrives the injector; the runtime no longer duplicates that list.\n- **Add.cs's pre-existing gap (doesn't persist `Contributions` to\n`registry.json`) becomes moot for completion.** Phase 4's rewrite drops\nthe dependency; `Contributions` is now a runtime-only projection built\nfrom discovery. Registry stays a preferences store.\n\n## Testing\n\n- Build clean across the solution.\n- `Cli.Tests` 580/587 · `Core.Extensions.Tests` 78/78 · `Scenario.Tests`\n42/42 (7 test facts removed as part of the deletion; the pre-existing\n`ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail` env flake is the\nonly fail).\n- Smoke-tested on the compiled binary end-to-end:\n  - `az config list`, `az group --help`, all Core verbs route unchanged.\n- Installed Resources (staged under `~/.azclips/extensions/` after\ndeleting the bundled copy) is discovered, dispatched, help-rendered, and\ncompleted correctly.\n- `az --completion-candidates group` → `create list show`; `az\n--completion-candidates deployment group` → `create what-if` — the\nCLIPS-629 runbook's B8–B12 checks that had been deferred to this PR now\npass.\n- `az extension remove --name login` returns `ExtensionNotFound`\n(ordinary not-installed error) instead of the old `VerbConflict`\nrefusal.\n\n## Non-goals\n\n- Not renaming loader classes (already done in azclips#668).\n- Not changing packaging or the packaging profile files.\n- Not adding compat-range enforcement (`AzclipsCompatibility` +\n`CompatibilityGuard` already exist).\n- Not solving the bootstrap paradox.\n\n## References\n\n- Parent epic: Azure/CLIPS#209 (Extension framework support)\n- Config-honor precursor (merged): Azure/CLIPS#629 / azclips#678\n- Rename precursor (merged): Azure/CLIPS#533 / azclips#668\n- Follow-up scoped into this PR via [#622\ncomment](https://github.com/Azure/CLIPS/issues/622#issuecomment-5247698834):\ntab-completion enumeration",
+          "timestamp": "2026-08-12T15:51:13+10:00",
+          "tree_id": "69e9f3d514e3d362b3fc6e86480a4d96d6ffc9fb",
+          "url": "https://github.com/Azure/azclips/commit/bc608d1a5d7d888b61154d85dc5cf472dedacd34"
+        },
+        "date": 1786514739465,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1016897.9764408494,
+            "unit": "ns",
+            "range": "± 25255.940620834208"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1007518.2394678493,
+            "unit": "ns",
+            "range": "± 30679.71020717562"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 993449.6481781376,
+            "unit": "ns",
+            "range": "± 25763.79568185807"
           }
         ]
       }
