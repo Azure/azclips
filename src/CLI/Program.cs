@@ -37,13 +37,9 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
-        // Starts the clock for startup measurement. Nothing is emitted until telemetry
-        // exists; see PerformanceTimeline.
         var performance = new PerformanceTimeline("AzureCLI.Startup");
         bool isBareInvocation = args.Length == 0;
 
-        // Pre-DI utility modes. Both return before the container is built, so neither
-        // emits telemetry and neither appears in a trace.
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
             await FileTelemetrySender.SendPendingStatic();
@@ -94,8 +90,6 @@ public class Program
             _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
-        // Declared here so the catch blocks and the finally can see it; assigned inside the
-        // try so a failure starting telemetry is handled like any other startup failure.
         Activity? activity = null;
 
         // Safe defaults in case GlobalArgParser.Parse throws (invalid --output).
