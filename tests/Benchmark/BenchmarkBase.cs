@@ -8,6 +8,7 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -24,6 +25,12 @@ public abstract class BenchmarkBase
     protected int RgCounter = 0;
     protected int VmCounter = 0;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
+
+    /// <summary>
+    /// On-disk profile store backing the real <see cref="ProfileService"/> used by
+    /// benchmarks. Seeded once per process by <see cref="InitializeCommon"/>.
+    /// </summary>
+    protected BenchmarkProfileStore ProfileStore { get; } = new();
 
     /// <summary>
     /// The extension this benchmark class targets, read from its
@@ -53,25 +60,41 @@ public abstract class BenchmarkBase
     }
 
     /// <summary>
-    /// Initialize repo root (one-time setup).
+    /// Initialize repo root and seed the benchmark profile store (one-time setup).
     /// </summary>
+    /// <remarks>
+    /// Seeding happens here rather than in a new <c>[GlobalSetup]</c> because
+    /// BenchmarkDotNet permits only one <c>[GlobalSetup]</c> per type hierarchy and both
+    /// <c>CLIBenchmarkBase</c> and <c>PSBenchmarkBase</c> already declare one. Both call
+    /// this method from theirs.
+    /// </remarks>
     protected void InitializeCommon()
     {
         RepoRoot = RepoLocator.GetRepoRoot();
+        ProfileStore.Initialize(RepoRoot);
     }
 
     /// <summary>
-    /// Registers stub DI overrides for benchmark isolation.
+    /// Registers DI overrides for benchmark isolation.
     /// Call before each iteration since <see cref="AzclipsServiceProvider.Dispose"/>
     /// clears all registrations.
     /// </summary>
+    /// <remarks>
+    /// HTTP, telemetry, and auth are stubbed so benchmarks never leave the machine.
+    /// Profiles deliberately are not: the real <see cref="ProfileService"/> is registered
+    /// against <see cref="ProfileStore"/> so the JSON read, serialize, and atomic
+    /// write-plus-rename that commands such as <c>login</c> perform are actually
+    /// measured. The explicit base directory keeps the run away from the developer's
+    /// real <c>~/.azclips</c>.
+    /// </remarks>
     protected void RegisterBenchmarkStubs()
     {
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IProfileService, StubProfileService>();
+            services.AddSingleton<IProfileService>(sp =>
+                new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStore.RootDirectory));
             services.AddSingleton<IAuthService, StubAuthService>();
         });
     }

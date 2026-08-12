@@ -82,10 +82,10 @@ Configured via BenchmarkDotNet attributes on `CLIBenchmarkBase` / `PSBenchmarkBa
 
 Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`); 5,000 warmup and 5,000 measurement iterations are collected per benchmark. The two products are configured to measure the same thing — the warm, in-process per-command pipeline — excluding the cost of standing up their respective execution environments (process launch is excluded by running in-process; extension/module loading is excluded from the measured region on both sides). Per-iteration setup keeps every run isolated:
 
-- `[GlobalSetup]` (once per class): discovers the repo root; for CLI it also stages the required extensions into a benchmark-scoped `artifacts/Benchmark/home/extensions` layout; for PS it stages the module manifest closure under `artifacts/Benchmark/PS`.
-- `[IterationSetup]` (before each run): re-registers stub HTTP/auth/telemetry services; for CLI it also re-registers the extension loaders + registry store pointed at the staged home; for PS it creates and opens a fresh runspace and imports the module (both excluded from the measurement, so only the cmdlet invocation is measured).
+- `[GlobalSetup]` (once per class): discovers the repo root and seeds a benchmark-scoped profile store at `artifacts/Benchmark/home/.azclips-<pid>`; for CLI it also stages the required extensions into a benchmark-scoped `artifacts/Benchmark/home/extensions` layout; for PS it stages the module manifest closure under `artifacts/Benchmark/PS`.
+- `[IterationSetup]` (before each run): re-registers stub HTTP/auth/telemetry services plus the real file-backed `ProfileService` pointed at the seeded store; for CLI it also re-registers the extension loaders + registry store pointed at the staged home; for PS it creates and opens a fresh runspace and imports the module (both excluded from the measurement, so only the cmdlet invocation is measured).
 - `[IterationCleanup]` (after each run): disposes the DI container (which clears all registrations); for PS it also closes and disposes the runspace created in setup.
-- `[GlobalCleanup]` (once per class): removes the staged extensions home (best-effort).
+- `[GlobalCleanup]` (once per class): removes the staged extensions home for CLI, and the seeded profile store for PS (both best-effort).
 
 ### Product Implementations
 
@@ -95,6 +95,8 @@ Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`
 | PS | Cmdlet invocation on a runspace + module imported in `[IterationSetup]` (PowerShell SDK) | Warm cmdlet execution (runspace creation + module import excluded) |
 
 HTTP is short-circuited by a resource-aware stub terminate handler (`StubHttpTerminateHandler`, backed by `StubResponseMappings` + `Stubs/Fixtures/*.json`): it returns a minimal, correctly-shaped ARM body per resource type (or `{}` for unmapped paths) plus a `Retry-After: 0` header, so benchmarks measure the local CLI/PS pipeline only, never call Azure, and orchestrated long-running creates complete without real polling.
+
+Profile persistence is **not** stubbed. Benchmarks use the real `ProfileService` against a process-scoped store (`BenchmarkProfileStore`), so the JSON read, serialize, and atomic temp-write-plus-rename that `login` performs are included in the measurement. The store is seeded before the first iteration, so every iteration measures the warm path a user hits after installation rather than the one-off create-from-scratch path.
 
 ---
 

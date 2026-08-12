@@ -89,7 +89,9 @@ The snapshot harness is a hand-rolled `SnapshotAssert.Matches(name, actual)`: it
 
 `tests/Benchmark` is an executable (`OutputType=Exe`) BenchmarkDotNet 0.13.12 project that references the real CLI, Runtime, DI, and Resources projects plus `Tests.Common` (`tests/Benchmark/Benchmark.csproj:4-8,17-25`). It measures cold-start and command execution for both the CLI and PowerShell surfaces, selectable via a `--product` filter, with `--local` and `--ci` modes controlling output paths and App Insights upload (`tests/Benchmark/Program.cs:22-42`).
 
-Benchmarks stay deterministic by reusing the _same_ stub infrastructure as the unit tests. `BenchmarkBase.RegisterBenchmarkStubs()` overrides the DI container to register `StubHttpTerminateHandler`, `StubTelemetryService`, `StubProfileService`, and `StubAuthService` before each iteration, then disposes the container in cleanup (`tests/Benchmark/BenchmarkBase.cs:41-55`).
+Benchmarks stay deterministic by reusing the *same* stub infrastructure as the unit tests. `BenchmarkBase.RegisterBenchmarkStubs()` overrides the DI container to register `StubHttpTerminateHandler`, `StubTelemetryService`, and `StubAuthService` before each iteration, then disposes the container in cleanup (`tests/Benchmark/BenchmarkBase.cs`).
+
+Profiles are the deliberate exception: benchmarks register the *real* file-backed `ProfileService`, not `StubProfileService`. Profile persistence is a genuine cost of commands like `login` — `SaveAndActivateProfileAsync` reads `profiles.json`, rewrites it atomically, and rewrites the `active-profile` pointer — and stubbing it out hid that cost. `BenchmarkProfileStore` points the service at a process-scoped `artifacts/Benchmark/home/.azclips-<pid>` directory, seeded once per process so each iteration measures the warm steady state rather than the first-invocation path, and never touches the developer's real `~/.azclips` (`tests/Benchmark/BenchmarkProfileStore.cs`).
 
 ### In-process benchmark hooks in the CLI
 

@@ -43,7 +43,9 @@ jobs:
           path: gh-pages
           sparse-checkout: |
             dev/bench/cli/data.js
+            dev/bench/login-cli/data.js
             dev/bench/ps/data.js
+            dev/bench/login-ps/data.js
 
       - name: Find PR number
         if: steps.download.outcome == 'success'
@@ -120,9 +122,11 @@ jobs:
               return benchmarks
 
           # --- load previous data from gh-pages per product ---
-          def load_previous(data_js_path):
+          def load_previous(data_js_paths):
               prev = {}
-              if os.path.exists(data_js_path):
+              for data_js_path in data_js_paths:
+                  if not os.path.exists(data_js_path):
+                      continue
                   with open(data_js_path) as f:
                       content = f.read()
                   m = re.search(r"window\.BENCHMARK_DATA\s*=\s*(\{.*\})", content, re.DOTALL)
@@ -140,11 +144,17 @@ jobs:
           products = {
               "CLI": {
                   "current": load_current(product_files["CLI"]),
-                  "previous": load_previous("gh-pages/dev/bench/cli/data.js"),
+                  "previous": load_previous([
+                      "gh-pages/dev/bench/cli/data.js",
+                      "gh-pages/dev/bench/login-cli/data.js",
+                  ]),
               },
               "PS": {
                   "current": load_current(product_files["PS"]),
-                  "previous": load_previous("gh-pages/dev/bench/ps/data.js"),
+                  "previous": load_previous([
+                      "gh-pages/dev/bench/ps/data.js",
+                      "gh-pages/dev/bench/login-ps/data.js",
+                  ]),
               },
           }
 

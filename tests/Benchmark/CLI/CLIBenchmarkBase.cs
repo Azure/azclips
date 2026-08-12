@@ -17,9 +17,9 @@ using Tests.Common.Utilities;
 namespace Benchmark.CLI;
 
 [MemoryDiagnoser]
-[InvocationCount(invocationCount: 1, unrollFactor: 1)]
 [WarmupCount(5000)]
 [IterationCount(5000)]
+[InvocationCount(invocationCount: 1, unrollFactor: 1)]
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class CLIBenchmarkBase : BenchmarkBase
 {
@@ -39,6 +39,8 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
+
+    protected virtual string BuiltinInstallationDir => _extensionsRoot;
 
     [GlobalSetup]
     public void GlobalSetup()
