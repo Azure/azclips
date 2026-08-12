@@ -226,6 +226,22 @@ something that did not record an owner (the retired Terraform bootstrap did this
 and only a tenant administrator can delete it. Nothing is blocked in the meantime:
 CI is pointed at a client id, not a name.
 
+Confusingly, that residue was still *created* by you. Entra tracks creation and
+ownership separately, and only ownership grants any rights over the object:
+
+```bash
+OBJ=$(az ad app list --display-name "$ALIAS-azclips-live-test-mi" --query "[0].id" -o tsv | tr -d '\r')
+az rest --method GET --url "https://graph.microsoft.com/beta/applications/$OBJ/createdOnBehalfOf" --query displayName -o tsv
+az rest --method GET --url "https://graph.microsoft.com/v1.0/applications/$OBJ/owners" --query "value[].userPrincipalName" -o tsv
+```
+
+An application created by `az ad app create` lists you under both. One created by
+the azuread provider lists you as the creator and has no owners at all, because
+the provider treats owners as a declarative attribute that nothing asked for. So
+you can be looking at an application you made and still be unable to delete it.
+Ask an administrator to add you as an owner — that is quicker than asking them to
+delete it — or simply wait for the next tenant rotation to take it.
+
 ## Stage 1 and 2 — run locally
 
 ```bash
