@@ -29,7 +29,7 @@ updates:
 
   - package-ecosystem: "nuget"
     directories:
-      - "**/*"
+      - "/**/*"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
