@@ -226,6 +226,14 @@ something that did not record an owner (the retired Terraform bootstrap did this
 and only a tenant administrator can delete it. Nothing is blocked in the meantime:
 CI is pointed at a client id, not a name.
 
+Leaving that residue in place is harmless, and not worth chasing an administrator
+for. Residue of this kind never got a service principal — failing to create one is
+what stranded it — and an application without a service principal is a blueprint
+with no identity attached: nothing can sign in as it, and it can hold no role
+assignment. With no credentials, no federated credential and no API permissions
+either, there is nothing to expire, rotate or misuse. The cost is a confusing
+duplicate name, not exposure. It disappears with the next tenant rotation.
+
 Confusingly, that residue was still *created* by you. Entra tracks creation and
 ownership separately, and only ownership grants any rights over the object:
 
