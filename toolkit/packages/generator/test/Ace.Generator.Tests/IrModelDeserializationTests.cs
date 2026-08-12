@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Ace.Ir.Model;
+using Ace.Generator.Model.Ir;
 using Xunit;
 
 namespace Ace.Generator.Tests;

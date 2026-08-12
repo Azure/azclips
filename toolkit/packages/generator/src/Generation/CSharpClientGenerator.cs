@@ -6,13 +6,14 @@ namespace Ace.Generator;
 
 /// <summary>
 /// The C# client generator. Orchestrates the artifact generators — models,
-/// processors, the processor base, and the project stub — and merges their output
-/// into one <see cref="GenerationResult"/>.
+/// processors, the processor base, and the project stub — streaming each file
+/// they produce to the caller's <see cref="GeneratedFileHandler"/>.
 /// </summary>
 /// <remarks>
 /// Pure: no disk writes, console output, or process side effects. Each stage
-/// contributes files and diagnostics through a shared <see cref="GenerationContext"/>;
-/// the stages themselves are currently scaffolds (see each <see cref="IArtifactGenerator"/>).
+/// contributes files and diagnostics through a shared <see cref="GenerationContext"/>,
+/// which streams files to the handler on the fly (never buffering contents); the
+/// stages themselves are currently scaffolds (see each <see cref="IArtifactGenerator"/>).
 /// </remarks>
 public sealed class CSharpClientGenerator : IClientGenerator
 {
@@ -28,21 +29,76 @@ public sealed class CSharpClientGenerator : IClientGenerator
     public string Name => "csharp";
 
     /// <inheritdoc />
-    public GenerationResult Generate(IRDocument ir, GeneratorOptions options, CancellationToken cancellationToken = default)
+    public async Task<GenerationResult> GenerateAsync(
+        IRDocument ir,
+        GeneratorOptions options,
+        GeneratedFileHandler writeFile,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(ir);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(writeFile);
 
-        var files = new Dictionary<string, string>(StringComparer.Ordinal);
         var diagnostics = new List<GeneratorDiagnostic>();
-        var context = new GenerationContext(ir, options, files, diagnostics, cancellationToken);
+        var context = new GenerationContext(ir, options, diagnostics, cancellationToken);
+        var emitted = new HashSet<string>(StringComparer.Ordinal);
+        var generatedClasses = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (IArtifactGenerator stage in _stages)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            stage.Generate(context);
+            foreach (GeneratedFile file in stage.Produce(context))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!TryAccept(context, emitted, file, out string path))
+                {
+                    continue;
+                }
+
+                await writeFile(path, file.Contents, cancellationToken);
+
+                if (file.ClassName is { Length: > 0 } className && !generatedClasses.TryAdd(className, path))
+                {
+                    context.Report(
+                        DiagnosticSeverity.Warning,
+                        "ace-generator/duplicate-class",
+                        $"Two generators produced the class '{className}'; keeping the first ('{generatedClasses[className]}').");
+                }
+            }
         }
 
-        return new GenerationResult(files, diagnostics);
+        return new GenerationResult(diagnostics, generatedClasses);
+    }
+
+    /// <summary>
+    /// Validate a produced file's path (must be relative and non-escaping) and
+    /// enforce cross-stage uniqueness. Reports a diagnostic and returns false when
+    /// the file should be dropped.
+    /// </summary>
+    private static bool TryAccept(
+        GenerationContext context,
+        HashSet<string> emitted,
+        GeneratedFile file,
+        out string path)
+    {
+        if (!OutputPaths.TryNormalize(file.Path, out path, out string error))
+        {
+            context.Report(
+                DiagnosticSeverity.Error,
+                "ace-generator/invalid-output-path",
+                $"A generator produced an invalid output path: {error}.");
+            return false;
+        }
+
+        if (!emitted.Add(path))
+        {
+            context.Report(
+                DiagnosticSeverity.Warning,
+                "ace-generator/duplicate-file",
+                $"Two generators produced the file '{path}'; keeping the first.");
+            return false;
+        }
+
+        return true;
     }
 }

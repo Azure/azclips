@@ -16,24 +16,32 @@ packages/generator/
   Directory.Build.props               Shared MSBuild settings (net10.0, nullable, ...)
   Ace.Generator.csproj                The generator library (project at the package root)
   src/
-    Generation/                       Generation API + orchestrator + shared helpers
-      IClientGenerator.cs               Generator contract (mirrors the TS `Generator` seam)
-      CSharpClientGenerator.cs          Orchestrator: runs the artifact generators, merges output
-      IArtifactGenerator.cs             Contract for one artifact-producing stage
-      GenerationContext.cs              Shared run state (file + diagnostic sinks)
-      GenerationResult.cs               Returned files + diagnostics
-      GeneratorOptions.cs               Host-resolved options
-      GeneratorDiagnostic.cs            Structured diagnostic
+    Generation/                       Generation API, orchestrator + shared helpers
+      IClientGenerator.cs               Generator contract (sync + async, mirrors the TS `Generator` seam)
+      CSharpClientGenerator.cs          Orchestrator: drives the artifact generators, streams output
+      GeneratedFileHandler.cs           Delegate: caller-supplied on-the-fly async file writer
+      GeneratedFileCollector.cs         Optional in-memory handler (opt-in buffering)
+      GeneratedFile.cs                  A produced artifact (relative path + contents)
+      OutputPaths.cs                    Relative-path normalization + validation
       Naming.cs / CSharpStub.cs         Identifier + Roslyn stub helpers
-      Generators/                       The artifact generators (stubs for now)
+      Generators/                       The artifact generators (pull-based stubs for now)
+        IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
         ModelGenerator.cs                 IR models  -> model classes
         ProcessorGenerator.cs             IR operations -> processor classes (IProcessor)
         ProcessorBaseGenerator.cs         Template-like processor base (runtime wiring)
         ProjectStubGenerator.cs           .csproj / project metadata / resources
-    Model/
-      Ir.Generated.cs                   IR POCOs, generated from ir.schema.json
-      IrJson.cs                         Canonical System.Text.Json options for IR (de)serialization
+    Model/                            Run-facing types + generated IR POCOs
+      GenerationContext.cs              Read-only run state (IR, options, diagnostics)
+      GenerationResult.cs               Run outcome: diagnostics, file count, success
+      GeneratorOptions.cs               Host-resolved options
+      GeneratorDiagnostic.cs            Structured diagnostic
+      Ir/
+        Ir.Generated.cs                   IR POCOs, generated from ir.schema.json
+        IrJson.cs                         Canonical System.Text.Json options for IR (de)serialization
   test/Ace.Generator.Tests/           xUnit tests (incl. polymorphic round-trip)
+    ArtifactWriter.cs                   Test handler: writes each run's output under artifacts/<test>/
+    GeneratedFileCollector.cs           In-memory handler (buffers for assertions)
+    artifacts/                          Generated output from test runs (gitignored; for eyeballing)
   tools/AceIrModelGen/                Codegen tool (JSON Schema -> C# POCOs, via Roslyn)
     Program.cs                          Entry point (arg parsing, file I/O)
     IrModelGenerator.cs                 JSON Schema -> C# mapping + Roslyn emission
@@ -44,6 +52,18 @@ There is no solution file: the library is the single project at the package root
 with the test and codegen-tool projects in subfolders (built individually). The
 library csproj excludes `test/**` and `tools/**` from its source glob so those
 nested projects are not compiled into it.
+
+### Inspecting generated output
+
+Running the tests writes every generated file to disk under
+`test/Ace.Generator.Tests/artifacts/<TestName>/`, mirroring the relative paths
+the generator produces (e.g. `Models/Widget.g.cs`, `Processors/…Processor.g.cs`,
+the `.csproj`). Each test clears its own subfolder first, so the tree always
+reflects the latest run. It's the easiest way to eyeball what the scaffold (and,
+later, the real emission) produces — just run `dotnet test` and open the folder.
+The directory is gitignored, and excluded from the test project's build
+(`DefaultItemExcludes`) so the emitted `.cs`/`.csproj` never enter the test
+compilation.
 
 ## Build / test
 
@@ -101,14 +121,48 @@ throws on the out-of-order discriminator.
 
 ## Generation API
 
-`IClientGenerator.Generate(IRDocument ir, GeneratorOptions options, CancellationToken)`
-returns a `GenerationResult` (`Files` map + `Diagnostics`). Implementations are
-**pure**: no disk writes, no console output, no process side effects — matching
-the backbone's host-agnostic contract.
+Asynchronous, streaming:
+
+```csharp
+Task<GenerationResult> GenerateAsync(
+    IRDocument ir, GeneratorOptions options,
+    GeneratedFileHandler writeFile, CancellationToken ct = default);
+```
+
+The generator **streams** each generated file to the caller-supplied handler the
+moment it is produced — awaiting it before producing the next (natural
+backpressure) and never buffering file contents. This mirrors the TypeScript
+backbone's `OutputDelegate`: the generator decides *when* each artifact is
+emitted; the handler decides *where/how* it lands (an orchestrator writing to
+disk, or a test collecting in memory). `GenerationResult` therefore carries only
+the small aggregate outcome — `Diagnostics`, `Success`, and `GeneratedClasses`
+(a `ClassName → relative file path` map; non-type artifacts like the project file
+are not listed) — not the file contents.
+
+**Async only, by design.** The generator is hosted as a spawned `dotnet`
+subprocess (JSON in → files out) whose entry point is naturally `async Task Main`
+— there is no sync-only seam (no Roslyn source generator, no sync interface, no
+UI/`SynchronizationContext`). Async-all-the-way is idiomatic here, and any rare
+sync caller can block on the returned `Task`; the reverse (faking async over sync)
+is not worthwhile.
+
+**Output paths are relative.** The handler receives a `relativePath` (using `/`
+separators, never absolute, never escaping via `..`); the generator is
+**filesystem-agnostic** and never knows the base directory — the handler owns it
+(e.g. a filesystem writer that joins `baseDir + relativePath`). So the whole
+output is one relocatable folder tree. The orchestrator validates every path
+before streaming and reports `ace-generator/invalid-output-path` on a violation.
+
+Callers that deliberately want to buffer (tests, tiny specs) can pass
+`GeneratedFileCollector.WriteAsync` and read `.Files` afterwards. Implementations
+are **pure**: no disk writes, no console output, no process side effects — the
+handler owns all I/O.
 
 `CSharpClientGenerator` is the orchestrator: it runs a fixed set of
-**artifact generators** (`IArtifactGenerator`), each contributing files and
-diagnostics through a shared `GenerationContext`:
+**artifact generators** (`IArtifactGenerator`), each yielding files and reporting
+diagnostics through a shared `GenerationContext`. The stages are *pull-based*
+(each `Produce`s a lazy `IEnumerable<GeneratedFile>` via `yield`), so they stay
+agnostic to the single async driver and output streams one file at a time:
 
 | Stage | Type | Responsibility |
 |-------|------|----------------|

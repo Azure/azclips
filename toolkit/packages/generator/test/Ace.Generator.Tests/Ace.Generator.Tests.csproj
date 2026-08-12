@@ -4,6 +4,13 @@
     <RootNamespace>Ace.Generator.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!--
+      Tests write generated output under `artifacts/` (for eyeballing). Keep that
+      tree out of the test project's own build: without this, the SDK's default
+      `**/*.cs` glob would compile the generated stubs into the test assembly
+      (duplicate types across scenarios) and restore the emitted `.csproj` files.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

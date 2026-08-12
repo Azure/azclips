@@ -18,7 +18,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 {
     public string Name => "processor";
 
-    public void Generate(GenerationContext context)
+    public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
         string ns = context.Options.RootNamespace + ".Processors";
 
@@ -36,9 +36,10 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             }
 
             string typeName = Naming.Identifier(operation.Name) + "Processor";
-            context.AddFile(
+            yield return new GeneratedFile(
                 $"Processors/{typeName}.g.cs",
-                CSharpStub.Class(ns, typeName, baseType: ProcessorBaseGenerator.BaseTypeName));
+                CSharpStub.Class(ns, typeName, baseType: ProcessorBaseGenerator.BaseTypeName),
+                typeName);
         }
     }
 }

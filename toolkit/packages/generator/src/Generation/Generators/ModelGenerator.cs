@@ -1,3 +1,4 @@
+using Ace.Generator;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 
@@ -17,7 +18,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
 {
     public string Name => "model";
 
-    public void Generate(GenerationContext context)
+    public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
         string ns = context.Options.RootNamespace + ".Models";
 
@@ -35,7 +36,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
             }
 
             string typeName = Naming.Identifier(model.Name);
-            context.AddFile($"Models/{typeName}.g.cs", CSharpStub.Class(ns, typeName));
+            yield return new GeneratedFile($"Models/{typeName}.g.cs", CSharpStub.Class(ns, typeName), typeName);
         }
     }
 }

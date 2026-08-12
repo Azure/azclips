@@ -23,13 +23,14 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
 
     public string Name => "base";
 
-    public void Generate(GenerationContext context)
+    public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
         context.CancellationToken.ThrowIfCancellationRequested();
 
         string ns = context.Options.RootNamespace + ".Processors";
-        context.AddFile(
+        yield return new GeneratedFile(
             $"Processors/{BaseTypeName}.g.cs",
-            CSharpStub.Class(ns, BaseTypeName, isAbstract: true));
+            CSharpStub.Class(ns, BaseTypeName, isAbstract: true),
+            BaseTypeName);
     }
 }

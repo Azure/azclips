@@ -17,12 +17,12 @@ internal sealed class ProjectStubGenerator : IArtifactGenerator
 {
     public string Name => "stub";
 
-    public void Generate(GenerationContext context)
+    public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
         context.CancellationToken.ThrowIfCancellationRequested();
 
         string projectName = context.Options.RootNamespace;
-        context.AddFile($"{projectName}.csproj", Csproj());
+        yield return new GeneratedFile($"{projectName}.csproj", Csproj());
     }
 
     private static string Csproj() =>

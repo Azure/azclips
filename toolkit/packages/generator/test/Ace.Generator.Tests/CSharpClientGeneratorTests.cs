@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis.CSharp;
@@ -26,62 +27,83 @@ public sealed class CSharpClientGeneratorTests
         };
     }
 
-    [Fact]
-    public void Generate_EmitsAModelFilePerModel()
+    /// <summary>
+    /// Run the generator, writing every emitted file to this test's own
+    /// <c>artifacts/&lt;test&gt;/</c> folder (for eyeballing) and mirroring them in
+    /// memory (for assertions). The scenario defaults to the calling test's name.
+    /// </summary>
+    private static async Task<(GenerationResult Result, ArtifactWriter Writer)> RunAsync(
+        IRDocument ir,
+        GeneratorOptions? options = null,
+        [CallerMemberName] string scenario = "default")
     {
-        var generator = new CSharpClientGenerator();
-
-        GenerationResult result = generator.Generate(
-            Ir(models: ["Widget", "Gadget"]),
-            new GeneratorOptions { RootNamespace = "Contoso.Clients" });
-
-        Assert.True(result.Success);
-        Assert.Contains("Models/Widget.g.cs", result.Files.Keys);
-        Assert.Contains("Models/Gadget.g.cs", result.Files.Keys);
+        var writer = new ArtifactWriter(scenario);
+        GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
+            ir,
+            options ?? new GeneratorOptions { RootNamespace = "Contoso.Clients" },
+            writer.WriteAsync);
+        return (result, writer);
     }
 
     [Fact]
-    public void Generate_EmitsAProcessorFilePerOperation()
+    public async Task Generate_EmitsAModelFilePerModel()
     {
-        var generator = new CSharpClientGenerator();
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget", "Gadget"]));
 
+        Assert.True(result.Success);
+        Assert.Contains("Models/Widget.g.cs", writer.Files.Keys);
+        Assert.Contains("Models/Gadget.g.cs", writer.Files.Keys);
+    }
+
+    [Fact]
+    public async Task Generate_EmitsAProcessorFilePerOperation()
+    {
         // Operation names are camelCase in the IR; processors are PascalCased.
-        GenerationResult result = generator.Generate(
-            Ir(operations: ["restoreVolume"]),
-            new GeneratorOptions { RootNamespace = "Contoso.Clients" });
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(Ir(operations: ["restoreVolume"]));
 
         Assert.True(result.Success);
-        Assert.Contains("Processors/RestoreVolumeProcessor.g.cs", result.Files.Keys);
+        Assert.Contains("Processors/RestoreVolumeProcessor.g.cs", writer.Files.Keys);
     }
 
     [Fact]
-    public void Generate_AlwaysEmitsProcessorBaseAndProjectFile()
+    public async Task Generate_AlwaysEmitsProcessorBaseAndProjectFile()
     {
-        var generator = new CSharpClientGenerator();
+        (_, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"]));
 
-        GenerationResult result = generator.Generate(
-            Ir(models: ["Widget"]),
-            new GeneratorOptions { RootNamespace = "Contoso.Clients" });
-
-        Assert.Contains("Processors/ProcessorBase.g.cs", result.Files.Keys);
-        Assert.Contains(result.Files.Keys, k => k.EndsWith(".csproj", StringComparison.Ordinal));
+        Assert.Contains("Processors/ProcessorBase.g.cs", writer.Files.Keys);
+        Assert.Contains(writer.Files.Keys, k => k.EndsWith(".csproj", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void Generate_ProducesParseableCSharp()
+    public async Task Generate_MapsGeneratedClassesToTheirPaths()
     {
-        var generator = new CSharpClientGenerator();
+        (GenerationResult result, ArtifactWriter writer) =
+            await RunAsync(Ir(models: ["Widget"], operations: ["restoreVolume"]));
 
-        GenerationResult result = generator.Generate(
-            Ir(models: ["Widget"], operations: ["get"]),
-            new GeneratorOptions { RootNamespace = "Contoso.Clients" });
+        Assert.Equal("Models/Widget.g.cs", result.GeneratedClasses["Widget"]);
+        Assert.Equal("Processors/RestoreVolumeProcessor.g.cs", result.GeneratedClasses["RestoreVolumeProcessor"]);
+        Assert.Equal("Processors/ProcessorBase.g.cs", result.GeneratedClasses["ProcessorBase"]);
 
-        string model = result.Files["Models/Widget.g.cs"];
+        // Non-type artifacts (the project file) are not classes.
+        Assert.DoesNotContain(result.GeneratedClasses.Values, v => v.EndsWith(".csproj", StringComparison.Ordinal));
+        // Every mapped class points at a file that was actually written.
+        foreach (string path in result.GeneratedClasses.Values)
+        {
+            Assert.Contains(path, writer.Files.Keys);
+        }
+    }
+
+    [Fact]
+    public async Task Generate_ProducesParseableCSharp()
+    {
+        (_, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"], operations: ["get"]));
+
+        string model = writer.Files["Models/Widget.g.cs"];
         Assert.Contains("namespace Contoso.Clients.Models", model);
         Assert.Contains("class Widget", model);
 
         // Every emitted .cs file must be valid C# (no syntax-error diagnostics).
-        foreach ((string path, string source) in result.Files.Where(f => f.Key.EndsWith(".cs", StringComparison.Ordinal)))
+        foreach ((string path, string source) in writer.Files.Where(f => f.Key.EndsWith(".cs", StringComparison.Ordinal)))
         {
             var tree = CSharpSyntaxTree.ParseText(source);
             Assert.DoesNotContain(
@@ -91,13 +113,26 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
-    public void Generate_ReportsWarningForEmptyModelName()
+    public async Task Generate_ReportsWarningForEmptyModelName()
     {
-        var generator = new CSharpClientGenerator();
-
-        GenerationResult result = generator.Generate(Ir(models: [""]), new GeneratorOptions());
+        (GenerationResult result, ArtifactWriter writer) =
+            await RunAsync(Ir(models: [""]), new GeneratorOptions());
 
         Assert.Contains(result.Diagnostics, d => d.Code == "ace-generator/empty-model-name");
-        Assert.DoesNotContain(result.Files.Keys, k => k.StartsWith("Models/", StringComparison.Ordinal));
+        Assert.DoesNotContain(writer.Files.Keys, k => k.StartsWith("Models/", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Generate_EmitsOnlyRelativeForwardSlashPaths()
+    {
+        (_, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"], operations: ["get"]));
+
+        Assert.NotEmpty(writer.Files);
+        foreach (string path in writer.Files.Keys)
+        {
+            Assert.False(path.StartsWith('/'), $"'{path}' must be relative");
+            Assert.False(path.Contains('\\'), $"'{path}' must use '/' separators");
+            Assert.False(path.Contains(".."), $"'{path}' must not escape the base directory");
+        }
     }
 }

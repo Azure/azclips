@@ -1,25 +1,25 @@
 namespace Ace.Generator.Model;
 
 /// <summary>
-/// Result of a generation run. Mirrors the backbone's <c>GeneratorOutput</c>
-/// (a map of generated files) and additionally surfaces structured diagnostics.
-/// Files are returned, never written to disk by the generator.
+/// Result of a generation run. Generated files are <em>streamed</em> to the
+/// caller's <c>GeneratedFileHandler</c> as they are produced, so their contents
+/// are not carried here; this surfaces the small, aggregate outcome — structured
+/// diagnostics, the map of generated classes to their output paths, and overall
+/// success.
 /// </summary>
 public sealed class GenerationResult
 {
-    /// <summary>
-    /// Generated files keyed by path relative to the output root.
-    /// </summary>
-    public IReadOnlyDictionary<string, string> Files { get; }
-
-    /// <summary>
-    /// Diagnostics collected during the run.
-    /// </summary>
+    /// <summary>Diagnostics collected during the run.</summary>
     public IReadOnlyList<GeneratorDiagnostic> Diagnostics { get; }
 
     /// <summary>
-    /// True when no error-severity diagnostics were reported.
+    /// Generated classes, keyed by C# class name, mapped to the output file path
+    /// (relative to the output base directory) each was written to. Non-type
+    /// artifacts (e.g. the project file) are not included.
     /// </summary>
+    public IReadOnlyDictionary<string, string> GeneratedClasses { get; }
+
+    /// <summary>True when no error-severity diagnostics were reported.</summary>
     public bool Success
     {
         get
@@ -36,12 +36,12 @@ public sealed class GenerationResult
         }
     }
 
-    /// <summary>Create a result from a file map and diagnostics.</summary>
+    /// <summary>Create a result from the run's diagnostics and generated-class map.</summary>
     public GenerationResult(
-        IReadOnlyDictionary<string, string> files,
-        IReadOnlyList<GeneratorDiagnostic> diagnostics)
+        IReadOnlyList<GeneratorDiagnostic> diagnostics,
+        IReadOnlyDictionary<string, string> generatedClasses)
     {
-        Files = files;
         Diagnostics = diagnostics;
+        GeneratedClasses = generatedClasses;
     }
 }
