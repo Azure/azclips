@@ -502,9 +502,27 @@ above every resource group. Remove it only if you are done with the GitHub
 workflow entirely:
 
 ```bash
-APP=$(az ad app list --display-name "$ALIAS-azclips-live-test-mi" --query "[0].appId" -o tsv)
-SP=$(az ad sp list --filter "appId eq '$APP'" --query "[0].id" -o tsv)
-az role assignment delete --assignee "$SP" --role Contributor \
-  --scope "/subscriptions/$(az account show --query id -o tsv)" --yes
+# `az -o tsv` ends lines with CRLF, and the stray CR makes every id below fail
+# to resolve — strip it.
+SUB=$(az account show --query id -o tsv | tr -d '\r')
+APP=$(az ad app list --display-name "$ALIAS-azclips-live-test-mi" --query "[0].appId" -o tsv | tr -d '\r')
+SP=$(az ad sp list --filter "appId eq '$APP'" --query "[0].id" -o tsv | tr -d '\r')
+
+# Order matters. The role assignment is an ARM object, not a directory one, so
+# it does NOT cascade: deleting the application first leaves an assignment
+# pointing at a principal that no longer exists, which is invisible to
+# `--assignee` afterwards and has to be hunted down by principal id.
+az role assignment delete --assignee "$SP" --role Contributor --scope "/subscriptions/$SUB" --yes
 az ad app delete --id "$APP"
+```
+
+Deleting the application also deletes its service principal — that one does
+cascade. Both list you as an owner, because Graph records the caller as an owner
+of each, so neither needs an administrator.
+
+If an assignment was orphaned by deleting in the wrong order, find and remove it
+by principal id:
+
+```bash
+az role assignment list --all --query "[?principalId=='$SP'].id" -o tsv | tr -d '\r' | xargs -r az role assignment delete --ids
 ```
