@@ -18,6 +18,7 @@ public class ActivityNameFilterTests
     [InlineData("TUI.Activity.Root")]
     [InlineData("AzureCLI.ProcessCommand")]
     [InlineData("CLI.Performance")]
+    [InlineData("PowerShell.Performance")]
     [InlineData("SessionCreated")]
     [InlineData("AuthBeforeTokenAcquisition")]
     [InlineData("ProcessorProcessAsyncStart")]
@@ -43,6 +44,7 @@ public class ActivityNameFilterTests
     [InlineData("InfoConfigCommand.ProcessAsync")]
     [InlineData("ActionStart.MyClass.MyMethod")]
     [InlineData("CLI.Performance.Container")]
+    [InlineData("PowerShell.Performance.Container")]
     public void IsAllowed_NameMatchingAllowedPrefix_IsAllowed(string name)
     {
         Assert.True(_filter.IsAllowed(name));

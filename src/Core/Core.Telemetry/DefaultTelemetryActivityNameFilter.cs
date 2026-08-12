@@ -25,6 +25,10 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // is available. Encloses the CLI.Performance.* phase spans below.
         "CLI.Performance",
 
+        // PowerShell module import phases, replayed by ImportTelemetry on a background
+        // thread once the telemetry stack is built. Encloses PowerShell.Performance.*.
+        "PowerShell.Performance",
+
         // Engine event-driven activities. Engine.Subscriptions wraps these
         // Events.* ids directly (i.e. evt.Id without any class/method suffix).
         // The corresponding *End/*After events Dispose the existing activity,
@@ -71,6 +75,9 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
 
         // Individual startup phases: CLI.Performance.Container, CLI.Performance.Services.
         "CLI.Performance.",
+
+        // Individual import phases: PowerShell.Performance.Container.
+        "PowerShell.Performance.",
     };
 
     /// <summary>Immutable snapshot of the verbatim allowed names.</summary>
