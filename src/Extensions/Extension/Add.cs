@@ -167,8 +167,11 @@ public class AddExtensionProcessor : IProcessor
             // (verb, path) tuple against the registry.
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
             activity?.SetTag("extension.contribution_count", leafKeys.Count);
+            // File registry only carries preferences (contributions are stripped on Save); overlay
+            // live discovery so PlanContributions can see already-installed leaves and detect collisions.
+            var planningRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(registry);
             var contributions = new List<Contribution>(
-                ExtensionAddPlanner.PlanContributions(packageId, verbs, leafKeys, registry));
+                ExtensionAddPlanner.PlanContributions(packageId, verbs, leafKeys, planningRegistry));
 
             // Per Q6 (strict single-version): purge any sibling version directories under the
             // package's parent dir so only the just-installed version remains on disk.
