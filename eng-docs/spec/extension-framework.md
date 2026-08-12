@@ -68,6 +68,17 @@ The two tiers are **independent**: an extension can appear in either or both. Di
 
 When the same `PackageId` appears in both the Bundled and Installed roots at different versions, [`ExtensionCandidateSelector`](../../src/Core/Core.Extensions/ExtensionCandidateSelector.cs) picks the winner — see §3.4.
 
+#### Write boundary
+
+The extension API (`az extension add` / `remove` / `update` / `pin` / `unpin`) reads and writes **only** under the Installed root (`~/.azclips/extensions/`, or whatever `assemblyLoading.installedExtensionsRoot` points to). The Bundled root (`<install>/Extensions/`) is part of the install artifact and is managed by the OS-level install/uninstall of azcli itself — it cannot be mutated at runtime by any `az extension` command.
+
+Consequences:
+
+- Removing an extension that exists **only** in the Bundled tier is not possible via `az extension remove` — the command reports `ExtensionNotFound` because it only searches the Installed root. To change what's in the Bundled tier, reinstall azcli with a different packaging profile (see `docs/azure-cli/docs-conceptual/install-overview.md`).
+- If a package id exists in both tiers, `az extension remove` deletes the Installed-tier payload only; the Bundled-tier copy remains discoverable and dispatch will fall back to it on the next invocation.
+- `az extension add` never overwrites a Bundled payload. On a package-id collision the new payload lands under the Installed root at a fresh `<pkg>/<version>/` and, if it's a newer version, wins via `ExtensionCandidateSelector` (see §3.4).
+- Bundled and Installed contributions collide on the same terms as any other pair (`LeafConflict` at install time, `LeafIndex` hard-fail at dispatch time). There is no tier bias.
+
 ---
 
 ## 3. Extension Discovery
