@@ -4,7 +4,7 @@
 
 **Goal:** Capture PowerShell module import time as a telemetry trace, distinguishing cold from warm imports, without the instrumentation itself slowing the import.
 
-**Architecture:** `ModuleInitializer.OnImport` records cheap timestamps while it builds the DI container, then hands the emit to a background thread. This matters because emitting requires `ITelemetryService`, whose construction costs 44 ms against a 21.6 ms import — instrumenting it directly would triple the very thing being measured. The CLI's `PerformanceTimeline` recorder moves to `Core.Telemetry` and is shared by both clients rather than duplicated.
+**Architecture:** `ModuleInitializer.OnImport` records cheap timestamps while it builds the DI container, then hands the emit to a background thread. This matters because emitting requires `ITelemetryService`, whose construction costs 83.8 ms against a 21.6–38.9 ms import — instrumenting it directly would roughly quadruple the very thing being measured. The CLI's `PerformanceTimeline` recorder moves to `Core.Telemetry` and is shared by both clients rather than duplicated.
 
 **Tech Stack:** C# / .NET 10, `System.Diagnostics.Activity`, OpenTelemetry 1.15.3, PowerShell 7.6 (`System.Management.Automation`), xunit 2.9.3.
 
@@ -880,8 +880,8 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
 /// Emits the module import trace.
 ///
 /// Import cannot be instrumented directly: emitting a span requires ITelemetryService,
-/// whose construction costs roughly twice the import it would be measuring, so doing it
-/// inline would triple import time and report a figure inflated by its own
+/// whose construction costs more than twice the import it would be measuring, so doing
+/// it inline would roughly quadruple import time and report a figure inflated by its own
 /// instrumentation. Instead OnImport records timestamps — effectively free — and hands
 /// the emit to a background thread, which also pre-warms the telemetry stack so the
 /// first cmdlet no longer pays for it.
@@ -1087,9 +1087,9 @@ PowerShell.Activity.Root          importKind = cold | warm
 `ModuleInitializer.OnImport` records the phases with `PerformanceTimeline` and hands the
 emit to a background thread (`ImportTelemetry.EmitInBackground`). It cannot emit inline:
 resolving `ITelemetryService` builds the whole OpenTelemetry pipeline, which costs about
-44 ms against a 21.6 ms import, so inline instrumentation would triple import time and
-report a figure inflated by its own cost. Running it in the background also pre-warms the
-stack, so the first cmdlet no longer pays for it.
+84 ms against a 21.6 ms import, so inline instrumentation would roughly quadruple import
+time and report a figure inflated by its own cost. Running it in the background also
+pre-warms the stack, so the first cmdlet no longer pays for it.
 
 `importKind` distinguishes the first import in a process (`cold`) from later ones (`warm`);
 PowerShell does not unload the module assembly on `Remove-Module`, so a static counter

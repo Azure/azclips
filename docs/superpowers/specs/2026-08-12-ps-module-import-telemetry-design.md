@@ -17,26 +17,51 @@ Measurements taken against the built module on Windows:
 | Process-cold (fresh pwsh, OS cache warm) | 21–24 ms | 67–77 ms |
 | Warm re-import (same process) | 15.4 ms → 5.2 ms | — |
 
-A second measurement, taken with controls to separate genuine construction cost from
-PowerShell reflection overhead, reframes the problem:
+A second measurement reframes the problem. Resolution cost is **order-dependent**: whichever
+service is resolved first absorbs the shared DI graph construction and JIT warm-up, so a
+figure is only meaningful alongside the order it was measured in.
+
+Resolved in the order a cmdlet uses them — `IEngine` in `BeginProcessing`, then
+`ITelemetryService` in `ProcessRecord`:
+
+| Operation | First resolve | Second resolve |
+| --- | --- | --- |
+| `IEngine` | 76.8 ms | 1.3 ms |
+| `ITelemetryService` | 3.0 ms | 1.0 ms |
+
+Resolved in the order the background emit uses them, immediately after import with nothing
+else constructed:
 
 | Operation | Cost |
 | --- | --- |
-| `Import-Module Login` (entire import) | 21.6 ms |
-| First resolve of `IConfigurationService` | 33.1 ms |
-| First resolve of `ILoggingService` | 18.0 ms |
-| First resolve of `ITelemetryService` | 44.4 ms |
-| Second resolve of `ITelemetryService` | 1.6 ms |
+| `IConfigurationService` | 36.2 ms |
+| `ITelemetryService` | 83.8 ms |
 
-The first cmdlet in a session silently pays roughly 95 ms of deferred construction — about
-four times the entire import. The 1.6 ms second resolve confirms this is one-time
-construction rather than measurement noise.
+The same `ITelemetryService` therefore costs 3 ms or 83.8 ms depending purely on what ran
+before it. The second-resolve column confirms these are one-time construction costs rather
+than measurement noise.
+
+End to end, the user-visible effect is larger than any single service suggests:
+
+| Stage | Cost |
+| --- | --- |
+| `Import-Module Login` | 38.9 ms |
+| First cmdlet | 359.5 ms |
+| Second cmdlet | 14.8 ms |
+| Third cmdlet | 13.3 ms |
+
+The first cmdlet pays roughly 345 ms more than steady state. This is not attributable to one
+service: it is the whole object graph being constructed lazily, with `IEngine` the largest
+single identifiable piece. Addressing it is out of scope here; see
+[Follow-ups](#follow-ups).
 
 ## Constraint: instrumenting import naively would dominate what it measures
 
-Emitting a span requires `ITelemetryService`, whose construction alone costs 44 ms against a
-21.6 ms import. Instrumenting `OnImport` in the obvious way would roughly triple import time
-and report a figure inflated by its own instrumentation.
+Emitting a span requires `ITelemetryService`. At import nothing else has been resolved, so it
+would be the first resolve and would absorb the shared construction cost — 83.8 ms after an
+explicit `IConfigurationService` resolve, or 109.7 ms when resolved cold with no prior
+resolution at all. Against a 21.6–38.9 ms import, instrumenting `OnImport` in the obvious way
+would roughly quadruple import time and report a figure inflated by its own instrumentation.
 
 This is the CLI's chicken-and-egg problem inverted. In the CLI, replay was necessary because
 the telemetry stack did not yet exist. In PowerShell it *can* be built during import, but
@@ -50,13 +75,14 @@ The following was verified with a purpose-built probe module: `OnImport` returne
 while 120 ms of simulated work ran to completion on a separate thread.
 
 This keeps import at its current cost, confines the change to the module's own code, and, as
-a side effect, pre-warms the telemetry stack so the first cmdlet drops roughly 44 ms.
+a side effect, pre-warms the telemetry stack so the first cmdlet no longer pays the roughly
+120 ms of configuration and telemetry construction.
 
 ### Why not the alternatives
 
 **Emit synchronously during import.** Correct and simple, and the only option that survives a
 process exiting immediately after import. Rejected because it takes import from 21.6 ms to
-roughly 70 ms — tripling the measured quantity.
+roughly 140 ms — quadrupling the measured quantity.
 
 **Replay on the first cmdlet.** Import stays fast and no background thread is involved, but
 the trigger needs a home. There are 14 identical `StartRootActivity()` call sites across the
@@ -204,7 +230,8 @@ out. The background path therefore reads `TelemetryOptions.Enabled` through
 Telemetry must never break `Import-Module`.
 
 **Pre-warming is intended, and has a cost.** Because the background thread constructs the
-telemetry stack, the first cmdlet drops roughly 44 ms. The corollary is that a session which
+telemetry stack, the first cmdlet no longer pays the roughly 120 ms of configuration and
+telemetry construction. The corollary is that a session which
 runs no cmdlets at all builds a pipeline nobody uses. That is the accepted trade of this
 approach.
 
@@ -213,6 +240,32 @@ approach.
 safe.
 
 **Accepted gap.** Nothing is emitted if the process exits immediately after import.
+
+**The background resolution is deliberately not measured.** `EmitInBackground` resolves
+`IConfigurationService` (36.2 ms) and `ITelemetryService` (83.8 ms) — roughly 120 ms of work,
+three times the import being reported — and none of it appears in the trace. This is a
+considered choice, not an oversight, and it was raised and rejected during design review.
+
+Measuring it is straightforward: wrap both resolves in a
+`timeline.Measure("PowerShell.Performance.Services")` block before calling `Emit`. The
+recorded timestamps are only data, so measuring telemetry's own construction and then using
+telemetry to emit that measurement works, exactly as the CLI does with
+`CLI.Performance.Services`.
+
+It was rejected because of what it does to the root span. The `Services` phase runs on the
+background thread *after* `OnImport` has returned, so a root enclosing it would span import
+start through telemetry readiness rather than the import window — and the root is the span a
+reader naturally reads as "the import". Keeping the root to the import window costs visibility
+into the warm-up but keeps the headline number honest. Should this be revisited, note that the
+120 ms overlaps whatever the user does next rather than delaying it, so it is not latency the
+user waits on.
+
+**Disposing the container mid-emit is safe but silent.** `OnRemove` calls
+`AzclipsServiceProvider.Dispose()`. A `Remove-Module` issued immediately after
+`Import-Module` can therefore dispose the container while the background thread is still
+resolving, producing an `ObjectDisposedException` on that thread. The surrounding `catch`
+swallows it, so the failure mode is a missing import trace rather than an error surfaced to
+the user.
 
 ## Testing
 
@@ -250,7 +303,17 @@ Out of scope here, recorded so the reasoning is not lost:
 
 1. **Earlier start anchor.** A `ScriptsToProcess` hook would capture assembly loading in
    addition to the DI container build. Costs one `.ps1` and one manifest line per module.
-2. **Measure first-cmdlet service resolution.** The roughly 95 ms of first-touch construction
-   is the largest unmeasured cost in the PowerShell client and is not addressed by this design.
-3. **Rollup coverage.** Only the Login module has a `ModuleInitializer`. `Import-Module Az`
+2. **Measure first-cmdlet service resolution.** The first cmdlet costs roughly 345 ms more
+   than steady state (359.5 ms against 14.8 ms) — nearly nine times the import this design
+   instruments, and entirely invisible today. `IEngine` at 76.8 ms is the largest single
+   piece; the remainder is the object graph it pulls in. This is the biggest unmeasured cost
+   in the PowerShell client.
+3. **Measure the background warm-up.** See the Behaviour section: roughly 120 ms of service
+   construction runs unmeasured on the background thread. Adding a
+   `PowerShell.Performance.Services` phase would capture it, at the cost of the root span no
+   longer representing the import window.
+4. **Rollup coverage.** Only the Login module has a `ModuleInitializer`. `Import-Module Az`
    pulls in Compute, Resources, and Config as well; their import cost stays invisible.
+
+Items 2 and 3 share groundwork with this design: `PerformanceTimeline` in `Core.Telemetry`
+and the `PowerShell.Performance.` allowlist prefix are what either would build on.
