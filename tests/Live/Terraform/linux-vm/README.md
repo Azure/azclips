@@ -526,3 +526,12 @@ by principal id:
 ```bash
 az role assignment list --all --query "[?principalId=='$SP'].id" -o tsv | tr -d '\r' | xargs -r az role assignment delete --ids
 ```
+
+If the principal id is no longer to hand, orphans are the assignments that have
+lost their principal name — worth checking after any manual cleanup, because a
+stranded Contributor at subscription scope is invisible in the portal beyond an
+"Identity not found" row:
+
+```bash
+az role assignment list --all --query "[?principalName==null].{role:roleDefinitionName,principalId:principalId,id:id}" -o table
+```
