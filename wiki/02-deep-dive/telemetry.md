@@ -47,8 +47,7 @@ flowchart TB
 `CLITelemetryProvider` creates both the `ActivitySource` and the `TracerProvider` that
 listens to it, so until DI has resolved it there is no listener and `StartActivity`
 returns `null` — the container build cannot be traced live. `PerformanceTimeline`
-(`src/CLI/Telemetry/PerformanceTimeline.cs`) closes that gap: it notes `DateTime.UtcNow`
-(the same clock `Activity.Start()` uses) at each phase boundary, and `Replay` materialises
+(`src/Core/Core.Telemetry/PerformanceTimeline.cs`) closes that gap: it notes `DateTime.UtcNow`
 the phases as spans once telemetry exists, passing the recorded times through the
 `startTime` parameter OpenTelemetry provides for work that has already happened. The root
 activity is backdated to the first line of `Main` so the replayed phases nest beneath it.
