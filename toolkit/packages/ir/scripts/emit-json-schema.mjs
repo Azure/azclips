@@ -38,6 +38,18 @@ import {
   IRIdSchema,
   IRLiteralValueSchema,
   IRTypeRefSchema,
+  // IRTypeRef variant schemas — registered so a narrowed type-ref field (e.g.
+  // IRProperty.type) resolves to a clean named `$ref` (and, in C#, to a derived
+  // type of IRTypeRef) instead of an inline duplicate object. Note: the
+  // model|dict `IRTypeRefObject` union is deliberately NOT registered — its
+  // members already derive from IRTypeRef, so a consumer maps that field to the
+  // IRTypeRef base rather than a second, conflicting hierarchy.
+  IRTypeRefPrimitiveSchema,
+  IRTypeRefModelSchema,
+  IRTypeRefEnumSchema,
+  IRTypeRefArraySchema,
+  IRTypeRefDictionarySchema,
+  IRTypeRefUnionSchema,
   IREnumSchema,
   IREnumMemberSchema,
   IRModelSchema,
@@ -100,6 +112,15 @@ const definitions = {
   IRId: IRIdSchema,
   IRLiteralValue: IRLiteralValueSchema,
   IRTypeRef: IRTypeRefSchema,
+  // IRTypeRef variants — registered so narrowed type-ref fields (IRProperty.type,
+  // ...) resolve to `$ref`s into the single IRTypeRef hierarchy instead of
+  // inline duplicates.
+  IRTypeRefPrimitive: IRTypeRefPrimitiveSchema,
+  IRTypeRefModel: IRTypeRefModelSchema,
+  IRTypeRefEnum: IRTypeRefEnumSchema,
+  IRTypeRefArray: IRTypeRefArraySchema,
+  IRTypeRefDictionary: IRTypeRefDictionarySchema,
+  IRTypeRefUnion: IRTypeRefUnionSchema,
   IREnum: IREnumSchema,
   IREnumMember: IREnumMemberSchema,
   IRModel: IRModelSchema,

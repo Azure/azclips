@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/ir",
+    "packages/typespec-emitter",
+    "packages/compiler",
+    "packages/cli"
   ],
   "scripts": {
     "build": "tsc -b",
