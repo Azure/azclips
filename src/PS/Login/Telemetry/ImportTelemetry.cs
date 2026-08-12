@@ -28,13 +28,19 @@ internal static class ImportTelemetry
     private static int _importCount;
 
     /// <summary>
+    /// Maps a one-based import count to its kind. Separated from <see cref="NextImportKind"/>
+    /// so the mapping can be asserted directly: the counter behind it is process-wide and
+    /// cannot be reset, which would otherwise make any test of it order-dependent.
+    /// </summary>
+    internal static string ImportKindFor(int importCount) => importCount == 1 ? Cold : Warm;
+
+    /// <summary>
     /// Returns <see cref="Cold"/> for the first import in this process and
     /// <see cref="Warm"/> thereafter. PowerShell does not unload the module assembly on
     /// Remove-Module, so this static survives a remove/re-import cycle — which is exactly
     /// what makes the distinction meaningful.
     /// </summary>
-    internal static string NextImportKind() =>
-        Interlocked.Increment(ref _importCount) == 1 ? Cold : Warm;
+    internal static string NextImportKind() => ImportKindFor(Interlocked.Increment(ref _importCount));
 
     /// <summary>
     /// Materialises the recorded timeline as its own trace. Synchronous and free of

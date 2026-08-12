@@ -84,18 +84,23 @@ public class ImportTelemetryTests
             ImportTelemetry.Emit(new NullTelemetryService(), timeline, ImportTelemetry.Cold, DateTime.UtcNow)));
     }
 
-    [Fact]
-    public void NextImportKind_IsColdOnceThenWarm()
+    [Theory]
+    [InlineData(1, ImportTelemetry.Cold)]
+    [InlineData(2, ImportTelemetry.Warm)]
+    [InlineData(3, ImportTelemetry.Warm)]
+    [InlineData(99, ImportTelemetry.Warm)]
+    public void ImportKindFor_IsColdOnlyForTheFirstImport(int importCount, string expected)
     {
-        // Static state survives Remove-Module / Import-Module, so the first import in a
-        // process is cold and every later one is warm.
-        var first = ImportTelemetry.NextImportKind();
-        var second = ImportTelemetry.NextImportKind();
-        var third = ImportTelemetry.NextImportKind();
+        Assert.Equal(expected, ImportTelemetry.ImportKindFor(importCount));
+    }
 
-        Assert.Equal(ImportTelemetry.Cold, first);
-        Assert.Equal(ImportTelemetry.Warm, second);
-        Assert.Equal(ImportTelemetry.Warm, third);
+    [Fact]
+    public void NextImportKind_ReturnsAKnownKind()
+    {
+        // The counter behind this is process-wide and cannot be reset, so the exact value
+        // depends on what ran before. ImportKindFor covers the mapping; this only pins that
+        // NextImportKind is wired to it.
+        Assert.Contains(ImportTelemetry.NextImportKind(), new[] { ImportTelemetry.Cold, ImportTelemetry.Warm });
     }
 
     /// <summary>ITelemetryService backed by a real ActivitySource plus a listener, so
