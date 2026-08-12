@@ -9,14 +9,6 @@ namespace Core.Telemetry;
 /// <summary>
 /// Times startup phases that run before the telemetry stack exists, and replays them
 /// as spans once it does.
-///
-/// Both clients need this for different reasons. In the CLI the ActivitySource and its
-/// listener are created during DI resolution, so nothing can be traced live before that.
-/// In the PowerShell module the stack could be built during import, but constructing it
-/// costs more than the import being measured. Either way the remedy is the same: note
-/// <see cref="DateTime.UtcNow"/> — the same clock <c>Activity.Start()</c> uses — and pass
-/// the recorded times to <c>StartActivity</c> through the OpenTelemetry <c>startTime</c>
-/// parameter, which exists for work that has already happened.
 /// </summary>
 public sealed class PerformanceTimeline
 {
