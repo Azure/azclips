@@ -42,7 +42,7 @@ internal class CSharpClass
     /// Render a single-class compilation unit:
     /// <c>namespace ns; public [abstract] partial class name [: baseType] { }</c>.
     /// </summary>
-    internal string Literal()
+    internal string Source()
     {
         return Banner + Environment.NewLine + unit.ToFullString() + Environment.NewLine;
     }

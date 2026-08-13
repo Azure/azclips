@@ -31,7 +31,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         CSharpClass processorBaseClass = new CSharpClass(ns, BaseTypeName, isAbstract: true);
         yield return new GeneratedFile(
             $"Processors/{BaseTypeName}.g.cs",
-            processorBaseClass.Literal(),
+            processorBaseClass.Source(),
             BaseTypeName);
     }
 }

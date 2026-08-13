@@ -17,22 +17,19 @@ packages/generator/
   Ace.Generator.csproj                The generator library (project at the package root)
   src/
     Generation/                       Generation API, orchestrator + shared helpers
-      IClientGenerator.cs               Generator contract (sync + async, mirrors the TS `Generator` seam)
-      CSharpClientGenerator.cs          Orchestrator: drives the artifact generators, streams output
-      GeneratedFileHandler.cs           Delegate: caller-supplied on-the-fly async file writer
-      GeneratedFileCollector.cs         Optional in-memory handler (opt-in buffering)
-      GeneratedFile.cs                  A produced artifact (relative path + contents)
-      OutputPaths.cs                    Relative-path normalization + validation
-      Naming.cs / CSharpStub.cs         Identifier + Roslyn stub helpers
+      IClientGenerator.cs               Generator contract + GeneratedFileHandler delegate (async, mirrors the TS `Generator` seam)
+      CSharpClientGenerator.cs          Orchestrator: drives the artifact generators, streams + validates output
+      EmitterExtensions.cs              Shared emit helpers: Identifier/Pascal, relative-path normalization, XML-doc trivia
       IrTypeMapper.cs                   IRTypeRef -> C# type expression
-      ModelEmitter.cs                   Renders one IRModel as a C# class
       Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
-        ModelGenerator.cs                 IR models  -> model classes (real emission)
+        ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
         ProcessorGenerator.cs             IR operations -> processor classes (IProcessor) [stub]
         ProcessorBaseGenerator.cs         Template-like processor base (runtime wiring) [stub]
         ProjectStubGenerator.cs           .csproj / project metadata / resources [stub]
     Model/                            Run-facing types + generated IR POCOs
+      GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
+      CSharpClass.cs                    Roslyn single-class scaffold (used by the stub generators)
       GenerationContext.cs              Read-only run state (IR, options, diagnostics)
       GenerationResult.cs               Run outcome: diagnostics, generated-class map, success
       GeneratorOptions.cs               Host-resolved options
