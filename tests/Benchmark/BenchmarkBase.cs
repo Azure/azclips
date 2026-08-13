@@ -66,6 +66,8 @@ public abstract class BenchmarkBase
         RepoRoot = RepoLocator.GetRepoRoot();
         ProfileStoreRoot = BenchmarkProfileStore.GetRoot(RepoRoot);
 
+        // Seeded here (and again in each IterationSetup) so VerifySeededAsync below has a store to
+        // check: a misconfigured store must fail during setup, not silently skew every iteration.
         SeedProfileStore();
 
         // Fail loudly here rather than silently benchmarking a profile-less path: a store that does

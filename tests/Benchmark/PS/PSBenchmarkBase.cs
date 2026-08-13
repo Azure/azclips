@@ -77,10 +77,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     }
 
     [GlobalCleanup]
-    public void GlobalCleanup()
-    {
-        CleanupGlobal();
-    }
+    public void GlobalCleanup() => CleanupGlobal();
 
     protected object? RunPowerShellCommand(
         string command,
