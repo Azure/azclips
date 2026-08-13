@@ -707,7 +707,7 @@ Treat Steps 1-6 as a try/finally: these edits MUST be reverted in Step 6 regardl
 ```powershell
 dotnet build azclips.slnx -c Release
 ./build/Set-ModuleConfiguration.ps1 -c Release
-dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL -c Release
+dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local --product ALL
 ```
 
 Record the reported Mean for every benchmark.
@@ -726,7 +726,7 @@ Apply the same four edits as Step 1 to the scratch worktree's copies of `tests/B
 ```powershell
 dotnet build azclips.slnx -c Release
 ./build/Set-ModuleConfiguration.ps1 -c Release
-dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL -c Release
+dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local --product ALL
 ```
 
 Record the Mean for every benchmark. Confirm before running that both worktrees show `WarmupCount(5)` and `IterationCount(5)`.

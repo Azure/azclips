@@ -8,19 +8,39 @@
 > "did this get slower, and roughly by how much"; they are **not** suitable as
 > reference values for the CI 115% gate. Authoritative numbers will come from
 > CI executing the committed `WarmupCount(5000)` / `IterationCount(5000)`.
+>
+> **Both runs also executed in Debug configuration.** The `dotnet run` command
+> used was `dotnet run --project ... -- --local --product ALL -c Release`.
+> Because `-c Release` appears after `--`, it is passed to the benchmark
+> application (which ignores it) rather than to `dotnet run`. The host therefore
+> built and ran in the default **Debug** configuration. Meanwhile,
+> `CLIBenchmarkBase.cs` hardcodes `artifacts/Release` for extension staging, so
+> both runs were a **Debug benchmark host loading Release extension assemblies**
+> — a mixed configuration. BenchmarkDotNet's "built without optimization" warning
+> in the output is direct evidence of this. The correct invocation is:
+> `dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local --product ALL`
 
 ---
 
 ## Summary
 
 Switching the benchmark suite from the in-memory `StubProfileService` to the
-real file-backed `ProfileService` adds measurable latency in every benchmark —
-unsurprising because the warm path now involves actual disk I/O for profile
-resolution. All benchmarks exceed the 115% threshold at these indicative
-counts; this is the expected and accepted one-time baseline shift.
+real file-backed `ProfileService` makes every benchmark slower — consistent with
+the expected cost of adding real disk I/O for profile resolution.
 
-The high error margins (up to ~69% of mean for CLI: Create RG after) reflect
-the small sample size, not instability in production.
+**What the data supports:** the direction is real — all 12 benchmarks increased.
+**What the data does not support:** the specific magnitudes. Both runs were a
+Debug benchmark host loading Release extension assemblies (see the warning banner
+above). A Debug build with only 5 warmup iterations measures the new profile-IO
+code path essentially un-JITted, which substantially inflates the delta. Adding
+two small file reads plus a JSON deserialize against a warm page cache should
+cost on the order of tens of microseconds per invocation, not the 3–4 ms
+observed here. The reported 130%–260% increases are very likely overstated; they
+should not be treated as the expected steady-state shift.
+
+The high error margins (up to ~69% of mean) further reflect the small sample
+size, not instability in production. Authoritative figures require a correct
+Release-configured run at 5000 iterations in CI.
 
 ---
 
@@ -138,8 +158,10 @@ OutlierMode=RemoveAll  InvocationCount=1  IterationCount=5  UnrollFactor=1  Warm
 
 > ⚠️ Reminder: all percentages are indicative at 5 iterations. Error margins
 > are 15–69% of mean; individual figures should not be treated as precise.
-> "Exceeds 115%" here means the expected cost of real I/O was observed — it is
-> not a prediction of the CI gate result at 5000 iterations.
+> Both runs used a Debug benchmark host (see warning banner), so the magnitudes
+> are very likely overstated. **"Exceeds 115%"** here confirms only that
+> direction was observed — it is not a prediction of the CI gate result at 5000
+> Release-configured iterations.
 
 | Benchmark        | Before (main) ms | After ms | Change   | Exceeds 115%? |
 |------------------|----------------:|--------:|----------|---------------|
@@ -159,10 +181,14 @@ OutlierMode=RemoveAll  InvocationCount=1  IterationCount=5  UnrollFactor=1  Warm
 Percentages computed as `after / before × 100`. Values rounded to the nearest
 whole ms from the `Mean` column in each BenchmarkDotNet summary.
 
-All 12 benchmarks show increases consistent with the expected cost of adding
-real disk I/O for profile resolution. The CI 115% gate will fire on `main`'s
-historical baselines until those baselines are updated post-merge. This is
-the accepted one-time baseline shift documented in the spec.
+All 12 benchmarks show increases, confirming the **direction** of the change.
+The **magnitudes** (130%–260%) are not reliable: both runs were a Debug benchmark
+host loading Release assemblies, and only 5 warmup iterations were used, so the
+new profile-IO path was measured largely un-JITted. The actual per-invocation
+cost of adding two small file reads plus JSON deserialize is expected to be on
+the order of tens of microseconds, not 3–4 ms. The CI 115% gate will fire on
+`main`'s historical baselines until those baselines are updated post-merge; the
+gate figures will come from a correct Release-configured run at 5000 iterations.
 
 ---
 
@@ -219,8 +245,15 @@ Exit code: 0. The worktree at `C:\Users\jaysontai\Code\copilot-worktrees\cirrus\
   `--detach` at `main`'s tip SHA (`bc608d1a5`). This is equivalent to running
   against `main`.
 - BenchmarkDotNet warned that benchmarks "were built without optimization
-  enabled" in both runs. This is a known artefact of the `dotnet run` launch
-  path used by the benchmark runner. It affected both runs equally, so the
-  relative comparison is still valid.
+  enabled" in both runs. The real cause: `-c Release` was placed after `--` in
+  the `dotnet run` command, so it was passed to the benchmark application (which
+  silently ignores it) rather than to `dotnet run`. The host therefore ran in the
+  default **Debug** configuration. Additionally, `CLIBenchmarkBase.cs` hardcodes
+  `artifacts/Release` for extension staging, making both runs a **Debug
+  benchmark host loading Release extension assemblies**. The optimization warning
+  is direct evidence of this. Both runs were affected identically, so the
+  relative direction of the comparison is valid, but the magnitudes are likely
+  inflated. The correct invocation for anyone repeating this exercise is:
+  `dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local --product ALL`
 - Error margins at 5 iterations are very large (up to ~69% of mean). The
   absolute ms values should be read as order-of-magnitude estimates only.
