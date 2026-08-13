@@ -132,6 +132,16 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
     public static void RecordAlias(string moduleDir, string alias) =>
         File.WriteAllText(Path.Combine(moduleDir, ".alias"), alias + "\n");
 
+    /// <summary>Forget the recorded alias. Only correct once its resources are gone.</summary>
+    public static void ClearAlias(string moduleDir)
+    {
+        var marker = Path.Combine(moduleDir, ".alias");
+        if (File.Exists(marker))
+        {
+            File.Delete(marker);
+        }
+    }
+
     public static string BackendResourceGroup(string alias) => $"{alias}-azclips-live-test-mi-tfstate-rg";
 
     /// <summary>
@@ -240,7 +250,8 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
     /// destroy path, where the user is approving a specific list of resources.
     /// </para>
     /// </summary>
-    public void PlanAndApply(
+    /// <returns><c>true</c> when a plan was applied, <c>false</c> when there was nothing to do.</returns>
+    public bool PlanAndApply(
         string moduleDir,
         string planFile = "provision.tfplan",
         bool destroy = false,
@@ -265,7 +276,7 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
                     Console.WriteLine(destroy
                         ? "==> Nothing to destroy — the state tracks no resources."
                         : "==> No changes — infrastructure is up to date. Skipping apply.");
-                    break;
+                    return false;
                 case 2:
                     if (confirm is not null && !confirm())
                     {
@@ -282,7 +293,7 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
                         throw new LiveToolException($"terraform apply failed (exit {apply.ExitCode}).");
                     }
 
-                    break;
+                    return true;
                 default:
                     throw new LiveToolException($"terraform plan failed (exit {plan.ExitCode}).");
             }
@@ -310,12 +321,14 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
 
     /// <summary>
     /// Tear down everything stage 1 created: the VM, both managed identities, their
-    /// resource-group-scoped role assignments, networking, and the resource group itself.
+    /// resource-group-scoped role assignments, networking, and the resource group itself —
+    /// then the state group that recorded it.
     /// <para>
-    /// Deliberately scoped to the linux-vm module. It never touches the bootstrap identity
-    /// (an Entra object with a subscription-scoped role assignment, which no resource-group
-    /// deletion can reach) nor the state account, which lives in its own group precisely so
-    /// a destroy cannot delete the state that records it.
+    /// The state group cannot be Terraform-managed (a destroy would be deleting the state
+    /// it is writing to), so it is deleted separately, after the workload is gone. That
+    /// also takes the bundle blob container with it, which is intended: nothing survives a
+    /// destroy except the bootstrap identity, an Entra object with a subscription-scoped
+    /// role assignment that no resource-group deletion can reach.
     /// </para>
     /// <para>
     /// Prefer this over deleting the resource group by hand: the portal route leaves the
@@ -324,15 +337,72 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
     /// </summary>
     public void Destroy(string moduleDir, Func<bool> confirm)
     {
-        PrepareModule(moduleDir);
-        PlanAndApply(moduleDir, "destroy.tfplan", destroy: true, confirm);
+        var alias = PrepareModule(moduleDir);
+        var applied = PlanAndApply(moduleDir, "destroy.tfplan", destroy: true, confirm);
+
+        // With nothing in state the plan never asked for consent, but the state group is
+        // about to go regardless — so ask now.
+        if (!applied && !confirm())
+        {
+            throw new LiveToolException("Aborted — nothing was destroyed.");
+        }
+
+        DestroyStateBackend(moduleDir, alias);
+
+        // The marker exists to stop an alias change orphaning running resources. There are
+        // none left, so keeping it would only block the next alias change for no reason.
+        ClearAlias(moduleDir);
+    }
+
+    /// <summary>
+    /// Delete the state resource group, once the resources it tracked are gone.
+    /// <para>
+    /// Located by storage account name, the same way <see cref="EnsureStateBackend"/> finds
+    /// it, and only deleted when it sits in the group this tool would have created. A group
+    /// someone moved it into may hold unrelated resources, and deleting that is not this
+    /// tool's call to make.
+    /// </para>
+    /// </summary>
+    public void DestroyStateBackend(string moduleDir, string alias)
+    {
+        var account = ctx.StateAccountName(alias);
+        var expected = BackendResourceGroup(alias);
+        var resourceGroup = az.Tsv("storage", "account", "show", "--name", account, "--query", "resourceGroup");
+
+        if (string.IsNullOrEmpty(resourceGroup))
+        {
+            Console.WriteLine($"==> Terraform state account {account} is already gone.");
+        }
+        else if (!string.Equals(resourceGroup, expected, StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine(
+                $"!! Terraform state account {account} is in '{resourceGroup}', not '{expected}'.\n"
+                + "   Leaving it alone — it may share the group with resources this tool did not\n"
+                + "   create. Delete it by hand if you no longer need it.");
+            return;
+        }
+        else
+        {
+            Console.WriteLine($"==> Deleting Terraform state group {resourceGroup}");
+            az.NoneChecked("group", "delete", "--name", resourceGroup, "--yes");
+            ArmAccessKey = null;
+        }
+
+        // The backend cache still names a storage account that no longer exists, and its
+        // key is stale. Left in place, the next init reuses it and fails; removing it makes
+        // the next provision re-bootstrap the backend from scratch.
+        var backendCache = Path.Combine(moduleDir, ".terraform", "terraform.tfstate");
+        if (File.Exists(backendCache))
+        {
+            File.Delete(backendCache);
+        }
     }
 
     /// <summary>
     /// Shared setup for both write paths: resolve the alias, point Terraform at this
     /// developer's subscription, and initialise the matching remote state.
     /// </summary>
-    private void PrepareModule(string moduleDir)
+    private string PrepareModule(string moduleDir)
     {
         var alias = ResolveAlias(moduleDir);
         CheckAliasDrift(moduleDir, alias);
@@ -349,5 +419,6 @@ internal sealed partial class Tf(AzCli az, AzContext ctx, string terraformRoot)
 
         Console.WriteLine($"==> terraform init (state: {alias}-linux-vm.tfstate)");
         Init(moduleDir, account, $"{alias}-linux-vm.tfstate");
+        return alias;
     }
 }

@@ -30,7 +30,7 @@ local runs, start at stage 1.
 | Resource group | `<alias>-azclips-live-test-mi-rg` (created for you) |
 | VM | `<alias>-azclips-live-test-mi-vm` |
 | CI app registration | `<alias>-azclips-live-test-mi` |
-| Terraform state RG | `<alias>-azclips-live-test-mi-tfstate-rg` (created for you; kept separate from the workload group so `terraform destroy` cannot delete the state) |
+| Terraform state RG | `<alias>-azclips-live-test-mi-tfstate-rg` (created for you; kept separate from the workload group so `terraform destroy` cannot delete the state out from under itself — `--destroy` deletes it afterwards, as a separate step) |
 | Terraform state account | `<alias>tf<first 8 of subscription id>` (created for you; also holds the CLI bundle blobs, in a separate `milive-bundles` container) |
 | Terraform state blob | `<alias>-linux-vm.tfstate` (stage 0 has no state — see below) |
 | Region | Australia East |
@@ -433,8 +433,9 @@ Copy `terraform.tfvars.example` to `terraform.tfvars` and set `alias`, or export
 ### `Alias changed: 'x' -> 'y'`
 
 Each alias has its own Terraform state, so switching would leave the previous
-resources running and untracked. Destroy the old environment first, or delete
-the `.alias` marker file in the module directory if it is already gone.
+resources running and untracked. Destroy the old environment first (`--destroy`
+clears the marker for you, since nothing is left to orphan), or delete the
+`.alias` marker file in the module directory if it is already gone.
 
 ### The workflow fails at Azure login
 
@@ -479,19 +480,22 @@ dotnet run --project tests/Live/Tool -- --destroy
 
 This shows the destroy plan, asks you to confirm, and then removes the VM, both
 managed identities, their role assignments, networking, and the resource group.
-Pass `--yes` to skip the prompt in a script. Re-create everything later with
-`dotnet run --project tests/Live/Tool -- --provision`.
+It then deletes the Terraform state group — including the state blob and the
+bundle container — so a destroy leaves nothing behind except the stage 0
+bootstrap identity. Pass `--yes` to skip the prompt in a script. Re-create
+everything later with `dotnet run --project tests/Live/Tool -- --provision`,
+which re-bootstraps the state backend.
 
 Use this rather than deleting the resource group in the portal. Deleting it by
 hand removes the resources in Azure but leaves the Terraform state believing
 they exist, so the next `--provision` fails on resources it cannot find.
 
-`--yes` skips the prompt for unattended use. What it destroys is still bounded
-by the Terraform state — it cannot wander outside the resources this module
-created — but it does remove the one step where a human reads the target
-resource group. In CI there is no `.alias` marker file, so the alias-drift guard
-cannot fire either, and the `ALIAS` variable alone decides whose environment is
-destroyed. Check it before automating this.
+`--yes` skips the prompt for unattended use. What it destroys is bounded by the
+Terraform state plus the one group named after your alias
+(`<alias>-azclips-live-test-mi-tfstate-rg`) — but it does remove the one step
+where a human reads the target resource group. In CI there is no `.alias` marker
+file, so the alias-drift guard cannot fire either, and the `ALIAS` variable alone
+decides whose environment is destroyed. Check it before automating this.
 
 If you expect to run the test again within a day or two, deallocating is cheaper
 than a full rebuild — it stops all compute billing and leaves only the disk:

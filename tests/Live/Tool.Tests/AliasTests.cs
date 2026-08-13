@@ -52,4 +52,42 @@ public class AliasTests
     {
         Assert.Null(Tf.ParseAlias(content));
     }
+
+    /// <summary>
+    /// The drift guard fires on a stale marker, so a destroy has to clear it — otherwise
+    /// the next alias change is blocked by resources that no longer exist.
+    /// </summary>
+    [Fact]
+    public void ClearAlias_RemovesTheMarkerAndTheDriftGuardStopsFiring()
+    {
+        var dir = Directory.CreateTempSubdirectory("livetool-alias");
+        try
+        {
+            Tf.RecordAlias(dir.FullName, "ming");
+            Assert.Throws<LiveToolException>(() => Tf.CheckAliasDrift(dir.FullName, "identity-ming"));
+
+            Tf.ClearAlias(dir.FullName);
+
+            Assert.False(File.Exists(Path.Combine(dir.FullName, ".alias")));
+            Tf.CheckAliasDrift(dir.FullName, "identity-ming");
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ClearAlias_IsANoOpWhenThereIsNoMarker()
+    {
+        var dir = Directory.CreateTempSubdirectory("livetool-alias");
+        try
+        {
+            Tf.ClearAlias(dir.FullName);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
 }

@@ -27,7 +27,8 @@ internal static class Program
           --storage-account NAME Storage account for the bundle blob (default: derived)
           --container NAME       Blob container name (default: milive-bundles)
           --provision            Provision/update the VM first. Fast no-op when unchanged.
-          --destroy              Destroy the VM and its resource group, then exit. Runs no test.
+          --destroy              Destroy the VM, its resource group and the Terraform state
+                                 group, then exit. Runs no test.
           --bootstrap            Create the GitHub Actions identity, then exit. Runs no test.
                                  Only needed for CI, and only once per tenant.
           --yes                  Skip the --destroy confirmation prompt (for scripts/CI)
@@ -132,7 +133,8 @@ internal static class Program
         // Teardown is a complete alternative to the test run, not a stage of it.
         if (destroy)
         {
-            timing.Timed("terraform destroy", () => tf.Destroy(tfDir, () => ConfirmDestroy(assumeYes)));
+            var stateGroup = Tf.BackendResourceGroup(tf.ResolveAlias(tfDir));
+            timing.Timed("terraform destroy", () => tf.Destroy(tfDir, () => ConfirmDestroy(assumeYes, stateGroup)));
 
             Console.WriteLine();
             Console.WriteLine("==> Destroyed. Re-create it with:");
@@ -326,7 +328,7 @@ internal static class Program
     /// a developer's environment by accident.
     /// </para>
     /// </summary>
-    private static bool ConfirmDestroy(bool assumeYes)
+    private static bool ConfirmDestroy(bool assumeYes, string stateGroup)
     {
         if (assumeYes)
         {
@@ -341,6 +343,7 @@ internal static class Program
         }
 
         Console.WriteLine();
+        Console.WriteLine($"This also deletes the Terraform state group '{stateGroup}' and everything in it.");
         Console.Write("Destroy the resources listed above? Type 'yes' to confirm: ");
         return string.Equals(Console.ReadLine()?.Trim(), "yes", StringComparison.OrdinalIgnoreCase);
     }

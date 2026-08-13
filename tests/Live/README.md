@@ -68,9 +68,10 @@ dotnet run --project tests/Live/Tool -- --destroy
 ```
 
 This prints the destroy plan, asks for confirmation, and then removes the VM, both
-managed identities, their role assignments, and the resource group. Add `--yes` to skip
-the prompt. Prefer it over deleting the resource group in the portal: that leaves the
-Terraform state claiming the resources still exist, which breaks the next `--provision`.
+managed identities, their role assignments, and the resource group — followed by the
+Terraform state group, so nothing is left billing. Add `--yes` to skip the prompt.
+Prefer it over deleting the resource group in the portal: that leaves the Terraform
+state claiming the resources still exist, which breaks the next `--provision`.
 
 ### In your own CI
 
