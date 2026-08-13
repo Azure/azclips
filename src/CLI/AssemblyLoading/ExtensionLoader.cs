@@ -201,7 +201,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                 // request: trust the caller and take the first assembly-name match. See Azure/CLIPS#522.
                 if (!string.IsNullOrEmpty(version))
                 {
-                    var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, directoryName, _loggingService);
+                    var discoveredVersion = ResolvePackageVersion(packageDir, directoryName, _loggingService);
                     if (string.IsNullOrEmpty(discoveredVersion) ||
                         !string.Equals(discoveredVersion, version, StringComparison.OrdinalIgnoreCase))
                     {
@@ -238,7 +238,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                     stopwatch.Stop();
 
                     var loadedVersion = string.IsNullOrEmpty(version)
-                        ? ResolvePackageVersionFromNupkg(packageDir, directoryName, _loggingService)
+                        ? ResolvePackageVersion(packageDir, directoryName, _loggingService)
                         : version;
                     _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Loaded '{extensionName}' v{(string.IsNullOrEmpty(loadedVersion) ? "?" : loadedVersion)} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
                     ExtensionLoadTracker.Record(extensionName, stopwatch.Elapsed.TotalMilliseconds, loadedVersion, extensionPath);
@@ -291,7 +291,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                     continue;
                 }
 
-                var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId, _loggingService);
+                var discoveredVersion = ResolvePackageVersion(packageDir, packageId, _loggingService);
 
                 seen.Add(shortName);
                 // Normalize to an absolute path — Location is documented as absolute.
@@ -300,7 +300,7 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
         }
     }
 
-    private static string ResolvePackageVersionFromNupkg(string packageDir, string packageId, ILoggingService? loggingService)
+    private static string ResolvePackageVersion(string packageDir, string packageId, ILoggingService? loggingService)
     {
         var prefix = packageId + ".";
         var versions = Directory.EnumerateFiles(packageDir, "*.nupkg", SearchOption.TopDirectoryOnly)
@@ -310,7 +310,20 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
             .OrderByDescending(parsed => parsed)
             .ToList();
 
-        return versions.Count == 0 ? string.Empty : versions[0].ToString();
+        if (versions.Count > 0)
+        {
+            return versions[0].ToString();
+        }
+
+        // Packaged installs strip .nupkg during injection; fall back to AssemblyInformationalVersion.
+        var attributeVersion = AssemblyVersionReader.TryReadInformationalVersion(packageDir, packageId);
+        if (!string.IsNullOrEmpty(attributeVersion))
+        {
+            loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolved version '{attributeVersion}' for '{packageId}' via AssemblyInformationalVersion (no .nupkg present).");
+            return attributeVersion;
+        }
+
+        return string.Empty;
     }
 
     private static NuGetVersion? ParseVersionFromNupkg(string nupkgPath, string packageId, string packagePrefix, ILoggingService? loggingService)
