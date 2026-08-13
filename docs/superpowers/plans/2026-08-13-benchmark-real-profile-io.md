@@ -684,20 +684,27 @@ git commit -m "docs: benchmarks use the real file-backed ProfileService"
 
 ---
 
-### Task 4: Measure and record the baseline delta
+### Task 4: Measure and record the baseline delta (indicative)
 
-The spec accepts a one-time baseline shift, on the condition that it is measured and documented. The PR gate fails anything above 115% of the historical baseline, so a reviewer needs the numbers to distinguish "expected cost of real IO" from "accidental regression".
+The spec accepts a one-time baseline shift, on the condition that it is measured and documented. The PR gate fails anything above 115% of the historical baseline, so a reviewer needs numbers to distinguish "expected cost of real IO" from "accidental regression".
+
+**This task produces an INDICATIVE measurement, not an authoritative baseline.** Both runs use a temporarily lowered `WarmupCount(5)` / `IterationCount(5)` so the comparison completes in minutes rather than hours. At 5 iterations BenchmarkDotNet's run-to-run variance is large relative to the profile-IO delta being measured, so the result answers "did this get slower, and roughly by how much" — it does not produce a number anyone should quote as the CI gate figure. The authoritative numbers come from CI on the real `5000` counts. The results document must state this limitation prominently.
 
 **Files:**
-- No source changes. Produces notes for the PR description.
+- Create: `docs/superpowers/plans/2026-08-13-benchmark-real-profile-io-results.md`
+- Temporarily modify (must be reverted before committing): `tests/Benchmark/CLI/CLIBenchmarkBase.cs:21-22`, `tests/Benchmark/PS/PSBenchmarkBase.cs:17-18`
 
-- [ ] **Step 1: Capture the "before" numbers from `main`**
+- [ ] **Step 1: Lower the counts in this worktree**
 
-Use a scratch worktree so the current branch is undisturbed. Run from the repo root:
+In `tests/Benchmark/CLI/CLIBenchmarkBase.cs`, change line 21 `[WarmupCount(5000)]` → `[WarmupCount(5)]` and line 22 `[IterationCount(5000)]` → `[IterationCount(5)]`.
+
+In `tests/Benchmark/PS/PSBenchmarkBase.cs`, change line 17 `[WarmupCount(5000)]` → `[WarmupCount(5)]` and line 18 `[IterationCount(5000)]` → `[IterationCount(5)]`.
+
+Treat Steps 1-6 as a try/finally: these edits MUST be reverted in Step 6 regardless of what happens in between.
+
+- [ ] **Step 2: Capture the "after" numbers from this branch**
 
 ```powershell
-git worktree add ../azclips-baseline main
-cd ../azclips-baseline
 dotnet build azclips.slnx -c Release
 ./build/Set-ModuleConfiguration.ps1 -c Release
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL -c Release
@@ -705,22 +712,28 @@ dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL -
 
 Record the reported Mean for every benchmark.
 
-- [ ] **Step 2: Capture the "after" numbers from this branch**
+- [ ] **Step 3: Capture the "before" numbers from `main`**
 
-Return to this worktree (substitute its actual path) and repeat:
+Use a scratch worktree so the current branch is undisturbed. `main` still has `5000` counts committed, so lower them there too — otherwise the two runs are not comparable.
 
 ```powershell
-cd C:\Users\jaysontai\Code\copilot-worktrees\cirrus\jaysontaimicrosoft-redesigned-waddle
+git worktree add ../azclips-baseline main
+cd ../azclips-baseline
+```
+
+Apply the same four edits as Step 1 to the scratch worktree's copies of `tests/Benchmark/CLI/CLIBenchmarkBase.cs` and `tests/Benchmark/PS/PSBenchmarkBase.cs`. These are throwaway — the whole worktree is deleted in Step 5.
+
+```powershell
 dotnet build azclips.slnx -c Release
 ./build/Set-ModuleConfiguration.ps1 -c Release
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL -c Release
 ```
 
-Record the Mean for every benchmark. Both runs must use the committed `5000` counts so the comparison is like-for-like.
+Record the Mean for every benchmark. Confirm before running that both worktrees show `WarmupCount(5)` and `IterationCount(5)`.
 
-- [ ] **Step 3: Build the comparison table**
+- [ ] **Step 4: Build the comparison table**
 
-For each benchmark compute `after / before` as a percentage. Fill in this template with the measured values — one row per benchmark reported by the run:
+For each benchmark compute `after / before * 100` as a percentage. Fill in this template with the measured values — one row per benchmark reported by the run:
 
 ```markdown
 | Benchmark | Before (main) | After | Change |
@@ -730,22 +743,38 @@ For each benchmark compute `after / before` as a percentage. Fill in this templa
 | CLI: Get RG | <mean> | <mean> | <pct>% |
 ```
 
-Flag any benchmark above 115%, since those are the ones that will trip the PR gate.
+Note which benchmarks exceed 115%, while making clear this is indicative at 5 iterations and not a gate prediction.
 
-- [ ] **Step 4: Remove the scratch worktree**
+- [ ] **Step 5: Remove the scratch worktree**
 
 ```powershell
-git worktree remove ../azclips-baseline
+cd C:\Users\jaysontai\Code\copilot-worktrees\cirrus\jaysontaimicrosoft-redesigned-waddle
+git worktree remove --force ../azclips-baseline
 ```
 
-- [ ] **Step 5: Record the results**
+`--force` is needed because the worktree has uncommitted count edits.
 
-Save the table to `docs/superpowers/plans/2026-08-13-benchmark-real-profile-io-results.md` and commit it, so the PR description can quote it and a future reader can see why the baseline moved.
+- [ ] **Step 6: Restore the counts in this worktree**
 
-```bash
+Revert both files to `[WarmupCount(5000)]` and `[IterationCount(5000)]`:
+
+```powershell
+git checkout -- tests/Benchmark/CLI/CLIBenchmarkBase.cs tests/Benchmark/PS/PSBenchmarkBase.cs
+git diff -- tests/Benchmark/CLI/CLIBenchmarkBase.cs tests/Benchmark/PS/PSBenchmarkBase.cs
+```
+
+The diff must be empty. Confirm both files contain `5000` and neither contains `WarmupCount(5)` or `IterationCount(5)`.
+
+- [ ] **Step 7: Record the results**
+
+Write `docs/superpowers/plans/2026-08-13-benchmark-real-profile-io-results.md`. It must open with a clearly visible caveat that the run used 5 warmup + 5 measurement iterations, that the figures are indicative only, and that authoritative numbers come from CI at the committed `5000` counts. Then the comparison table, then the raw BenchmarkDotNet summary output for both runs.
+
+```powershell
 git add docs/superpowers/plans/2026-08-13-benchmark-real-profile-io-results.md
-git commit -m "docs: record benchmark delta from real profile file IO"
+git commit -m "docs: record indicative benchmark delta from real profile file IO"
 ```
+
+Verify `git status` shows no modification to the two benchmark base classes before committing.
 
 ---
 
@@ -758,4 +787,4 @@ git commit -m "docs: record benchmark delta from real profile file IO"
 - [ ] `WarmupCount(5000)` and `IterationCount(5000)` are intact in both benchmark base classes.
 - [ ] `StubProfileService` still exists and is still used by `Cli.Tests` and `Scenario.Tests`.
 - [ ] No file under `src/` or `Agent/` is modified.
-- [ ] Before/after benchmark deltas are recorded for the PR description.
+- [ ] Before/after benchmark deltas are recorded for the PR description, clearly labelled as indicative (5 warmup + 5 iterations, not the committed 5000).
