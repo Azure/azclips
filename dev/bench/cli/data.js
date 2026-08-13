@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786599909011,
+  "lastUpdate": 1786599972280,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -5544,6 +5544,48 @@ window.BENCHMARK_DATA = {
             "value": 902786.1941295547,
             "unit": "ns",
             "range": "± 22987.133337493164"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "675d1caed1f399cf57aa89ce0bb646e65318de06",
+          "message": "[Extensions] `extension list` displays all available candidates (#688)\n\nCloses https://github.com/Azure/CLIPS/issues/643\nCloses https://github.com/Azure/CLIPS/issues/534\n\n`az extension list` will now show all available extension candidates\n(not just the extension that will dispatch). Note here, `0.1.1` and\n`0.1.2` are listed, along with their location (one bundledIn install\nlocation, one externally installed).\n\n`0.1.1` is pinned, so it is listed as `selectedVersion`.\n\n\n<img width=\"1882\" height=\"712\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/ff1b9e4a-8e55-4b18-b3d2-06f2b94e23fc\"\n/>\n\nUnpinning will show `0.1.2` as selected version now (it wins selection\nrules: higher semver), but `0.1.1` is still listed as a candidate:\n<img width=\"1898\" height=\"710\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/485ed055-fa92-4943-9b79-f75a37e1a91c\"\n/>\n\n---\n\n## Implementation notes\n\nBoth issues live under Azure/CLIPS#209.\n\n**CLIPS-534** - flip `<GenerateAssemblyInfo>true</GenerateAssemblyInfo>`\non the five dispatchable extension csprojs (Compute, Config, Extension,\nLogin, Resources) so the SDK stamps `AssemblyInformationalVersion` on\neach DLL; extend `BundledExtensionLoader.ResolvePackageVersion` with a\n`MetadataLoadContext` fallback that reads the attribute (stripping the\n`+sha` suffix) when the `.nupkg` is stripped by packaging. Local builds\nstill hit the `.nupkg` scan first, so behavior is unchanged there.\n\n**CLIPS-643** - new\n`DiscoveryBackedExtensionRegistry.BuildDiscoveredWithCandidates` returns\nboth the collapsed `ExtensionRegistry` and per-package\n`SelectedExtensionCandidate` (Selected + Ignored).\n`ListExtensionsProcessor` projects that into a `candidates: []` array\nand a `selectedVersion` field. Tier is inferred by path-matching\n`Location` against `assemblyLoading.installedExtensionsRoot`.\n\n**Shape is additive** - every existing top-level field on `az extension\nlist` output survives; `version` still equals `selectedVersion` for\nbackward compat.\n\n**Follow-up captured on Azure/CLIPS#489**: `az extension pin --version\n<v>` becomes the natural companion once side-by-side install lands.\n\n## Testing\n\n- 4 unit tests for `AssemblyVersionReader` (real assembly, missing dir,\nmissing DLL, unreadable DLL).\n- 2 loader integration tests (fallback-hit +\nfallback-miss-with-empty-DLL).\n- 6 unit tests for `BuildCandidates` / `InferTier` (single-tier,\ndual-tier no pin, dual-tier with older-Bundled pin, null-selection\nfallback, `InferTier` branches).\n- Existing `ExtensionListByVerbTests` updated for the new record shape.\n- Live-verified scenarios shown in the screenshots above (pin, unpin,\n`--by-verb`).\n\n593/601 in `Cli.Tests` pass; 1 pre-existing `ManagedIdentityE2ETests`\nfailure is environment-dependent and unrelated.",
+          "timestamp": "2026-08-13T15:32:36+10:00",
+          "tree_id": "537caa43e380266c9b4805c12270df482c1da2ce",
+          "url": "https://github.com/Azure/azclips/commit/675d1caed1f399cf57aa89ce0bb646e65318de06"
+        },
+        "date": 1786599968992,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 957813.7209631728,
+            "unit": "ns",
+            "range": "± 18541.843771082473"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 931878.0421785421,
+            "unit": "ns",
+            "range": "± 18362.25013159923"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 908256.03921963,
+            "unit": "ns",
+            "range": "± 22260.298978274375"
           }
         ]
       }
