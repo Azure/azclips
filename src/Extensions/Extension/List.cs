@@ -172,6 +172,12 @@ public class ListExtensionsProcessor : IProcessor
         {
             var normalizedLocation = Path.GetFullPath(location);
             var normalizedRoot = Path.GetFullPath(installedRoot);
+            // Append a separator so the prefix check treats the root as a directory boundary and
+            // does not conflate '.../extensions' with '.../extensions-old'.
+            if (!normalizedRoot.EndsWith(Path.DirectorySeparatorChar))
+            {
+                normalizedRoot += Path.DirectorySeparatorChar;
+            }
             return normalizedLocation.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase)
                 ? "Installed"
                 : "Bundled";

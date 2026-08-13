@@ -39,6 +39,16 @@ public class ListExtensionsCandidatesTests
     }
 
     [Fact]
+    public void InferTier_ShouldReturnBundled_WhenLocationSharesPrefixButIsNotUnderInstalledRoot()
+    {
+        // Sibling directory that merely shares a prefix must not classify as Installed. The
+        // boundary check keeps '.../extensions' from matching '.../extensions-old/...'.
+        var sibling = InstalledRoot + "-old";
+        var location = Path.Combine(sibling, "Microsoft.Azure.Azclips.Extensions.Compute", "1.0.0", "dll.dll");
+        Assert.Equal("Bundled", ListExtensionsProcessor.InferTier(location, InstalledRoot));
+    }
+
+    [Fact]
     public void BuildCandidates_ShouldReturnSingleElement_ForSingleTierCandidate()
     {
         var info = MakeInfo("Contoso.Foo", "1.0.0", Path.Combine(BundledRoot, "Contoso.Foo", "Contoso.Foo.dll"));
