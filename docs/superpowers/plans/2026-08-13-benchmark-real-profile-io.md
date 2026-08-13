@@ -198,7 +198,9 @@ public sealed class BenchmarkProfileStoreTests : IDisposable
     {
         await BenchmarkProfileStore.SeedAsync(_dir);
 
-        await BenchmarkProfileStore.VerifySeededAsync(_dir);
+        var ex = await Record.ExceptionAsync(() => BenchmarkProfileStore.VerifySeededAsync(_dir));
+
+        Assert.Null(ex);
     }
 
     [Fact]
@@ -236,7 +238,9 @@ public sealed class BenchmarkProfileStoreTests : IDisposable
     [Fact]
     public void Cleanup_ShouldNotThrow_WhenDirectoryIsAbsent()
     {
-        BenchmarkProfileStore.Cleanup(Path.Combine(_dir, "never-created"));
+        var ex = Record.Exception(() => BenchmarkProfileStore.Cleanup(Path.Combine(_dir, "never-created")));
+
+        Assert.Null(ex);
     }
 
     public void Dispose()
