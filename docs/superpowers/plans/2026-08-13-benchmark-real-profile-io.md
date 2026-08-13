@@ -592,8 +592,10 @@ The skill's other steps still apply, in particular the Release prerequisite:
 ```powershell
 dotnet build azclips.slnx -c Release
 ./build/Set-ModuleConfiguration.ps1 -c Release
-dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL -c Release
+dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local --product ALL
 ```
+
+Note the placement of `-c Release`: it must come **before** the `--`. Anything after `--` is passed to the benchmark application, which parses only `--product`, `--local`, `--ci`, `--extension`, and `--list` and silently ignores a trailing `-c Release` — leaving `dotnet run` on its default Debug configuration.
 
 Expected: exit code 0 and a `[Benchmark] PASS` summary line. Do not interpret the timing numbers.
 
@@ -611,7 +613,7 @@ This confirms the fail-loud behavior that protects against a silently degraded b
 
 ```powershell
 Remove-Item -Recurse -Force artifacts/Benchmark/home/.azclips -ErrorAction SilentlyContinue
-dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product ALL -c Release
+dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local --product ALL
 ```
 
 Expected: the run fails with the `InvalidOperationException` message from `VerifySeededAsync`, naming the store path. If it instead passes, the guard is not wired correctly — fix it before continuing.
