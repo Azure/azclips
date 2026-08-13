@@ -8,6 +8,7 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -53,25 +54,52 @@ public abstract class BenchmarkBase
     }
 
     /// <summary>
-    /// Initialize repo root (one-time setup).
+    /// The isolated, file-backed profile store the benchmarks resolve profiles from.
+    /// </summary>
+    protected string ProfileStoreRoot { get; private set; } = null!;
+
+    /// <summary>
+    /// Initialize repo root and the seeded profile store (one-time setup).
     /// </summary>
     protected void InitializeCommon()
     {
         RepoRoot = RepoLocator.GetRepoRoot();
+        ProfileStoreRoot = BenchmarkProfileStore.GetRoot(RepoRoot);
+
+        SeedProfileStore();
+
+        // Fail loudly here rather than silently benchmarking a profile-less path: a store that does
+        // not resolve an active profile makes Engine.ResolveProfileAsync short-circuit, and the
+        // benchmark would still exit 0 while measuring far less work than a real user pays.
+        BenchmarkProfileStore.VerifySeededAsync(ProfileStoreRoot).GetAwaiter().GetResult();
     }
+
+    /// <summary>
+    /// Resets the profile store to its seeded state. Called from each iteration's setup so every
+    /// iteration starts from identical bytes even when a benchmark writes profiles.
+    /// </summary>
+    protected void SeedProfileStore() =>
+        BenchmarkProfileStore.SeedAsync(ProfileStoreRoot).GetAwaiter().GetResult();
 
     /// <summary>
     /// Registers stub DI overrides for benchmark isolation.
     /// Call before each iteration since <see cref="AzclipsServiceProvider.Dispose"/>
     /// clears all registrations.
     /// </summary>
+    /// <remarks>
+    /// <see cref="IProfileService"/> is deliberately NOT stubbed: benchmarks use the real
+    /// file-backed <see cref="ProfileService"/> against <see cref="ProfileStoreRoot"/> so measured
+    /// timings include the profile file IO a real user pays. It receives the real
+    /// <see cref="ILoggingService"/> from the container, exactly as in production.
+    /// </remarks>
     protected void RegisterBenchmarkStubs()
     {
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IProfileService, StubProfileService>();
+            services.AddSingleton<IProfileService>(sp =>
+                new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStoreRoot));
             services.AddSingleton<IAuthService, StubAuthService>();
         });
     }
@@ -83,4 +111,9 @@ public abstract class BenchmarkBase
     {
         AzclipsServiceProvider.Dispose();
     }
+
+    /// <summary>
+    /// One-time cleanup: remove the benchmark profile store. Best-effort.
+    /// </summary>
+    protected void CleanupGlobal() => BenchmarkProfileStore.Cleanup(ProfileStoreRoot);
 }
