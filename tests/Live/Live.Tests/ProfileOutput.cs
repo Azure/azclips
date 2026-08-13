@@ -3,13 +3,7 @@ using System.Text.Json.Serialization;
 namespace Live.Tests;
 
 /// <summary>
-/// A profile as <c>profile show</c> and <c>profile list</c> print it.
-///
-/// <para>
-/// One record covers both verbs, so the fields only one of them emits are nullable:
-/// <see cref="ManagedIdentityId"/> comes from <c>show</c>, <see cref="IsActive"/>
-/// from <c>list</c>.
-/// </para>
+/// A profile as <c>profile show</c> prints it.
 /// </summary>
 internal sealed record ProfileOutput
 {
@@ -25,8 +19,6 @@ internal sealed record ProfileOutput
     /// by the id for a user-assigned one.
     /// </summary>
     public string? ManagedIdentityId { get; init; }
-
-    public bool IsActive { get; init; }
 }
 
 /// <summary>

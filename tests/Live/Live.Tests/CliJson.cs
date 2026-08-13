@@ -20,13 +20,9 @@ internal static class CliJson
         PropertyNameCaseInsensitive = true,
     };
 
-    /// <summary>Deserializes a single object, e.g. from <c>profile show</c>.</summary>
+    /// <summary>Deserializes the object a command wrote, e.g. from <c>profile show</c>.</summary>
     public static T Parse<T>(AzResult result, string command)
         => Deserialize<T>(result, command, JsonSerializer.Deserialize<T>);
-
-    /// <summary>Deserializes an array, e.g. from <c>profile list</c>.</summary>
-    public static T[] ParseMany<T>(AzResult result, string command)
-        => Deserialize<T[]>(result, command, JsonSerializer.Deserialize<T[]>);
 
     /// <summary>
     /// Reports a broken contract as an assertion failure naming the command and

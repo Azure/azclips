@@ -59,26 +59,6 @@ public class CliOutputTests
         Assert.Equal(AuthMethod.ManagedIdentity, profile.AuthMethod);
     }
 
-    [Fact(DisplayName = "Output: 'profile list' entries carry the active flag")]
-    public void ParseMany_ProfileList_ReadsTheActiveEntry()
-    {
-        var profiles = CliJson.ParseMany<ProfileOutput>(
-            Output(
-                """
-                [
-                  { "name": "temp", "authMethod": 4, "isActive": true },
-                  { "name": "other", "authMethod": 0, "isActive": false }
-                ]
-                """),
-            "profile list");
-
-        Assert.Equal(2, profiles.Length);
-
-        var active = Assert.Single(profiles, entry => entry.IsActive);
-        Assert.Equal("temp", active.Name);
-        Assert.Equal(AuthMethod.ManagedIdentity, active.AuthMethod);
-    }
-
     [Fact(DisplayName = "Output: 'vm show' reports the VM name")]
     public void Parse_Vm_ReadsTheName()
     {
