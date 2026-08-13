@@ -204,49 +204,81 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
   export AZCLIPS_LIVE_UAMI_RESOURCE_ID="$UAMI_RESOURCE_ID"
   export AZCLIPS_LIVE_UAMI_OBJECT_ID="$UAMI_OBJECT_ID"
 
-  # -xml gives per-test durations, which is the only way to see which live test
-  # is actually slow — the console reporter prints just a total.
+  # -xml drives the result report below: it carries the display name, outcome,
+  # duration and source location of every case, which the console reporter does
+  # not. -quiet suppresses the per-test chatter; nothing is lost, because the log
+  # is kept and reprinted whenever something fails.
   XML_REPORT="$(mktemp -t live-tests-XXXXXX.xml)"
   RUNNER_LOG="$(mktemp -t live-tests-XXXXXX.log)"
   trap 'rm -f "$XML_REPORT" "$RUNNER_LOG"' EXIT
 
   rc=0
   timing_start "run live tests"
-  # Tee'd because the caller (az vm run-command) returns only the last ~4KB of
-  # stdout, so on failure we have to reprint the diagnosis at the very end.
+  # Captured rather than tee'd: the caller (az vm run-command) returns only the
+  # last ~4KB of stdout, so the report printed below has to be the only thing
+  # competing for that window.
   set +e
-  "$RUNNER" -xml "$XML_REPORT" 2>&1 | tee "$RUNNER_LOG"
-  rc=${PIPESTATUS[0]}
+  "$RUNNER" -quiet -xml "$XML_REPORT" > "$RUNNER_LOG" 2>&1
+  rc=$?
   set -e
   timing_end
 
-  # Timings are noise once something has failed, and every line printed here
-  # costs budget in that 4KB window, so only collect them on success.
+  # One line per test, read from the report. Deliberately the only thing printed
+  # on a passing run: this is what a reader sees, and a wall of runner output
+  # buries the result it is meant to show.
   # xUnit writes the report as one long line, so split on '<' before matching.
   # Diagnostics only: a malformed/absent report must never change the verdict.
-  if [[ $rc -eq 0 && -s "$XML_REPORT" ]]; then
-    while IFS= read -r el; do
-      t="$(printf '%s' "$el" | grep -o ' time="[^"]*"' | head -n1 | cut -d'"' -f2)"
-      m="$(printf '%s' "$el" | grep -o ' method="[^"]*"' | head -n1 | cut -d'"' -f2)"
-      c="$(printf '%s' "$el" | grep -o ' type="[^"]*"' | head -n1 | cut -d'"' -f2)"
-      [[ -z "$t" || -z "$m" ]] && continue
-      timing_record_detail "test: ${c##*.}.${m}" "$(awk -v s="$t" 'BEGIN { printf "%d", s * 1000 }')"
-    done < <(tr '<' '\n' < "$XML_REPORT" | grep '^test ' || true)
-  fi
+  passed=0
+  failed=0
+  skipped=0
+  attr() { printf '%s' "$1" | grep -o " $2=\"[^\"]*\"" | head -n1 | cut -d'"' -f2; }
+  echo
+  while IFS= read -r el; do
+    result="$(attr "$el" result)"
+    name="$(attr "$el" name)"
+    seconds="$(attr "$el" time)"
+    [[ -z "$result" || -z "$name" ]] && continue
+
+    # Display names are set on the live cases. Anything without one reports its
+    # fully qualified method name, which is too long to read at a glance, so
+    # reduce that (and only that) to the method.
+    [[ "$name" == Live.Tests.* ]] && name="${name##*.}"
+    took="$(awk -v s="$seconds" 'BEGIN { printf "%.1f", s }')"
+
+    case "$result" in
+      Pass)
+        passed=$((passed + 1))
+        printf '  PASS  %s  (%ss)\n' "$name" "$took"
+        timing_record_detail "test: $name" "$(awk -v s="$seconds" 'BEGIN { printf "%d", s * 1000 }')"
+        ;;
+      Fail)
+        failed=$((failed + 1))
+        printf '  FAIL  %s\n' "$name"
+        ;;
+      Skip) skipped=$((skipped + 1)) ;;
+    esac
+  done < <(tr '<' '\n' < "$XML_REPORT" | grep '^test ' || true)
+
+  printf '\n  %s passed' "$passed"
+  [[ $failed -gt 0 ]] && printf ', %s failed' "$failed"
+  [[ $skipped -gt 0 ]] && printf ', %s skipped' "$skipped"
+  printf '\n\n'
 
   if [[ $rc -ne 0 ]]; then
     # Nothing may be printed after this block. The caller keeps only the tail,
     # so whatever comes last is the only thing the developer will ever see —
     # and a bare "FAILED" with the assertion truncated away is unactionable.
-    echo
-    echo "===== FAILURES (repeated last so they survive output truncation) ====="
+    echo "===== FAILURES ====="
     if grep -q '\[FAIL\]' "$RUNNER_LOG"; then
-      # Failing blocks only. Skipped and passing entries would otherwise crowd
-      # the assertions out of the window they are competing for.
-      awk '/\[FAIL\]/ { keep = 1; print; next }
+      # The assertion, then the one stack frame that says where it broke. The
+      # frames below it are the reflection plumbing that invoked the test, and
+      # the report's own source-line attribute points at the [LiveFact], not at
+      # the assertion that actually failed.
+      awk '/\[FAIL\]/ { keep = 1; frame = 0; print; next }
            /\[(SKIP|PASS)\]/ { keep = 0; next }
-           keep { print }' "$RUNNER_LOG" | head -n 60
-      grep -E '^[[:space:]]+[A-Za-z0-9_.]+[[:space:]]+Total:' "$RUNNER_LOG" | tail -n 1
+           /Stack Trace:/ { if (keep) { frame = 1 }; next }
+           frame == 1 { print; frame = 2; keep = 0; next }
+           keep { print }' "$RUNNER_LOG" | head -n 40
     else
       # Non-assertion failure: a crash, a bad runner invocation, or a fixture
       # that threw before any test reported.
@@ -255,9 +287,6 @@ if [[ "$RUN_TEST" -eq 1 ]]; then
     fi
     exit $rc
   fi
-
-  echo "    All MI live tests passed."
-  echo
 fi
 
 timing_summary "VM-side (setup-vm-mi.sh)"
