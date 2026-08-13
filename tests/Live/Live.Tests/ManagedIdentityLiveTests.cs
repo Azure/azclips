@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Live.Tests;
 
 /// <summary>
@@ -46,10 +44,7 @@ public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLi
         }
 
         var logout = await AzCli.LogoutAsync();
-        Assert.True(
-            logout.Succeeded,
-            "Could not clear the existing credential before the test, so the result could "
-                + $"reflect a previously logged-in identity.{Environment.NewLine}{logout.Describe()}");
+        Assert.True(logout.Succeeded, $"logout failed.{Environment.NewLine}{logout.Describe()}");
     }
 
     /// <summary>
@@ -64,27 +59,36 @@ public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLi
         }
     }
 
-    [LiveFact(Skip = SkipReason)]
+    [LiveFact(DisplayName = "System-assigned identity can sign in and read its own VM", Skip = SkipReason)]
     public async Task Login_WithSystemAssignedIdentity_CanReadOwnVm()
     {
         await AssertIdentityCanReadOwnVmAsync("system-assigned");
     }
 
-    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiClientIdVariable], Skip = SkipReason)]
+    [LiveFact(
+        RequiresVariables = [LiveTestEnvironment.UamiClientIdVariable],
+        DisplayName = "User-assigned identity by client id can read its own VM",
+        Skip = SkipReason)]
     public async Task Login_WithUserAssignedIdentityByClientId_CanReadOwnVm()
     {
         await AssertIdentityCanReadOwnVmAsync(
             "user-assigned/client-id", "--client-id", LiveTestEnvironment.UamiClientId);
     }
 
-    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiResourceIdVariable], Skip = SkipReason)]
+    [LiveFact(
+        RequiresVariables = [LiveTestEnvironment.UamiResourceIdVariable],
+        DisplayName = "User-assigned identity by resource id can read its own VM",
+        Skip = SkipReason)]
     public async Task Login_WithUserAssignedIdentityByResourceId_CanReadOwnVm()
     {
         await AssertIdentityCanReadOwnVmAsync(
             "user-assigned/resource-id", "--resource-id", LiveTestEnvironment.UamiResourceId);
     }
 
-    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiObjectIdVariable], Skip = SkipReason)]
+    [LiveFact(
+        RequiresVariables = [LiveTestEnvironment.UamiObjectIdVariable],
+        DisplayName = "User-assigned identity by object id can read its own VM",
+        Skip = SkipReason)]
     public async Task Login_WithUserAssignedIdentityByObjectId_CanReadOwnVm()
     {
         await AssertIdentityCanReadOwnVmAsync(
@@ -96,7 +100,7 @@ public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLi
     /// Without this, a bug that silently ignored the selector and fell back to the
     /// system-assigned identity would still make every positive case above pass.
     /// </summary>
-    [LiveFact(Skip = SkipReason)]
+    [LiveFact(DisplayName = "An identity not assigned to this VM is refused", Skip = SkipReason)]
     public async Task Login_WithUnassignedClientId_Fails()
     {
         var unassignedClientId = Guid.NewGuid().ToString();
@@ -112,9 +116,8 @@ public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLi
         var show = await ShowVmAsync();
         Assert.False(
             show.Succeeded,
-            $"Expected login with an unassigned client id ({unassignedClientId}) to fail, "
-                + $"but the CLI authenticated and read the VM. This suggests the selector was "
-                + $"ignored and another identity was used.{Environment.NewLine}{show.Describe()}");
+            $"login with an unassigned client id ({unassignedClientId}) should have failed, "
+                + $"but it read the VM.{Environment.NewLine}{show.Describe()}");
     }
 
     private static async Task AssertIdentityCanReadOwnVmAsync(string label, params string[] selectorArgs)
@@ -122,16 +125,12 @@ public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLi
         var login = await AzCli.LoginWithIdentityAsync(selectorArgs);
         Assert.True(
             login.Succeeded,
-            $"[{label}] 'az login --identity {string.Join(' ', selectorArgs)}' "
-                + $"failed.{Environment.NewLine}{login.Describe()}");
+            $"[{label}] login failed.{Environment.NewLine}{login.Describe()}");
 
         var show = await ShowVmWithRetryAsync(label);
-        var name = ReadVmName(show, label);
+        var vm = CliJson.Parse<VmOutput>(show, $"[{label}] vm show");
 
-        Assert.True(
-            string.Equals(name, LiveTestEnvironment.VmName, StringComparison.OrdinalIgnoreCase),
-            $"[{label}] authenticated, but 'vm show' returned '{name}' instead of "
-                + $"'{LiveTestEnvironment.VmName}'. The token may belong to a different identity.");
+        Assert.Equal(LiveTestEnvironment.VmName, vm.Name, StringComparer.OrdinalIgnoreCase);
     }
 
     private static Task<AzResult> ShowVmAsync() =>
@@ -159,33 +158,9 @@ public class ManagedIdentityLiveTests : IClassFixture<LiveTestFixture>, IAsyncLi
         }
 
         Assert.Fail(
-            $"[{label}] 'vm show' never succeeded after {MaxAttempts} attempts over "
-                + $"{MaxAttempts * RetryDelay.TotalSeconds / 60:N0} minutes, so this is not "
-                + $"RBAC propagation delay.{Environment.NewLine}{result.Describe()}");
+            $"[{label}] 'vm show' failed {MaxAttempts} times over "
+                + $"{MaxAttempts * RetryDelay.TotalSeconds / 60:N0} min, so this is not RBAC "
+                + $"propagation delay.{Environment.NewLine}{result.Describe()}");
         return result;
-    }
-
-    private static string ReadVmName(AzResult result, string label)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(result.StandardOutput);
-            if (document.RootElement.TryGetProperty("name", out var name)
-                && name.ValueKind == JsonValueKind.String)
-            {
-                return name.GetString()!;
-            }
-        }
-        catch (JsonException exception)
-        {
-            Assert.Fail(
-                $"[{label}] 'vm show' did not return valid JSON ({exception.Message})."
-                    + $"{Environment.NewLine}{result.Describe()}");
-        }
-
-        Assert.Fail(
-            $"[{label}] 'vm show' returned JSON without a string 'name' property."
-                + $"{Environment.NewLine}{result.Describe()}");
-        return string.Empty;
     }
 }

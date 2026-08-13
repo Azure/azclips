@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Live.Tests;
 
 /// <summary>
@@ -26,11 +24,6 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
 
     // Bare `login` (no --out-profile) writes to this reserved profile name.
     private const string TempProfileName = "temp";
-
-    // AuthMethod.ManagedIdentity. The CLI serialises the enum by value, so this is
-    // the ordinal; the name is accepted too, so the tests survive a switch to a
-    // string enum converter.
-    private const string ManagedIdentityAuthMethod = "4";
 
     // Profiles created by these tests, removed during teardown.
     private readonly List<string> _createdProfiles = [];
@@ -62,54 +55,49 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
         await AzCli.LogoutAsync();
     }
 
-    [LiveFact]
+    [LiveFact(DisplayName = "Managed identity: login is recorded in the profile")]
     public async Task ProfileShow_AfterSystemAssignedLogin_RecordsManagedIdentity()
     {
         await LoginAsync();
 
         var profile = await ShowActiveProfileAsync();
 
-        AssertManagedIdentity(profile);
-        Assert.Equal(LiveTestEnvironment.SubscriptionId, GetString(profile, "subscriptionId"));
+        Assert.Equal(AuthMethod.ManagedIdentity, profile.AuthMethod);
+        Assert.Equal(LiveTestEnvironment.SubscriptionId, profile.SubscriptionId);
 
         // "MSI@" is the encoding for the system-assigned identity; a user-assigned
         // login would record MSIClient@/MSIObject@/MSIResource@ instead.
-        Assert.Equal("MSI@", GetString(profile, "managedIdentityId"));
+        Assert.Equal("MSI@", profile.ManagedIdentityId);
     }
 
-    [LiveFact(RequiresVariables = [LiveTestEnvironment.UamiClientIdVariable], Skip = SkipReason)]
+    [LiveFact(
+        RequiresVariables = [LiveTestEnvironment.UamiClientIdVariable],
+        DisplayName = "Managed identity: the selected user-assigned identity is recorded",
+        Skip = SkipReason)]
     public async Task ProfileShow_AfterUserAssignedLogin_RecordsSelectedIdentity()
     {
         await LoginAsync("--client-id", LiveTestEnvironment.UamiClientId);
 
         var profile = await ShowActiveProfileAsync();
 
-        AssertManagedIdentity(profile);
-        Assert.Equal(
-            $"MSIClient@{LiveTestEnvironment.UamiClientId}",
-            GetString(profile, "managedIdentityId"));
+        Assert.Equal(AuthMethod.ManagedIdentity, profile.AuthMethod);
+        Assert.Equal($"MSIClient@{LiveTestEnvironment.UamiClientId}", profile.ManagedIdentityId);
     }
 
-    [LiveFact(Skip = SkipReason)]
+    [LiveFact(DisplayName = "Profile: the logged-in profile is listed as active", Skip = SkipReason)]
     public async Task ProfileList_AfterLogin_ContainsActiveProfile()
     {
         await LoginAsync();
 
         var profiles = await ListProfilesAsync();
 
-        var active = profiles.SingleOrDefault(entry =>
-            entry.TryGetProperty("isActive", out var flag) && flag.GetBoolean());
+        var active = Assert.Single(profiles, entry => entry.IsActive);
 
-        Assert.True(
-            active.ValueKind == JsonValueKind.Object,
-            $"Expected exactly one active profile in 'profile list' after login, found "
-                + $"{profiles.Count(e => e.TryGetProperty("isActive", out var f) && f.GetBoolean())}.");
-
-        Assert.Equal(TempProfileName, GetString(active, "name"));
-        AssertManagedIdentity(active);
+        Assert.Equal(TempProfileName, active.Name);
+        Assert.Equal(AuthMethod.ManagedIdentity, active.AuthMethod);
     }
 
-    [LiveFact(Skip = SkipReason)]
+    [LiveFact(DisplayName = "Profile: 'profile set' switches the active profile", Skip = SkipReason)]
     public async Task ProfileSet_SwitchesTheActiveProfile()
     {
         var named = await LoginToNamedProfileAsync();
@@ -117,15 +105,15 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
         // Bare login moves the active profile to "temp", so the named one is no
         // longer active and `profile set` has something real to switch back to.
         await LoginAsync();
-        Assert.Equal(TempProfileName, GetString(await ShowActiveProfileAsync(), "name"));
+        Assert.Equal(TempProfileName, (await ShowActiveProfileAsync()).Name);
 
         var set = await AzCli.RunAsync("profile", "set", named);
         Assert.True(set.Succeeded, $"'profile set {named}' failed.{Environment.NewLine}{set.Describe()}");
 
-        Assert.Equal(named, GetString(await ShowActiveProfileAsync(), "name"));
+        Assert.Equal(named, (await ShowActiveProfileAsync()).Name);
     }
 
-    [LiveFact(Skip = SkipReason)]
+    [LiveFact(DisplayName = "Profile: 'profile remove' deletes the profile", Skip = SkipReason)]
     public async Task ProfileRemove_DeletesTheProfile()
     {
         var named = await LoginToNamedProfileAsync();
@@ -139,13 +127,13 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
 
         var profiles = await ListProfilesAsync();
         Assert.DoesNotContain(profiles, entry =>
-            string.Equals(GetString(entry, "name"), named, StringComparison.OrdinalIgnoreCase));
+            string.Equals(entry.Name, named, StringComparison.OrdinalIgnoreCase));
 
         var show = await AzCli.RunAsync("profile", "show", named);
         Assert.False(show.Succeeded, $"'profile show {named}' succeeded after the profile was removed.");
     }
 
-    [LiveFact(Skip = SkipReason)]
+    [LiveFact(DisplayName = "Profile: an unknown profile is rejected", Skip = SkipReason)]
     public async Task ProfileShow_ForUnknownProfile_Fails()
     {
         var missing = $"no-such-profile-{Guid.NewGuid():N}";
@@ -155,23 +143,10 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
         Assert.False(show.Succeeded, $"'profile show {missing}' unexpectedly succeeded.");
     }
 
-    private static void AssertManagedIdentity(JsonElement profile)
-    {
-        var authMethod = GetString(profile, "authMethod");
-        Assert.True(
-            authMethod == ManagedIdentityAuthMethod
-                || string.Equals(authMethod, "ManagedIdentity", StringComparison.OrdinalIgnoreCase),
-            $"Expected the profile to record a managed-identity login, but authMethod was "
-                + $"'{authMethod}'. Profile: {profile}");
-    }
-
     private static async Task LoginAsync(params string[] selectorArgs)
     {
         var login = await AzCli.LoginWithIdentityAsync(selectorArgs);
-        Assert.True(
-            login.Succeeded,
-            $"'az login --identity {string.Join(' ', selectorArgs)}' "
-                + $"failed.{Environment.NewLine}{login.Describe()}");
+        Assert.True(login.Succeeded, $"login failed.{Environment.NewLine}{login.Describe()}");
     }
 
     /// <summary>Logs in to a uniquely named profile and registers it for cleanup.</summary>
@@ -184,70 +159,25 @@ public class ProfileLiveTests : IClassFixture<LiveTestFixture>, IAsyncLifetime
             "--subscription-id", LiveTestEnvironment.SubscriptionId,
             "--out-profile", name);
 
-        Assert.True(
-            login.Succeeded,
-            $"login to profile '{name}' failed.{Environment.NewLine}{login.Describe()}");
+        Assert.True(login.Succeeded, $"login to '{name}' failed.{Environment.NewLine}{login.Describe()}");
 
         _createdProfiles.Add(name);
         return name;
     }
 
-    private static async Task<JsonElement> ShowActiveProfileAsync()
+    private static async Task<ProfileOutput> ShowActiveProfileAsync()
     {
         var show = await AzCli.RunAsync("profile", "show", "--active");
         Assert.True(show.Succeeded, $"'profile show --active' failed.{Environment.NewLine}{show.Describe()}");
 
-        return ParseJson(show, "profile show --active");
+        return CliJson.Parse<ProfileOutput>(show, "profile show --active");
     }
 
-    private static async Task<JsonElement[]> ListProfilesAsync()
+    private static async Task<ProfileOutput[]> ListProfilesAsync()
     {
         var list = await AzCli.RunAsync("profile", "list");
         Assert.True(list.Succeeded, $"'profile list' failed.{Environment.NewLine}{list.Describe()}");
 
-        var root = ParseJson(list, "profile list");
-        Assert.True(
-            root.ValueKind == JsonValueKind.Array,
-            $"Expected 'profile list' to return a JSON array, got {root.ValueKind}."
-                + $"{Environment.NewLine}{list.Describe()}");
-
-        return [.. root.EnumerateArray()];
-    }
-
-    private static JsonElement ParseJson(AzResult result, string command)
-    {
-        try
-        {
-            // The element must outlive the JsonDocument, so clone it out.
-            using var document = JsonDocument.Parse(result.StandardOutput);
-            return document.RootElement.Clone();
-        }
-        catch (JsonException exception)
-        {
-            Assert.Fail(
-                $"'{command}' did not return valid JSON ({exception.Message})."
-                    + $"{Environment.NewLine}{result.Describe()}");
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// Reads a property case-insensitively, so the assertions do not depend on the
-    /// serializer's casing policy.
-    /// </summary>
-    private static string GetString(JsonElement element, string propertyName)
-    {
-        foreach (var property in element.EnumerateObject())
-        {
-            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
-            {
-                return property.Value.ValueKind == JsonValueKind.String
-                    ? property.Value.GetString()!
-                    : property.Value.ToString();
-            }
-        }
-
-        Assert.Fail($"Expected a '{propertyName}' property in: {element}");
-        return string.Empty;
+        return CliJson.ParseMany<ProfileOutput>(list, "profile list");
     }
 }
