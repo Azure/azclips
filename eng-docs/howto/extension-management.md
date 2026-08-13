@@ -107,15 +107,23 @@ Each row surfaces every discovered candidate under a `candidates` array plus a `
 
 ```jsonc
 {
-  "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
-  "version": "0.1.2",
-  "selectedVersion": "0.1.2",
-  "pinned": false,
-  "location": "<install>/Extensions/.../Compute.dll",
-  "candidates": [
-    { "version": "0.1.2", "tier": "Bundled",   "location": "<install>/Extensions/.../Compute.dll" },
-    { "version": "0.1.1", "tier": "Installed", "location": "~/.azclips/extensions/.../0.1.1/Compute.dll" }
-  ]
+    "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
+    "version": "0.1.2",
+    "selectedVersion": "0.1.2",
+    "pinned": false,
+    "location": "<install>/Extensions/.../Compute.dll",
+    "candidates": [
+        {
+            "version": "0.1.2",
+            "tier": "Bundled",
+            "location": "<install>/Extensions/.../Compute.dll",
+        },
+        {
+            "version": "0.1.1",
+            "tier": "Installed",
+            "location": "~/.azclips/extensions/.../0.1.1/Compute.dll",
+        },
+    ],
 }
 ```
 

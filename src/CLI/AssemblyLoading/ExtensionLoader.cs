@@ -312,10 +312,11 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
 
         if (versions.Count > 0)
         {
+            loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolved version '{versions[0]}' for '{packageId}' via .nupkg scan.");
             return versions[0].ToString();
         }
 
-        // Packaged installs strip .nupkg during injection; fall back to AssemblyInformationalVersion.
+        // Fallback when no .nupkg is present in the package directory.
         var attributeVersion = AssemblyVersionReader.TryReadInformationalVersion(packageDir, packageId);
         if (!string.IsNullOrEmpty(attributeVersion))
         {
