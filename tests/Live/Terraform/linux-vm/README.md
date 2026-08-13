@@ -151,9 +151,14 @@ dotnet run --project tests/Live/Tool -- --bootstrap
 ```
 
 This creates an Entra app registration, a service principal, a federated
-credential trusting your repository's `dev` environment, and a Contributor role
-assignment at subscription scope. No client secret is ever created — GitHub
-authenticates by exchanging a short-lived OIDC token.
+credential trusting your repository's `dev` environment, and two role
+assignments at subscription scope: `Contributor` to create the resources, plus
+`Role Based Access Control Administrator` because the module grants the VM's two
+identities a role, and Contributor cannot write role assignments. Two narrow
+roles rather than Owner — RBAC Administrator adds only `roleAssignments`
+write/delete, and the roles being granted are non-privileged (`Reader`). No
+client secret is ever created — GitHub authenticates by exchanging a short-lived
+OIDC token.
 
 It then publishes four `dev` environment variables to your repository, so
 nothing has to be configured by hand:
@@ -524,7 +529,8 @@ SP=$(az ad sp list --filter "appId eq '$APP'" --query "[0].id" -o tsv | tr -d '\
 # it does NOT cascade: deleting the application first leaves an assignment
 # pointing at a principal that no longer exists, which is invisible to
 # `--assignee` afterwards and has to be hunted down by principal id.
-az role assignment delete --assignee "$SP" --role Contributor --scope "/subscriptions/$SUB" --yes
+az role assignment list --assignee "$SP" --scope "/subscriptions/$SUB" --query "[].id" -o tsv \
+  | tr -d '\r' | xargs -r az role assignment delete --ids
 az ad app delete --id "$APP"
 ```
 
@@ -541,7 +547,7 @@ az role assignment list --all --query "[?principalId=='$SP'].id" -o tsv | tr -d 
 
 If the principal id is no longer to hand, orphans are the assignments that have
 lost their principal name — worth checking after any manual cleanup, because a
-stranded Contributor at subscription scope is invisible in the portal beyond an
+stranded assignment at subscription scope is invisible in the portal beyond an
 "Identity not found" row:
 
 ```bash

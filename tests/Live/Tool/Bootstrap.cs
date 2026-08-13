@@ -34,7 +34,15 @@ internal static class Bootstrap
     private const string GitHubEnvironment = "dev";
     private const string OidcIssuer = "https://token.actions.githubusercontent.com";
     private const string OidcAudience = "api://AzureADTokenExchange";
-    private const string SubscriptionRole = "Contributor";
+    /// <summary>
+    /// Contributor cannot write <c>Microsoft.Authorization/*</c>, but the module grants the
+    /// VM's two identities a role at resource-group scope — so provisioning needs RBAC
+    /// write as well. Two narrow roles rather than Owner: RBAC Administrator adds only
+    /// roleAssignments write/delete, and the roles being granted are non-privileged
+    /// (Reader), which is what it is allowed to assign.
+    /// </summary>
+    private static readonly string[] SubscriptionRoles =
+        ["Contributor", "Role Based Access Control Administrator"];
 
     /// <summary>
     /// Newly created Entra objects are not immediately visible to every endpoint, and the
@@ -81,7 +89,7 @@ internal static class Bootstrap
             }
         });
         timing.Timed("federated credential", () => EnsureFederatedCredential(az, appObjectId, subject));
-        timing.Timed("role assignment", () => EnsureRoleAssignment(az, ctx, spObjectId));
+        timing.Timed("role assignments", () => EnsureRoleAssignments(az, ctx, spObjectId));
         timing.Timed("publish GitHub variables", () => PublishVariables(ctx, alias, clientId, repo));
 
         Console.WriteLine();
@@ -300,34 +308,40 @@ internal static class Bootstrap
     /// Subscription scope, not resource-group scope: stage 1 creates its own resource
     /// group, which cannot be granted from inside itself.
     /// </summary>
-    private static void EnsureRoleAssignment(AzCli az, AzContext ctx, string spObjectId)
+    private static void EnsureRoleAssignments(AzCli az, AzContext ctx, string spObjectId)
     {
         var scope = $"/subscriptions/{ctx.SubscriptionId}";
 
-        var existing = az.Tsv(
-            "role", "assignment", "list",
-            "--assignee", spObjectId,
-            "--scope", scope,
-            "--query", $"[?roleDefinitionName=='{SubscriptionRole}'].id");
+        // One list call for all of them: each az invocation costs ~1s under WSL interop.
+        var assigned = az.Tsv(
+                "role", "assignment", "list",
+                "--assignee", spObjectId,
+                "--scope", scope,
+                "--query", "[].roleDefinitionName")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if (!string.IsNullOrWhiteSpace(existing))
+        foreach (var role in SubscriptionRoles)
         {
-            Console.WriteLine($"==> {SubscriptionRole} assignment exists at subscription scope");
-            return;
+            if (assigned.Contains(role))
+            {
+                Console.WriteLine($"==> {role} assignment exists at subscription scope");
+                continue;
+            }
+
+            Console.WriteLine($"==> Granting {role} at {scope}");
+
+            // --assignee-object-id with an explicit principal type skips the directory
+            // lookup that would otherwise fail with PrincipalNotFound while the new service
+            // principal is still replicating.
+            Retry(
+                () => az.None("role", "assignment", "create",
+                    "--assignee-object-id", spObjectId,
+                    "--assignee-principal-type", "ServicePrincipal",
+                    "--role", role,
+                    "--scope", scope),
+                "the service principal to replicate before it can be granted a role");
         }
-
-        Console.WriteLine($"==> Granting {SubscriptionRole} at {scope}");
-
-        // --assignee-object-id with an explicit principal type skips the directory lookup
-        // that would otherwise fail with PrincipalNotFound while the new service principal
-        // is still replicating.
-        Retry(
-            () => az.None("role", "assignment", "create",
-                "--assignee-object-id", spObjectId,
-                "--assignee-principal-type", "ServicePrincipal",
-                "--role", SubscriptionRole,
-                "--scope", scope),
-            "the service principal to replicate before it can be granted a role");
     }
 
     /// <summary>
