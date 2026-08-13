@@ -54,9 +54,13 @@ to product code.
 
 ## Components
 
-### `BenchmarkProfileStore` (new — `tests/Benchmark/`)
+### `BenchmarkProfileStore` (new — `tests/Common/Utilities/`)
 
-Owns the store location and seeding.
+Owns the store location and seeding. It lives in `Tests.Common` rather than `tests/Benchmark` so it
+is reachable from `Cli.Tests` and can be unit tested; `Benchmark.csproj` is an `OutputType=Exe`
+that no test project references. This requires adding a `Core.Runtime` project reference to
+`Tests.Common.csproj` (it currently references only `Core.Abstractions` and `Core.Extensions`).
+`Cli.Tests` already references both `Core.Runtime` and `Tests.Common`, so no cycle is introduced.
 
 - `Root` — `{RepoRoot}/artifacts/Benchmark/home/.azclips`, a sibling of the existing
   `{RepoRoot}/artifacts/Benchmark/home/extensions`. Nesting `.azclips` inside `home` keeps the
@@ -145,10 +149,13 @@ Store deletion in `GlobalCleanup` is best-effort and swallows `IOException` and
 ## Validation
 
 1. `dotnet build azclips.slnx`.
-2. Existing unit tests are unaffected — `StubProfileService` remains in use by `Cli.Tests` and
-   `Scenario.Tests` and is not removed.
+2. `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — covers the new `BenchmarkProfileStore` unit
+   tests and confirms existing tests are unaffected. `StubProfileService` remains in use by
+   `Cli.Tests` and `Scenario.Tests` and is not removed.
 3. Benchmark smoke run via the `validate-benchmarks` skill, confirming the suite still executes
-   end-to-end.
+   end-to-end. Note that the skill's text is stale: it refers to `[IterationCount(10000)]` at
+   `PSBenchmarkBase.cs:17` and `CLIBenchmarkBase.cs:21`, but the current source has
+   `[WarmupCount(5000)]` / `[IterationCount(5000)]` at lines 17-18 and 21-22 respectively.
 4. Before/after `dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local` on
    `main` versus this branch, to capture the per-benchmark delta.
 
