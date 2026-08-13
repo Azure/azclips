@@ -35,10 +35,11 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 continue;
             }
 
-            string typeName = Naming.Identifier(operation.Name) + "Processor";
+            string typeName = operation.Name.Identifier() + "Processor";
+            CSharpClass processorClass = new CSharpClass(ns, typeName, baseType: ProcessorBaseGenerator.BaseTypeName);
             yield return new GeneratedFile(
                 $"Processors/{typeName}.g.cs",
-                CSharpStub.Class(ns, typeName, baseType: ProcessorBaseGenerator.BaseTypeName),
+                processorClass.Literal(),
                 typeName);
         }
     }

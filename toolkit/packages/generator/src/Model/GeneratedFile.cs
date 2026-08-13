@@ -1,4 +1,4 @@
-namespace Ace.Generator;
+namespace Ace.Generator.Model;
 
 /// <summary>
 /// One generated artifact: a <see cref="Path"/> relative to the caller's output

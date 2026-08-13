@@ -81,7 +81,7 @@ public sealed class CSharpClientGenerator : IClientGenerator
         GeneratedFile file,
         out string path)
     {
-        if (!OutputPaths.TryNormalize(file.Path, out path, out string error))
+        if (!file.Path.TryNormalize(out path, out string error))
         {
             context.Report(
                 DiagnosticSeverity.Error,

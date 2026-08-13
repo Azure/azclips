@@ -28,9 +28,10 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         context.CancellationToken.ThrowIfCancellationRequested();
 
         string ns = context.Options.RootNamespace + ".Processors";
+        CSharpClass processorBaseClass = new CSharpClass(ns, BaseTypeName, isAbstract: true);
         yield return new GeneratedFile(
             $"Processors/{BaseTypeName}.g.cs",
-            CSharpStub.Class(ns, BaseTypeName, isAbstract: true),
+            processorBaseClass.Literal(),
             BaseTypeName);
     }
 }

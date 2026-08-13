@@ -14,8 +14,8 @@ internal static class IrTypeMapper
     public static string ToCSharp(IRTypeRef typeRef) => typeRef switch
     {
         IRTypeRefPrimitive p => Primitive(p.Name),
-        IRTypeRefModel m => Naming.Identifier(m.Id.Name),
-        IRTypeRefEnum e => Naming.Identifier(e.Id.Name),
+        IRTypeRefModel m => m.Id.Name.Identifier(),
+        IRTypeRefEnum e => e.Id.Name.Identifier(),
         IRTypeRefArray a => $"IList<{ToCSharp(a.Element)}>",
         IRTypeRefDictionary d => $"IDictionary<string, {ToCSharp(d.Value)}>",
         IRTypeRefUnion => "object",
