@@ -24,19 +24,19 @@
 
 ## Summary
 
-Switching the benchmark suite from the in-memory `StubProfileService` to the
-real file-backed `ProfileService` makes every benchmark slower — consistent with
-the expected cost of adding real disk I/O for profile resolution.
+**What the data supports:** the direction is real — all 12 benchmarks increased
+when switching from the in-memory `StubProfileService` to the real file-backed
+`ProfileService`. **What the data does not support:** the specific magnitudes.
+Both runs were a Debug benchmark host loading Release extension assemblies (see
+the warning banner above). A Debug build with only 5 warmup iterations measures
+the new profile-IO code path essentially un-JITted, which substantially inflates
+the delta. Adding two small file reads plus a JSON deserialize against a warm
+page cache should cost on the order of tens of microseconds per invocation, not
+the 3–4 ms observed here. The reported 130%–260% increases are very likely
+overstated; they should not be treated as the expected steady-state shift.
 
-**What the data supports:** the direction is real — all 12 benchmarks increased.
-**What the data does not support:** the specific magnitudes. Both runs were a
-Debug benchmark host loading Release extension assemblies (see the warning banner
-above). A Debug build with only 5 warmup iterations measures the new profile-IO
-code path essentially un-JITted, which substantially inflates the delta. Adding
-two small file reads plus a JSON deserialize against a warm page cache should
-cost on the order of tens of microseconds per invocation, not the 3–4 ms
-observed here. The reported 130%–260% increases are very likely overstated; they
-should not be treated as the expected steady-state shift.
+This shift is consistent with adding real disk I/O, but the magnitudes are not
+reliable.
 
 The high error margins (up to ~69% of mean) further reflect the small sample
 size, not instability in production. Authoritative figures require a correct
@@ -163,20 +163,20 @@ OutlierMode=RemoveAll  InvocationCount=1  IterationCount=5  UnrollFactor=1  Warm
 > direction was observed — it is not a prediction of the CI gate result at 5000
 > Release-configured iterations.
 
-| Benchmark        | Before (main) ms | After ms | Change   | Exceeds 115%? |
+| Benchmark        | Before (main) ms | After ms | Change (after/before) | Exceeds 115%? |
 |------------------|----------------:|--------:|----------|---------------|
-| CLI: List VM     | 3.2             | 6.6     | **206%** | Yes (expected)|
-| CLI: Create VM   | 4.6             | 7.4     | **161%** | Yes (expected)|
-| CLI: Get VM      | 2.9             | 5.3     | **183%** | Yes (expected)|
-| PS: List VM      | 3.9             | 5.2     | **133%** | Yes (expected)|
-| PS: Create VM    | 4.9             | 6.7     | **137%** | Yes (expected)|
-| PS: Get VM       | 3.7             | 5.7     | **154%** | Yes (expected)|
-| CLI: List RG     | 3.1             | 7.4     | **239%** | Yes (expected)|
-| CLI: Create RG   | 4.1             | 9.6     | **234%** | Yes (expected)|
-| CLI: Get RG      | 3.0             | 7.8     | **260%** | Yes (expected)|
-| PS: List RG      | 3.6             | 5.8     | **161%** | Yes (expected)|
-| PS: Create RG    | 3.7             | 4.8     | **130%** | Yes (expected)|
-| PS: Get RG       | 3.4             | 5.3     | **156%** | Yes (expected)|
+| CLI: List VM     | 3.2             | 6.6     | **206%** | Yes (direction only)|
+| CLI: Create VM   | 4.6             | 7.4     | **161%** | Yes (direction only)|
+| CLI: Get VM      | 2.9             | 5.3     | **183%** | Yes (direction only)|
+| PS: List VM      | 3.9             | 5.2     | **133%** | Yes (direction only)|
+| PS: Create VM    | 4.9             | 6.7     | **137%** | Yes (direction only)|
+| PS: Get VM       | 3.7             | 5.7     | **154%** | Yes (direction only)|
+| CLI: List RG     | 3.1             | 7.4     | **239%** | Yes (direction only)|
+| CLI: Create RG   | 4.1             | 9.6     | **234%** | Yes (direction only)|
+| CLI: Get RG      | 3.0             | 7.8     | **260%** | Yes (direction only)|
+| PS: List RG      | 3.6             | 5.8     | **161%** | Yes (direction only)|
+| PS: Create RG    | 3.7             | 4.8     | **130%** | Yes (direction only)|
+| PS: Get RG       | 3.4             | 5.3     | **156%** | Yes (direction only)|
 
 Percentages computed as `after / before × 100`. Values rounded to the nearest
 whole ms from the `Mean` column in each BenchmarkDotNet summary.
