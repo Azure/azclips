@@ -78,26 +78,49 @@ If a behavior is listed in the router blacklist, do not port it. Record it under
 8. If the routing result includes `cli-only-surface` or `powershell-only-surface`, stop and ask the user how that surface-specific behavior should be handled.
 9. Implement only `shared-orchestrator` items in explicitly allowed locations.
 
-## Output Format
-Before edits, summarize the test conversion status and routing result briefly:
+## Report Format
+Before implementation, output the `pre_implementation` section. After implementation, output the `final_summary` section. If the workflow stops for live-test approval or surface-specific user direction, output the sections that are available and set `blocked_on_user_direction`.
 
 ```yaml
-target:
-  azclips_module: "<module>"
-  azclips_command: "<CLI or PowerShell command>"
-test_references:
-  converted_scripts: []
-  missing_upstream_live_tests: []
-upstream_paths_checked:
-  azure_cli: []
-  azure_powershell: []
-routes:
-  shared-orchestrator: []
-  cli-only-surface: []
-  powershell-only-surface: []
-blacklist_skips: []
-planned_files: []
-blocked_on_user_direction: []
+pre_implementation:
+  target:
+    azclips_module: "<module>"
+    azclips_command: "<CLI or PowerShell command>"
+  test_references:
+    converted_scripts:
+    - path: "<tests/Scripts/...>"
+      surface: "<cli | powershell>"
+      upstream_sources: []
+    missing_upstream_live_tests: []
+  upstream_paths_checked:
+    azure_cli: []
+    azure_powershell: []
+  routes:
+    shared-orchestrator: []
+    cli-only-surface: []
+    powershell-only-surface: []
+  blacklist_skips: []
+  planned_files: []
+  blocked_on_user_direction: []
+final_summary:
+  generated_or_approved_live_test_scripts: []
+  changed_files: []
+  skipped_blacklist_items: []
+  surface_specific_items_left_for_user_direction: []
+  custom_code_summary:
+  - command: "<Azclips CLI or PowerShell command>"
+    upstream_cli_custom_code: "<present | absent | not-checked>"
+    upstream_powershell_custom_code: "<present | absent | not-checked>"
+    added_custom_code: "<yes | no>"
+    changed_files: []
+    implemented_logic: []
+    not_added_reasons: []
 ```
 
-After edits, report generated or approved live test scripts, changed files, skipped blacklist items, and any surface-specific behavior left for user direction.
+Use these `not_added_reasons` values when applicable:
+- `upstream-has-no-custom-code`: neither Azure CLI nor Azure PowerShell has relevant custom behavior for the command.
+- `blacklisted`: the upstream behavior only matches the router blacklist, such as parameter validation already handled by Azclips or the service.
+- `cli-only-custom-code`: the remaining behavior is specific to Azure CLI UX, parsing, help, command metadata, or output shape and needs user direction.
+- `powershell-only-custom-code`: the remaining behavior is specific to PowerShell cmdlets, parameter sets, confirmation, pipeline, or output shape and needs user direction.
+- `requires-atomic-processor-edit`: the behavior appears to require editing `src/Extensions/<Module>/Processors`, which is forbidden in this workflow.
+- `insufficient-evidence`: the upstream module, custom-code file, or live test could not be resolved from the targeted paths.

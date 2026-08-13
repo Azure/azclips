@@ -46,9 +46,10 @@ Use [the PowerShell template](./templates/live-test-template.ps1) and [the CLI t
 2. Map each upstream command to the Azclips CLI and PowerShell command names.
 3. Create paired CLI and PowerShell scripts when both surfaces exist.
 4. Preserve live behavior: Azure calls, service-side validation, LRO/polling behavior, cleanup, and expected failures.
-5. Apply the conversion rules above.
-6. Run lightweight validation when it fits the generated file shape.
-7. Stop and ask for user review and manual approval.
+5. Record the upstream source path or URL for each generated script.
+6. Apply the conversion rules above.
+7. Run lightweight validation when it fits the generated file shape.
+8. Stop and ask for user review and manual approval.
 
 ## Approval Gate Output
 
@@ -58,9 +59,13 @@ After converting scripts, report:
 live_test_scripts:
 - path: "tests/Scripts/CLI/live-test-scripts/<module-name>/<Scenario>.sh"
   surface: "cli"
+  upstream_sources:
+  - "<Azure CLI live test URL or repo path>"
   live_effects: "<creates/updates/deletes/reads resources>"
 - path: "tests/Scripts/PS/live-test-scripts/<module-name>/<Scenario>.ps1"
   surface: "powershell"
+  upstream_sources:
+  - "<Azure PowerShell live test URL or repo path>"
   live_effects: "<creates/updates/deletes/reads resources>"
 required_user_approval: true
 next_action: "waiting for user review and manual approval"
@@ -69,6 +74,7 @@ next_action: "waiting for user review and manual approval"
 ## Common Mistakes To Avoid
 
 - Do not skip the user approval gate after generating or rewriting live scripts.
+- Do not ask for approval without listing the upstream live test sources used for each generated script.
 - Do not hard-code subscription IDs or personal resource names.
 - Do not turn service-side live behavior into local-only assertions.
 - Do not modify product code in this skill.
