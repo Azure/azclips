@@ -11,8 +11,7 @@ public class GetUserProcessorTests
     private static TestableGetUserProcessor CreateProcessor(
         string id,
         string[]? select = null,
-        string[]? expand = null,
-        bool appendSelected = false)
+        string[]? expand = null)
     {
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
@@ -21,7 +20,6 @@ public class GetUserProcessorTests
             Id = id,
             Select = select,
             Expand = expand,
-            AppendSelected = appendSelected,
         }.WithPublisher(publisher.Object);
     }
 
@@ -83,22 +81,6 @@ public class GetUserProcessorTests
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/users/48d31887-5fad-4d73-a9f5-3c356e68a038?$select=id%2CdisplayName%2Cmail",
             request.RequestUri!.ToString());
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_WithAppendSelected_ShouldInjectDefaults()
-    {
-        var processor = CreateProcessor(
-            id: "48d31887-5fad-4d73-a9f5-3c356e68a038",
-            select: new[] { "city" },
-            appendSelected: true);
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        // Defaults come before caller extras.
-        var uri = request.RequestUri!.ToString();
-        Assert.Contains("$select=", uri, StringComparison.Ordinal);
-        Assert.Contains(Uri.EscapeDataString("displayName,id,deletedDateTime,userPrincipalName,usageLocation,givenName,surname,accountEnabled,mailNickname,mail,city"), uri, StringComparison.Ordinal);
     }
 
     [Fact]

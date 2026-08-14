@@ -10,28 +10,22 @@ public class ListGroupProcessorTests
 {
     private static TestableListGroupProcessor CreateProcessor(
         string? filter = null,
-        string? displayName = null,
-        string? displayNamePrefix = null,
         string[]? select = null,
         string[]? expand = null,
         string[]? orderby = null,
         string? search = null,
-        string? consistencyLevel = null,
-        bool appendSelected = false)
+        string? consistencyLevel = null)
     {
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
         return new TestableListGroupProcessor
         {
             Filter = filter,
-            DisplayName = displayName,
-            DisplayNamePrefix = displayNamePrefix,
             Select = select,
             Expand = expand,
             Orderby = orderby,
             Search = search,
             ConsistencyLevel = consistencyLevel,
-            AppendSelected = appendSelected,
         }.WithPublisher(publisher.Object);
     }
 
@@ -47,19 +41,9 @@ public class ListGroupProcessorTests
     }
 
     [Fact]
-    public async Task CreateRequestMessage_WithDisplayName_ShouldEmitEqFilter()
+    public async Task CreateRequestMessage_ShouldUrlEncodeFilterExpression()
     {
-        var processor = CreateProcessor(displayName: "Sales Team");
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        Assert.Contains($"$filter={Uri.EscapeDataString("displayName eq 'Sales Team'")}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_WithDisplayNamePrefix_ShouldEmitStartswithFilter()
-    {
-        var processor = CreateProcessor(displayNamePrefix: "Sal");
+        var processor = CreateProcessor(filter: "startswith(displayName,'Sal')");
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
@@ -67,27 +51,15 @@ public class ListGroupProcessorTests
     }
 
     [Fact]
-    public async Task CreateRequestMessage_WithFilterAndPrefix_ShouldAndCompose()
+    public async Task CreateRequestMessage_ShouldPassSelectAsCommaSeparatedQuery()
     {
-        var processor = CreateProcessor(
-            filter: "securityEnabled eq true",
-            displayNamePrefix: "Eng");
+        var processor = CreateProcessor(select: new[] { "id", "displayName" });
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        var expected = "securityEnabled eq true and startswith(displayName,'Eng')";
-        Assert.Contains($"$filter={Uri.EscapeDataString(expected)}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_EscapeSingleQuotesInShortcuts()
-    {
-        var processor = CreateProcessor(displayName: "O'Brien");
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        // OData literal escaping: single quotes doubled.
-        Assert.Contains(Uri.EscapeDataString("displayName eq 'O''Brien'"), request.RequestUri!.OriginalString, StringComparison.Ordinal);
+        Assert.Equal(
+            "https://graph.microsoft.com/v1.0/groups?$select=id%2CdisplayName",
+            request.RequestUri!.ToString());
     }
 
     [Fact]
@@ -101,17 +73,5 @@ public class ListGroupProcessorTests
 
         Assert.True(request.Headers.TryGetValues("ConsistencyLevel", out var values));
         Assert.Equal("eventual", values!.Single());
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_WithAppendSelected_ShouldInjectGroupDefaults()
-    {
-        var processor = CreateProcessor(
-            select: new[] { "visibility" },
-            appendSelected: true);
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        Assert.Contains(Uri.EscapeDataString("displayName,id,deletedDateTime,securityEnabled,mailEnabled,mailNickname,description,visibility"), request.RequestUri!.ToString(), StringComparison.Ordinal);
     }
 }

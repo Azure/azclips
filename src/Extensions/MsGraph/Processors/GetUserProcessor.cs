@@ -8,8 +8,11 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Retrieves a single Microsoft Graph user by object ID or user principal name via
-    /// <c>GET /users/{id}</c>.
+    /// Atomic processor for <c>GET /users/{id}</c>. Takes only what the Microsoft Graph
+    /// <c>users</c> endpoint accepts: an object ID or user principal name, OData
+    /// <c>$select</c>, and OData <c>$expand</c>. Convenience features (merging
+    /// <c>$select</c> with a default property set, ...) live in
+    /// <c>Orchestrators/GetUserProcessor_Orchestrator</c>.
     /// </summary>
     public class GetUserProcessor : GraphProcessorBase<User>
     {
@@ -21,21 +24,15 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to return. Combine with AppendSelected to include the default properties as well.",
+            Description = @"Properties to return via OData $select.",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related properties to include in the response, for example memberOf.",
+            Description = @"Related properties to include in the response via OData $expand, for example memberOf.",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"When set with Select, include the default property set alongside the values in Select rather than replacing them.",
-            SerializedName = @"AppendSelected")]
-        public bool AppendSelected { get; set; }
 
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
@@ -48,10 +45,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
             var queryParts = new List<string>();
 
-            string? selectClause = GraphUserDefaults.BuildSelectClause(Select, AppendSelected);
-            if (selectClause is not null)
+            if (Select is { Length: > 0 })
             {
-                queryParts.Add($"$select={Uri.EscapeDataString(selectClause)}");
+                queryParts.Add($"$select={Uri.EscapeDataString(string.Join(',', Select))}");
             }
 
             if (Expand is { Length: > 0 })

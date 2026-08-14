@@ -8,9 +8,10 @@ namespace Extensions.MsGraph.Tests;
 
 public class ListGroupMemberProcessorTests
 {
+    private const string GroupId = "11111111-2222-3333-4444-555555555555";
+
     private static TestableListGroupMemberProcessor CreateProcessor(
-        string? group = null,
-        string? groupDisplayName = null,
+        string groupId = GroupId,
         string? filter = null,
         string[]? select = null,
         string[]? expand = null,
@@ -22,8 +23,7 @@ public class ListGroupMemberProcessorTests
         publisher.SetReturnsDefault(Task.CompletedTask);
         return new TestableListGroupMemberProcessor
         {
-            Group = group,
-            GroupDisplayName = groupDisplayName,
+            GroupId = groupId,
             Filter = filter,
             Select = select,
             Expand = expand,
@@ -36,20 +36,22 @@ public class ListGroupMemberProcessorTests
     [Fact]
     public async Task CreateRequestMessage_ShouldTargetGroupMembersEndpoint()
     {
-        var processor = CreateProcessor(group: "11111111-2222-3333-4444-555555555555");
+        var processor = CreateProcessor();
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
         Assert.Equal(HttpMethod.Get, request.Method);
         Assert.Equal(
-            "https://graph.microsoft.com/v1.0/groups/11111111-2222-3333-4444-555555555555/members",
+            $"https://graph.microsoft.com/v1.0/groups/{GroupId}/members",
             request.RequestUri!.ToString());
     }
 
-    [Fact]
-    public async Task CreateRequestMessage_MissingGroup_ShouldThrow()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CreateRequestMessage_MissingGroupId_ShouldThrow(string groupId)
     {
-        var processor = CreateProcessor();
+        var processor = CreateProcessor(groupId: groupId);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
     }
@@ -57,14 +59,12 @@ public class ListGroupMemberProcessorTests
     [Fact]
     public async Task CreateRequestMessage_WithFilter_ShouldAppendQuery()
     {
-        var processor = CreateProcessor(
-            group: "11111111-2222-3333-4444-555555555555",
-            filter: "startswith(displayName,'Ada')");
+        var processor = CreateProcessor(filter: "startswith(displayName,'Ada')");
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
         Assert.StartsWith(
-            "https://graph.microsoft.com/v1.0/groups/11111111-2222-3333-4444-555555555555/members?$filter=",
+            $"https://graph.microsoft.com/v1.0/groups/{GroupId}/members?$filter=",
             request.RequestUri!.OriginalString,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -77,7 +77,6 @@ public class ListGroupMemberProcessorTests
     public async Task CreateRequestMessage_ConsistencyLevel_ShouldAppearAsHeader()
     {
         var processor = CreateProcessor(
-            group: "11111111-2222-3333-4444-555555555555",
             search: "\"displayName:ada\"",
             consistencyLevel: "eventual");
 

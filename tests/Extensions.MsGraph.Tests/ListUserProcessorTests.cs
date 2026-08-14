@@ -12,32 +12,22 @@ public class ListUserProcessorTests
 {
     private static TestableListUserProcessor CreateProcessor(
         string? filter = null,
-        string? displayName = null,
-        string? mail = null,
-        string? displayNamePrefix = null,
-        string? userPrincipalName = null,
         string[]? select = null,
         string[]? expand = null,
         string[]? orderby = null,
         string? search = null,
-        string? consistencyLevel = null,
-        bool appendSelected = false)
+        string? consistencyLevel = null)
     {
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
         return new TestableListUserProcessor
         {
             Filter = filter,
-            DisplayName = displayName,
-            Mail = mail,
-            DisplayNamePrefix = displayNamePrefix,
-            UserPrincipalName = userPrincipalName,
             Select = select,
             Expand = expand,
             Orderby = orderby,
             Search = search,
             ConsistencyLevel = consistencyLevel,
-            AppendSelected = appendSelected,
         }.WithPublisher(publisher.Object);
     }
 
@@ -62,73 +52,6 @@ public class ListUserProcessorTests
         var uri = request.RequestUri!.ToString();
         Assert.StartsWith("https://graph.microsoft.com/v1.0/users?$filter=", uri, StringComparison.Ordinal);
         Assert.Contains("startswith%28displayName%2C%27Ada%27%29", uri, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_DisplayNameShortcut_ShouldTranslateToEqFilter()
-    {
-        var processor = CreateProcessor(displayName: "Ada Lovelace");
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        Assert.Contains($"$filter={Uri.EscapeDataString("displayName eq 'Ada Lovelace'")}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_MailShortcut_ShouldTranslateToEqFilter()
-    {
-        var processor = CreateProcessor(mail: "ada@contoso.com");
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        Assert.Contains($"$filter={Uri.EscapeDataString("mail eq 'ada@contoso.com'")}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_DisplayNamePrefixShortcut_ShouldTranslateToStartswithFilter()
-    {
-        var processor = CreateProcessor(displayNamePrefix: "Ada");
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        Assert.Contains($"$filter={Uri.EscapeDataString("startswith(displayName,'Ada')")}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_UserPrincipalNameShortcut_ShouldTranslateToEqFilter()
-    {
-        var processor = CreateProcessor(userPrincipalName: "ada@contoso.com");
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        Assert.Contains($"$filter={Uri.EscapeDataString("userPrincipalName eq 'ada@contoso.com'")}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_ShortcutValueWithQuote_ShouldDoubleQuote()
-    {
-        // OData single-quoted string literals escape internal quotes by doubling them:
-        // O'Neil -> 'O''Neil'.
-        var processor = CreateProcessor(displayName: "O'Neil");
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        Assert.Contains($"$filter={Uri.EscapeDataString("displayName eq 'O''Neil'")}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_MultipleShortcutsAndFilter_ShouldAndCompose()
-    {
-        var processor = CreateProcessor(
-            filter: "accountEnabled eq true",
-            displayName: "Ada",
-            userPrincipalName: "ada@contoso.com");
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        // Composition order: raw Filter first, then DisplayName, Mail, DisplayNamePrefix, UPN.
-        var expected = "accountEnabled eq true and displayName eq 'Ada' and userPrincipalName eq 'ada@contoso.com'";
-        Assert.Contains($"$filter={Uri.EscapeDataString(expected)}", request.RequestUri!.OriginalString, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -175,17 +98,6 @@ public class ListUserProcessorTests
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
         Assert.Contains("$search=%22displayName%3Aada%22", request.RequestUri!.OriginalString, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_WithAppendSelected_ShouldInjectDefaults()
-    {
-        var processor = CreateProcessor(select: new[] { "city" }, appendSelected: true);
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        var uri = request.RequestUri!.ToString();
-        Assert.Contains(Uri.EscapeDataString("displayName,id,deletedDateTime,userPrincipalName,usageLocation,givenName,surname,accountEnabled,mailNickname,mail,city"), uri, StringComparison.Ordinal);
     }
 
     [Fact]

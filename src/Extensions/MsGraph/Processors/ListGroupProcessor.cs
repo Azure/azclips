@@ -8,9 +8,13 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Lists Microsoft Graph groups. GET <c>/groups</c> returns an envelope
-    /// <c>{ "value": [...], "@odata.nextLink": "..." }</c>; this processor writes its
-    /// <c>value</c> array. Pagination (<c>@odata.nextLink</c>) is intentionally not followed yet.
+    /// Atomic processor for <c>GET /groups</c>. Takes only what the Microsoft Graph endpoint
+    /// accepts natively: OData <c>$filter</c>, <c>$select</c>, <c>$expand</c>,
+    /// <c>$orderby</c>, <c>$search</c>, and the <c>ConsistencyLevel</c> header. Convenience
+    /// filter shortcuts (<c>DisplayName</c>, <c>DisplayNamePrefix</c>) and
+    /// <c>AppendSelected</c> live in <c>Orchestrators/ListGroupProcessor_Orchestrator</c>.
+    /// Returns an OData envelope; this processor writes its <c>value</c> array. Pagination
+    /// (<c>@odata.nextLink</c>) is not followed.
     /// </summary>
     public class ListGroupProcessor : GraphProcessorBase<GroupList>
     {
@@ -18,31 +22,19 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $filter expression, for example ""securityEnabled eq true"". Combines with the convenience shortcuts (DisplayName, DisplayNamePrefix) using OData 'and'.",
+            Description = @"OData $filter expression, for example ""securityEnabled eq true"".",
             SerializedName = @"Filter")]
         public string? Filter { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"List groups with the specified display name.",
-            SerializedName = @"DisplayName")]
-        public string? DisplayName { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"List groups whose display name starts with the specified prefix.",
-            SerializedName = @"DisplayNamePrefix")]
-        public string? DisplayNamePrefix { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"Properties to return. Combine with AppendSelected to include the default properties as well.",
+            Description = @"Properties to return via OData $select.",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related properties to include in the response, for example members.",
+            Description = @"Related properties to include in the response via OData $expand, for example members.",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
@@ -64,28 +56,20 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 
-        [ArgumentInfo(
-            Required = false,
-            Description = @"When set with Select, include the default property set alongside the values in Select rather than replacing them.",
-            SerializedName = @"AppendSelected")]
-        public bool AppendSelected { get; set; }
-
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
             var queryParts = new List<string>();
 
-            string? effectiveFilter = BuildFilterClause();
-            if (effectiveFilter is not null)
+            if (!string.IsNullOrWhiteSpace(Filter))
             {
-                queryParts.Add($"$filter={Uri.EscapeDataString(effectiveFilter)}");
+                queryParts.Add($"$filter={Uri.EscapeDataString(Filter)}");
             }
 
-            string? selectClause = GraphGroupDefaults.BuildSelectClause(Select, AppendSelected);
-            if (selectClause is not null)
+            if (Select is { Length: > 0 })
             {
-                queryParts.Add($"$select={Uri.EscapeDataString(selectClause)}");
+                queryParts.Add($"$select={Uri.EscapeDataString(string.Join(',', Select))}");
             }
 
             if (Expand is { Length: > 0 })
@@ -119,29 +103,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;
         }
-
-        private string? BuildFilterClause()
-        {
-            var clauses = new List<string>();
-
-            if (!string.IsNullOrWhiteSpace(Filter))
-            {
-                clauses.Add(Filter);
-            }
-            if (!string.IsNullOrWhiteSpace(DisplayName))
-            {
-                clauses.Add($"displayName eq '{EscapeODataString(DisplayName)}'");
-            }
-            if (!string.IsNullOrWhiteSpace(DisplayNamePrefix))
-            {
-                clauses.Add($"startswith(displayName,'{EscapeODataString(DisplayNamePrefix)}')");
-            }
-
-            return clauses.Count == 0 ? null : string.Join(" and ", clauses);
-        }
-
-        // OData string literal escape: single quotes are doubled.
-        private static string EscapeODataString(string value) => value.Replace("'", "''");
 
         protected override object SelectOutput(GroupList body) => body.Value ?? [];
     }

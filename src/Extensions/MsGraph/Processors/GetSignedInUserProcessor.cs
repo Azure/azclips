@@ -8,27 +8,23 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Retrieves the currently signed-in Microsoft Graph user via <c>GET /me</c>.
+    /// Atomic processor for <c>GET /me</c>. Convenience features (merging <c>$select</c> with a
+    /// default property set) live in
+    /// <c>Orchestrators/GetSignedInUserProcessor_Orchestrator</c>.
     /// </summary>
     public class GetSignedInUserProcessor : GraphProcessorBase<User>
     {
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to return. Combine with AppendSelected to include the default properties as well.",
+            Description = @"Properties to return via OData $select.",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related properties to include in the response, for example memberOf.",
+            Description = @"Related properties to include in the response via OData $expand, for example memberOf.",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"When set with Select, include the default property set alongside the values in Select rather than replacing them.",
-            SerializedName = @"AppendSelected")]
-        public bool AppendSelected { get; set; }
 
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
@@ -36,10 +32,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
             var queryParts = new List<string>();
 
-            string? selectClause = GraphUserDefaults.BuildSelectClause(Select, AppendSelected);
-            if (selectClause is not null)
+            if (Select is { Length: > 0 })
             {
-                queryParts.Add($"$select={Uri.EscapeDataString(selectClause)}");
+                queryParts.Add($"$select={Uri.EscapeDataString(string.Join(',', Select))}");
             }
 
             if (Expand is { Length: > 0 })
