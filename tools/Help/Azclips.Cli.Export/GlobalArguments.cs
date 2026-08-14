@@ -1,113 +1,33 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Cli.Parser;
+
 namespace Azclips.Cli.Export;
 
 /// <summary>
-/// Hardcoded global argument set injected into every command's parameter list per CLI2Yaml
-/// contract D1: docs.ms identifies globals by <c>group_name == "Global Arguments"</c>.
+/// Global arguments injected into every command's parameter list per CLI2Yaml contract D1:
+/// docs.ms identifies globals by <c>group_name == "Global Arguments"</c>. Projects
+/// <see cref="KnownGlobalFlags.All"/> into <see cref="HelpFileParameter"/>s so the docs export
+/// and runtime <c>--help</c> share one source of truth.
 /// </summary>
-/// <remarks>
-/// Summaries and defaults are cribbed verbatim from a rendered azure-cli reference page
-/// (e.g. <c>az group create</c> on <c>learn.microsoft.com/cli/azure/group?view=azure-cli-latest</c>).
-/// Re-sync from the same source if azure-cli updates them.
-/// </remarks>
 internal static class GlobalArguments
 {
     private const string GroupName = "Global Arguments";
 
-    public static readonly IReadOnlyList<HelpFileParameter> All =
-    [
-        new HelpFileParameter(
-            Name: "--debug",
+    public static readonly IReadOnlyList<HelpFileParameter> All = KnownGlobalFlags.All
+        .Select(flag => new HelpFileParameter(
+            Name: flag.Aliases.Count == 0 ? flag.Name : $"{flag.Name} {string.Join(' ', flag.Aliases)}",
             Required: false,
-            ShortSummary: "Increase logging verbosity to show all debug logs.",
+            ShortSummary: flag.Summary,
             LongSummary: "",
             GroupName: GroupName,
             ValueSources: null,
-            Default: null,
-            Choices: null,
+            Default: flag.Default,
+            Choices: flag.Choices,
             PreviewInfo: null,
             ExperimentalInfo: null,
             DeprecateInfo: null,
-            BreakingChangeInfo: null),
-        new HelpFileParameter(
-            Name: "--help -h",
-            Required: false,
-            ShortSummary: "Show this help message and exit.",
-            LongSummary: "",
-            GroupName: GroupName,
-            ValueSources: null,
-            Default: null,
-            Choices: null,
-            PreviewInfo: null,
-            ExperimentalInfo: null,
-            DeprecateInfo: null,
-            BreakingChangeInfo: null),
-        new HelpFileParameter(
-            Name: "--only-show-errors",
-            Required: false,
-            ShortSummary: "Only show errors, suppressing warnings.",
-            LongSummary: "",
-            GroupName: GroupName,
-            ValueSources: null,
-            Default: null,
-            Choices: null,
-            PreviewInfo: null,
-            ExperimentalInfo: null,
-            DeprecateInfo: null,
-            BreakingChangeInfo: null),
-        new HelpFileParameter(
-            Name: "--output -o",
-            Required: false,
-            ShortSummary: "Output format.",
-            LongSummary: "",
-            GroupName: GroupName,
-            ValueSources: null,
-            Default: "json",
-            Choices: "json, jsonc, none, table, tsv, yaml, yamlc",
-            PreviewInfo: null,
-            ExperimentalInfo: null,
-            DeprecateInfo: null,
-            BreakingChangeInfo: null),
-        new HelpFileParameter(
-            Name: "--query",
-            Required: false,
-            ShortSummary: "JMESPath query string. See http://jmespath.org/ for more information and examples.",
-            LongSummary: "",
-            GroupName: GroupName,
-            ValueSources: null,
-            Default: null,
-            Choices: null,
-            PreviewInfo: null,
-            ExperimentalInfo: null,
-            DeprecateInfo: null,
-            BreakingChangeInfo: null),
-        new HelpFileParameter(
-            Name: "--subscription",
-            Required: false,
-            ShortSummary: "Name or ID of subscription. You can configure the default subscription using `az account set -s NAME_OR_ID`.",
-            LongSummary: "",
-            GroupName: GroupName,
-            ValueSources: null,
-            Default: null,
-            Choices: null,
-            PreviewInfo: null,
-            ExperimentalInfo: null,
-            DeprecateInfo: null,
-            BreakingChangeInfo: null),
-        new HelpFileParameter(
-            Name: "--verbose",
-            Required: false,
-            ShortSummary: "Increase logging verbosity. Use --debug for full debug logs.",
-            LongSummary: "",
-            GroupName: GroupName,
-            ValueSources: null,
-            Default: null,
-            Choices: null,
-            PreviewInfo: null,
-            ExperimentalInfo: null,
-            DeprecateInfo: null,
-            BreakingChangeInfo: null),
-    ];
+            BreakingChangeInfo: null))
+        .ToList();
 }

@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Cli.Parser;
+
 namespace Core.Cli.Help;
 
 public interface IHelpRenderer
@@ -68,6 +70,8 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             }
         }
 
+        AppendGlobalArguments(lines);
+
         return [.. lines];
     }
 
@@ -108,6 +112,21 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             }
         }
 
+        AppendGlobalArguments(lines);
+
         return [.. lines];
+    }
+
+    private static void AppendGlobalArguments(List<string> lines)
+    {
+        lines.Add(string.Empty);
+        lines.Add("Global Arguments");
+        foreach (var flag in KnownGlobalFlags.All)
+        {
+            var aliases = flag.Aliases.Count == 0
+                ? string.Empty
+                : " " + string.Join(" ", flag.Aliases);
+            lines.Add($"    {flag.Name}{aliases} : {flag.Summary}");
+        }
     }
 }
