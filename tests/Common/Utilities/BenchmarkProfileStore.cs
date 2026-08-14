@@ -8,14 +8,8 @@ using Tests.Common.Stubs;
 namespace Tests.Common.Utilities;
 
 /// <summary>
-/// Owns the isolated, file-backed profile store the benchmarks run against.
-/// <para>
-/// Benchmarks use the real <see cref="ProfileService"/> so their timings include genuine profile
-/// file IO. The store is deliberately kept out of the developer's real
-/// <c>{LocalApplicationData}/.azclips</c>: redirecting that via environment variables does not work
-/// in-process on Windows, because .NET resolves <see cref="Environment.SpecialFolder.LocalApplicationData"/>
-/// through the Win32 shell API rather than <c>%LOCALAPPDATA%</c>.
-/// </para>
+/// Provides utilities for provisioning isolated profile directories and their associated artifacts,
+/// enabling tests and benchmarks to exercise genuine file-backed profile paths rather than mocks.
 /// </summary>
 public static class BenchmarkProfileStore
 {
@@ -37,9 +31,7 @@ public static class BenchmarkProfileStore
         Path.Combine(repoRoot, "artifacts", "Benchmark", "home", ".azclips");
 
     /// <summary>
-    /// Resets the store to exactly one active <see cref="ProfileName"/> profile, discarding anything
-    /// a previous iteration wrote. Writes go through the production <see cref="ProfileService"/> so
-    /// the on-disk bytes are exactly what a real user's store contains.
+    /// Seeds the store with a single active <see cref="ProfileName"/> profile.
     /// </summary>
     public static async Task SeedAsync(string root)
     {
@@ -52,9 +44,8 @@ public static class BenchmarkProfileStore
     }
 
     /// <summary>
-    /// Throws unless the store resolves to the seeded active profile. Without this guard a failed
-    /// seed would leave <c>Engine.ResolveProfileAsync</c> short-circuiting on a blank active-profile
-    /// name, silently benchmarking a profile-less path that still exits 0.
+    /// A single shot verification that the store resolves the seeded <see cref="ProfileName"/> profile.
+    /// Throws if the store is missing or resolves a different profile.
     /// </summary>
     public static async Task VerifySeededAsync(string root)
     {

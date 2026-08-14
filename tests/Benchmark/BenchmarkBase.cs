@@ -22,8 +22,6 @@ namespace Benchmark;
 public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;
-    protected int RgCounter = 0;
-    protected int VmCounter = 0;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
 
     /// <summary>
@@ -66,13 +64,10 @@ public abstract class BenchmarkBase
         RepoRoot = RepoLocator.GetRepoRoot();
         ProfileStoreRoot = BenchmarkProfileStore.GetRoot(RepoRoot);
 
-        // Seeded here (and again in each IterationSetup) so VerifySeededAsync below has a store to
-        // check: a misconfigured store must fail during setup, not silently skew every iteration.
+        // The profile store is seeded and verified once during global setup to confirm that
+        // profiles are present. Executing without a profile is a supported workflow, but it is not
+        // the primary one and is therefore outside the scope of these benchmarks, if they were to fail gracefully.
         SeedProfileStore();
-
-        // Fail loudly here rather than silently benchmarking a profile-less path: a store that does
-        // not resolve an active profile makes Engine.ResolveProfileAsync short-circuit, and the
-        // benchmark would still exit 0 while measuring far less work than a real user pays.
         BenchmarkProfileStore.VerifySeededAsync(ProfileStoreRoot).GetAwaiter().GetResult();
     }
 
@@ -88,12 +83,6 @@ public abstract class BenchmarkBase
     /// Call before each iteration since <see cref="AzclipsServiceProvider.Dispose"/>
     /// clears all registrations.
     /// </summary>
-    /// <remarks>
-    /// <see cref="IProfileService"/> is deliberately NOT stubbed: benchmarks use the real
-    /// file-backed <see cref="ProfileService"/> against <see cref="ProfileStoreRoot"/> so measured
-    /// timings include the profile file IO a real user pays. It receives the real
-    /// <see cref="ILoggingService"/> from the container, exactly as in production.
-    /// </remarks>
     protected void RegisterBenchmarkStubs()
     {
         AzclipsServiceProvider.OverrideRegistration(services =>
