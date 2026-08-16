@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
+
 namespace Benchmark.Auth;
 
 /// <summary>
@@ -24,17 +26,25 @@ internal static class MsalCacheFixture
     public const string UserPrincipalName = "benchmark@contoso.com";
 
     /// <summary>
-    /// Mirrors the access-token secret built by the seed generator. Written as an expression
-    /// rather than a literal so the 1400-character padding stays readable.
+    /// The seeded access token's secret, read from the seed document itself so the value cannot
+    /// drift from what is actually on disk. Task 4's verification compares an acquired token
+    /// against this.
     /// </summary>
-    public static readonly string AccessTokenSecret =
-        "******" + new string('A', 1400) + ".benchmarksignature";
+    public static string AccessTokenSecret => s_accessTokenSecret.Value;
+
+    private static readonly Lazy<string> s_accessTokenSecret = new(ReadAccessTokenSecret);
 
     private const string SeedFileName = "MsalCache.seed.json";
     private const string CacheFileName = "MSAL.cache.plaintext";
 
     /// <summary>Copies the seed document into <paramref name="cacheDirectory"/> as MSAL's cache file.</summary>
     public static void Seed(string cacheDirectory)
+    {
+        Directory.CreateDirectory(cacheDirectory);
+        File.Copy(SeedPath(), Path.Combine(cacheDirectory, CacheFileName), overwrite: true);
+    }
+
+    private static string SeedPath()
     {
         var source = Path.Combine(AppContext.BaseDirectory, "Fixtures", SeedFileName);
         if (!File.Exists(source))
@@ -44,7 +54,21 @@ internal static class MsalCacheFixture
                 source);
         }
 
-        Directory.CreateDirectory(cacheDirectory);
-        File.Copy(source, Path.Combine(cacheDirectory, CacheFileName), overwrite: true);
+        return source;
+    }
+
+    // Read rather than duplicate: a hand-copied literal would silently drift from the document,
+    // and the verification that depends on it would then be asserting against the wrong value.
+    private static string ReadAccessTokenSecret()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(SeedPath()));
+        foreach (var entry in document.RootElement.GetProperty("AccessToken").EnumerateObject())
+        {
+            return entry.Value.GetProperty("secret").GetString()
+                ?? throw new InvalidOperationException("Seed access token has a null secret.");
+        }
+
+        throw new InvalidOperationException(
+            $"Seed document '{SeedPath()}' contains no AccessToken entry.");
     }
 }
