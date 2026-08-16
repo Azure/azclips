@@ -45,8 +45,7 @@ These exact values appear in several files and must agree:
 **Create:**
 - `src/Core/Core.Authentication/MsalClientOptions.cs` — the DI-resolved options record.
 - `tests/Cli.Tests/MsalClientOptionsTests.cs` — unit tests for the seam.
-- `tests/Benchmark/Fixtures/MsalCache.seed.json` — committed synthetic token cache (generated once by a script in Task 3).
-- `tests/Benchmark/Auth/MsalCacheFixture.cs` — constants shared across the harness, plus `Seed`.
+- `tests/Benchmark/Fixtures/MsalCache.seed.json` — committed synthetic token cache (generated once by a script in Task 3).- `tests/Benchmark/Auth/MsalCacheFixture.cs` — constants shared across the harness, plus `Seed`.
 - `tests/Benchmark/Auth/ThrowingMsalHttpClientFactory.cs` — the network tripwire.
 
 **Modify:**
@@ -60,7 +59,70 @@ These exact values appear in several files and must agree:
 
 ---
 
-## Task 1: `MsalClientOptions` seam
+## Task 1: Optional UPN seed on `StubProfileService`
+
+**Files:**
+- Modify: `tests/Common/Stubs/StubProfileService.cs:17-33`
+- Test: covered by Task 2's third test plus the existing `Cli.Tests` / `Scenario.Tests` suites.
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: `StubProfileService(bool seedDefault = true, string? userPrincipalName = null)`. Tasks 2 and 4 both use the `userPrincipalName` argument.
+
+This task comes first because Task 2's tests construct `StubProfileService` with a UPN; without
+this overload that test file does not compile.
+
+- [ ] **Step 1: Add the optional parameter**
+
+In `tests/Common/Stubs/StubProfileService.cs`, replace the constructor:
+
+```csharp
+    /// <param name="seedDefault">Seed a single active "default" profile.</param>
+    /// <param name="userPrincipalName">
+    /// UPN stamped on the seeded profile. Required by callers that exercise the real
+    /// <c>MsalAuthService</c>, because account selection matches the cached account by UPN.
+    /// Defaults to null, which preserves the original behaviour for existing callers.
+    /// </param>
+    public StubProfileService(bool seedDefault = true, string? userPrincipalName = null)
+    {
+        _profiles = new Dictionary<string, Profile>(StringComparer.OrdinalIgnoreCase);
+        if (seedDefault)
+        {
+            var profile = new Profile
+            {
+                Name = "default",
+                TenantId = "00000000-0000-0000-0000-000000000000",
+                SubscriptionId = "00000000-0000-0000-0000-000000000000",
+                CloudName = "AzureCloud",
+                AuthMethod = AuthMethod.Browser,
+                UserPrincipalName = userPrincipalName,
+            };
+            _profiles[profile.Name] = profile;
+            _active = profile.Name;
+        }
+    }
+```
+
+- [ ] **Step 2: Verify existing suites are unaffected**
+
+```powershell
+dotnet test tests/Cli.Tests/Cli.Tests.csproj
+dotnet test tests/Scenario.Tests/Scenario.Tests.csproj
+```
+
+Expected: PASS. The default `null` reproduces the previous profile exactly, so no existing
+assertion changes.
+
+- [ ] **Step 3: Commit**
+
+```powershell
+git add tests/Common/Stubs/StubProfileService.cs
+git commit -m "test: allow StubProfileService to seed a user principal name"
+```
+
+---
+
+## Task 2: `MsalClientOptions` seam
 
 **Files:**
 - Create: `src/Core/Core.Authentication/MsalClientOptions.cs`
@@ -69,7 +131,7 @@ These exact values appear in several files and must agree:
 - Test: `tests/Cli.Tests/MsalClientOptionsTests.cs`
 
 **Interfaces:**
-- Consumes: nothing from earlier tasks.
+- Consumes: `StubProfileService(bool, string?)` from Task 1.
 - Produces: `public sealed record Core.Authentication.MsalClientOptions` with `string CacheDirectory { get; init; }` and `IMsalHttpClientFactory? HttpClientFactory { get; init; }`. Task 4 constructs this record.
 
 - [ ] **Step 1: Write the failing tests**
@@ -243,7 +305,8 @@ public class MsalClientOptionsTests
 }
 ```
 
-Note: the third test depends on Task 2's `StubProfileService(userPrincipalName:)` overload. Implement Task 2 first if you are running tasks out of order.
+Note: this test file depends on Task 1's `StubProfileService(userPrincipalName:)` overload. Task 1
+must be complete before this compiles.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -380,65 +443,6 @@ If `AcquireTokenSilentlyAsync_ShouldUseInjectedHttpClientFactory_WhenCachedToken
 ```powershell
 git add src/Core/Core.Authentication/MsalClientOptions.cs src/Core/Core.Authentication/MsalAuthService.cs src/Core/Core.Authentication/DIRegisterExtensions.cs tests/Cli.Tests/MsalClientOptionsTests.cs
 git commit -m "feat(auth): parameterise MSAL cache directory and HTTP factory via MsalClientOptions"
-```
-
----
-
-## Task 2: Optional UPN seed on `StubProfileService`
-
-**Files:**
-- Modify: `tests/Common/Stubs/StubProfileService.cs:17-33`
-- Test: covered by Task 1's third test plus the existing `Cli.Tests` / `Scenario.Tests` suites.
-
-**Interfaces:**
-- Consumes: nothing.
-- Produces: `StubProfileService(bool seedDefault = true, string? userPrincipalName = null)`. Tasks 1 and 4 both use the `userPrincipalName` argument.
-
-- [ ] **Step 1: Add the optional parameter**
-
-In `tests/Common/Stubs/StubProfileService.cs`, replace the constructor:
-
-```csharp
-    /// <param name="seedDefault">Seed a single active "default" profile.</param>
-    /// <param name="userPrincipalName">
-    /// UPN stamped on the seeded profile. Required by callers that exercise the real
-    /// <c>MsalAuthService</c>, because account selection matches the cached account by UPN.
-    /// Defaults to null, which preserves the original behaviour for existing callers.
-    /// </param>
-    public StubProfileService(bool seedDefault = true, string? userPrincipalName = null)
-    {
-        _profiles = new Dictionary<string, Profile>(StringComparer.OrdinalIgnoreCase);
-        if (seedDefault)
-        {
-            var profile = new Profile
-            {
-                Name = "default",
-                TenantId = "00000000-0000-0000-0000-000000000000",
-                SubscriptionId = "00000000-0000-0000-0000-000000000000",
-                CloudName = "AzureCloud",
-                AuthMethod = AuthMethod.Browser,
-                UserPrincipalName = userPrincipalName,
-            };
-            _profiles[profile.Name] = profile;
-            _active = profile.Name;
-        }
-    }
-```
-
-- [ ] **Step 2: Verify existing suites are unaffected**
-
-```powershell
-dotnet test tests/Cli.Tests/Cli.Tests.csproj
-dotnet test tests/Scenario.Tests/Scenario.Tests.csproj
-```
-
-Expected: PASS. The default `null` reproduces the previous profile exactly.
-
-- [ ] **Step 3: Commit**
-
-```powershell
-git add tests/Common/Stubs/StubProfileService.cs
-git commit -m "test: allow StubProfileService to seed a user principal name"
 ```
 
 ---
@@ -721,7 +725,7 @@ git commit -m "test(benchmark): add synthetic MSAL cache fixture and network tri
 - Modify: `tests/Benchmark/PS/PSBenchmarkBase.cs:33-41` (`GlobalSetup`)
 
 **Interfaces:**
-- Consumes: `MsalClientOptions` (Task 1), `StubProfileService(bool, string?)` (Task 2), `MsalCacheFixture` and `ThrowingMsalHttpClientFactory` (Task 3).
+- Consumes: `MsalClientOptions` (Task 2), `StubProfileService(bool, string?)` (Task 1), `MsalCacheFixture` and `ThrowingMsalHttpClientFactory` (Task 3).
 - Produces: `protected string MsalCacheDirectory { get; private set; }` and `protected void VerifyAuthFixture()` on `BenchmarkBase`.
 
 - [ ] **Step 1: Replace the auth stub with the real service**
