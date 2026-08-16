@@ -41,6 +41,9 @@ public class MsalAuthService(
         Logger.Verbose($"[{nameof(MsalAuthService)}] Removing account '{userPrincipalName}' from the MSAL token cache.");
 
         // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
+        // BuildApp(null) applies the "organizations" authority rather than the bare builder's "common" default.
+        // That authority difference is harmless here: cache load and RemoveAsync are local-only operations
+        // with no network calls, and GetAccountsAsync filters by environment host (not tenant segment).
         var app = BuildApp(tenantId: null);
 
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);

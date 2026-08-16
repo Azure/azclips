@@ -134,13 +134,27 @@ public class MsalClientOptionsTests
     {
         var directory = CreateTempDirectory();
         var logger = new RecordingLogger();
-        var options = new MsalClientOptions { CacheDirectory = directory };
-        var service = CreateService(options, logger, new StubProfileService());
 
-        // No account matches, so this throws — the directory is resolved before that point.
-        await Assert.ThrowsAsync<MsalUiRequiredException>(
+        // Seed an expired cache so MSAL finds the account from that directory and then attempts
+        // a network refresh. A blocking HTTP factory prevents real network traffic.
+        // Empirically verified: WithUnprotectedFile() leaves the directory empty when no token is
+        // written (MSAL does not create the cache file on registration). When the seeded file IS
+        // present and read, MSAL reaches the network layer → InvalidOperationException. If MSAL
+        // had used a different (empty) directory it would see no accounts and throw
+        // MsalUiRequiredException("no_matching_account") instead — that distinction is the
+        // behavioural proof that the configured directory was actually used.
+        WriteExpiredCache(directory);
+
+        var factory = new RecordingMsalHttpClientFactory();
+        var options = new MsalClientOptions { CacheDirectory = directory, HttpClientFactory = factory };
+        var service = CreateService(options, logger, new StubProfileService(userPrincipalName: Upn));
+
+        // Behavioural assertion: InvalidOperationException (from the blocked refresh) means MSAL
+        // found the cached account, proving it read from the configured directory.
+        await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.AcquireTokenSilentlyAsync(scopes: null, tenantId: null));
 
+        // Log assertion: the resolved path appeared in a debug message (weak but still useful evidence).
         var expected = Path.Combine(directory, "MSAL.cache.plaintext");
         Assert.Contains(logger.Messages, m => m.Contains(expected, StringComparison.Ordinal));
     }
@@ -156,7 +170,10 @@ public class MsalClientOptionsTests
         var service = CreateService(options, new RecordingLogger(), new StubProfileService(userPrincipalName: Upn));
 
         // The refresh attempt fails because the injected handler blocks it — that failure is the proof.
-        await Assert.ThrowsAnyAsync<Exception>(
+        // Empirically verified: MSAL propagates the InvalidOperationException from BlockingHandler
+        // directly (it does not wrap it), so this assertion proves the failure came from MSAL's
+        // network layer rather than from an unrelated earlier error.
+        await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.AcquireTokenSilentlyAsync(scopes: null, tenantId: null));
 
         Assert.True(factory.WasInvoked, "MSAL did not use the injected IMsalHttpClientFactory.");
