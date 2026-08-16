@@ -1,7 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Benchmark.Auth;
 
@@ -11,9 +13,11 @@ namespace Benchmark.Auth;
 /// almost nothing, which would make the measurement meaningless.
 /// </summary>
 /// <remarks>
-/// The seeded access token expires in the year 3026 and carries no <c>refresh_on</c>, so MSAL
-/// never has a reason to contact the network. That is deliberate and load-bearing — do not
-/// "fix" the expiry. JSON cannot carry a comment, which is why the note lives here.
+/// The access token expiry is stamped nine years ahead of now on each seed, so the fixture
+/// never goes stale. The entry carries no <c>refresh_on</c>, so MSAL never has a reason to
+/// contact the network. MSAL rejects an expiry beyond roughly ten years as implausible, so it
+/// cannot be pushed arbitrarily far out; and because the expiry is computed per run rather than
+/// frozen into the committed document, the fixture cannot go stale.
 ///
 /// The seed document's <c>realm</c> must equal the tenant that <see cref="Tests.Common.Stubs.StubProfileService"/>
 /// seeds, and its <c>Account.username</c> must equal <see cref="UserPrincipalName"/>. Nothing
@@ -37,11 +41,42 @@ internal static class MsalCacheFixture
     private const string SeedFileName = "MsalCache.seed.json";
     private const string CacheFileName = "MSAL.cache.plaintext";
 
-    /// <summary>Copies the seed document into <paramref name="cacheDirectory"/> as MSAL's cache file.</summary>
+    /// <summary>
+    /// Copies the seed document into <paramref name="cacheDirectory"/> as MSAL's cache file,
+    /// stamping the access token's expiry nine years ahead of now so the fixture never goes stale.
+    /// </summary>
     public static void Seed(string cacheDirectory)
     {
         Directory.CreateDirectory(cacheDirectory);
-        File.Copy(SeedPath(), Path.Combine(cacheDirectory, CacheFileName), overwrite: true);
+        File.WriteAllText(
+            Path.Combine(cacheDirectory, CacheFileName),
+            StampExpiry(File.ReadAllText(SeedPath())));
+    }
+
+    // MSAL rejects an expiry beyond roughly ten years as implausible, so this cannot simply be a
+    // far-future constant; and a value frozen into the committed document would shrink toward
+    // expiry with every passing day. Recomputing per seed keeps the window fixed at nine years.
+    private static string StampExpiry(string seedJson)
+    {
+        var expiry = DateTimeOffset.UtcNow.AddYears(9).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+        var node = JsonNode.Parse(seedJson)
+            ?? throw new InvalidOperationException($"Seed document '{SeedPath()}' is not valid JSON.");
+
+        var accessTokens = node["AccessToken"]?.AsObject()
+            ?? throw new InvalidOperationException($"Seed document '{SeedPath()}' contains no AccessToken object.");
+
+        foreach (var (_, entry) in accessTokens)
+        {
+            if (entry is null)
+            {
+                continue;
+            }
+
+            entry["expires_on"] = expiry;
+            entry["extended_expires_on"] = expiry;
+        }
+
+        return node.ToJsonString();
     }
 
     private static string SeedPath()
