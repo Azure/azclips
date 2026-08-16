@@ -4,7 +4,7 @@
 
 **Goal:** Make the in-process CLI and PowerShell benchmarks run the real `MsalAuthService` so their measured times include genuine token-cache disk reads, while making any MSAL network call impossible.
 
-**Architecture:** A new `MsalClientOptions` record, resolved from DI, parameterizes the two inputs `MsalAuthService` currently hardcodes: the token-cache directory and MSAL's HTTP factory. Production registers a default instance that reproduces today's behavior exactly. The benchmark harness overrides it with a scratch directory seeded from a committed synthetic cache document, plus an `IMsalHttpClientFactory` that throws on any request. Because the seeded access token expires in the year 3026, MSAL always resolves from cache and never has a reason to reach the network; the throwing factory is a tripwire that turns any lapse into a hard benchmark failure.
+**Architecture:** A new `MsalClientOptions` record, resolved from DI, parameterizes the two inputs `MsalAuthService` currently hardcodes: the token-cache directory and MSAL's HTTP factory. Production registers a default instance that reproduces today's behavior exactly. The benchmark harness overrides it with a scratch directory seeded from a committed synthetic cache document, plus an `IMsalHttpClientFactory` that throws on any request. The seed's access-token expiry is stamped to nine years ahead each time the cache is seeded, so MSAL always resolves from cache and never has a reason to reach the network; the throwing factory is a tripwire that turns any lapse into a hard benchmark failure.
 
 **Tech Stack:** .NET 10 (`net10.0`), xUnit 2.9.3, Moq 4.20.72, BenchmarkDotNet 0.13.12, `Microsoft.Identity.Client` 4.83.1, `Microsoft.Identity.Client.Extensions.Msal` 4.83.1.
 
@@ -34,7 +34,14 @@ These exact values appear in several files and must agree:
 | Cache environment | `login.windows.net` |
 | ARM scope | `https://management.core.windows.net//.default` |
 | Benchmark UPN | `benchmark@contoso.com` |
-| Access-token expiry | `33324096000` (≈ year 3026) |
+| Access-token expiry | stamped at seed time to `DateTimeOffset.UtcNow + 9 years` |
+
+**MSAL caps how far in the future a cached token may expire.** An empirical binary search against
+`Microsoft.Identity.Client` 4.83.1 found that an access token whose `expires_on` exceeds roughly ten
+years from now is rejected as implausible, and the account then fails to resolve from cache. An
+earlier revision of this plan used a fixed year-3026 expiry; that does not work. Nine years is
+comfortably inside the limit. It is stamped from the current time on every seed rather than frozen
+into the committed document, so the usable window never shrinks and the fixture cannot go stale.
 
 `login.windows.net` is deliberate: it is MSAL's *preferred cache* alias for the `login.microsoftonline.com` authority, and it is what a real cache file on disk contains. Using the authority host instead causes a cache miss.
 
@@ -481,7 +488,7 @@ $ObjectId    = '11111111-1111-1111-1111-111111111111'
 $Environment = 'login.windows.net'
 $Scope       = 'https://management.core.windows.net//.default'
 $HomeId      = "$ObjectId.$TenantId"
-$ExpiresOn   = '33324096000'   # ~year 3026: never expires during a run, so MSAL never refreshes
+$ExpiresOn   = '2070704715'    # placeholder only: MsalCacheFixture.Seed stamps the real expiry per run
 $CachedAt    = '1700000000'
 
 function ConvertTo-Base64Url([string]$text) {
@@ -584,7 +591,9 @@ Create `tests/Benchmark/Auth/MsalCacheFixture.cs`:
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Benchmark.Auth;
 
@@ -594,9 +603,11 @@ namespace Benchmark.Auth;
 /// almost nothing, which would make the measurement meaningless.
 /// </summary>
 /// <remarks>
-/// The seeded access token expires in the year 3026 and carries no <c>refresh_on</c>, so MSAL
-/// never has a reason to contact the network. That is deliberate and load-bearing — do not
-/// "fix" the expiry. JSON cannot carry a comment, which is why the note lives here.
+/// The seeded access token's expiry is stamped nine years ahead each time <see cref="Seed"/> runs,
+/// and the entry carries no <c>refresh_on</c>, so MSAL never has a reason to contact the network.
+/// That is deliberate and load-bearing. Note MSAL rejects an expiry beyond roughly ten years as
+/// implausible, so the value cannot simply be pushed arbitrarily far out; and it is computed per
+/// run rather than frozen into the committed document so the fixture cannot go stale.
 ///
 /// The seed document's <c>realm</c> must equal the tenant that <see cref="Tests.Common.Stubs.StubProfileService"/>
 /// seeds, and its <c>Account.username</c> must equal <see cref="UserPrincipalName"/>. Nothing
@@ -620,11 +631,42 @@ internal static class MsalCacheFixture
     private const string SeedFileName = "MsalCache.seed.json";
     private const string CacheFileName = "MSAL.cache.plaintext";
 
-    /// <summary>Copies the seed document into <paramref name="cacheDirectory"/> as MSAL's cache file.</summary>
+    /// <summary>
+    /// Copies the seed document into <paramref name="cacheDirectory"/> as MSAL's cache file,
+    /// stamping the access token's expiry nine years ahead of now so the fixture never goes stale.
+    /// </summary>
     public static void Seed(string cacheDirectory)
     {
         Directory.CreateDirectory(cacheDirectory);
-        File.Copy(SeedPath(), Path.Combine(cacheDirectory, CacheFileName), overwrite: true);
+        File.WriteAllText(
+            Path.Combine(cacheDirectory, CacheFileName),
+            StampExpiry(File.ReadAllText(SeedPath())));
+    }
+
+    // MSAL rejects an expiry beyond roughly ten years as implausible, so this cannot simply be a
+    // far-future constant; and a value frozen into the committed document would shrink toward
+    // expiry with every passing day. Recomputing per seed keeps the window fixed at nine years.
+    private static string StampExpiry(string seedJson)
+    {
+        var expiry = DateTimeOffset.UtcNow.AddYears(9).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+        var node = JsonNode.Parse(seedJson)
+            ?? throw new InvalidOperationException($"Seed document '{SeedPath()}' is not valid JSON.");
+
+        var accessTokens = node["AccessToken"]?.AsObject()
+            ?? throw new InvalidOperationException($"Seed document '{SeedPath()}' contains no AccessToken object.");
+
+        foreach (var (_, entry) in accessTokens)
+        {
+            if (entry is null)
+            {
+                continue;
+            }
+
+            entry["expires_on"] = expiry;
+            entry["extended_expires_on"] = expiry;
+        }
+
+        return node.ToJsonString();
     }
 
     private static string SeedPath()
@@ -970,7 +1012,8 @@ Authentication is the deliberate exception. `IAuthService` is **not** stubbed, b
 invocation pays to read the MSAL token cache off disk and the benchmarks are meant to include that
 cost. Instead, `MsalClientOptions` points the real `MsalAuthService` at a scratch cache directory
 seeded from a committed synthetic cache document (`tests/Benchmark/Fixtures/MsalCache.seed.json`),
-and hands MSAL a `ThrowingMsalHttpClientFactory`. The seeded token expires in the year 3026, so
+and hands MSAL a `ThrowingMsalHttpClientFactory`. The seeded token's expiry is stamped nine years
+ahead on every seed, so
 MSAL always resolves from cache and never has a reason to reach the network; the throwing factory
 is a tripwire that converts any lapse into a benchmark failure rather than a silently inflated
 number. `BenchmarkBase.VerifyAuthFixture()` asserts the cache hit once per run during
