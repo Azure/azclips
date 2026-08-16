@@ -65,8 +65,10 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             stagedCount++;
         }
 
+        VerifyAuthFixture();
+
         Console.WriteLine(
-            $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} extension(s)");
+            $"[Setup] CLI benchmarks ready (stub HTTP, real MSAL cache IO); staged {stagedCount} extension(s)");
     }
 
     [IterationSetup]

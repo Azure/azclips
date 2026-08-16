@@ -37,7 +37,9 @@ public abstract class PSBenchmarkBase : BenchmarkBase
 
         _psModuleManifestPath = PSManifestStager.StageModule(RepoRoot, ModuleName);
 
-        Console.WriteLine($"[Setup] PS benchmarks ready for '{ModuleName}' (stub HTTP)");
+        VerifyAuthFixture();
+
+        Console.WriteLine($"[Setup] PS benchmarks ready for '{ModuleName}' (stub HTTP, real MSAL cache IO)");
     }
 
     [IterationSetup]

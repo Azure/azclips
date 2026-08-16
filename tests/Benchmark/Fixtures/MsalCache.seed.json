@@ -9,9 +9,9 @@
       "target": "https://management.core.windows.net//.default",
       "realm": "00000000-0000-0000-0000-000000000000",
       "token_type": "Bearer",
-      "cached_at": "1700000000",
-      "expires_on": "33324096000",
-      "extended_expires_on": "33324096000"
+      "cached_at": "1786880715",
+      "expires_on": "2070704715",
+      "extended_expires_on": "2070704715"
     }
   },
   "RefreshToken": {
