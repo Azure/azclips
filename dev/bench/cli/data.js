@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786931756466,
+  "lastUpdate": 1786931841009,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -5628,6 +5628,48 @@ window.BENCHMARK_DATA = {
             "value": 819068.1390508747,
             "unit": "ns",
             "range": "± 20111.79012453879"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aryasadeghi@microsoft.com",
+            "name": "aryasadeghi1",
+            "username": "aryasadeghi1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d9127fea4d40e12cdf08ae2de77a6d985bfbc45",
+          "message": "{Tests} Add the vm create scenario with a live recording (#695)\n\nFirst orchestration scenario for the record/playback framework (CLIPS\ntask [#564](https://github.com/Azure/CLIPS/issues/564), scenario side;\nthe benchmark handoff follows separately).\n\n`az vm create` / `New-AzVM` is recorded once as a whole: the resource\ngroup, vnet and nsg in parallel, the nic built from their returned ids,\nand the vm as a real LRO with its polling. The committed recording is\nreal ARM traffic from a live run, 15 entries, replaying credential-free\non both surfaces in about two seconds.\n\nSupporting changes the live run drove: playback serves `Retry-After: 0`\nso recorded poll delays cost nothing; the sanitisers scrub passwords and\ndrop ARM's `x-ms-operation-identifier` header (tenant and object ids),\nwith a matching secret-scan rule; the harness supports multi-extension\nscenarios since vm create needs its resource group first.\n\nConcurrency is proven directly: the parallel vnet/nsg entries replay\nwith their recorded order deliberately swapped. Re-recording steps are\nin the README.\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-08-17T11:43:19+10:00",
+          "tree_id": "4e294cb510d24067a760b0dfb30d8c4abbed3f78",
+          "url": "https://github.com/Azure/azclips/commit/0d9127fea4d40e12cdf08ae2de77a6d985bfbc45"
+        },
+        "date": 1786931838693,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 830185.8340460191,
+            "unit": "ns",
+            "range": "± 17441.534918895082"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 814963.9933708317,
+            "unit": "ns",
+            "range": "± 18565.023530524482"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 797031.6718275653,
+            "unit": "ns",
+            "range": "± 15865.482928626105"
           }
         ]
       }
