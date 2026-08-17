@@ -134,7 +134,7 @@ namespace Core.Engine
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
             // passthrough by default, terminate during client mocking
-            httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep);
+            httpPipeline.Append(httpPipelineService.HttpPipelineTerminatingStep);
 
             // Announce the created context; the ProcessorContextCreated subscriber enriches the
             // telemetry root span with profile-derived tags (subscription, tenant, auth type).
