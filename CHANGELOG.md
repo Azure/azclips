@@ -1,5 +1,3 @@
-## Upcoming Release
-
 ## v0.1.0 - 2026-07-20 23:15 UTC
 
 #### Resources
