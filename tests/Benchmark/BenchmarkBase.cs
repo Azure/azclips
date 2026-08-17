@@ -73,12 +73,6 @@ public abstract class BenchmarkBase
     /// Call before each iteration since <see cref="AzclipsServiceProvider.Dispose"/>
     /// clears all registrations.
     /// </summary>
-    /// <remarks>
-    /// <see cref="IAuthService"/> is deliberately NOT stubbed: benchmarks measure the real
-    /// <see cref="MsalAuthService"/> token-cache disk read. It is pointed at the seeded scratch
-    /// cache and given an HTTP factory that throws, so the read is real but the network is not
-    /// reachable.
-    /// </remarks>
     protected void RegisterBenchmarkStubs()
     {
         AzclipsServiceProvider.OverrideRegistration(services =>

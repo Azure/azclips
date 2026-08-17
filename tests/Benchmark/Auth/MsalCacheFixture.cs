@@ -8,32 +8,13 @@ using System.Text.Json.Nodes;
 namespace Benchmark.Auth;
 
 /// <summary>
-/// Places a synthetic MSAL token cache on disk so benchmarks measure a real cache read.
-/// Without it there is nothing to read: CI has no cache, and reading a missing file costs
-/// almost nothing, which would make the measurement meaningless.
+/// Places a synthetic MSAL token cache on disk so benchmarks measure a real cache read
+/// instead of a cheap miss on environments (such as CI) that have no cache.
 /// </summary>
-/// <remarks>
-/// The access token expiry is stamped nine years ahead of now on each seed, so the fixture
-/// never goes stale. The entry carries no <c>refresh_on</c>, so MSAL never has a reason to
-/// contact the network. MSAL rejects an expiry beyond roughly ten years as implausible, so it
-/// cannot be pushed arbitrarily far out; and because the expiry is computed per run rather than
-/// frozen into the committed document, the fixture cannot go stale.
-///
-/// The seed document's <c>realm</c> must equal the tenant that <see cref="Tests.Common.Stubs.StubProfileService"/>
-/// seeds, and its <c>Account.username</c> must equal <see cref="UserPrincipalName"/>. Nothing
-/// enforces those at compile time; <c>BenchmarkBase.VerifyAuthFixture</c> catches a mismatch at
-/// run time by failing setup.
-/// </remarks>
 internal static class MsalCacheFixture
 {
-    /// <summary>Must match <c>Account.username</c> in the seed document.</summary>
     public const string UserPrincipalName = "benchmark@contoso.com";
 
-    /// <summary>
-    /// The seeded access token's secret, read from the seed document itself so the value cannot
-    /// drift from what is actually on disk. Task 4's verification compares an acquired token
-    /// against this.
-    /// </summary>
     public static string AccessTokenSecret => s_accessTokenSecret.Value;
 
     private static readonly Lazy<string> s_accessTokenSecret = new(ReadAccessTokenSecret);
@@ -53,9 +34,7 @@ internal static class MsalCacheFixture
             StampExpiry(File.ReadAllText(SeedPath())));
     }
 
-    // MSAL rejects an expiry beyond roughly ten years as implausible, so this cannot simply be a
-    // far-future constant; and a value frozen into the committed document would shrink toward
-    // expiry with every passing day. Recomputing per seed keeps the window fixed at nine years.
+    // Stamps the access token expiry nine years ahead of now so the fixture never goes stale.
     private static string StampExpiry(string seedJson)
     {
         var expiry = DateTimeOffset.UtcNow.AddYears(9).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
@@ -92,8 +71,6 @@ internal static class MsalCacheFixture
         return source;
     }
 
-    // Read rather than duplicate: a hand-copied literal would silently drift from the document,
-    // and the verification that depends on it would then be asserting against the wrong value.
     private static string ReadAccessTokenSecret()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(SeedPath()));

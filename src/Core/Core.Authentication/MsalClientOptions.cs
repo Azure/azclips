@@ -6,11 +6,6 @@ using Microsoft.Identity.Client;
 
 namespace Core.Authentication;
 
-/// <summary>
-/// The two inputs to MSAL that vary between production and test hosts. The default instance
-/// reproduces production behaviour exactly, so registering it changes nothing; benchmarks
-/// override it to point MSAL at a scratch token cache and to block its network access.
-/// </summary>
 public sealed record MsalClientOptions
 {
     /// <summary>Directory holding the MSAL token cache file.</summary>

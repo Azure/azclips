@@ -6,10 +6,7 @@ using Microsoft.Identity.Client;
 namespace Benchmark.Auth;
 
 /// <summary>
-/// Makes MSAL network access impossible during a benchmark. Benchmarks measure token-cache
-/// file IO; a token request, refresh, or instance-discovery call would silently add network
-/// latency to the reported number. Any attempt throws, which fails the benchmark rather than
-/// producing a quietly wrong measurement.
+/// Benchmark MSAL HttpClientFactory to ensure no network calls are made during a benchmark.
 /// </summary>
 internal sealed class ThrowingMsalHttpClientFactory : IMsalHttpClientFactory
 {

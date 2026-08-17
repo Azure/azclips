@@ -41,9 +41,6 @@ public class MsalAuthService(
         Logger.Verbose($"[{nameof(MsalAuthService)}] Removing account '{userPrincipalName}' from the MSAL token cache.");
 
         // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
-        // BuildApp(null) applies the "organizations" authority rather than the bare builder's "common" default.
-        // That authority difference is harmless here: cache load and RemoveAsync are local-only operations
-        // with no network calls, and GetAccountsAsync filters by environment host (not tenant segment).
         var app = BuildApp(tenantId: null);
 
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
@@ -77,6 +74,7 @@ public class MsalAuthService(
 
     private async Task<AuthResult> AcquireTokenWithDeviceCodeAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
+        var x = Options;
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
@@ -153,6 +151,7 @@ public class MsalAuthService(
     public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
+        Console.WriteLine("PROBE_ACQUIRE_CALLED");
 
         // profile will be set from the engine, fallback for other direct caller like TUI/Tooling
         // TODO: Consider making the profile mandatory
