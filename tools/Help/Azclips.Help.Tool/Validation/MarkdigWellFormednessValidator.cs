@@ -22,7 +22,9 @@ namespace Azclips.Help.Tool.Validation;
 /// </remarks>
 public sealed class MarkdigWellFormednessValidator
 {
-    private static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder().Build();
+    private static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder()
+        .UsePreciseSourceLocation()
+        .Build();
 
     /// <summary>
     /// A small allowlist of inline HTML tag names we accept as intentional. Anything outside
