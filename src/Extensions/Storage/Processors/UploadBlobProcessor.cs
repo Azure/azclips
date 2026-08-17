@@ -47,7 +47,8 @@ public sealed class UploadBlobProcessor : StorageBlobProcessorBase
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
         using HttpResponseMessage response = await SendAsync(request);
-        if (!Overwrite && response.StatusCode == HttpStatusCode.PreconditionFailed)
+        if (!Overwrite
+            && response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
         {
             const string message = "The blob already exists. Pass --overwrite to replace it.";
             await Publisher.Publish(Events.ResourceOperationFailed, message);
