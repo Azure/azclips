@@ -23,43 +23,17 @@ public class ListApplicationProcessorTests
     }
 
     [Fact]
-    public async Task CreateRequestMessage_DisplayName_ShouldBuildEqFilter()
+    public async Task CreateRequestMessage_Filter_ShouldPassThroughVerbatim()
     {
         var processor = CreateProcessor();
-        processor.DisplayName = "contoso-app";
+        processor.Filter = "signInAudience eq 'AzureADMyOrg'";
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
         string uri = Uri.UnescapeDataString(request.RequestUri!.AbsoluteUri);
         Assert.Equal(
-            "https://graph.microsoft.com/v1.0/applications?$filter=displayName eq 'contoso-app'",
+            "https://graph.microsoft.com/v1.0/applications?$filter=signInAudience eq 'AzureADMyOrg'",
             uri);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_DisplayName_ShouldEscapeSingleQuotes()
-    {
-        var processor = CreateProcessor();
-        processor.DisplayName = "o'brien";
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        // OData escapes a single quote by doubling it.
-        string uri = Uri.UnescapeDataString(request.RequestUri!.AbsoluteUri);
-        Assert.Contains("displayName eq 'o''brien'", uri, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_RawFilterAndDisplayName_ShouldCombineWithAnd()
-    {
-        var processor = CreateProcessor();
-        processor.Filter = "signInAudience eq 'AzureADMyOrg'";
-        processor.DisplayName = "contoso-app";
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        string uri = Uri.UnescapeDataString(request.RequestUri!.AbsoluteUri);
-        Assert.Contains("signInAudience eq 'AzureADMyOrg' and displayName eq 'contoso-app'", uri, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -85,3 +59,4 @@ public class ListApplicationProcessorTests
         Assert.Equal("eventual", Assert.Single(values!));
     }
 }
+

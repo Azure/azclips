@@ -396,12 +396,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listApplications_PS = new(
-            Name: "ListApplicationProcessor",
+            Name: "ListApplicationProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphApplication_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            ProcessorType: typeof(Processors.ListApplicationProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Filter"]           = new("Filter", "Filter", typeof(string), AppFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -413,12 +413,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listApplicationsByDisplayName_PS = new(
-            Name: "ListApplicationProcessor",
+            Name: "ListApplicationProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphApplication_DisplayName",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            ProcessorType: typeof(Processors.ListApplicationProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["DisplayName"] = new("DisplayName", "DisplayName", typeof(string), AppDisplayNameExactDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -469,12 +469,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listApplication_CLI = new(
-            Name: "ListApplicationProcessor",
+            Name: "ListApplicationProcessor_Orchestrator",
             InvocationName: "msgraph app list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            ProcessorType: typeof(Processors.ListApplicationProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["filter"]            = new("Filter", "filter", typeof(string), AppFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
