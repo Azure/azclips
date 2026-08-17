@@ -376,9 +376,8 @@ namespace Core.Cli.Help
             return underscore > 0 ? rawKey[..underscore] : rawKey;
         }
 
-        // ProcessorInfoAttribute.*Message properties default to "" (Phase 1). Normalize empty
-        // to null here so HelpCommand's nullable string fields reflect "no message" cleanly and
-        // the WhenWritingNull JSON writer suppresses the field in HelpManifest.json.
+        // Normalise empty ProcessorInfoAttribute message strings to null so nullable HelpCommand
+        // fields reflect "no message" and the WhenWritingNull JSON writer suppresses them.
         private static string? NullIfEmpty(string? value)
             => string.IsNullOrEmpty(value) ? null : value;
 

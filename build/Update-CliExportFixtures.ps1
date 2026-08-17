@@ -2,7 +2,7 @@
 # tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/ by running the exporter
 # and copying its per-verb output over the current fixtures.
 #
-# Bless goldens after landing a legitimate exporter or authored-markdown change:
+# Refresh fixtures after landing a legitimate exporter or authored-markdown change:
 #   pwsh -File build/Update-CliExportFixtures.ps1
 #
 # Prerequisites: repo checkout + `dotnet build azclips.slnx` (fresh extension DLLs).
@@ -15,10 +15,10 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot   = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$fixtureDir = Join-Path $repoRoot 'tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export'
+$fixtureDir = [System.IO.Path]::Combine($repoRoot, 'tools', 'Help', 'Azclips.Help.Tool.Tests', 'Fixtures', 'cli-export')
 
-if (-not $ArtifactsRoot)       { $ArtifactsRoot       = Join-Path $repoRoot 'artifacts/Debug' }
-if (-not $OutputStagingFolder) { $OutputStagingFolder = Join-Path $repoRoot 'artifacts/cli-export' }
+if (-not $ArtifactsRoot)       { $ArtifactsRoot       = [System.IO.Path]::Combine($repoRoot, 'artifacts', 'Debug') }
+if (-not $OutputStagingFolder) { $OutputStagingFolder = [System.IO.Path]::Combine($repoRoot, 'artifacts', 'cli-export') }
 
 if (-not (Test-Path $ArtifactsRoot))
 {
@@ -27,7 +27,7 @@ if (-not (Test-Path $ArtifactsRoot))
 
 Write-Host "Running exporter into $OutputStagingFolder ..."
 dotnet run `
-    --project (Join-Path $repoRoot 'tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj') `
+    --project ([System.IO.Path]::Combine($repoRoot, 'tools', 'Help', 'Azclips.Cli.Export', 'Azclips.Cli.Export.csproj')) `
     --no-build --configuration Debug `
     -- --artifacts-root $ArtifactsRoot --output-folder $OutputStagingFolder
 if ($LASTEXITCODE -ne 0)

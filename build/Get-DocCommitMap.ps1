@@ -13,11 +13,8 @@
 #   pwsh -File build/Get-DocCommitMap.ps1
 #   pwsh -File build/Get-DocCommitMap.ps1 -OutputPath other/path.json
 #
-# FOLLOWUP: candidate for export to a future AzClips dev-tools local API (aaz-dev-tools
-# equivalent). Today the script is invoked from the publish workflow (Phase 588-D) and
-# from the CLI2Yaml smoke runbook; when a dev-tools surface materialises, expose this
-# as a first-class `azclips-dev docs commit-map` sub-command (or similar) and keep this
-# script as the thin implementation.
+# TODO: candidate for export to a future AzClips dev-tools local API. When such a surface
+# lands, expose this as a first-class sub-command and keep this script as the implementation.
 [CmdletBinding()]
 param(
     [string]$ServiceMappingPath,
@@ -29,9 +26,9 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
-if (-not $ServiceMappingPath) { $ServiceMappingPath = Join-Path $repoRoot 'src/CLI/Help/service_name.json' }
-if (-not $DocRoot)            { $DocRoot            = Join-Path $repoRoot 'src/CLI/Help/Docs' }
-if (-not $OutputPath)         { $OutputPath         = Join-Path $repoRoot 'artifacts/cli-export/doc_commit_map.json' }
+if (-not $ServiceMappingPath) { $ServiceMappingPath = [System.IO.Path]::Combine($repoRoot, 'src', 'CLI', 'Help', 'service_name.json') }
+if (-not $DocRoot)            { $DocRoot            = [System.IO.Path]::Combine($repoRoot, 'src', 'CLI', 'Help', 'Docs') }
+if (-not $OutputPath)         { $OutputPath         = [System.IO.Path]::Combine($repoRoot, 'artifacts', 'cli-export', 'doc_commit_map.json') }
 
 if (-not (Test-Path $ServiceMappingPath)) {
     throw "Service mapping not found at $ServiceMappingPath."

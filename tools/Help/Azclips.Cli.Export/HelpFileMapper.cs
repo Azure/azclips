@@ -136,8 +136,7 @@ internal static class HelpFileMapper
 
     private static HelpFileParameter MapParameter(HelpParameter parameter)
     {
-        // Long-form only for now — aliases handling deferred until a real short-form
-        // case surfaces in golden fixtures. See plan open question #2 followups.
+        // Long-form only for now; short-form alias handling can be added when a real case surfaces.
         var name = "--" + parameter.Name;
 
         var choices = parameter.AllowedValues.Length > 0

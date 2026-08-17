@@ -81,9 +81,10 @@ internal static class Exporter
             {
                 extensionIndex = assembly.GetExtensionIndex();
             }
-            catch
+            catch (Exception ex)
             {
                 // Assembly may not expose an extension index (e.g. ExtensionRuntime); skip.
+                Console.WriteLine($"Skipping '{assemblyName}': no IExtensionIndex ({ex.GetType().Name}).");
                 continue;
             }
 

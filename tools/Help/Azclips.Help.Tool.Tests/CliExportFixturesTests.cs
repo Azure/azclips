@@ -88,7 +88,7 @@ public class CliExportFixturesTests : IClassFixture<CliExportFixture>
         Assert.True(
             JsonElement.DeepEquals(expectedDoc.RootElement, actualDoc.RootElement),
             $"CLI export JSON drift on '{Path.GetFileName(expectedPath)}'. " +
-            $"Bless the fixture with: pwsh build/Update-CliExportFixtures.ps1");
+            $"If intentional, refresh the fixture: pwsh build/Update-CliExportFixtures.ps1");
     }
 }
 

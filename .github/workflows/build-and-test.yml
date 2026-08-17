@@ -116,8 +116,6 @@ jobs:
         run: dotnet restore azclips.slnx
 
       - name: Build solution
-        # CliExportFixturesTests loads extension DLLs from artifacts/Debug at test time,
-        # so we need the full solution built (not just the tests project).
         run: dotnet build azclips.slnx --no-restore --configuration Debug
 
       - name: Run help tool tests
