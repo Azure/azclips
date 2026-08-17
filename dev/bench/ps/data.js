@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786927044122,
+  "lastUpdate": 1786927091522,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -6304,6 +6304,48 @@ window.BENCHMARK_DATA = {
             "value": 913778.6102090522,
             "unit": "ns",
             "range": "± 22961.437503182962"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "28dbe75d719d30a8e5ee4d8340c232e3d1ce78a7",
+          "message": "{Telemetry} Trace startup time for CLI and PS module import (#685)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n- Add startup performance context to track start up time before\nTelemetryService initialisation\n- Replay startup performance context as part of trace hierarchy for CLI\ncommands\n- Instrument more sections of Program.cs entry point for better\ntraceability.\n- Measure PS import time as separate trace activity on cmdlet import\n\n<img width=\"2463\" height=\"974\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/afebf67b-2d80-456c-b5e8-feee6b15b273\"\n/>\n\n<img width=\"2453\" height=\"1151\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/c689ab7a-31b8-4c75-b5d5-3e0274dd0bdf\"\n/>\n\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-08-17T10:15:24+10:00",
+          "tree_id": "02d17f3b1985d236ed123ce1e63f5819d62aa82f",
+          "url": "https://github.com/Azure/azclips/commit/28dbe75d719d30a8e5ee4d8340c232e3d1ce78a7"
+        },
+        "date": 1786927089675,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 924126.8980956239,
+            "unit": "ns",
+            "range": "± 23972.922469275247"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 892796.6556004037,
+            "unit": "ns",
+            "range": "± 22194.35656050082"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 901414.640562249,
+            "unit": "ns",
+            "range": "± 28296.53080600294"
           }
         ]
       }
