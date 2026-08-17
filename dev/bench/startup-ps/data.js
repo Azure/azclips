@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786952761060,
+  "lastUpdate": 1786952765179,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -3998,6 +3998,42 @@ window.BENCHMARK_DATA = {
             "value": 382567434.71,
             "unit": "ns",
             "range": "± 15564927.364105849"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd3287836c3d90de1936fbcca2d65a4da35666d2",
+          "message": "{Help} MsLearn export tooling for CLI (#691)\n\nRef [CLIPS#588](https://github.com/Azure/CLIPS/issues/588).\n\nAdds the in-repo tooling for AzClips CLI reference to reach\n`learn.microsoft.com` via the same pipeline `azure-cli` uses. The\nout-of-repo pieces (publish workflow, cross-repo PRs, target docs repo)\nare separate CLIPS issues.\n\n## What ships\n\n- **`Azclips.Cli.Export`** (new build-time tool at\n`tools/Help/Azclips.Cli.Export/`) -- walks each extension's\n`IExtensionIndex`, builds `HelpManifest`, projects into CLI2Yaml's\nsnake_case `HelpFile` JSON contract, writes one file per top-level verb\nto `artifacts/cli-export/latest/<verb>.json`.\n- `dotnet run --project tools/Help/Azclips.Cli.Export` is the whole\ninvocation.\n- Optional `--extension <name>` filters to a single extension for\ndev-loop / partial regen.\n- Emits a synthesised `_root_.json` for the root `az` group (CLI2Yaml\nrequires it).\n- **Metadata attributes** for docs-only fields on parameters and\ncommands:\n- `[ParameterGroup(\"Storage Arguments\")]` -> CLI2Yaml\n`parameter.group_name`\n- `[PopulatorCommand(\"az vm list-sizes\")]` -> `parameter.value_sources`\n- `ProcessorInfoAttribute` extended with `PreviewMessage`,\n`ExperimentalMessage`, `DeprecatedMessage` -- Tags gate emission;\n`[Breaking Change]` sentinel routes to `breaking_change_info`.\n- **Side-car config files** at `src/CLI/Help/` --\n`.docsreference.azclips.json` (E1), `service_name.json` (E2),\n`index.json` (E3). Placeholder content per PR discussion.\n- **`build/Get-DocCommitMap.ps1`** -- generates `doc_commit_map.json`\n(E4) at CI time. Powers Learn's \"Edit this doc\" links and \"Last updated\"\ndates.\n- **PR-time fixtures + CI diff** -- small representative set (`_root_`,\n`login`, `vm`) at\n`tools/Help/Azclips.Help.Tool.Tests/Fixtures/cli-export/`. The\n`help-tool-tests` job fails loudly on shape drift with a message\npointing at `pwsh build/Update-CliExportFixtures.ps1`.\n\n## Globals -- single source of truth\n\n`Program.cs` (CLI2Yaml docs pipeline) and `RuntimeHelpRenderer` (in-tool\n`az X --help`) previously had no shared definition of global arguments.\nThis PR adds:\n\n- **`KnownGlobalFlags.All`** in `src/CLI/Parser/` -- public descriptor\nlist with `ParseAction` per flag.\n- `GlobalArgParser.Parse` dispatches through this list (`ParseAction`\nmirrors argparse's `Action` pattern used by `knack`/azure-cli).\n- `RuntimeHelpRenderer` renders a `Global Arguments` section at the\nbottom of every command / group `--help`.\n- Docs exporter's `GlobalArguments.cs` is a thin projection into\n`HelpFileParameter[]`.\n- Drift test in `Cli.Tests` asserts every declared global is recognised\nby the parser.\n\nNet effect: adding a new global flag = **one edit** in\n`KnownGlobalFlags.All`. Docs and runtime stay in sync by construction.\n\n## What it does NOT do\n\n- **Publish workflow** -- a bot PR that clones the target docs repo and\npushes YAML. Blocked on the target docs repo decision and `apidrop` feed\nauth on GH Actions runners.\n- **Markdown well-formedness preflight** (Markdig over `contentType:\nmarkdown` fields) -- planned alongside the publish workflow.\n- **Realistic per-verb `service_name.json` mapping** -- everything\ncurrently maps to `azure-cli`. Docs-review pass.\n- **Realistic `.docsreference.azclips.json` template copy** --\nplaceholder strings. Templates never render at emit time under Q3\nall-core anyway.\n- **Runtime `--help` parameter grouping** -- the `[ParameterGroup]`\nannotations flow through `HelpParameter.GroupName`;\n`RuntimeHelpRenderer` still lists parameters flat. One-file follow-up.\n- **`CLI2Yaml editLink` hardcode fix** (BL1) -- upstream PR to CLI2Yaml\nor regex-swap in the publish workflow. Not this PR.\n\n## Verification\n\n**Build + tests**:\n\n```\ndotnet build azclips.slnx --configuration Debug\ndotnet test azclips.slnx --no-build --configuration Debug\n```\n\nExpect all green except the pre-existing Windows-only\n`ManagedIdentityE2ETests.ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail`.\n\n**Exporter**:\n\n```\ndotnet run --project tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj --no-build --configuration Debug\n```\n\nExpect `Wrote 11 verb file(s) + _root_.json to\n<repo>/artifacts/cli-export/latest`.\n\n**CLI2Yaml round-trip smoke** (needs Microsoft-tenant machine + apidrop\nfeed auth via silent MSAL): full runbook at\n[scratch/CLIPS-588-CLI2YAML-SMOKE-RUNBOOK.md](https://github.com/Azure/azclips/blob/azclips-588-cli-implementation/scratch/CLIPS-588-CLI2YAML-SMOKE-RUNBOOK.md).\nProduces `YamlMime:AzureCLIGroup` files under\n`%TEMP%\\azclips-cli2yaml-smoke\\output\\latest\\`.\n\n## Design context\n\nDesign and phase-by-phase implementation notes live at:\n\n-\n[scratch/CLIPS-588-TEMP-PR-PLAN.md](https://github.com/Azure/azclips/blob/azclips-588-cli-implementation/scratch/CLIPS-588-TEMP-PR-PLAN.md)\n-- design decisions (Q1-Q5), blockers (BL1-BL6), validation gates.\n-\n[scratch/CLIPS-588-A-IMPLEMENTATION-PLAN.md](https://github.com/Azure/azclips/blob/azclips-588-cli-implementation/scratch/CLIPS-588-A-IMPLEMENTATION-PLAN.md)\n-- 9-phase execution log with every checkpoint verified.\n-\n[scratch/AZCLIPS-TO-MSLEARN-LOOP.md](https://github.com/Azure/azclips/blob/azclips-588-cli-implementation/scratch/AZCLIPS-TO-MSLEARN-LOOP.md)\n-- pipeline spec (source of truth for the Loop page).\n\nTwo decisions worth calling out for the reviewer:\n\n- **We reuse CLI2Yaml** (docs.ms NuGet) rather than emit YAML ourselves.\nBypasses ~500 lines of transform reimplementation and inherits\n`azure-cli`'s operational path. Trade-off discussion in the Loop doc.\n- **All-core model** (`command_source: null` on every emitted record).\nAzClips has no author-visible core-vs-extension distinction today;\nexposing one would leak an implementation detail into\n`learn.microsoft.com`. Revisit if we ship a truly external extension.",
+          "timestamp": "2026-08-17T17:32:32+10:00",
+          "tree_id": "6e408cdfda4fe79a823c1dc37997a3f228a1be3a",
+          "url": "https://github.com/Azure/azclips/commit/fd3287836c3d90de1936fbcca2d65a4da35666d2"
+        },
+        "date": 1786952765050,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 481301435.07,
+            "unit": "ns",
+            "range": "± 151477454.61141193"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 344332874.71,
+            "unit": "ns",
+            "range": "± 6281862.506770106"
           }
         ]
       }
