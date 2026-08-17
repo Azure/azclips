@@ -46,7 +46,39 @@ public class StorageAccountCreateParameters
     public string Kind { get; set; } = null!;
     public string Location { get; set; } = null!;
     public Dictionary<string, string>? Tags { get; set; }
+    public ExtendedLocation? ExtendedLocation { get; set; }
+    public Identity? Identity { get; set; }
+    public List<string>? Zones { get; set; }
+    public Placement? Placement { get; set; }
     public StorageAccountPropertiesCreateParameters? Properties { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ExtendedLocation
+{
+    public string? Name { get; set; }
+
+    // EdgeZone is the only value the service defines, so the processor sets it rather than
+    // exposing a flag for it.
+    public string? Type { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class Placement
+{
+    public string? ZonePlacementPolicy { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class Identity
+{
+    public string? PrincipalId { get; set; }
+    public string? TenantId { get; set; }
+    public string? Type { get; set; }
+
+    // Keyed by the ARM resource id of each identity; the service expects an empty object as the
+    // value, which it populates with principalId/clientId on the response.
+    public Dictionary<string, object>? UserAssignedIdentities { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -72,6 +104,98 @@ public class StorageAccountPropertiesCreateParameters
     public bool? IsNfsV3Enabled { get; set; }
     public bool? AllowCrossTenantReplication { get; set; }
     public bool? DefaultToOAuthAuthentication { get; set; }
+    public RoutingPreference? RoutingPreference { get; set; }
+    public DualStackEndpointPreference? DualStackEndpointPreference { get; set; }
+    public GeoPriorityReplicationStatus? GeoPriorityReplicationStatus { get; set; }
+    public KeyPolicy? KeyPolicy { get; set; }
+    public SasPolicy? SasPolicy { get; set; }
+    public ImmutableStorageAccount? ImmutableStorageWithVersioning { get; set; }
+    public NetworkRuleSet? NetworkAcls { get; set; }
+    public CustomDomain? CustomDomain { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class RoutingPreference
+{
+    public string? RoutingChoice { get; set; }
+    public bool? PublishMicrosoftEndpoints { get; set; }
+    public bool? PublishInternetEndpoints { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class DualStackEndpointPreference
+{
+    public bool? PublishIpv6Endpoint { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class GeoPriorityReplicationStatus
+{
+    public bool? IsBlobEnabled { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class KeyPolicy
+{
+    public int? KeyExpirationPeriodInDays { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SasPolicy
+{
+    public string? SasExpirationPeriod { get; set; }
+    public string? ExpirationAction { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ImmutableStorageAccount
+{
+    public bool? Enabled { get; set; }
+    public AccountImmutabilityPolicyProperties? ImmutabilityPolicy { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class NetworkRuleSet
+{
+    // A comma-separated combination of Logging, Metrics and AzureServices, or None.
+    public string? Bypass { get; set; }
+    public List<VirtualNetworkRule>? VirtualNetworkRules { get; set; }
+    public List<IPRule>? IpRules { get; set; }
+    public List<IPRule>? Ipv6Rules { get; set; }
+    public string? DefaultAction { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class IPRule
+{
+    // Serializes as "value"; the Azure SDKs alias this as ipAddressOrRange.
+    public string? Value { get; set; }
+    public string? Action { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class VirtualNetworkRule
+{
+    // Serializes as "id"; the Azure SDKs alias this as virtualNetworkResourceId.
+    public string? Id { get; set; }
+    public string? Action { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class AccountImmutabilityPolicyProperties
+{
+    public int? ImmutabilityPeriodSinceCreationInDays { get; set; }
+    public string? State { get; set; }
+    public bool? AllowProtectedAppendWrites { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class CustomDomain
+{
+    public string? Name { get; set; }
+
+    // Only meaningful on update, so no flag is exposed on create.
+    public bool? UseSubDomainName { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
