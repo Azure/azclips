@@ -115,7 +115,19 @@ foreach (var (verb, helpFiles) in helpFilesByVerb.OrderBy(kv => kv.Key, StringCo
     File.WriteAllText(path, json + Environment.NewLine);
 }
 
-Console.WriteLine($"Wrote {helpFilesByVerb.Count} verb file(s) to {latestFolder}");
+// CLI2Yaml requires a synthesised top-level "az" group at "_root_.json"; without it
+// Transformer.BuildAllSDPGroupMapping throws KeyNotFoundException. Skip when filtering
+// to a single extension since the root is a core-only concept.
+var wroteRoot = false;
+if (extensionFilter is null)
+{
+    var rootPath = Path.Combine(latestFolder, "_root_.json");
+    var rootJson = JsonSerializer.Serialize(new[] { HelpFileMapper.CreateRootGroup() }, jsonOptions);
+    File.WriteAllText(rootPath, rootJson + Environment.NewLine);
+    wroteRoot = true;
+}
+
+Console.WriteLine($"Wrote {helpFilesByVerb.Count} verb file(s){(wroteRoot ? " + _root_.json" : "")} to {latestFolder}");
 return 0;
 
 static string? GetArg(string[] args, string name)

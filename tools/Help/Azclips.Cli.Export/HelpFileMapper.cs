@@ -19,6 +19,23 @@ namespace Azclips.Cli.Export;
 /// </remarks>
 internal static class HelpFileMapper
 {
+    // CLI2Yaml's Transformer.Run assumes a top-level "az" group entry keyed by
+    // command == "" ("_root_.json"). Without it CLI2Yaml throws
+    // KeyNotFoundException('az'). Synthesised here (no root markdown in our corpus today);
+    // if we ever author src/CLI/Help/Docs/index.md, read its summary here.
+    public static HelpFile CreateRootGroup() => new(
+        Command: "",
+        Type: "group",
+        ShortSummary: "AzClips CLI.",
+        LongSummary: "",
+        CommandSource: null,
+        PreviewInfo: null,
+        ExperimentalInfo: null,
+        DeprecateInfo: null,
+        BreakingChangeInfo: null,
+        Examples: null,
+        Parameters: null);
+
     public static IEnumerable<HelpFile> Map(
         HelpManifest manifest,
         Func<string, string>? subgroupSummary = null)
