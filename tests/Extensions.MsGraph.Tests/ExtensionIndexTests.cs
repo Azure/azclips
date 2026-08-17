@@ -4,7 +4,6 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.MsGraph;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
-using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 
 namespace Extensions.MsGraph.Tests;
 
@@ -267,5 +266,34 @@ public class ExtensionIndexTests
         var aliases = metadata.Parameters["GroupObjectId"].Aliases;
         Assert.Contains("Id", aliases);
         Assert.Contains("ObjectId", aliases);
+    }
+
+    // ── Application commands ────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("msgraph app create", typeof(NewApplicationProcessor))]
+    [InlineData("msgraph app show", typeof(GetApplicationProcessor))]
+    [InlineData("msgraph app delete", typeof(DeleteApplicationProcessor))]
+    [InlineData("msgraph app list", typeof(ListApplicationProcessor_Orchestrator))]
+    public void CliTable_ShouldExposeMsGraphApplicationCommands(string key, Type expectedProcessor)
+    {
+        var table = s_index.GetCommandTable(ClientType.CLI);
+
+        Assert.True(table.ContainsKey(key), $"missing CLI dispatch key '{key}'");
+        Assert.Equal(expectedProcessor, table[key].ProcessorType);
+    }
+
+    [Theory]
+    [InlineData("New-AzMsGraphApplication", typeof(NewApplicationProcessor))]
+    [InlineData("Get-AzMsGraphApplication_Get", typeof(GetApplicationProcessor))]
+    [InlineData("Get-AzMsGraphApplication_List", typeof(ListApplicationProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphApplication_DisplayName", typeof(ListApplicationProcessor_Orchestrator))]
+    [InlineData("Remove-AzMsGraphApplication", typeof(DeleteApplicationProcessor))]
+    public void PsTable_ShouldRouteApplicationCommands(string key, Type expectedProcessor)
+    {
+        var table = s_index.GetCommandTable(ClientType.PowerShell);
+
+        Assert.True(table.ContainsKey(key), $"missing PS dispatch key '{key}'");
+        Assert.Equal(expectedProcessor, table[key].ProcessorType);
     }
 }
