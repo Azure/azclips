@@ -1,5 +1,28 @@
 ## Upcoming Release
 
+## v0.1.1 - 2026-08-17 00:12 UTC
+
+#### CLI
+- `az config set core.output.color`: Add `auto` | `always` | `never` for persistent color preference (#649)
+- Argument parser: Use the flag or alias the user typed in error messages and verbose logs instead of the internal processor property name (#594)
+
+#### Config
+- Remove bundledExtensionsRoot from config (#676)
+- Rename assemblyLoading extension-root config keys (breaking) (#668)
+
+#### Extension
+- `az extension list`: Include bundled extensions and expose on-disk `Location` field (#590)
+- `az extension show`: Expose on-disk `Location` field (#590)
+
+#### Extensions
+- `extension list` displays all available candidates (#688)
+
+#### PowerShell
+- Argument parser: Route cmdlet parameters to their processor property name so parameters whose PS name differs from the backing property no longer fail with a missing-property error (#594)
+
+#### Telemetry
+- Honor `telemetry.enabled` config changes without requiring a PowerShell module reload (#592)
+
 #### CLI
 
 - `az extension list` now surfaces every discovered candidate per package under a `candidates` array (each entry has `version`, `tier` — `Bundled` or `Installed` — and `location`), plus a top-level `selectedVersion` field naming the version dispatch will route to. The array is sorted by SemVer descending across tiers, so users can see what versions are available before deciding to pin/unpin. `--by-verb` inherits the same shape. The existing `version` field remains for backward compatibility and equals `selectedVersion`; new consumers should prefer `selectedVersion` (#643).
