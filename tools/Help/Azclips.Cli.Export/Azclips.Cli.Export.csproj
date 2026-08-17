@@ -11,4 +11,8 @@
     <ProjectReference Include="..\..\..\src\CLI\Core.Cli.csproj" />
     <ProjectReference Include="..\Azclips.Help.Tool\Azclips.Help.Tool.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Azclips.Help.Tool.Tests" />
+  </ItemGroup>
 </Project>

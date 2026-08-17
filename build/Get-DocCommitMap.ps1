@@ -12,6 +12,12 @@
 # Usage:
 #   pwsh -File build/Get-DocCommitMap.ps1
 #   pwsh -File build/Get-DocCommitMap.ps1 -OutputPath other/path.json
+#
+# FOLLOWUP: candidate for export to a future AzClips dev-tools local API (aaz-dev-tools
+# equivalent). Today the script is invoked from the publish workflow (Phase 588-D) and
+# from the CLI2Yaml smoke runbook; when a dev-tools surface materialises, expose this
+# as a first-class `azclips-dev docs commit-map` sub-command (or similar) and keep this
+# script as the thin implementation.
 [CmdletBinding()]
 param(
     [string]$ServiceMappingPath,
