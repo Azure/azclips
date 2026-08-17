@@ -7,3 +7,9 @@ Arguments
 Examples
     Sign out
         az logout
+
+Global Arguments
+    --debug : Increase logging verbosity to show all debug logs.
+    --help -h : Show help for the command or group and exit.
+    --no-cache : Bypass the extension discovery cache and reload extensions from disk.
+    --output -o : Output format.

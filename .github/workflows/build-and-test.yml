@@ -113,10 +113,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore dependencies
-        run: dotnet restore tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj
+        run: dotnet restore azclips.slnx
 
-      - name: Build help tool tests
-        run: dotnet build tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-restore --configuration Debug
+      - name: Build solution
+        run: dotnet build azclips.slnx --no-restore --configuration Debug
 
       - name: Run help tool tests
         run: dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal
