@@ -62,6 +62,8 @@ export {
   EnumHintsSchema,
   ParameterHintsSchema,
   OperationHintsSchema,
+  PowershellOperationHintSchema,
+  ConfirmImpacts,
   RequestBodyHintsSchema,
   type FlattenHint,
   type SerializationHint,
@@ -75,6 +77,8 @@ export {
   type EnumHints,
   type ParameterHints,
   type OperationHints,
+  type PowershellOperationHint,
+  type ConfirmImpact,
   type RequestBodyHints,
 } from "./hints.js";
 

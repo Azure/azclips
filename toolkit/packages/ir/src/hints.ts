@@ -166,8 +166,66 @@ export const EnumHintsSchema: z.ZodType<EnumHints> = CommonHintsSchema;
 export type ParameterHints = CommonHints;
 export const ParameterHintsSchema: z.ZodType<ParameterHints> = CommonHintsSchema;
 
-export type OperationHints = CommonHints;
-export const OperationHintsSchema: z.ZodType<OperationHints> = CommonHintsSchema;
+// ─── PowerShell hints (operation-level) ─────────────────────────────────
+//
+// No prior mention of "powershell" existed in this file before the
+// ps-cmdlet-schema change (confirmed by inspection, not an existing
+// anticipated namespace). Fields are both an authoring-override input and
+// the `create-commands` transform's (in @azure-client-engine/compiler)
+// write target: it resolves verb/noun/parameterSetName/confirmImpact from
+// IR + policy and writes the result back here, leaving any value an author
+// already set untouched (ordinary last-writer-wins hint-merge semantics —
+// no special-casing needed). Mirrors AutoRest.PowerShell's own
+// `CommandOperation extends ProgrammaticOperation` pattern (PS facet bolted
+// onto the same operation object), adapted to IR's immutable-node model.
+
+/**
+ * PowerShell `ConfirmImpact` level. Shared between `PowershellOperationHint`
+ * and `@azure-client-engine/ps-commands`'s `Command` aggregate so the two
+ * packages can't drift on the allowed values.
+ */
+export const ConfirmImpacts = ["None", "Low", "Medium", "High"] as const;
+export type ConfirmImpact = (typeof ConfirmImpacts)[number];
+
+/**
+ * PowerShell command-shape fields for an operation. See ps-cmdlet-schema's
+ * design.md Decisions 3/8 for the full field list (this is the Milestone 0
+ * subset) and why this lives here rather than in a separate package.
+ */
+export type PowershellOperationHint = {
+  /** PowerShell approved verb, e.g. "Get", "New", "Set". */
+  verb?: string | undefined;
+  /** PowerShell noun, singularized, WITHOUT subject prefix, e.g. "ResourceGroup". */
+  noun?: string | undefined;
+  /** Configurable subject prefix combined with `noun` at grouping time, e.g. "Az". */
+  subjectPrefix?: string | undefined;
+  /** Parameter-set name this operation contributes when merged with others sharing a verb+noun. */
+  parameterSetName?: string | undefined;
+  /** ConfirmImpact level for SupportsShouldProcess commands. */
+  confirmImpact?: ConfirmImpact | undefined;
+};
+
+export const PowershellOperationHintSchema: z.ZodType<PowershellOperationHint> = z
+  .object({
+    verb: z.string().min(1).optional(),
+    noun: z.string().min(1).optional(),
+    subjectPrefix: z.string().min(1).optional(),
+    parameterSetName: z.string().min(1).optional(),
+    confirmImpact: z.enum(ConfirmImpacts).optional(),
+  })
+  .strict();
+
+export type OperationHints = CommonHints & {
+  powershell?: PowershellOperationHint | undefined;
+};
+
+export const OperationHintsSchema: z.ZodType<OperationHints> = z
+  .object({
+    clientApi: ClientApiHintSchema.optional(),
+    docs: DocsHintSchema.optional(),
+    powershell: PowershellOperationHintSchema.optional(),
+  })
+  .strict();
 
 /**
  * Hints attached to an operation's request body. Reuses the property-level
