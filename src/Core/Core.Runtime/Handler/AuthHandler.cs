@@ -35,7 +35,10 @@ namespace Core.Runtime.Handler
                 AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null
                         ? this.AcquireTokenAsyncOverride
                         : this.AcquireTokenAsyncDefault;
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (await tokenAcquirer(null, this.Profile.TenantId, false, default, this.Profile)).AccessToken);
+                request.Options.TryGetValue(RuntimeHttpRequestOptions.Scopes, out string[]? scopes);
+                request.Headers.Authorization = new AuthenticationHeaderValue(
+                    "Bearer",
+                    (await tokenAcquirer(scopes, this.Profile.TenantId, false, callback.Token, this.Profile)).AccessToken);
                 await callback.Publish(Events.AuthAfterTokenAcquisition);
             }
             return await next.SendAsync(request, callback);
