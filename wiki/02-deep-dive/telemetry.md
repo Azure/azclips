@@ -22,13 +22,19 @@ Telemetry is built on OpenTelemetry for .NET and is **on by default**; opt out w
 
 ```mermaid
 flowchart TB
-    Root["StartRootActivity()<br>CLI.Activity.Root (Server)"] --> Tag["TagInvocation(invocation)<br>command / module / parameter tags"]
+    Root["StartRootActivity(startTime)<br>CLI.Activity.Root (Server)<br>backdated to Main entry"] --> Perf["AzureCLI.Startup<br>replayed startup phases"]
+    Perf --> Container["AzureCLI.Startup.Container<br>registration + BuildServiceProvider"]
+    Perf --> Services["AzureCLI.Startup.Services<br>first-touch logger / config / telemetry"]
+    Root --> Tag["TagInvocation(invocation)<br>command / module / parameter tags"]
     Tag --> Cmd["StartActivity(AzureCLI.ProcessCommand)"]
     Cmd --> Engine["Engine + service activities<br>(MsalAuthService.*, ActionStart.* ...)"]
     Engine --> Http["HttpClient instrumentation<br>method/status/host only"]
     Root --> Provider["ITelemetryProvider<br>ActivitySource + TracerProvider"]
 
     style Root fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Perf fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Container fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Services fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Tag fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Cmd fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Engine fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -36,7 +42,57 @@ flowchart TB
     style Provider fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
+### Startup phases
+
+`CLITelemetryProvider` creates both the `ActivitySource` and the `TracerProvider` that
+listens to it, so until DI has resolved it there is no listener and `StartActivity`
+returns `null` — the container build cannot be traced live. `PerformanceTimeline`
+(`src/Core/Core.Telemetry/PerformanceTimeline.cs`) closes that gap: it notes `DateTime.UtcNow`
+the phases as spans once telemetry exists, passing the recorded times through the
+`startTime` parameter OpenTelemetry provides for work that has already happened. The root
+activity is backdated to the first line of `Main` so the replayed phases nest beneath it.
+
+`Container` covers the registration callbacks and `BuildServiceProvider()`; `Services`
+covers the first-touch construction of `ILoggingService`, `IConfigurationService`, and
+`ITelemetryService` — the last of which builds the entire OpenTelemetry pipeline. They are
+measured separately because `BuildServiceProvider()` only builds the container's metadata
+graph: singletons are constructed lazily on first `GetRequiredService`.
+
+`--upload-telemetry`, `--print-probe`, `--completions`, and `--completion-candidates` all
+return before the root activity starts and emit nothing.
+
 The root span is enriched with per-process invariants — a machine-derived `Id`, Microsoft-internal flag, product name/version, schema/telemetry version, and `ClientType` — resolved once by `TelemetryPropertyResolver` (`src/Core/Core.Telemetry/TelemetryService.cs:28-40`; `src/Core/Core.Telemetry/TelemetryPropertyResolver.cs:14-33`).
+
+### PowerShell module import
+
+The PowerShell client is long-lived: one process serves many cmdlets, each opening its own
+root activity. Module import happens once, before any of them, so it is emitted as its own
+trace rather than nested under a cmdlet — attaching backdated phases to a cmdlet root would
+put a child before its parent, which renders incorrectly in Jaeger and Application Insights.
+
+```
+PowerShell.Activity.Root          importKind = cold | warm
+└── PowerShell.Startup
+    └── PowerShell.Startup.Container
+```
+
+`ModuleInitializer.OnImport` records the phases with `PerformanceTimeline` and hands the
+emit to a background thread (`ImportTelemetry.EmitInBackground`). It cannot emit inline:
+resolving `ITelemetryService` builds the whole OpenTelemetry pipeline, which costs about
+84 ms against a 21.6 ms import, so inline instrumentation would roughly quadruple import
+time and report a figure inflated by its own cost. Running it in the background also
+pre-warms the stack, so the first cmdlet no longer pays for it.
+
+`importKind` distinguishes the first import in a process (`cold`) from later ones (`warm`);
+PowerShell does not unload the module assembly on `Remove-Module`, so a static counter
+survives a remove/re-import cycle. `PowerShell.Startup.Container` measures the same
+work as `CLI.Startup.Container`, so DI container build cost is comparable across
+clients.
+
+Two limits are worth knowing. `OnImport` runs near the end of PowerShell's module load
+sequence, so assembly loading, manifest processing, and cmdlet export processing are not
+captured. And because the emit is deferred, a process that exits immediately after import
+emits nothing — such a session runs no cmdlets, so it produces no telemetry either way.
 
 ### Per-client providers
 

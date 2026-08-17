@@ -25,6 +25,7 @@ internal static class TelemetryExporters
             {
                 options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
             });
+            builder.SetSampler(new AlwaysOnSampler());
         }
         else
         {
