@@ -18,7 +18,8 @@ public sealed class CliExportFixture : IDisposable
     public CliExportFixture()
     {
         var repoRoot = RepoRoot.Resolve();
-        var artifactsRoot = Path.Combine(repoRoot, "artifacts", "Debug");
+        var configuration = ResolveBuildConfiguration();
+        var artifactsRoot = Path.Combine(repoRoot, "artifacts", configuration);
 
         if (!Directory.Exists(artifactsRoot))
         {
@@ -41,6 +42,19 @@ public sealed class CliExportFixture : IDisposable
         OutputLatest = Path.Combine(_temp.Path, "latest");
         FixtureRoot = Path.Combine(repoRoot,
             "tools", "Help", "Azclips.Help.Tool.Tests", "Fixtures", "cli-export");
+    }
+
+    // Locate the build configuration from the test assembly's own path (bin/<Config>/<TFM>/),
+    // so the test picks the same artifacts root the CI job just produced.
+    private static string ResolveBuildConfiguration()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        var sep = Path.DirectorySeparatorChar;
+        if (baseDir.Contains($"{sep}Release{sep}", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Release";
+        }
+        return "Debug";
     }
 
     public string OutputLatest { get; }
