@@ -70,6 +70,11 @@ namespace Core.Runtime
         /// </summary>
         public async Task<HttpResponseMessage> Retry429(HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
         {
+            if (request.Options.TryGetValue(RuntimeHttpRequestOptions.DisableRetry, out bool disableRetry) && disableRetry)
+            {
+                return await next.SendAsync(request, callback);
+            }
+
             var cloneRequest = await request.CloneWithContent();
             var response = await next.SendAsync(request, callback);
             int count = 0;
@@ -113,6 +118,11 @@ namespace Core.Runtime
         /// </summary>
         public async Task<HttpResponseMessage> RetryError(HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
         {
+            if (request.Options.TryGetValue(RuntimeHttpRequestOptions.DisableRetry, out bool disableRetry) && disableRetry)
+            {
+                return await next.SendAsync(request, callback);
+            }
+
             var cloneRequest = await request.CloneWithContent();
             var response = await next.SendAsync(request, callback);
             int count = 0;
@@ -289,7 +299,6 @@ namespace Core.Runtime
         public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback) => Pipeline.SendAsync(request, callback);
     }
 }
-
 
 
 

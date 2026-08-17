@@ -67,4 +67,41 @@ public class AuthHandlerTests
         Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
         Assert.Equal("token-for-resolved-profile", request.Headers.Authorization.Parameter);
     }
+
+    [Fact]
+    public async Task SendAsync_ShouldForwardRequestScopesToTokenAcquirer()
+    {
+        string[] expectedScopes = ["https://storage.azure.com/.default"];
+        string[]? capturedScopes = null;
+        var profile = new Profile { TenantId = "tenant", SubscriptionId = "subscription" };
+        var handler = new AuthHandler
+        {
+            Profile = profile,
+            AcquireTokenAsyncDefault = (scopes, tenantId, promptOnError, cancellationToken, resolvedProfile) =>
+            {
+                capturedScopes = scopes;
+                return Task.FromResult(new AuthResult
+                {
+                    AccessToken = "storage-token",
+                    ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                    Scopes = scopes ?? [],
+                    TenantId = tenantId ?? string.Empty,
+                    CorrelationId = null,
+                });
+            },
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://account.blob.core.windows.net/container/blob");
+        request.Options.Set(RuntimeHttpRequestOptions.Scopes, expectedScopes);
+        var next = new Mock<ISendAsync>();
+        next.Setup(n => n.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .ReturnsAsync(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetupGet(p => p.Token).Returns(CancellationToken.None);
+        publisher.SetReturnsDefault(Task.CompletedTask);
+
+        using HttpResponseMessage response = await handler.SendAsync(request, publisher.Object, next.Object);
+
+        Assert.Same(expectedScopes, capturedScopes);
+        Assert.Equal("storage-token", request.Headers.Authorization!.Parameter);
+    }
 }
