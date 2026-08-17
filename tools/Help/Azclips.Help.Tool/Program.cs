@@ -30,6 +30,9 @@ string[] knownCmdletAssemblyPatterns =
 var structureReport = new MarkdownStructureValidator().Validate(repoRoot);
 aggregateReport.Merge(structureReport);
 
+var wellFormednessReport = new MarkdigWellFormednessValidator().Validate(repoRoot);
+aggregateReport.Merge(wellFormednessReport);
+
 Directory.CreateDirectory(outputRoot);
 
 ExtensionAssemblyLoader.InstallResolver(artifactsRoot);
