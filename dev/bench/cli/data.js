@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787034581847,
+  "lastUpdate": 1787034641708,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -5796,6 +5796,48 @@ window.BENCHMARK_DATA = {
             "value": 811122.5068548387,
             "unit": "ns",
             "range": "± 18162.57995204903"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a0947abac40ca61ef46b33f2f9c309c09219e2fa",
+          "message": "[Help] Group --help parameters into named sections (#711)\n\n## Summary\n\nParameters in `az <verb> --help` output can now be grouped into named\nsections via a new `[ParameterGroup]` attribute on processor properties.\nFirst adoption: `az vm create` splits its 22 parameters across\n`Arguments` / `Authentication Arguments` / `Network Arguments`, matching\nreal Azure CLI conventions.\n\nCloses the runtime loop on the 588 track — the exporter side already\nemitted `group_name` fields from 588-A (#691); this PR teaches the\nruntime help renderer to consume them.\n\n## User-visible impact\n\n`az vm create --help` before this PR: 22 parameters rendered flat under\na single `Arguments` header.\n\nAfter:\n\n    Command\naz vm create : Create a virtual machine and its supporting network\nresources.\n\n    Arguments\n        --subscription-id [Required] : Azure Subscription Id.\n        --name [Required]            : The name of the virtual machine.\n        --location [Required]        : Location for all resources.\n        --resource-group [Required]  : The resource group name.\n        --vm-size [Required]         : The size of the virtual machine.\n--profile : Use the named profile for this command ...\n\n    Authentication Arguments\n        --admin-username [Required]  : The administrator username.\n        --admin-password [Required]  : The administrator password.\n\n    Network Arguments\n        --network-interface-name [Required] : ...\n        --virtual-network-name [Required]   : ...\n        ... 15 params\n\n    Global Arguments\n        --debug ...\n\nUn-annotated commands (`az login`, `az config get`, etc.) render\nbyte-identically to `main` — the mechanism is dormant until an attribute\nfires.\n\n## Implementation\n\n- **`RuntimeHelpParameter.GroupName`** — new nullable field on the\nruntime help contract.\n- **`ProcessorParameterReflection`** — new shared helper in\n`src/CLI/Help/`. Both the build-time exporter\n(`ExtensionHelpManifestBuilder`) and the runtime adapter\n(`ExtensionIndexHelpAdapter`) call it to read `[ParameterGroup]` off the\nprocessor property. Consolidating here keeps the two consumers from\ndrifting.\n- **`ExtensionIndexHelpAdapter`** — reflects on the processor type at\nhelp-render time and populates `RuntimeHelpParameter.GroupName`. Small\nreflection cost; help is not a hot path.\n- **`RuntimeHelpRenderer`** — new `AppendParameterSections`: splits\nparams into buckets keyed by `GroupName`, renders default `Arguments`\nfirst, named groups alphabetical, `Global Arguments` last. Empty\nsections skipped. Insertion order preserved within each bucket.\n\n## Compute annotations\n\nMapping cross-referenced against real `az vm create --help` (azure-cli\n`dev`):\n\n- `[ParameterGroup(\"Authentication Arguments\")]` on `AdminUsername`,\n`AdminPassword`.\n- `[ParameterGroup(\"Network Arguments\")]` on `NetworkInterfaceName`,\n`VirtualNetworkName`, `NetworkSecurityGroupName`, `SubnetNames`,\n`SubnetAddressPrefixes`, `AddressPrefixes`, and all 9 `Rule*` fields.\n- Ungrouped (default `Arguments`): `SubscriptionId`, `Name`, `Location`,\n`ResourceGroupName`, `VmSize`.\n\n## Open decisions worth flagging\n\n- **`SubscriptionId` left in default `Arguments`.** Azure CLI treats\n`--subscription` as a *global* argument; promoting `SubscriptionId` to\nour `KnownGlobalFlags` would match that convention but touches broader\nprofile plumbing. Deferred as a follow-up.\n- **`Rule*` fields under `Network Arguments`.** Azure CLI exposes only\n`--nsg-rule` (a preset). Our orchestrator exposes each rule field\nindividually; grouping under `Network Arguments` matches \"network\nconfiguration\". Alternative would be a dedicated `NSG Rule Arguments` —\nrejected as over-taxonomy for a handful of fields.\n- **Grouping is opt-in, not enforced.** Matches azure-cli's own\nconvention (no linter requires every param to be grouped). Small\ncommands rightfully use only the default bucket.\n\n## Not in this PR (deferred)\n\n- Annotating processors other than `NewVMProcessor_Orchestrator`. Extend\non evidence in follow-ups.\n- `PopulatorCommand` / `ValueSources` in runtime output — runtime\ndoesn't display value-source hints today; separate feature.\n- Column alignment / padding polish — renderer has none today either.\n\n## Validation\n\n- `dotnet build azclips.slnx` — 0 errors, 0 warnings.\n- `Cli.Tests` Help suite: 78 → 82 (4 new renderer tests: grouped\nheaders, alphabetical ordering, legacy-layout regression guard, and\nomitted default `Arguments` when everything is grouped).\n- `Azclips.Help.Tool.Tests`: 190/190 (`vm.json` golden regenerated via\n`pwsh build/Update-CliExportFixtures.ps1`; diff is 17 `group_name`\nadditions, zero unrelated churn).\n- Live `az vm create --help`: 3 named sections + `Global Arguments`,\ninsertion order preserved.\n- Live `az login --help`: byte-identical to `main`.\n\n## History Notes\n\n[Help] `az <verb> --help` now supports grouping parameters into named\nsections via a `[ParameterGroup]` attribute on processor properties.\nFirst user-visible adoption: `az vm create` splits its parameters into\n`Authentication Arguments` and `Network Arguments` sections.\n\n## References\n\n- 588 master plan: `scratch/CLIPS-588-TEMP-PR-PLAN.md` (follow-up entry)\n- PR plan: `scratch/CLIPS-588-runtime-help-grouping-PR-PLAN.md`\n- Related: #691 (588-A exporter), #706 (588-D1 Markdig preflight)",
+          "timestamp": "2026-08-18T16:17:19+10:00",
+          "tree_id": "d95a31f955076f60526fd2f0c684af127d6ddcf1",
+          "url": "https://github.com/Azure/azclips/commit/a0947abac40ca61ef46b33f2f9c309c09219e2fa"
+        },
+        "date": 1787034638244,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 846386.8502939388,
+            "unit": "ns",
+            "range": "± 19256.542914584334"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 831050.2912973409,
+            "unit": "ns",
+            "range": "± 19237.27647683995"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 811453.0162977867,
+            "unit": "ns",
+            "range": "± 22003.424250202257"
           }
         ]
       }
