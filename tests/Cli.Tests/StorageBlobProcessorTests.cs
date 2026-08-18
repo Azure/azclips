@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 using Xunit;
 
@@ -51,7 +52,7 @@ public class StorageBlobProcessorTests
                 };
             });
             var output = new FakeOutputHandler();
-            var processor = CreateProcessor(new UploadBlobProcessor(), pipeline, output);
+            var processor = CreateProcessor(new UploadBlobProcessor_Orchestrator(), pipeline, output);
             processor.AccountName = "account123";
             processor.ContainerName = "container";
             processor.BlobName = "folder/blob name.bin";
@@ -95,7 +96,7 @@ public class StorageBlobProcessorTests
                 sentIfNoneMatch = request.Headers.Contains("If-None-Match");
                 return new HttpResponseMessage(HttpStatusCode.Created);
             });
-            var processor = CreateProcessor(new UploadBlobProcessor(), pipeline, new FakeOutputHandler());
+            var processor = CreateProcessor(new UploadBlobProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
             processor.AccountName = "account123";
             processor.ContainerName = "container";
             processor.BlobName = "blob.bin";
@@ -123,7 +124,7 @@ public class StorageBlobProcessorTests
             string sourcePath = Path.Combine(directory, "source.bin");
             await File.WriteAllBytesAsync(sourcePath, [1, 2, 3]);
             var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(statusCode));
-            var processor = CreateProcessor(new UploadBlobProcessor(), pipeline, new FakeOutputHandler());
+            var processor = CreateProcessor(new UploadBlobProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
             processor.AccountName = "account123";
             processor.ContainerName = "container";
             processor.BlobName = "blob.bin";
@@ -165,7 +166,7 @@ public class StorageBlobProcessorTests
                 };
             });
             var output = new FakeOutputHandler();
-            var processor = CreateProcessor(new DownloadBlobProcessor(), pipeline, output);
+            var processor = CreateProcessor(new DownloadBlobProcessor_Orchestrator(), pipeline, output);
             processor.AccountName = "account123";
             processor.ContainerName = "container";
             processor.BlobName = "blob.bin";
@@ -201,7 +202,7 @@ public class StorageBlobProcessorTests
             {
                 Content = new ThrowingDownloadContent()
             });
-            var processor = CreateProcessor(new DownloadBlobProcessor(), pipeline, new FakeOutputHandler());
+            var processor = CreateProcessor(new DownloadBlobProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
             processor.AccountName = "account123";
             processor.ContainerName = "container";
             processor.BlobName = "blob.bin";
@@ -232,7 +233,7 @@ public class StorageBlobProcessorTests
             {
                 Content = new StringContent("replacement", Encoding.UTF8)
             });
-            var processor = CreateProcessor(new DownloadBlobProcessor(), pipeline, new FakeOutputHandler());
+            var processor = CreateProcessor(new DownloadBlobProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
             processor.AccountName = "account123";
             processor.ContainerName = "container";
             processor.BlobName = "blob.bin";
@@ -258,8 +259,10 @@ public class StorageBlobProcessorTests
         IReadOnlyDictionary<string, CommandMetadata> commands = index.GetCommandTable(ClientType.CLI);
 
         Assert.Equal(2, commands.Count);
-        Assert.IsType<UploadBlobProcessor>(Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
-        Assert.IsType<DownloadBlobProcessor>(Activator.CreateInstance(commands["storage blob download"].ProcessorType));
+        Assert.IsType<UploadBlobProcessor_Orchestrator>(
+            Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
+        Assert.IsType<DownloadBlobProcessor_Orchestrator>(
+            Activator.CreateInstance(commands["storage blob download"].ProcessorType));
         Assert.True(commands["storage blob upload"].Parameters["overwrite"].IsRequired is false);
     }
 
