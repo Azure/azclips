@@ -100,6 +100,107 @@ public class RuntimeHelpRendererTests
         Assert.DoesNotContain("Subgroups:", actual);
     }
 
+    [Fact]
+    public void RenderCommand_ShouldRenderParametersUnderTheirGroupHeaders_WhenGroupNameIsSet()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters:
+            [
+                new RuntimeHelpParameter("name", ["n"], true, "VM name.", "VM name.", [], "(All)", false, false, GroupName: null),
+                new RuntimeHelpParameter("admin-username", [], true, "Admin user.", "Admin user.", [], "(All)", false, false, GroupName: "Authentication Arguments"),
+                new RuntimeHelpParameter("vnet-name", [], true, "VNet.", "VNet.", [], "(All)", false, false, GroupName: "Network Arguments"),
+                new RuntimeHelpParameter("admin-password", [], true, "Admin pass.", "Admin pass.", [], "(All)", false, false, GroupName: "Authentication Arguments"),
+            ],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("Arguments\n    --name", actual);
+        Assert.Contains("Authentication Arguments\n    --admin-username", actual);
+        Assert.Contains("--admin-password", actual);
+        Assert.Contains("Network Arguments\n    --vnet-name", actual);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldSortNamedGroupsAlphabeticallyAfterArguments()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters:
+            [
+                new RuntimeHelpParameter("s", [], false, ".", ".", [], "(All)", false, false, GroupName: "Storage Arguments"),
+                new RuntimeHelpParameter("a", [], false, ".", ".", [], "(All)", false, false, GroupName: "Authentication Arguments"),
+                new RuntimeHelpParameter("n", [], false, ".", ".", [], "(All)", false, false, GroupName: "Network Arguments"),
+            ],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        var auth = actual.IndexOf("Authentication Arguments", StringComparison.Ordinal);
+        var net = actual.IndexOf("Network Arguments", StringComparison.Ordinal);
+        var storage = actual.IndexOf("Storage Arguments", StringComparison.Ordinal);
+        var global = actual.IndexOf("Global Arguments", StringComparison.Ordinal);
+
+        Assert.True(auth > 0 && net > auth && storage > net && global > storage,
+            $"Expected Auth < Net < Storage < Global, got Auth={auth} Net={net} Storage={storage} Global={global}");
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldMatchLegacyLayout_WhenAllParametersAreUngrouped()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = new RuntimeHelpCommand(
+            CommandPath: "logout",
+            Summary: "Sign out.",
+            Description: string.Empty,
+            Parameters:
+            [
+                new RuntimeHelpParameter("verbose", [], false, "Verbose.", "Verbose.", [], "(All)", false, false, GroupName: null),
+            ],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("Arguments\n    --verbose", actual);
+        // No extra headers between "Arguments" and "Global Arguments" when nothing is grouped.
+        var argsBlockEnd = actual.IndexOf("\nGlobal Arguments", StringComparison.Ordinal);
+        var argsBlock = actual[..argsBlockEnd];
+        Assert.DoesNotContain("Arguments\n\n", argsBlock);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldOmitArgumentsHeader_WhenEveryParameterIsGrouped()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters:
+            [
+                new RuntimeHelpParameter("admin-username", [], true, "Admin user.", "Admin user.", [], "(All)", false, false, GroupName: "Authentication Arguments"),
+            ],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        // The default "Arguments" header must not fire when there are no ungrouped params.
+        // Uses \n\nArguments\n to avoid matching the "Authentication Arguments" / "Global Arguments" tails.
+        Assert.DoesNotContain("\n\nArguments\n", actual);
+        Assert.Contains("Authentication Arguments\n    --admin-username", actual);
+    }
+
     private static string LoadFixture(string fileName)
     {
         var repoRoot = RepoLocator.GetRepoRoot();
