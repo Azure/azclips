@@ -15,7 +15,8 @@ describe("hints.powershell (OperationHints)", () => {
     const hint: OperationHints = {
       powershell: {
         verb: "New",
-        noun: "AzResourceGroup",
+        noun: "ResourceGroup",
+        subjectPrefix: "Az",
         parameterSetName: "Get",
         confirmImpact: "Medium",
       },

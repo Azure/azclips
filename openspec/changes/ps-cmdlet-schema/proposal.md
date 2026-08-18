@@ -86,8 +86,10 @@ _(none — no existing PS-schema specs to modify)_
 
 ## Impact
 
-- `toolkit/packages/ir/src/hints.ts`: new `powershell` namespace on `CommonHints` — now the home
-  for most per-parameter/per-command vocabulary, not just authoring overrides.
+- `toolkit/packages/ir/src/hints.ts`: new `powershell` namespace on `OperationHints` (Milestone 0)
+  and `ParameterHints` (Milestone 1) — not `CommonHints`, so it doesn't leak onto
+  `ModelHints`/`EnumHints`. Now the home for most per-parameter/per-command vocabulary, not just
+  authoring overrides.
 - `toolkit/packages/compiler`: new `TransformStep` implementation, registered via
   `CompilerRegistry`; no change to the backbone itself (`identityPipeline`/`noopGenerator`
   mechanics already support this).

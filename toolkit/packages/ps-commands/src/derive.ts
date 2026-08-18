@@ -41,11 +41,13 @@ function outputTypeIdsFor(operations: readonly IROperation[]): IRId[] {
   return ids;
 }
 
-/** Grouping key: same namespace + resolved verb + resolved (bare) noun. */
+/** Grouping key: same module + namespace + resolved verb + resolved (bare) noun + subject prefix. */
 function groupKey(operation: IROperation): string | undefined {
   const ps = operation.rendering?.powershell;
   if (ps?.verb === undefined || ps.noun === undefined) return undefined;
-  return [...operation.id.namespace, ps.verb, ps.noun].join("\u0000");
+  return [operation.id.module, ...operation.id.namespace, ps.verb, ps.noun, ps.subjectPrefix ?? ""].join(
+    "\u0000",
+  );
 }
 
 export function derivePsCommands(ir: IR): PsCommand[] {

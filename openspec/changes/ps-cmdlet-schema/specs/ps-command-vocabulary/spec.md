@@ -8,7 +8,8 @@ already support, so generated commands integrate with existing help/telemetry to
 
 ### Requirement: Command-level vocabulary reflects HTTP-method-driven mutation semantics
 The schema SHALL capture, per command: verb, noun, `SupportsShouldProcess`, `ConfirmImpact`,
-one or more output types, and zero or more aliases.
+zero or more output types (empty for operations with no response body, e.g. `delete`), and zero
+or more aliases.
 
 #### Scenario: Mutating command requires ShouldProcess
 - **WHEN** a command's underlying HTTP method is PUT, POST, PATCH, or DELETE
