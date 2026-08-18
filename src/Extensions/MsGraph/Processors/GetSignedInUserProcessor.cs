@@ -42,7 +42,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 queryParts.Add($"$expand={Uri.EscapeDataString(string.Join(',', Expand))}");
             }
 
-            string uri = $"{GraphBaseUri}/me";
+            string uri = $"https://graph.microsoft.com/v1.0/me";
             if (queryParts.Count > 0)
             {
                 uri = $"{uri}?{string.Join('&', queryParts)}";

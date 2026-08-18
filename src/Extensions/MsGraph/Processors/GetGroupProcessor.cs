@@ -53,7 +53,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 queryParts.Add($"$expand={Uri.EscapeDataString(string.Join(',', Expand))}");
             }
 
-            string uri = $"{GraphBaseUri}/groups/{Uri.EscapeDataString(Id)}";
+            string uri = $"https://graph.microsoft.com/v1.0/groups/{Uri.EscapeDataString(Id)}";
             if (queryParts.Count > 0)
             {
                 uri = $"{uri}?{string.Join('&', queryParts)}";

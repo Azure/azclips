@@ -44,7 +44,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
-            string uri = $"{GraphBaseUri}/directoryObjects/{Uri.EscapeDataString(MemberId)}/checkMemberGroups";
+            string uri = $"https://graph.microsoft.com/v1.0/directoryObjects/{Uri.EscapeDataString(MemberId)}/checkMemberGroups";
             string body = JsonSerializer.Serialize(new { groupIds = new[] { GroupId } }, JsonOptions);
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, uri)

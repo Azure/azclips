@@ -75,7 +75,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 queryParts.Add($"$search={Uri.EscapeDataString(Search)}");
             }
 
-            string uri = $"{GraphBaseUri}/applications";
+            string uri = $"https://graph.microsoft.com/v1.0/applications";
             if (queryParts.Count > 0)
             {
                 uri = $"{uri}?{string.Join('&', queryParts)}";

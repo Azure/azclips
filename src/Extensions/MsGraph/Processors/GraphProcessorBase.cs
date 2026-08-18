@@ -18,10 +18,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// Microsoft Graph requires a different token audience than ARM. ARM-bound processors let the
     /// engine acquire a token for the default ARM scope; Graph processors instead install an
     /// <see cref="IAuthHandler.AcquireTokenAsyncOverride"/> during <see cref="Init"/> that requests
-    /// the <see cref="GraphScopes"/> audience. The override wraps the engine default delegate, so
-    /// token cache, tenant, and interactive fallback behavior are all preserved, only the scope
-    /// changes. This keeps the entire Graph audience concern inside the extension; no Core change
-    /// is required.
+    /// the <see cref="GraphConstants.GraphScopes"/> audience. The override wraps the engine default
+    /// delegate, so token cache, tenant, and interactive fallback behavior are all preserved, only
+    /// the scope changes. This keeps the entire Graph audience concern inside the extension; no
+    /// Core change is required.
     /// </remarks>
     public abstract class GraphProcessorBase : IProcessor
     {
@@ -30,16 +30,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
         protected Profile Profile = null!;
-
-        /// <summary>
-        /// Base address for the Microsoft Graph v1.0 endpoint.
-        /// </summary>
-        protected const string GraphBaseUri = "https://graph.microsoft.com/v1.0";
-
-        /// <summary>
-        /// The OAuth scope (audience) required for Microsoft Graph data-plane calls.
-        /// </summary>
-        protected static readonly string[] GraphScopes = ["https://graph.microsoft.com/.default"];
 
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
@@ -73,15 +63,16 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         /// <summary>
         /// Redirects token acquisition for this invocation to the Microsoft Graph audience by
         /// installing an override on the shared <see cref="IAuthHandler"/>. The override delegates
-        /// to the engine default delegate but forces <see cref="GraphScopes"/>, ignoring any scopes
-        /// the pipeline would otherwise pass (the pipeline currently passes none, defaulting to ARM).
+        /// to the engine default delegate but forces <see cref="GraphConstants.GraphScopes"/>,
+        /// ignoring any scopes the pipeline would otherwise pass (the pipeline currently passes
+        /// none, defaulting to ARM).
         /// </summary>
         private static void ApplyGraphScope(IAuthHandler authHandler)
         {
             AcquireTokenAsyncDelegate acquireWithDefaultScope = authHandler.AcquireTokenAsyncDefault;
 
             Task<AuthResult> AcquireWithGraphScope(string[]? _, string? tenantId, bool promptOnError, CancellationToken cancellationToken, Profile? profile) =>
-                acquireWithDefaultScope(GraphScopes, tenantId, promptOnError, cancellationToken, profile);
+                acquireWithDefaultScope(GraphConstants.GraphScopes, tenantId, promptOnError, cancellationToken, profile);
 
             authHandler.AcquireTokenAsyncOverride = AcquireWithGraphScope;
             authHandler.ApplyOverride = true;
