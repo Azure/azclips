@@ -85,6 +85,7 @@ az vm create --<Tab>  # parameters
 - The scripts auto-detect azclips vs old Azure CLI using the output of `az --completion-candidates`: azclips returns lowercase word lists (or empty when disabled); old Azure CLI returns error text containing uppercase letters (or empty via stderr suppression). The detection result is cached per exe per session.
 - Completion results are cached per session. Run `_azClearCache` (PS) or `_az_clear_cache` (bash/zsh) to refresh.
 - **No external dependencies** for bash/zsh (no `jq` required).
+- **PowerShell only**: If `TabExpansion2` was already customized (e.g. by another module or your `$PROFILE`) before sourcing `az.completions.ps1`, that implementation is preserved and used as the fallback for non-az input instead of being overwritten. Also, the `Tab` key is only bound to `MenuComplete` if it isn't already bound to something else you've customized — your existing `Set-PSReadLineKeyHandler` configuration is left untouched otherwise.
 
 ## Toggling Completion
 

@@ -233,9 +233,18 @@ foreach ($_cmd in @('az', 'az.exe')) {
     }
 }
 
+# Preserve any pre-existing TabExpansion2 (built-in or user/module customized) so it can
+# still be used as the fallback for non-az input instead of being clobbered outright.
+# Guarded so re-sourcing this script doesn't capture our own override as the "original".
+if (-not (Get-Variable -Name _azOriginalTabExpansion2 -Scope Global -ErrorAction SilentlyContinue) -and (Test-Path Function:\TabExpansion2)) {
+    $global:_azOriginalTabExpansion2 = (Get-Item Function:\TabExpansion2).ScriptBlock
+}
+
 # Override TabExpansion2 so PSReadLine's MenuComplete works for az
 # including the empty-word case (e.g. "az " + Tab).
-# For non-az commands, delegates to the default implementation.
+# For non-az commands (or az binaries that aren't azclips), delegates to whatever
+# TabExpansion2 implementation was in effect before this script was sourced
+# (falling back to the built-in implementation if none existed).
 function global:TabExpansion2 {
     [CmdletBinding(DefaultParameterSetName = 'ScriptInputSet')]
     [OutputType([System.Management.Automation.CommandCompletion])]
@@ -309,7 +318,15 @@ function global:TabExpansion2 {
             }
         }
 
-        # Default: delegate to built-in completion
+        # Default: delegate to whatever TabExpansion2 was previously defined (preserving any
+        # user/module customizations), or the built-in completion if none existed.
+        if ($global:_azOriginalTabExpansion2) {
+            if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') {
+                return & $global:_azOriginalTabExpansion2 $inputScript $cursorColumn $options
+            } else {
+                return & $global:_azOriginalTabExpansion2 $ast $tokens $positionOfCursor $options
+            }
+        }
         if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') {
             return [System.Management.Automation.CommandCompletion]::CompleteInput($inputScript, $cursorColumn, $options)
         } else {
@@ -318,7 +335,14 @@ function global:TabExpansion2 {
     }
 }
 
-# Bind Tab to MenuComplete for dropdown-style display
-Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+# Bind Tab to MenuComplete for dropdown-style display, but only if Tab isn't already bound to
+# something other than PSReadLine's own defaults — don't clobber a user's custom key handler.
+$_azExistingTabHandler = Get-PSReadLineKeyHandler -Key Tab -ErrorAction SilentlyContinue | Select-Object -First 1
+$_azDefaultTabFunctions = @('TabCompleteNext', 'Complete')
+if (-not $_azExistingTabHandler -or $_azExistingTabHandler.Function -in $_azDefaultTabFunctions) {
+    Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+} else {
+    Write-Host "Tab is already bound to '$($_azExistingTabHandler.Function)'; leaving it as-is. Run 'Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete' for dropdown-style az completions." -ForegroundColor Yellow
+}
 
 Write-Host "az tab completion registered (dynamic). Press Tab after 'az ' to see suggestions." -ForegroundColor Green
