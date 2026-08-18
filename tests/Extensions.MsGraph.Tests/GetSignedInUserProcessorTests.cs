@@ -10,8 +10,7 @@ public class GetSignedInUserProcessorTests
 {
     private static TestableGetSignedInUserProcessor CreateProcessor(
         string[]? select = null,
-        string[]? expand = null,
-        bool appendSelected = false)
+        string[]? expand = null)
     {
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
@@ -19,7 +18,6 @@ public class GetSignedInUserProcessorTests
         {
             Select = select,
             Expand = expand,
-            AppendSelected = appendSelected,
         }.WithPublisher(publisher.Object);
     }
 
@@ -44,17 +42,6 @@ public class GetSignedInUserProcessorTests
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/me?$select=id%2CdisplayName%2Cmail",
             request.RequestUri!.ToString());
-    }
-
-    [Fact]
-    public async Task CreateRequestMessage_WithAppendSelected_ShouldInjectDefaults()
-    {
-        var processor = CreateProcessor(select: new[] { "city" }, appendSelected: true);
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        var uri = request.RequestUri!.ToString();
-        Assert.Contains(Uri.EscapeDataString("displayName,id,deletedDateTime,userPrincipalName,usageLocation,givenName,surname,accountEnabled,mailNickname,mail,city"), uri, StringComparison.Ordinal);
     }
 
     [Fact]

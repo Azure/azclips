@@ -8,9 +8,12 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Lists Microsoft Graph application registrations. GET <c>/applications</c> returns an envelope
-    /// <c>{ "value": [...], "@odata.nextLink": "..." }</c>; this processor writes its <c>value</c>
-    /// array. Pagination (<c>@odata.nextLink</c>) is intentionally not followed yet.
+    /// Atomic processor for <c>GET /applications</c>. Takes only what the Microsoft Graph endpoint
+    /// accepts natively: OData <c>$filter</c>, <c>$select</c>, <c>$orderby</c>, <c>$search</c>, and
+    /// the <c>ConsistencyLevel</c> header. Convenience filter shortcuts (<c>DisplayName</c>) live in
+    /// <c>Orchestrators/ListApplicationProcessor_Orchestrator</c>. Returns an OData envelope; this
+    /// processor writes its <c>value</c> array. Pagination (<c>@odata.nextLink</c>) is intentionally
+    /// not followed yet.
     /// </summary>
     public class ListApplicationProcessor : GraphProcessorBase<ApplicationList>
     {
@@ -18,15 +21,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $filter expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax. Combines with the DisplayName shortcut using OData 'and'.",
+            Description = @"OData $filter expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax.",
             SerializedName = @"Filter")]
         public string? Filter { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"Exact display name to match. Translated to the OData filter displayName eq 'value'.",
-            SerializedName = @"DisplayName")]
-        public string? DisplayName { get; set; }
 
         [ArgumentInfo(
             Required = false,
@@ -58,10 +55,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
             var queryParts = new List<string>();
 
-            string? effectiveFilter = BuildFilterClause();
-            if (effectiveFilter is not null)
+            if (!string.IsNullOrWhiteSpace(Filter))
             {
-                queryParts.Add($"$filter={Uri.EscapeDataString(effectiveFilter)}");
+                queryParts.Add($"$filter={Uri.EscapeDataString(Filter)}");
             }
 
             if (Select is { Length: > 0 })
@@ -79,7 +75,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 queryParts.Add($"$search={Uri.EscapeDataString(Search)}");
             }
 
-            string uri = $"{GraphBaseUri}/applications";
+            string uri = $"https://graph.microsoft.com/v1.0/applications";
             if (queryParts.Count > 0)
             {
                 uri = $"{uri}?{string.Join('&', queryParts)}";
@@ -97,26 +93,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             return request;
         }
 
-        // Combines the raw Filter with the DisplayName shortcut via OData 'and'.
-        // Single quotes inside shortcut values are doubled per OData string-literal rules.
-        private string? BuildFilterClause()
-        {
-            var clauses = new List<string>();
-
-            if (!string.IsNullOrWhiteSpace(Filter))
-            {
-                clauses.Add(Filter);
-            }
-            if (!string.IsNullOrWhiteSpace(DisplayName))
-            {
-                clauses.Add($"displayName eq '{EscapeODataString(DisplayName)}'");
-            }
-
-            return clauses.Count == 0 ? null : string.Join(" and ", clauses);
-        }
-
-        private static string EscapeODataString(string value) => value.Replace("'", "''");
-
         protected override object SelectOutput(ApplicationList body) => body.Value ?? [];
     }
 }
+

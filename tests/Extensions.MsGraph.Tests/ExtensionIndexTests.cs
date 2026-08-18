@@ -23,7 +23,7 @@ public class ExtensionIndexTests
         var table = s_index.GetCommandTable(ClientType.CLI);
 
         Assert.True(table.ContainsKey("msgraph user show"));
-        Assert.Equal(typeof(GetUserProcessor), table["msgraph user show"].ProcessorType);
+        Assert.Equal(typeof(GetUserProcessor_Orchestrator), table["msgraph user show"].ProcessorType);
     }
 
     [Fact]
@@ -32,16 +32,16 @@ public class ExtensionIndexTests
         var table = s_index.GetCommandTable(ClientType.CLI);
 
         Assert.True(table.ContainsKey("msgraph user list"));
-        Assert.Equal(typeof(ListUserProcessor), table["msgraph user list"].ProcessorType);
+        Assert.Equal(typeof(ListUserProcessor_Orchestrator), table["msgraph user list"].ProcessorType);
     }
 
     [Theory]
-    [InlineData("Get-AzMsGraphUser_List", typeof(ListUserProcessor))]
-    [InlineData("Get-AzMsGraphUser_Mail", typeof(ListUserProcessor))]
-    [InlineData("Get-AzMsGraphUser_DisplayName", typeof(ListUserProcessor))]
-    [InlineData("Get-AzMsGraphUser_StartsWith", typeof(ListUserProcessor))]
-    [InlineData("Get-AzMsGraphUser_Get", typeof(GetUserProcessor))]
-    [InlineData("Get-AzMsGraphUser_SignedIn", typeof(GetSignedInUserProcessor))]
+    [InlineData("Get-AzMsGraphUser_List", typeof(ListUserProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphUser_Mail", typeof(ListUserProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphUser_DisplayName", typeof(ListUserProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphUser_StartsWith", typeof(ListUserProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphUser_Get", typeof(GetUserProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphUser_SignedIn", typeof(GetSignedInUserProcessor_Orchestrator))]
     public void PsTable_ShouldRouteEveryParameterSetToTheRightProcessor(string key, Type expectedProcessor)
     {
         var table = s_index.GetCommandTable(ClientType.PowerShell);
@@ -145,10 +145,10 @@ public class ExtensionIndexTests
     // ── Group commands ──────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("msgraph group show", typeof(GetGroupProcessor))]
-    [InlineData("msgraph group list", typeof(ListGroupProcessor))]
-    [InlineData("msgraph group member list", typeof(ListGroupMemberProcessor))]
-    [InlineData("msgraph group member check", typeof(CheckGroupMemberProcessor))]
+    [InlineData("msgraph group show", typeof(GetGroupProcessor_Orchestrator))]
+    [InlineData("msgraph group list", typeof(ListGroupProcessor_Orchestrator))]
+    [InlineData("msgraph group member list", typeof(ListGroupMemberProcessor_Orchestrator))]
+    [InlineData("msgraph group member check", typeof(CheckGroupMemberProcessor_Orchestrator))]
     public void CliTable_ShouldExposeMsGraphGroupCommands(string key, Type expectedProcessor)
     {
         var table = s_index.GetCommandTable(ClientType.CLI);
@@ -158,12 +158,12 @@ public class ExtensionIndexTests
     }
 
     [Theory]
-    [InlineData("Get-AzMsGraphGroup_Get", typeof(GetGroupProcessor))]
-    [InlineData("Get-AzMsGraphGroup_List", typeof(ListGroupProcessor))]
-    [InlineData("Get-AzMsGraphGroup_DisplayName", typeof(ListGroupProcessor))]
-    [InlineData("Get-AzMsGraphGroup_DisplayNameStartsWith", typeof(ListGroupProcessor))]
-    [InlineData("Get-AzMsGraphGroupMember_ObjectId", typeof(ListGroupMemberProcessor))]
-    [InlineData("Get-AzMsGraphGroupMember_DisplayName", typeof(ListGroupMemberProcessor))]
+    [InlineData("Get-AzMsGraphGroup_Get", typeof(GetGroupProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphGroup_List", typeof(ListGroupProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphGroup_DisplayName", typeof(ListGroupProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphGroup_DisplayNameStartsWith", typeof(ListGroupProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphGroupMember_ObjectId", typeof(ListGroupMemberProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphGroupMember_DisplayName", typeof(ListGroupMemberProcessor_Orchestrator))]
     public void PsTable_ShouldRouteGroupCommands(string key, Type expectedProcessor)
     {
         var table = s_index.GetCommandTable(ClientType.PowerShell);
@@ -266,5 +266,34 @@ public class ExtensionIndexTests
         var aliases = metadata.Parameters["GroupObjectId"].Aliases;
         Assert.Contains("Id", aliases);
         Assert.Contains("ObjectId", aliases);
+    }
+
+    // ── Application commands ────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("msgraph app create", typeof(NewApplicationProcessor))]
+    [InlineData("msgraph app show", typeof(GetApplicationProcessor))]
+    [InlineData("msgraph app delete", typeof(DeleteApplicationProcessor))]
+    [InlineData("msgraph app list", typeof(ListApplicationProcessor_Orchestrator))]
+    public void CliTable_ShouldExposeMsGraphApplicationCommands(string key, Type expectedProcessor)
+    {
+        var table = s_index.GetCommandTable(ClientType.CLI);
+
+        Assert.True(table.ContainsKey(key), $"missing CLI dispatch key '{key}'");
+        Assert.Equal(expectedProcessor, table[key].ProcessorType);
+    }
+
+    [Theory]
+    [InlineData("New-AzMsGraphApplication", typeof(NewApplicationProcessor))]
+    [InlineData("Get-AzMsGraphApplication_Get", typeof(GetApplicationProcessor))]
+    [InlineData("Get-AzMsGraphApplication_List", typeof(ListApplicationProcessor_Orchestrator))]
+    [InlineData("Get-AzMsGraphApplication_DisplayName", typeof(ListApplicationProcessor_Orchestrator))]
+    [InlineData("Remove-AzMsGraphApplication", typeof(DeleteApplicationProcessor))]
+    public void PsTable_ShouldRouteApplicationCommands(string key, Type expectedProcessor)
+    {
+        var table = s_index.GetCommandTable(ClientType.PowerShell);
+
+        Assert.True(table.ContainsKey(key), $"missing PS dispatch key '{key}'");
+        Assert.Equal(expectedProcessor, table[key].ProcessorType);
     }
 }

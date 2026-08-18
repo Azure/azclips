@@ -13,13 +13,13 @@ public class CheckGroupMemberProcessorTests
     private const string GroupId = "11111111-2222-3333-4444-555555555555";
     private const string MemberId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
-    private static TestableCheckGroupMemberProcessor CreateProcessor(string group = GroupId, string memberId = MemberId)
+    private static TestableCheckGroupMemberProcessor CreateProcessor(string groupId = GroupId, string memberId = MemberId)
     {
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
         return new TestableCheckGroupMemberProcessor
         {
-            Group = group,
+            GroupId = groupId,
             MemberId = memberId,
         }.WithPublisher(publisher.Object);
     }
@@ -58,19 +58,17 @@ public class CheckGroupMemberProcessorTests
     [InlineData("   ", MemberId)]
     [InlineData(GroupId, "")]
     [InlineData(GroupId, "   ")]
-    public async Task CreateRequestMessage_MissingRequiredParam_ShouldThrow(string group, string memberId)
+    public async Task CreateRequestMessage_MissingRequiredParam_ShouldThrow(string groupId, string memberId)
     {
-        var processor = CreateProcessor(group, memberId);
+        var processor = CreateProcessor(groupId, memberId);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
     }
 
     [Fact]
-    public async Task SelectOutput_WhenGroupInResponse_ShouldReturnTrue()
+    public void SelectOutput_WhenGroupInResponse_ShouldReturnTrue()
     {
         var processor = CreateProcessor();
-        // Run request build so the resolver stores the resolved group id used by SelectOutput.
-        _ = await processor.BuildRequestAsync();
 
         bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
         {
@@ -81,10 +79,9 @@ public class CheckGroupMemberProcessorTests
     }
 
     [Fact]
-    public async Task SelectOutput_WhenGroupNotInResponse_ShouldReturnFalse()
+    public void SelectOutput_WhenGroupNotInResponse_ShouldReturnFalse()
     {
         var processor = CreateProcessor();
-        _ = await processor.BuildRequestAsync();
 
         bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
         {
@@ -95,10 +92,9 @@ public class CheckGroupMemberProcessorTests
     }
 
     [Fact]
-    public async Task SelectOutput_WhenResponseValueNull_ShouldReturnFalse()
+    public void SelectOutput_WhenResponseValueNull_ShouldReturnFalse()
     {
         var processor = CreateProcessor();
-        _ = await processor.BuildRequestAsync();
 
         bool result = processor.ProjectOutput(new CheckMemberGroupsResponse { Value = null });
 
@@ -106,20 +102,19 @@ public class CheckGroupMemberProcessorTests
     }
 
     [Fact]
-    public async Task SelectOutput_ShouldMatchGroupIdCaseInsensitively()
+    public void SelectOutput_ShouldMatchGroupIdCaseInsensitively()
     {
         // Graph responses can return upper- or lower-case GUIDs depending on the source;
         // membership check should not be sensitive to that.
         const string mixedCaseGroupId = "aabbccdd-eeff-1122-3344-556677889900";
         var processor = new TestableCheckGroupMemberProcessor
         {
-            Group = mixedCaseGroupId,
+            GroupId = mixedCaseGroupId,
             MemberId = MemberId,
         };
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
         processor.WithPublisher(publisher.Object);
-        _ = await processor.BuildRequestAsync();
 
         bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
         {

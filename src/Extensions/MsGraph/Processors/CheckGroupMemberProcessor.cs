@@ -10,19 +10,20 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Checks whether a directory object (user, group, service principal, or device) is a
-    /// transitive member of a specific group. Uses
-    /// <c>POST /directoryObjects/{memberId}/checkMemberGroups</c> with body
-    /// <c>{"groupIds":["&lt;groupId&gt;"]}</c>. Graph returns the subset of the queried group
-    /// IDs the member is in; the processor projects that to <c>{"value": true|false}</c>.
+    /// Atomic processor for <c>POST /directoryObjects/{memberId}/checkMemberGroups</c>. Takes
+    /// only what the Microsoft Graph endpoint accepts: the member's object ID and the group
+    /// object ID to test against. Graph returns the subset of the queried group IDs that the
+    /// member is a transitive member of; the processor projects that to a single boolean.
+    /// Convenience features (display-name resolution for the group) live in
+    /// <c>Orchestrators/CheckGroupMemberProcessor_Orchestrator</c>.
     /// </summary>
     public class CheckGroupMemberProcessor : GraphProcessorBase<CheckMemberGroupsResponse>
     {
         [ArgumentInfo(
             Required = true,
-            Description = @"The group's object ID or display name (prefix works if there is a unique match).",
-            SerializedName = @"Group")]
-        public string Group { get; set; } = "";
+            Description = @"The object ID of the group to test against.",
+            SerializedName = @"GroupId")]
+        public string GroupId { get; set; } = "";
 
         [ArgumentInfo(
             Required = true,
@@ -30,22 +31,21 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"MemberId")]
         public string MemberId { get; set; } = "";
 
-        private string? _resolvedGroupId;
-
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
+            if (string.IsNullOrWhiteSpace(GroupId))
+            {
+                throw new InvalidOperationException("GroupId is required to check group membership.");
+            }
             if (string.IsNullOrWhiteSpace(MemberId))
             {
                 throw new InvalidOperationException("MemberId is required to check group membership.");
             }
 
-            _resolvedGroupId = await ResolveGroupIdentifierAsync(Group);
-
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
-            string uri = $"{GraphBaseUri}/directoryObjects/{Uri.EscapeDataString(MemberId)}/checkMemberGroups";
-
-            string body = JsonSerializer.Serialize(new { groupIds = new[] { _resolvedGroupId } }, JsonOptions);
+            string uri = $"https://graph.microsoft.com/v1.0/directoryObjects/{Uri.EscapeDataString(MemberId)}/checkMemberGroups";
+            string body = JsonSerializer.Serialize(new { groupIds = new[] { GroupId } }, JsonOptions);
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, uri)
             {
@@ -58,6 +58,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         protected override object SelectOutput(CheckMemberGroupsResponse body) =>
             body.Value is not null
-                && body.Value.Any(id => string.Equals(id, _resolvedGroupId, StringComparison.OrdinalIgnoreCase));
+                && body.Value.Any(id => string.Equals(id, GroupId, StringComparison.OrdinalIgnoreCase));
     }
 }

@@ -8,25 +8,20 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Lists members of a Microsoft Graph group via <c>GET /groups/{id}/members</c>. The group
-    /// can be identified by object ID, display name prefix (single match required), or exact
-    /// display name via <see cref="GroupDisplayName"/>.
+    /// Atomic processor for <c>GET /groups/{id}/members</c>. Takes only what the Microsoft
+    /// Graph endpoint accepts: the group's object ID and OData query options. Convenience
+    /// features (accepting a display-name prefix or exact name for the group, ...) live in
+    /// <c>Orchestrators/ListGroupMemberProcessor_Orchestrator</c>.
     /// </summary>
     public class ListGroupMemberProcessor : GraphProcessorBase<DirectoryObjectList>
     {
         private const string ConsistencyLevelHeaderName = "ConsistencyLevel";
 
         [ArgumentInfo(
-            Required = false,
-            Description = @"The group's object ID or display name (prefix works if there is a unique match).",
-            SerializedName = @"Group")]
-        public string? Group { get; set; }
-
-        [ArgumentInfo(
-            Required = false,
-            Description = @"The exact display name of the target group.",
-            SerializedName = @"GroupDisplayName")]
-        public string? GroupDisplayName { get; set; }
+            Required = true,
+            Description = @"The object ID of the group whose members to list.",
+            SerializedName = @"GroupId")]
+        public string GroupId { get; set; } = "";
 
         [ArgumentInfo(
             Required = false,
@@ -36,13 +31,13 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to return.",
+            Description = @"Properties to return via OData $select.",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related properties to include in the response.",
+            Description = @"Related properties to include in the response via OData $expand.",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
@@ -66,7 +61,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
-            string groupId = await ResolveGroupAsync();
+            if (string.IsNullOrWhiteSpace(GroupId))
+            {
+                throw new InvalidOperationException("GroupId is required to list group members.");
+            }
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
@@ -97,7 +95,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 queryParts.Add($"$search={Uri.EscapeDataString(Search)}");
             }
 
-            string uri = $"{GraphBaseUri}/groups/{Uri.EscapeDataString(groupId)}/members";
+            string uri = $"https://graph.microsoft.com/v1.0/groups/{Uri.EscapeDataString(GroupId)}/members";
             if (queryParts.Count > 0)
             {
                 uri = $"{uri}?{string.Join('&', queryParts)}";
@@ -112,19 +110,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;
-        }
-
-        private async Task<string> ResolveGroupAsync()
-        {
-            if (!string.IsNullOrWhiteSpace(GroupDisplayName))
-            {
-                return await ResolveGroupByExactDisplayNameAsync(GroupDisplayName);
-            }
-            if (!string.IsNullOrWhiteSpace(Group))
-            {
-                return await ResolveGroupIdentifierAsync(Group);
-            }
-            throw new InvalidOperationException("A group identifier is required. Provide Group or GroupDisplayName.");
         }
 
         protected override object SelectOutput(DirectoryObjectList body) => body.Value ?? [];

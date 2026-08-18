@@ -27,7 +27,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             }
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-            string uri = $"{GraphBaseUri}/applications/{Uri.EscapeDataString(Id)}";
+            string uri = $"https://graph.microsoft.com/v1.0/applications/{Uri.EscapeDataString(Id)}";
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, uri);
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;

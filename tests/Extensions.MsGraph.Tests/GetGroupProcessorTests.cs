@@ -9,19 +9,17 @@ namespace Extensions.MsGraph.Tests;
 public class GetGroupProcessorTests
 {
     private static TestableGetGroupProcessor CreateProcessor(
-        string group,
+        string id,
         string[]? select = null,
-        string[]? expand = null,
-        bool appendSelected = false)
+        string[]? expand = null)
     {
         var publisher = new Mock<IEventPublisher>();
         publisher.SetReturnsDefault(Task.CompletedTask);
         return new TestableGetGroupProcessor
         {
-            Group = group,
+            Id = id,
             Select = select,
             Expand = expand,
-            AppendSelected = appendSelected,
         }.WithPublisher(publisher.Object);
     }
 
@@ -41,9 +39,9 @@ public class GetGroupProcessorTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task CreateRequestMessage_MissingGroup_ShouldThrow(string group)
+    public async Task CreateRequestMessage_MissingId_ShouldThrow(string id)
     {
-        var processor = CreateProcessor(group);
+        var processor = CreateProcessor(id);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
     }
@@ -52,7 +50,7 @@ public class GetGroupProcessorTests
     public async Task CreateRequestMessage_WithSelect_ShouldAppendQuery()
     {
         var processor = CreateProcessor(
-            group: "11111111-2222-3333-4444-555555555555",
+            id: "11111111-2222-3333-4444-555555555555",
             select: new[] { "id", "displayName", "mailNickname" });
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
@@ -63,30 +61,30 @@ public class GetGroupProcessorTests
     }
 
     [Fact]
-    public async Task CreateRequestMessage_WithAppendSelected_ShouldInjectGroupDefaults()
-    {
-        var processor = CreateProcessor(
-            group: "11111111-2222-3333-4444-555555555555",
-            select: new[] { "visibility" },
-            appendSelected: true);
-
-        using HttpRequestMessage request = await processor.BuildRequestAsync();
-
-        // Group defaults are distinct from user defaults; guards against sharing the wrong set.
-        var uri = request.RequestUri!.ToString();
-        Assert.Contains("$select=", uri, StringComparison.Ordinal);
-        Assert.Contains(Uri.EscapeDataString("displayName,id,deletedDateTime,securityEnabled,mailEnabled,mailNickname,description,visibility"), uri, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task CreateRequestMessage_WithExpand_ShouldAppendQuery()
     {
         var processor = CreateProcessor(
-            group: "11111111-2222-3333-4444-555555555555",
+            id: "11111111-2222-3333-4444-555555555555",
             expand: new[] { "members" });
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
         Assert.EndsWith("?$expand=members", request.RequestUri!.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreateRequestMessage_WithSelectAndExpand_ShouldCombineParts()
+    {
+        var processor = CreateProcessor(
+            id: "11111111-2222-3333-4444-555555555555",
+            select: new[] { "id", "displayName" },
+            expand: new[] { "members" });
+
+        using HttpRequestMessage request = await processor.BuildRequestAsync();
+
+        var uri = request.RequestUri!.ToString();
+        Assert.Contains("$select=id%2CdisplayName", uri, StringComparison.Ordinal);
+        Assert.Contains("$expand=members", uri, StringComparison.Ordinal);
+        Assert.Equal(1, uri.Count(static c => c == '&'));
     }
 }

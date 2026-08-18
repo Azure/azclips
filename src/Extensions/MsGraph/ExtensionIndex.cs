@@ -59,12 +59,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
 
         // ── PS User Command Metadata ──
         private static readonly CommandMetadata s_getUser_PS = new(
-            Name: "GetUserProcessor",
+            Name: "GetUserProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphUser_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetUserProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetUserProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.GetUserProcessor),
+            ProcessorType: typeof(Processors.GetUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Id"]             = new("Id", "Id", typeof(string), UserIdDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -75,12 +75,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getSignedInUser_PS = new(
-            Name: "GetSignedInUserProcessor",
+            Name: "GetSignedInUserProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphUser_SignedIn",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetSignedInUserProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetSignedInUserProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.GetSignedInUserProcessor),
+            ProcessorType: typeof(Processors.GetSignedInUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Select"]         = new("Select", "Select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -90,12 +90,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listUsers_PS = new(
-            Name: "ListUserProcessor",
+            Name: "ListUserProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphUser_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListUserProcessor),
+            ProcessorType: typeof(Processors.ListUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Filter"]           = new("Filter", "Filter", typeof(string), UserFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -109,12 +109,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listUsersByMail_PS = new(
-            Name: "ListUserProcessor",
+            Name: "ListUserProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphUser_Mail",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListUserProcessor),
+            ProcessorType: typeof(Processors.ListUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Mail"]           = new("Mail", "Mail", typeof(string), UserMailDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -125,12 +125,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listUsersByDisplayName_PS = new(
-            Name: "ListUserProcessor",
+            Name: "ListUserProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphUser_DisplayName",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListUserProcessor),
+            ProcessorType: typeof(Processors.ListUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["DisplayName"]    = new("DisplayName", "DisplayName", typeof(string), UserDisplayNameDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -141,12 +141,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listUsersByStartsWith_PS = new(
-            Name: "ListUserProcessor",
+            Name: "ListUserProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphUser_StartsWith",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListUserProcessor),
+            ProcessorType: typeof(Processors.ListUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["StartsWith"]     = new("DisplayNamePrefix", "StartsWith", typeof(string), UserStartsWithDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -159,12 +159,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
 
         // ── PS Group Command Metadata ──
         private static readonly CommandMetadata s_getGroup_PS = new(
-            Name: "GetGroupProcessor",
+            Name: "GetGroupProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphGroup_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetGroupProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.GetGroupProcessor),
+            ProcessorType: typeof(Processors.GetGroupProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ObjectId"]       = new("Group", "ObjectId", typeof(string), GroupObjectIdDescription, IsRequired: true, Aliases: ["Id"], AllowedValues: []),
@@ -175,12 +175,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listGroups_PS = new(
-            Name: "ListGroupProcessor",
+            Name: "ListGroupProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphGroup_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupProcessor),
+            ProcessorType: typeof(Processors.ListGroupProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Filter"]           = new("Filter", "Filter", typeof(string), GroupFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -194,12 +194,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listGroupsByDisplayName_PS = new(
-            Name: "ListGroupProcessor",
+            Name: "ListGroupProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphGroup_DisplayName",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupProcessor),
+            ProcessorType: typeof(Processors.ListGroupProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["DisplayName"]    = new("DisplayName", "DisplayName", typeof(string), GroupDisplayNameFilterDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -210,12 +210,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listGroupsByStartsWith_PS = new(
-            Name: "ListGroupProcessor",
+            Name: "ListGroupProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphGroup_DisplayNameStartsWith",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupProcessor),
+            ProcessorType: typeof(Processors.ListGroupProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["DisplayNameStartsWith"] = new("DisplayNamePrefix", "DisplayNameStartsWith", typeof(string), GroupStartsWithDescription, IsRequired: true, Aliases: ["SearchString"], AllowedValues: []),
@@ -228,12 +228,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
 
         // ── PS Group Member Command Metadata ──
         private static readonly CommandMetadata s_listGroupMembersByObjectId_PS = new(
-            Name: "ListGroupMemberProcessor",
+            Name: "ListGroupMemberProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphGroupMember_ObjectId",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupMemberProcessor),
+            ProcessorType: typeof(Processors.ListGroupMemberProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["GroupObjectId"]    = new("Group", "GroupObjectId", typeof(string), GroupObjectIdDescription, IsRequired: true, Aliases: ["Id", "ObjectId"], AllowedValues: []),
@@ -247,12 +247,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listGroupMembersByDisplayName_PS = new(
-            Name: "ListGroupMemberProcessor",
+            Name: "ListGroupMemberProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphGroupMember_DisplayName",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupMemberProcessor),
+            ProcessorType: typeof(Processors.ListGroupMemberProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["GroupDisplayName"] = new("GroupDisplayName", "GroupDisplayName", typeof(string), GroupDisplayNameDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -268,12 +268,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
 
         // ── CLI User Command Metadata ──
         private static readonly CommandMetadata s_getUser_CLI = new(
-            Name: "GetUserProcessor",
+            Name: "GetUserProcessor_Orchestrator",
             InvocationName: "msgraph user show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetUserProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetUserProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.GetUserProcessor),
+            ProcessorType: typeof(Processors.GetUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["id"] = new("Id", "id", typeof(string), UserIdDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -281,12 +281,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listUsers_CLI = new(
-            Name: "ListUserProcessor",
+            Name: "ListUserProcessor_Orchestrator",
             InvocationName: "msgraph user list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListUserProcessor),
+            ProcessorType: typeof(Processors.ListUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["display-name"] = new("DisplayNamePrefix", "display-name", typeof(string), UserStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -298,12 +298,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
 
         // ── CLI Group Command Metadata ──
         private static readonly CommandMetadata s_getGroup_CLI = new(
-            Name: "GetGroupProcessor",
+            Name: "GetGroupProcessor_Orchestrator",
             InvocationName: "msgraph group show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetGroupProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.GetGroupProcessor),
+            ProcessorType: typeof(Processors.GetGroupProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["group"] = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
@@ -311,12 +311,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
         );
         private static readonly CommandMetadata s_listGroups_CLI = new(
-            Name: "ListGroupProcessor",
+            Name: "ListGroupProcessor_Orchestrator",
             InvocationName: "msgraph group list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupProcessor),
+            ProcessorType: typeof(Processors.ListGroupProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["display-name"] = new("DisplayNamePrefix", "display-name", typeof(string), GroupStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -327,12 +327,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
 
         // ── CLI Group Member Command Metadata ──
         private static readonly CommandMetadata s_listGroupMembers_CLI = new(
-            Name: "ListGroupMemberProcessor",
+            Name: "ListGroupMemberProcessor_Orchestrator",
             InvocationName: "msgraph group member list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupMemberProcessor),
+            ProcessorType: typeof(Processors.ListGroupMemberProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["group"] = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
@@ -340,12 +340,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
         );
         private static readonly CommandMetadata s_checkGroupMember_CLI = new(
-            Name: "CheckGroupMemberProcessor",
+            Name: "CheckGroupMemberProcessor_Orchestrator",
             InvocationName: "msgraph group member check",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.CheckGroupMemberProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.CheckGroupMemberProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.CheckGroupMemberProcessor),
+            ProcessorType: typeof(Processors.CheckGroupMemberProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["group"]     = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
@@ -396,12 +396,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listApplications_PS = new(
-            Name: "ListApplicationProcessor",
+            Name: "ListApplicationProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphApplication_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            ProcessorType: typeof(Processors.ListApplicationProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Filter"]           = new("Filter", "Filter", typeof(string), AppFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -413,12 +413,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listApplicationsByDisplayName_PS = new(
-            Name: "ListApplicationProcessor",
+            Name: "ListApplicationProcessor_Orchestrator",
             InvocationName: "Get-AzMsGraphApplication_DisplayName",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            ProcessorType: typeof(Processors.ListApplicationProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["DisplayName"] = new("DisplayName", "DisplayName", typeof(string), AppDisplayNameExactDescription, IsRequired: true, Aliases: [], AllowedValues: []),
@@ -469,12 +469,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listApplication_CLI = new(
-            Name: "ListApplicationProcessor",
+            Name: "ListApplicationProcessor_Orchestrator",
             InvocationName: "msgraph app list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListApplicationProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListApplicationProcessor),
+            ProcessorType: typeof(Processors.ListApplicationProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["filter"]            = new("Filter", "filter", typeof(string), AppFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),

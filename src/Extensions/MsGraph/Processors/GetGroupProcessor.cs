@@ -8,55 +8,52 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Retrieves a single Microsoft Graph group via <c>GET /groups/{id}</c>. Accepts either the
-    /// object ID or a display name prefix that matches exactly one group.
+    /// Atomic processor for <c>GET /groups/{id}</c>. Takes only what the Microsoft Graph
+    /// <c>groups</c> endpoint accepts: an object ID, OData <c>$select</c>, and OData
+    /// <c>$expand</c>. Convenience features that layer on top (display-name resolution,
+    /// merging <c>$select</c> with a default property set, ...) live in
+    /// <c>Orchestrators/GetGroupProcessor_Orchestrator</c>.
     /// </summary>
     public class GetGroupProcessor : GraphProcessorBase<Group>
     {
         [ArgumentInfo(
             Required = true,
-            Description = @"The group's object ID or display name (prefix works if there is a unique match).",
-            SerializedName = @"Group")]
-        public string Group { get; set; } = "";
+            Description = @"The object ID of the group.",
+            SerializedName = @"Id")]
+        public string Id { get; set; } = "";
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to return. Combine with AppendSelected to include the default properties as well.",
+            Description = @"Properties to return via OData $select.",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related properties to include in the response, for example members.",
+            Description = @"Related properties to include in the response via OData $expand, for example members.",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
-        [ArgumentInfo(
-            Required = false,
-            Description = @"When set with Select, include the default property set alongside the values in Select rather than replacing them.",
-            SerializedName = @"AppendSelected")]
-        public bool AppendSelected { get; set; }
-
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
-            string groupId = await ResolveGroupIdentifierAsync(Group);
+            if (string.IsNullOrWhiteSpace(Id))
+            {
+                throw new InvalidOperationException("Id is required to get a group.");
+            }
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
             var queryParts = new List<string>();
-
-            string? selectClause = GraphGroupDefaults.BuildSelectClause(Select, AppendSelected);
-            if (selectClause is not null)
+            if (Select is { Length: > 0 })
             {
-                queryParts.Add($"$select={Uri.EscapeDataString(selectClause)}");
+                queryParts.Add($"$select={Uri.EscapeDataString(string.Join(',', Select))}");
             }
-
             if (Expand is { Length: > 0 })
             {
                 queryParts.Add($"$expand={Uri.EscapeDataString(string.Join(',', Expand))}");
             }
 
-            string uri = $"{GraphBaseUri}/groups/{Uri.EscapeDataString(groupId)}";
+            string uri = $"https://graph.microsoft.com/v1.0/groups/{Uri.EscapeDataString(Id)}";
             if (queryParts.Count > 0)
             {
                 uri = $"{uri}?{string.Join('&', queryParts)}";

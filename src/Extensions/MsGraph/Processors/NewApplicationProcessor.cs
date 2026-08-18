@@ -30,7 +30,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             }
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-            string uri = $"{GraphBaseUri}/applications";
+            string uri = $"https://graph.microsoft.com/v1.0/applications";
 
             // Build a minimal request body with only settable properties. Read-only fields such as
             // id/appId must not be sent on create, so we compose an explicit payload rather than
