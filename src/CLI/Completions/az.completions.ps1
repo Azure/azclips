@@ -342,7 +342,7 @@ $_azDefaultTabFunctions = @('TabCompleteNext', 'Complete')
 if (-not $_azExistingTabHandler -or $_azExistingTabHandler.Function -in $_azDefaultTabFunctions) {
     Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 } else {
-    Write-Host "Tab is already bound to '$($_azExistingTabHandler.Function)'; leaving it as-is. Run 'Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete' for dropdown-style az completions." -ForegroundColor Yellow
+    Write-Warning "Tab is already bound to '$($_azExistingTabHandler.Function)'; leaving it as-is. Run 'Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete' for dropdown-style az completions."
 }
 
 Write-Host "az tab completion registered (dynamic). Press Tab after 'az ' to see suggestions." -ForegroundColor Green
