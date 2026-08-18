@@ -50,7 +50,9 @@
 
 ## v0.0.5 - 2026-07-13 00:22 UTC
 
-- No user-facing PowerShell module changes were listed for this release.
+#### Login
+
+- `az login` / `Connect-AzAccount`: Resolve and persist the tenant that owns the requested subscription instead of the signed-in home tenant (#437)
 
 ## v0.0.4 - 2026-07-09 23:00 UTC
 
@@ -62,7 +64,9 @@
 
 ## v0.0.2 - 2026-07-07 23:44 UTC
 
-- No user-facing PowerShell module changes were listed for this release.
+#### Login
+
+- `az login --identity` / `Connect-AzAccount -Identity`: Add managed identity sign-in for system-assigned and user-assigned identities (#381)
 
 ## v0.0.1 - 2026-07-07 00:27 UTC
 
