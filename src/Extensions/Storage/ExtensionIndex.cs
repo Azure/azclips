@@ -11,12 +11,12 @@ public sealed class ExtensionIndex : IExtensionIndex
     private const string AssemblyName = "Microsoft.Azure.Azclips.Extensions.Storage";
 
     private static readonly CommandMetadata s_uploadBlob = new(
-        Name: nameof(Processors.UploadBlobProcessor),
+        Name: nameof(Processors.UploadBlobProcessor_Orchestrator),
         InvocationName: "storage blob upload",
         Aliases: [],
-        FullName: $"{AssemblyName}.Processors.UploadBlobProcessor",
+        FullName: $"{AssemblyName}.Processors.UploadBlobProcessor_Orchestrator",
         AssemblyName: AssemblyName,
-        ProcessorType: typeof(Processors.UploadBlobProcessor),
+        ProcessorType: typeof(Processors.UploadBlobProcessor_Orchestrator),
         Parameters: BlobParameters(),
         ParameterAliases: new Dictionary<string, string>
         {
@@ -26,12 +26,12 @@ public sealed class ExtensionIndex : IExtensionIndex
         });
 
     private static readonly CommandMetadata s_downloadBlob = new(
-        Name: nameof(Processors.DownloadBlobProcessor),
+        Name: nameof(Processors.DownloadBlobProcessor_Orchestrator),
         InvocationName: "storage blob download",
         Aliases: [],
-        FullName: $"{AssemblyName}.Processors.DownloadBlobProcessor",
+        FullName: $"{AssemblyName}.Processors.DownloadBlobProcessor_Orchestrator",
         AssemblyName: AssemblyName,
-        ProcessorType: typeof(Processors.DownloadBlobProcessor),
+        ProcessorType: typeof(Processors.DownloadBlobProcessor_Orchestrator),
         Parameters: BlobParameters(),
         ParameterAliases: new Dictionary<string, string>
         {

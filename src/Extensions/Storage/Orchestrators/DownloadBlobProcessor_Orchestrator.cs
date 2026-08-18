@@ -3,10 +3,11 @@
 
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class DownloadBlobProcessor : StorageBlobProcessorBase
+public sealed class DownloadBlobProcessor_Orchestrator : StorageBlobProcessorBase
 {
     public string FilePath { get; set; } = string.Empty;
     public bool Overwrite { get; set; }
@@ -30,8 +31,14 @@ public sealed class DownloadBlobProcessor : StorageBlobProcessorBase
             throw new IOException($"Destination file '{destinationPath}' already exists. Pass --overwrite to replace it.");
         }
 
-        using HttpRequestMessage request = CreateRequest(HttpMethod.Get);
-        using HttpResponseMessage response = await SendAsync(request);
+        BlobDownloadProcessor processor = CreateExtendedProcessor<BlobDownloadProcessor>(p =>
+        {
+            p.AccountName = AccountName;
+            p.ContainerName = ContainerName;
+            p.BlobName = BlobName;
+        });
+
+        using HttpResponseMessage response = await processor.SendAsync();
         await response.EnsureSuccessAsync(Publisher);
 
         string temporaryPath = Path.Combine(
@@ -59,7 +66,7 @@ public sealed class DownloadBlobProcessor : StorageBlobProcessorBase
         await WriteOutput(
             new BlobTransferResult(
                 "download",
-                request.RequestUri!.ToString(),
+                BuildBlobUri().ToString(),
                 destinationPath,
                 response.Headers.ETag?.Tag,
                 Header(response, "Last-Modified"),
