@@ -2,13 +2,13 @@
 // Licensed under the MIT License.
 
 using System.Net;
-using System.Net.Http.Headers;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class UploadBlobProcessor : StorageBlobProcessorBase
+public sealed class UploadBlobProcessor_Orchestrator : StorageBlobProcessorBase
 {
     private const long MaxSingleUploadBytes = 5000L * 1024 * 1024;
 
@@ -35,18 +35,17 @@ public sealed class UploadBlobProcessor : StorageBlobProcessorBase
         }
 
         await using FileStream source = File.OpenRead(sourcePath);
-        using HttpRequestMessage request = CreateRequest(HttpMethod.Put);
-        request.Options.Set(RuntimeHttpRequestOptions.DisableRetry, true);
-        request.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob");
-        if (!Overwrite)
+        BlockBlobUploadProcessor processor = CreateExtendedProcessor<BlockBlobUploadProcessor>(p =>
         {
-            request.Headers.TryAddWithoutValidation("If-None-Match", "*");
-        }
-        request.Content = new StreamContent(source);
-        request.Content.Headers.ContentLength = source.Length;
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            p.AccountName = AccountName;
+            p.ContainerName = ContainerName;
+            p.BlobName = BlobName;
+            p.Content = source;
+            p.ContentLength = source.Length;
+            p.Overwrite = Overwrite;
+        });
 
-        using HttpResponseMessage response = await SendAsync(request);
+        using HttpResponseMessage response = await processor.SendAsync();
         if (!Overwrite
             && response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
         {
@@ -60,10 +59,10 @@ public sealed class UploadBlobProcessor : StorageBlobProcessorBase
             new BlobTransferResult(
                 "upload",
                 sourcePath,
-                request.RequestUri!.ToString(),
+                BuildBlobUri().ToString(),
                 response.Headers.ETag?.Tag,
                 Header(response, "Last-Modified"),
-                source.Length),
+                sourceInfo.Length),
             Publisher.Token);
         await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
     }

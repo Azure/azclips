@@ -34,6 +34,20 @@ public abstract class StorageBlobProcessorBase : IProcessor
 
     public abstract Task ProcessAsync();
 
+    protected T CreateExtendedProcessor<T>(Action<T>? configure = null)
+        where T : StorageBlobProcessorBase, new()
+    {
+        T child = new()
+        {
+            HttpPipeline = HttpPipeline,
+            Publisher = Publisher,
+            WriteOutput = WriteOutput,
+            ResolvedProfile = ResolvedProfile,
+        };
+        configure?.Invoke(child);
+        return child;
+    }
+
     protected HttpRequestMessage CreateRequest(HttpMethod method)
     {
         ValidateStorageTarget();
@@ -65,7 +79,7 @@ public abstract class StorageBlobProcessorBase : IProcessor
                 ? values.FirstOrDefault()
                 : null;
 
-    private Uri BuildBlobUri()
+    protected Uri BuildBlobUri()
     {
         string escapedBlobName = string.Join(
             "/",
@@ -105,11 +119,3 @@ public abstract class StorageBlobProcessorBase : IProcessor
         }
     }
 }
-
-public sealed record BlobTransferResult(
-    string Operation,
-    string Source,
-    string Destination,
-    string? ETag,
-    string? LastModified,
-    long? ContentLength);
