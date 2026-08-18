@@ -30,6 +30,9 @@ string[] knownCmdletAssemblyPatterns =
 var structureReport = new MarkdownStructureValidator().Validate(repoRoot);
 aggregateReport.Merge(structureReport);
 
+var wellFormednessReport = new MarkdigWellFormednessValidator().Validate(repoRoot);
+aggregateReport.Merge(wellFormednessReport);
+
 Directory.CreateDirectory(outputRoot);
 
 ExtensionAssemblyLoader.InstallResolver(artifactsRoot);
@@ -203,17 +206,19 @@ var psCompletenessReport = new PsCompletenessValidator().Validate(repoRoot);
 aggregateReport.Merge(psCompletenessReport);
 
 var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
-WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
 
 PrintGroupedSummary(aggregateReport);
-Console.WriteLine($"Generated {manifests.Count} help manifest(s) and HelpIndex.json in {outputRoot}");
 
 if (aggregateReport.HasErrors)
 {
+    EmitGitHubAnnotations(aggregateReport);
     var errorCount = aggregateReport.Errors.Count();
     Console.Error.WriteLine($"Help validation failed: {errorCount} error(s) collected across all stages. See grouped summary above.");
     return 1;
 }
+
+WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
+Console.WriteLine($"Generated {manifests.Count} help manifest(s) and HelpIndex.json in {outputRoot}");
 
 return 0;
 
@@ -287,4 +292,52 @@ static void WriteJson<T>(string path, T value)
     });
 
     File.WriteAllText(path, json + Environment.NewLine);
+}
+
+// Emits GitHub Actions workflow commands (::error file=…,line=…,title=…::message) so errors
+// show as inline annotations on the PR "Files changed" tab instead of just log text.
+// See https://docs.github.com/actions/reference/workflow-commands-for-github-actions.
+// Guarded by GITHUB_ACTIONS=true so local runs stay quiet.
+static void EmitGitHubAnnotations(ValidationReport report)
+{
+    if (!string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.Ordinal))
+    {
+        return;
+    }
+
+    foreach (var issue in report.Errors)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(issue.FilePath))
+        {
+            // Normalise to forward slashes; GitHub matches annotation paths against the
+            // repo tree, which is always POSIX-style regardless of the runner OS.
+            var normalised = issue.FilePath.Replace('\\', '/');
+            parts.Add($"file={EscapeAnnotation(normalised, asProperty: true)}");
+        }
+        if (issue.Line is int line)
+        {
+            parts.Add($"line={line}");
+        }
+        if (!string.IsNullOrEmpty(issue.ProblemId))
+        {
+            parts.Add($"title={EscapeAnnotation(issue.ProblemId, asProperty: true)}");
+        }
+
+        var propList = parts.Count == 0 ? string.Empty : " " + string.Join(",", parts);
+        Console.WriteLine($"::error{propList}::{EscapeAnnotation(issue.Message)}");
+    }
+}
+
+// Encodes the reserved chars from the GH workflow-command grammar. Property values are a strict
+// superset of message data — they additionally reserve ',' and ':' as parser delimiters.
+static string EscapeAnnotation(string value, bool asProperty = false)
+{
+    var s = value
+        .Replace("%", "%25", StringComparison.Ordinal)
+        .Replace("\r", "%0D", StringComparison.Ordinal)
+        .Replace("\n", "%0A", StringComparison.Ordinal);
+    return asProperty
+        ? s.Replace(":", "%3A", StringComparison.Ordinal).Replace(",", "%2C", StringComparison.Ordinal)
+        : s;
 }

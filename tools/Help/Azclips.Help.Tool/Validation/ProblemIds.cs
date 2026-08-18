@@ -28,6 +28,11 @@ namespace Azclips.Help.Tool.Validation
         public const string MD_TodoPlaceholder = "MD_TodoPlaceholder";
         public const string CLI_ExamplePlaceholder = "CLI_ExamplePlaceholder";
 
+        // MarkdigWellFormednessValidator. Fires on prose (non-fenced-code content) that
+        // would render as surprising HTML through docfx's Markdig pipeline.
+        public const string MD_SuspiciousHtmlTag = "MD_SuspiciousHtmlTag";
+        public const string MD_UnbalancedBackticks = "MD_UnbalancedBackticks";
+
         // HelpCompletenessValidator
         public const string Completeness_MissingHelpFile = "Completeness_MissingHelpFile";
         public const string Completeness_OrphanedHelpFile = "Completeness_OrphanedHelpFile";
