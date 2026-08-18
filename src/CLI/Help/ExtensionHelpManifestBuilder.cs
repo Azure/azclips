@@ -235,9 +235,9 @@ namespace Core.Cli.Help
                     ? mappedPsName
                     : parameter.Name;
 
-                var property = FindPropertyForParameter(processorType, parameter.Name);
+                var property = ProcessorParameterReflection.FindPropertyForParameter(processorType, parameter.Name);
                 var attribute = property?.GetCustomAttribute<ArgumentInfoAttribute>();
-                var groupName = property?.GetCustomAttribute<ParameterGroupAttribute>()?.Name;
+                var groupName = ProcessorParameterReflection.GetGroupName(property);
                 var valueSources = property?.GetCustomAttribute<PopulatorCommandAttribute>()?.Command;
 
                 parameters.Add(new HelpParameter(
@@ -256,25 +256,6 @@ namespace Core.Cli.Help
             }
 
             return parameters;
-        }
-
-        // Resolves the processor property that backs a bound CLI parameter: first by direct
-        // property-name match (case-insensitive), then by falling back to properties whose
-        // [ArgumentInfo(SerializedName = ...)] targets the parameter.
-        private static PropertyInfo? FindPropertyForParameter(Type processorType, string parameterName)
-        {
-            var direct = processorType.GetProperty(parameterName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-            if (direct != null)
-            {
-                return direct;
-            }
-
-            return processorType
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(propertyInfo => string.Equals(
-                    propertyInfo.GetCustomAttribute<ArgumentInfoAttribute>()?.SerializedName,
-                    parameterName,
-                    StringComparison.OrdinalIgnoreCase));
         }
 
         private static string GetSummary(MarkdownCommandHelp markdown, ProcessorInfoAttribute? processorInfo, CommandMetadata metadata)

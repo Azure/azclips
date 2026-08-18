@@ -52,7 +52,8 @@ public record RuntimeHelpParameter(
     string[] AllowedValues,
     string ParameterSetName,
     bool SupportsPipeline,
-    bool SupportsWildcards);
+    bool SupportsWildcards,
+    string? GroupName = null);
 
 /// <summary>
 /// Represents a runnable example in runtime command help output.
