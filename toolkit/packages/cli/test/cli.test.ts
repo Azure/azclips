@@ -257,3 +257,62 @@ describe("ace compile: --capture-ir", () => {
     expect(existsSync(join(outDir, "ir"))).toBe(false);
   });
 });
+
+describe("ace compile: --config pipeline (create-commands)", () => {
+  it("leaves hints.powershell unset when --config has no pipeline key", async () => {
+    const outDir = join(dir, "no-pipeline");
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--config",
+      join(dir, "good.json"),
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(code).toBe(0);
+
+    const ir = JSON.parse(readFileSync(join(outDir, "ir", "0-emit.json"), "utf8")) as {
+      operations: { name: string; rendering?: { powershell?: unknown } }[];
+    };
+    const list = ir.operations.find((o) => o.name === "list");
+    expect(list?.rendering?.powershell).toBeUndefined();
+  });
+
+  it("enriches hints.powershell when --config's pipeline opts into create-commands", async () => {
+    const pipelineConfigPath = join(dir, "pipeline.json");
+    writeFileSync(
+      pipelineConfigPath,
+      JSON.stringify({ pipeline: [{ use: "create-commands", options: { subjectPrefix: "Az" } }] }),
+      "utf8",
+    );
+
+    const outDir = join(dir, "with-pipeline");
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--config",
+      pipelineConfigPath,
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(code).toBe(0);
+
+    const snapshots = readFileSync(join(outDir, "ir", "1-create-commands.json"), "utf8");
+    const ir = JSON.parse(snapshots) as {
+      operations: {
+        name: string;
+        rendering?: { powershell?: { verb?: string; noun?: string; subjectPrefix?: string } };
+      }[];
+    };
+    const list = ir.operations.find((o) => o.name === "list");
+    expect(list?.rendering?.powershell?.verb).toBe("Get");
+    // hints.powershell.noun stays bare (no prefix baked in) — subjectPrefix is its
+    // own field, combined into Command.noun only later by deriveCommands().
+    expect(list?.rendering?.powershell?.noun).toBe("Pet");
+    expect(list?.rendering?.powershell?.subjectPrefix).toBe("Az");
+  });
+});

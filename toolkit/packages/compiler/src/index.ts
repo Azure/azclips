@@ -65,3 +65,6 @@ export {
   type GeneratorContext,
   type GeneratorOutput,
 } from "./generate.js";
+
+export { createCommandsFactory, type CreateCommandsOptions } from "./create-commands.js";
+export { resolveVerb } from "./verb-mapping.js";

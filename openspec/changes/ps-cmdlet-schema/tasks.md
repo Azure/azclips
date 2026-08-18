@@ -81,6 +81,14 @@ mechanism plus `deriveCommands()`. No directives yet; inline-hint overrides work
       command with two parameter sets; `ResourceGroups.delete` produces `Remove`/`AzResourceGroup`
       — proof the full `IR -> (enriched IR) -> Command[]` path executes via the compiler
       backbone's existing pipeline mechanism plus the separate grouping function.
+- [x] 0.16 Wire `create-commands` into the real `ace compile` CLI (moved up from Milestone 3,
+      since M0 already proves the underlying mechanism works): `toolkit/packages/cli` registers
+      `create-commands` in a default `CompilerRegistry`; `--config`'s loaded JSON is split into
+      recognized `CompileConfig` keys (`pipeline`, `generator`, `emitter`, etc. — routed to
+      `CompileInput.config`) versus everything else (still passed through as `extensions`,
+      unchanged from prior behavior). A config file with `{"pipeline": [{"use":
+      "create-commands"}]}` now opts a real `ace compile` invocation into `hints.powershell`
+      enrichment; absent that key, behavior is byte-for-byte unchanged (identity pipeline).
 
 ## Milestone 1: Full vocabulary & derivation richness (ps-command-vocabulary, ps-command-derivation)
 

@@ -19,6 +19,8 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
+  createCommandsFactory,
+  createRegistry,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
@@ -27,6 +29,17 @@ import {
 import { resolveToolchain, type ResolvedToolchain } from "./toolchain.js";
 import { stageLocalProject, type StagedProject } from "./staging.js";
 import { createSubprocessEmitProducer } from "./tsp-compile.js";
+
+/**
+ * Transform steps available to a `--config` file's `pipeline` (see
+ * `CompileConfig.pipeline`). `create-commands` (ps-cmdlet-schema's
+ * `hints.powershell` enrichment step) is opt-in — absent `pipeline`, `compile()`
+ * still defaults to the identity pipeline, so existing `--config` files with no
+ * `pipeline` key are unaffected.
+ */
+const REGISTRY = createRegistry({
+  transforms: { "create-commands": createCommandsFactory },
+});
 
 /** Render a diagnostic for the terminal. */
 function formatDiagnostic(d: CompilerDiagnostic): string {
@@ -67,7 +80,9 @@ function usage(): string {
     "Options:",
     "  --tsp-location <path>  Path to the TypeSpec project dir or entry .tsp file (required)",
     "  --config <path>        Path to a JSON file of generation-time settings,",
-    "                         loaded as CompileInput.config (CompileConfig) (optional)",
+    "                         loaded as CompileInput.config (CompileConfig) (optional). Set",
+    "                         `\"pipeline\": [{ \"use\": \"create-commands\" }]` to enrich",
+    "                         hints.powershell.",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
@@ -117,15 +132,15 @@ async function runCompile(args: string[]): Promise<number> {
     return 2;
   }
 
-  // --config points at a JSON file of app-resolved, generation-time settings.
-  // The backbone is host-agnostic and never reads from disk, so the CLI loads
-  // the file here as CompileInput.config (a CompileConfig). --api-version is
+  // --config points at a JSON file of app-resolved, generation-time settings,
+  // loaded here as CompileInput.config (a CompileConfig) — e.g. `pipeline` opts
+  // into a registered transform step like `create-commands`. --api-version is
   // sugar for config.apiVersion and takes precedence when both are given.
-  let config: Record<string, unknown> | undefined;
+  let config: CompileConfig | undefined;
   if (configPath !== undefined) {
     const loaded = await loadConfig(configPath);
     if (loaded === undefined) return 2; // diagnostic already written
-    config = loaded;
+    config = loaded as CompileConfig;
   }
   if (apiVersionArg !== undefined) {
     config = { ...(config ?? {}), apiVersion: apiVersionArg };
@@ -153,10 +168,11 @@ async function runCompile(args: string[]): Promise<number> {
   const result = await compile(
     {
       entrypoint: staged.entrypoint,
-      ...(config !== undefined ? { config: config as CompileConfig } : {}),
+      ...(config !== undefined ? { config } : {}),
     },
     {
       emit: createSubprocessEmitProducer(toolchain),
+      registry: REGISTRY,
       captureIR: captureIr,
       output: createFsSink(outDir),
     },
@@ -171,9 +187,9 @@ async function runCompile(args: string[]): Promise<number> {
 }
 
 /**
- * Read and parse the `--config` JSON file into a `CompileConfig` object.
- * Returns `undefined` (after writing a diagnostic to stderr) when the file
- * cannot be read, is not valid JSON, or is not a JSON object.
+ * Read and parse the `--config` JSON file into a `CompileConfig`-shaped
+ * object. Returns `undefined` (after writing a diagnostic to stderr) when the
+ * file cannot be read, is not valid JSON, or is not a JSON object.
  */
 async function loadConfig(path: string): Promise<Record<string, unknown> | undefined> {
   let raw: string;
