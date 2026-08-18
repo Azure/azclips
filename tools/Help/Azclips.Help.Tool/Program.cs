@@ -313,7 +313,7 @@ static void EmitGitHubAnnotations(ValidationReport report)
             // Normalise to forward slashes; GitHub matches annotation paths against the
             // repo tree, which is always POSIX-style regardless of the runner OS.
             var normalised = issue.FilePath.Replace('\\', '/');
-            parts.Add($"file={EscapeAnnotationProperty(normalised)}");
+            parts.Add($"file={EscapeAnnotation(normalised, asProperty: true)}");
         }
         if (issue.Line is int line)
         {
@@ -321,24 +321,23 @@ static void EmitGitHubAnnotations(ValidationReport report)
         }
         if (!string.IsNullOrEmpty(issue.ProblemId))
         {
-            parts.Add($"title={EscapeAnnotationProperty(issue.ProblemId)}");
+            parts.Add($"title={EscapeAnnotation(issue.ProblemId, asProperty: true)}");
         }
 
         var propList = parts.Count == 0 ? string.Empty : " " + string.Join(",", parts);
-        Console.WriteLine($"::error{propList}::{EscapeAnnotationData(issue.Message)}");
+        Console.WriteLine($"::error{propList}::{EscapeAnnotation(issue.Message)}");
     }
 }
 
-// GitHub annotation property values require ',', ':', '%', CR, LF encoded.
-static string EscapeAnnotationProperty(string value) => value
-    .Replace("%", "%25", StringComparison.Ordinal)
-    .Replace("\r", "%0D", StringComparison.Ordinal)
-    .Replace("\n", "%0A", StringComparison.Ordinal)
-    .Replace(":", "%3A", StringComparison.Ordinal)
-    .Replace(",", "%2C", StringComparison.Ordinal);
-
-// Annotation message body: only %, CR, LF need encoding.
-static string EscapeAnnotationData(string value) => value
-    .Replace("%", "%25", StringComparison.Ordinal)
-    .Replace("\r", "%0D", StringComparison.Ordinal)
-    .Replace("\n", "%0A", StringComparison.Ordinal);
+// Encodes the reserved chars from the GH workflow-command grammar. Property values are a strict
+// superset of message data — they additionally reserve ',' and ':' as parser delimiters.
+static string EscapeAnnotation(string value, bool asProperty = false)
+{
+    var s = value
+        .Replace("%", "%25", StringComparison.Ordinal)
+        .Replace("\r", "%0D", StringComparison.Ordinal)
+        .Replace("\n", "%0A", StringComparison.Ordinal);
+    return asProperty
+        ? s.Replace(":", "%3A", StringComparison.Ordinal).Replace(",", "%2C", StringComparison.Ordinal)
+        : s;
+}
