@@ -87,13 +87,17 @@ mechanism plus `derivePsCommands()`. No directives yet; inline-hint overrides wo
       [{"use": "create-ps-commands"}]}` now opts a real `ace compile` invocation into
       `hints.powershell` enrichment; absent that key, behavior is byte-for-byte unchanged
       (identity pipeline).
-- [x] 0.17 Register a `derive-ps-commands` `Generator` (`toolkit/packages/cli`) — a debug/preview
-      generator, NOT the real Roslyn/C# generator, whose `generate()` calls `derivePsCommands(ir)`
-      internally and serializes the result as `ps-commands.json`. Gives a real `ace compile`
-      invocation a concrete way to see `PsCommand[]` output today (no C# back end exists yet to
-      consume it) via `{"generator": {"use": "derive-ps-commands"}}`; the default remains
-      `noopGenerator`, unaffected. Confirms `derivePsCommands` is only ever called from inside a
-      `Generator`'s own `generate()` — never a separate pipeline stage — see design.md Decision 8.
+- [x] 0.17 Register a `generate-ps-commands` `Generator` (`toolkit/packages/compiler`, alongside
+      `create-ps-commands` — not `toolkit/packages/cli`, which stays a thin shell) under its
+      eventual real-generator registry id/factory name, so there's no rename/re-export churn once
+      it grows real C# output (Cmdlet + Processor classes; `ExtensionIndex` PS-only registration
+      remains a separate, unresolved prerequisite — see design.md's Open Questions). For now its
+      `generate()` only calls `derivePsCommands(ir)` internally and serializes the result as
+      `ps-commands.json`. Gives a real `ace compile` invocation a concrete way to see
+      `PsCommand[]` output today (no C# back end exists yet to consume it) via
+      `{"generator": {"use": "generate-ps-commands"}}`; the default remains `noopGenerator`,
+      unaffected. Confirms `derivePsCommands` is only ever called from inside a `Generator`'s own
+      `generate()` — never a separate pipeline stage — see design.md Decision 8.
 
 ## Milestone 1: Full vocabulary & derivation richness (ps-command-vocabulary, ps-command-derivation)
 

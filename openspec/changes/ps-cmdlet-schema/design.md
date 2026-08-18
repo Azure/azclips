@@ -323,11 +323,12 @@ caller is a `Generator`'s own `generate(ir, context)`, since that's the one stag
 not required to return `IR` (nothing runs after it). The real, future Roslyn/C# generator will
 call `derivePsCommands(ir)` internally as the first thing it does, exactly mirroring how AutoRest's
 `Export-ProxyCmdlet` does its own `GroupBy` reflection downstream of `powershell-v2`'s per-operation
-enrichment, not as a distinct pipeline stage. Milestone 0 registers a minimal, concrete stand-in
-for this — `derive-ps-commands` (task 0.17), a debug/preview `Generator` (NOT the real C#
-generator; `noopGenerator` remains the default) whose `generate()` does exactly this and writes
-the result as `ps-commands.json` — so the full `IR -> (enriched IR) -> PsCommand[]` path is
-reachable through a real `ace compile` invocation today, without waiting on the C# generator.
+enrichment, not as a distinct pipeline stage. Milestone 0 registers `generate-ps-commands`
+(task 0.17) as this eventual generator's placeholder — same registry id/factory name it will keep
+once it grows real C# output, so there's no rename/re-export churn later. Today it only calls
+`derivePsCommands(ir)` and writes the result as `ps-commands.json` (`noopGenerator` remains the
+default), so the full `IR -> (enriched IR) -> PsCommand[]` path is reachable through a real
+`ace compile` invocation now, without waiting on the real C# output.
 
 ## Open Questions (Phase 2/3 design work still in progress — not yet resolved)
 
@@ -338,6 +339,16 @@ reachable through a real `ace compile` invocation today, without waiting on the 
 - Exact directive grammar (the `select`/`where`/`set` config shape and its TransformStep-options
   binding) — high-level mechanism is decided (Decision 7); the concrete grammar is a task in
   `tasks.md`.
+- **`ExtensionIndex` generation is unresolved and NOT solvable by this schema alone.** Decision 1's
+  artifact (c) ("an `ExtensionIndex` `CommandMetadata` registration entry, PS-only `ClientType`")
+  assumed this is an isolated, generatable unit — checking the real file
+  (`src/Extensions/Resources/ExtensionIndex.cs`) shows it isn't: it's a single, non-`partial`
+  class mixing hand-written `_PS` and `_CLI` `CommandMetadata` fields, `s_psTable`/`s_cliTable`,
+  one shared `static ExtensionIndex()` constructor, and shared `ClientType`-switched lookup
+  methods. A PS-only generator can't safely emit a whole replacement file without clobbering the
+  hand-written CLI side. Splitting `ExtensionIndex` into a `partial class` (hand-written CLI +
+  shared machinery, generated PS-only fields) is a real prerequisite change to azclips's existing
+  code — deferred to whichever later change actually implements the C# generator.
 
 **RESOLVED**: home for the new, thin Zod aggregate package is `toolkit/packages/ps-commands`
 (npm name `@azure-client-engine/ps-commands`), matching the existing

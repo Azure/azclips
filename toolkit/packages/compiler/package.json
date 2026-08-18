@@ -11,10 +11,10 @@
     }
   },
   "dependencies": {
-    "@azure-client-engine/ir": "*"
+    "@azure-client-engine/ir": "*",
+    "@azure-client-engine/ps-commands": "*"
   },
   "devDependencies": {
-    "@azure-client-engine/ps-commands": "*",
     "@types/node": "~20.14.0",
     "rimraf": "^5.0.5",
     "vitest": "3.2.4"

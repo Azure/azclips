@@ -67,4 +67,5 @@ export {
 } from "./generate.js";
 
 export { createPsCommandsFactory, type CreatePsCommandsOptions } from "./create-ps-commands.js";
+export { createGeneratePsCommandsFactory } from "./generate-ps-commands.js";
 export { resolveVerb } from "./verb-mapping.js";

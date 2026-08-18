@@ -317,19 +317,19 @@ describe("ace compile: --config pipeline (create-ps-commands)", () => {
   });
 });
 
-describe("ace compile: --config generator (derive-ps-commands)", () => {
-  it("writes ps-commands.json with the derived PsCommand[] when both create-ps-commands and derive-ps-commands are configured", async () => {
-    const configPath = join(dir, "derive-ps-commands.json");
+describe("ace compile: --config generator (generate-ps-commands)", () => {
+  it("writes ps-commands.json with the derived PsCommand[] when both create-ps-commands and generate-ps-commands are configured", async () => {
+    const configPath = join(dir, "generate-ps-commands.json");
     writeFileSync(
       configPath,
       JSON.stringify({
         pipeline: [{ use: "create-ps-commands", options: { subjectPrefix: "Az" } }],
-        generator: { use: "derive-ps-commands" },
+        generator: { use: "generate-ps-commands" },
       }),
       "utf8",
     );
 
-    const outDir = join(dir, "derive-ps-commands-out");
+    const outDir = join(dir, "generate-ps-commands-out");
     const { code } = await captureRun([
       "compile",
       "--tsp-location",
