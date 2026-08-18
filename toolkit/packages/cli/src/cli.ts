@@ -29,16 +29,20 @@ import {
 import { resolveToolchain, type ResolvedToolchain } from "./toolchain.js";
 import { stageLocalProject, type StagedProject } from "./staging.js";
 import { createSubprocessEmitProducer } from "./tsp-compile.js";
+import { createDerivePsCommandsGeneratorFactory } from "./derive-ps-commands-generator.js";
 
 /**
- * Transform steps available to a `--config` file's `pipeline` (see
- * `CompileConfig.pipeline`). `create-ps-commands` (ps-cmdlet-schema's
- * `hints.powershell` enrichment step) is opt-in — absent `pipeline`, `compile()`
- * still defaults to the identity pipeline, so existing `--config` files with no
- * `pipeline` key are unaffected.
+ * Transform steps and generators available to a `--config` file's `pipeline`/
+ * `generator` (see `CompileConfig.pipeline`/`.generator`). `create-ps-commands`
+ * (ps-cmdlet-schema's `hints.powershell` enrichment step) and
+ * `derive-ps-commands` (a debug/preview generator that writes the derived
+ * `PsCommand[]` as JSON — not the real Roslyn/C# generator) are both opt-in —
+ * absent `pipeline`/`generator`, `compile()` still defaults to the identity
+ * pipeline and `noopGenerator`, so existing `--config` files are unaffected.
  */
 const REGISTRY = createRegistry({
   transforms: { "create-ps-commands": createPsCommandsFactory },
+  generators: { "derive-ps-commands": createDerivePsCommandsGeneratorFactory },
 });
 
 /** Render a diagnostic for the terminal. */
@@ -82,7 +86,9 @@ function usage(): string {
     "  --config <path>        Path to a JSON file of generation-time settings,",
     "                         loaded as CompileInput.config (CompileConfig) (optional). Set",
     "                         `\"pipeline\": [{ \"use\": \"create-ps-commands\" }]` to enrich",
-    "                         hints.powershell.",
+    "                         hints.powershell, and `\"generator\": { \"use\":",
+    "                         \"derive-ps-commands\" }` to write the derived commands as",
+    "                         ps-commands.json (preview only, not the real C# generator).",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",

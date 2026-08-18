@@ -83,12 +83,17 @@ mechanism plus `derivePsCommands()`. No directives yet; inline-hint overrides wo
       backbone's existing pipeline mechanism plus the separate grouping function.
 - [x] 0.16 Wire `create-ps-commands` into the real `ace compile` CLI (moved up from Milestone 3,
       since M0 already proves the underlying mechanism works): `toolkit/packages/cli` registers
-      `create-ps-commands` in a default `CompilerRegistry`; `--config`'s loaded JSON is split into
-      recognized `CompileConfig` keys (`pipeline`, `generator`, `emitter`, etc. — routed to
-      `CompileInput.config`) versus everything else (still passed through as `extensions`,
-      unchanged from prior behavior). A config file with `{"pipeline": [{"use":
-      "create-ps-commands"}]}` now opts a real `ace compile` invocation into `hints.powershell`
-      enrichment; absent that key, behavior is byte-for-byte unchanged (identity pipeline).
+      `create-ps-commands` in a default `CompilerRegistry`. A config file with `{"pipeline":
+      [{"use": "create-ps-commands"}]}` now opts a real `ace compile` invocation into
+      `hints.powershell` enrichment; absent that key, behavior is byte-for-byte unchanged
+      (identity pipeline).
+- [x] 0.17 Register a `derive-ps-commands` `Generator` (`toolkit/packages/cli`) — a debug/preview
+      generator, NOT the real Roslyn/C# generator, whose `generate()` calls `derivePsCommands(ir)`
+      internally and serializes the result as `ps-commands.json`. Gives a real `ace compile`
+      invocation a concrete way to see `PsCommand[]` output today (no C# back end exists yet to
+      consume it) via `{"generator": {"use": "derive-ps-commands"}}`; the default remains
+      `noopGenerator`, unaffected. Confirms `derivePsCommands` is only ever called from inside a
+      `Generator`'s own `generate()` — never a separate pipeline stage — see design.md Decision 8.
 
 ## Milestone 1: Full vocabulary & derivation richness (ps-command-vocabulary, ps-command-derivation)
 

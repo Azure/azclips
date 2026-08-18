@@ -316,3 +316,42 @@ describe("ace compile: --config pipeline (create-ps-commands)", () => {
     expect(list?.rendering?.powershell?.subjectPrefix).toBe("Az");
   });
 });
+
+describe("ace compile: --config generator (derive-ps-commands)", () => {
+  it("writes ps-commands.json with the derived PsCommand[] when both create-ps-commands and derive-ps-commands are configured", async () => {
+    const configPath = join(dir, "derive-ps-commands.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        pipeline: [{ use: "create-ps-commands", options: { subjectPrefix: "Az" } }],
+        generator: { use: "derive-ps-commands" },
+      }),
+      "utf8",
+    );
+
+    const outDir = join(dir, "derive-ps-commands-out");
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--config",
+      configPath,
+      "--out-dir",
+      outDir,
+    ]);
+    expect(code).toBe(0);
+
+    const commands = JSON.parse(readFileSync(join(outDir, "ps-commands.json"), "utf8")) as {
+      verb: string;
+      noun: string;
+      parameterSets: { name: string }[];
+    }[];
+
+    const get = commands.find((c) => c.verb === "Get" && c.noun === "AzPet");
+    expect(get).toBeDefined();
+    expect(get!.parameterSets.map((p) => p.name).sort()).toEqual(["Get", "GetStatus", "List"]);
+
+    const create = commands.find((c) => c.verb === "New" && c.noun === "AzPet");
+    expect(create).toBeDefined();
+  });
+});

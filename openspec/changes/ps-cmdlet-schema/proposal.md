@@ -100,5 +100,10 @@ _(none — no existing PS-schema specs to modify)_
   ResourceGroups, chosen so its generated command model can be diffed against the real
   hand-written `New`/`GetResourceGroupCmdlet` + Processors) added under a test-fixtures
   directory, used by `create-ps-commands` unit tests.
+- `toolkit/packages/cli`: registers a `derive-ps-commands` `Generator` — a debug/preview
+  generator (not the real C# generator) whose `generate()` calls `derivePsCommands(ir)`
+  internally and writes the result as `ps-commands.json`, opted into via
+  `{"generator": {"use": "derive-ps-commands"}}`. Gives a real `ace compile` invocation a
+  concrete way to see `PsCommand[]` output today; the default remains `noopGenerator`.
 - No impact yet on `src/PS`, `src/Extensions/*`, `src/Core` — those stay hand-written until a
   later change implements the actual C# generator consuming this schema.

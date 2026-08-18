@@ -318,6 +318,17 @@ modify the shared `compiler` package's public interface for every future generat
 invasive change than reusing IR's existing hint-mutation mechanism, which already solves the
 same problem for every other per-node PS override.
 
+**Where `derivePsCommands` actually gets called**: never as a pipeline stage — its only legitimate
+caller is a `Generator`'s own `generate(ir, context)`, since that's the one stage in `compile()`
+not required to return `IR` (nothing runs after it). The real, future Roslyn/C# generator will
+call `derivePsCommands(ir)` internally as the first thing it does, exactly mirroring how AutoRest's
+`Export-ProxyCmdlet` does its own `GroupBy` reflection downstream of `powershell-v2`'s per-operation
+enrichment, not as a distinct pipeline stage. Milestone 0 registers a minimal, concrete stand-in
+for this — `derive-ps-commands` (task 0.17), a debug/preview `Generator` (NOT the real C#
+generator; `noopGenerator` remains the default) whose `generate()` does exactly this and writes
+the result as `ps-commands.json` — so the full `IR -> (enriched IR) -> PsCommand[]` path is
+reachable through a real `ace compile` invocation today, without waiting on the C# generator.
+
 ## Open Questions (Phase 2/3 design work still in progress — not yet resolved)
 
 - Exact Zod type definitions for `ps-commands`'s thin `PsCommand`/`PsParameterSet` aggregate —
