@@ -50,6 +50,24 @@ function groupKey(operation: IROperation): string | undefined {
   );
 }
 
+/**
+ * One source operation's parameter set(s). Single-operation variant fan-out
+ * (design.md Decision 5b) is limited to `base` (whole body object) and
+ * `Expanded` (body properties flattened, reusing IR's existing `FlattenHint`
+ * rather than a new PS-specific heuristic — Decision 6). `ViaIdentity` and
+ * `ViaJsonString`/`ViaJsonFilePath` are explicitly not implemented.
+ */
+function parameterSetsFor(operation: IROperation): PsParameterSet[] {
+  const baseName = operation.rendering!.powershell!.parameterSetName ?? operation.id.name;
+  const sets: PsParameterSet[] = [{ name: baseName, sourceOperationId: operation.id }];
+
+  if (operation.requestBody?.rendering?.flatten?.into === "self") {
+    sets.push({ name: `${baseName}Expanded`, sourceOperationId: operation.id });
+  }
+
+  return sets;
+}
+
 export function derivePsCommands(ir: IR): PsCommand[] {
   const groups = new Map<string, IROperation[]>();
 
@@ -66,10 +84,7 @@ export function derivePsCommands(ir: IR): PsCommand[] {
     const first = operations[0]!;
     const ps = first.rendering!.powershell!;
 
-    const parameterSets: PsParameterSet[] = operations.map((operation) => ({
-      name: operation.rendering!.powershell!.parameterSetName ?? operation.id.name,
-      sourceOperationId: operation.id,
-    }));
+    const parameterSets: PsParameterSet[] = operations.flatMap((operation) => parameterSetsFor(operation));
 
     commands.push({
       verb: ps.verb!,

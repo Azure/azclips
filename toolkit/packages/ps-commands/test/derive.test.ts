@@ -79,4 +79,40 @@ describe("derivePsCommands", () => {
     expect(commands).toHaveLength(1);
     expect(commands[0]!.verb).toBe("Get");
   });
+
+  it("fans out base + Expanded when the request body's FlattenHint says to flatten", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+      rendering: { powershell: { verb: "New", noun: "ResourceGroup", parameterSetName: "CreateOrUpdate" } },
+      requestBody: {
+        type: { kind: "model", id: { module: "<root>", namespace: [], name: "ResourceGroup" } },
+        contentType: "application/json",
+        rendering: { flatten: { into: "self" } },
+      },
+    });
+
+    const [command] = derivePsCommands({ ...emptyIR(), operations: [operation] });
+
+    expect(command!.parameterSets.map((p) => p.name).sort()).toEqual([
+      "CreateOrUpdate",
+      "CreateOrUpdateExpanded",
+    ]);
+  });
+
+  it("does not fan out when the request body has no flatten-into-self hint", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+      rendering: { powershell: { verb: "New", noun: "ResourceGroup", parameterSetName: "CreateOrUpdate" } },
+      requestBody: {
+        type: { kind: "model", id: { module: "<root>", namespace: [], name: "ResourceGroup" } },
+        contentType: "application/json",
+      },
+    });
+
+    const [command] = derivePsCommands({ ...emptyIR(), operations: [operation] });
+
+    expect(command!.parameterSets.map((p) => p.name)).toEqual(["CreateOrUpdate"]);
+  });
 });

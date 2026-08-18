@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { compile, createPsCommandsFactory, createTransformPipeline } from "@azure-client-engine/compiler";
 import { derivePsCommands } from "@azure-client-engine/ps-commands";
+import type { IR } from "@azure-client-engine/ir";
 
 // These tests fork the real (compiled) worker process, so they must exercise the
 // built artifacts under dist — Node cannot execute the .ts worker directly, and
@@ -87,5 +88,49 @@ describe("create-ps-commands + derivePsCommands: resourcegroup.tsp end-to-end", 
     const del = commands.find((c) => c.verb === "Remove" && c.noun === "AzResourceGroup");
     expect(del).toBeDefined();
     expect(del!.supportsShouldProcess).toBe(true);
+  });
+
+  it("Expanded variant flattens ResourceGroupProperties (Milestone 1 fan-out, exercised end-to-end)", async () => {
+    // No flatten-decision TransformStep exists yet in this codebase (a real,
+    // separate gap — see design.md's Non-Goals discussion on FlattenHint reuse).
+    // This test-only step simulates what that future transform would produce,
+    // so the *plumbing* between create-ps-commands and derivePsCommands' fan-out
+    // (Milestone 1) is proven end-to-end rather than only in derive.test.ts's
+    // isolated unit tests.
+    const simulateFlattenDecision = {
+      name: "simulate-flatten-decision",
+      run: (ir: IR): IR => ({
+        ...ir,
+        operations: ir.operations.map((operation) =>
+          operation.id.name === "createOrUpdate" && operation.requestBody
+            ? {
+                ...operation,
+                requestBody: {
+                  ...operation.requestBody,
+                  rendering: { flatten: { into: "self" as const } },
+                },
+              }
+            : operation,
+        ),
+      }),
+    };
+
+    const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
+    const pipeline = createTransformPipeline("m1", [
+      createPsCommandsFactory({ subjectPrefix: "Az" }),
+      simulateFlattenDecision,
+    ]);
+
+    const result = await compile(
+      { entrypoint: RESOURCE_GROUP_TSP },
+      { emit: producer, transform: pipeline },
+    );
+    const commands = derivePsCommands(result.ir!);
+
+    const createOrUpdate = commands.find((c) => c.verb === "New" && c.noun === "AzResourceGroup");
+    expect(createOrUpdate!.parameterSets.map((p) => p.name).sort()).toEqual([
+      "CreateOrUpdate",
+      "CreateOrUpdateExpanded",
+    ]);
   });
 });

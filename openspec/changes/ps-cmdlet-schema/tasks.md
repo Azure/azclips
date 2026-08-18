@@ -104,7 +104,7 @@ mechanism plus `derivePsCommands()`. No directives yet; inline-hint overrides wo
 Goal: fill in everything Milestone 0 deferred so the schema/derivation match real precedent
 exactly, not just the simple case.
 
-- [ ] 1.1 Add a `powershell` sub-namespace to `toolkit/packages/ir/src/hints.ts`'s
+- [x] 1.1 Add a `powershell` sub-namespace to `toolkit/packages/ir/src/hints.ts`'s
       `ParameterHints` (this is its first field — `ParameterHints` was still a plain `CommonHints`
       alias after Milestone 0) with: `mandatory`, `parameterSetName`, `helpMessage`,
       `valueFromPipeline`/`valueFromPipelineByPropertyName`, `supportsWildcards`, `aliases`,
@@ -112,19 +112,21 @@ exactly, not just the simple case.
       `update`, mirroring AutoRest's real `InfoAttribute.ReadOnly/Create/Update` — lets generated
       Update variants correctly omit create-only/server-computed properties), and an optional
       default-value expression (script/name/set-condition, mirroring `DefaultInfoAttribute`).
-- [ ] 1.2 Extend `hints.powershell` on `IROperation.rendering` with: `alias`, `hidden`, completer
+- [x] 1.2 Extend `hints.powershell` on `IROperation.rendering` with: `alias`, `hidden`, completer
       reference, summary/description/examples (mirrors `ProcessorInfoAttribute`), a lifecycle tag
       (Preview/Deprecated/Experimental/GA), and an `HttpPath`-equivalent (path template +
       api-version — trivially derivable from the operation itself).
-- [ ] 1.3 Implement single-operation variant fan-out limited to `base` and `Expanded` (reusing
+- [x] 1.3 Implement single-operation variant fan-out limited to `base` and `Expanded` (reusing
       IR's existing `FlattenHint`) inside `derivePsCommands()`; explicitly do not implement
       `ViaIdentity`/`ViaJsonString`.
-- [ ] 1.4 Write unit tests using the `ResourceGroup` fixture as a real-data regression case,
+- [x] 1.4 Write unit tests using the `ResourceGroup` fixture as a real-data regression case,
       diffed against the real hand-written cmdlets: assert `ResourceGroups.get` +
       `ResourceGroups.list` merge into one command with `Get`/`List` parameter sets (matching
       `GetResourceGroupCmdlet`'s real `DefaultParameterSetName = "List"` + two parameter sets),
       assert `ResourceGroups.createOrUpdate` (PUT) resolves to verb `New` — not `Set` — matching
-      `NewResourceGroupCmdlet`, and assert the Expanded variant flattens `ResourceGroupProperties`.
+      `NewResourceGroupCmdlet`, and assert the Expanded variant flattens `ResourceGroupProperties`
+      (exercised end-to-end in `cli/test/create-ps-commands.e2e.test.ts` via a test-only
+      flatten-decision step, since no real flatten-decision `TransformStep` exists yet).
 
 ## Milestone 2: Directive-style customization (ps-command-customization)
 

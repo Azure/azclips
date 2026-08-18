@@ -163,15 +163,12 @@ export const ModelHintsSchema: z.ZodType<ModelHints> = CommonHintsSchema;
 export type EnumHints = CommonHints;
 export const EnumHintsSchema: z.ZodType<EnumHints> = CommonHintsSchema;
 
-export type ParameterHints = CommonHints;
-export const ParameterHintsSchema: z.ZodType<ParameterHints> = CommonHintsSchema;
-
-// ─── PowerShell hints (operation-level) ─────────────────────────────────
+// ─── PowerShell hints (operation-level and parameter-level) ─────────────
 //
 // No prior mention of "powershell" existed in this file before the
 // ps-cmdlet-schema change (confirmed by inspection, not an existing
 // anticipated namespace). Fields are both an authoring-override input and
-// the `create-commands` transform's (in @azure-client-engine/compiler)
+// the `create-ps-commands` transform's (in @azure-client-engine/compiler)
 // write target: it resolves verb/noun/parameterSetName/confirmImpact from
 // IR + policy and writes the result back here, leaving any value an author
 // already set untouched (ordinary last-writer-wins hint-merge semantics —
@@ -181,16 +178,55 @@ export const ParameterHintsSchema: z.ZodType<ParameterHints> = CommonHintsSchema
 
 /**
  * PowerShell `ConfirmImpact` level. Shared between `PowershellOperationHint`
- * and `@azure-client-engine/ps-commands`'s `Command` aggregate so the two
+ * and `@azure-client-engine/ps-commands`'s `PsCommand` aggregate so the two
  * packages can't drift on the allowed values.
  */
 export const ConfirmImpacts = ["None", "Low", "Medium", "High"] as const;
 export type ConfirmImpact = (typeof ConfirmImpacts)[number];
 
 /**
+ * PowerShell lifecycle tag, mirroring `ProcessorInfoAttribute`'s
+ * Preview/Deprecated/Experimental/GA tags.
+ */
+export const LifecycleTags = ["Preview", "Deprecated", "Experimental", "GA"] as const;
+export type LifecycleTag = (typeof LifecycleTags)[number];
+
+/** Shared between operation and parameter hints. Mirrors AutoRest's `CompleterInfoAttribute`. */
+export type CompleterHint = {
+  script?: string | undefined;
+  name?: string | undefined;
+  description?: string | undefined;
+};
+
+export const CompleterHintSchema: z.ZodType<CompleterHint> = z
+  .object({
+    script: z.string().min(1).optional(),
+    name: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+  })
+  .strict();
+
+/** Mirrors AutoRest's `DefaultInfoAttribute` — a script-derived default value for a parameter. */
+export type DefaultValueHint = {
+  script?: string | undefined;
+  name?: string | undefined;
+  description?: string | undefined;
+  setCondition?: string | undefined;
+};
+
+export const DefaultValueHintSchema: z.ZodType<DefaultValueHint> = z
+  .object({
+    script: z.string().min(1).optional(),
+    name: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    setCondition: z.string().min(1).optional(),
+  })
+  .strict();
+
+/**
  * PowerShell command-shape fields for an operation. See ps-cmdlet-schema's
- * design.md Decisions 3/8 for the full field list (this is the Milestone 0
- * subset) and why this lives here rather than in a separate package.
+ * design.md Decisions 3/8 for the full field list and why this lives here
+ * rather than in a separate package.
  */
 export type PowershellOperationHint = {
   /** PowerShell approved verb, e.g. "Get", "New", "Set". */
@@ -203,6 +239,22 @@ export type PowershellOperationHint = {
   parameterSetName?: string | undefined;
   /** ConfirmImpact level for SupportsShouldProcess commands. */
   confirmImpact?: ConfirmImpact | undefined;
+  /** Additional cmdlet aliases. */
+  alias?: string[] | undefined;
+  /** When true, the derived command is not exported from the generated module. */
+  hidden?: boolean | undefined;
+  /** Completer for a command-level dynamic-parameter scenario (rare; usually per-parameter). */
+  completer?: CompleterHint | undefined;
+  /** Mirrors `ProcessorInfoAttribute`'s Summary. */
+  summary?: string | undefined;
+  /** Mirrors `ProcessorInfoAttribute`'s Description. */
+  description?: string | undefined;
+  /** Mirrors `ProcessorInfoAttribute`'s Examples. */
+  examples?: string[] | undefined;
+  /** Mirrors `ProcessorInfoAttribute`'s Tags (Preview/Deprecated/Experimental/GA). */
+  lifecycleTag?: LifecycleTag | undefined;
+  /** Path template + api-version, for introspection/support tooling. */
+  httpPath?: { path: string; apiVersion: string } | undefined;
 };
 
 export const PowershellOperationHintSchema: z.ZodType<PowershellOperationHint> = z
@@ -212,6 +264,17 @@ export const PowershellOperationHintSchema: z.ZodType<PowershellOperationHint> =
     subjectPrefix: z.string().min(1).optional(),
     parameterSetName: z.string().min(1).optional(),
     confirmImpact: z.enum(ConfirmImpacts).optional(),
+    alias: z.array(z.string().min(1)).optional(),
+    hidden: z.boolean().optional(),
+    completer: CompleterHintSchema.optional(),
+    summary: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    examples: z.array(z.string().min(1)).optional(),
+    lifecycleTag: z.enum(LifecycleTags).optional(),
+    httpPath: z
+      .object({ path: z.string().min(1), apiVersion: z.string().min(1) })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -224,6 +287,62 @@ export const OperationHintsSchema: z.ZodType<OperationHints> = z
     clientApi: ClientApiHintSchema.optional(),
     docs: DocsHintSchema.optional(),
     powershell: PowershellOperationHintSchema.optional(),
+  })
+  .strict();
+
+/**
+ * PowerShell command-shape fields for a parameter. Mirrors `ArgumentInfoAttribute`
+ * (mandatory/mutability/default-value) and PS `[Parameter]` (pipeline-binding,
+ * wildcards, aliases, `ValidateSet`, completer). See design.md Decision 3.
+ */
+export type PowershellParameterHint = {
+  mandatory?: boolean | undefined;
+  /** Parameter-set name this parameter belongs to (defaults to the containing operation's). */
+  parameterSetName?: string | undefined;
+  helpMessage?: string | undefined;
+  valueFromPipeline?: boolean | undefined;
+  valueFromPipelineByPropertyName?: boolean | undefined;
+  supportsWildcards?: boolean | undefined;
+  aliases?: string[] | undefined;
+  /** `ValidateSet` equivalent. */
+  allowedValues?: string[] | undefined;
+  completer?: CompleterHint | undefined;
+  /** Settable on create. Mirrors `InfoAttribute.Create`. */
+  create?: boolean | undefined;
+  /** Settable on update. Mirrors `InfoAttribute.Update`. */
+  update?: boolean | undefined;
+  /** Never settable — server-computed. Mirrors `InfoAttribute.ReadOnly`. */
+  readOnly?: boolean | undefined;
+  defaultValue?: DefaultValueHint | undefined;
+};
+
+export const PowershellParameterHintSchema: z.ZodType<PowershellParameterHint> = z
+  .object({
+    mandatory: z.boolean().optional(),
+    parameterSetName: z.string().min(1).optional(),
+    helpMessage: z.string().min(1).optional(),
+    valueFromPipeline: z.boolean().optional(),
+    valueFromPipelineByPropertyName: z.boolean().optional(),
+    supportsWildcards: z.boolean().optional(),
+    aliases: z.array(z.string().min(1)).optional(),
+    allowedValues: z.array(z.string().min(1)).optional(),
+    completer: CompleterHintSchema.optional(),
+    create: z.boolean().optional(),
+    update: z.boolean().optional(),
+    readOnly: z.boolean().optional(),
+    defaultValue: DefaultValueHintSchema.optional(),
+  })
+  .strict();
+
+export type ParameterHints = CommonHints & {
+  powershell?: PowershellParameterHint | undefined;
+};
+
+export const ParameterHintsSchema: z.ZodType<ParameterHints> = z
+  .object({
+    clientApi: ClientApiHintSchema.optional(),
+    docs: DocsHintSchema.optional(),
+    powershell: PowershellParameterHintSchema.optional(),
   })
   .strict();
 

@@ -63,7 +63,11 @@ export {
   ParameterHintsSchema,
   OperationHintsSchema,
   PowershellOperationHintSchema,
+  PowershellParameterHintSchema,
+  CompleterHintSchema,
+  DefaultValueHintSchema,
   ConfirmImpacts,
+  LifecycleTags,
   RequestBodyHintsSchema,
   type FlattenHint,
   type SerializationHint,
@@ -78,7 +82,11 @@ export {
   type ParameterHints,
   type OperationHints,
   type PowershellOperationHint,
+  type PowershellParameterHint,
+  type CompleterHint,
+  type DefaultValueHint,
   type ConfirmImpact,
+  type LifecycleTag,
   type RequestBodyHints,
 } from "./hints.js";
 

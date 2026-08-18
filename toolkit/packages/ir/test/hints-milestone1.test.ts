@@ -1,0 +1,73 @@
+/**
+ * Milestone 1: hints.powershell vocabulary richness — round-trip tests for
+ * ParameterHints' new powershell namespace and OperationHints' new fields.
+ */
+
+import { describe, expect, it } from "vitest";
+
+import {
+  ModelHintsSchema,
+  ParameterHintsSchema,
+  OperationHintsSchema,
+  type ParameterHints,
+  type OperationHints,
+} from "../src/index.js";
+
+describe("hints.powershell (ParameterHints) — Milestone 1", () => {
+  it("round-trips a fully populated parameter powershell hint", () => {
+    const hint: ParameterHints = {
+      powershell: {
+        mandatory: true,
+        parameterSetName: "Get",
+        helpMessage: "The name of the resource group.",
+        valueFromPipeline: true,
+        valueFromPipelineByPropertyName: true,
+        supportsWildcards: false,
+        aliases: ["Name"],
+        allowedValues: ["Incremental", "Complete"],
+        completer: { script: "Get-Foo", name: "FooCompleter" },
+        create: true,
+        update: false,
+        readOnly: false,
+        defaultValue: { script: "(Get-AzContext).Subscription.Id", name: "DefaultSubscriptionId" },
+      },
+    };
+
+    expect(ParameterHintsSchema.parse(hint)).toEqual(hint);
+  });
+
+  it("rejects mutability flags of the wrong type", () => {
+    expect(() => ParameterHintsSchema.parse({ powershell: { readOnly: "yes" } })).toThrow();
+  });
+
+  it("does not leak the parameter powershell namespace onto unrelated node kinds", () => {
+    expect(() => ModelHintsSchema.parse({ powershell: { mandatory: true } })).toThrow();
+  });
+});
+
+describe("hints.powershell (OperationHints) — Milestone 1 extensions", () => {
+  it("round-trips alias/hidden/help/lifecycle/httpPath fields", () => {
+    const hint: OperationHints = {
+      powershell: {
+        verb: "New",
+        noun: "ResourceGroup",
+        alias: ["nrg"],
+        hidden: false,
+        summary: "Creates a resource group.",
+        description: "Creates a resource group in the specified location.",
+        examples: ["New-AzResourceGroup -Name rg1 -Location eastus"],
+        lifecycleTag: "GA",
+        httpPath: {
+          path: "/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}",
+          apiVersion: "2025-04-01",
+        },
+      },
+    };
+
+    expect(OperationHintsSchema.parse(hint)).toEqual(hint);
+  });
+
+  it("rejects an unrecognized lifecycle tag", () => {
+    expect(() => OperationHintsSchema.parse({ powershell: { lifecycleTag: "Beta" } })).toThrow();
+  });
+});
