@@ -7,8 +7,8 @@
 // Deliberately NOT built on @azure-tools/typespec-azure-resource-manager's
 // resource-modeling decorators — this is a small, explicit spec so its
 // resulting IR shape (operation names, HTTP methods, namespace) stays fully
-// predictable for the create-commands/deriveCommands proof in
-// create-commands.e2e.test.ts.
+// predictable for the create-ps-commands/derivePsCommands proof in
+// create-ps-commands.e2e.test.ts.
 
 import "@typespec/http";
 import "@typespec/rest";

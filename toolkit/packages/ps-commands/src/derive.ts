@@ -1,18 +1,18 @@
 /**
- * `deriveCommands`: groups an already-enriched `IR` (post `create-commands`)
- * into the final `Command[]`. Plain function, not a pipeline stage — see
+ * `derivePsCommands`: groups an already-enriched `IR` (post `create-ps-commands`)
+ * into the final `PsCommand[]`. Plain function, not a pipeline stage — see
  * ps-cmdlet-schema's design.md Decision 8 for why grouping can't happen
- * inside `create-commands` itself.
+ * inside `create-ps-commands` itself.
  *
  * Operations under the same `id.namespace` sharing a resolved verb+noun
- * merge into one `Command` with one `ParameterSet` per source operation
+ * merge into one `PsCommand` with one `PsParameterSet` per source operation
  * (real precedent: `GetResourceGroupCmdlet`'s `"Get"`/`"List"` parameter
- * sets). Operations `create-commands` hasn't enriched yet (no resolved
+ * sets). Operations `create-ps-commands` hasn't enriched yet (no resolved
  * `verb`/`noun`) are skipped.
  */
 
 import { idEquals, type IR, type IROperation, type IRId, type IRTypeRef } from "@azure-client-engine/ir";
-import type { Command, ParameterSet } from "./schema.js";
+import type { PsCommand, PsParameterSet } from "./schema.js";
 
 /** Model/enum refs carry an id directly; array refs recurse into their element. Others have none. */
 function extractTypeRefId(type: IRTypeRef): IRId | undefined {
@@ -48,23 +48,23 @@ function groupKey(operation: IROperation): string | undefined {
   return [...operation.id.namespace, ps.verb, ps.noun].join("\u0000");
 }
 
-export function deriveCommands(ir: IR): Command[] {
+export function derivePsCommands(ir: IR): PsCommand[] {
   const groups = new Map<string, IROperation[]>();
 
   for (const operation of ir.operations) {
     const key = groupKey(operation);
-    if (key === undefined) continue; // not yet enriched by create-commands — nothing to derive
+    if (key === undefined) continue; // not yet enriched by create-ps-commands — nothing to derive
     const members = groups.get(key);
     if (members) members.push(operation);
     else groups.set(key, [operation]);
   }
 
-  const commands: Command[] = [];
+  const commands: PsCommand[] = [];
   for (const operations of groups.values()) {
     const first = operations[0]!;
     const ps = first.rendering!.powershell!;
 
-    const parameterSets: ParameterSet[] = operations.map((operation) => ({
+    const parameterSets: PsParameterSet[] = operations.map((operation) => ({
       name: operation.rendering!.powershell!.parameterSetName ?? operation.id.name,
       sourceOperationId: operation.id,
     }));

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyIR, type IROperation } from "@azure-client-engine/ir";
 
-import { deriveCommands } from "../src/derive.js";
+import { derivePsCommands } from "../src/derive.js";
 
 function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" | "method">): IROperation {
   return {
@@ -24,8 +24,8 @@ function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" 
   };
 }
 
-describe("deriveCommands", () => {
-  it("derives one Command from a single enriched operation", () => {
+describe("derivePsCommands", () => {
+  it("derives one PsCommand from a single enriched operation", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
       method: "PUT",
@@ -34,7 +34,7 @@ describe("deriveCommands", () => {
       },
     });
 
-    const [command] = deriveCommands({ ...emptyIR(), operations: [operation] });
+    const [command] = derivePsCommands({ ...emptyIR(), operations: [operation] });
 
     expect(command).toBeDefined();
     expect(command!.verb).toBe("New");
@@ -44,7 +44,7 @@ describe("deriveCommands", () => {
     expect(command!.outputTypes).toHaveLength(1);
   });
 
-  it("merges Get + List sharing verb+noun into one Command with two parameter sets", () => {
+  it("merges Get + List sharing verb+noun into one PsCommand with two parameter sets", () => {
     const get = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "get" },
       method: "GET",
@@ -56,14 +56,14 @@ describe("deriveCommands", () => {
       rendering: { powershell: { verb: "Get", noun: "ResourceGroup", parameterSetName: "List" } },
     });
 
-    const commands = deriveCommands({ ...emptyIR(), operations: [get, list] });
+    const commands = derivePsCommands({ ...emptyIR(), operations: [get, list] });
 
     expect(commands).toHaveLength(1);
     expect(commands[0]!.parameterSets.map((p) => p.name).sort()).toEqual(["Get", "List"]);
     expect(commands[0]!.supportsShouldProcess).toBe(false);
   });
 
-  it("skips operations create-commands hasn't enriched yet", () => {
+  it("skips operations create-ps-commands hasn't enriched yet", () => {
     const enriched = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "get" },
       method: "GET",
@@ -74,7 +74,7 @@ describe("deriveCommands", () => {
       method: "DELETE",
     });
 
-    const commands = deriveCommands({ ...emptyIR(), operations: [enriched, notEnriched] });
+    const commands = derivePsCommands({ ...emptyIR(), operations: [enriched, notEnriched] });
 
     expect(commands).toHaveLength(1);
     expect(commands[0]!.verb).toBe("Get");

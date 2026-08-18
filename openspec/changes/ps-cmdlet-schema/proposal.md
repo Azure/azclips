@@ -27,7 +27,7 @@ architecture and is explicitly not adopted.
 ## What Changes
 
 - Add a `powershell` hints sub-namespace to `toolkit/packages/ir/src/hints.ts` that carries both
-  authoring-time PS overrides AND the `create-commands` step's resolved output (verb, noun,
+  authoring-time PS overrides AND the `create-ps-commands` step's resolved output (verb, noun,
   parameter-set name, `ConfirmImpact`, alias, hide, completer reference, mutability flags,
   default-value expression, help/lifecycle tag) — mirroring AutoRest.PowerShell's own
   `CommandOperation extends ProgrammaticOperation` pattern (PS facet bolted onto the same
@@ -37,12 +37,12 @@ architecture and is explicitly not adopted.
   one enriched IR node instead of a separate parallel schema.
 - Add a new, thin Zod-validated aggregate package (`toolkit/packages/ps-commands`, npm name
   `@azure-client-engine/ps-commands`) that holds only the cross-operation grouping shape
-  (`Command`/`ParameterSet`, referencing IR operation ids) plus a `deriveCommands(ir): Command[]`
+  (`PsCommand`/`PsParameterSet`, referencing IR operation ids) plus a `derivePsCommands(ir): PsCommand[]`
   function — not a redeclaration of every field, since those now live as `hints.powershell`.
   This mirrors AutoRest.PowerShell's own two-stage split: per-operation enrichment
   (`create-commands-v2.ts`) is separate from the later grouping stage (`PsProxyTypes.cs`'s
   `VariantGroup`/`Variant`), which also doesn't happen inside the same enrichment step.
-- Add a `create-commands` `TransformStep` (`toolkit/packages/compiler`, genuinely `IR -> IR`,
+- Add a `create-ps-commands` `TransformStep` (`toolkit/packages/compiler`, genuinely `IR -> IR`,
   matching the real `TransformStep` interface) that consumes `IROperation[]`/`IRModel[]`/
   `IREnum[]` and enriches each operation's `hints.powershell` in place: re-deriving
   client/operation-group grouping from `id.namespace` (IR flattened that hierarchy away),
@@ -50,9 +50,9 @@ architecture and is explicitly not adopted.
   match always wins over an HTTP-method-based fallback), and `SupportsShouldProcess`/
   `ConfirmImpact` policy from HTTP method. Grouping operations sharing a resolved verb+noun into
   one command (e.g. Get+List) and single-operation variant fan-out (base + Expanded body
-  flattening) both happen afterward, in `ps-commands`'s separate `deriveCommands()` function —
+  flattening) both happen afterward, in `ps-commands`'s separate `derivePsCommands()` function —
   not inside this transform step, since a `TransformStep` can only return an `IR`, not an
-  arbitrary `Command[]`.
+  arbitrary `PsCommand[]`.
 - Design a directive-style (`select`/`where`/`set`) customization/override mechanism passed as
   `TransformStep` options, layered on top of inline `hints.powershell` overrides — modeled on
   AutoRest's `docs/directives.md`.
@@ -73,9 +73,9 @@ architecture and is explicitly not adopted.
   HTTP-pipeline parameters), redundancy with IR (wire-location categories), or large enough to
   warrant a separate follow-on change (the breaking-change/deprecation attribute family) — not a
   blanket "azclips doesn't have it yet."
-- `ps-command-derivation`: the `create-commands` `TransformStep` (verb/noun policy, namespace
+- `ps-command-derivation`: the `create-ps-commands` `TransformStep` (verb/noun policy, namespace
   grouping, ShouldProcess/ConfirmImpact policy — writing resolved values into `hints.powershell`)
-  plus `ps-commands`'s separate `deriveCommands()` function (multi-operation parameter-set merge,
+  plus `ps-commands`'s separate `derivePsCommands()` function (multi-operation parameter-set merge,
   variant fan-out, flatten-hint reuse) that groups the enriched IR afterward.
 - `ps-command-customization`: the directive-style override mechanism for renaming/hiding/
   adjusting generated commands and parameters.
@@ -92,11 +92,11 @@ _(none — no existing PS-schema specs to modify)_
   `CompilerRegistry`; no change to the backbone itself (`identityPipeline`/`noopGenerator`
   mechanics already support this).
 - New package `toolkit/packages/ps-commands` (`@azure-client-engine/ps-commands`) holding the
-  thin `Command`/`ParameterSet` grouping types and the `deriveCommands()` function — not a
+  thin `PsCommand`/`PsParameterSet` grouping types and the `derivePsCommands()` function — not a
   redeclaration of every field, since those live as `hints.powershell` on IR.
 - A tracked `ResourceGroup` IR fixture (hand-authored TypeSpec mimicking `Microsoft.Resources`
   ResourceGroups, chosen so its generated command model can be diffed against the real
   hand-written `New`/`GetResourceGroupCmdlet` + Processors) added under a test-fixtures
-  directory, used by `create-commands` unit tests.
+  directory, used by `create-ps-commands` unit tests.
 - No impact yet on `src/PS`, `src/Extensions/*`, `src/Core` — those stay hand-written until a
   later change implements the actual C# generator consuming this schema.

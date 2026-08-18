@@ -1,10 +1,10 @@
 /**
- * Zod validation smoke tests for the thin `Command`/`ParameterSet` aggregate.
+ * Zod validation smoke tests for the thin `PsCommand`/`PsParameterSet` aggregate.
  */
 
 import { describe, expect, it } from "vitest";
 
-import { CommandSchema, ParameterSetSchema, type Command, type ParameterSet } from "../src/index.js";
+import { PsCommandSchema, PsParameterSetSchema, type PsCommand, type PsParameterSet } from "../src/index.js";
 
 const OPERATION_ID = {
   module: "<root>",
@@ -12,23 +12,23 @@ const OPERATION_ID = {
   name: "createOrUpdate",
 };
 
-describe("ParameterSet", () => {
+describe("PsParameterSet", () => {
   it("parses a valid parameter set", () => {
-    const parameterSet: ParameterSet = { name: "Get", sourceOperationId: OPERATION_ID };
+    const parameterSet: PsParameterSet = { name: "Get", sourceOperationId: OPERATION_ID };
 
-    expect(ParameterSetSchema.parse(parameterSet)).toEqual(parameterSet);
+    expect(PsParameterSetSchema.parse(parameterSet)).toEqual(parameterSet);
   });
 
   it("rejects a parameter set with no source operation id", () => {
-    expect(() => ParameterSetSchema.parse({ name: "Get" })).toThrow();
+    expect(() => PsParameterSetSchema.parse({ name: "Get" })).toThrow();
   });
 });
 
-describe("Command", () => {
-  const validParameterSet: ParameterSet = { name: "Get", sourceOperationId: OPERATION_ID };
+describe("PsCommand", () => {
+  const validParameterSet: PsParameterSet = { name: "Get", sourceOperationId: OPERATION_ID };
 
   it("parses a valid command", () => {
-    const command: Command = {
+    const command: PsCommand = {
       verb: "New",
       noun: "AzResourceGroup",
       subjectPrefix: "Az",
@@ -39,12 +39,12 @@ describe("Command", () => {
       sourceOperationIds: [OPERATION_ID],
     };
 
-    expect(CommandSchema.parse(command)).toEqual(command);
+    expect(PsCommandSchema.parse(command)).toEqual(command);
   });
 
   it("rejects a command with no parameter sets", () => {
     expect(() =>
-      CommandSchema.parse({
+      PsCommandSchema.parse({
         verb: "New",
         noun: "AzResourceGroup",
         supportsShouldProcess: true,
@@ -57,7 +57,7 @@ describe("Command", () => {
 
   it("rejects a command with no source operation ids", () => {
     expect(() =>
-      CommandSchema.parse({
+      PsCommandSchema.parse({
         verb: "New",
         noun: "AzResourceGroup",
         supportsShouldProcess: true,

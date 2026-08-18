@@ -258,7 +258,7 @@ describe("ace compile: --capture-ir", () => {
   });
 });
 
-describe("ace compile: --config pipeline (create-commands)", () => {
+describe("ace compile: --config pipeline (create-ps-commands)", () => {
   it("leaves hints.powershell unset when --config has no pipeline key", async () => {
     const outDir = join(dir, "no-pipeline");
     const { code } = await captureRun([
@@ -280,11 +280,11 @@ describe("ace compile: --config pipeline (create-commands)", () => {
     expect(list?.rendering?.powershell).toBeUndefined();
   });
 
-  it("enriches hints.powershell when --config's pipeline opts into create-commands", async () => {
+  it("enriches hints.powershell when --config's pipeline opts into create-ps-commands", async () => {
     const pipelineConfigPath = join(dir, "pipeline.json");
     writeFileSync(
       pipelineConfigPath,
-      JSON.stringify({ pipeline: [{ use: "create-commands", options: { subjectPrefix: "Az" } }] }),
+      JSON.stringify({ pipeline: [{ use: "create-ps-commands", options: { subjectPrefix: "Az" } }] }),
       "utf8",
     );
 
@@ -301,7 +301,7 @@ describe("ace compile: --config pipeline (create-commands)", () => {
     ]);
     expect(code).toBe(0);
 
-    const snapshots = readFileSync(join(outDir, "ir", "1-create-commands.json"), "utf8");
+    const snapshots = readFileSync(join(outDir, "ir", "1-create-ps-commands.json"), "utf8");
     const ir = JSON.parse(snapshots) as {
       operations: {
         name: string;
@@ -311,7 +311,7 @@ describe("ace compile: --config pipeline (create-commands)", () => {
     const list = ir.operations.find((o) => o.name === "list");
     expect(list?.rendering?.powershell?.verb).toBe("Get");
     // hints.powershell.noun stays bare (no prefix baked in) — subjectPrefix is its
-    // own field, combined into Command.noun only later by deriveCommands().
+    // own field, combined into PsCommand.noun only later by derivePsCommands().
     expect(list?.rendering?.powershell?.noun).toBe("Pet");
     expect(list?.rendering?.powershell?.subjectPrefix).toBe("Az");
   });

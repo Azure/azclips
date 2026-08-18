@@ -1,9 +1,12 @@
 /**
- * `create-commands`: enriches each `IROperation`'s `hints.powershell` in
+ * `create-ps-commands`: enriches each `IROperation`'s `hints.powershell` in
  * place (verb, noun, parameterSetName, confirmImpact). Genuinely `IR -> IR`
  * — see ps-cmdlet-schema's design.md Decision 8 for why this can't instead
- * return a `Command[]`, and why grouping into `Command`s is a separate,
- * later function (`deriveCommands`, in `@azure-client-engine/ps-commands`).
+ * return a `PsCommand[]`, and why grouping into `PsCommand`s is a separate,
+ * later function (`derivePsCommands`, in `@azure-client-engine/ps-commands`).
+ *
+ * Named with a `Ps` qualifier (not bare `create-commands`) since azclips has
+ * both a CLI and a PS surface — this step is PowerShell-only.
  *
  * Any field an author already set via `hints.powershell` is left untouched
  * (ordinary last-writer-wins hint semantics) — this transform only fills in
@@ -37,7 +40,7 @@ function resourceNameCandidate(operation: IROperation): string {
   return segments.length > 0 ? segments[segments.length - 1]! : operation.id.name;
 }
 
-export interface CreateCommandsOptions {
+export interface CreatePsCommandsOptions {
   /** Applied to every inferred noun, e.g. "Az" -> "AzResourceGroup". Default: "" (no prefix). */
   subjectPrefix?: string;
 }
@@ -45,7 +48,7 @@ export interface CreateCommandsOptions {
 /** Resolve one operation's `hints.powershell`, filling in only what's not already authored. */
 function resolveOperationHints(
   operation: IROperation,
-  options: Required<CreateCommandsOptions>,
+  options: Required<CreatePsCommandsOptions>,
 ): PowershellOperationHint {
   const existing = operation.rendering?.powershell ?? {};
 
@@ -61,7 +64,7 @@ function resolveOperationHints(
   return { verb, noun, subjectPrefix, parameterSetName, confirmImpact };
 }
 
-function enrichOperation(operation: IROperation, options: Required<CreateCommandsOptions>): IROperation {
+function enrichOperation(operation: IROperation, options: Required<CreatePsCommandsOptions>): IROperation {
   return {
     ...operation,
     rendering: {
@@ -71,14 +74,14 @@ function enrichOperation(operation: IROperation, options: Required<CreateCommand
   };
 }
 
-/** Factory for `CompilerRegistry.transforms`, registered under id `"create-commands"`. */
-export function createCommandsFactory(options: Record<string, unknown> = {}): TransformStep {
-  const resolvedOptions: Required<CreateCommandsOptions> = {
+/** Factory for `CompilerRegistry.transforms`, registered under id `"create-ps-commands"`. */
+export function createPsCommandsFactory(options: Record<string, unknown> = {}): TransformStep {
+  const resolvedOptions: Required<CreatePsCommandsOptions> = {
     subjectPrefix: typeof options.subjectPrefix === "string" ? options.subjectPrefix : "",
   };
 
   return {
-    name: "create-commands",
+    name: "create-ps-commands",
     run: (ir: IR): IR => ({
       ...ir,
       operations: ir.operations.map((operation) => enrichOperation(operation, resolvedOptions)),

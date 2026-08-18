@@ -103,19 +103,19 @@ architecture.
 ### 1. Layering: two-stage derivation, three generated artifacts per command
 
 **Decision**: Derivation happens in two separate stages, mirroring AutoRest.PowerShell's own
-real split (see Decision 8): (i) the `create-commands` `TransformStep` — genuinely `IR -> IR`,
+real split (see Decision 8): (i) the `create-ps-commands` `TransformStep` — genuinely `IR -> IR`,
 since that's what the real `TransformStep` interface requires — enriches each `IROperation`'s
 `hints.powershell` in place (verb, noun, parameter-set name, `ConfirmImpact`), the same way
 AutoRest's `CommandOperation extends ProgrammaticOperation` bolts PS fields onto the same
-operation object; (ii) a separate, plain function, `deriveCommands(ir): Command[]` (in the
+operation object; (ii) a separate, plain function, `derivePsCommands(ir): PsCommand[]` (in the
 `ps-commands` package, not a pipeline stage), groups operations sharing a resolved verb+noun
-into one `Command` with one `ParameterSet` per source operation. Together these drive generation
+into one `PsCommand` with one `PsParameterSet` per source operation. Together these drive generation
 of the three artifacts azclips already hand-writes: (a) a Cmdlet class (attributes + boilerplate
 `ProcessRecord`), (b) a Processor class subclassing the extension's existing `*ProcessorBase<T>`
 with `[ArgumentInfo]`-decorated properties and a `CreateRequestMessage()` built from the IR
 operation's method/pathTemplate/requestBody (illustrative forward context — the actual
 request-building codegen is the later, separate C# generator's concern; this change produces the
-enriched IR + `Command[]` model, not C# output), (c) an `ExtensionIndex` `CommandMetadata`
+enriched IR + `PsCommand[]` model, not C# output), (c) an `ExtensionIndex` `CommandMetadata`
 registration entry (PS-only `ClientType`).
 
 **Rationale**: Matches the real, currently-working convention exactly (see Context) — new
@@ -123,7 +123,7 @@ generated code integrates with the existing `Engine`/`ExecutionSession`/telemetr
 infrastructure with no special-casing, and reviewers/maintainers see the same shape they already
 know from hand-written extensions. The two-stage split isn't optional structuring — it's required
 by the real `TransformStep` interface (`run(ir: IR, context): IR`, and `IR` is a strict Zod
-schema with no room for an arbitrary `Command[]`), discovered when implementation started. See
+schema with no room for an arbitrary `PsCommand[]`), discovered when implementation started. See
 Decision 8 for the full reasoning and the AutoRest precedent that validates this exact split.
 
 **Alternative considered**: AutoRest's model — one class per cmdlet variant that both carries
@@ -148,7 +148,7 @@ help, etc.) is modeled as `hints.powershell` fields directly on `IROperation`/`I
 mirroring AutoRest's real `CommandOperation extends ProgrammaticOperation` (same object, PS
 facet added), adapted to IR's hint-mutation mechanism since IR nodes are immutable Zod data, not
 classes that can be subtyped. The separate `ps-commands` package holds only the thin
-cross-operation aggregate (`Command`/`ParameterSet`, referencing IR operation ids) that hints
+cross-operation aggregate (`PsCommand`/`PsParameterSet`, referencing IR operation ids) that hints
 structurally cannot express — not a redeclaration of `ArgumentInfoAttribute`/`[Parameter]`/
 `[Cmdlet]`/`[OutputType]`/`CommandMetadata`'s fields.
 
@@ -233,10 +233,10 @@ create operations that are implemented as PUT.
 ### 5. Variant fan-out for v1
 
 **Decision**: Two distinct mechanisms, both needed, and both implemented in `ps-commands`'s
-`deriveCommands()` grouping function (not inside the `create-commands` `TransformStep` itself —
+`derivePsCommands()` grouping function (not inside the `create-ps-commands` `TransformStep` itself —
 see Decision 8):
   (a) **Multi-operation merge**: when two or more IR operations under the same `id.namespace`
-      resolve to the same verb+noun (e.g. `get` + `list`), merge them into one `Command` with
+      resolve to the same verb+noun (e.g. `get` + `list`), merge them into one `PsCommand` with
       one parameter set per source operation (real precedent: `GetResourceGroupCmdlet`'s
       `"Get"`/`"List"` parameter sets).
   (b) **Single-operation variant fan-out**: limited to `base` (whole body object) and `Expanded`
@@ -267,7 +267,7 @@ AutoRest's own bespoke logic). Rejected — unnecessary given IR already has thi
 ### 7. Customization/override hook
 
 **Decision**: A directive-style (`select`/`where`/`set`) configuration, passed as the
-`create-commands` `TransformStep`'s `options` (matching `CompileConfig.pipeline`'s existing
+`create-ps-commands` `TransformStep`'s `options` (matching `CompileConfig.pipeline`'s existing
 per-step options bag), for bulk/discoverable renames/hides/adjustments — applied during the same
 enrichment stage that writes resolved values into `hints.powershell`, layered on top of inline
 `hints.powershell` overrides for single-node authoring overrides. Modeled on AutoRest's
@@ -275,7 +275,7 @@ enrichment stage that writes resolved values into `hints.powershell`, layered on
 
 **Rationale**: Directives give bulk, greppable, version-controllable overrides without touching
 generated-from-IR authoring hints per node; this mirrors a proven, working mechanism. Applying
-them inside `create-commands` (rather than in the later `deriveCommands()` grouping step) keeps
+them inside `create-ps-commands` (rather than in the later `derivePsCommands()` grouping step) keeps
 all of a command's naming/shape resolution — inference, directives, inline hints — in one place,
 before grouping ever reads the result.
 
@@ -287,19 +287,19 @@ concern (how generated code coexists with hand overrides), not a schema-stage on
 node, the inline hint wins — it is authored at the specific node, while a directive is a bulk/
 pattern-based default. Directives apply first as defaults; inline hints are resolved last.
 
-### 8. `create-commands` stays IR -> IR; grouping is a separate function
+### 8. `create-ps-commands` stays IR -> IR; grouping is a separate function
 
-**Decision**: `create-commands` is a genuine `TransformStep` — `run(ir: IR, context): IR` — that
+**Decision**: `create-ps-commands` is a genuine `TransformStep` — `run(ir: IR, context): IR` — that
 enriches each `IROperation`'s `hints.powershell` in place (verb, noun, parameter-set name,
-`ConfirmImpact`) rather than returning a `Command[]`. A separate, plain function,
-`deriveCommands(ir: IR): Command[]` (in `ps-commands`, not a pipeline stage), reads the enriched
-IR afterward and groups operations sharing a resolved verb+noun into one `Command` with one
-`ParameterSet` per source operation.
+`ConfirmImpact`) rather than returning a `PsCommand[]`. A separate, plain function,
+`derivePsCommands(ir: IR): PsCommand[]` (in `ps-commands`, not a pipeline stage), reads the enriched
+IR afterward and groups operations sharing a resolved verb+noun into one `PsCommand` with one
+`PsParameterSet` per source operation.
 
 **Rationale**: This was discovered as a hard implementation blocker, not chosen for style: the
 real `TransformStep` interface (`toolkit/packages/compiler/src/transform.ts`) requires returning
 an `IR`, and `IRSchema` is a `.strict()` Zod schema (`schemaVersion`/`sources`/`models`/`enums`/
-`operations`) with no room for an arbitrary `Command[]`. The `Generator` interface (`generate.ts`)
+`operations`) with no room for an arbitrary `PsCommand[]`. The `Generator` interface (`generate.ts`)
 is similarly constrained — `{ files: Map<string,string> }`, meant for text output, not
 structured objects. Checking AutoRest.PowerShell's own real architecture confirmed this exact
 two-stage split is the working precedent, not an azclips-specific workaround: its
@@ -312,7 +312,7 @@ by `CmdletName`/`CmdletNoun`. AutoRest doesn't do the merge inside its per-opera
 step either.
 
 **Alternative considered**: Extend `GeneratorOutput` with an optional generic `data?: unknown`
-field so `create-commands` could run as a `Generator` and return `Command[]` via `files`
+field so `create-ps-commands` could run as a `Generator` and return `PsCommand[]` via `files`
 (serialized as a JSON manifest, e.g. `commands.json`). Rejected for this change — it would
 modify the shared `compiler` package's public interface for every future generator, a more
 invasive change than reusing IR's existing hint-mutation mechanism, which already solves the
@@ -320,7 +320,7 @@ same problem for every other per-node PS override.
 
 ## Open Questions (Phase 2/3 design work still in progress — not yet resolved)
 
-- Exact Zod type definitions for `ps-commands`'s thin `Command`/`ParameterSet` aggregate —
+- Exact Zod type definitions for `ps-commands`'s thin `PsCommand`/`PsParameterSet` aggregate —
   drafted as implementation tasks in `tasks.md`, not finalized here.
 - Exact field list/types for the `powershell` hints namespace in `hints.ts` — vocabulary is
   decided (Decision 3) but not yet typed as Zod schema; drafted as a task in `tasks.md`.
@@ -331,8 +331,8 @@ same problem for every other per-node PS override.
 **RESOLVED**: home for the new, thin Zod aggregate package is `toolkit/packages/ps-commands`
 (npm name `@azure-client-engine/ps-commands`), matching the existing
 `@azure-client-engine/<name>` convention (`ir`, `compiler`, `typespec-emitter`, `cli`). Renamed
-from the original `ps-model` once its scope shrank to just the `Command`/`ParameterSet`
-aggregate + `deriveCommands()` (see Decisions 2 and 8) — "model" no longer fit once it stopped
+from the original `ps-model` once its scope shrank to just the `PsCommand`/`PsParameterSet`
+aggregate + `derivePsCommands()` (see Decisions 2 and 8) — "model" no longer fit once it stopped
 holding the full vocabulary.
 
 ## Appendix: Full Schema Reference
@@ -345,9 +345,9 @@ introduces it. Split into two parts per Decisions 2/8: per-node vocabulary lives
 ### `hints.powershell` on `IROperation.rendering` (per-command)
 | Field | Milestone | Notes |
 |---|---|---|
-| `verb` | 0 | Resolved by `create-commands`; overridable by authors |
-| `noun` | 0 | Bare, singularized, WITHOUT subject prefix (e.g. `"ResourceGroup"`) — resolved by `create-commands`; overridable by authors |
-| `subjectPrefix` | 0 | Own field, not baked into `noun` (e.g. `"Az"`) — combined with `noun` at grouping time into `Command.noun` |
+| `verb` | 0 | Resolved by `create-ps-commands`; overridable by authors |
+| `noun` | 0 | Bare, singularized, WITHOUT subject prefix (e.g. `"ResourceGroup"`) — resolved by `create-ps-commands`; overridable by authors |
+| `subjectPrefix` | 0 | Own field, not baked into `noun` (e.g. `"Az"`) — combined with `noun` at grouping time into `PsCommand.noun` |
 | `parameterSetName` | 0 | Source-operation-derived (e.g. `"Get"`, `"List"`) |
 | `confirmImpact` | 0 | From HTTP method; overridable by authors |
 | `alias` | 1 | |
@@ -358,9 +358,9 @@ introduces it. Split into two parts per Decisions 2/8: per-node vocabulary lives
 | `httpPath` equivalent | 1 | Path template + api-version |
 
 ### `hints.powershell` on `IRParameter.rendering` (per-parameter)
-None of this exists yet in Milestone 0 — `ParameterSet` is a bare `{ name, sourceOperationId }`
+None of this exists yet in Milestone 0 — `PsParameterSet` is a bare `{ name, sourceOperationId }`
 reference (task 0.5) with no parameter-level detail, and M0's own proof (task 0.15) only asserts
-`Command`-level fields. All of it, including `mandatory`, is introduced together in Milestone 1.
+`PsCommand`-level fields. All of it, including `mandatory`, is introduced together in Milestone 1.
 
 | Field | Milestone | Notes |
 |---|---|---|
@@ -375,28 +375,28 @@ reference (task 0.5) with no parameter-level detail, and M0's own proof (task 0.
 | `readOnly` / `create` / `update` | 1 | Mutability flags; mirrors `InfoAttribute.ReadOnly/Create/Update` |
 | default-value expression | 1 | Mirrors `DefaultInfoAttribute` (script/name/set-condition) |
 
-### `ps-commands` package: `ParameterSet` (thin aggregate)
+### `ps-commands` package: `PsParameterSet` (thin aggregate)
 | Field | Milestone | Notes |
 |---|---|---|
 | `name` | 0 | Source-operation-derived (e.g. `"Get"`, `"List"`) |
 | `sourceOperationId` | 0 | Reference into IR \u2014 hints.powershell holds the parameter details |
 
-### `ps-commands` package: `Command` (thin aggregate)
+### `ps-commands` package: `PsCommand` (thin aggregate)
 | Field | Milestone | Notes |
 |---|---|---|
 | `verb` / `noun` | 0 | Copied from the grouped operations' resolved `hints.powershell` |
 | `subjectPrefix` | 0 | Configurable, e.g. `"Az"` |
 | `supportsShouldProcess` / `confirmImpact` | 0 | Copied from `hints.powershell` |
 | `outputTypes` | 0 | By-id refs into IR |
-| `parameterSets` | 0 | `ParameterSet[]` \u2014 one per merged source operation |
+| `parameterSets` | 0 | `PsParameterSet[]` \u2014 one per merged source operation |
 | `sourceOperationIds` | 0 | IR operation id(s) this command derives from |
 
-### `deriveCommands(ir: IR): Command[]` (plain function, not a pipeline stage)
+### `derivePsCommands(ir: IR): PsCommand[]` (plain function, not a pipeline stage)
 Groups IR operations sharing a resolved `hints.powershell.verb`+`noun` (within the same
-`id.namespace`) into one `Command` with one `ParameterSet` per source operation. Also applies
+`id.namespace`) into one `PsCommand` with one `PsParameterSet` per source operation. Also applies
 single-operation variant fan-out (`base`/`Expanded`, reusing `FlattenHint`) per Decision 5.
 
-### Directive grammar (`select`/`where`/`set` — applied inside `create-commands`, Milestone 2)
+### Directive grammar (`select`/`where`/`set` — applied inside `create-ps-commands`, Milestone 2)
 - `select`: `command` \| `parameter`
 - `where` (command): `verb`, `subject`, `subject-prefix`, `parameter-name`
 - `where` (parameter): `parameter-name`, optionally `verb`/`subject`/`subject-prefix`

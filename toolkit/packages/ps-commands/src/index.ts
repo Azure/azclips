@@ -3,10 +3,10 @@
  */
 
 export {
-  ParameterSetSchema,
-  CommandSchema,
-  type ParameterSet,
-  type Command,
+  PsParameterSetSchema,
+  PsCommandSchema,
+  type PsParameterSet,
+  type PsCommand,
 } from "./schema.js";
 
-export { deriveCommands } from "./derive.js";
+export { derivePsCommands } from "./derive.js";

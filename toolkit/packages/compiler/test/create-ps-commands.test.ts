@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyIR, type IROperation } from "@azure-client-engine/ir";
 
-import { createCommandsFactory } from "../src/create-commands.js";
+import { createPsCommandsFactory } from "../src/create-ps-commands.js";
 
 const CONTEXT = { reportDiagnostic: () => undefined, extensions: {} };
 
@@ -20,14 +20,14 @@ function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" 
   };
 }
 
-describe("create-commands (TransformStep)", () => {
+describe("create-ps-commands (TransformStep)", () => {
   it("enriches ResourceGroups.createOrUpdate (PUT) to verb New, matching real precedent", async () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
       method: "PUT",
     });
 
-    const step = createCommandsFactory({ subjectPrefix: "Az" });
+    const step = createPsCommandsFactory({ subjectPrefix: "Az" });
     const result = await step.run({ ...emptyIR(), operations: [operation] }, CONTEXT);
 
     const enriched = result.operations[0]!.rendering!.powershell!;
@@ -43,7 +43,7 @@ describe("create-commands (TransformStep)", () => {
       method: "GET",
     });
 
-    const step = createCommandsFactory({ subjectPrefix: "Az" });
+    const step = createPsCommandsFactory({ subjectPrefix: "Az" });
     const result = await step.run({ ...emptyIR(), operations: [operation] }, CONTEXT);
 
     const enriched = result.operations[0]!.rendering!.powershell!;
@@ -58,7 +58,7 @@ describe("create-commands (TransformStep)", () => {
       rendering: { powershell: { verb: "Set" } },
     });
 
-    const step = createCommandsFactory({ subjectPrefix: "Az" });
+    const step = createPsCommandsFactory({ subjectPrefix: "Az" });
     const result = await step.run({ ...emptyIR(), operations: [operation] }, CONTEXT);
 
     // Author explicitly set verb to "Set" — must not be clobbered by inference.

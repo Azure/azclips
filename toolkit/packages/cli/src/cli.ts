@@ -19,7 +19,7 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
-  createCommandsFactory,
+  createPsCommandsFactory,
   createRegistry,
   type CompileConfig,
   type CompilerDiagnostic,
@@ -32,13 +32,13 @@ import { createSubprocessEmitProducer } from "./tsp-compile.js";
 
 /**
  * Transform steps available to a `--config` file's `pipeline` (see
- * `CompileConfig.pipeline`). `create-commands` (ps-cmdlet-schema's
+ * `CompileConfig.pipeline`). `create-ps-commands` (ps-cmdlet-schema's
  * `hints.powershell` enrichment step) is opt-in — absent `pipeline`, `compile()`
  * still defaults to the identity pipeline, so existing `--config` files with no
  * `pipeline` key are unaffected.
  */
 const REGISTRY = createRegistry({
-  transforms: { "create-commands": createCommandsFactory },
+  transforms: { "create-ps-commands": createPsCommandsFactory },
 });
 
 /** Render a diagnostic for the terminal. */
@@ -81,7 +81,7 @@ function usage(): string {
     "  --tsp-location <path>  Path to the TypeSpec project dir or entry .tsp file (required)",
     "  --config <path>        Path to a JSON file of generation-time settings,",
     "                         loaded as CompileInput.config (CompileConfig) (optional). Set",
-    "                         `\"pipeline\": [{ \"use\": \"create-commands\" }]` to enrich",
+    "                         `\"pipeline\": [{ \"use\": \"create-ps-commands\" }]` to enrich",
     "                         hints.powershell.",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
@@ -134,7 +134,7 @@ async function runCompile(args: string[]): Promise<number> {
 
   // --config points at a JSON file of app-resolved, generation-time settings,
   // loaded here as CompileInput.config (a CompileConfig) — e.g. `pipeline` opts
-  // into a registered transform step like `create-commands`. --api-version is
+  // into a registered transform step like `create-ps-commands`. --api-version is
   // sugar for config.apiVersion and takes precedence when both are given.
   let config: CompileConfig | undefined;
   if (configPath !== undefined) {
