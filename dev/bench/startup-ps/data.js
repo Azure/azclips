@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787019684050,
+  "lastUpdate": 1787019688319,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -4142,6 +4142,42 @@ window.BENCHMARK_DATA = {
             "value": 339922337.9,
             "unit": "ns",
             "range": "± 8983863.756841904"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c0bd57c62e609ec484ea3423baab9c1d6ae590ef",
+          "message": "{Help} Markdig well-formedness preflight (#706)\n\nAdd a build-time Markdig-based validator that parses each CLI help\nmarkdown file and flags inline patterns that render as surprising HTML\nthrough docfx's downstream Markdig pipeline. Complements the existing\nMarkdownStructureValidator, which handles structural checks; this one\ncatches inline-prose issues that pass structural checks but break at\nrender time.\n\nTwo new problem IDs:\n- MD_SuspiciousHtmlTag: <foo>-style placeholders that Markdig treats as\nHTML inlines (only a small allowlist of real HTML tags is accepted).\n- MD_UnbalancedBackticks: odd backtick counts inside paragraph text\n(fenced code blocks are excluded).\n\nWired into Azclips.Help.Tool's aggregate report so both PR CI (GitHub\nActions) and the internal build already exercise it, no new step needed.\n\nRuns clean against the current CLI docs corpus (11 verb docs, zero\nfindings). 7 unit tests cover clean content, placeholder detection,\nallowed real HTML, balanced/unbalanced backticks, fenced-code exclusion,\nand multi-issue aggregation.\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-08-18T12:03:40+10:00",
+          "tree_id": "6460fdb7d5c3ae97f4da6ad09a90b6d08f37ac76",
+          "url": "https://github.com/Azure/azclips/commit/c0bd57c62e609ec484ea3423baab9c1d6ae590ef"
+        },
+        "date": 1787019688211,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 357679295.9,
+            "unit": "ns",
+            "range": "± 24762182.478449766"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 338257033.95,
+            "unit": "ns",
+            "range": "± 5137868.161337119"
           }
         ]
       }
