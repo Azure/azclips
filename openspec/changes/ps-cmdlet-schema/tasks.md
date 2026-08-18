@@ -127,6 +127,14 @@ exactly, not just the simple case.
       `NewResourceGroupCmdlet`, and assert the Expanded variant flattens `ResourceGroupProperties`
       (exercised end-to-end in `cli/test/create-ps-commands.e2e.test.ts` via a test-only
       flatten-decision step, since no real flatten-decision `TransformStep` exists yet).
+- [x] 1.5 Reviewer-feedback follow-up: cross-check the vocabulary directly against the real
+      `System.Management.Automation.ParameterAttribute`/`CmdletAttribute` types (not just
+      azclips's own `ArgumentInfoAttribute`/`ProcessorInfoAttribute`, which only partially cover
+      the real PS SDK shape). Add the five confirmed gaps: `position`, `dontShow` (per-parameter,
+      distinct from the existing operation-level `hidden`), `valueFromRemainingArguments` on
+      `PowershellParameterHint`; `supportsPaging`, `helpUri` on `PowershellOperationHint`. The
+      broader "shared abstraction across `Core.Abstractions` + extensions + codegen" question
+      from the same feedback is tracked as a design.md Open Question, not resolved here.
 
 ## Milestone 2: Directive-style customization (ps-command-customization)
 

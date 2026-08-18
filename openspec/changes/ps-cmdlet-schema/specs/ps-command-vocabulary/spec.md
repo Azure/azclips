@@ -62,6 +62,28 @@ can be generated rather than hand-written per command.
 - **THEN** the generated cmdlet parameter SHALL apply that expression's value when the caller
   does not explicitly bind the parameter
 
+### Requirement: Vocabulary matches the real PowerShell SDK attribute shape where an equivalent exists
+The schema SHALL capture, per parameter, its pipeline position and whether it consumes remaining
+unbound arguments, and, per command, whether it supports result paging and an online help link —
+mirroring `System.Management.Automation.ParameterAttribute.Position`/`.ValueFromRemainingArguments`
+and `CmdletAttribute.SupportsPaging`/`.HelpUri` respectively, rather than diverging from the real
+PS SDK shape where a direct equivalent exists.
+
+#### Scenario: Parameter declares a fixed positional slot
+- **WHEN** a parameter declares a position
+- **THEN** the generated cmdlet parameter SHALL bind positionally at that index without requiring
+  the parameter name
+
+### Requirement: A parameter may be hidden independently of its command
+The schema SHALL support hiding an individual parameter from tab-completion and generated help,
+mirroring `ParameterAttribute.DontShow`, distinct from hiding an entire command via the
+command-level `hidden` field.
+
+#### Scenario: A hidden parameter is excluded from generated help but still bindable
+- **WHEN** a parameter is marked `dontShow`
+- **THEN** the schema SHALL exclude it from generated tab-completion/help
+- **AND** the schema SHALL NOT exclude the command itself, nor any other parameter, as a result
+
 ### Requirement: Vocabulary excludes concepts on a case-by-case merit basis, not blanket absence
 The schema SHALL NOT model breaking-change metadata, API-profile metadata, or external-docs
 links, each excluded for its own documented reason (architectural mismatch, redundancy with IR,

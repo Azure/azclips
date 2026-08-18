@@ -20,8 +20,10 @@ describe("hints.powershell (ParameterHints) — Milestone 1", () => {
         mandatory: true,
         parameterSetName: "Get",
         helpMessage: "The name of the resource group.",
+        position: 0,
         valueFromPipeline: true,
         valueFromPipelineByPropertyName: true,
+        valueFromRemainingArguments: false,
         supportsWildcards: false,
         aliases: ["Name"],
         allowedValues: ["Incremental", "Complete"],
@@ -29,6 +31,7 @@ describe("hints.powershell (ParameterHints) — Milestone 1", () => {
         create: true,
         update: false,
         readOnly: false,
+        dontShow: false,
         defaultValue: { script: "(Get-AzContext).Subscription.Id", name: "DefaultSubscriptionId" },
       },
     };
@@ -38,6 +41,10 @@ describe("hints.powershell (ParameterHints) — Milestone 1", () => {
 
   it("rejects mutability flags of the wrong type", () => {
     expect(() => ParameterHintsSchema.parse({ powershell: { readOnly: "yes" } })).toThrow();
+  });
+
+  it("rejects a non-integer position", () => {
+    expect(() => ParameterHintsSchema.parse({ powershell: { position: 1.5 } })).toThrow();
   });
 
   it("does not leak the parameter powershell namespace onto unrelated node kinds", () => {
@@ -61,6 +68,8 @@ describe("hints.powershell (OperationHints) — Milestone 1 extensions", () => {
           path: "/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}",
           apiVersion: "2025-04-01",
         },
+        supportsPaging: false,
+        helpUri: "https://learn.microsoft.com/powershell/module/az.resources/new-azresourcegroup",
       },
     };
 

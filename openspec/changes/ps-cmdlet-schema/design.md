@@ -189,6 +189,18 @@ definitions (`InfoAttribute`/`DefaultInfoAttribute` in a real generated module's
 real, everyday Az PowerShell needs (Update cmdlets that must not resend read-only properties;
 parameters that default from ambient context).
 
+**Reviewer feedback follow-up**: after initial review, the vocabulary was additionally
+cross-checked directly against the real `System.Management.Automation.ParameterAttribute`/
+`CmdletAttribute` types (not just azclips's own `ArgumentInfoAttribute`/`ProcessorInfoAttribute`,
+which predate and only partially cover the real PS SDK shape). That surfaced five genuine,
+low-cost gaps, now added: `position` (`ParameterAttribute.Position`),
+`valueFromRemainingArguments` (`ParameterAttribute.ValueFromRemainingArguments`), `dontShow`
+(`ParameterAttribute.DontShow` — per-parameter, distinct from the existing operation-level
+`hidden`), `supportsPaging` and `helpUri` (`CmdletAttribute.SupportsPaging`/`.HelpUri`). The
+broader reviewer question — whether this vocabulary should live as a shared abstraction across
+`Core.Abstractions`, extensions, and codegen rather than only in `hints.powershell` — is a larger
+architectural question tracked as an Open Question below, not resolved by this field addition.
+
 **Alternative considered**: Port AutoRest's full vocabulary including the breaking-change/
 preview/API-profile/`ExternalDocs`/`Category`/format-table attributes. Rejected per the
 reasoning in Non-Goals above — each is either an architectural mismatch, a large separate effort,
@@ -349,6 +361,15 @@ default), so the full `IR -> (enriched IR) -> PsCommand[]` path is reachable thr
   hand-written CLI side. Splitting `ExtensionIndex` into a `partial class` (hand-written CLI +
   shared machinery, generated PS-only fields) is a real prerequisite change to azclips's existing
   code — deferred to whichever later change actually implements the C# generator.
+- **Whether `hints.powershell` should be a shared abstraction across `Core.Abstractions` +
+  extensions + codegen, not just a codegen-internal IR namespace.** Raised in reviewer feedback
+  on this change's first PR: today's vocabulary is *codegen-only* — hand-written extensions keep
+  using their own `ArgumentInfoAttribute`/`ProcessorInfoAttribute`/`CommandMetadata` in
+  `Core.Abstractions`, a separate (and, per the same feedback, not fully
+  `System.Management.Automation`-aligned) definition. Unifying these into one shared,
+  core-owned abstraction is a real, larger architectural question — explicitly distinct from the
+  "single source of truth emitted at build-time from a shared spec" idea the reviewer also raised
+  and asked to defer. Not resolved here; revisit once more reviewer feedback lands.
 
 **RESOLVED**: home for the new, thin Zod aggregate package is `toolkit/packages/ps-commands`
 (npm name `@azure-client-engine/ps-commands`), matching the existing
@@ -378,6 +399,8 @@ introduces it. Split into two parts per Decisions 2/8: per-node vocabulary lives
 | `summary` / `description` / `examples` | 1 | Mirrors `ProcessorInfoAttribute` |
 | lifecycle tag | 1 | Preview / Deprecated / Experimental / GA |
 | `httpPath` equivalent | 1 | Path template + api-version |
+| `supportsPaging` | 1 | Mirrors `System.Management.Automation.CmdletAttribute.SupportsPaging` |
+| `helpUri` | 1 | Mirrors `System.Management.Automation.CmdletAttribute.HelpUri` |
 
 ### `hints.powershell` on `IRParameter.rendering` (per-parameter)
 None of this exists yet in Milestone 0 — `PsParameterSet` is a bare `{ name, sourceOperationId }`
@@ -389,12 +412,15 @@ reference (task 0.5) with no parameter-level detail, and M0's own proof (task 0.
 | `mandatory` | 1 | |
 | `parameterSetName` | 1 | |
 | `helpMessage` | 1 | |
+| `position` | 1 | Mirrors `System.Management.Automation.ParameterAttribute.Position` |
 | `valueFromPipeline` / `valueFromPipelineByPropertyName` | 1 | |
+| `valueFromRemainingArguments` | 1 | Mirrors `ParameterAttribute.ValueFromRemainingArguments` |
 | `supportsWildcards` | 1 | |
 | `aliases` | 1 | |
 | `allowedValues` | 1 | `ValidateSet` equivalent |
 | completer reference | 1 | Mirrors `CompleterInfoAttribute` |
 | `readOnly` / `create` / `update` | 1 | Mutability flags; mirrors `InfoAttribute.ReadOnly/Create/Update` |
+| `dontShow` | 1 | Per-parameter hide (distinct from the operation-level `hidden`); mirrors `ParameterAttribute.DontShow` |
 | default-value expression | 1 | Mirrors `DefaultInfoAttribute` (script/name/set-condition) |
 
 ### `ps-commands` package: `PsParameterSet` (thin aggregate)

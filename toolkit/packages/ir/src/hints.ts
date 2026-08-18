@@ -255,6 +255,10 @@ export type PowershellOperationHint = {
   lifecycleTag?: LifecycleTag | undefined;
   /** Path template + api-version, for introspection/support tooling. */
   httpPath?: { path: string; apiVersion: string } | undefined;
+  /** Mirrors `System.Management.Automation.CmdletAttribute.SupportsPaging`. */
+  supportsPaging?: boolean | undefined;
+  /** Mirrors `System.Management.Automation.CmdletAttribute.HelpUri`. */
+  helpUri?: string | undefined;
 };
 
 export const PowershellOperationHintSchema: z.ZodType<PowershellOperationHint> = z
@@ -275,6 +279,8 @@ export const PowershellOperationHintSchema: z.ZodType<PowershellOperationHint> =
       .object({ path: z.string().min(1), apiVersion: z.string().min(1) })
       .strict()
       .optional(),
+    supportsPaging: z.boolean().optional(),
+    helpUri: z.string().min(1).optional(),
   })
   .strict();
 
@@ -300,8 +306,12 @@ export type PowershellParameterHint = {
   /** Parameter-set name this parameter belongs to (defaults to the containing operation's). */
   parameterSetName?: string | undefined;
   helpMessage?: string | undefined;
+  /** Mirrors `System.Management.Automation.ParameterAttribute.Position`. */
+  position?: number | undefined;
   valueFromPipeline?: boolean | undefined;
   valueFromPipelineByPropertyName?: boolean | undefined;
+  /** Mirrors `System.Management.Automation.ParameterAttribute.ValueFromRemainingArguments`. */
+  valueFromRemainingArguments?: boolean | undefined;
   supportsWildcards?: boolean | undefined;
   aliases?: string[] | undefined;
   /** `ValidateSet` equivalent. */
@@ -313,6 +323,8 @@ export type PowershellParameterHint = {
   update?: boolean | undefined;
   /** Never settable — server-computed. Mirrors `InfoAttribute.ReadOnly`. */
   readOnly?: boolean | undefined;
+  /** Hides this parameter from tab-completion/help. Mirrors `ParameterAttribute.DontShow` (per-parameter — distinct from the operation-level `hidden`, which hides the whole command). */
+  dontShow?: boolean | undefined;
   defaultValue?: DefaultValueHint | undefined;
 };
 
@@ -321,8 +333,10 @@ export const PowershellParameterHintSchema: z.ZodType<PowershellParameterHint> =
     mandatory: z.boolean().optional(),
     parameterSetName: z.string().min(1).optional(),
     helpMessage: z.string().min(1).optional(),
+    position: z.number().int().optional(),
     valueFromPipeline: z.boolean().optional(),
     valueFromPipelineByPropertyName: z.boolean().optional(),
+    valueFromRemainingArguments: z.boolean().optional(),
     supportsWildcards: z.boolean().optional(),
     aliases: z.array(z.string().min(1)).optional(),
     allowedValues: z.array(z.string().min(1)).optional(),
@@ -330,6 +344,7 @@ export const PowershellParameterHintSchema: z.ZodType<PowershellParameterHint> =
     create: z.boolean().optional(),
     update: z.boolean().optional(),
     readOnly: z.boolean().optional(),
+    dontShow: z.boolean().optional(),
     defaultValue: DefaultValueHintSchema.optional(),
   })
   .strict();
