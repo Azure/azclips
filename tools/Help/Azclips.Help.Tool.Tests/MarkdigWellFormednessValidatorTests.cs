@@ -89,6 +89,46 @@ public class MarkdigWellFormednessValidatorTests
     }
 
     [Fact]
+    public void UnbalancedBackticks_MessageIncludesExcerptAroundBacktick()
+    {
+        var content = """
+            ---
+            summary: Sample.
+            status: ga
+            schema: 1.0.0
+            ---
+
+            Description: Configure `--size to Standard_D2s_v5 for a small VM.
+            """;
+
+        var report = ValidateContent(content);
+
+        var error = Assert.Single(report.Errors);
+        Assert.Contains("near:", error.Message);
+        Assert.Contains("`--size", error.Message);
+    }
+
+    [Fact]
+    public void UnbalancedBackticks_PopulatesLine()
+    {
+        // Line 7 is the "Description:" paragraph in the content below.
+        var content = """
+            ---
+            summary: Sample.
+            status: ga
+            schema: 1.0.0
+            ---
+
+            Description: Set `--size to Standard_D2s_v5 for a small VM.
+            """;
+
+        var report = ValidateContent(content);
+
+        var error = Assert.Single(report.Errors);
+        Assert.Equal(7, error.Line);
+    }
+
+    [Fact]
     public void BalancedInlineCode_NoIssues()
     {
         var content = """

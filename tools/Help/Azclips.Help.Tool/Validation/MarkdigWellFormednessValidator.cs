@@ -88,7 +88,8 @@ public sealed class MarkdigWellFormednessValidator
             report.AddError(
                 ProblemIds.MD_SuspiciousHtmlTag,
                 $"line {line}: '{tagText}' looks like a placeholder rendered as HTML. Wrap in backticks or rewrite (e.g. `{name}` instead of <{name}>).",
-                relativePath);
+                relativePath,
+                line);
         }
     }
 
@@ -108,13 +109,33 @@ public sealed class MarkdigWellFormednessValidator
                 if (backtickCount % 2 != 0)
                 {
                     var line = literal.Line + 1;
+                    var excerpt = BuildExcerpt(text);
                     report.AddError(
                         ProblemIds.MD_UnbalancedBackticks,
-                        $"line {line}: odd number of backticks ({backtickCount}) in prose — likely an unclosed inline-code span.",
-                        relativePath);
+                        $"line {line}: odd number of backticks ({backtickCount}) in prose — likely an unclosed inline-code span. near: \"{excerpt}\"",
+                        relativePath,
+                        line);
                 }
             }
         }
+    }
+
+    // ±20 chars around the last backtick, collapsed to single-line, with ellipses when trimmed.
+    private static string BuildExcerpt(string text)
+    {
+        var lastBacktick = text.LastIndexOf('`');
+        if (lastBacktick < 0)
+        {
+            return text;
+        }
+
+        const int Radius = 20;
+        var start = Math.Max(0, lastBacktick - Radius);
+        var end = Math.Min(text.Length, lastBacktick + Radius + 1);
+        var slice = text[start..end].Replace('\r', ' ').Replace('\n', ' ').Replace("\"", "\\\"");
+        var prefix = start > 0 ? "…" : string.Empty;
+        var suffix = end < text.Length ? "…" : string.Empty;
+        return $"{prefix}{slice}{suffix}";
     }
 
     // Extracts the tag NAME from raw HTML-like content Markdig recognised as inline HTML.

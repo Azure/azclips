@@ -206,17 +206,19 @@ var psCompletenessReport = new PsCompletenessValidator().Validate(repoRoot);
 aggregateReport.Merge(psCompletenessReport);
 
 var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
-WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
 
 PrintGroupedSummary(aggregateReport);
-Console.WriteLine($"Generated {manifests.Count} help manifest(s) and HelpIndex.json in {outputRoot}");
 
 if (aggregateReport.HasErrors)
 {
+    EmitGitHubAnnotations(aggregateReport);
     var errorCount = aggregateReport.Errors.Count();
     Console.Error.WriteLine($"Help validation failed: {errorCount} error(s) collected across all stages. See grouped summary above.");
     return 1;
 }
+
+WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
+Console.WriteLine($"Generated {manifests.Count} help manifest(s) and HelpIndex.json in {outputRoot}");
 
 return 0;
 
@@ -291,3 +293,52 @@ static void WriteJson<T>(string path, T value)
 
     File.WriteAllText(path, json + Environment.NewLine);
 }
+
+// Emits GitHub Actions workflow commands (::error file=…,line=…,title=…::message) so errors
+// show as inline annotations on the PR "Files changed" tab instead of just log text.
+// See https://docs.github.com/actions/reference/workflow-commands-for-github-actions.
+// Guarded by GITHUB_ACTIONS=true so local runs stay quiet.
+static void EmitGitHubAnnotations(ValidationReport report)
+{
+    if (!string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.Ordinal))
+    {
+        return;
+    }
+
+    foreach (var issue in report.Errors)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(issue.FilePath))
+        {
+            // Normalise to forward slashes; GitHub matches annotation paths against the
+            // repo tree, which is always POSIX-style regardless of the runner OS.
+            var normalised = issue.FilePath.Replace('\\', '/');
+            parts.Add($"file={EscapeAnnotationProperty(normalised)}");
+        }
+        if (issue.Line is int line)
+        {
+            parts.Add($"line={line}");
+        }
+        if (!string.IsNullOrEmpty(issue.ProblemId))
+        {
+            parts.Add($"title={EscapeAnnotationProperty(issue.ProblemId)}");
+        }
+
+        var propList = parts.Count == 0 ? string.Empty : " " + string.Join(",", parts);
+        Console.WriteLine($"::error{propList}::{EscapeAnnotationData(issue.Message)}");
+    }
+}
+
+// GitHub annotation property values require ',', ':', '%', CR, LF encoded.
+static string EscapeAnnotationProperty(string value) => value
+    .Replace("%", "%25", StringComparison.Ordinal)
+    .Replace("\r", "%0D", StringComparison.Ordinal)
+    .Replace("\n", "%0A", StringComparison.Ordinal)
+    .Replace(":", "%3A", StringComparison.Ordinal)
+    .Replace(",", "%2C", StringComparison.Ordinal);
+
+// Annotation message body: only %, CR, LF need encoding.
+static string EscapeAnnotationData(string value) => value
+    .Replace("%", "%25", StringComparison.Ordinal)
+    .Replace("\r", "%0D", StringComparison.Ordinal)
+    .Replace("\n", "%0A", StringComparison.Ordinal);
