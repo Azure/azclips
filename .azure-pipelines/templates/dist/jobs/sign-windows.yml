@@ -58,7 +58,7 @@ jobs:
     displayName: Sign Windows Artifacts
     pool:
       vmImage: ${{ parameters.windows_pool }}
-    timeoutInMinutes: 30
+    timeoutInMinutes: 60
     steps:
     - checkout: self
       clean: true
