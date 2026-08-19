@@ -11,12 +11,12 @@ public sealed class ExtensionIndex : IExtensionIndex
     private const string AssemblyName = "Microsoft.Azure.Azclips.Extensions.Storage";
 
     private static readonly CommandMetadata s_uploadBlob = new(
-        Name: nameof(Processors.UploadBlobProcessor_Orchestrator),
+        Name: nameof(Processors.BlockBlobUploadProcessor_Orchestrator),
         InvocationName: "storage blob upload",
         Aliases: [],
-        FullName: $"{AssemblyName}.Processors.UploadBlobProcessor_Orchestrator",
+        FullName: $"{AssemblyName}.Processors.BlockBlobUploadProcessor_Orchestrator",
         AssemblyName: AssemblyName,
-        ProcessorType: typeof(Processors.UploadBlobProcessor_Orchestrator),
+        ProcessorType: typeof(Processors.BlockBlobUploadProcessor_Orchestrator),
         Parameters: BlobParameters(),
         ParameterAliases: new Dictionary<string, string>
         {
@@ -26,12 +26,12 @@ public sealed class ExtensionIndex : IExtensionIndex
         });
 
     private static readonly CommandMetadata s_downloadBlob = new(
-        Name: nameof(Processors.DownloadBlobProcessor_Orchestrator),
+        Name: nameof(Processors.BlobDownloadProcessor_Orchestrator),
         InvocationName: "storage blob download",
         Aliases: [],
-        FullName: $"{AssemblyName}.Processors.DownloadBlobProcessor_Orchestrator",
+        FullName: $"{AssemblyName}.Processors.BlobDownloadProcessor_Orchestrator",
         AssemblyName: AssemblyName,
-        ProcessorType: typeof(Processors.DownloadBlobProcessor_Orchestrator),
+        ProcessorType: typeof(Processors.BlobDownloadProcessor_Orchestrator),
         Parameters: BlobParameters(),
         ParameterAliases: new Dictionary<string, string>
         {
@@ -41,22 +41,22 @@ public sealed class ExtensionIndex : IExtensionIndex
         });
 
     private static readonly CommandMetadata s_uploadBlobPs = new(
-        Name: nameof(Processors.UploadBlobProcessor_Orchestrator),
+        Name: nameof(Processors.BlockBlobUploadProcessor_Orchestrator),
         InvocationName: "Set-AzStorageBlobContent",
         Aliases: [],
-        FullName: $"{AssemblyName}.Processors.UploadBlobProcessor_Orchestrator",
+        FullName: $"{AssemblyName}.Processors.BlockBlobUploadProcessor_Orchestrator",
         AssemblyName: AssemblyName,
-        ProcessorType: typeof(Processors.UploadBlobProcessor_Orchestrator),
+        ProcessorType: typeof(Processors.BlockBlobUploadProcessor_Orchestrator),
         Parameters: BlobParametersPowerShell(),
         ParameterAliases: new Dictionary<string, string>());
 
     private static readonly CommandMetadata s_downloadBlobPs = new(
-        Name: nameof(Processors.DownloadBlobProcessor_Orchestrator),
+        Name: nameof(Processors.BlobDownloadProcessor_Orchestrator),
         InvocationName: "Get-AzStorageBlobContent",
         Aliases: [],
-        FullName: $"{AssemblyName}.Processors.DownloadBlobProcessor_Orchestrator",
+        FullName: $"{AssemblyName}.Processors.BlobDownloadProcessor_Orchestrator",
         AssemblyName: AssemblyName,
-        ProcessorType: typeof(Processors.DownloadBlobProcessor_Orchestrator),
+        ProcessorType: typeof(Processors.BlobDownloadProcessor_Orchestrator),
         Parameters: BlobParametersPowerShell(),
         ParameterAliases: new Dictionary<string, string>());
 
