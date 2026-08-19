@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { emptyIR, type IROperation } from "@azure-client-engine/ir";
 
 import { createPsCommandsFactory } from "../src/create-ps-commands.js";
+import { DirectiveSchema } from "../src/directives.js";
 
 const CONTEXT = { reportDiagnostic: () => undefined, extensions: {} };
 
@@ -104,5 +105,46 @@ describe("create-ps-commands: directives (Milestone 2)", () => {
 
     // Author-set inline hint wins over the directive's conflicting value.
     expect(result.operations[0]!.rendering!.powershell!.confirmImpact).toBe("Medium");
+  });
+
+  it("matches a parameter directive against the pre-directive command identity, even when a command directive renames the verb", async () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+      pathParameters: [makeParameter("Location")],
+    });
+
+    const step = createPsCommandsFactory({
+      subjectPrefix: "Az",
+      directives: [
+        // Renames the inferred verb "New" -> "Set".
+        { select: "command", where: { verb: "New", subject: "ResourceGroup" }, set: { verb: "Set" } },
+        // Scoped to the PRE-rename verb "New" — must still match the same command.
+        {
+          where: { parameterName: "Location", verb: "New", subject: "ResourceGroup" },
+          set: { alias: ["Loc"] },
+        },
+      ],
+    });
+    const result = await step.run({ ...emptyIR(), operations: [operation] }, CONTEXT);
+
+    expect(result.operations[0]!.rendering!.powershell!.verb).toBe("Set");
+    expect(result.operations[0]!.pathParameters[0]!.rendering!.powershell!.aliases).toEqual(["Loc"]);
+  });
+});
+
+describe("DirectiveSchema: parameter selector requires a parameterName", () => {
+  it("rejects an explicit \"parameter\" selector with no where.parameterName", () => {
+    const result = DirectiveSchema.safeParse({ select: "parameter", where: {}, set: { dontShow: true } });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts an explicit \"parameter\" selector when where.parameterName is set", () => {
+    const result = DirectiveSchema.safeParse({
+      select: "parameter",
+      where: { parameterName: "Foo" },
+      set: { dontShow: true },
+    });
+    expect(result.success).toBe(true);
   });
 });

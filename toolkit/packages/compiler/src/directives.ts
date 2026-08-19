@@ -82,7 +82,13 @@ export const DirectiveSchema: z.ZodType<Directive> = z
     where: DirectiveWhereSchema,
     set: DirectiveSetSchema,
   })
-  .strict();
+  .strict()
+  // An explicit `select: "parameter"` with no `where.parameterName` can never match anything
+  // (matchesParameter always requires it) — reject at validation time rather than silently no-op.
+  .refine((directive) => directive.select !== "parameter" || directive.where.parameterName !== undefined, {
+    message: 'A "parameter" selector directive requires `where.parameterName`.',
+    path: ["where", "parameterName"],
+  });
 
 export const DirectivesSchema: z.ZodType<Directive[]> = z.array(DirectiveSchema);
 

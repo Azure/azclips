@@ -78,7 +78,7 @@ export interface CreatePsCommandsOptions {
 function resolveOperationHints(
   operation: IROperation,
   options: Required<CreatePsCommandsOptions>,
-): PowershellOperationHint {
+): { hints: PowershellOperationHint; identity: CommandIdentity } {
   const existing = operation.rendering?.powershell ?? {};
 
   const inferredVerb = resolveVerb(operation.id.name, operation.method);
@@ -89,7 +89,9 @@ function resolveOperationHints(
   const inferredConfirmImpact = isMutatingMethod(operation.method) ? "Medium" : undefined;
 
   // Directive matching evaluates against the "already-authored, else inferred" identity —
-  // what the operation's verb/noun/subjectPrefix would be with no directive at all.
+  // what the operation's verb/noun/subjectPrefix would be with no directive at all. Returned
+  // as-is (not the post-directive result) so parameter-level directive matching can use the
+  // same pre-directive identity, rather than one a command-level directive already changed.
   const identity: CommandIdentity = {
     verb: existing.verb ?? inferredVerb,
     subject: existing.noun ?? inferredNoun,
@@ -110,7 +112,7 @@ function resolveOperationHints(
   const alias = existing.alias ?? directiveSet.alias;
   const hidden = existing.hidden ?? directiveSet.hidden;
 
-  return { verb, noun, subjectPrefix, parameterSetName, confirmImpact, alias, hidden };
+  return { hints: { verb, noun, subjectPrefix, parameterSetName, confirmImpact, alias, hidden }, identity };
 }
 
 /** Resolve one parameter's `hints.powershell`, applying matching directives as a fallback default. */
@@ -140,13 +142,7 @@ function resolveParameterHints(
 }
 
 function enrichOperation(operation: IROperation, options: Required<CreatePsCommandsOptions>): IROperation {
-  const powershell = resolveOperationHints(operation, options);
-  const owningCommand: CommandIdentity = {
-    verb: powershell.verb!,
-    subject: powershell.noun!,
-    subjectPrefix: powershell.subjectPrefix,
-    parameterNames: parameterNamesOf(operation),
-  };
+  const { hints: powershell, identity: owningCommand } = resolveOperationHints(operation, options);
 
   const enrichParameter = (parameter: IRParameter): IRParameter => ({
     ...parameter,
