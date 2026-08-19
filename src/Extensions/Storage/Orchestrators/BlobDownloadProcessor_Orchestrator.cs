@@ -7,7 +7,7 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class DownloadBlobProcessor_Orchestrator : StorageBlobProcessorBase
+public sealed class BlobDownloadProcessor_Orchestrator : StorageBlobProcessorBase
 {
     public string FilePath { get; set; } = string.Empty;
     public bool Overwrite { get; set; }
