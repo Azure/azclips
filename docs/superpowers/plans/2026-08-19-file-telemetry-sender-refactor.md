@@ -29,7 +29,7 @@
 - Do not add logging to the upload path. It runs in a detached process whose stderr nobody reads.
 - Commit messages use the repo convention `{Telemetry} Description` — see `git log --oneline`.
 - `src/Directory.Build.props` sets `TreatWarningsAsErrors=true`, so any compiler warning in product code fails the build. Test projects do not. Existing code catches `Exception` and leaves redundant `using` directives in place, so neither CA1031 nor IDE0005 is enforced — where this plan says to remove a `using`, put it back if the build disagrees.
-- **Test command for tasks 1–6:** `dotnet test tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj`. Build only this project during the loop; a full `dotnet build azclips.slnx` pulls in `Core.Agent`, which downloads an npm package and can fail on TLS. If you must do a full solution build, use the `building-the-solution` skill.
+- **Test command for tasks 1–6:** `dotnet test tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj`. Build only this project during the loop; a full `dotnet build azclips.slnx` pulls in `Core.Agent`, which downloads an npm package and fails on TLS unless you pass `-p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/` (see Task 9).
 
 ---
 
@@ -1747,9 +1747,9 @@ git commit -m "{Telemetry} Update telemetry wiki for the uploader refactor"
 
 - [ ] **Step 1: Build the whole solution**
 
-Run: `dotnet build azclips.slnx`
+Run: `dotnet build azclips.slnx -p:CopilotNpmRegistryUrl=https://packagefeedproxy.microsoft.io/npm/`
 
-Expected: build succeeds. If restore fails downloading the GitHub Copilot npm package from `registry.npmjs.org` (a TLS handshake failure from `Core.Agent`), use the `building-the-solution` skill — that failure is unrelated to this change.
+Expected: build succeeds. The `CopilotNpmRegistryUrl` property is **required** for any full-solution build — `Agent/Core.Agent` downloads a GitHub Copilot npm package at build time, and a bare `dotnet build azclips.slnx` reaches `registry.npmjs.org` and fails with a TLS handshake error (`MSB3923` / `The SSL connection could not be established`). The property routes the download through the Microsoft package feed proxy. This is unrelated to this change.
 
 - [ ] **Step 2: Run the telemetry test suite one final time**
 
