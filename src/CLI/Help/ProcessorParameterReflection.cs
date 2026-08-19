@@ -39,4 +39,8 @@ internal static class ProcessorParameterReflection
     /// <summary>Reads <c>[ParameterGroup]</c> off the property; null when absent or property is null.</summary>
     public static string? GetGroupName(PropertyInfo? property)
         => property?.GetCustomAttribute<ParameterGroupAttribute>()?.Name;
+
+    /// <summary>Reads <c>[PopulatorCommand]</c> off the property; null when absent or property is null.</summary>
+    public static string? GetValueSources(PropertyInfo? property)
+        => property?.GetCustomAttribute<PopulatorCommandAttribute>()?.Command;
 }

@@ -175,6 +175,12 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
                 : $" -{string.Join(" -", parameter.Aliases)}";
             var required = parameter.Required ? " [Required]" : string.Empty;
             lines.Add($"    --{parameter.Name}{aliases}{required} : {parameter.Description}");
+
+            if (!string.IsNullOrEmpty(parameter.ValueSources))
+            {
+                var suffix = parameter.ValueSources.EndsWith('.') ? string.Empty : ".";
+                lines.Add($"        Values from: {parameter.ValueSources}{suffix}");
+            }
         }
     }
 }

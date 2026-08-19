@@ -12,7 +12,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
     {
         public string Name { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
+
+        [PopulatorCommand("az group list")]
         public string ResourceGroupName { get; set; } = string.Empty;
+
         public string VmSize { get; set; } = string.Empty;
 
         [ParameterGroup("Authentication Arguments")]

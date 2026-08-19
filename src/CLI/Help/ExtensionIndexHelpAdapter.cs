@@ -91,7 +91,8 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
                     ParameterSetName: "(All)",
                     SupportsPipeline: false,
                     SupportsWildcards: false,
-                    GroupName: ProcessorParameterReflection.GetGroupName(property));
+                    GroupName: ProcessorParameterReflection.GetGroupName(property),
+                    ValueSources: ProcessorParameterReflection.GetValueSources(property));
             })
             .ToList();
 

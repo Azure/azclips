@@ -201,6 +201,46 @@ public class RuntimeHelpRendererTests
         Assert.Contains("Authentication Arguments\n    --admin-username", actual);
     }
 
+    [Fact]
+    public void RenderCommand_ShouldEmitValuesFromLine_WhenValueSourcesIsSet()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters:
+            [
+                new RuntimeHelpParameter("resource-group", [], true, "The resource group name.", "The resource group name.", [], "(All)", false, false, GroupName: null, ValueSources: "az group list"),
+            ],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("    --resource-group [Required] : The resource group name.\n        Values from: az group list.", actual);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldNotEmitValuesFromLine_WhenValueSourcesIsNull()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters:
+            [
+                new RuntimeHelpParameter("name", [], true, "VM name.", "VM name.", [], "(All)", false, false, GroupName: null, ValueSources: null),
+            ],
+            Examples: [],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.DoesNotContain("Values from:", actual);
+    }
+
     private static string LoadFixture(string fileName)
     {
         var repoRoot = RepoLocator.GetRepoRoot();
