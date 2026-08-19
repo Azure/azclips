@@ -4,11 +4,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using Benchmark.Telemetry;
 using BenchmarkDotNet.Attributes;
 using Core.Abstractions;
 using Core.Cli;
 using Core.DependencyInjection;
 using Core.Extensions;
+using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Perfolizer.Mathematics.OutlierDetection;
@@ -39,6 +41,11 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
+    private BenchmarkStageListener _stage = null!;
+    private StageTraceDirectoryProvider _traceDirectory = null!;
+    private string _stagingRoot = null!;    // artifacts/Benchmark/telemetry
+    private string _telemetryRoot = null!;  // <_stagingRoot>/<benchmark>
+    private string _benchmarkName = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -67,6 +74,20 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
         Console.WriteLine(
             $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} extension(s)");
+
+        // One process per benchmark case, so these are constant for the whole run.
+        _benchmarkName = BenchmarkName.FromCommandLine();
+        _stagingRoot = Path.Combine(RepoRoot, "artifacts", "Benchmark", "telemetry");
+        _telemetryRoot = Path.Combine(_stagingRoot, _benchmarkName);
+
+        // The staging path is stable across runs, so this is what stops runs bleeding together.
+        TryDeleteDirectory(_telemetryRoot);
+
+        _stage = new BenchmarkStageListener();
+        _traceDirectory = new StageTraceDirectoryProvider(
+            Path.Combine(_telemetryRoot, "warmup"),
+            Path.Combine(_telemetryRoot, "actual"),
+            _stage);
     }
 
     [IterationSetup]
@@ -75,6 +96,28 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         SeedProfileStore();
         RegisterBenchmarkStubs();
         RegisterExtensionResolution();
+        RegisterTelemetryCapture();
+    }
+
+    /// <summary>
+    /// Swaps the stubbed telemetry service back to the production one and points the exporter at
+    /// this benchmark's trace directories. Runs after <see cref="BenchmarkBase.RegisterBenchmarkStubs"/>
+    /// so DI last-wins semantics replace <c>StubTelemetryService</c>, and before
+    /// <c>Core.Cli.Program.Main</c> registers <c>CLITelemetryProvider</c> — which is what actually
+    /// builds the real exporter pipeline.
+    /// </summary>
+    /// <remarks>
+    /// The registration is repeated every iteration because <c>[IterationCleanup]</c> disposes the
+    /// DI container, but the registered instance is the same throughout. The warmup-versus-measured
+    /// choice deliberately is NOT made here — see <see cref="StageTraceDirectoryProvider"/>.
+    /// </remarks>
+    private void RegisterTelemetryCapture()
+    {
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton<ITelemetryService, TelemetryService>();
+            services.AddSingleton<ITraceDirectoryProvider>(_traceDirectory);
+        });
     }
 
     [IterationCleanup]
@@ -86,11 +129,47 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     [GlobalCleanup]
     public void GlobalCleanup()
     {
+        _stage?.Dispose();
+        PruneTelemetry();
         CleanupGlobal();
 
         // Best-effort: InstalledExtensionLoader caches the extension ALC for the process
         // lifetime, so the staged DLL may still be locked here. A leftover home is harmless.
         TryDeleteDirectory(Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
+    }
+
+    /// <summary>
+    /// Samples the measured traces down to the deliverable and removes the raw files. Never throws:
+    /// a telemetry-plumbing failure must not change the benchmark's exit code or trip the
+    /// regression gate.
+    /// </summary>
+    private void PruneTelemetry()
+    {
+        try
+        {
+            var kept = TraceSampler.Prune(
+                Path.Combine(_telemetryRoot, "actual"),
+                Path.Combine(_stagingRoot, _benchmarkName + ".jsonl"));
+
+            if (kept == 0)
+            {
+                Console.WriteLine(
+                    $"[Telemetry] {_benchmarkName}: no traces captured. Either telemetry is " +
+                    "disabled in ~/.azclips/config.json, or no measured iteration ran.");
+            }
+            else
+            {
+                Console.WriteLine($"[Telemetry] {_benchmarkName}: kept {kept} sampled trace(s)");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Telemetry] {_benchmarkName}: prune failed ({ex.Message})");
+        }
+        finally
+        {
+            TryDeleteDirectory(_telemetryRoot);
+        }
     }
 
     /// <summary>
