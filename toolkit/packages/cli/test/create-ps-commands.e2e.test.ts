@@ -133,4 +133,85 @@ describe("create-ps-commands + derivePsCommands: resourcegroup.tsp end-to-end", 
       "CreateOrUpdateExpanded",
     ]);
   });
+
+  it("Milestone 1 parameter hints survive a real compile unclobbered (create-ps-commands infers no parameter-level fields)", async () => {
+    // hints.powershell has no TypeSpec-decorator authoring path yet — this test-only step
+    // stands in for that, simulating an author setting parameter-level hints inline before
+    // create-ps-commands runs, on the real `resourceGroupName` path parameter shared by
+    // get/createOrUpdate/delete.
+    const simulateAuthoring = {
+      name: "simulate-authoring",
+      run: (ir: IR): IR => ({
+        ...ir,
+        operations: ir.operations.map((operation) => ({
+          ...operation,
+          pathParameters: operation.pathParameters.map((parameter) =>
+            parameter.name === "resourceGroupName"
+              ? {
+                  ...parameter,
+                  rendering: {
+                    powershell: {
+                      mandatory: true,
+                      helpMessage: "The name of the resource group.",
+                      position: 0,
+                    },
+                  },
+                }
+              : parameter,
+          ),
+        })),
+      }),
+    };
+
+    const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
+    const pipeline = createTransformPipeline("m1", [
+      simulateAuthoring,
+      createPsCommandsFactory({ subjectPrefix: "Az" }),
+    ]);
+
+    const result = await compile(
+      { entrypoint: RESOURCE_GROUP_TSP },
+      { emit: producer, transform: pipeline },
+    );
+    expect(result.success).toBe(true);
+
+    const get = result.ir!.operations.find((o) => o.id.name === "get");
+    const resourceGroupName = get!.pathParameters.find((p) => p.name === "resourceGroupName");
+
+    // Real precedent: azclips's hand-written cmdlets require the resource group name.
+    expect(resourceGroupName!.rendering!.powershell).toEqual({
+      mandatory: true,
+      helpMessage: "The name of the resource group.",
+      position: 0,
+    });
+  });
+
+  it("Milestone 2 directives apply against real ResourceGroups operations", async () => {
+    const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
+    const pipeline = createTransformPipeline("m2", [
+      createPsCommandsFactory({
+        subjectPrefix: "Az",
+        directives: [
+          // Command-level: hide Remove-AzResourceGroup.
+          { select: "command", where: { verb: "Remove", subject: "ResourceGroup" }, set: { hidden: true } },
+          // Parameter-level: alias the real resourceGroupName parameter across every command.
+          { where: { parameterName: "resourceGroupName" }, set: { alias: ["Name"] } },
+        ],
+      }),
+    ]);
+
+    const result = await compile(
+      { entrypoint: RESOURCE_GROUP_TSP },
+      { emit: producer, transform: pipeline },
+    );
+    expect(result.success).toBe(true);
+
+    const commands = derivePsCommands(result.ir!);
+    const del = commands.find((c) => c.verb === "Remove" && c.noun === "AzResourceGroup");
+    expect(del!.hidden).toBe(true);
+
+    const get = result.ir!.operations.find((o) => o.id.name === "get");
+    const resourceGroupName = get!.pathParameters.find((p) => p.name === "resourceGroupName");
+    expect(resourceGroupName!.rendering!.powershell!.aliases).toEqual(["Name"]);
+  });
 });

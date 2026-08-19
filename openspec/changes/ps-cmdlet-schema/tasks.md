@@ -158,6 +158,13 @@ as of Milestone 0 (an author setting `hints.powershell.verb` directly is already
 - [x] 2.3 Write unit tests covering: a directive renaming a parameter alias across matching
       commands, a directive hiding a command, and a conflicting directive+inline-hint case
       resolving in the inline hint's favor.
+- [x] 2.4 Verify Milestones 1 and 2 end-to-end against the real `resourcegroup.tsp` fixture (not
+      just synthetic operations), in `cli/test/create-ps-commands.e2e.test.ts`: an author-inline
+      parameter hint (`mandatory`/`helpMessage`/`position`) set on the real `resourceGroupName`
+      path parameter survives `create-ps-commands` unclobbered (no parameter-level inference
+      exists to conflict with it); a command-hide directive matches the real `delete`-derived
+      `Remove-AzResourceGroup` command by its actually-inferred verb/subject; a parameter-alias
+      directive applies across every real operation sharing the `resourceGroupName` parameter.
 
 ## Milestone 3: Integration & documentation
 
