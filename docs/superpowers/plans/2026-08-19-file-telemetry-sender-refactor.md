@@ -1174,7 +1174,7 @@ The payoff task. What is left of `SendPendingStatic` becomes an instance class w
 - Create: `src/Core/Core.Telemetry/TraceUploader.cs`
 - Create: `src/Core/Core.Telemetry/TelemetryUpload.cs`
 - Create: `tests/Core.Telemetry.Tests/TraceUploaderTests.cs`
-- Modify: `src/Core/Core.Telemetry/FileTelemetrySender.cs` — delete `SendPendingStatic`, `FallbackSourceName`, and `GetTraceDirectory`; repoint the explicit `ITelemetrySender.SendPendingAsync` at `TelemetryUpload.RunPending()` so the class still compiles until Task 7
+- Modify: `src/Core/Core.Telemetry/FileTelemetrySender.cs` — delete `SendPendingStatic` and `FallbackSourceName`; repoint the explicit `ITelemetrySender.SendPendingAsync` at `TelemetryUpload.RunPending()`, and keep `GetTraceDirectory` as a temporary delegating wrapper, so the class still compiles until Task 7
 - Modify: `src/CLI/Program.cs:45` — call `TelemetryUpload.RunPending()`
 
 **Interfaces:**
@@ -1462,9 +1462,18 @@ public static class TelemetryUpload
 
 - [ ] **Step 6: Delete the old uploader and update the CLI**
 
-In `src/Core/Core.Telemetry/FileTelemetrySender.cs`, delete `SendPendingStatic` and its doc comment, the `FallbackSourceName` constant, and `GetTraceDirectory` with its doc comment.
+In `src/Core/Core.Telemetry/FileTelemetrySender.cs`, delete `SendPendingStatic` and its doc comment, and the `FallbackSourceName` constant.
 
-**Keep** the explicit interface implementation for now, but point it at the new entry point so the class still satisfies `ITelemetrySender` and this commit builds. Task 7 deletes it along with the interface member:
+**Keep two members for now** so this commit builds; Task 7 removes both along with their reasons for existing.
+
+`GetTraceDirectory` still has callers in `CLITelemetryProvider` and `TUITelemetryProvider`, which Task 7 updates:
+
+```csharp
+    /// <summary>The shared trace directory. Temporary: Task 7 removes this.</summary>
+    public static string GetTraceDirectory() => TraceFileStore.DefaultDirectory;
+```
+
+And `ITelemetrySender` still declares `SendPendingAsync`, so the class must still implement it:
 
 ```csharp
     // Temporary: ITelemetrySender still declares this member. Task 7 removes both.
@@ -1474,6 +1483,8 @@ In `src/Core/Core.Telemetry/FileTelemetrySender.cs`, delete `SendPendingStatic` 
         return Task.CompletedTask;
     }
 ```
+
+Do **not** add a directory passthrough to `TelemetryUpload` — `TraceFileStore` stays `internal`, and Task 7 removes the need for any caller to name a directory at all.
 
 In `src/CLI/Program.cs`, change:
 
@@ -1499,8 +1510,9 @@ to:
 
 Run: `dotnet test tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj`
 Then: `dotnet build src/CLI/Core.Cli.csproj`
+Then: `dotnet build TUI/Core.Tui.csproj`
 
-Expected: tests PASS; CLI builds with no errors.
+Expected: tests PASS; both projects build with no errors. The TUI build matters here — it is the second caller of `GetTraceDirectory`, and building only the CLI would hide a break.
 
 - [ ] **Step 8: Commit**
 
