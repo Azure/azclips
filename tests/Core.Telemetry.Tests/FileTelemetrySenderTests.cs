@@ -21,7 +21,7 @@ public class FileTelemetrySenderTests
     {
         using var harness = new ReplayHarness();
 
-        FileTelemetrySender.ReplayEntries(harness.Source, Array.Empty<FileTelemetrySender.TraceEntry>());
+        FileTelemetrySender.ReplayEntries(harness.Source, Array.Empty<TraceEntry>());
 
         Assert.Empty(harness.Stopped);
     }
@@ -240,13 +240,13 @@ public class FileTelemetrySenderTests
         Assert.Equal(expected, activity.Kind);
     }
 
-    private static FileTelemetrySender.TraceEntry MakeEntry(
+    private static TraceEntry MakeEntry(
         string? traceId,
         string spanId,
         string? parentSpanId,
         string? name)
     {
-        return new FileTelemetrySender.TraceEntry
+        return new TraceEntry
         {
             TraceId = traceId,
             SpanId = spanId,
@@ -305,4 +305,3 @@ public class FileTelemetrySenderTests
         }
     }
 }
-

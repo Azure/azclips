@@ -94,7 +94,8 @@ public class FileTelemetrySender : ITelemetrySender
             {
                 var content = File.ReadAllText(file);
                 var traces = ParseTraceFile(content);
-                var serviceName = ExtractServiceName(traces) ?? FallbackSourceName;
+                var serviceName = (traces.Count > 0 ? traces[0].TryGetServiceName() : null)
+                    ?? FallbackSourceName;
 
                 if (!tracesByService.ContainsKey(serviceName))
                     tracesByService[serviceName] = new();
@@ -140,25 +141,6 @@ public class FileTelemetrySender : ITelemetrySender
         }
 
         return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Extracts the original service name from the Resource field of the first trace entry.
-    /// </summary>
-    private static string? ExtractServiceName(List<TraceEntry> traces)
-    {
-        if (traces.Count == 0)
-            return null;
-
-        var trace = traces[0];
-        if (trace.Resource.ValueKind == JsonValueKind.Object &&
-            trace.Resource.TryGetProperty("service.name", out var nameEl) &&
-            nameEl.GetString() is string name &&
-            !string.IsNullOrEmpty(name))
-        {
-            return name;
-        }
-        return null;
     }
 
     /// <summary>
@@ -415,23 +397,4 @@ public class FileTelemetrySender : ITelemetrySender
         activity.SetEndTime(activity.StartTimeUtc + TimeSpan.FromMilliseconds(entry.Duration));
     }
 
-    /// <summary>
-    /// Deserialization model matching the JSON format written by FileExporter.
-    /// </summary>
-    internal class TraceEntry
-    {
-        public string? TraceId { get; set; }
-        public string? SpanId { get; set; }
-        public string? ParentSpanId { get; set; }
-        public string? OperationName { get; set; }
-        public string? DisplayName { get; set; }
-        public string? StartTime { get; set; }
-        public double Duration { get; set; }
-        public string? Status { get; set; }
-        public string? StatusDescription { get; set; }
-        public string? Kind { get; set; }
-        public JsonElement Tags { get; set; }
-        public JsonElement Events { get; set; }
-        public JsonElement Resource { get; set; }
-    }
 }
