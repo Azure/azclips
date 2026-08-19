@@ -3,7 +3,6 @@
 
 using System.Text.Json;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
-using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {

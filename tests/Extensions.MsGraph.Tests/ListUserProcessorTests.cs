@@ -39,7 +39,7 @@ public class ListUserProcessorTests
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
         Assert.Equal(HttpMethod.Get, request.Method);
-        Assert.Equal("https://graph.microsoft.com/v1.0/users", request.RequestUri!.ToString());
+        Assert.Equal("https://graph.microsoft.com/v1.0/users", request.RequestUri!.OriginalString);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class ListUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        var uri = request.RequestUri!.ToString();
+        var uri = request.RequestUri!.OriginalString;
         Assert.StartsWith("https://graph.microsoft.com/v1.0/users?$filter=", uri, StringComparison.Ordinal);
         Assert.Contains("startswith%28displayName%2C%27Ada%27%29", uri, StringComparison.Ordinal);
     }
@@ -63,7 +63,7 @@ public class ListUserProcessorTests
 
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/users?$select=id%2CdisplayName%2Cmail",
-            request.RequestUri!.ToString());
+            request.RequestUri!.OriginalString);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class ListUserProcessorTests
 
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/users?$expand=memberOf%2CownedObjects",
-            request.RequestUri!.ToString());
+            request.RequestUri!.OriginalString);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class ListUserProcessorTests
         // form would 400 on advanced queries.
         Assert.True(request.Headers.TryGetValues("ConsistencyLevel", out var values));
         Assert.Equal("eventual", Assert.Single(values!));
-        Assert.DoesNotContain("consistency", request.RequestUri!.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("consistency", request.RequestUri!.OriginalString, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class ListUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        var uri = request.RequestUri!.ToString();
+        var uri = request.RequestUri!.OriginalString;
         Assert.Contains("$filter=", uri, StringComparison.Ordinal);
         Assert.Contains("$select=", uri, StringComparison.Ordinal);
         Assert.Contains("$expand=", uri, StringComparison.Ordinal);

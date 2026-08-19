@@ -33,7 +33,7 @@ public class GetUserProcessorTests
         Assert.Equal(HttpMethod.Get, request.Method);
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/users/48d31887-5fad-4d73-a9f5-3c356e68a038",
-            request.RequestUri!.ToString());
+            request.RequestUri!.OriginalString);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public class GetUserProcessorTests
 
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/users/alice%40contoso.com",
-            request.RequestUri!.ToString());
+            request.RequestUri!.OriginalString);
     }
 
     [Fact]
@@ -55,8 +55,8 @@ public class GetUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        Assert.Contains("%23EXT%23", request.RequestUri!.ToString(), StringComparison.Ordinal);
-        Assert.DoesNotContain("#", request.RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.Contains("%23EXT%23", request.RequestUri!.OriginalString, StringComparison.Ordinal);
+        Assert.DoesNotContain("#", request.RequestUri!.OriginalString, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -80,7 +80,7 @@ public class GetUserProcessorTests
 
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/users/48d31887-5fad-4d73-a9f5-3c356e68a038?$select=id%2CdisplayName%2Cmail",
-            request.RequestUri!.ToString());
+            request.RequestUri!.OriginalString);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class GetUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        Assert.EndsWith("?$expand=memberOf", request.RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.EndsWith("?$expand=memberOf", request.RequestUri!.OriginalString, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class GetUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        var uri = request.RequestUri!.ToString();
+        var uri = request.RequestUri!.OriginalString;
         Assert.Contains("$select=id%2CdisplayName", uri, StringComparison.Ordinal);
         Assert.Contains("$expand=memberOf", uri, StringComparison.Ordinal);
         Assert.Equal(1, uri.Count(static c => c == '&'));

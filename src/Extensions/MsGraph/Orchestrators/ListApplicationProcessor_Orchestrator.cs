@@ -2,9 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
-using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {

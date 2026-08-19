@@ -29,7 +29,7 @@ public class GetSignedInUserProcessorTests
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
         Assert.Equal(HttpMethod.Get, request.Method);
-        Assert.Equal("https://graph.microsoft.com/v1.0/me", request.RequestUri!.ToString());
+        Assert.Equal("https://graph.microsoft.com/v1.0/me", request.RequestUri!.OriginalString);
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public class GetSignedInUserProcessorTests
 
         Assert.Equal(
             "https://graph.microsoft.com/v1.0/me?$select=id%2CdisplayName%2Cmail",
-            request.RequestUri!.ToString());
+            request.RequestUri!.OriginalString);
     }
 
     [Fact]
@@ -51,6 +51,6 @@ public class GetSignedInUserProcessorTests
 
         using HttpRequestMessage request = await processor.BuildRequestAsync();
 
-        Assert.EndsWith("?$expand=memberOf", request.RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.EndsWith("?$expand=memberOf", request.RequestUri!.OriginalString, StringComparison.Ordinal);
     }
 }
