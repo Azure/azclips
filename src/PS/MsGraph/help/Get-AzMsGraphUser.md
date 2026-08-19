@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: MsGraph
-ms.date: 07/20/2026
+ms.date: 08/19/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzMsGraphUser
 ---
@@ -35,15 +35,15 @@ Get-AzMsGraphUser -Mail <string> [-Select <string[]>] [-Expand <string[]>] [-App
 ### DisplayName
 
 ```
-Get-AzMsGraphUser -DisplayName <string> [-Select <string[]>] [-Expand <string[]>]
- [-AppendSelected] [<CommonParameters>]
+Get-AzMsGraphUser -DisplayName <string> [-Select <string[]>] [-Expand <string[]>] [-AppendSelected]
+ [<CommonParameters>]
 ```
 
 ### StartsWith
 
 ```
-Get-AzMsGraphUser -StartsWith <string> [-Select <string[]>] [-Expand <string[]>]
- [-AppendSelected] [<CommonParameters>]
+Get-AzMsGraphUser -StartsWith <string> [-Select <string[]>] [-Expand <string[]>] [-AppendSelected]
+ [<CommonParameters>]
 ```
 
 ### Get
@@ -118,6 +118,171 @@ Get-AzMsGraphUser -Select 'city','department' -AppendSelected
 
 ## PARAMETERS
 
+### -AppendSelected
+
+When set with `-Select`, include the default property set (`displayName`, `id`, `deletedDateTime`, `userPrincipalName`, `usageLocation`, `givenName`, `surname`, `accountEnabled`, `mailNickname`, `mail`) alongside the values in `-Select` rather than replacing them.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Mail
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: DisplayName
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: StartsWith
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Get
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: SignedIn
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ConsistencyLevel
+
+Set to `eventual` to enable advanced query features such as `$search`, `$count`, or `$orderby` on non-indexed properties.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -DisplayName
+
+List users with the specified display name.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: DisplayName
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Expand
+
+Related properties to include in the response, for example `memberOf`.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Mail
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: DisplayName
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: StartsWith
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Get
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: SignedIn
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Filter
+
+OData `$filter` expression, for example `"accountEnabled eq true"`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Id
 
 The object ID or user principal name (UPN) of the user to retrieve.
@@ -152,90 +317,6 @@ ParameterSets:
 - Name: Mail
   Position: Named
   IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -DisplayName
-
-List users with the specified display name.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: DisplayName
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -StartsWith
-
-List users whose display name starts with the specified prefix.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: StartsWith
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -SignedIn
-
-Return the currently signed-in user.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: 'False'
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: SignedIn
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Filter
-
-OData `$filter` expression, for example `"accountEnabled eq true"`.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: List
-  Position: Named
-  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -286,27 +367,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -ConsistencyLevel
-
-Set to `eventual` to enable advanced query features such as `$search`, `$count`, or `$orderby` on non-indexed properties.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: List
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -Select
 
 Properties to return. Combine with `-AppendSelected` to include the default properties as well.
@@ -317,7 +377,37 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Mail
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: DisplayName
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: StartsWith
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Get
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: SignedIn
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -328,40 +418,40 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Expand
+### -SignedIn
 
-Related properties to include in the response, for example `memberOf`.
+Return the currently signed-in user.
 
 ```yaml
-Type: System.String[]
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: SignedIn
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -StartsWith
+
+List users whose display name starts with the specified prefix.
+
+```yaml
+Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: StartsWith
   Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -AppendSelected
-
-When set with `-Select`, include the default property set (`displayName`, `id`, `deletedDateTime`, `userPrincipalName`, `usageLocation`, `givenName`, `surname`, `accountEnabled`, `mailNickname`, `mail`) alongside the values in `-Select` rather than replacing them.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: 'False'
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -388,3 +478,4 @@ The Microsoft Entra user object or objects returned by the query.
 ## NOTES
 
 ## RELATED LINKS
+

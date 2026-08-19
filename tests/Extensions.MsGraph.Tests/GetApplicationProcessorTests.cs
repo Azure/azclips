@@ -8,8 +8,12 @@ namespace Extensions.MsGraph.Tests;
 
 public class GetApplicationProcessorTests
 {
-    private static TestableGetApplicationProcessor CreateProcessor(string id) =>
-        new TestableGetApplicationProcessor { Id = id }.WithPublisher(Mock.Of<IEventPublisher>());
+    private static TestableGetApplicationProcessor CreateProcessor(string id)
+    {
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        return new TestableGetApplicationProcessor { Id = id }.WithPublisher(publisher.Object);
+    }
 
     [Fact]
     public async Task CreateRequestMessage_ShouldTargetGraphV1ApplicationsEndpoint()

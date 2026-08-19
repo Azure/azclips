@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.MsGraph;
 
-[Cmdlet(VerbsCommon.Remove, "AzMsGraphApplication")]
+[Cmdlet(VerbsCommon.Remove, "AzMsGraphApplication", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 public class RemoveAzMsGraphApplicationCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -26,6 +26,11 @@ public class RemoveAzMsGraphApplicationCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
+        if (!ShouldProcess($"application registration '{Id}'", "Remove"))
+        {
+            return;
+        }
+
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();

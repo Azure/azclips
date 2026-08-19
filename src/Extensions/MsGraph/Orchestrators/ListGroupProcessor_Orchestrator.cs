@@ -55,7 +55,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $search expression, for example \""displayName:contoso\"". Requires ConsistencyLevel eventual.",
+            Description = @"OData $search expression, for example ""displayName:contoso"". Requires ConsistencyLevel eventual.",
             SerializedName = @"Search")]
         public string? Search { get; set; }
 

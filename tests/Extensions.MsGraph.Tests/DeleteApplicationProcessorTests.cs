@@ -8,8 +8,12 @@ namespace Extensions.MsGraph.Tests;
 
 public class DeleteApplicationProcessorTests
 {
-    private static TestableDeleteApplicationProcessor CreateProcessor(string id) =>
-        new TestableDeleteApplicationProcessor { Id = id }.WithPublisher(Mock.Of<IEventPublisher>());
+    private static TestableDeleteApplicationProcessor CreateProcessor(string id)
+    {
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        return new TestableDeleteApplicationProcessor { Id = id }.WithPublisher(publisher.Object);
+    }
 
     [Fact]
     public async Task CreateRequestMessage_ShouldDeleteGraphV1ApplicationsEndpoint()

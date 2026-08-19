@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: MsGraph
-ms.date: 07/20/2026
+ms.date: 08/19/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzMsGraphApplication
 ---
@@ -16,6 +16,8 @@ title: New-AzMsGraphApplication
 Creates a Microsoft Graph application registration.
 
 ## SYNTAX
+
+### __AllParameterSets
 
 ```
 New-AzMsGraphApplication -DisplayName <string> [-SignInAudience <string>] [<CommonParameters>]
@@ -93,6 +95,9 @@ HelpMessage: ''
 
 ### Microsoft.Azure.Azclips.Extensions.MsGraph.Models.Application
 
+### System.Object
+
 ## NOTES
 
 ## RELATED LINKS
+

@@ -52,7 +52,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            Profile = context.AuthHandler.Profile!;
+            Profile = context.AuthHandler.Profile
+                ?? throw new InvalidOperationException(
+                    "Microsoft Graph commands require an active profile. Sign in first.");
 
             ApplyGraphScope(context.AuthHandler);
 

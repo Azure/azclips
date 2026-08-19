@@ -19,7 +19,7 @@ public class GraphProcessorBaseAuthScopeTests
             OutputHandler: new OutputHandler { WriteOutput = (_, _) => Task.CompletedTask });
 
     [Fact]
-    public void Init_ShouldRouteTokenAcquisitionToGraphScope()
+    public async Task Init_ShouldRouteTokenAcquisitionToGraphScope()
     {
         string[]? capturedScopes = null;
         AcquireTokenAsyncDelegate engineDefault = (scopes, tenantId, prompt, ct, profile) =>
@@ -49,13 +49,13 @@ public class GraphProcessorBaseAuthScopeTests
         Assert.NotNull(authHandler.AcquireTokenAsyncOverride);
 
         // Invoke the override the way the pipeline would (passing null scopes); it must force Graph scope.
-        authHandler.AcquireTokenAsyncOverride!(null, "tenant", false, CancellationToken.None, null);
+        await authHandler.AcquireTokenAsyncOverride!(null, "tenant", false, CancellationToken.None, null);
 
         Assert.Equal(["https://graph.microsoft.com/.default"], capturedScopes);
     }
 
     [Fact]
-    public void Init_ShouldPreserveTenantAndPromptWhenForcingGraphScope()
+    public async Task Init_ShouldPreserveTenantAndPromptWhenForcingGraphScope()
     {
         string? capturedTenant = null;
         bool capturedPrompt = false;
@@ -80,7 +80,7 @@ public class GraphProcessorBaseAuthScopeTests
         };
 
         new GetUserProcessor().Init(CreateContext(authHandler));
-        authHandler.AcquireTokenAsyncOverride!(null, "contoso-tenant", true, CancellationToken.None, null);
+        await authHandler.AcquireTokenAsyncOverride!(null, "contoso-tenant", true, CancellationToken.None, null);
 
         // Only the scope is forced; tenant and promptOnError pass through unchanged.
         Assert.Equal("contoso-tenant", capturedTenant);

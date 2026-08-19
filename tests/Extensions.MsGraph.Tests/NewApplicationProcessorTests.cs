@@ -8,9 +8,13 @@ namespace Extensions.MsGraph.Tests;
 
 public class NewApplicationProcessorTests
 {
-    private static TestableNewApplicationProcessor CreateProcessor(string displayName, string signInAudience = "") =>
-        new TestableNewApplicationProcessor { DisplayName = displayName, SignInAudience = signInAudience }
-            .WithPublisher(Mock.Of<IEventPublisher>());
+    private static TestableNewApplicationProcessor CreateProcessor(string displayName, string signInAudience = "")
+    {
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        return new TestableNewApplicationProcessor { DisplayName = displayName, SignInAudience = signInAudience }
+            .WithPublisher(publisher.Object);
+    }
 
     [Fact]
     public async Task CreateRequestMessage_ShouldPostToGraphV1ApplicationsEndpoint()

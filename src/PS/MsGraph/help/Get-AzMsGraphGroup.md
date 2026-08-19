@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: MsGraph
-ms.date: 07/21/2026
+ms.date: 08/19/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzMsGraphGroup
 ---
@@ -28,8 +28,8 @@ Get-AzMsGraphGroup [-Filter <string>] [-Orderby <string[]>] [-Search <string>]
 ### DisplayName
 
 ```
-Get-AzMsGraphGroup -DisplayName <string> [-Select <string[]>] [-Expand <string[]>]
- [-AppendSelected] [<CommonParameters>]
+Get-AzMsGraphGroup -DisplayName <string> [-Select <string[]>] [-Expand <string[]>] [-AppendSelected]
+ [<CommonParameters>]
 ```
 
 ### StartsWith
@@ -44,6 +44,13 @@ Get-AzMsGraphGroup -DisplayNameStartsWith <string> [-Select <string[]>] [-Expand
 ```
 Get-AzMsGraphGroup -ObjectId <string> [-Select <string[]>] [-Expand <string[]>] [-AppendSelected]
  [<CommonParameters>]
+```
+
+### DisplayNameStartsWith
+
+```
+Get-AzMsGraphGroup -DisplayNameStartsWith <string> [-Select <string[]>] [-Expand <string[]>]
+ [-AppendSelected] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -92,20 +99,58 @@ Get-AzMsGraphGroup -Select 'visibility','createdDateTime' -AppendSelected
 
 ## PARAMETERS
 
-### -ObjectId
+### -AppendSelected
 
-The object ID of the group.
+When set with `-Select`, include the default property set (`displayName`, `id`, `deletedDateTime`, `securityEnabled`, `mailEnabled`, `mailNickname`, `description`) alongside the values in `-Select` rather than replacing them.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: False
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: DisplayName
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: DisplayNameStartsWith
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Get
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ConsistencyLevel
+
+Set to `eventual` to enable advanced query features such as `$search`, `$count`, or `$orderby` on non-indexed properties.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- Id
+Aliases: []
 ParameterSets:
-- Name: Get
+- Name: List
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -157,6 +202,45 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Expand
+
+Related properties to include in the response, for example `members`.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: DisplayName
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: DisplayNameStartsWith
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Get
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Filter
 
 OData `$filter` expression, for example `"securityEnabled eq true"`.
@@ -170,6 +254,28 @@ ParameterSets:
 - Name: List
   Position: Named
   IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ObjectId
+
+The object ID of the group.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- Id
+ParameterSets:
+- Name: Get
+  Position: Named
+  IsRequired: true
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -220,27 +326,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -ConsistencyLevel
-
-Set to `eventual` to enable advanced query features such as `$search`, `$count`, or `$orderby` on non-indexed properties.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: List
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -Select
 
 Properties to return. Combine with `-AppendSelected` to include the default properties as well.
@@ -251,49 +336,25 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: List
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Expand
-
-Related properties to include in the response, for example `members`.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
+- Name: DisplayName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -AppendSelected
-
-When set with `-Select`, include the default property set (`displayName`, `id`, `deletedDateTime`, `securityEnabled`, `mailEnabled`, `mailNickname`, `description`) alongside the values in `-Select` rather than replacing them.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: 'False'
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
+- Name: DisplayNameStartsWith
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: Get
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -322,3 +383,4 @@ The Microsoft Entra group object or objects returned by the query.
 ## NOTES
 
 ## RELATED LINKS
+

@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: MsGraph
-ms.date: 07/22/2026
+ms.date: 08/19/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzMsGraphGroupMember
 ---
@@ -61,21 +61,19 @@ Get-AzMsGraphGroupMember -GroupObjectId 11111111-2222-3333-4444-555555555555 -Fi
 
 ## PARAMETERS
 
-### -GroupObjectId
+### -ConsistencyLevel
 
-The object ID of the group.
+Set to `eventual` to enable advanced query features such as `$search`, `$count`, or `$orderby` on non-indexed properties.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- Id
-- ObjectId
+Aliases: []
 ParameterSets:
-- Name: ObjectId
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -84,19 +82,19 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -GroupDisplayName
+### -Expand
 
-The exact display name of the target group.
+Related properties to include in the response.
 
 ```yaml
-Type: System.String
+Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: DisplayName
+- Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -126,19 +124,19 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Select
+### -GroupDisplayName
 
-Properties to return.
+The exact display name of the target group.
 
 ```yaml
-Type: System.String[]
+Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: DisplayName
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -147,19 +145,21 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Expand
+### -GroupObjectId
 
-Related properties to include in the response.
+The object ID of the group.
 
 ```yaml
-Type: System.String[]
+Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- Id
+- ObjectId
 ParameterSets:
-- Name: (All)
+- Name: ObjectId
   Position: Named
-  IsRequired: false
+  IsRequired: true
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -210,12 +210,12 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -ConsistencyLevel
+### -Select
 
-Set to `eventual` to enable advanced query features such as `$search`, `$count`, or `$orderby` on non-indexed properties.
+Properties to return.
 
 ```yaml
-Type: System.String
+Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -249,3 +249,4 @@ The directory objects (users, groups, service principals, or devices) that are m
 ## NOTES
 
 ## RELATED LINKS
+

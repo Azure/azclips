@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: MsGraph
-ms.date: 07/20/2026
+ms.date: 08/19/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzMsGraphApplication
 ---
@@ -70,9 +70,9 @@ Get-AzMsGraphApplication -Id 00000000-0000-0000-0000-000000000000
 
 ## PARAMETERS
 
-### -Id
+### -ConsistencyLevel
 
-The object ID of the application registration to retrieve.
+Set to `eventual` to enable advanced query features such as `$search`, `$count`, or `$orderby` on non-indexed properties.
 
 ```yaml
 Type: System.String
@@ -80,9 +80,9 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
+- Name: List
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -115,6 +115,69 @@ HelpMessage: ''
 ### -Filter
 
 OData `$filter` expression applied by Microsoft Graph. Passed through verbatim.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Id
+
+The object ID of the application registration to retrieve.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Get
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Orderby
+
+OData `$orderby` values, for example `displayName` or `createdDateTime desc`.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Search
+
+OData `$search` expression, for example `"displayName:contoso"`. Requires `-ConsistencyLevel eventual`.
 
 ```yaml
 Type: System.String
@@ -168,6 +231,9 @@ HelpMessage: ''
 
 ### Microsoft.Azure.Azclips.Extensions.MsGraph.Models.Application
 
+### System.Object
+
 ## NOTES
 
 ## RELATED LINKS
+

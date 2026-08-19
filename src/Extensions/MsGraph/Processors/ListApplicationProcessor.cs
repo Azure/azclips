@@ -39,7 +39,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Free-text search expression mapped to OData $search (for example, \""displayName:contoso\"").",
+            Description = @"Free-text search expression mapped to OData $search (for example, ""displayName:contoso"").",
             SerializedName = @"Search")]
         public string? Search { get; set; }
 

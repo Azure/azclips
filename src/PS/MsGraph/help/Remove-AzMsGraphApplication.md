@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: MsGraph
-ms.date: 07/20/2026
+ms.date: 08/19/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzMsGraphApplication
 ---
@@ -17,8 +17,10 @@ Deletes a Microsoft Graph application registration.
 
 ## SYNTAX
 
+### __AllParameterSets
+
 ```
-Remove-AzMsGraphApplication -Id <string> [<CommonParameters>]
+Remove-AzMsGraphApplication -Id <string> [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -36,6 +38,28 @@ Remove-AzMsGraphApplication -Id 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS
+
+### -Confirm
+
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Id
 
@@ -58,6 +82,28 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -WhatIf
+
+Runs the command in a mode that only reports what would happen without performing the actions.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- wi
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ## INPUTS
 
 ### None
@@ -66,6 +112,9 @@ HelpMessage: ''
 
 ### System.Void
 
+### System.Object
+
 ## NOTES
 
 ## RELATED LINKS
+

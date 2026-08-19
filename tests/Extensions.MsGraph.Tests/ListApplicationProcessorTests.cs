@@ -8,8 +8,12 @@ namespace Extensions.MsGraph.Tests;
 
 public class ListApplicationProcessorTests
 {
-    private static TestableListApplicationProcessor CreateProcessor() =>
-        new TestableListApplicationProcessor().WithPublisher(Mock.Of<IEventPublisher>());
+    private static TestableListApplicationProcessor CreateProcessor()
+    {
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        return new TestableListApplicationProcessor().WithPublisher(publisher.Object);
+    }
 
     [Fact]
     public async Task CreateRequestMessage_NoFilters_ShouldTargetApplicationsEndpoint()
