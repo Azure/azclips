@@ -19,16 +19,12 @@ namespace Core.Telemetry;
 public class FileTelemetrySender : ITelemetrySender
 {
     private const string FallbackSourceName = "AzclipsTelemetryUploader";
-    private const string TracesSubdirectoryName = "traces";
 
     /// <summary>
     /// Gets the shared trace directory for the background uploader picks up all files from one location.
     /// Uses the same <c>{LocalApplicationData}/.azclips/</c> root as auth profiles for consistency.
     /// </summary>
-    public static string GetTraceDirectory() =>
-        Path.Combine(
-            HomePaths.GetDefaultLocalAppDataRoot(),
-            TracesSubdirectoryName);
+    public static string GetTraceDirectory() => TraceFileStore.DefaultDirectory;
 
     public void ConfigureExporter(TracerProviderBuilder builder, string traceDirectory)
     {
@@ -44,42 +40,9 @@ public class FileTelemetrySender : ITelemetrySender
     /// </summary>
     public static Task SendPendingStatic()
     {
-        var traceDir = GetTraceDirectory();
-        if (!Directory.Exists(traceDir))
-            return Task.CompletedTask;
+        var store = new TraceFileStore(TraceFileStore.DefaultDirectory);
 
-        // Reclaim stale .uploading files from crashed uploaders (older than 5 minutes)
-        foreach (var stale in Directory.GetFiles(traceDir, "traces-*.uploading"))
-        {
-            try
-            {
-                if (File.GetLastWriteTimeUtc(stale) < DateTime.UtcNow.AddMinutes(-5))
-                    File.Move(stale, Path.ChangeExtension(stale, ".log"));
-            }
-            catch { }
-        }
-
-        var files = Directory.GetFiles(traceDir, "traces-*.log");
-        if (files.Length == 0)
-            return Task.CompletedTask;
-
-        // Claim files atomically by renaming to .uploading before reading.
-        // This prevents concurrent uploaders from processing the same file
-        // and avoids reading partially-written files from in-flight CLI instances.
-        var claimedFiles = new List<string>();
-        foreach (var file in files)
-        {
-            var claimed = Path.ChangeExtension(file, ".uploading");
-            try
-            {
-                File.Move(file, claimed);
-                claimedFiles.Add(claimed);
-            }
-            catch
-            {
-                // Another uploader already claimed this file, or the writer still has it locked. Skip.
-            }
-        }
+        var claimedFiles = store.ClaimPending();
 
         if (claimedFiles.Count == 0)
             return Task.CompletedTask;
@@ -90,21 +53,16 @@ public class FileTelemetrySender : ITelemetrySender
 
         foreach (var file in claimedFiles)
         {
-            try
-            {
-                var content = File.ReadAllText(file);
-                var traces = TraceFileFormat.Parse(content);
-                var serviceName = (traces.Count > 0 ? traces[0].TryGetServiceName() : null)
-                    ?? FallbackSourceName;
+            if (!store.TryRead(file, out var content))
+                continue;
 
-                if (!tracesByService.ContainsKey(serviceName))
-                    tracesByService[serviceName] = new();
-                tracesByService[serviceName].Add((file, traces));
-            }
-            catch
-            {
-                // Best-effort: skip files that fail to parse.
-            }
+            var traces = TraceFileFormat.Parse(content);
+            var serviceName = (traces.Count > 0 ? traces[0].TryGetServiceName() : null)
+                ?? FallbackSourceName;
+
+            if (!tracesByService.ContainsKey(serviceName))
+                tracesByService[serviceName] = new();
+            tracesByService[serviceName].Add((file, traces));
         }
 
         var replayedFiles = new List<string>();
@@ -137,7 +95,7 @@ public class FileTelemetrySender : ITelemetrySender
 
         foreach (var file in replayedFiles)
         {
-            try { File.Delete(file); } catch { }
+            store.Delete(file);
         }
 
         return Task.CompletedTask;

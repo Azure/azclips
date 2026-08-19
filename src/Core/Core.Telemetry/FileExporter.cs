@@ -33,7 +33,7 @@ internal class FileExporter : BaseExporter<Activity>
                 foreach (var activity in batch)
                 {
                     var traceId = activity.TraceId.ToString();
-                    _filePath = Path.Combine(_rootDirectory, $"traces-{traceId}.log");
+                    _filePath = Path.Combine(_rootDirectory, TraceFileStore.FileNameFor(traceId));
                     
                     var directory = Path.GetDirectoryName(_filePath);
                     if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
