@@ -600,7 +600,8 @@ public class TraceFileStoreTests
         using var temp = new TempDirectory();
         var store = new TraceFileStore(temp.Path);
 
-        store.Delete(Path.Combine(temp.Path, "traces-ggg.uploading"));
+        Assert.Null(Record.Exception(
+            () => store.Delete(Path.Combine(temp.Path, "traces-ggg.uploading"))));
     }
 
     private static string WritePendingFile(string directory, string traceId, string content)
@@ -1007,49 +1008,20 @@ Create `tests/Core.Telemetry.Tests/TracerProviderExportSinkTests.cs`:
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text.Json;
-
 namespace Core.Telemetry.Tests;
 
 public class TracerProviderExportSinkTests
 {
-    [Fact]
-    public void TryExport_DoesNotThrow_ForTheLocalTarget()
+    [Theory]
+    [InlineData(TelemetryTarget.Local)]
+    [InlineData(TelemetryTarget.Remote)]
+    internal void Constructor_CreatesSink_ForEachTarget(TelemetryTarget target)
     {
-        // Return value not asserted: it depends on whether a collector is listening.
-        var sink = new TracerProviderExportSink(TelemetryTarget.Local);
+        // Construction only. Exercising TryExport here would build a live provider and
+        // block on ForceFlush; TraceUploaderTests covers the behavior through a fake.
+        ITraceExportSink sink = new TracerProviderExportSink(target);
 
-        sink.TryExport("test-service", new List<TraceEntry> { MakeEntry() });
-    }
-
-    [Fact]
-    public void TryExport_DoesNotThrow_WhenThereAreNoEntries()
-    {
-        var sink = new TracerProviderExportSink(TelemetryTarget.Local);
-
-        sink.TryExport("test-service", Array.Empty<TraceEntry>());
-    }
-
-    private static TraceEntry MakeEntry() => new()
-    {
-        TraceId = "0123456789abcdef0123456789abcdef",
-        SpanId = "1111111111111111",
-        ParentSpanId = "0000000000000000",
-        OperationName = "op",
-        DisplayName = "op",
-        StartTime = "2024-01-01T00:00:00.0000000Z",
-        Duration = 1.0,
-        Status = "Unset",
-        Kind = "Internal",
-        Tags = ParseJson("[]"),
-        Events = ParseJson("[]"),
-        Resource = ParseJson("{}"),
-    };
-
-    private static JsonElement ParseJson(string json)
-    {
-        using var document = JsonDocument.Parse(json);
-        return document.RootElement.Clone();
+        Assert.NotNull(sink);
     }
 }
 ```
@@ -1131,7 +1103,7 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
 
 Run: `dotnet test tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj --filter "FullyQualifiedName~TracerProviderExportSinkTests"`
 
-Expected: PASS, 2 tests.
+Expected: PASS, 2 test cases.
 
 - [ ] **Step 6: Route `FileTelemetrySender` through the sink**
 
@@ -1779,15 +1751,25 @@ Run: `git --no-pager diff --stat main -- src/Core/Core.Telemetry/FileTelemetrySe
 
 Expected: the file is down from 438 lines to roughly 25.
 
-- [ ] **Step 4: Smoke-test the uploader by hand**
+- [ ] **Step 4: Smoke-test the uploader against a scratch directory**
 
-Build the CLI and invoke the uploader branch directly. It should complete silently and non-zero-exit only on a genuine defect:
+The uploader reads `%LocalAppData%\.azclips\traces`, which holds real pending telemetry. Move it aside first so the smoke run cannot delete anything, and restore it afterwards:
 
-```bash
-dotnet run --project src/CLI/Core.Cli.csproj -- --upload-telemetry
+```powershell
+$traces = Join-Path $env:LOCALAPPDATA '.azclips\traces'
+$backup = "$traces.smoke-backup"
+if (Test-Path $traces) { Rename-Item $traces $backup }
+try {
+    dotnet run --project src/CLI/Core.Cli.csproj -- --upload-telemetry
+    Write-Output "exit code: $LASTEXITCODE"
+}
+finally {
+    if (Test-Path $traces) { Remove-Item $traces -Recurse -Force }
+    if (Test-Path $backup) { Rename-Item $backup $traces }
+}
 ```
 
-Expected: exit code 0, no output. (With `AZCLIPS_TELEMETRY_TARGET` unset in a Debug build the target is Local, so nothing is sent anywhere real.)
+Expected: exit code 0, no output. This verifies the `--upload-telemetry` branch reaches `TelemetryUpload.RunPending()` and returns cleanly against an absent directory; the uploader's behavior with actual files is covered by `TraceUploaderTests`.
 
 ---
 

@@ -343,10 +343,11 @@ New coverage, none of it previously possible:
 The emphasized case — trace files survive a failed flush — is the guarantee that protects
 users' telemetry, and nothing verifies it today.
 
-`TracerProviderExportSink` gets one light test that constructing it and calling
-`TryExport` against the Local target completes without throwing. The return value is not
-asserted — it depends on whether an OTLP collector is listening, which would make the test
-flaky. This matches the existing `TelemetryExportersTests` style.
+`TracerProviderExportSink` gets one construction test across both targets, mirroring the
+existing `TelemetryExportersTests`. `TryExport` is deliberately not exercised there: it
+builds a live provider and ends in `ForceFlush`, whose outcome and duration depend on
+whether a collector is listening. Its behavior is covered through `TraceUploaderTests`
+against a fake sink.
 
 ## Migration
 
