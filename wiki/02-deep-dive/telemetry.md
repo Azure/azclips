@@ -121,9 +121,9 @@ Even parameter **values** are masked at the source: `TelemetryService.FormatPara
 
 ## Async export path
 
-For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs:32-35`; `src/Core/Core.Telemetry/TelemetryService.cs:96-106`). `FileExporter` serializes each batch to `traces-{traceId}.log` under `%LocalAppData%/Azclips/traces`, appending a timestamped JSON batch per write (`src/Core/Core.Telemetry/FileExporter.cs:27-89`; `src/Core/Core.Telemetry/FileTelemetrySender.cs:26-30`).
+For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs:96-106`). Note that `ConfigureExporter` no longer takes a directory argument — the trace directory is owned by `TraceFileStore.DefaultDirectory` (`src/Core/Core.Telemetry/TraceFileStore.cs`). `FileExporter` serializes each batch to `traces-{traceId}.log` under `%LocalAppData%/Azclips/traces`, appending a timestamped JSON batch per write (`src/Core/Core.Telemetry/FileExporter.cs:27-89`).
 
-After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs:146-150,410-440`). That child's very first branch calls `FileTelemetrySender.SendPendingStatic()` and returns (`src/CLI/Program.cs:34-38`).
+After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs:146-150,410-440`). That child's very first branch calls `TelemetryUpload.RunPending()` and returns (`src/Core/Core.Telemetry/TelemetryUpload.cs`).
 
 ```mermaid
 sequenceDiagram
@@ -138,10 +138,10 @@ sequenceDiagram
     Cmd->>Cmd: dispose DI, return exit code
     Cmd->>Up: SpawnTelemetryUploader() (Process.Start, no wait)
     Cmd-->>Cmd: process exits
-    Up->>Disk: claim .log -> rename .uploading
-    Up->>Up: parse batches, group by service.name
-    Up->>Up: topologically order + remap SpanIds
-    Up->>AM: replay via AddAzureMonitorTraceExporter + ForceFlush(10s)
+    Up->>Disk: claim .log -> rename .uploading (TraceFileStore)
+    Up->>Up: parse batches, group by service.name (TraceUploader)
+    Up->>Up: topologically order + remap SpanIds (TraceReplayer)
+    Up->>AM: replay + ForceFlush(10s) (TracerProviderExportSink)
     AM-->>Up: flush ok
     Up->>Disk: delete uploaded files
 
@@ -152,15 +152,15 @@ sequenceDiagram
     style AM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-### The uploader (`SendPendingStatic`)
+### The uploader (`TraceUploader`)
 
-`SendPendingStatic` is engineered for concurrent, crash-tolerant delivery (`src/Core/Core.Telemetry/FileTelemetrySender.cs:43-141`):
+`TraceUploader.Run` is engineered for concurrent, crash-tolerant delivery (`src/Core/Core.Telemetry/TraceUploader.cs`):
 
 - **Stale reclaim** — `.uploading` files older than 5 minutes (from a crashed uploader) are renamed back to `.log`.
-- **Atomic claim** — each `.log` is renamed to `.uploading` before reading, so concurrent uploaders and in-flight writers never process the same file.
-- **Group by service** — traces are grouped by original `service.name` so each replays with the correct `cloud_RoleName` (CLI vs PowerShell) in App Insights.
-- **Hierarchy-preserving replay** — because the OTel API assigns fresh SpanIds, `ReplayEntries` topologically orders parents-before-children and rewrites each child's parent context to the parent's *new* SpanId, keeping the original `TraceId` and tree intact (`src/Core/Core.Telemetry/FileTelemetrySender.cs:202-355`).
-- **Delete only on success** — files are deleted only if `ForceFlush(10_000)` succeeds; otherwise they remain for the next attempt (`src/Core/Core.Telemetry/FileTelemetrySender.cs:126-138`).
+- **Atomic claim** — each `.log` is renamed to `.uploading` before reading, so concurrent uploaders and in-flight writers never process the same file. This claim protocol is owned by `TraceFileStore.ClaimPending` (`src/Core/Core.Telemetry/TraceFileStore.cs`).
+- **Group by service** — `TraceUploader.Run` groups traces by original `service.name` so each replays with the correct `cloud_RoleName` (CLI vs PowerShell) in App Insights (`src/Core/Core.Telemetry/TraceUploader.cs`).
+- **Hierarchy-preserving replay** — because the OTel API assigns fresh SpanIds, `TraceReplayer.ReplayEntries` topologically orders parents-before-children and rewrites each child's parent context to the parent's *new* SpanId, keeping the original `TraceId` and tree intact (`src/Core/Core.Telemetry/TraceReplayer.cs`).
+- **Delete only on success** — `TracerProviderExportSink.TryExport` returns false on a failed flush, leaving files on disk for `TraceUploader.Run` to retry on the next attempt.
 
 The Azure Monitor destination is a hard-coded connection string in `WellKnownEndpoints` (`src/Core/Core.Telemetry/WellKnownEndpoints.cs:6-9`). Note the uploader itself only runs when the host executable is `az`/`az.exe`, so in-process benchmark runs never attempt to flush (`src/CLI/Program.cs:417-422`).
 
@@ -189,7 +189,11 @@ With telemetry disabled, the client keeps the base `DefaultTelemetryProvider` wh
 - `src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs` / `DefaultTelemetryActivityNameFilter.cs` — allow-lists
 - `src/Core/Core.Telemetry/DefaultTelemetryPropertyFilterProcessor.cs` / `DefaultActivityNameFilterProcessor.cs` — OnEnd scrubbing
 - `src/Core/Core.Telemetry/FileExporter.cs` — synchronous JSON file buffer
-- `src/Core/Core.Telemetry/FileTelemetrySender.cs` — uploader, atomic claim, hierarchy-preserving replay
+- `src/Core/Core.Telemetry/FileTelemetrySender.cs` — configures the file-buffer exporter
+- `src/Core/Core.Telemetry/TraceFileStore.cs` — trace directory, file naming, claim protocol
+- `src/Core/Core.Telemetry/TraceFileFormat.cs` — on-disk batch format, shared by writer and reader
+- `src/Core/Core.Telemetry/TraceReplayer.cs` — hierarchy-preserving replay
+- `src/Core/Core.Telemetry/TraceUploader.cs` / `TelemetryUpload.cs` — orchestration and composition root
 - `src/Core/Core.Telemetry/DirectTelemetrySender.cs`, `WellKnownEndpoints.cs` — direct export + Azure Monitor endpoint
 - `src/Core/Core.Telemetry/TimingActivityListener.cs`, `DIRegisterExtensions.cs` — local timing + DI wiring
 - `src/CLI/Program.cs:34,67,79,149,410` — root activity, `--upload-telemetry`, detached spawn

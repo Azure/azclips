@@ -615,7 +615,7 @@ Telemetry is worth a principal's attention because it is _on by default_ and tou
 
 - `TelemetryService` (`src/Core/Core.Telemetry/TelemetryService.cs`) starts a root `Activity` and per-command activities via a `System.Diagnostics` `ActivitySource` (`Program.cs:67,79`).
 - Before export, `DefaultTelemetryPropertyFilter` / `DefaultTelemetryPropertyFilterProcessor` and the activity-name equivalents strip anything not on the allow-list (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs`). The filters are _interfaces_ (`ITelemetryPropertyFilter`, `ITelemetryActivityNameFilter`) so a surface can tighten them but not loosen the core guarantee.
-- Export is two-stage and off the hot path: a `FileExporter` writes traces to disk, and a **detached** `az --upload-telemetry` (`Program.cs:410`) later calls `FileTelemetrySender.SendPendingStatic` → `DirectTelemetrySender` → `WellKnownEndpoints`.
+- Export is two-stage and off the hot path: a `FileExporter` writes traces to disk, and a **detached** `az --upload-telemetry` (`Program.cs:410`) later calls `TelemetryUpload.RunPending()` (`src/Core/Core.Telemetry/TelemetryUpload.cs`), which orchestrates `TraceUploader` → `TracerProviderExportSink` → `WellKnownEndpoints`.
 
 Opt-out is a single typed config write: `az config set --key telemetry.enabled --value false` (or `Set-AzConfig`), read back through `GetConfiguration<TelemetryOptions>()`. See §10 and the Telemetry deep-dive page for the flush sequence.
 
