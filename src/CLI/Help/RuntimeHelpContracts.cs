@@ -53,7 +53,8 @@ public record RuntimeHelpParameter(
     string ParameterSetName,
     bool SupportsPipeline,
     bool SupportsWildcards,
-    string? GroupName = null);
+    string? GroupName = null,
+    string? ValueSources = null);
 
 /// <summary>
 /// Represents a runnable example in runtime command help output.

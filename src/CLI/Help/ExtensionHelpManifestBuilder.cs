@@ -238,7 +238,7 @@ namespace Core.Cli.Help
                 var property = ProcessorParameterReflection.FindPropertyForParameter(processorType, parameter.Name);
                 var attribute = property?.GetCustomAttribute<ArgumentInfoAttribute>();
                 var groupName = ProcessorParameterReflection.GetGroupName(property);
-                var valueSources = property?.GetCustomAttribute<PopulatorCommandAttribute>()?.Command;
+                var valueSources = ProcessorParameterReflection.GetValueSources(property);
 
                 parameters.Add(new HelpParameter(
                     Name: cliName,
