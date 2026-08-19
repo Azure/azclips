@@ -18,9 +18,10 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
     // The Enabled check no longer lives here — TelemetryService gates every
     // Start*Activity call at runtime so telemetry.enabled changes take effect on
     // the next cmdlet without requiring a module reload.
-    public PSTelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
+    public PSTelemetryProvider(
+        IEnumerable<BaseProcessor<Activity>> filterProcessors,
+        ITelemetrySender sender)
     {
-        var sender = new DirectTelemetrySender();
         ActivitySource = new ActivitySource(ClientType.PowerShell.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(ClientType.PowerShell.ToString())
