@@ -67,6 +67,7 @@ public class Program
             {
                 services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
                 services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
+                services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
