@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
 using OpenTelemetry;
 
 namespace Core.Telemetry;
@@ -79,13 +78,7 @@ internal class FileExporter : BaseExporter<Activity>
             // Synchronously write to file
             lock (_lock)
             {
-                var json = JsonSerializer.Serialize(traces, new JsonSerializerOptions 
-                { 
-                    WriteIndented = true 
-                });
-                
-                // Append to file with timestamp
-                File.AppendAllText(_filePath, $"\n--- Batch at {DateTime.UtcNow:O} ---\n{json}\n");
+                File.AppendAllText(_filePath, TraceFileFormat.FormatBatch(traces, DateTime.UtcNow));
             }
 
             return ExportResult.Success;

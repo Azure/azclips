@@ -93,7 +93,7 @@ public class FileTelemetrySender : ITelemetrySender
             try
             {
                 var content = File.ReadAllText(file);
-                var traces = ParseTraceFile(content);
+                var traces = TraceFileFormat.Parse(content);
                 var serviceName = (traces.Count > 0 ? traces[0].TryGetServiceName() : null)
                     ?? FallbackSourceName;
 
@@ -141,39 +141,6 @@ public class FileTelemetrySender : ITelemetrySender
         }
 
         return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Parses a trace file containing multiple JSON batches separated by headers.
-    /// File format: "--- Batch at {timestamp} ---\n[{traces}]\n"
-    /// </summary>
-    internal static List<TraceEntry> ParseTraceFile(string content)
-    {
-        var allTraces = new List<TraceEntry>();
-        var parts = content.Split("--- Batch at ");
-
-        foreach (var part in parts)
-        {
-            var jsonStart = part.IndexOf('[');
-            if (jsonStart < 0) continue;
-            var jsonEnd = part.LastIndexOf(']');
-            if (jsonEnd < 0) continue;
-
-            var json = part[jsonStart..(jsonEnd + 1)];
-
-            try
-            {
-                var traces = JsonSerializer.Deserialize<List<TraceEntry>>(json);
-                if (traces != null)
-                    allTraces.AddRange(traces);
-            }
-            catch
-            {
-                // Skip malformed batches
-            }
-        }
-
-        return allTraces;
     }
 
     /// <summary>
