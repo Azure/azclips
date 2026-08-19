@@ -17,6 +17,6 @@ public class FileTelemetrySender : ITelemetrySender
     {
         builder.AddProcessor(
             new SimpleActivityExportProcessor(
-                new FileExporter(HomePaths.GetDefaultTelemetryTraceDirectory())));
+                new FileExporter(HomePaths.GetDefaultTraceDirectory())));
     }
 }

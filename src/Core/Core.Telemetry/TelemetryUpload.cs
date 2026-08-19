@@ -14,7 +14,7 @@ public static class TelemetryUpload
     /// <summary>Sends all pending trace files, then deletes the ones that were delivered.</summary>
     public static void RunPending() =>
         new TraceUploader(
-            new TraceFileStore(HomePaths.GetDefaultTelemetryTraceDirectory()),
+            new TraceFileStore(HomePaths.GetDefaultTraceDirectory()),
             new TracerProviderExportSink(TelemetryTargetResolver.Resolve()))
         .Run();
 }
