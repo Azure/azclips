@@ -11,12 +11,12 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
 {
     private readonly IEnumerable<IExtensionLoader> _extensionLoaders;
     private readonly ILoggingService _loggingService;
-    private readonly IExtensionRegistryStore? _registryStore;
+    private readonly IExtensionRegistryStore _registryStore;
 
     public CLIAssemblyLoadingProvider(
         IEnumerable<IExtensionLoader> extensionLoaders,
         ILoggingService loggingService,
-        IExtensionRegistryStore? registryStore = null)
+        IExtensionRegistryStore registryStore)
     {
         _extensionLoaders = extensionLoaders;
         _loggingService = loggingService;
@@ -67,7 +67,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
     {
         try
         {
-            return (_registryStore ?? new FileExtensionRegistryStore()).Load();
+            return _registryStore.Load();
         }
         catch (Exception ex)
         {
@@ -86,7 +86,7 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
         pinnedVersion = string.Empty;
 
         if (string.IsNullOrWhiteSpace(discoveredVersion) ||
-            loader is BuiltinExtensionLoader ||
+            loader is BundledExtensionLoader ||
             registry is null ||
             !RegistryLookup.TryFind(registry, extensionName, out var match) ||
             !match.Value.Pinned ||
@@ -95,8 +95,8 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
             return false;
         }
 
-        if (loader is MultiVersionExtensionLoader multiVersionLoader &&
-            !multiVersionLoader.HasInstalledVersion(extensionName, match.Value.Version))
+        if (loader is InstalledExtensionLoader installedLoader &&
+            !installedLoader.HasInstalledVersion(extensionName, match.Value.Version))
         {
             return false;
         }

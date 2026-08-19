@@ -92,6 +92,9 @@ internal class FileExporter : BaseExporter<Activity>
         }
         catch (Exception ex)
         {
+            // Raw Console.Error: Core.Telemetry sits below Core.Runtime; routing through
+            // ILoggingService would invert the layer stack and risk recursion if any future
+            // logger path opens a telemetry activity. Matches OpenTelemetry SelfLog / Serilog SelfLog.
             Console.Error.WriteLine($"Error exporting traces to file: {ex.Message}");
             return ExportResult.Failure;
         }

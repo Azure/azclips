@@ -15,7 +15,7 @@ parameters:
 jobs:
 - job: BuildMacOSOutput
   displayName: CLI macOS Tarball
-  timeoutInMinutes: 60
+  timeoutInMinutes: 30
   strategy:
     matrix:
       osx_arm64_lean:

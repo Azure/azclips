@@ -32,8 +32,8 @@ graph TD
     ARGS["args: az extension remove Compute"] --> DISP["ExtensionDispatcher.Parse"]
     DISP -->|"CommandInvocation"| ENG["Engine / ExecutionSession"]
     ENG --> ALP["CLIAssemblyLoadingProvider"]
-    ALP --> L1["BuiltinExtensionLoader"]
-    ALP --> L2["MultiVersionExtensionLoader"]
+    ALP --> L1["BundledExtensionLoader"]
+    ALP --> L2["InstalledExtensionLoader"]
     L1 --> ASM["extension Assembly"]
     L2 --> ASM
     ASM --> IDX["IExtensionIndex"]
@@ -104,35 +104,33 @@ that compose multiple processors (see `src/Extensions/Resources/` and `src/Exten
 
 ## 2. Discovery & loading
 
-### Routing model: verbs, leaves, and the two sources
+### Routing model: verbs, leaves, and the discovery-driven registry
 
 Routing is `{(verb, path) → packageId}` with O(1) lookup; a top-level verb is a _shared namespace_
 and each full `(verb, path)` leaf is owned by exactly one extension
-(`eng-docs/spec/extension-management.md`). Command groups resolve from two merged sources:
-
-1. **Built-in map** — `BuiltInExtensions.Map`, a static seed of host-shipped extensions
-   (`src/Core/Core.Extensions/BuiltInExtensions.cs:44`). The "true core" is `extension`, `login`,
-   `logout`, `profile`, and `config` (`src/Core/Core.Extensions/BuiltInExtensions.cs:48`). Each
-   entry can declare `Leaves` (e.g. `add`, `list`, `remove` for `extension`) so the dispatcher can
-   peel positional sub-commands correctly (`src/Core/Core.Extensions/BuiltInExtensions.cs:50`).
-   Built-ins are never persisted to the registry and a built-in **always wins** over a registry
-   entry for the same verb (`src/Core/Core.Extensions/BuiltInExtensions.cs:34`).
-2. **User-installed registry** — the on-disk `registry.json` under
-   `~/.azclips/extensions/` (`src/Core/Core.Abstractions/HomePaths.cs:14`), loaded through
-   `FileExtensionRegistryStore` and merged with the built-in seed.
+(`eng-docs/spec/extension-management.md`). The runtime keeps no static verb seed — every leaf
+comes from discovery. `CliExtensionServiceRegistration.BuildLeafIndexWithDiscovery` opens an engine
+discovery session that enumerates both loaders (`BundledExtensionLoader` and
+`InstalledExtensionLoader`, `src/CLI/Program.cs:58-59`), reads each extension's
+`IExtensionIndex.GetCommandTable(CLI)`, and projects the results into an `ExtensionRegistry`. The
+on-disk `registry.json` under `~/.azclips/extensions/` (`src/Core/Core.Abstractions/HomePaths.cs:14`)
+layers preferences (pin state, source, installedAt) on top; leaves themselves come from discovery.
+When the same package id appears in both tiers, `ExtensionCandidateSelector` picks the winner (pin
+first, then highest version, then a deterministic tiebreak).
 
 ### Dispatch: `ExtensionDispatcher.Parse`
 
 `ExtensionDispatcher.Parse` turns raw `args` into a `CommandInvocation`
-(`src/CLI/Parser/ExtensionDispatcher.cs:44`). Its default constructor builds a `LeafIndex` from the
-built-in map **and** the on-disk store (`src/CLI/Parser/ExtensionDispatcher.cs:28`). Resolution
+(`src/CLI/Parser/ExtensionDispatcher.cs:44`). Its DI-injected constructor builds a `LeafIndex` from
+the discovery-driven registry (`src/CLI/CliExtensionServiceRegistration.cs`). Resolution
 proceeds in stages:
 
-1. **Help short-circuits** — bare `az`, `az --help`, `az help <group>`, and `az <group> … --help` are
-   detected and turned into help exceptions before routing
-   (`src/CLI/Parser/ExtensionDispatcher.cs`). The empty-args case raises the same
-   `DispatchHelpException` as `az --help`; `Program.Main` layers a welcome banner on top when the
-   invocation was truly bare.
+1. **Help / version handled upstream** — `GlobalArgParser.Parse` classifies bare `az`, `az --help`,
+   `az help <group>`, `az <group> … --help`, `az version`, and `az --version` into `GlobalArgs.Help` /
+   `GlobalArgs.Version` before `ExtensionDispatcher.Parse` runs; `Program.Main` dispatches them
+   directly through `RuntimeHelpDispatcher` / `RuntimeVersionDispatcher`. Bare `az` additionally
+   triggers the welcome banner in `Program.Main`. The dispatcher itself only sees real
+   extension-routing invocations.
 2. **Longest-prefix leaf match** — the leading non-flag tokens after the verb are matched against
    the `LeafIndex` from the longest prefix down; the first hit wins and yields a `ResolvedExtension`
    (`src/CLI/Parser/ExtensionDispatcher.cs:71`).
@@ -150,32 +148,32 @@ proceeds in stages:
 Once dispatch names an extension, `CLIAssemblyLoadingProvider` loads its assembly by trying each
 registered `IExtensionLoader` in order and taking the first non-null result
 (`src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs:11`). Two loaders are registered at startup,
-in priority order (`src/CLI/Program.cs:42`):
+in priority order (`src/CLI/Program.cs:56`):
 
 ```csharp
-services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();       // Program.cs:42
-services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();  // Program.cs:43
+services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();       // Program.cs:58
+services.AddSingleton<IExtensionLoader, InstalledExtensionLoader>();     // Program.cs:59
 ```
 
-| Loader                        | Layout it understands                       | Version selection                                           | Source                                           |
-| ----------------------------- | ------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------ |
-| `BuiltinExtensionLoader`      | Flat extension folders next to the host     | Single version                                              | `src/CLI/AssemblyLoading/ExtensionLoader.cs:26`  |
-| `MultiVersionExtensionLoader` | `…/<package>/<version>/` version subfolders | Exact version if requested, else **highest `NuGetVersion`** | `src/CLI/AssemblyLoading/ExtensionLoader.cs:197` |
+| Loader                     | Layout it understands                       | Version selection                                           | Source                                           |
+| -------------------------- | ------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------ |
+| `BundledExtensionLoader`   | Flat extension folders next to the host     | Single version                                              | `src/CLI/AssemblyLoading/ExtensionLoader.cs:52`  |
+| `InstalledExtensionLoader` | `…/<package>/<version>/` version subfolders | Exact version if requested, else **highest `NuGetVersion`** | `src/CLI/AssemblyLoading/ExtensionLoader.cs:358` |
 
 Both loaders isolate each extension in its own `AssemblyLoadContext` (ALC). The ALC's `Load`
 override deliberately **returns `null` for `Core.*` and `Microsoft.Extensions.DependencyInjection`
 assemblies** so those shared contracts come from the host rather than the extension's own copy —
 this is what lets a processor's `ProcessorContext` be the _same_ type the host created
-(`src/CLI/AssemblyLoading/ExtensionLoader.cs:42`, `:220`). Managed assemblies are read into memory
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:71`, `:377`). Managed assemblies are read into memory
 and loaded via `LoadFromStream`, so the on-disk DLL is not locked
-(`src/CLI/AssemblyLoading/ExtensionLoader.cs:33`).
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:62`).
 
-`MultiVersionExtensionLoader.ResolveExtensionDirectory` walks candidate package-folder names under
-the configured versioned-install root, and when no exact version is requested it parses each version
+`InstalledExtensionLoader.ResolveExtensionDirectory` walks candidate package-folder names under
+the configured installed extensions root, and when no exact version is requested it parses each version
 subfolder name as a `NuGetVersion` and selects the highest
-(`src/CLI/AssemblyLoading/ExtensionLoader.cs:258`). Loaded `(context, assembly)` pairs are memoised
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:419`). Loaded `(context, assembly)` pairs are memoised
 in a static `ConcurrentDictionary` so repeated invocations in a long-running host reuse the same ALC
-(`src/CLI/AssemblyLoading/ExtensionLoader.cs:199`, load entry point at `:301`).
+(`src/CLI/AssemblyLoading/ExtensionLoader.cs:360`, load entry point at `:480`).
 
 ### Index caching: `LFUCache` in the Engine
 
@@ -192,13 +190,13 @@ sequenceDiagram
     participant U as User
     participant D as ExtensionDispatcher
     participant P as CLIAssemblyLoadingProvider
-    participant B as BuiltinExtensionLoader
-    participant M as MultiVersionExtensionLoader
+    participant B as BundledExtensionLoader
+    participant M as InstalledExtensionLoader
     participant E as Engine (LFUCache)
     participant I as IExtensionIndex
 
     U->>D: az vm create ...
-    D->>D: LeafIndex longest-prefix match<br>(BuiltInExtensions.Map + registry.json)
+    D->>D: LeafIndex longest-prefix match<br>(discovery-driven, both tiers)
     D-->>E: CommandInvocation(extension=Compute, cmd="vm create")
     E->>E: LFUCache.GetOrAdd("Compute")
     alt cache miss
@@ -302,8 +300,8 @@ graph LR
 - **Shared contracts come from the host, not the extension.** ALCs refuse to load `Core.*`, so
   extension and host agree on `IProcessor`/`ProcessorContext` identity
   (`src/CLI/AssemblyLoading/ExtensionLoader.cs:42`).
-- **Built-ins outrank the registry.** A verb in `BuiltInExtensions.Map` can never be overridden by an
-  installed package (`src/Core/Core.Extensions/BuiltInExtensions.cs:34`).
+- **Dispatch is uniform.** Every verb — `login`, `vm`, `group` — takes the same discovery-driven
+  code path. There is no compile-time "Core tier" that outranks discovered state.
 - **Leaf ownership is exclusive.** Many extensions may share a verb namespace, but each `(verb, path)`
   leaf is owned by one package (`eng-docs/spec/extension-management.md`).
 - **Everything expensive is cached once.** Extension indices via `LFUCache`
@@ -316,9 +314,9 @@ graph LR
 - `src/Core/Core.Abstractions/CLIContracts.cs:11` — the `IProcessor` contract + `[ArgumentInfo]`
 - `src/Extensions/Extension/ExtensionIndex.cs:121` — a concrete CLI command table
 - `src/CLI/Parser/ExtensionDispatcher.cs:44` — arg → `CommandInvocation` dispatch
-- `src/Core/Core.Extensions/BuiltInExtensions.cs:44` — built-in verb → package map
-- `src/CLI/Program.cs:42` — loader registration order (`BuiltinExtensionLoader`, `MultiVersionExtensionLoader`)
-- `src/CLI/AssemblyLoading/ExtensionLoader.cs:197` — multi-version loader + isolated ALCs
+- `src/CLI/CliExtensionServiceRegistration.cs` — discovery-driven leaf index build
+- `src/CLI/Program.cs:58` — loader registration order (`BundledExtensionLoader`, `InstalledExtensionLoader`)
+- `src/CLI/AssemblyLoading/ExtensionLoader.cs:358` — installed extensions loader + isolated ALCs
 - `src/CLI/AssemblyLoading/CLIAssemblyLoadingProvider.cs:11` — chain-of-loaders resolution
 - `src/Core/Core.Engine/Engine.cs:81` — `LFUCache` of extension indices
 - `src/Extensions/Extension/ExtensionInstaller.cs:47` — NuGet-based install

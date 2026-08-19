@@ -18,38 +18,53 @@ public enum RecorderMode
 }
 
 /// <summary>
-/// The record/playback <c>SendAsyncStep</c> for <c>IRuntimeHttpPipeline</c>, occupying the seam
-/// <c>Engine.CreateProcessorContext</c> reserves at the tracing step ("record/playback request
-/// during test"). Register it as the <see cref="ITracingInterceptor"/> singleton before
-/// <c>AzclipsServiceProvider.Initialize</c>.
+/// The record/playback <c>SendAsyncStep</c>, registered as the <see cref="ITracingInterceptor"/>
+/// singleton to fill the seam <c>Engine.CreateProcessorContext</c> reserves at the tracing step.
 /// <para>
-/// <b>Record:</b> forwards to the next step (retries → wire), then appends the request/response
-/// pair to <see cref="SessionRecord"/>. The stored request omits the <c>Authorization</c> header
-/// so bearer tokens never land on disk (the full sanitizer set is #473).
-/// <b>Playback:</b> matches the outgoing request against the record with the supplied
-/// <see cref="IRequestMatcher"/> (default: <see cref="DefaultRequestMatcher"/>, method + URI;
-/// each entry consumed once, duplicates served in recorded order) and returns the stored
-/// response without calling the next step. An unmatched request throws with the request line
-/// and the record's unconsumed entries so the mismatch is immediately visible.
+/// Record forwards to the wire, then stores the request/response pair, sanitised so no live token,
+/// subscription, or tenant id reaches disk. Playback matches the request via <see cref="IRequestMatcher"/>
+/// (default: method + URI, each entry used once, duplicates in recorded order) and returns the stored
+/// response without hitting the network; an unmatched request throws, listing the unconsumed entries.
 /// </para>
 /// </summary>
-public sealed class RecordPlaybackInterceptor(RecorderMode mode, SessionRecord sessionRecord, IRequestMatcher? matcher = null) : ITracingInterceptor
+public sealed class RecordPlaybackInterceptor(
+    RecorderMode mode,
+    SessionRecord sessionRecord,
+    IRequestMatcher? matcher = null,
+    RecordingSanitizers? sanitizers = null) : ITracingInterceptor
 {
     private readonly IRequestMatcher _matcher = matcher ?? new DefaultRequestMatcher();
+    private readonly RecordingSanitizers _sanitizers = sanitizers ?? RecordingSanitizers.Default;
     private readonly List<CapturedHttpRequest> _sent = [];
     private readonly HashSet<int> _consumed = [];
+
+    // Orchestrators fan out requests concurrently (e.g. vm create fires vnet + nsg in parallel),
+    // so every touch of the shared lists goes through this gate.
+    private readonly object _gate = new();
 
     public RecorderMode Mode { get; } = mode;
 
     public SessionRecord SessionRecord { get; } = sessionRecord;
 
     /// <summary>Every request that reached this step, in send order (kept in memory only, unsanitized).</summary>
-    public IReadOnlyList<CapturedHttpRequest> Sent => _sent;
+    public IReadOnlyList<CapturedHttpRequest> Sent
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _sent];
+            }
+        }
+    }
 
     public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventPublisher callback, ISendAsync next) =>
     {
         var snapshot = await CapturedHttpRequest.SnapshotAsync(request);
-        _sent.Add(snapshot);
+        lock (_gate)
+        {
+            _sent.Add(snapshot);
+        }
         return Mode == RecorderMode.Record
             ? await RecordAsync(snapshot, request, callback, next)
             : Playback(snapshot);
@@ -86,42 +101,59 @@ public sealed class RecordPlaybackInterceptor(RecorderMode mode, SessionRecord s
             responseHeaders[name] = [.. values];
         }
 
-        SessionRecord.Entries.Add(new SessionRecordEntry
+        var entry = new SessionRecordEntry
         {
-            Request = new RecordedRequest
+            Request = _sanitizers.Sanitize(new RecordedRequest
             {
                 Method = snapshot.Method,
                 Uri = snapshot.Uri,
-                Headers = snapshot.Headers
-                    .Where(header => !string.Equals(header.Key, "Authorization", StringComparison.OrdinalIgnoreCase))
-                    .ToDictionary(header => header.Key, header => header.Value),
+                Headers = WithoutDerivedHeaders(snapshot.Headers),
                 Body = snapshot.Body,
-            },
-            Response = new RecordedResponse
+            }),
+            Response = _sanitizers.Sanitize(new RecordedResponse
             {
                 StatusCode = (int)response.StatusCode,
                 Headers = responseHeaders,
-                ContentHeaders = contentHeaders,
+                ContentHeaders = WithoutDerivedHeaders(contentHeaders),
                 Body = responseBody,
-            },
-        });
+            }),
+        };
+
+        lock (_gate)
+        {
+            SessionRecord.Entries.Add(entry);
+        }
 
         return response;
     }
 
+    // Content-Length is derived from the body, which sanitising rewrites, so drop it and let
+    // playback recompute it from the stored body.
+    private static Dictionary<string, string[]> WithoutDerivedHeaders(IReadOnlyDictionary<string, string[]> headers)
+        => headers
+            .Where(header => !string.Equals(header.Key, "Content-Length", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(header => header.Key, header => header.Value);
+
     private HttpResponseMessage Playback(CapturedHttpRequest snapshot)
     {
-        for (int i = 0; i < SessionRecord.Entries.Count; i++)
-        {
-            var entry = SessionRecord.Entries[i];
-            if (!_consumed.Contains(i) && _matcher.Matches(entry.Request, snapshot))
-            {
-                _consumed.Add(i);
-                return ToResponse(entry.Response);
-            }
-        }
+        // Normalise the request the same way the recording was sanitised, so a live id still matches.
+        snapshot = _sanitizers.Normalize(snapshot);
 
-        throw new InvalidOperationException(BuildUnmatchedDiagnostic(snapshot));
+        // Match and consume atomically, so concurrent requests can't claim the same entry.
+        lock (_gate)
+        {
+            for (int i = 0; i < SessionRecord.Entries.Count; i++)
+            {
+                var entry = SessionRecord.Entries[i];
+                if (!_consumed.Contains(i) && _matcher.Matches(entry.Request, snapshot))
+                {
+                    _consumed.Add(i);
+                    return ToResponse(entry.Response);
+                }
+            }
+
+            throw new InvalidOperationException(BuildUnmatchedDiagnostic(snapshot));
+        }
     }
 
     private static HttpResponseMessage ToResponse(RecordedResponse recorded)
@@ -143,6 +175,10 @@ public sealed class RecordPlaybackInterceptor(RecorderMode mode, SessionRecord s
         {
             response.Headers.TryAddWithoutValidation(name, values);
         }
+
+        // Playback already has the next answer, so LRO poll delays are pure waste.
+        response.Headers.Remove("Retry-After");
+        response.Headers.TryAddWithoutValidation("Retry-After", "0");
 
         return response;
     }

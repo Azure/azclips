@@ -6,6 +6,7 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
 /// <summary>Removes a profile. If the removed profile was active, the active pointer is cleared.</summary>
 [Cmdlet(VerbsCommon.Remove, CommandNoun, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[OutputType(typeof(void))]
 public class RemoveProfileCmdlet : PSCmdlet
 {
     private const string CommandNoun = Constants.CommandPrefix + "Profile";

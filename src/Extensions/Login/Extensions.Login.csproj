@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Extensions.Login</AssemblyName>
-        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
         <RootNamespace>Microsoft.Azure.Azclips.Extensions.Login</RootNamespace>
         <ExtName>Microsoft.Azure.Azclips.Extensions.Login</ExtName>
 

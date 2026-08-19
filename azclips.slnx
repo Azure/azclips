@@ -51,6 +51,10 @@
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
+  <Folder Name="/tools/Help/">
+      <Project Path="tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj" />
+      <Project Path="tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" />
+  </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />

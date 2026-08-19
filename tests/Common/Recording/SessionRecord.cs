@@ -42,7 +42,7 @@ public sealed class RecordedResponse
 /// The recorded HTTP session for one scenario: a version stamp, free-form metadata, and the
 /// exchanges in send order. Serializes to the JSON file that lives at
 /// <c>SessionRecords/&lt;TestClass&gt;/&lt;TestName&gt;.json</c> (see <see cref="SessionRecordFiles"/>).
-/// Entry order is significant — playback consumes duplicate matches in recorded order, which is
+/// Entry order is significant: playback consumes duplicate matches in recorded order, which is
 /// what makes polling sequences replayable.
 /// </summary>
 public sealed class SessionRecord
@@ -75,7 +75,7 @@ public sealed class SessionRecord
             Directory.CreateDirectory(directory);
         }
 
-        File.WriteAllText(path, JsonSerializer.Serialize(this, s_jsonOptions));
+        File.WriteAllText(path, JsonSerializer.Serialize(this, s_jsonOptions) + "\n");
     }
 
     public static SessionRecord Load(string path)

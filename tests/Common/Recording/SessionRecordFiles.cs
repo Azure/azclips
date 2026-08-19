@@ -9,7 +9,7 @@ namespace Tests.Common.Recording;
 /// Canonical on-disk layout for recordings:
 /// <c>tests/&lt;TestProject&gt;/SessionRecords/&lt;TestClass&gt;/&lt;TestName&gt;.json</c>,
 /// resolved from the repository root (via <see cref="RepoLocator"/>) rather than the test's
-/// output directory — so record mode writes into the source tree where the file can be
+/// output directory, so record mode writes into the source tree where the file can be
 /// committed, and playback reads that same committed file locally and in CI.
 /// </summary>
 public static class SessionRecordFiles

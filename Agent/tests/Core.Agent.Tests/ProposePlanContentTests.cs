@@ -36,34 +36,34 @@ public class ProposePlanContentTests
     }
 
     [Fact]
-    public void Placeholders_parses_name_and_description()
+    public void Placeholders_parses_flag_and_description()
     {
         var ph = PlanArgsParser.ExtractUserInputNeeds(Args(new
         {
-            placeholders = new[] { new { name = "admin-password", description = "Strong password" } },
+            placeholders = new[] { new { flag = "--admin-password", description = "Strong password" } },
         }), "placeholders");
 
         Assert.NotNull(ph);
         Assert.Single(ph!);
-        Assert.Equal("admin-password", ph![0].Name);
+        Assert.Equal("--admin-password", ph![0].Flag);
         Assert.Equal("Strong password", ph[0].Description);
     }
 
     [Fact]
-    public void Placeholders_skips_entries_with_blank_name()
+    public void Placeholders_skips_entries_with_blank_flag()
     {
         var ph = PlanArgsParser.ExtractUserInputNeeds(Args(new
         {
             placeholders = new[]
             {
-                new { name = "", description = "no name" },
-                new { name = "ssh-key", description = "your key" },
+                new { flag = "", description = "no flag" },
+                new { flag = "--ssh-key", description = "your key" },
             },
         }), "placeholders");
 
         Assert.NotNull(ph);
         Assert.Single(ph!);
-        Assert.Equal("ssh-key", ph![0].Name);
+        Assert.Equal("--ssh-key", ph![0].Flag);
     }
 
     [Fact]

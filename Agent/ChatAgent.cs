@@ -115,10 +115,17 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         var sdkLogger = logger ?? NullLogger.Instance;
+        // BYOM (builtin provider) authenticates the LLM with an Azure token, not a
+        // GitHub credential — so the daemon's default auto-login, which reads the
+        // GitHub keychain and prompts on macOS, touches a credential this path never
+        // uses. Disable it for builtin only; the github provider keeps auto-login so
+        // subscription users' stored/gh-CLI credentials still work.
+        var useBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
         var client = new CopilotClient(new CopilotClientOptions
         {
             Logger = sdkLogger,
             Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
+            UseLoggedInUser = useBuiltin ? false : null,
         });
 
         try
@@ -241,11 +248,11 @@ public sealed class ChatAgent : IAsyncDisposable
     // long system message that models sometimes skim; injecting the same
     // reminder via SessionStart's AdditionalContext puts it in a spot the
     // model reads at every session boot. Wording deliberately mirrors the
-    // prompt copy (next-generation Azure CLI — NOT classic Azure CLI / training data may be
+    // prompt copy (NOT classic Azure CLI / training data may be
     // wrong / verify with get_command) so the two channels reinforce each
     // other instead of introducing wording drift.
     private const string AzclipsBoundary =
-        "Reminder: this `az` is a next-generation Azure CLI, NOT classic Azure CLI. " +
+        "Reminder: this `az` is NOT the classic Azure CLI. " +
         "Your training data about classic `az` may be wrong; verify every command with get_command().";
 
     private static SessionConfig BuildBaseSessionConfig(

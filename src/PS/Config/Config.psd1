@@ -30,7 +30,7 @@ CompanyName = 'Microsoft'
 Copyright = '(c) Microsoft. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Configuration management cmdlets for AzClips v2'
+Description = 'Configuration management cmdlets for Azure PowerShell'
 
 # Minimum version of the PowerShell engine required by this module
 PowerShellVersion = '7.5'

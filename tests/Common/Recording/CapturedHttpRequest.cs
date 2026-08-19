@@ -10,7 +10,7 @@ namespace Tests.Common.Recording;
 /// a <see cref="SessionRecordEntry"/>; <see cref="RecordPlaybackInterceptor"/> stores the
 /// response half alongside it.
 /// </summary>
-public sealed record CapturedHttpRequest(string Method, string Uri, IReadOnlyDictionary<string, string[]> Headers,string? Body)
+public sealed record CapturedHttpRequest(string Method, string Uri, IReadOnlyDictionary<string, string[]> Headers, string? Body)
 {
     /// <summary>
     /// Snapshots <paramref name="request"/> as it stands right now (method, URI, all headers,
@@ -44,7 +44,7 @@ public sealed record CapturedHttpRequest(string Method, string Uri, IReadOnlyDic
     }
 
     /// <summary>
-    /// Renders the capture as stable text (method, URI, sorted headers, body) — used in
+    /// Renders the capture as stable text (method, URI, sorted headers, body), used in
     /// assertion messages so a parity mismatch shows exactly which line diverged.
     /// </summary>
     public override string ToString()

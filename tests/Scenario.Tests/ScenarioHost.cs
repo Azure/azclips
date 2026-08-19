@@ -12,23 +12,36 @@ using Tests.Common.Utilities;
 
 namespace Scenario.Tests;
 
+/// <summary>The extension a scenario drives: its short name, index assembly, and CLI leaves.</summary>
+internal sealed record ExtensionUnderTest(string Name, string PackageId, System.Reflection.Assembly Assembly, string Verb, string[] Leaves)
+{
+    public static readonly ExtensionUnderTest Resources = new(
+        "Resources",
+        "Microsoft.Azure.Azclips.Extensions.Resources",
+        typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly,
+        "group",
+        ["", "create", "show", "list"]);
+
+    public static readonly ExtensionUnderTest Compute = new(
+        "Compute",
+        "Microsoft.Azure.Azclips.Extensions.Compute",
+        typeof(Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex).Assembly,
+        "vm",
+        ["", "create", "create-basic", "show", "list", "delete"]);
+}
+
 /// <summary>
-/// Boots the full Azclips host (DI container + engine) for one client surface and executes
-/// commands subcutaneously: through the real dispatcher/binder and engine session, with the
-/// supplied interceptor occupying the pipeline's record/playback seam. Auth is stubbed — no
-/// credentials are needed in either mode. Pass <paramref name="backendHandler"/> to stand in
-/// for the network behind the pipeline's terminal <c>HttpClient</c> (record-mode tests);
-/// leave it null when the interceptor short-circuits (playback / canned responses).
+/// Boots the full Azclips host for one client surface and runs commands subcutaneously, through
+/// the real dispatcher/binder and engine, with the supplied interceptor filling the record/playback
+/// seam. <paramref name="backendHandler"/> stands in for the network in record-mode tests; leave it
+/// null when the interceptor short-circuits (playback).
 /// <para>
-/// <see cref="AzclipsServiceProvider"/> is process-wide and <c>ClientType</c> is fixed at
-/// initialization, so one host serves one surface; dispose it before booting the other.
-/// Tests using this type must live in the non-parallel "Scenario Tests" collection.
+/// <see cref="AzclipsServiceProvider"/> is process-wide and the client type is fixed at init, so one
+/// host serves one surface. Tests that use it must live in the non-parallel "Scenario Tests" collection.
 /// </para>
 /// </summary>
 internal sealed class ScenarioHost : IDisposable
 {
-    private const string ResourcesPackageId = "Microsoft.Azure.Azclips.Extensions.Resources";
-
     // Cleared for the host's lifetime so ambient developer settings can't leak into runs.
     // Mirrors the isolation list used by ConfigCliTests.
     private static readonly string[] s_environmentKeys =
@@ -42,12 +55,19 @@ internal sealed class ScenarioHost : IDisposable
     ];
 
     private readonly ClientType _clientType;
+    private readonly ExtensionUnderTest[] _extensions;
     private readonly List<object> _outputs = [];
     private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
-    public ScenarioHost(ClientType clientType, ITracingInterceptor interceptor, HttpMessageHandler? backendHandler = null)
+    /// <param name="useLiveAuth">
+    /// Record mode needs a real token, so it keeps the host's real profile/auth/config and the
+    /// signed-in profile. Playback stubs them and needs no credentials.
+    /// </param>
+    /// <param name="extensions">Extensions the scenario drives; defaults to Resources.</param>
+    public ScenarioHost(ClientType clientType, ITracingInterceptor interceptor, HttpMessageHandler? backendHandler = null, bool useLiveAuth = false, params ExtensionUnderTest[] extensions)
     {
         _clientType = clientType;
+        _extensions = extensions.Length > 0 ? extensions : [ExtensionUnderTest.Resources];
 
         foreach (var key in s_environmentKeys)
         {
@@ -59,18 +79,23 @@ internal sealed class ScenarioHost : IDisposable
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IAssemblyLoadingProvider>(
-                new StubExtensionLoader(typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly, "Resources"));
-            services.AddSingleton<IConfigurationProvider>(new InMemoryConfigurationProvider());
+                new StubExtensionLoader(_extensions.ToDictionary(e => e.Name, e => e.Assembly)));
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IProfileService>(new StubProfileService());
-            services.AddSingleton<IAuthService, StubAuthService>();
             services.AddSingleton(interceptor);
+
+            // Stubbing auth in record mode would send a fake token and get a 401 instead of a recording.
+            if (!useLiveAuth)
+            {
+                services.AddSingleton<IConfigurationProvider>(new InMemoryConfigurationProvider());
+                services.AddSingleton<IProfileService>(new StubProfileService());
+                services.AddSingleton<IAuthService, StubAuthService>();
+            }
             if (backendHandler is not null)
             {
                 services.AddSingleton(new HttpClient(backendHandler));
             }
 
-            // Each surface binds arguments with its real provider — that binding difference
+            // Each surface binds arguments with its real provider; that binding difference
             // is exactly what the parity tests exercise.
             if (clientType == ClientType.CLI)
             {
@@ -86,9 +111,9 @@ internal sealed class ScenarioHost : IDisposable
     }
 
     /// <summary>
-    /// Parses <paramref name="args"/> with the real <see cref="ExtensionDispatcher"/> (against an
-    /// in-memory registry that maps the <c>group</c> verb to the Resources extension) and runs the
-    /// resulting invocation the way <c>Program.Main</c> does.
+    /// Parses <paramref name="args"/> with the real <see cref="ExtensionDispatcher"/>, against an
+    /// in-memory registry built from the scenario's extensions, and runs the resulting invocation
+    /// the way <c>Program.Main</c> does.
     /// </summary>
     public IReadOnlyList<object> RunCli(params string[] args)
     {
@@ -97,27 +122,41 @@ internal sealed class ScenarioHost : IDisposable
             throw new InvalidOperationException($"This host was booted for {_clientType}; create a ClientType.CLI host to run CLI commands.");
         }
 
-        var registry = ResourcesRegistry();
+        var registry = BuildRegistry(_extensions);
         var dispatcher = new ExtensionDispatcher(
             new ExtensionResolver(new InMemoryRegistryStore(registry)),
-            () => LeafIndex.Build(BuiltInExtensions.Map, registry));
+            () => LeafIndex.Build(registry));
         var invocation = dispatcher.Parse(args);
         return Execute(invocation, useAsyncSession: true);
     }
 
     /// <summary>
-    /// Runs the invocation a cmdlet's <c>ProcessRecord</c> would build — same extension name,
-    /// command name, and parameter dictionary shape as e.g. <c>NewResourceGroupCmdlet</c> —
+    /// The subscription of the signed-in profile. Only meaningful with live auth; record-mode
+    /// scenarios use it for commands whose subscription argument is required.
+    /// </summary>
+    public string LiveSubscriptionId()
+    {
+        var profiles = AzclipsServiceProvider.GetRequiredService<IProfileService>();
+        var active = profiles.GetActiveProfileAsync().GetAwaiter().GetResult()
+            ?? throw new InvalidOperationException("No active profile; sign in with the azclips CLI before recording.");
+        return active.SubscriptionId
+            ?? throw new InvalidOperationException("The active profile has no subscription; log in with a subscription before recording.");
+    }
+
+    /// <summary>
+    /// Runs the invocation a cmdlet's <c>ProcessRecord</c> would build (same extension name,
+    /// command name, and parameter dictionary shape as e.g. <c>NewResourceGroupCmdlet</c>)
     /// through the engine's synchronous session path, as PowerShell hosts do.
     /// </summary>
-    public IReadOnlyList<object> RunPowerShell(string commandName, IDictionary<string, object> parameters)
+    public IReadOnlyList<object> RunPowerShell(string commandName, IDictionary<string, object> parameters, string? extension = null)
     {
         if (_clientType != ClientType.PowerShell)
         {
             throw new InvalidOperationException($"This host was booted for {_clientType}; create a ClientType.PowerShell host to run cmdlet invocations.");
         }
 
-        var invocation = new CommandInvocation("Resources", commandName, parameters, IsTransient: false, ModuleName: "Resources");
+        var extensionName = extension ?? _extensions[0].Name;
+        var invocation = new CommandInvocation(extensionName, commandName, parameters, IsTransient: false, ModuleName: extensionName);
         return Execute(invocation, useAsyncSession: false);
     }
 
@@ -151,21 +190,18 @@ internal sealed class ScenarioHost : IDisposable
         return _outputs.ToArray();
     }
 
-    private static ExtensionRegistry ResourcesRegistry()
+    private static ExtensionRegistry BuildRegistry(ExtensionUnderTest[] extensions)
     {
         var registry = new ExtensionRegistry();
-        registry.Extensions[ResourcesPackageId] = new ExtensionRegistryEntry
+        foreach (var extension in extensions)
         {
-            Version = "1.0.0",
-            Contributions =
-            [
-                new Contribution { Verb = "group", Path = "" },
-                new Contribution { Verb = "group", Path = "create" },
-                new Contribution { Verb = "group", Path = "show" },
-                new Contribution { Verb = "group", Path = "list" },
-            ],
-            Namespaces = ["group"],
-        };
+            registry.Extensions[extension.PackageId] = new ExtensionRegistryEntry
+            {
+                Version = "1.0.0",
+                Contributions = [.. extension.Leaves.Select(leaf => new Contribution { Verb = extension.Verb, Path = leaf })],
+                Namespaces = [extension.Verb],
+            };
+        }
         return registry;
     }
 

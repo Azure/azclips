@@ -6,7 +6,6 @@ variables:
   public_project: 'public'
   release_project: 'release'
   github_target_repo: 'Azure/azclips'
-  github_service_connection: 'Azure'
   github_release_name: 'azclips'
   esrp_service_connection: 'ame_esrp_connection'
   macos_bundle_id: 'com.microsoft.azclips.cli'

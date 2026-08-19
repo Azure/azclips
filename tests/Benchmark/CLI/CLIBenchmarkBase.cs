@@ -27,11 +27,16 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
     /// <summary>
     /// Short extension names (the segment after <see cref="PackageIdPrefix"/>) whose verbs this
-    /// benchmark's CLI invocations need staged. Defaults to the single extension named by the
+    /// benchmark's CLI invocations need available. Defaults to the single extension named by the
     /// class's <c>[BenchmarkExtension]</c> attribute; override only in the rare case a benchmark
-    /// must stage additional extensions.
+    /// needs additional extensions.
     /// </summary>
-    protected virtual IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
+    /// <remarks>
+    /// Every required extension is staged into the benchmark extensions home via
+    /// <see cref="LocalExtensionStager"/> and loaded by <c>InstalledExtensionLoader</c>. Post-#622
+    /// there is no Core/built-in distinction — dispatch is uniform across all verbs.
+    /// </remarks>
+    private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
 
@@ -41,20 +46,27 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         InitializeCommon();
 
         // Benchmark-scoped extensions home: a copy of the real ~/.azclips/extensions layout that the
-        // resolver, reconciler, and MultiVersionExtensionLoader all agree on.
+        // resolver, reconciler, and InstalledExtensionLoader all agree on.
         _extensionsRoot = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "extensions");
         TryDeleteDirectory(_extensionsRoot);
         Directory.CreateDirectory(_extensionsRoot);
 
+        // Fallback path for source build output.
+        var releaseRoot = Path.Combine(RepoRoot, "artifacts", "Release");
+        var stagedCount = 0;
+
         foreach (var shortName in RequiredExtensions)
         {
             var packageId = PackageIdPrefix + shortName;
-            var sourceBuildDir = Path.Combine(RepoRoot, "artifacts", "Release", packageId);
+            var sourceBuildDir = Path.Combine(releaseRoot, packageId);
+
             var version = ReadPackageVersion(sourceBuildDir, packageId);
             LocalExtensionStager.Stage(packageId, version, sourceBuildDir, _extensionsRoot);
+            stagedCount++;
         }
 
-        Console.WriteLine($"[Setup] CLI benchmarks ready (stub HTTP); staged {RequiredExtensions.Count} extension(s)");
+        Console.WriteLine(
+            $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} extension(s)");
     }
 
     [IterationSetup]
@@ -73,7 +85,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     [GlobalCleanup]
     public void GlobalCleanup()
     {
-        // Best-effort: MultiVersionExtensionLoader caches the extension ALC for the process
+        // Best-effort: InstalledExtensionLoader caches the extension ALC for the process
         // lifetime, so the staged DLL may still be locked here. A leftover home is harmless.
         TryDeleteDirectory(Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
     }
@@ -94,30 +106,27 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
     private void RegisterExtensionResolution()
     {
-        var extensionsRoot = _extensionsRoot;
-
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             // Loaders read the staged versioned payload (<root>/<pkg>/<ver>/<dll>).
             services.RemoveAll<IExtensionLoader>();
-            services.AddSingleton<IExtensionLoader>(sp => new BuiltinExtensionLoader(
+            services.AddSingleton<IExtensionLoader>(sp => new BundledExtensionLoader(
                 sp.GetRequiredService<ILoggingService>(),
-                new BenchmarkAssemblyConfigurationService(extensionsRoot)));
-            services.AddSingleton<IExtensionLoader>(sp => new MultiVersionExtensionLoader(
+                new BenchmarkAssemblyConfigurationService(_extensionsRoot)));
+            services.AddSingleton<IExtensionLoader>(sp => new InstalledExtensionLoader(
                 sp.GetRequiredService<ILoggingService>(),
-                new BenchmarkAssemblyConfigurationService(extensionsRoot)));
+                new BenchmarkAssemblyConfigurationService(_extensionsRoot)));
 
             // Resolver reads the staged registry (the layer that fails today).
             services.RemoveAll<IExtensionRegistryStore>();
             services.AddSingleton<IExtensionRegistryStore>(_ =>
-                new FileExtensionRegistryStore(Path.Combine(extensionsRoot, "registry.json")));
+                new FileExtensionRegistryStore(Path.Combine(_extensionsRoot, "registry.json")));
         });
     }
 
     // GeneratePackageOnBuild emits <packageId>.<version>.nupkg next to the dll. Parse the version
     // off the known package-id prefix (the id itself contains dots, so split-on-dot is wrong).
-    private static string ReadPackageVersion(string sourceBuildDir, string packageId)
-    {
+    private static string ReadPackageVersion(string sourceBuildDir, string packageId)    {
         if (!Directory.Exists(sourceBuildDir))
         {
             throw new DirectoryNotFoundException(
