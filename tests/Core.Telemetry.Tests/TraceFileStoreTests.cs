@@ -116,7 +116,8 @@ public class TraceFileStoreTests
         using var temp = new TempDirectory();
         var store = new TraceFileStore(temp.Path);
 
-        store.Delete(Path.Combine(temp.Path, "traces-ggg.uploading"));
+        Assert.Null(Record.Exception(
+            () => store.Delete(Path.Combine(temp.Path, "traces-ggg.uploading"))));
     }
 
     private static string WritePendingFile(string directory, string traceId, string content)
