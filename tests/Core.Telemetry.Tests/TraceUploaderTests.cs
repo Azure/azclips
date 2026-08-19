@@ -74,6 +74,22 @@ public class TraceUploaderTests
     }
 
     [Fact]
+    public void Run_DeletesFile_WhenItParsesToZeroEntries()
+    {
+        // A file whose content has no JSON batch at all parses to zero entries.
+        // The uploader should still claim it, group it under the fallback service name,
+        // and delete it when export succeeds — so corrupt/empty files don't accumulate.
+        using var temp = new TempDirectory();
+        var filePath = Path.Combine(temp.Path, TraceFileStore.FileNameFor("empty"));
+        File.WriteAllText(filePath, "not a json batch");
+        var sink = new FakeSink(exportSucceeds: true);
+
+        new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
+
+        Assert.Empty(Directory.GetFiles(temp.Path));
+    }
+
+    [Fact]
     public void Run_DoesNothing_WhenDirectoryIsEmpty()
     {
         using var temp = new TempDirectory();
