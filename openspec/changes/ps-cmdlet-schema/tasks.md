@@ -168,7 +168,9 @@ as of Milestone 0 (an author setting `hints.powershell.verb` directly is already
 
 ## Milestone 3: Integration & documentation
 
-- [ ] 3.1 Update `toolkit`'s own README/status docs (whichever tracked file currently describes
+- [x] 3.1 Update `toolkit`'s own README/status docs (whichever tracked file currently describes
       pipeline completeness) to reflect that a PS-command-enrichment `TransformStep` plus a
       `ps-commands` grouping package now exist (still no C# `Generator` — that remains a
-      separate, later change).
+      separate, later change). No such status doc existed yet (confirmed by inspection —
+      `toolkit/README.md` only covered dependency management); added a "Pipeline status" section
+      to it.

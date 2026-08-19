@@ -1,5 +1,26 @@
 # Azure Client Engine compiler
 
+## Pipeline status
+
+TypeSpec -> `IR` (`@azure-client-engine/typespec-emitter`) is complete. `IR -> IR` transforms and
+`IR -> files` generation (`@azure-client-engine/compiler`) are a working backbone, with one real
+transform/generator pair implemented so far:
+
+| Package | Role | Status |
+|---|---|---|
+| `ir` | The `IR` schema (models, operations, hints). | Complete. |
+| `typespec-emitter` | TypeSpec -> `IR`, out-of-process via the CLI. | Complete. |
+| `compiler` | `TransformStep`/`Generator` backbone (`compile()`, registry, pipeline). | Backbone complete. `create-ps-commands` (enriches `IROperation`/`IRParameter.rendering.powershell` -- verb/noun/`ConfirmImpact`/mutability/etc., plus `select`/`where`/`set` directive overrides) is the first real, non-identity `TransformStep`. `generate-ps-commands` is a placeholder `Generator`: it calls `derivePsCommands(ir)` and writes the result as `ps-commands.json` for inspection -- **not** real C# output. `noopGenerator`/the identity pipeline remain the defaults when neither is configured. |
+| `ps-commands` | `PsCommand`/`PsParameterSet` aggregate + `derivePsCommands(ir): PsCommand[]` grouping (multi-operation merge, base/Expanded variant fan-out). | Complete for the scope described below. |
+| `cli` | Thin `ace compile` front end wiring the above into a real, out-of-process TypeSpec compile. | `create-ps-commands`/`generate-ps-commands` are opt-in via `--config`'s `pipeline`/`generator` keys. |
+
+**Still missing**: an actual Roslyn/C# generator that turns `PsCommand[]` into real `Cmdlet`/
+`Processor`/`ExtensionIndex` source -- that's a separate, later effort. See
+`openspec/changes/ps-cmdlet-schema/` for the full design/tasks behind the PowerShell-targeting
+work above, including open questions (`ExtensionIndex` isn't a `partial class` today, and
+`hints.powershell` isn't yet a shared abstraction with `Core.Abstractions`'s
+`ArgumentInfoAttribute`/`ProcessorInfoAttribute`).
+
 ## Dependency Management
 
 ### Emitter
