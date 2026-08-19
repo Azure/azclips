@@ -264,6 +264,14 @@ public class StorageBlobProcessorTests
         Assert.IsType<DownloadBlobProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob download"].ProcessorType));
         Assert.True(commands["storage blob upload"].Parameters["overwrite"].IsRequired is false);
+
+        IReadOnlyDictionary<string, CommandMetadata> powerShellCommands =
+            index.GetCommandTable(ClientType.PowerShell);
+        Assert.Equal(2, powerShellCommands.Count);
+        Assert.IsType<UploadBlobProcessor_Orchestrator>(
+            Activator.CreateInstance(powerShellCommands["Set-AzStorageBlobContent"].ProcessorType));
+        Assert.IsType<DownloadBlobProcessor_Orchestrator>(
+            Activator.CreateInstance(powerShellCommands["Get-AzStorageBlobContent"].ProcessorType));
     }
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
