@@ -204,11 +204,16 @@ export const CompleterHintSchema: z.ZodType<CompleterHint> = z
     name: z.string().min(1).optional(),
     description: z.string().min(1).optional(),
   })
-  .strict();
+  .strict()
+  // At least one field must be set — an empty completer hint carries no information.
+  .refine((hint) => hint.script !== undefined || hint.name !== undefined || hint.description !== undefined, {
+    message: "CompleterHint requires at least one of script/name/description.",
+  });
 
 /** Mirrors AutoRest's `DefaultInfoAttribute` — a script-derived default value for a parameter. */
 export type DefaultValueHint = {
-  script?: string | undefined;
+  /** The value-producing expression. Required — without it, no default value can be produced. */
+  script: string;
   name?: string | undefined;
   description?: string | undefined;
   setCondition?: string | undefined;
@@ -216,7 +221,7 @@ export type DefaultValueHint = {
 
 export const DefaultValueHintSchema: z.ZodType<DefaultValueHint> = z
   .object({
-    script: z.string().min(1).optional(),
+    script: z.string().min(1),
     name: z.string().min(1).optional(),
     description: z.string().min(1).optional(),
     setCondition: z.string().min(1).optional(),
@@ -333,7 +338,7 @@ export const PowershellParameterHintSchema: z.ZodType<PowershellParameterHint> =
     mandatory: z.boolean().optional(),
     parameterSetName: z.string().min(1).optional(),
     helpMessage: z.string().min(1).optional(),
-    position: z.number().int().optional(),
+    position: z.number().int().min(0).optional(),
     valueFromPipeline: z.boolean().optional(),
     valueFromPipelineByPropertyName: z.boolean().optional(),
     valueFromRemainingArguments: z.boolean().optional(),
