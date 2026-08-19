@@ -15,7 +15,7 @@ RootModule = ''
 ModuleVersion = '0.1.0'
 
 # Supported PSEditions
-CompatiblePSEditions = 'Core', 'Desktop'
+CompatiblePSEditions = @('Core')
 
 # ID used to uniquely identify this module
 GUID = '6c9a0e61-382a-42be-9ccd-1383d0e38112'
@@ -33,7 +33,7 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'Azure PowerShell - Compute'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
