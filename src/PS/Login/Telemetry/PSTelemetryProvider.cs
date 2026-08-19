@@ -40,7 +40,7 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
             builder.AddProcessor(processor);
         }
 
-        sender.ConfigureExporter(builder, string.Empty);
+        sender.ConfigureExporter(builder);
         TracerProvider = builder.Build();
     }
 }

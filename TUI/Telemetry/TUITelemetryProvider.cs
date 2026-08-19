@@ -37,7 +37,7 @@ public class TUITelemetryProvider : DefaultTelemetryProvider
             builder.AddProcessor(processor);
         }
 
-        sender.ConfigureExporter(builder, FileTelemetrySender.GetTraceDirectory());
+        sender.ConfigureExporter(builder);
         TracerProvider = builder.Build()!;
     }
 }
