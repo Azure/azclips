@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class UploadBlobProcessor_Orchestrator : StorageBlobProcessorBase
+public sealed class BlockBlobUploadProcessor_Orchestrator : StorageBlobProcessorBase
 {
     private const long MaxSingleUploadBytes = 5000L * 1024 * 1024;
 
