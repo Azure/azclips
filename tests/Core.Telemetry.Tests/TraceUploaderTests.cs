@@ -9,7 +9,7 @@ public class TraceUploaderTests
     public void Run_DeletesFiles_WhenExportSucceeds()
     {
         using var temp = new TempDirectory();
-        WriteTraceFile(temp.Path, "aaa", serviceName: "CLI", "op-1");
+        WriteTraceFile(temp.Path, "aaa", "CLI", "op-1");
         var sink = new FakeSink(exportSucceeds: true);
 
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
@@ -21,7 +21,7 @@ public class TraceUploaderTests
     public void Run_LeavesFilesOnDisk_WhenExportFails()
     {
         using var temp = new TempDirectory();
-        WriteTraceFile(temp.Path, "aaa", serviceName: "CLI", "op-1");
+        WriteTraceFile(temp.Path, "aaa", "CLI", "op-1");
         var sink = new FakeSink(exportSucceeds: false);
 
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
@@ -33,9 +33,9 @@ public class TraceUploaderTests
     public void Run_CallsSinkOncePerServiceName()
     {
         using var temp = new TempDirectory();
-        WriteTraceFile(temp.Path, "aaa", serviceName: "CLI", "op-1");
-        WriteTraceFile(temp.Path, "bbb", serviceName: "PowerShell", "op-2");
-        WriteTraceFile(temp.Path, "ccc", serviceName: "CLI", "op-3");
+        WriteTraceFile(temp.Path, "aaa", "CLI", "op-1");
+        WriteTraceFile(temp.Path, "bbb", "PowerShell", "op-2");
+        WriteTraceFile(temp.Path, "ccc", "CLI", "op-3");
         var sink = new FakeSink(exportSucceeds: true);
 
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
@@ -49,8 +49,8 @@ public class TraceUploaderTests
     public void Run_FlattensEntriesAcrossFilesInTheSameGroup()
     {
         using var temp = new TempDirectory();
-        WriteTraceFile(temp.Path, "aaa", serviceName: "CLI", "op-1");
-        WriteTraceFile(temp.Path, "bbb", serviceName: "CLI", "op-2", "op-3");
+        WriteTraceFile(temp.Path, "aaa", "CLI", "op-1");
+        WriteTraceFile(temp.Path, "bbb", "CLI", "op-2", "op-3");
         var sink = new FakeSink(exportSucceeds: true);
 
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
@@ -65,7 +65,8 @@ public class TraceUploaderTests
     public void Run_UsesFallbackServiceName_WhenResourceHasNone()
     {
         using var temp = new TempDirectory();
-        WriteTraceFile(temp.Path, "aaa", serviceName: null, "op-1");
+        WriteTraceFile(temp.Path, "aaa", null, "op-1");
+
         var sink = new FakeSink(exportSucceeds: true);
 
         new TraceUploader(new TraceFileStore(temp.Path), sink).Run();
