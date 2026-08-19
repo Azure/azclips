@@ -95,6 +95,16 @@ export function derivePsCommands(ir: IR): PsCommand[] {
       outputTypes: outputTypeIdsFor(operations),
       parameterSets,
       sourceOperationIds: operations.map((operation) => operation.id),
+      alias: ps.alias,
+      hidden: ps.hidden,
+      completer: ps.completer,
+      summary: ps.summary,
+      description: ps.description,
+      examples: ps.examples,
+      lifecycleTag: ps.lifecycleTag,
+      httpPath: ps.httpPath,
+      supportsPaging: ps.supportsPaging,
+      helpUri: ps.helpUri,
     });
   }
 

@@ -44,6 +44,47 @@ describe("derivePsCommands", () => {
     expect(command!.outputTypes).toHaveLength(1);
   });
 
+  it("copies Milestone 1's operation-level fields (alias, hidden, summary, lifecycleTag, etc.) onto the derived command", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+      rendering: {
+        powershell: {
+          verb: "New",
+          noun: "ResourceGroup",
+          subjectPrefix: "Az",
+          confirmImpact: "Medium",
+          alias: ["nrg"],
+          hidden: false,
+          summary: "Creates a resource group.",
+          description: "Creates a resource group in the specified location.",
+          examples: ["New-AzResourceGroup -Name rg1 -Location eastus"],
+          lifecycleTag: "GA",
+          httpPath: { path: "/subscriptions/{subscriptionId}/resourcegroups/{name}", apiVersion: "2025-04-01" },
+          supportsPaging: false,
+          helpUri: "https://learn.microsoft.com/powershell/module/az.resources/new-azresourcegroup",
+        },
+      },
+    });
+
+    const [command] = derivePsCommands({ ...emptyIR(), operations: [operation] });
+
+    expect(command!.alias).toEqual(["nrg"]);
+    expect(command!.hidden).toBe(false);
+    expect(command!.summary).toBe("Creates a resource group.");
+    expect(command!.description).toBe("Creates a resource group in the specified location.");
+    expect(command!.examples).toEqual(["New-AzResourceGroup -Name rg1 -Location eastus"]);
+    expect(command!.lifecycleTag).toBe("GA");
+    expect(command!.httpPath).toEqual({
+      path: "/subscriptions/{subscriptionId}/resourcegroups/{name}",
+      apiVersion: "2025-04-01",
+    });
+    expect(command!.supportsPaging).toBe(false);
+    expect(command!.helpUri).toBe(
+      "https://learn.microsoft.com/powershell/module/az.resources/new-azresourcegroup",
+    );
+  });
+
   it("merges Get + List sharing verb+noun into one PsCommand with two parameter sets", () => {
     const get = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "get" },

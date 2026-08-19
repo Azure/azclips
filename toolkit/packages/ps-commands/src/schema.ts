@@ -14,7 +14,16 @@
  */
 
 import { z } from "zod";
-import { IRIdSchema, ConfirmImpacts, type IRId, type ConfirmImpact } from "@azure-client-engine/ir";
+import {
+  IRIdSchema,
+  ConfirmImpacts,
+  LifecycleTags,
+  CompleterHintSchema,
+  type IRId,
+  type ConfirmImpact,
+  type LifecycleTag,
+  type CompleterHint,
+} from "@azure-client-engine/ir";
 
 /**
  * One source operation's contribution to a merged `PsCommand`. Deliberately
@@ -37,9 +46,9 @@ export const PsParameterSetSchema: z.ZodType<PsParameterSet> = z
 
 /**
  * A PowerShell command, grouped from one or more IR operations sharing a
- * resolved verb+noun. `verb`/`noun`/`supportsShouldProcess`/`confirmImpact`
- * are copied from the grouped operations' resolved `hints.powershell` at
- * grouping time (see `derivePsCommands`), not independently authored here.
+ * resolved verb+noun. All fields below are copied from the grouped
+ * operations' resolved `hints.powershell` at grouping time (see
+ * `derivePsCommands`), not independently authored here.
  */
 export type PsCommand = {
   verb: string;
@@ -54,6 +63,19 @@ export type PsCommand = {
   parameterSets: PsParameterSet[];
   /** IR operation id(s) this command derives from. */
   sourceOperationIds: IRId[];
+  /** Additional cmdlet aliases. */
+  alias?: string[] | undefined;
+  /** When true, the command is not exported from the generated module. */
+  hidden?: boolean | undefined;
+  /** Completer for a command-level dynamic-parameter scenario (rare; usually per-parameter). */
+  completer?: CompleterHint | undefined;
+  summary?: string | undefined;
+  description?: string | undefined;
+  examples?: string[] | undefined;
+  lifecycleTag?: LifecycleTag | undefined;
+  httpPath?: { path: string; apiVersion: string } | undefined;
+  supportsPaging?: boolean | undefined;
+  helpUri?: string | undefined;
 };
 
 export const PsCommandSchema: z.ZodType<PsCommand> = z
@@ -66,5 +88,18 @@ export const PsCommandSchema: z.ZodType<PsCommand> = z
     outputTypes: z.array(IRIdSchema),
     parameterSets: z.array(PsParameterSetSchema).min(1),
     sourceOperationIds: z.array(IRIdSchema).min(1),
+    alias: z.array(z.string().min(1)).optional(),
+    hidden: z.boolean().optional(),
+    completer: CompleterHintSchema.optional(),
+    summary: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    examples: z.array(z.string().min(1)).optional(),
+    lifecycleTag: z.enum(LifecycleTags).optional(),
+    httpPath: z
+      .object({ path: z.string().min(1), apiVersion: z.string().min(1) })
+      .strict()
+      .optional(),
+    supportsPaging: z.boolean().optional(),
+    helpUri: z.string().min(1).optional(),
   })
   .strict();

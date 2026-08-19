@@ -438,6 +438,9 @@ reference (task 0.5) with no parameter-level detail, and M0's own proof (task 0.
 | `outputTypes` | 0 | By-id refs into IR |
 | `parameterSets` | 0 | `PsParameterSet[]` \u2014 one per merged source operation |
 | `sourceOperationIds` | 0 | IR operation id(s) this command derives from |
+| `alias` / `hidden` / `completer` | 1 | Copied from `hints.powershell` (fixed post-M1: `derivePsCommands` initially missed these) |
+| `summary` / `description` / `examples` / `lifecycleTag` | 1 | Copied from `hints.powershell` |
+| `httpPath` / `supportsPaging` / `helpUri` | 1 | Copied from `hints.powershell` |
 
 ### `derivePsCommands(ir: IR): PsCommand[]` (plain function, not a pipeline stage)
 Groups IR operations sharing a resolved `hints.powershell.verb`+`noun` (within the same

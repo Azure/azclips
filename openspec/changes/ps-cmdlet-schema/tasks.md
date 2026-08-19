@@ -135,6 +135,12 @@ exactly, not just the simple case.
       `PowershellParameterHint`; `supportsPaging`, `helpUri` on `PowershellOperationHint`. The
       broader "shared abstraction across `Core.Abstractions` + extensions + codegen" question
       from the same feedback is tracked as a design.md Open Question, not resolved here.
+- [x] 1.6 Bug fix, found while planning M2's real-fixture verification: `derivePsCommands()` never
+      copied task 1.2's new `PowershellOperationHint` fields (`alias`, `hidden`, `completer`,
+      `summary`, `description`, `examples`, `lifecycleTag`, `httpPath`, `supportsPaging`,
+      `helpUri`) onto the derived `PsCommand` — it was written in Milestone 0 and never updated.
+      Added the missing fields to `PsCommand`/`PsCommandSchema` and `derivePsCommands()`, so a
+      future generator reading `PsCommand[]` doesn't have to separately re-inspect the source IR.
 
 ## Milestone 2: Directive-style customization (ps-command-customization)
 

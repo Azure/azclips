@@ -37,6 +37,15 @@ describe("PsCommand", () => {
       outputTypes: [],
       parameterSets: [validParameterSet],
       sourceOperationIds: [OPERATION_ID],
+      alias: ["nrg"],
+      hidden: false,
+      summary: "Creates a resource group.",
+      description: "Creates a resource group in the specified location.",
+      examples: ["New-AzResourceGroup -Name rg1 -Location eastus"],
+      lifecycleTag: "GA",
+      httpPath: { path: "/subscriptions/{subscriptionId}/resourcegroups/{name}", apiVersion: "2025-04-01" },
+      supportsPaging: false,
+      helpUri: "https://learn.microsoft.com/powershell/module/az.resources/new-azresourcegroup",
     };
 
     expect(PsCommandSchema.parse(command)).toEqual(command);
