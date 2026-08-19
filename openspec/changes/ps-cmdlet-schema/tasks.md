@@ -148,14 +148,14 @@ Goal: bulk/pattern-based overrides layered on top of the inline-hint overrides t
 as of Milestone 0 (an author setting `hints.powershell.verb` directly is already honored by
 `create-ps-commands`'s last-writer-wins write — no additional wiring needed for that case).
 
-- [ ] 2.1 Design and document the concrete `select`/`where`/`set` directive grammar (JSON/YAML
+- [x] 2.1 Design and document the concrete `select`/`where`/`set` directive grammar (JSON/YAML
       shape) accepted as the `create-ps-commands` step's `options`, modeled on AutoRest's
       `docs/directives.md` (selectors: `command`, `parameter`; filters: verb, subject,
       subject-prefix, parameter-name).
-- [ ] 2.2 Implement directive matching and application inside the `create-ps-commands` step, applied
+- [x] 2.2 Implement directive matching and application inside the `create-ps-commands` step, applied
       as defaults before the final `hints.powershell` write (per design.md Decision 7's
       precedence rule: an existing inline hint value wins over a directive's).
-- [ ] 2.3 Write unit tests covering: a directive renaming a parameter alias across matching
+- [x] 2.3 Write unit tests covering: a directive renaming a parameter alias across matching
       commands, a directive hiding a command, and a conflicting directive+inline-hint case
       resolving in the inline hint's favor.
 

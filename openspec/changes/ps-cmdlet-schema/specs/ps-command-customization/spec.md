@@ -17,7 +17,7 @@ set name, `ConfirmImpact`, or completer reference.
   values that would otherwise be inferred
 
 #### Scenario: Inline hint hides a parameter
-- **WHEN** an IR parameter has a `hints.powershell` entry with `hide: true`
+- **WHEN** an IR parameter has a `hints.powershell` entry with `dontShow: true`
 - **THEN** the derived command SHALL NOT expose that parameter on the generated cmdlet
 
 ### Requirement: Directive-style configuration applies bulk overrides by pattern
@@ -27,7 +27,7 @@ parameter matching a filter (verb, noun/subject, subject-prefix, or parameter na
 
 #### Scenario: A directive renames a parameter across every matching command
 - **WHEN** a directive selects parameters `where: { parameter-name: "Id" }` and `set: { alias:
-  "ResourceId" }`
+  ["ResourceId"] }`
 - **THEN** every generated command's `Id` parameter SHALL receive the alias `ResourceId`
 
 #### Scenario: A directive hides a command by verb and subject

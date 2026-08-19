@@ -68,4 +68,21 @@ export {
 
 export { createPsCommandsFactory, type CreatePsCommandsOptions } from "./create-ps-commands.js";
 export { createGeneratePsCommandsFactory } from "./generate-ps-commands.js";
+export {
+  DirectiveSchema,
+  DirectiveSetSchema,
+  DirectiveWhereSchema,
+  DirectivesSchema,
+  DirectiveSelectors,
+  resolveSelector,
+  matchesCommand,
+  matchesParameter,
+  mergeDirectiveSets,
+  type Directive,
+  type DirectiveSelector,
+  type DirectiveWhere,
+  type DirectiveSet,
+  type CommandIdentity,
+  type ParameterIdentity,
+} from "./directives.js";
 export { resolveVerb } from "./verb-mapping.js";
