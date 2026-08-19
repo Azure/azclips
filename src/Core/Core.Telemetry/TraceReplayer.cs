@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 
 namespace Core.Telemetry;
@@ -137,8 +138,12 @@ internal static class TraceReplayer
             parentSpanId,
             ActivityTraceFlags.Recorded);
 
-        var startTime = DateTime.TryParse(entry.StartTime, out var st)
-            ? new DateTimeOffset(st.ToUniversalTime())
+        var startTime = DateTimeOffset.TryParse(
+            entry.StartTime,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind,
+            out var parsedStart)
+            ? parsedStart
             : DateTimeOffset.UtcNow;
 
         using var activity = source.StartActivity(
