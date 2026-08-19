@@ -19,6 +19,9 @@ public class FileTelemetrySender : ITelemetrySender
         builder.AddProcessor(new SimpleActivityExportProcessor(new FileExporter(traceDirectory)));
     }
 
+    /// <summary>The shared trace directory. Temporary: Task 7 removes this.</summary>
+    public static string GetTraceDirectory() => TraceFileStore.DefaultDirectory;
+
     // Temporary: ITelemetrySender still declares this member. Task 7 removes both.
     Task ITelemetrySender.SendPendingAsync()
     {

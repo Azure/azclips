@@ -9,9 +9,6 @@ namespace Core.Telemetry;
 /// </summary>
 public static class TelemetryUpload
 {
-    /// <summary>The directory where trace files are written and read from.</summary>
-    public static string TraceDirectory => TraceFileStore.DefaultDirectory;
-
     /// <summary>Sends all pending trace files, then deletes the ones that were delivered.</summary>
     public static void RunPending() =>
         new TraceUploader(

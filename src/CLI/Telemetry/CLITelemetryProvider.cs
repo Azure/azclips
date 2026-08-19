@@ -42,7 +42,7 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
             builder.AddProcessor(processor);
         }
 
-        sender.ConfigureExporter(builder, TelemetryUpload.TraceDirectory);
+        sender.ConfigureExporter(builder, FileTelemetrySender.GetTraceDirectory());
         TracerProvider = builder.Build();
     }
 }
