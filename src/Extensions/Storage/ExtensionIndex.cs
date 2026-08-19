@@ -40,6 +40,26 @@ public sealed class ExtensionIndex : IExtensionIndex
             ["f"] = "file",
         });
 
+    private static readonly CommandMetadata s_uploadBlobPs = new(
+        Name: nameof(Processors.UploadBlobProcessor_Orchestrator),
+        InvocationName: "Set-AzStorageBlobContent",
+        Aliases: [],
+        FullName: $"{AssemblyName}.Processors.UploadBlobProcessor_Orchestrator",
+        AssemblyName: AssemblyName,
+        ProcessorType: typeof(Processors.UploadBlobProcessor_Orchestrator),
+        Parameters: BlobParametersPowerShell(),
+        ParameterAliases: new Dictionary<string, string>());
+
+    private static readonly CommandMetadata s_downloadBlobPs = new(
+        Name: nameof(Processors.DownloadBlobProcessor_Orchestrator),
+        InvocationName: "Get-AzStorageBlobContent",
+        Aliases: [],
+        FullName: $"{AssemblyName}.Processors.DownloadBlobProcessor_Orchestrator",
+        AssemblyName: AssemblyName,
+        ProcessorType: typeof(Processors.DownloadBlobProcessor_Orchestrator),
+        Parameters: BlobParametersPowerShell(),
+        ParameterAliases: new Dictionary<string, string>());
+
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new(StringComparer.OrdinalIgnoreCase)
     {
         ["storage blob upload"] = s_uploadBlob,
@@ -47,7 +67,11 @@ public sealed class ExtensionIndex : IExtensionIndex
     };
 
     private static readonly IReadOnlyDictionary<string, CommandMetadata> s_psTable =
-        new Dictionary<string, CommandMetadata>();
+        new Dictionary<string, CommandMetadata>
+        {
+            ["Set-AzStorageBlobContent"] = s_uploadBlobPs,
+            ["Get-AzStorageBlobContent"] = s_downloadBlobPs,
+        };
 
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
     {
@@ -79,5 +103,15 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["file"] = new("FilePath", "file", typeof(string), "Local file path.", true, ["f"], []),
         ["overwrite"] = new("Overwrite", "overwrite", typeof(bool), "Overwrite an existing destination.", false, [], []),
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> BlobParametersPowerShell() => new()
+    {
+        ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
+        ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "Blob container name.", true, [], []),
+        ["BlobName"] = new("BlobName", "BlobName", typeof(string), "Blob name.", true, [], []),
+        ["FilePath"] = new("FilePath", "FilePath", typeof(string), "Local file path.", true, [], []),
+        ["Overwrite"] = new("Overwrite", "Overwrite", typeof(bool), "Overwrite an existing destination.", false, [], []),
+        ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 }
