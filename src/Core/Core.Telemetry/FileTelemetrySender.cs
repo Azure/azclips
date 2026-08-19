@@ -1,10 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
 using Core.Abstractions;
 using OpenTelemetry;
-using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
@@ -68,24 +66,15 @@ public class FileTelemetrySender : ITelemetrySender
 
         // Resolve once so every service group in this replay uses the same destination.
         var target = TelemetryTargetResolver.Resolve();
+        var sink = new TracerProviderExportSink(target);
 
         foreach (var (serviceName, fileGroup) in tracesByService)
         {
-            using var source = new ActivitySource(serviceName);
-            var builder = Sdk.CreateTracerProviderBuilder()
-                .AddSource(serviceName)
-                .ConfigureResource(r => r.AddService(serviceName: serviceName));
-            TelemetryExporters.AddTraceExporter(builder, target);
-            using var provider = builder.Build()!;
-
             // Flatten across all files in the group so the topological replay can
             // resolve parent/child links even when they live in different files.
-            var allEntries = fileGroup.SelectMany(f => f.traces);
-            TraceReplayer.ReplayEntries(source, allEntries);
+            var allEntries = fileGroup.SelectMany(f => f.traces).ToList();
 
-            // Only mark files for deletion if flush succeeds within the timeout.
-            // If flush fails/times out, files remain on disk for the next upload attempt.
-            if (provider.ForceFlush(timeoutMilliseconds: 10_000))
+            if (sink.TryExport(serviceName, allEntries))
             {
                 foreach (var (file, _) in fileGroup)
                     replayedFiles.Add(file);
