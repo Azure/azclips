@@ -62,6 +62,28 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
         public string Action { get; set; } = string.Empty;
         public List<string> IpAddress { get; set; } = [];
         public List<string> Ipv6Address { get; set; } = [];
+        public string EnableFilesAadds { get; set; } = string.Empty;
+        public string EnableFilesAadkerb { get; set; } = string.Empty;
+        public string EnableFilesAdds { get; set; } = string.Empty;
+        public string DomainName { get; set; } = string.Empty;
+        public string NetBiosDomainName { get; set; } = string.Empty;
+        public string ForestName { get; set; } = string.Empty;
+        public string DomainGuid { get; set; } = string.Empty;
+        public string DomainSid { get; set; } = string.Empty;
+        public string AzureStorageSid { get; set; } = string.Empty;
+        public string SamAccountName { get; set; } = string.Empty;
+        public string AccountType { get; set; } = string.Empty;
+        public string DefaultSharePermission { get; set; } = string.Empty;
+        public string EnableSmbOauth { get; set; } = string.Empty;
+        public string EncryptionKeySource { get; set; } = string.Empty;
+        public string EncryptionKeyName { get; set; } = string.Empty;
+        public string EncryptionKeyVault { get; set; } = string.Empty;
+        public string EncryptionKeyVersion { get; set; } = string.Empty;
+        public string RequireInfrastructureEncryption { get; set; } = string.Empty;
+        public string KeyVaultUserIdentityId { get; set; } = string.Empty;
+        public string KeyVaultFederatedClientId { get; set; } = string.Empty;
+        public string EncryptionKeyTypeForTable { get; set; } = string.Empty;
+        public string EncryptionKeyTypeForQueue { get; set; } = string.Empty;
         public string CustomDomainName { get; set; } = string.Empty;
 
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
@@ -130,6 +152,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 EnableAlw, ImmutabilityPeriodSinceCreationInDays,
                 ImmutabilityPolicyState, AllowProtectedAppendWrites,
                 DefaultAction, Subnet, VnetName,
+                EnableFilesAadds, EnableFilesAadkerb, EnableFilesAdds,
+                DomainName, NetBiosDomainName, ForestName, DomainGuid, DomainSid,
+                AzureStorageSid, SamAccountName, AccountType,
+                DefaultSharePermission, EnableSmbOauth,
+                EncryptionKeySource, EncryptionKeyName, EncryptionKeyVault, EncryptionKeyVersion,
+                RequireInfrastructureEncryption, KeyVaultUserIdentityId, KeyVaultFederatedClientId,
+                EncryptionKeyTypeForTable, EncryptionKeyTypeForQueue,
             ];
             if (supplied.All(string.IsNullOrEmpty)
                 && Bypass.Count == 0
@@ -164,6 +193,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 SasPolicy = BuildSasPolicy(),
                 ImmutableStorageWithVersioning = BuildImmutableStorageAccount(),
                 NetworkAcls = BuildNetworkRuleSet(),
+                AzureFilesIdentityBasedAuthentication = BuildAzureFilesIdentityBasedAuthentication(),
+                Encryption = BuildEncryption(),
                 CustomDomain = BuildCustomDomain(),
             };
         }
@@ -352,6 +383,186 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
             return $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}"
                  + $"/providers/Microsoft.Network/virtualNetworks/{VnetName}/subnets/{Subnet}";
+        }
+
+        // The three enablers map onto a single directoryServiceOptions value, so at most one may be
+        // true. azure-cli lets a later flag silently overwrite an earlier one; that is rejected here
+        // instead. defaultSharePermission and SMB OAuth apply to any option, so they create the
+        // parent with 'None' when no enabler was given.
+        private AzureFilesIdentityBasedAuthentication? BuildAzureFilesIdentityBasedAuthentication()
+        {
+            bool? aadds = ParseBool(EnableFilesAadds);
+            bool? aadkerb = ParseBool(EnableFilesAadkerb);
+            bool? adds = ParseBool(EnableFilesAdds);
+
+            if ((aadds == true ? 1 : 0) + (aadkerb == true ? 1 : 0) + (adds == true ? 1 : 0) > 1)
+            {
+                throw new ArgumentException(
+                    "At most one of EnableFilesAadds, EnableFilesAadkerb and EnableFilesAdds can be true.");
+            }
+
+            string[] requiredAdFields = [DomainName, NetBiosDomainName, ForestName, DomainGuid, DomainSid, AzureStorageSid];
+            bool anyAdField = requiredAdFields.Any(field => !string.IsNullOrEmpty(field))
+                || !string.IsNullOrEmpty(SamAccountName)
+                || !string.IsNullOrEmpty(AccountType);
+
+            string? options = null;
+            ActiveDirectoryProperties? directoryProperties = null;
+
+            if (adds == true)
+            {
+                if (requiredAdFields.Any(string.IsNullOrEmpty))
+                {
+                    throw new ArgumentException(
+                        "EnableFilesAdds requires all of DomainName, NetBiosDomainName, ForestName, DomainGuid, DomainSid and AzureStorageSid.");
+                }
+
+                options = "AD";
+                directoryProperties = new ActiveDirectoryProperties
+                {
+                    DomainName = DomainName,
+                    NetBiosDomainName = NetBiosDomainName,
+                    ForestName = ForestName,
+                    DomainGuid = DomainGuid,
+                    DomainSid = DomainSid,
+                    AzureStorageSid = AzureStorageSid,
+                    SamAccountName = NullIfEmpty(SamAccountName),
+                    AccountType = NullIfEmpty(AccountType),
+                };
+            }
+            else if (aadkerb == true)
+            {
+                options = "AADKERB";
+                // Only the domain name and GUID are meaningful for Kerberos.
+                directoryProperties = string.IsNullOrEmpty(DomainName) && string.IsNullOrEmpty(DomainGuid)
+                    ? null
+                    : new ActiveDirectoryProperties
+                    {
+                        DomainName = NullIfEmpty(DomainName),
+                        DomainGuid = NullIfEmpty(DomainGuid),
+                    };
+            }
+            else if (aadds == true)
+            {
+                options = "AADDS";
+            }
+            else if (aadds == false || aadkerb == false || adds == false)
+            {
+                if (anyAdField)
+                {
+                    throw new ArgumentException(
+                        "Active Directory properties cannot be specified when Azure Files identity based authentication is disabled.");
+                }
+
+                options = "None";
+            }
+
+            if (options is null)
+            {
+                if (anyAdField)
+                {
+                    throw new ArgumentException(
+                        "Active Directory properties require EnableFilesAdds or EnableFilesAadkerb to be true.");
+                }
+
+                if (string.IsNullOrEmpty(DefaultSharePermission) && string.IsNullOrEmpty(EnableSmbOauth))
+                {
+                    return null;
+                }
+
+                options = "None";
+            }
+
+            return new AzureFilesIdentityBasedAuthentication
+            {
+                DirectoryServiceOptions = options,
+                ActiveDirectoryProperties = directoryProperties,
+                DefaultSharePermission = NullIfEmpty(DefaultSharePermission),
+                SmbOAuthSettings = string.IsNullOrEmpty(EnableSmbOauth)
+                    ? null
+                    : new SmbOAuthSettings { IsSmbOAuthEnabled = ParseBool(EnableSmbOauth) },
+            };
+        }
+
+        // Built only when an encryption flag is supplied, matching Azure PowerShell; the service
+        // otherwise applies its own defaults. Whenever it is built, services must be non-null, which
+        // both azure-cli and Azure PowerShell work around by defaulting to blob.
+        private Encryption? BuildEncryption()
+        {
+            bool anyKeyVaultKey = !string.IsNullOrEmpty(EncryptionKeyVault)
+                || !string.IsNullOrEmpty(EncryptionKeyName)
+                || !string.IsNullOrEmpty(EncryptionKeyVersion);
+            bool anyEncryptionIdentity = !string.IsNullOrEmpty(KeyVaultUserIdentityId)
+                || !string.IsNullOrEmpty(KeyVaultFederatedClientId);
+            bool any = anyKeyVaultKey
+                || anyEncryptionIdentity
+                || !string.IsNullOrEmpty(EncryptionKeySource)
+                || !string.IsNullOrEmpty(RequireInfrastructureEncryption)
+                || !string.IsNullOrEmpty(EncryptionKeyTypeForTable)
+                || !string.IsNullOrEmpty(EncryptionKeyTypeForQueue);
+            if (!any)
+            {
+                return null;
+            }
+
+            bool hasVaultAndName = !string.IsNullOrEmpty(EncryptionKeyVault) && !string.IsNullOrEmpty(EncryptionKeyName);
+            if (anyKeyVaultKey && !hasVaultAndName)
+            {
+                throw new ArgumentException("EncryptionKeyVault and EncryptionKeyName must be specified together.");
+            }
+
+            if (anyEncryptionIdentity && !hasVaultAndName)
+            {
+                throw new ArgumentException(
+                    "KeyVaultUserIdentityId and KeyVaultFederatedClientId can only be specified together with EncryptionKeyVault and EncryptionKeyName.");
+            }
+
+            // An explicit source wins; otherwise a key vault key implies the key vault source.
+            string keySource = string.IsNullOrEmpty(EncryptionKeySource)
+                ? anyKeyVaultKey ? "Microsoft.Keyvault" : "Microsoft.Storage"
+                : EncryptionKeySource;
+
+            if (keySource.Equals("Microsoft.Keyvault", StringComparison.OrdinalIgnoreCase) && !hasVaultAndName)
+            {
+                throw new ArgumentException(
+                    "EncryptionKeySource 'Microsoft.Keyvault' requires EncryptionKeyVault and EncryptionKeyName.");
+            }
+
+            EncryptionServices services = new EncryptionServices
+            {
+                Table = string.IsNullOrEmpty(EncryptionKeyTypeForTable)
+                    ? null
+                    : new EncryptionService { Enabled = true, KeyType = EncryptionKeyTypeForTable },
+                Queue = string.IsNullOrEmpty(EncryptionKeyTypeForQueue)
+                    ? null
+                    : new EncryptionService { Enabled = true, KeyType = EncryptionKeyTypeForQueue },
+            };
+            if (services.Table is null && services.Queue is null)
+            {
+                services.Blob = new EncryptionService { Enabled = true };
+            }
+
+            return new Encryption
+            {
+                KeySource = keySource,
+                Services = services,
+                RequireInfrastructureEncryption = ParseBool(RequireInfrastructureEncryption),
+                KeyVaultProperties = anyKeyVaultKey
+                    ? new KeyVaultProperties
+                    {
+                        KeyName = NullIfEmpty(EncryptionKeyName),
+                        KeyVersion = NullIfEmpty(EncryptionKeyVersion),
+                        KeyVaultUri = NullIfEmpty(EncryptionKeyVault),
+                    }
+                    : null,
+                EncryptionIdentity = anyEncryptionIdentity
+                    ? new EncryptionIdentity
+                    {
+                        UserAssignedIdentity = NullIfEmpty(KeyVaultUserIdentityId),
+                        FederatedIdentityClientId = NullIfEmpty(KeyVaultFederatedClientId),
+                    }
+                    : null,
+            };
         }
 
         // UseSubDomainName is meaningful only on update, so only the name is sent on create.

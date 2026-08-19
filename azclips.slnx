@@ -57,5 +57,6 @@
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
     <Project Path="src/PS/Login/Cmdlets.Login.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
+    <Project Path="src/PS/Storage/Cmdlets.Storage.csproj" />
   </Folder>
 </Solution>

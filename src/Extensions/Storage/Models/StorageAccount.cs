@@ -4,6 +4,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Models;
@@ -18,13 +19,18 @@ public class StorageAccount
     public string Kind { get; set; } = null!;
     public string Location { get; set; } = null!;
     public Sku? Sku { get; set; }
+    public Identity? Identity { get; set; }
+    public ExtendedLocation? ExtendedLocation { get; set; }
+    public List<string>? Zones { get; set; }
+    public Placement? Placement { get; set; }
     public Dictionary<string, string>? Tags { get; set; }
     public StorageAccountProperties? Properties { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
-// Subset of the response properties worth surfacing as command output. The service
-// returns considerably more; unmodelled fields are ignored during deserialization.
+// Mirrors what the create command can set, so every supplied option is visible in the output,
+// plus the service-assigned status fields. The service returns more than this; unmodelled
+// fields are ignored during deserialization.
 public class StorageAccountProperties
 {
     public string? ProvisioningState { get; set; }
@@ -32,10 +38,35 @@ public class StorageAccountProperties
     public string? StatusOfPrimary { get; set; }
     public string? SecondaryLocation { get; set; }
     public string? StatusOfSecondary { get; set; }
-    public string? AccessTier { get; set; }
     public DateTime? CreationTime { get; set; }
     public Endpoints? PrimaryEndpoints { get; set; }
     public Endpoints? SecondaryEndpoints { get; set; }
+    public string? AccessTier { get; set; }
+    public string? MinimumTlsVersion { get; set; }
+    public string? PublicNetworkAccess { get; set; }
+    public string? AllowedCopyScope { get; set; }
+    public string? LargeFileSharesState { get; set; }
+    public string? DnsEndpointType { get; set; }
+    public bool? SupportsHttpsTrafficOnly { get; set; }
+    public bool? AllowBlobPublicAccess { get; set; }
+    public bool? AllowSharedKeyAccess { get; set; }
+    public bool? IsHnsEnabled { get; set; }
+    public bool? IsSftpEnabled { get; set; }
+    public bool? IsLocalUserEnabled { get; set; }
+    public bool? EnableExtendedGroups { get; set; }
+    public bool? IsNfsV3Enabled { get; set; }
+    public bool? AllowCrossTenantReplication { get; set; }
+    public bool? DefaultToOAuthAuthentication { get; set; }
+    public RoutingPreference? RoutingPreference { get; set; }
+    public DualStackEndpointPreference? DualStackEndpointPreference { get; set; }
+    public GeoPriorityReplicationStatus? GeoPriorityReplicationStatus { get; set; }
+    public KeyPolicy? KeyPolicy { get; set; }
+    public SasPolicy? SasPolicy { get; set; }
+    public ImmutableStorageAccount? ImmutableStorageWithVersioning { get; set; }
+    public NetworkRuleSet? NetworkAcls { get; set; }
+    public AzureFilesIdentityBasedAuthentication? AzureFilesIdentityBasedAuthentication { get; set; }
+    public Encryption? Encryption { get; set; }
+    public CustomDomain? CustomDomain { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -112,6 +143,8 @@ public class StorageAccountPropertiesCreateParameters
     public ImmutableStorageAccount? ImmutableStorageWithVersioning { get; set; }
     public NetworkRuleSet? NetworkAcls { get; set; }
     public CustomDomain? CustomDomain { get; set; }
+    public AzureFilesIdentityBasedAuthentication? AzureFilesIdentityBasedAuthentication { get; set; }
+    public Encryption? Encryption { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
@@ -190,6 +223,87 @@ public class AccountImmutabilityPolicyProperties
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
+public class AzureFilesIdentityBasedAuthentication
+{
+    public string? DirectoryServiceOptions { get; set; }
+    public ActiveDirectoryProperties? ActiveDirectoryProperties { get; set; }
+    public string? DefaultSharePermission { get; set; }
+    public SmbOAuthSettings? SmbOAuthSettings { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class ActiveDirectoryProperties
+{
+    public string? DomainName { get; set; }
+    public string? NetBiosDomainName { get; set; }
+    public string? ForestName { get; set; }
+    public string? DomainGuid { get; set; }
+    public string? DomainSid { get; set; }
+    public string? AzureStorageSid { get; set; }
+    public string? SamAccountName { get; set; }
+    public string? AccountType { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class SmbOAuthSettings
+{
+    public bool? IsSmbOAuthEnabled { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+// The service spells several of these members in lower case rather than camel case, so they are
+// mapped explicitly; the Azure SDKs hide this behind friendlier aliases.
+public class Encryption
+{
+    public EncryptionServices? Services { get; set; }
+    public string? KeySource { get; set; }
+    public bool? RequireInfrastructureEncryption { get; set; }
+
+    [JsonPropertyName("keyvaultproperties")]
+    public KeyVaultProperties? KeyVaultProperties { get; set; }
+
+    [JsonPropertyName("identity")]
+    public EncryptionIdentity? EncryptionIdentity { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class EncryptionServices
+{
+    public EncryptionService? Blob { get; set; }
+    public EncryptionService? File { get; set; }
+    public EncryptionService? Table { get; set; }
+    public EncryptionService? Queue { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class EncryptionService
+{
+    public bool? Enabled { get; set; }
+    public string? KeyType { get; set; }
+    public DateTime? LastEnabledTime { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class KeyVaultProperties
+{
+    [JsonPropertyName("keyname")]
+    public string? KeyName { get; set; }
+
+    [JsonPropertyName("keyversion")]
+    public string? KeyVersion { get; set; }
+
+    [JsonPropertyName("keyvaulturi")]
+    public string? KeyVaultUri { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+public class EncryptionIdentity
+{
+    public string? UserAssignedIdentity { get; set; }
+    public string? FederatedIdentityClientId { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
 public class CustomDomain
 {
     public string? Name { get; set; }
@@ -207,6 +321,10 @@ public class Endpoints
     public string? File { get; set; }
     public string? Web { get; set; }
     public string? Dfs { get; set; }
+
+    // Populated when a routing preference publishes the corresponding endpoint set.
+    public Endpoints? MicrosoftEndpoints { get; set; }
+    public Endpoints? InternetEndpoints { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 
