@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -16,6 +17,6 @@ public class FileTelemetrySender : ITelemetrySender
     {
         builder.AddProcessor(
             new SimpleActivityExportProcessor(
-                new FileExporter(TraceFileStore.DefaultDirectory)));
+                new FileExporter(HomePaths.GetDefaultTelemetryTraceDirectory())));
     }
 }

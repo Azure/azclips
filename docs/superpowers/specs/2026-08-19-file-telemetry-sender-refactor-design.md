@@ -120,16 +120,16 @@ anonymous projections of `Activity`; the serialized shape is defined by `TraceEn
 
 ### `TraceFileStore.cs`
 
-Owns the directory, the file naming convention, and the claim protocol that lets
-concurrent uploaders share it. This is the only type in the pipeline that touches
-`System.IO`.
+Operates on one trace directory: file naming and the claim protocol that lets concurrent
+uploaders share it. This is the only type in the pipeline that touches `System.IO`.
+
+*Which* directory is a deployment concern and is not this type's to know — it lives on
+`HomePaths.GetDefaultTelemetryTraceDirectory()`, alongside the other `.azclips` path
+policy. See [Decisions](#decisions).
 
 ```csharp
 private const string FileSearchPattern = "traces-*.log";
 private static readonly TimeSpan StaleClaimAge = TimeSpan.FromMinutes(5);
-
-/// <summary>{LocalApplicationData}/.azclips/traces — same root as auth profiles.</summary>
-internal static string DefaultDirectory { get; }
 
 /// <summary>The file a given trace buffers into. Used by FileExporter.</summary>
 internal static string FileNameFor(string traceId);
@@ -244,7 +244,7 @@ public static class TelemetryUpload
 {
     public static void RunPending() =>
         new TraceUploader(
-            new TraceFileStore(TraceFileStore.DefaultDirectory),
+            new TraceFileStore(HomePaths.GetDefaultTelemetryTraceDirectory()),
             new TracerProviderExportSink(TelemetryTargetResolver.Resolve()))
         .Run();
 }
@@ -258,7 +258,7 @@ public class FileTelemetrySender : ITelemetrySender
     public void ConfigureExporter(TracerProviderBuilder builder) =>
         builder.AddProcessor(
             new SimpleActivityExportProcessor(
-                new FileExporter(TraceFileStore.DefaultDirectory)));
+                new FileExporter(HomePaths.GetDefaultTelemetryTraceDirectory())));
 }
 ```
 
@@ -382,6 +382,8 @@ before Azure Monitor rejects it. Filed separately to keep this change a refactor
 | Split into eight single-purpose types rather than three | A coarser split leaves IO mixed with format, and pure replay logic mixed with `TracerProvider` construction — which is exactly what makes the send step unswappable |
 | Interface only on the export sink | The parser, ordering, and claim protocol are all better tested for real (pure functions, temp directories) than through fakes |
 | `TraceFileStore` stays `internal` | Dropping the `ConfigureExporter` parameter removes the only reason to expose it |
+| The default directory lives on `HomePaths`, not `TraceFileStore` | `HomePaths` already owns `.azclips` path policy. Keeping the default on `TraceFileStore` made the type both define and consume its own configuration, so the composition root read `new TraceFileStore(TraceFileStore.DefaultDirectory)` — a round trip that asked the type for a value only to hand it straight back. Splitting policy from behavior removes it. The constructor parameter stays: it is genuinely load-bearing, since tests pass a temp directory |
+| The accessor is named `GetDefaultTelemetryTraceDirectory` | `HomePaths` already has `GetDefaultTraceDirectory()`, which is the user-facing *diagnostic* trace directory at `~/.azclips/trace` — different root, different purpose, one letter apart. The longer name and a cross-referencing doc comment on both keep the two from being confused |
 | Delete `SendPendingAsync` | No callers on either implementation |
 | Synchronous `Run()` | `ForceFlush` blocks; the `Task` return was decorative |
 | Keep one `TracerProvider` per service group | A provider's Resource is immutable and cannot be overridden per span; Azure Monitor derives `cloud_RoleName` from it. Collapsing to one provider would merge CLI and PowerShell under a single role name, and would make flush failures all-or-nothing, causing duplicate delivery |

@@ -1,17 +1,15 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Core.Abstractions;
-
 namespace Core.Telemetry;
 
 /// <summary>
-/// Owns the trace directory, trace file naming, and the rename-based claim protocol that
-/// lets concurrent uploaders share the directory.
+/// Operates on one trace directory: file naming, and the rename-based claim protocol that
+/// lets concurrent uploaders share it. Which directory is a deployment concern owned by
+/// <see cref="Core.Abstractions.HomePaths"/>; this type only ever uses the one it is given.
 /// </summary>
 internal sealed class TraceFileStore
 {
-    private const string TracesSubdirectoryName = "traces";
     private const string FilePrefix = "traces-";
     private const string PendingExtension = ".log";
     private const string ClaimedExtension = ".uploading";
@@ -25,10 +23,6 @@ internal sealed class TraceFileStore
     {
         _directory = directory ?? throw new ArgumentNullException(nameof(directory));
     }
-
-    /// <summary>The shared trace directory under <c>{LocalApplicationData}/.azclips/</c>.</summary>
-    internal static string DefaultDirectory =>
-        Path.Combine(HomePaths.GetDefaultLocalAppDataRoot(), TracesSubdirectoryName);
 
     /// <summary>The file name a given trace buffers into.</summary>
     internal static string FileNameFor(string traceId) =>

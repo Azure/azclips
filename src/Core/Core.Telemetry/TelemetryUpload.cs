@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Core.Telemetry;
 
 /// <summary>
@@ -12,7 +14,7 @@ public static class TelemetryUpload
     /// <summary>Sends all pending trace files, then deletes the ones that were delivered.</summary>
     public static void RunPending() =>
         new TraceUploader(
-            new TraceFileStore(TraceFileStore.DefaultDirectory),
+            new TraceFileStore(HomePaths.GetDefaultTelemetryTraceDirectory()),
             new TracerProviderExportSink(TelemetryTargetResolver.Resolve()))
         .Run();
 }

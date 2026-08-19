@@ -14,6 +14,7 @@ public static class HomePaths
     public const string RegistryFileName = "registry.json";
     public const string ConfigFileName = "config.json";
     public const string TraceDirectoryName = "trace";
+    public const string TelemetryTraceDirectoryName = "traces";
     public const string ArmCacheDirectoryName = "arm-cache";
     public const string AuthContextFileName = "context.json";
 
@@ -55,4 +56,14 @@ public static class HomePaths
 
     public static string GetDefaultAuthContextFilePath(string? localApplicationDataPath = null)
         => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), AuthContextFileName);
+
+    /// <summary>
+    /// Where telemetry spans are buffered before a background process uploads them:
+    /// <c>{LocalApplicationData}/.azclips/traces</c>.
+    /// Distinct from <see cref="GetDefaultTraceDirectory"/>, which is the user-facing
+    /// diagnostic trace directory under the profile root — different root, different
+    /// purpose, confusingly similar name.
+    /// </summary>
+    public static string GetDefaultTelemetryTraceDirectory(string? localApplicationDataPath = null)
+        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), TelemetryTraceDirectoryName);
 }
