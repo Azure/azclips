@@ -96,8 +96,6 @@ public class TraceEntryTests
     [Fact]
     public void TryGetServiceName_ReturnsNull_WhenNameIsNotAString()
     {
-        // A corrupt file could carry any JSON type here. GetString() throws on a
-        // non-string element, so the ValueKind guard must come first.
         var entry = new TraceEntry { Resource = ParseJson("""{ "service.name": 42 }""") };
 
         Assert.Null(entry.TryGetServiceName());
@@ -148,11 +146,7 @@ internal sealed class TraceEntry
     public JsonElement Events { get; set; }
     public JsonElement Resource { get; set; }
 
-    /// <summary>
-    /// Reads <c>service.name</c> from the Resource block, which becomes the
-    /// <c>cloud_RoleName</c> the traces are uploaded under. Returns null when the Resource
-    /// is absent, is not an object, or carries no usable name.
-    /// </summary>
+    /// <summary>Reads <c>service.name</c> from the Resource block, or null when absent.</summary>
     public string? TryGetServiceName()
     {
         if (Resource.ValueKind == JsonValueKind.Object &&
@@ -265,8 +259,6 @@ public class TraceFileFormatTests
     [Fact]
     public void Parse_SkipsMalformedBatch_AndKeepsSiblings()
     {
-        // A killed process routinely leaves a truncated final batch. One bad batch
-        // must not cost us the good ones in the same file.
         var content = """
 
             --- Batch at 2024-01-01T00:00:00.0000000Z ---
@@ -298,8 +290,6 @@ public class TraceFileFormatTests
     [Fact]
     public void Parse_SkipsBatch_WhenBracketsAreOutOfOrder()
     {
-        // Guards the slice: a closing bracket before the opening one would throw
-        // ArgumentOutOfRangeException if the range were taken unchecked.
         var entries = TraceFileFormat.Parse("--- Batch at x ---\n] [");
 
         Assert.Empty(entries);
@@ -362,30 +352,21 @@ using System.Text.Json;
 
 namespace Core.Telemetry;
 
-/// <summary>
-/// The on-disk trace file format: a sequence of timestamped JSON batches.
-/// <see cref="FileExporter"/> writes through it and the uploader reads through it, so the
-/// writer and the reader cannot drift apart. Owns file <em>content</em> only —
-/// <see cref="TraceFileStore"/> owns file naming and lifecycle.
-/// </summary>
+/// <summary>Reads and writes the trace file format: timestamped JSON batches.</summary>
 internal static class TraceFileFormat
 {
     private const string BatchHeaderPrefix = "--- Batch at ";
 
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
-    /// <summary>Renders one batch, header included, ready to append to a trace file.</summary>
+    /// <summary>Renders one batch for appending to a trace file.</summary>
     internal static string FormatBatch(IReadOnlyList<object> traces, DateTime timestampUtc)
     {
         var json = JsonSerializer.Serialize(traces, WriteOptions);
         return $"\n{BatchHeaderPrefix}{timestampUtc:O} ---\n{json}\n";
     }
 
-    /// <summary>
-    /// Parses every batch in a file. A malformed batch is skipped rather than failing the
-    /// whole file: the final batch is routinely truncated when a process is killed
-    /// mid-write, and the batches before it are still good telemetry.
-    /// </summary>
+    /// <summary>Parses every batch in a file. Malformed batches are skipped.</summary>
     internal static List<TraceEntry> Parse(string content)
     {
         var allTraces = new List<TraceEntry>();
@@ -408,7 +389,7 @@ internal static class TraceFileFormat
             }
             catch (JsonException)
             {
-                // Truncated or corrupt batch, typically the tail left by a killed process.
+                // Truncated or corrupt batch.
             }
         }
 
@@ -554,7 +535,7 @@ public class TraceFileStoreTests
     public void ClaimPending_IgnoresFilesAlreadyClaimedByAnotherUploader()
     {
         using var temp = new TempDirectory();
-        // A fresh .uploading file means another uploader is working on it right now.
+        // A fresh .uploading file belongs to another uploader.
         File.WriteAllText(Path.Combine(temp.Path, "traces-bbb.uploading"), "payload");
         var store = new TraceFileStore(temp.Path);
 
@@ -572,7 +553,7 @@ public class TraceFileStoreTests
 
         var claimed = store.ClaimPending();
 
-        // The sweep renames it back to .log, then this caller claims it again.
+        // The sweep renames it back to .log, then this caller claims it.
         var claimedPath = Assert.Single(claimed);
         Assert.Equal("traces-ccc.uploading", Path.GetFileName(claimedPath));
         Assert.True(File.Exists(claimedPath));
@@ -650,7 +631,7 @@ public class TraceFileStoreTests
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // Test cleanup only; a leftover temp directory is harmless.
+                // Cleanup only.
             }
         }
     }
@@ -676,17 +657,8 @@ using Core.Abstractions;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Owns the trace directory, the trace file naming convention, and the claim protocol
-/// that lets concurrent uploaders share the directory safely.
-///
-/// Every command buffers traces into this directory and then spawns a detached uploader,
-/// so several uploaders can be reading it at once. Files are therefore claimed by rename:
-/// a rename is atomic, so exactly one uploader wins a given file and the losers skip it.
-/// The rename also fails while a writer still holds the file, which keeps uploaders away
-/// from traces that are still being appended to.
-///
-/// This is the only type in the upload pipeline that touches <see cref="System.IO"/>,
-/// which is what lets <see cref="TraceUploader"/> be tested against a temp directory.
+/// Owns the trace directory, trace file naming, and the rename-based claim protocol that
+/// lets concurrent uploaders share the directory.
 /// </summary>
 internal sealed class TraceFileStore
 {
@@ -695,11 +667,7 @@ internal sealed class TraceFileStore
     private const string PendingExtension = ".log";
     private const string ClaimedExtension = ".uploading";
 
-    /// <summary>
-    /// A claim older than this is assumed to belong to a crashed uploader. Without the
-    /// sweep those files would be stranded forever, because the pending scan only looks
-    /// for <c>.log</c>.
-    /// </summary>
+    /// <summary>A claim older than this is treated as abandoned by a crashed uploader.</summary>
     private static readonly TimeSpan StaleClaimAge = TimeSpan.FromMinutes(5);
 
     private readonly string _directory;
@@ -709,10 +677,7 @@ internal sealed class TraceFileStore
         _directory = directory ?? throw new ArgumentNullException(nameof(directory));
     }
 
-    /// <summary>
-    /// The shared trace directory, so the background uploader picks up every file from one
-    /// location. Uses the same <c>{LocalApplicationData}/.azclips/</c> root as auth profiles.
-    /// </summary>
+    /// <summary>The shared trace directory under <c>{LocalApplicationData}/.azclips/</c>.</summary>
     internal static string DefaultDirectory =>
         Path.Combine(HomePaths.GetDefaultLocalAppDataRoot(), TracesSubdirectoryName);
 
@@ -721,9 +686,8 @@ internal sealed class TraceFileStore
         $"{FilePrefix}{traceId}{PendingExtension}";
 
     /// <summary>
-    /// Reclaims abandoned claims, then takes ownership of every pending file by renaming
-    /// it. Returns only the files this caller won — contention yields fewer results, never
-    /// an exception.
+    /// Reclaims abandoned claims, then takes ownership of pending files by renaming them.
+    /// Returns only the files this caller won.
     /// </summary>
     internal IReadOnlyList<string> ClaimPending()
     {
@@ -744,14 +708,14 @@ internal sealed class TraceFileStore
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // Another uploader claimed it first, or the writing process still holds it.
+                // Another uploader won the file, or a writer still holds it.
             }
         }
 
         return claimed;
     }
 
-    /// <summary>Reads a claimed file. Returns false when it cannot be read on this run.</summary>
+    /// <summary>Reads a claimed file. Returns false when it cannot be read.</summary>
     internal bool TryRead(string claimedFile, out string content)
     {
         try
@@ -761,13 +725,13 @@ internal sealed class TraceFileStore
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Vanished or locked. The stale sweep returns it to .log for a later run.
+            // Vanished or locked.
             content = string.Empty;
             return false;
         }
     }
 
-    /// <summary>Removes a claimed file once its traces were delivered.</summary>
+    /// <summary>Removes a claimed file.</summary>
     internal void Delete(string claimedFile)
     {
         try
@@ -776,7 +740,7 @@ internal sealed class TraceFileStore
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Already gone or locked. The stale sweep returns it to .log for a later run.
+            // Already gone or locked.
         }
     }
 
@@ -827,9 +791,7 @@ In `src/Core/Core.Telemetry/FileTelemetrySender.cs`:
 Delete the `TracesSubdirectoryName` constant and change `GetTraceDirectory` to delegate (call sites move in Task 7):
 
 ```csharp
-    /// <summary>
-    /// Gets the shared trace directory the background uploader picks files up from.
-    /// </summary>
+    /// <summary>The shared trace directory. Removed in Task 6.</summary>
     public static string GetTraceDirectory() => TraceFileStore.DefaultDirectory;
 ```
 
@@ -925,9 +887,9 @@ Expected: FAIL to compile — `The name 'TraceReplayer' does not exist`.
 
 - [ ] **Step 3: Create the type**
 
-Create `src/Core/Core.Telemetry/TraceReplayer.cs`. This is a **verbatim cut-and-paste**, not a rewrite: move `ReplayEntries`, `TopologicallyOrder`, and `ReplayTrace` out of `FileTelemetrySender.cs` exactly as they are, including every doc comment and inline comment. The whole point of this task is that the 15 existing test methods keep passing without modification, so any logic change here defeats it.
+Create `src/Core/Core.Telemetry/TraceReplayer.cs`. Move the **method bodies verbatim** out of `FileTelemetrySender.cs` — do not rewrite the logic. The 15 existing test methods must keep passing without modification, so any behavior change here defeats the task. Comments are condensed below; code is not.
 
-In the pre-refactor file these were lines 197–416 (`ReplayEntries` and its doc comment, `TopologicallyOrder` and its doc comment, `ReplayTrace` and its doc comment). If earlier tasks shifted the numbering, locate them by name.
+In the pre-refactor file these were lines 197–416 (`ReplayEntries`, `TopologicallyOrder`, and `ReplayTrace`, each with its doc comment). If earlier tasks shifted the numbering, locate them by name.
 
 Wrap them in this file:
 
@@ -941,21 +903,50 @@ using System.Text.Json;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Replays deserialized trace entries through an <see cref="ActivitySource"/> so a
-/// TracerProvider can export them, preserving the original TraceId and the parent/child
-/// tree. OpenTelemetry .NET assigns a fresh SpanId to every activity and offers no way to
-/// override it, so parents are replayed first and each child's parent context is rewritten
-/// to point at the SpanId its parent was just given.
-///
-/// Pure logic: it knows nothing about files, exporters, or where the entries came from.
+/// Replays trace entries through an <see cref="ActivitySource"/>, preserving the original
+/// TraceId and parent/child hierarchy.
 /// </summary>
 internal static class TraceReplayer
 {
-    // <-- ReplayEntries, TopologicallyOrder and ReplayTrace pasted here unchanged.
+    // <-- ReplayEntries, TopologicallyOrder and ReplayTrace pasted here.
 }
 ```
 
 Accessibility does not change: `ReplayEntries` stays `internal static`, and `TopologicallyOrder` and `ReplayTrace` stay `private static`.
+
+Replace the three method doc comments with these shorter versions. The method **bodies** stay byte-for-byte identical — the tests verify behavior, not comments:
+
+```csharp
+    /// <summary>
+    /// Replays entries parent-before-child, remapping each child's parent context to the
+    /// SpanId its parent was assigned during replay.
+    /// </summary>
+    internal static void ReplayEntries(...)
+
+    /// <summary>
+    /// Orders entries so every parent precedes its children. Unparented entries are roots;
+    /// entries left over from cycles are appended at the end.
+    /// </summary>
+    private static List<TraceEntry> TopologicallyOrder(...)
+
+    /// <summary>
+    /// Reconstructs one Activity from an entry and records its new SpanId in
+    /// <paramref name="spanIdMap"/> for its descendants.
+    /// </summary>
+    private static void ReplayTrace(...)
+```
+
+And condense these inline comments inside the moved bodies:
+
+| Replace | With |
+| --- | --- |
+| the 3-line `// Maps each entry's original SpanId to the new SpanId assigned when its replay activity was started…` | `// Original SpanId -> the new SpanId assigned during replay.` |
+| the 2-line `// Sweep up any entries left out by cycles so we never silently drop telemetry…` | `// Entries left out by cycles, appended as best-effort roots.` |
+| the 6-line numbered `// Resolve the parent SpanId: 1. … 2. …` block | `// Use the parent's new SpanId when the parent was replayed in this batch; otherwise a random one, since an all-zero SpanId is invalid and would lose the TraceId.` |
+| `// Parse start time before creating the activity so we can pass it to StartActivity directly.` | *(delete)* |
+| the 2-line `// Record the new SpanId before the activity is disposed…` | `// Recorded before disposal so descendants can reference it.` |
+
+Leave `// Restore tags`, `// Restore events`, `// Restore status`, and `// Restore end time (start + duration)` as they are.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -1025,8 +1016,7 @@ public class TracerProviderExportSinkTests
     [Fact]
     public void TryExport_DoesNotThrow_ForTheLocalTarget()
     {
-        // The return value is deliberately not asserted: it depends on whether an OTLP
-        // collector happens to be listening, which would make this test flaky.
+        // Return value not asserted: it depends on whether a collector is listening.
         var sink = new TracerProviderExportSink(TelemetryTarget.Local);
 
         sink.TryExport("test-service", new List<TraceEntry> { MakeEntry() });
@@ -1080,22 +1070,13 @@ Create `src/Core/Core.Telemetry/ITraceExportSink.cs`:
 
 namespace Core.Telemetry;
 
-/// <summary>
-/// The step that actually ships replayed traces. Kept behind an interface so
-/// <see cref="TraceUploader"/>'s claim, group and delete logic can be tested without a
-/// live exporter.
-/// </summary>
+/// <summary>Ships replayed traces for one service.</summary>
 internal interface ITraceExportSink
 {
     /// <summary>
-    /// Exports one service's traces. Takes exactly one service per call because a
-    /// TracerProvider's Resource is immutable and supplies <c>service.name</c>, which Azure
-    /// Monitor maps to <c>cloud_RoleName</c> — so each service identity needs its own
-    /// provider. Building one per group also isolates failures: a timeout for one service
-    /// never forces a redelivery, and therefore duplicates, for another.
-    ///
-    /// Returns true only when the batch flushed successfully. False tells the caller to
-    /// leave the source files on disk for the next attempt.
+    /// Exports one service's traces. Takes a single service per call because a
+    /// TracerProvider's Resource is immutable and supplies <c>service.name</c>.
+    /// Returns true only when the batch flushed successfully.
     /// </summary>
     bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries);
 }
@@ -1116,16 +1097,9 @@ using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
 
-/// <summary>
-/// Exports through a real TracerProvider built for the resolved telemetry target,
-/// stamped with the group's service name.
-/// </summary>
+/// <summary>Exports through a TracerProvider built for the given telemetry target.</summary>
 internal sealed class TracerProviderExportSink : ITraceExportSink
 {
-    /// <summary>
-    /// Files are only deleted when the flush completes inside this window. A timeout
-    /// leaves them on disk, so telemetry is retried rather than lost.
-    /// </summary>
     private const int FlushTimeoutMilliseconds = 10_000;
 
     private readonly TelemetryTarget _target;
@@ -1262,7 +1236,6 @@ public class TraceUploaderTests
     [Fact]
     public void Run_LeavesFilesOnDisk_WhenExportFails()
     {
-        // The guarantee that protects users' telemetry: a failed flush must not lose data.
         using var temp = new TempDirectory();
         WriteTraceFile(temp.Path, "aaa", serviceName: "CLI", "op-1");
         var sink = new FakeSink(exportSucceeds: false);
@@ -1291,7 +1264,6 @@ public class TraceUploaderTests
     [Fact]
     public void Run_FlattensEntriesAcrossFilesInTheSameGroup()
     {
-        // Parent and child can land in different files; the replay needs them together.
         using var temp = new TempDirectory();
         WriteTraceFile(temp.Path, "aaa", serviceName: "CLI", "op-1");
         WriteTraceFile(temp.Path, "bbb", serviceName: "CLI", "op-2", "op-3");
@@ -1361,7 +1333,7 @@ public class TraceUploaderTests
             TraceFileFormat.FormatBatch(traces, DateTime.UtcNow));
     }
 
-    /// <summary>Records what the uploader tried to send and reports a fixed outcome.</summary>
+    /// <summary>Records what the uploader tried to send and returns a fixed outcome.</summary>
     private sealed class FakeSink : ITraceExportSink
     {
         private readonly bool _exportSucceeds;
@@ -1401,7 +1373,7 @@ public class TraceUploaderTests
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // Test cleanup only; a leftover temp directory is harmless.
+                // Cleanup only.
             }
         }
     }
@@ -1425,13 +1397,11 @@ Create `src/Core/Core.Telemetry/TraceUploader.cs`:
 namespace Core.Telemetry;
 
 /// <summary>
-/// Replays buffered trace files to the telemetry target and deletes the ones that made it.
-/// Orchestration only — every filesystem call goes through <see cref="TraceFileStore"/> and
-/// every export through <see cref="ITraceExportSink"/>, which is what makes this testable.
+/// Replays buffered trace files to the telemetry target and deletes the ones that were
+/// delivered.
 /// </summary>
 internal sealed class TraceUploader
 {
-    /// <summary>Used when a file carries no <c>service.name</c> to group by.</summary>
     private const string FallbackServiceName = "AzclipsTelemetryUploader";
 
     private readonly TraceFileStore _store;
@@ -1443,19 +1413,15 @@ internal sealed class TraceUploader
         _sink = sink ?? throw new ArgumentNullException(nameof(sink));
     }
 
-    /// <summary>
-    /// Synchronous by design: the flush inside the sink blocks, so there is nothing to
-    /// await and no benefit in pretending otherwise.
-    /// </summary>
     internal void Run()
     {
         var claimedFiles = _store.ClaimPending();
         if (claimedFiles.Count == 0)
             return;
 
-        // Group by the original service name so each group exports under the correct
-        // cloud_RoleName in App Insights. Entries are flattened across a group's files so
-        // the topological replay can link a parent and child that landed in different files.
+        // Group by service name so each group exports under the correct cloud_RoleName.
+        // Entries are flattened across a group's files so replay can link a parent and
+        // child that landed in different files.
         var groups = new Dictionary<string, (List<string> Files, List<TraceEntry> Entries)>(
             StringComparer.Ordinal);
 
@@ -1480,8 +1446,7 @@ internal sealed class TraceUploader
 
         foreach (var (serviceName, group) in groups)
         {
-            // Delete only what shipped. A failed export leaves the files on disk so the
-            // next uploader retries them.
+            // Delete only what shipped; the rest is retried next run.
             if (!_sink.TryExport(serviceName, group.Entries))
                 continue;
 
@@ -1509,18 +1474,12 @@ Create `src/Core/Core.Telemetry/TelemetryUpload.cs`:
 namespace Core.Telemetry;
 
 /// <summary>
-/// Entry point for the detached <c>--upload-telemetry</c> process, which is the first
-/// branch in Main and therefore runs before the DI container exists. This is the
-/// composition root: it wires the uploader's dependencies by hand, doing the job a
-/// container would do. If the uploader ever moves in-process, register the same types in
-/// the container and delete this class.
+/// Entry point for the detached <c>--upload-telemetry</c> process. Runs before the DI
+/// container exists, so it wires the uploader by hand.
 /// </summary>
 public static class TelemetryUpload
 {
-    /// <summary>
-    /// Sends all pending trace files to the resolved telemetry target, then deletes the
-    /// ones that were delivered.
-    /// </summary>
+    /// <summary>Sends all pending trace files, then deletes the ones that were delivered.</summary>
     public static void RunPending() =>
         new TraceUploader(
             new TraceFileStore(TraceFileStore.DefaultDirectory),
@@ -1629,10 +1588,7 @@ using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
 
-/// <summary>
-/// Abstracts how a client exports telemetry. CLI and TUI buffer to local files for a
-/// detached uploader to replay; PowerShell exports inline.
-/// </summary>
+/// <summary>Abstracts how a client exports telemetry: buffered to file, or inline.</summary>
 public interface ITelemetrySender
 {
     /// <summary>Adds the appropriate exporter(s) to the TracerProvider being built.</summary>
@@ -1653,9 +1609,7 @@ using OpenTelemetry.Trace;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Telemetry sender for PowerShell/Agent: exports traces inline via the TracerProvider
-/// pipeline. The exporter is chosen by the shared target seam (local OTLP → Jaeger, or
-/// remote Azure Monitor). No file buffering or replay.
+/// Exports traces inline via the TracerProvider pipeline. No file buffering or replay.
 /// </summary>
 public class DirectTelemetrySender : ITelemetrySender
 {
@@ -1678,9 +1632,8 @@ using OpenTelemetry.Trace;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Telemetry sender for CLI/TUI: buffers traces to local files via
-/// <see cref="FileExporter"/>. A detached <c>--upload-telemetry</c> process replays them
-/// later — see <see cref="TelemetryUpload"/>.
+/// Buffers traces to local files. A detached process replays them via
+/// <see cref="TelemetryUpload"/>.
 /// </summary>
 public class FileTelemetrySender : ITelemetrySender
 {
