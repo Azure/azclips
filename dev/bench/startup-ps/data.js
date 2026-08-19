@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787108510435,
+  "lastUpdate": 1787108514483,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -4286,6 +4286,42 @@ window.BENCHMARK_DATA = {
             "value": 340845949.61,
             "unit": "ns",
             "range": "± 12243572.412357943"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "58777b9ee26b7566efb56cf387cdfebc4c4bad42",
+          "message": "[Help] Show 'Values from:' hint under --help parameters (#714)\n\n## Summary\n\nSecond runtime-side follow-up to 588-A (#691). Pairs with #711's\nparameter grouping — same reflection pattern, twin attribute.\n\n`RuntimeHelpRenderer` now emits `Values from: <cmd>.` under any\nparameter annotated with `[PopulatorCommand]`, matching Azure CLI's\ndiscoverability hint format. First user-visible adoption: `az vm create`\n— `--resource-group` now points users at `az group list`.\n\n## User-visible impact\n\n`az vm create --help` after this PR:\n\n    Arguments\n        --subscription-id [Required] : Azure Subscription Id.\n        --name [Required]            : The name of the virtual machine.\n        --location [Required]        : Location for all resources.\n        --resource-group [Required]  : The resource group name.\n            Values from: az group list.\n        --vm-size [Required]         : The size of the virtual machine.\n        ...\n\nOnly `--resource-group` picks up the new line; every other parameter is\nunchanged. Un-annotated commands (`az login`, `az config get`, etc.)\nrender byte-identical to `main`.\n\n## History Notes\n\n[Help] `az <verb> --help` now shows a `Values from: <command>` hint\nunder parameters annotated with `[PopulatorCommand]`, matching Azure\nCLI's discoverability convention. First user-visible adoption: `az vm\ncreate --resource-group` points users at `az group list`.\n\n## References\n\n- PR plan: `scratch/CLIPS-588-populator-command-PR-PLAN.md`\n- Preceding runtime rendering PR: #711 (parameter grouping) — same\nreflection pattern\n- Related: #691 (588-A exporter, where `[PopulatorCommand]` was\nintroduced), #706 (588-D1 Markdig preflight)",
+          "timestamp": "2026-08-19T12:47:04+10:00",
+          "tree_id": "627f0368902b30e6efa0f2e3ba28d22a8213656f",
+          "url": "https://github.com/Azure/azclips/commit/58777b9ee26b7566efb56cf387cdfebc4c4bad42"
+        },
+        "date": 1787108514344,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 365502320.33,
+            "unit": "ns",
+            "range": "± 7680429.526736817"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 352710490.21,
+            "unit": "ns",
+            "range": "± 6607551.780363495"
           }
         ]
       }
