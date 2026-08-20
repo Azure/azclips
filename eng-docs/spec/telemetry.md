@@ -112,8 +112,12 @@ public async Task Foo()
 
 | Exporter | Configuration | Enabled |
 |----------|---------------|---------|
-| **File** | `%LOCALAPPDATA%\AzureCLI\traces\` | Always |
-| **Azure Monitor** | App Insights connection string | Unless user Disabled |
+| **File** | `%LOCALAPPDATA%\AzureCLI\traces\` | Always (CLI and TUI) |
+| **Azure Monitor** | App Insights connection string | Unless user disabled |
+| **OTLP (local)** | `http://localhost:4317`, port via `AZCLIPS_OTLP_PORT` | Debug builds only |
+
+A Debug build exports to the local OTLP collector and Azure Monitor simultaneously; a Release build
+exports to Azure Monitor only. See `wiki/02-deep-dive/telemetry.md#export-targets`.
 
 ### Local File Export
 

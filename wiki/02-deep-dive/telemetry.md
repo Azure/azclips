@@ -102,9 +102,39 @@ emits nothing — such a session runs no cmdlets, so it produces no telemetry ei
 | --- | --- | --- | --- |
 | `CLITelemetryProvider` | `ClientType.CLI` | `FileTelemetrySender` (file buffer) | `src/CLI/Telemetry/CLITelemetryProvider.cs:16-45` |
 | `TUITelemetryProvider` | `ClientType.TUI` | `FileTelemetrySender` (file buffer) | `TUI/Telemetry/TUITelemetryProvider.cs:14-45` |
-| `DirectTelemetrySender` (PowerShell) | — | Azure Monitor inline, no buffering | `src/Core/Core.Telemetry/DirectTelemetrySender.cs:14-27` |
+| `DirectTelemetrySender` (PowerShell) | — | Resolved targets inline, no buffering | `src/Core/Core.Telemetry/DirectTelemetrySender.cs` |
 
 The `telemetry.enabled` opt-out is enforced in `TelemetryService.StartActivity` / `StartRootActivity` at call time — the service reads `TelemetryOptions.Enabled` via `IConfigurationService` on every span and returns `null` when disabled, so `Set-AzConfig` / `az config set` take effect on the very next cmdlet without a module reload (`src/Core/Core.Telemetry/TelemetryService.cs`, `src/Core/Core.Abstractions/TelemetryOptions.cs:6-8`). Providers always build the full pipeline regardless of the config value, so the opt-out is symmetric in both directions. All providers register the same filter processors, HTTP-client instrumentation, and resource service name via `ProcessUtils.GetRunningProcess()` (`src/CLI/Telemetry/CLITelemetryProvider.cs:25-44`).
+
+## Export targets
+
+Where telemetry goes is resolved separately from whether it is collected. `TelemetryTargetResolver`
+returns a never-empty set of targets:
+
+| Build | Default targets | Notes |
+| --- | --- | --- |
+| Debug | Local **and** Remote | Jaeger for fast feedback, Azure Monitor to prove the remote path still works |
+| Release | Remote | Unchanged from previous behaviour |
+
+In a Debug build the default can be overridden with `AZCLIPS_TELEMETRY_TARGET`, which accepts
+exactly `local`, `remote`, or `both`. Anything else — including an empty value — falls back to the
+compiled default. There is no `none`: disabling remote export while developing is
+`AZCLIPS_TELEMETRY_TARGET=local`, and disabling telemetry entirely is `telemetry.enabled=false`.
+
+```bash
+# Debug only: stop sending your local runs to Application Insights.
+AZCLIPS_TELEMETRY_TARGET=local az group list
+```
+
+**Release ignores the variable completely.** The suppression lives in the resolver's environment
+reader rather than in its parser, so a shipped binary has no override path at all. This is
+deliberate: once the resolver can express more than one target, honouring the variable in Release
+would let anything able to set an environment variable redirect a user's telemetry to a local
+collector, on a port that `AZCLIPS_OTLP_PORT` also controls.
+
+Because Debug spans go to the same Application Insights resource as production traffic, and no tag
+distinguishes them, locating your own runs means correlating on `InstallationId`. Marking dev
+traffic is deferred; see the design doc for the intended approach.
 
 ## Privacy model — the allow-list processors
 
@@ -160,9 +190,9 @@ sequenceDiagram
 - **Atomic claim** — each `.log` is renamed to `.uploading` before reading, so concurrent uploaders and in-flight writers never process the same file. This claim protocol is owned by `TraceFileStore.ClaimPending` (`src/Core/Core.Telemetry/TraceFileStore.cs`).
 - **Group by service** — `TraceUploader.Run` groups traces by original `service.name` so each replays with the correct `cloud_RoleName` (CLI vs PowerShell) in App Insights (`src/Core/Core.Telemetry/TraceUploader.cs`).
 - **Hierarchy-preserving replay** — because the OTel API assigns fresh SpanIds, `TraceReplayer.ReplayEntries` topologically orders parents-before-children and rewrites each child's parent context to the parent's *new* SpanId, keeping the original `TraceId` and tree intact (`src/Core/Core.Telemetry/TraceReplayer.cs`).
-- **Delete only on success** — `TracerProviderExportSink.TryExport` returns false on a failed flush, leaving files on disk for `TraceUploader.Run` to retry on the next attempt.
+- **Delete only on success** — `TracerProviderExportSink.TryExport` returns false on a failed flush, leaving files on disk for `TraceUploader.Run` to retry on the next attempt. With more than one target it builds **one provider per target** and flushes each independently, then reports the verdict of the highest-ranked target present (Remote outranks Local). A stopped Jaeger container therefore never pins trace files on a developer's machine, while a developer who asked for local-only still gets retries.
 
-The Azure Monitor destination is a hard-coded connection string in `WellKnownEndpoints` (`src/Core/Core.Telemetry/WellKnownEndpoints.cs:6-9`). Note the uploader itself only runs when the host executable is `az`/`az.exe`, so in-process benchmark runs never attempt to flush (`src/CLI/Program.cs`).
+The Azure Monitor destination is a hard-coded connection string in `WellKnownEndpoints` (`src/Core/Core.Telemetry/WellKnownEndpoints.cs`), used by both Debug and Release builds. Note the uploader itself only runs when the host executable is `az`/`az.exe`, so in-process benchmark runs never attempt to flush (`src/CLI/Program.cs`).
 
 ## Local timing — `TimingActivityListener`
 
