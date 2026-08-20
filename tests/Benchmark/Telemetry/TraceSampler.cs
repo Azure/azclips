@@ -62,7 +62,9 @@ internal static class TraceSampler
     {
         var groups = new Dictionary<string, List<TraceEntry>>(StringComparer.Ordinal);
 
-        foreach (var file in Directory.EnumerateFiles(directory, "traces-*.log"))
+        // Pattern comes from TraceFileStore so the reader cannot drift from the writer:
+        // FileExporter names files through the same type.
+        foreach (var file in Directory.EnumerateFiles(directory, TraceFileStore.PendingFilePattern))
         {
             foreach (var entry in TraceFileFormat.Parse(File.ReadAllText(file)))
             {
