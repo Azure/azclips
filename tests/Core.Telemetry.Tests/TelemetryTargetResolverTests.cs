@@ -59,6 +59,7 @@ public class TelemetryTargetResolverTests
         // "local,remote" is not a token: the accepted spelling is "both".
         Assert.Equal(Both, TelemetryTargetResolver.Resolve(Both, _ => value));
         Assert.Equal(RemoteOnly, TelemetryTargetResolver.Resolve(RemoteOnly, _ => value));
+        Assert.Equal(LocalOnly, TelemetryTargetResolver.Resolve(LocalOnly, _ => value));
     }
 
     [Fact]
