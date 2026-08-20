@@ -88,7 +88,8 @@ internal sealed class AcrAuthOrchestrator : IRequestAuthProvider
         // Step 1: Get AAD token via the default auth delegate
         var authResult = await _authHandler.AcquireTokenAsyncDefault(
             scopes: ["https://management.azure.com/.default"],
-            tenantId: null);
+            tenantId: _authHandler.Profile?.TenantId,
+            profile: _authHandler.Profile);
 
         string aadToken = authResult.AccessToken;
 
@@ -96,7 +97,10 @@ internal sealed class AcrAuthOrchestrator : IRequestAuthProvider
         string refreshToken = await ExchangeForRefreshTokenAsync(loginServer, aadToken);
 
         // Step 3: Exchange refresh token for ACR access token with scope
-        string accessToken = await ExchangeForAccessTokenAsync(loginServer, refreshToken, scope);
+        // If scope is empty, use refresh token directly (for docker login)
+        string accessToken = string.IsNullOrEmpty(scope)
+            ? refreshToken
+            : await ExchangeForAccessTokenAsync(loginServer, refreshToken, scope);
 
         // Cache
         _cachedToken = accessToken;
@@ -106,26 +110,48 @@ internal sealed class AcrAuthOrchestrator : IRequestAuthProvider
         return accessToken;
     }
 
+    /// <summary>
+    /// Acquires only the ACR refresh token (Steps 1-2 of the full flow).
+    /// Used by ConnectAcrProcessor for docker login (refresh token = password).
+    /// </summary>
+    public async Task<string> AcquireAcrRefreshTokenAsync(string loginServer)
+    {
+        // Step 1: Get AAD token via the default auth delegate
+        var authResult = await _authHandler.AcquireTokenAsyncDefault(
+            scopes: ["https://management.azure.com/.default"],
+            tenantId: _authHandler.Profile?.TenantId,
+            profile: _authHandler.Profile);
+
+        string aadToken = authResult.AccessToken;
+
+        // Step 2: Exchange AAD token for ACR refresh token
+        return await ExchangeForRefreshTokenAsync(loginServer, aadToken);
+    }
+
     private async Task<string> ExchangeForRefreshTokenAsync(string loginServer, string aadToken)
     {
         string url = $"https://{loginServer}/oauth2/exchange";
+        string tenantId = _authHandler.Profile?.TenantId ?? "";
         var content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "access_token",
             ["service"] = loginServer,
+            ["tenant"] = tenantId,
             ["access_token"] = aadToken
         });
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        using var response = await _pipeline.SendAsync(request, _publisher);
+        var response = await _pipeline.SendAsync(request, _publisher);
 
         if (!response.IsSuccessStatusCode)
         {
             string errorBody = await response.Content.ReadAsStringAsync();
+            response.Dispose();
             throw new HttpRequestException($"ACR token exchange failed ({response.StatusCode}): {errorBody}");
         }
 
         string body = await response.Content.ReadAsStringAsync();
+        response.Dispose();
         var tokenResponse = JsonSerializer.Deserialize<AcrTokenResponse>(body, _jsonOptions)
             ?? throw new InvalidOperationException("Failed to exchange AAD token for ACR refresh token.");
 

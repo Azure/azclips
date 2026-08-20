@@ -18,13 +18,16 @@ public class ListRepositoryProcessor : AcrDataPlaneProcessorBase
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
     public string RegistryName { get; set; } = "";
 
+    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
+    protected override string GetScope() => "registry:catalog:*";
+
     public override async Task ProcessAsync()
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            string loginServer = ResolveLoginServer(RegistryName);
-            string scope = "registry:catalog:*";
+            string loginServer = GetLoginServer();
+            string scope = GetScope();
 
             List<string> pages = await SendAsyncPaged(loginServer, "/acr/v1/_catalog", scope);
 

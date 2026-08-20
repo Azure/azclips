@@ -23,13 +23,13 @@ public class RemoveManifestProcessor : AcrDataPlaneProcessorBase
     public string Reference { get; set; } = "";
 
     protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
-    protected override string GetScope() => $"repository:{RepositoryName}:delete,metadata_read";
+    protected override string GetScope() => $"repository:{RepositoryName}:delete";
 
     protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string loginServer = GetLoginServer();
-        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://{loginServer}/acr/v1/{RepositoryName}/_manifests/{Reference}");
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"https://{loginServer}/v2/{RepositoryName}/manifests/{Reference}");
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }

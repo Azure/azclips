@@ -14,12 +14,16 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// </summary>
 public class GetManifestProcessor : AcrDataPlaneProcessorBase<ManifestAttributes>
 {
+    [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
+    public string RegistryName { get; set; } = "";
+
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "RepositoryName")]
     public string RepositoryName { get; set; } = "";
 
     [ArgumentInfo(Required = true, Description = "The manifest reference (tag or digest).", SerializedName = "Reference")]
     public string Reference { get; set; } = "";
 
+    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
     protected override string GetScope() => $"repository:{RepositoryName}:metadata_read";
 
     protected override async Task<HttpRequestMessage> CreateRequestMessage()

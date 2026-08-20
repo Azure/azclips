@@ -69,6 +69,33 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
     protected const string Server = ".azurecr.io";
 
     /// <summary>
+    /// Standard OAuth username for ACR token-based authentication.
+    /// </summary>
+    internal const string AcrDockerUserName = "00000000-0000-0000-0000-000000000000";
+
+    /// <summary>
+    /// Returns the ACR scope required for this request (e.g. "repository:myrepo:metadata_read").
+    /// Override in derived processors. Empty string means skip scope (for testing).
+    /// </summary>
+    protected virtual string GetScope() => "";
+
+    /// <summary>
+    /// Returns the login server FQDN (e.g. "myregistry.azurecr.io").
+    /// Override in derived processors to provide the endpoint.
+    /// </summary>
+    protected virtual string GetLoginServer() => "";
+
+    /// <summary>
+    /// Resolves a registry name to its login server FQDN.
+    /// </summary>
+    protected static string ResolveLoginServer(string registryName) => ResolveLoginServerFromName(registryName);
+
+    /// <summary>
+    /// Resolves a registry name to its login server FQDN. Accessible from orchestrators in the same assembly.
+    /// </summary>
+    internal static string ResolveLoginServerFromName(string registryName) => $"{registryName}{Server}";
+
+    /// <summary>
     /// Processors override to build the outgoing <see cref="HttpRequestMessage"/>.
     /// </summary>
     protected virtual Task<HttpRequestMessage> CreateRequestMessage() =>
@@ -79,10 +106,30 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
     protected virtual Func<HttpResponseMessage, string?> GetAsyncOperationUri => _ => null;
     protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
 
+    /// <summary>
+    /// Sends the request with ACR auth: acquires ACR token via the 3-step exchange flow,
+    /// wires the <see cref="AcrAuthOrchestrator"/> as <see cref="IRequestAuthProvider"/>,
+    /// then sends through the pipeline.
+    /// </summary>
      internal async virtual Task<HttpResponseMessage> SendAsync()
         {
             IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
             IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
+
+            // Wire up ACR auth: acquire token via 3-step exchange, set as RequestAuthProvider
+            string loginServer = GetLoginServer();
+            if (!string.IsNullOrEmpty(loginServer))
+            {
+                var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, _httpPipeline, _publisher, JsonOptions);
+                AuthHandler.RequestAuthProvider = authOrchestrator;
+
+                string scope = GetScope();
+                await authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
+
+                // Signal override intent (RequestAuthProvider takes priority in AuthHandler)
+                AuthHandler.ApplyOverride = true;
+            }
+
             using HttpRequestMessage _request = await CreateRequestMessage();
             HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
             await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
@@ -260,6 +307,56 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
         child.WriteOutput = WriteOutput;
         configure?.Invoke(child);
         return child;
+    }
+
+    /// <summary>
+    /// Sends paginated GET requests to an ACR data-plane endpoint, collecting all pages.
+    /// Acquires the ACR token for the given scope before fetching.
+    /// </summary>
+    protected async Task<List<string>> SendAsyncPaged(string loginServer, string path, string scope)
+    {
+        IRuntimeHttpPipeline pipeline = HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+        IEventPublisher publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
+
+        // Wire up ACR auth
+        var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, pipeline, publisher, JsonOptions);
+        AuthHandler.RequestAuthProvider = authOrchestrator;
+        await authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
+        AuthHandler.ApplyOverride = true;
+
+        var pages = new List<string>();
+        string? nextLink = $"https://{loginServer}{path}";
+
+        while (!string.IsNullOrEmpty(nextLink))
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, nextLink);
+            using var response = await pipeline.SendAsync(request, publisher);
+            await response.EnsureSuccessAsync(publisher);
+
+            string body = await response.Content.ReadAsStringAsync();
+            pages.Add(body);
+
+            // Follow Link header for pagination
+            nextLink = null;
+            if (response.Headers.TryGetValues("Link", out var linkValues))
+            {
+                foreach (string link in linkValues)
+                {
+                    // Parse Link header: </acr/v1/_catalog?last=x&n=100>; rel="next"
+                    int start = link.IndexOf('<');
+                    int end = link.IndexOf('>');
+                    if (start >= 0 && end > start)
+                    {
+                        string relative = link[(start + 1)..end];
+                        nextLink = relative.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                            ? relative
+                            : $"https://{loginServer}{relative}";
+                    }
+                }
+            }
+        }
+
+        return pages;
     }
 }
 

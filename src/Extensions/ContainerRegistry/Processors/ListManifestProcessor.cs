@@ -21,13 +21,16 @@ public class ListManifestProcessor : AcrDataPlaneProcessorBase
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "RepositoryName")]
     public string RepositoryName { get; set; } = "";
 
+    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
+    protected override string GetScope() => $"repository:{RepositoryName}:metadata_read";
+
     public override async Task ProcessAsync()
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            string loginServer = ResolveLoginServer(RegistryName);
-            string scope = $"repository:{RepositoryName}:metadata_read";
+            string loginServer = GetLoginServer();
+            string scope = GetScope();
 
             List<string> pages = await SendAsyncPaged(loginServer, $"/acr/v1/{RepositoryName}/_manifests", scope);
 
