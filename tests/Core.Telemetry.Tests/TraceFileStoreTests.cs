@@ -14,15 +14,14 @@ public class TraceFileStoreTests
     [Fact]
     public void PendingFilePattern_MatchesWhatFileNameForProduces()
     {
-        // Writers name files through FileNameFor; readers enumerate with PendingFilePattern.
-        // Matching them here means renaming the format cannot leave a reader searching for
-        // files that are no longer written under that name.
+        // Writers name files through FileNameFor, readers enumerate with PendingFilePattern;
+        // this pins the two together.
         using var temp = new TempDirectory();
         var written = Path.Combine(temp.Path, TraceFileStore.FileNameFor("abc123"));
         File.WriteAllText(written, "payload");
 
-        // Decoys that isolate each half of the pattern: the first is matched by a pattern that
-        // lost its prefix, the second by one that lost its extension.
+        // Decoys isolating each half: a pattern missing the prefix matches the first, one missing
+        // the extension matches the second.
         File.WriteAllText(Path.Combine(temp.Path, "other.log"), "data");
         File.WriteAllText(Path.Combine(temp.Path, "traces-abc123.uploading"), "claimed");
 

@@ -21,9 +21,7 @@ public class FileTelemetrySender : ITelemetrySender
 
     public void ConfigureExporter(TracerProviderBuilder builder)
     {
-        // Resolved here rather than in the constructor so a host can decide the destination per
-        // export. Benchmarks rely on that: which directory a trace belongs to is only knowable
-        // once the exporter is being built, not when the sender is registered.
+        // Resolved per export, so the destination can differ between exports from one sender.
         builder.AddProcessor(
             new SimpleActivityExportProcessor(
                 new FileExporter(_traceDirectory.GetTraceDirectory())));

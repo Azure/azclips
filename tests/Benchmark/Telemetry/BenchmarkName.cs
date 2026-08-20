@@ -5,17 +5,11 @@ using System.Text;
 
 namespace Benchmark.Telemetry;
 
-/// <summary>
-/// Resolves which benchmark method the current process is running.
-/// </summary>
+/// <summary>Resolves which benchmark method the current process is running.</summary>
 /// <remarks>
 /// BenchmarkDotNet runs one child process per benchmark case and passes
-/// <c>--benchmarkName &lt;fully.qualified.Type.Method&gt;</c> to it (see
-/// <c>BenchmarkDotNet.Running.BenchmarkId.ToArguments</c>). This is the only authoritative source:
-/// neither <c>[GlobalSetup]</c> nor <c>[IterationSetup]</c> receives the running
-/// <c>BenchmarkCase</c>, and <c>GetType()</c> yields only the class — at runtime, BenchmarkDotNet's
-/// generated subclass of it. Using the argument also means the file name matches the BenchmarkDotNet
-/// summary row exactly, so a telemetry file always correlates to a reported result.
+/// <c>--benchmarkName &lt;fully.qualified.Type.Method&gt;</c> to it. The name matches the summary
+/// row, so a telemetry file correlates to a reported result.
 /// </remarks>
 internal static class BenchmarkName
 {

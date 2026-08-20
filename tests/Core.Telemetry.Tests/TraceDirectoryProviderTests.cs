@@ -12,8 +12,7 @@ public class TraceDirectoryProviderTests
     [Fact]
     public void GetTraceDirectory_ShouldReturnLocalAppDataTracesDirectory_WhenUsingDefaultProvider()
     {
-        // Asserts the concrete path contract rather than the delegation, so it catches a real
-        // change to where production telemetry lands instead of merely tracking a refactor.
+        // Pins the concrete path, so a change to where production telemetry lands fails here.
         var expected = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             ".azclips",
@@ -37,9 +36,8 @@ public class TraceDirectoryProviderTests
     [Fact]
     public void FileTelemetrySender_ShouldUseOverriddenProvider_WhenOneIsRegisteredLast()
     {
-        // The seam only earns its keep if a later registration actually reaches the sender DI
-        // builds. Benchmarks depend on exactly this: they override the provider and leave the
-        // sender registration alone.
+        // A later provider registration must reach the sender DI builds; benchmarks override the
+        // provider and leave the sender registration alone.
         var expected = Path.Combine(Path.GetTempPath(), "azclips-trace-directory-override");
 
         var services = new ServiceCollection();
@@ -50,8 +48,8 @@ public class TraceDirectoryProviderTests
         using var container = services.BuildServiceProvider();
         var sender = Assert.IsType<FileTelemetrySender>(container.GetRequiredService<ITelemetrySender>());
 
-        // Building through the real TracerProviderBuilder proves the resolved directory is the one
-        // the exporter is constructed with, rather than merely the one DI handed the sender.
+        // Builds through the real TracerProviderBuilder, so this covers the directory the exporter
+        // is constructed with.
         using var provider = Sdk.CreateTracerProviderBuilder()
             .AddSource("trace-directory-seam-test")
             .ConfigureExporterVia(sender)

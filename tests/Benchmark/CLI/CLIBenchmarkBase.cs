@@ -80,7 +80,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         _stagingRoot = Path.Combine(RepoRoot, "artifacts", "Benchmark", "telemetry");
         _telemetryRoot = Path.Combine(_stagingRoot, _benchmarkName);
 
-        // The staging path is stable across runs, so this is what stops runs bleeding together.
+        // The staging path is stable across runs; this is what stops them bleeding together.
         TryDeleteDirectory(_telemetryRoot);
 
         _stage = new BenchmarkStageListener();
@@ -100,16 +100,13 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     }
 
     /// <summary>
-    /// Swaps the stubbed telemetry service back to the production one and points the exporter at
-    /// this benchmark's trace directories. Runs after <see cref="BenchmarkBase.RegisterBenchmarkStubs"/>
-    /// so DI last-wins semantics replace <c>StubTelemetryService</c>, and before
-    /// <c>Core.Cli.Program.Main</c> registers <c>CLITelemetryProvider</c> — which is what actually
-    /// builds the real exporter pipeline.
+    /// Registers the production <see cref="TelemetryService"/> and this benchmark's trace
+    /// directories. Runs after <see cref="BenchmarkBase.RegisterBenchmarkStubs"/>, so DI last-wins
+    /// semantics take the production service over <c>StubTelemetryService</c>.
     /// </summary>
     /// <remarks>
-    /// The registration is repeated every iteration because <c>[IterationCleanup]</c> disposes the
-    /// DI container, but the registered instance is the same throughout. The warmup-versus-measured
-    /// choice deliberately is NOT made here — see <see cref="StageTraceDirectoryProvider"/>.
+    /// Repeated every iteration because <c>[IterationCleanup]</c> disposes the container; the
+    /// registered instance is the same throughout.
     /// </remarks>
     private void RegisterTelemetryCapture()
     {
@@ -139,9 +136,8 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     }
 
     /// <summary>
-    /// Samples the measured traces down to the deliverable and removes the raw files. Never throws:
-    /// a telemetry-plumbing failure must not change the benchmark's exit code or trip the
-    /// regression gate.
+    /// Samples the measured traces into the run's output file and removes the raw ones. Never
+    /// throws: a telemetry failure must not change the benchmark's exit code.
     /// </summary>
     private void PruneTelemetry()
     {

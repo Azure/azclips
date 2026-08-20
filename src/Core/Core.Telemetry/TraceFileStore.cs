@@ -29,9 +29,8 @@ internal sealed class TraceFileStore
         $"{FilePrefix}{traceId}{PendingExtension}";
 
     /// <summary>
-    /// Search pattern matching every unclaimed trace file. Exposed so readers outside the
-    /// upload path — which want the files but not the claim protocol — can enumerate them
-    /// without restating the naming this type owns.
+    /// Search pattern matching every unclaimed trace file, for readers that want the files
+    /// without the claim protocol.
     /// </summary>
     internal static string PendingFilePattern => FilePrefix + "*" + PendingExtension;
 

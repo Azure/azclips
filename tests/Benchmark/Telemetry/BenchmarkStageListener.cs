@@ -7,19 +7,13 @@ using BenchmarkDotNet.Engines;
 namespace Benchmark.Telemetry;
 
 /// <summary>
-/// Tracks whether the BenchmarkDotNet engine is inside the measured (WorkloadActual) stage.
+/// Tracks whether the BenchmarkDotNet engine is inside the measured (WorkloadActual) stage, from
+/// the engine's own <c>EngineEventSource</c> signal.
 /// </summary>
-/// <remarks>
-/// Counting iterations instead would be wrong: BenchmarkDotNet's jitting stage invokes the workload
-/// once or twice before warmup begins, so a counted boundary is offset, and it drifts silently
-/// whenever the configured warmup or iteration counts change. <c>EngineEventSource</c> is the
-/// engine's own signal, so it is exact and needs no knowledge of the counts.
-/// </remarks>
 internal sealed class BenchmarkStageListener : EventListener
 {
-    // EventListener can deliver OnEventSourceCreated from the base constructor, before this type's
-    // field initializers run, and events arrive on the engine's thread. Both are fine for a
-    // volatile bool defaulting to false.
+    // Written on the engine's thread, read on the benchmark's, and live before field initializers
+    // run — the base constructor can raise OnEventSourceCreated.
     private volatile bool _isMeasured;
 
     internal bool IsMeasured => _isMeasured;

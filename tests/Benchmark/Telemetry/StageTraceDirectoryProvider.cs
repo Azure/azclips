@@ -9,15 +9,8 @@ namespace Benchmark.Telemetry;
 /// Chooses between the warmup and measured trace directories at the moment a trace is written.
 /// </summary>
 /// <remarks>
-/// The choice cannot be made in <c>[IterationSetup]</c>. BenchmarkDotNet raises
-/// <c>WorkloadActualStart</c>/<c>WorkloadActualStop</c> around the measured region of each
-/// iteration, and <c>[IterationSetup]</c> runs outside that bracket, so it always observes
-/// <c>IsMeasured == false</c> — including on measured iterations. <see cref="GetTraceDirectory"/>
-/// is called while <c>CLITelemetryProvider</c> is being constructed inside the benchmarked call,
-/// which is inside the bracket, so it observes the true stage.
-///
-/// Both paths are precomputed by the caller, so the measured region pays only a volatile bool read
-/// and a reference return — identical work in either stage, so it cannot skew the distribution.
+/// Called from <c>FileTelemetrySender.ConfigureExporter</c>, inside the bracket BenchmarkDotNet
+/// raises around each iteration's measured region, and costs one volatile bool read.
 /// </remarks>
 internal sealed class StageTraceDirectoryProvider : ITraceDirectoryProvider
 {

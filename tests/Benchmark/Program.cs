@@ -292,10 +292,7 @@ public class Program
     /// <summary>
     /// Moves the pruned per-benchmark telemetry files into this run's artifacts folder.
     /// </summary>
-    /// <remarks>
-    /// Never throws and never contributes to the failure list: telemetry plumbing must not trip the
-    /// 115% regression gate.
-    /// </remarks>
+    /// <remarks>Never throws and never contributes to the failure list.</remarks>
     private static void CollectTelemetry(string stagingRoot, string destination)
     {
         try

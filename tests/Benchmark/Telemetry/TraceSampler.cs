@@ -8,15 +8,10 @@ using Core.Telemetry;
 namespace Benchmark.Telemetry;
 
 /// <summary>
-/// Reduces a benchmark's measured trace files to a fixed-size, evenly spread sample and writes them
-/// as JSON Lines.
+/// Reduces a benchmark's measured trace files to a fixed-size, evenly spread sample and writes
+/// them as JSON Lines. Parses through <see cref="TraceFileFormat.Parse"/>, the same reader the
+/// production uploader uses.
 /// </summary>
-/// <remarks>
-/// Every iteration emits telemetry so the cost stays uniform across the run — sampling only decides
-/// what survives on disk, and it happens after the measurements are taken. Parsing goes through
-/// <see cref="TraceFileFormat.Parse"/> so benchmark files are read exactly as the
-/// production uploader reads them.
-/// </remarks>
 internal static class TraceSampler
 {
     private const int TargetSampleCount = 100;
@@ -54,16 +49,15 @@ internal static class TraceSampler
     }
 
     /// <summary>
-    /// Groups every span by TraceId — each group is one CLI invocation — and orders the groups by
-    /// their earliest span. File names carry no sequence, but StartTime is ISO-8601 with 100ns
-    /// resolution, which recovers exact invocation order.
+    /// Groups spans by TraceId — one group per CLI invocation — ordered by earliest span. File
+    /// names carry no sequence; StartTime is ISO-8601 at 100ns resolution, which recovers
+    /// invocation order.
     /// </summary>
     private static List<List<TraceEntry>> ReadTracesInOrder(string directory)
     {
         var groups = new Dictionary<string, List<TraceEntry>>(StringComparer.Ordinal);
 
-        // Pattern comes from TraceFileStore so the reader cannot drift from the writer:
-        // FileExporter names files through the same type.
+        // TraceFileStore owns this naming; FileExporter writes through the same type.
         foreach (var file in Directory.EnumerateFiles(directory, TraceFileStore.PendingFilePattern))
         {
             foreach (var entry in TraceFileFormat.Parse(File.ReadAllText(file)))
@@ -102,9 +96,9 @@ internal static class TraceSampler
     }
 
     /// <summary>
-    /// Takes every stride-th trace so the sample is spread evenly across the whole measured run
-    /// rather than clustered at the start. The stride adapts to the trace count: a 5-iteration
-    /// smoke run yields a stride of 1 and keeps all 5 traces rather than emitting nothing.
+    /// Takes every stride-th trace, spreading the sample across the whole measured run. The stride
+    /// adapts to the trace count: 5 traces against a target of 100 gives a stride of 1 and keeps
+    /// all 5.
     /// </summary>
     private static List<List<TraceEntry>> Sample(
         List<List<TraceEntry>> traces,
