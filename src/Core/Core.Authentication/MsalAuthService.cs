@@ -40,21 +40,32 @@ public class MsalAuthService(
 
         Logger.Verbose($"[{nameof(MsalAuthService)}] Removing account '{userPrincipalName}' from the MSAL token cache.");
 
-        // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
-        var app = BuildApp(tenantId: null);
-
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
-
-        var accounts = (await app.GetAccountsAsync()).ToList();
-        var matching = accounts
-            .Where(a => string.Equals(a.Username, userPrincipalName, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        Logger.Debug($"[{nameof(MsalAuthService)}] Found {matching.Count} matching account(s) for '{userPrincipalName}' of {accounts.Count} in the token cache.");
-
-        foreach (var account in matching)
+        try
         {
-            Logger.Debug($"[{nameof(MsalAuthService)}] Removing account: {account.Username}");
-            await app.RemoveAsync(account);
+            // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
+            var app = BuildApp(tenantId: null);
+
+            await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+
+            var accounts = (await app.GetAccountsAsync()).ToList();
+            var matching = accounts
+                .Where(a => string.Equals(a.Username, userPrincipalName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            Logger.Debug($"[{nameof(MsalAuthService)}] Found {matching.Count} matching account(s) for '{userPrincipalName}' of {accounts.Count} in the token cache.");
+
+            foreach (var account in matching)
+            {
+                Logger.Debug($"[{nameof(MsalAuthService)}] Removing account: {account.Username}");
+                await app.RemoveAsync(account);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Removing the account from the MSAL token cache is best-effort: environmental issues
+            // (e.g. a conflicting Microsoft.Identity.Client/broker assembly already loaded by another
+            // module in the same host process) must not prevent the user from signing out locally.
+            // Cancellation is allowed to propagate so a cancelled logout is not silently swallowed.
+            Logger.Warn($"[{nameof(MsalAuthService)}] Failed to remove account '{userPrincipalName}' from the MSAL token cache: {ex.Message}");
         }
     }
 
