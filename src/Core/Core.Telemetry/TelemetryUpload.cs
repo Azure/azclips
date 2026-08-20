@@ -15,6 +15,6 @@ public static class TelemetryUpload
     public static void RunPending() =>
         new TraceUploader(
             new TraceFileStore(HomePaths.GetDefaultTraceDirectory()),
-            new TracerProviderExportSink([TelemetryTargetResolver.Resolve()]))
+            new TracerProviderExportSink(TelemetryTargetResolver.Resolve()))
         .Run();
 }
