@@ -1,5 +1,5 @@
-# Pester tests for build/Sync-AzclipsPowerShellDocs.ps1 (Phase 1: discovery + module-index
-# generation + dry-run path resolution). See scratch/CLIPS-588-ps-sync-shim-PR-PLAN.md.
+# Pester tests for build/Sync-AzclipsPowerShellDocs.ps1 (Phases 1-2). See
+# scratch/CLIPS-588-ps-sync-shim-PR-PLAN.md.
 #
 # Run: Invoke-Pester -Path tests/Ps.DocsSync.Tests/
 
@@ -167,5 +167,145 @@ Describe 'New-ModuleIndexContent' {
         $body = New-ModuleIndexContent -Module $script:Compute -TargetModuleName 'Az.Compute' `
             -Manifest $emptyManifest -Config $script:Config -RepoRootRelativeHelpDir 'src/PS/Compute/help'
         $body | Should -Match 'TODO: fill in Az\.Compute module description\.'
+    }
+}
+
+Describe 'Test-TargetReady' {
+    BeforeEach {
+        # Fresh temp git repo with a moniker folder pre-seeded (simulates docs.ms desk-ticket onboarding done).
+        $script:Target = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-pssync-target-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:Target | Out-Null
+        git -C $script:Target init --quiet
+        git -C $script:Target config user.email 'test@example.com'
+        git -C $script:Target config user.name 'Test'
+        git -C $script:Target commit --allow-empty -m 'init' --quiet
+    }
+
+    AfterEach {
+        if (Test-Path $script:Target) { Remove-Item $script:Target -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'reports no problems when target is a clean git repo with the moniker folder' {
+        New-Item -ItemType Directory -Path (Join-Path $script:Target 'azclipsps-test') | Out-Null
+        (Test-TargetReady -TargetRepoPath $script:Target -Moniker 'azclipsps-test').Count | Should -Be 0
+    }
+
+    It 'flags a missing target directory' {
+        $missing = Join-Path $script:Target 'nowhere'
+        $problems = @(Test-TargetReady -TargetRepoPath $missing -Moniker 'x')
+        $problems.Count | Should -Be 1
+        $problems[0] | Should -Match 'does not exist'
+    }
+
+    It 'flags a non-git target' {
+        $notGit = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-notgit-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $notGit | Out-Null
+        try {
+            $problems = @(Test-TargetReady -TargetRepoPath $notGit -Moniker 'x')
+            $problems.Count | Should -Be 1
+            $problems[0] | Should -Match 'not a git repository'
+        }
+        finally {
+            Remove-Item $notGit -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'flags a dirty working tree' {
+        New-Item -ItemType Directory -Path (Join-Path $script:Target 'azclipsps-test') | Out-Null
+        Set-Content -Path (Join-Path $script:Target 'stray.txt') -Value 'uncommitted'
+        $problems = @(Test-TargetReady -TargetRepoPath $script:Target -Moniker 'azclipsps-test')
+        ($problems -join "`n") | Should -Match 'working tree is dirty'
+    }
+
+    It 'flags a missing moniker folder' {
+        $problems = @(Test-TargetReady -TargetRepoPath $script:Target -Moniker 'never-created')
+        ($problems -join "`n") | Should -Match "moniker folder 'never-created' does not exist"
+    }
+}
+
+Describe 'Invoke-SyncApply' {
+    BeforeEach {
+        $script:Target = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-pssync-apply-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:Target | Out-Null
+        git -C $script:Target init --initial-branch=main --quiet
+        git -C $script:Target config user.email 'test@example.com'
+        git -C $script:Target config user.name 'Test'
+        git -C $script:Target commit --allow-empty -m 'init' --quiet
+        New-Item -ItemType Directory -Path (Join-Path $script:Target 'azclipsps-test') | Out-Null
+
+        # Fabricate a source module + a plan pointing at the fresh target.
+        $script:SrcRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-pssync-src-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path (Join-Path $script:SrcRoot 'Foo/help') -Force | Out-Null
+        Set-Content -Path (Join-Path $script:SrcRoot 'Foo/Foo.psd1') -Value "@{ ModuleVersion = '1.0'; GUID = 'ffffffff-1111-2222-3333-444444444444'; Description = 'Foo module' }"
+        Set-Content -Path (Join-Path $script:SrcRoot 'Foo/help/Get-Foo.md') -Value "## SYNOPSIS`nGets a foo.`n"
+        Set-Content -Path (Join-Path $script:SrcRoot 'Foo/help/Set-Foo.md') -Value "## SYNOPSIS`nSets a foo.`n"
+
+        $modules = @(Get-PublishableModule -PsRoot $script:SrcRoot)
+        $cfg = [PSCustomObject]@{
+            moniker              = 'azclipsps-test'
+            sourceRepoUrl        = 'https://github.com/Azure/azclips'
+            sourceBranch         = 'main'
+        }
+        $script:Plan = @(New-SyncPlan -Modules $modules -Moniker 'azclipsps-test' `
+            -TargetRepoPath $script:Target -TargetModuleNamePattern 'Az.{ModuleName}' `
+            -Config $cfg -RepoRoot $script:SrcRoot)
+    }
+
+    AfterEach {
+        if (Test-Path $script:Target) { Remove-Item $script:Target -Recurse -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $script:SrcRoot) { Remove-Item $script:SrcRoot -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'creates the timestamped branch, writes every plan file, and returns a summary' {
+        $result = Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201200'
+
+        $result.Branch | Should -Be 'azclips-ps-sync-202608201200'
+        $result.CommitMessage | Should -Match 'AzClips-PS docs sync -- azclipsps-test -- 202608201200'
+        $result.FileCount | Should -Be 3
+        $result.CommitSha | Should -Match '^[0-9a-f]{7,}$'
+
+        Test-Path (Join-Path $script:Target 'azclipsps-test/Az.Foo/Get-Foo.md') | Should -Be $true
+        Test-Path (Join-Path $script:Target 'azclipsps-test/Az.Foo/Set-Foo.md') | Should -Be $true
+        Test-Path (Join-Path $script:Target 'azclipsps-test/Az.Foo/Az.Foo.md') | Should -Be $true
+
+        $currentBranch = (git -C $script:Target rev-parse --abbrev-ref HEAD).Trim()
+        $currentBranch | Should -Be 'azclips-ps-sync-202608201200'
+    }
+
+    It 'produces a clean working tree after commit' {
+        Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201201' | Out-Null
+        $status = "$(git -C $script:Target status --porcelain)"
+        $status.Trim() | Should -Be ''
+    }
+
+    It 'commits every synced file in a single commit' {
+        Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201202' | Out-Null
+        $changedFiles = @(git -C $script:Target diff --name-only HEAD^..HEAD)
+        $changedFiles.Count | Should -Be 3
+    }
+
+    It 'copies cmdlet markdown byte-verbatim from source' {
+        Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201203' | Out-Null
+        $sourceContent = Get-Content -Raw (Join-Path $script:SrcRoot 'Foo/help/Get-Foo.md')
+        $targetContent = Get-Content -Raw (Join-Path $script:Target 'azclipsps-test/Az.Foo/Get-Foo.md')
+        $targetContent | Should -Be $sourceContent
+    }
+
+    It 'materializes the generated module-index with expected frontmatter and cmdlet links' {
+        Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201204' | Out-Null
+        $indexContent = Get-Content -Raw (Join-Path $script:Target 'azclipsps-test/Az.Foo/Az.Foo.md')
+        $indexContent | Should -Match 'Module Name: Az\.Foo'
+        $indexContent | Should -Match '\[Get-Foo\]\(Get-Foo\.md\)'
+        $indexContent | Should -Match '\[Set-Foo\]\(Set-Foo\.md\)'
+        $indexContent | Should -Match 'Gets a foo'
+        $indexContent | Should -Match 'Sets a foo'
+    }
+
+    It 'refuses to run when the target branch name already exists' {
+        Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201205' | Out-Null
+        git -C $script:Target checkout main --quiet 2>&1 | Out-Null
+
+        { Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201205' } |
+            Should -Throw -ExpectedMessage "*already exists*"
     }
 }

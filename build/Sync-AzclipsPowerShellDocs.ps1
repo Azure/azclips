@@ -15,6 +15,7 @@ param(
     [string]$Moniker,
     [string]$TargetRepoPath,
     [string[]]$Module,
+    [string]$Timestamp,
     [switch]$Force,
     [switch]$Push
 )
@@ -255,6 +256,107 @@ function New-SyncPlan
     }
 }
 
+# ── Force-mode helpers ──────────────────────────────────────────────────────────
+
+# Returns @() when target is ready; otherwise an array of human-readable problems. Callers
+# either display + throw (real run) or assert against (tests). Emits via pipeline.
+function Test-TargetReady
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$TargetRepoPath,
+        [Parameter(Mandatory)][string]$Moniker
+    )
+
+    if (-not (Test-Path $TargetRepoPath)) {
+        "Target repo path '$TargetRepoPath' does not exist."
+        return
+    }
+
+    $gitDir = git -C $TargetRepoPath rev-parse --git-dir 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $gitDir) {
+        "Target '$TargetRepoPath' is not a git repository."
+        return
+    }
+
+    $dirty = git -C $TargetRepoPath status --porcelain 2>$null
+    if ($dirty) {
+        "Target working tree is dirty. Commit, stash, or discard changes before syncing:`n$($dirty -join "`n")"
+    }
+
+    $monikerPath = Join-Path $TargetRepoPath $Moniker
+    if (-not (Test-Path $monikerPath)) {
+        "Target moniker folder '$Moniker' does not exist under '$TargetRepoPath'. docs.ms desk-ticket onboarding is likely not yet completed."
+    }
+}
+
+# Executes the plan against the target repo. Assumes Test-TargetReady already passed.
+# Emits an [PSCustomObject] with the branch name + commit SHA for reporting/asserts.
+function Invoke-SyncApply
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][PSCustomObject[]]$Plan,
+        [Parameter(Mandatory)][string]$TargetRepoPath,
+        [Parameter(Mandatory)][string]$Moniker,
+        [Parameter(Mandatory)][string]$Timestamp
+    )
+
+    $branchName = "azclips-ps-sync-$Timestamp"
+    $commitMessage = "AzClips-PS docs sync -- $Moniker -- $Timestamp"
+
+    $branchCheck = git -C $TargetRepoPath rev-parse --verify --quiet "refs/heads/$branchName" 2>$null
+    if ($LASTEXITCODE -eq 0 -and $branchCheck) {
+        throw "Branch '$branchName' already exists in target. Delete it first (git -C '$TargetRepoPath' branch -D $branchName) or pass a different -Timestamp."
+    }
+
+    git -C $TargetRepoPath checkout -b $branchName 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "git checkout -b '$branchName' failed." }
+
+    try {
+        foreach ($entry in $Plan) {
+            $targetDir = Split-Path -Parent $entry.TargetPath
+            if (-not (Test-Path $targetDir)) {
+                New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+            }
+
+            switch ($entry.Kind) {
+                'CmdletMarkdown' {
+                    Copy-Item -LiteralPath $entry.SourcePath -Destination $entry.TargetPath -Force
+                }
+                'ModuleIndex' {
+                    Set-Content -LiteralPath $entry.TargetPath -Value $entry.GeneratedBody -NoNewline
+                }
+                default {
+                    throw "Unknown plan-entry kind: $($entry.Kind)"
+                }
+            }
+        }
+
+        git -C $TargetRepoPath add -A 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "git add -A failed." }
+
+        git -C $TargetRepoPath commit -m $commitMessage 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "git commit failed." }
+
+        $commitSha = git -C $TargetRepoPath rev-parse HEAD 2>$null
+
+        [PSCustomObject]@{
+            Branch        = $branchName
+            CommitSha     = $commitSha.Trim()
+            CommitMessage = $commitMessage
+            FileCount     = $Plan.Count
+        }
+    }
+    catch {
+        # Best-effort rollback: switch back off the sync branch so re-runs aren't blocked by
+        # a half-applied working tree. Don't delete the branch — leaves state visible for
+        # post-mortem debugging.
+        git -C $TargetRepoPath checkout - 2>&1 | Out-Null
+        throw
+    }
+}
+
 # ── Reporting ───────────────────────────────────────────────────────────────────
 
 function Write-DryRunReport
@@ -329,7 +431,26 @@ if ($Push)
 
 if ($Force)
 {
-    throw "-Force (write to local target) will land in a follow-up phase. This phase (P1) only supports dry-run."
+    $problems = @(Test-TargetReady -TargetRepoPath $effectiveTargetRepoPath -Moniker $effectiveMoniker)
+    if ($problems.Count -gt 0) {
+        foreach ($p in $problems) { Write-Host "  ✗ $p" -ForegroundColor Red }
+        throw "Target repo is not ready for sync. See errors above."
+    }
+
+    $effectiveTimestamp = if ($Timestamp) { $Timestamp } else { (Get-Date -Format 'yyyyMMddHHmm') }
+    Write-Host ""
+    Write-Host "Applying $($plan.Count) file(s) to $effectiveTargetRepoPath ..." -ForegroundColor Cyan
+    $result = Invoke-SyncApply -Plan $plan -TargetRepoPath $effectiveTargetRepoPath -Moniker $effectiveMoniker -Timestamp $effectiveTimestamp
+
+    Write-Host ""
+    Write-Host "=== Sync applied ===" -ForegroundColor Cyan
+    Write-Host "Branch      : $($result.Branch)"
+    Write-Host "Commit      : $($result.CommitSha)"
+    Write-Host "Message     : $($result.CommitMessage)"
+    Write-Host "Files       : $($result.FileCount)"
+    Write-Host ""
+    Write-Host "(Nothing pushed. Inspect with: git -C '$effectiveTargetRepoPath' log $($result.Branch) --stat)" -ForegroundColor DarkGray
+    return
 }
 
 Write-DryRunReport -Modules $modules -Plan $plan -Moniker $effectiveMoniker -TargetRepoPath $effectiveTargetRepoPath
