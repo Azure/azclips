@@ -1,0 +1,42 @@
+name: azcli
+arch: ${DEB_ARCH}
+platform: linux
+version: ${PACKAGE_VERSION}
+release: "1~noble"
+section: utils
+priority: optional
+maintainer: Azure CLI Team <azpycli@microsoft.com>
+description: The next generation Azure command-line interface
+vendor: Microsoft Corporation
+homepage: https://github.com/Azure/azclips
+license: MIT
+
+depends:
+  - ca-certificates
+  - libc6 (>= 2.38)
+  - libgcc-s1
+  - libgssapi-krb5-2
+  - libicu74
+  - libssl3t64
+  - libstdc++6
+  - zlib1g
+conflicts:
+  - azure-cli
+
+scripts:
+  preinstall: ${SCRIPT_DIR}/preinstall.sh
+
+contents:
+  - src: ${PAYLOAD_DIR}
+    dst: /opt/azcli
+    type: tree
+  - src: /opt/azcli/az
+    dst: /usr/bin/az
+    type: symlink
+  - src: ${PAYLOAD_DIR}/completions/az.completions.bash
+    dst: /usr/share/bash-completion/completions/az
+  - src: ${PAYLOAD_DIR}/completions/az.completions.zsh
+    dst: /usr/share/zsh/vendor-completions/_az
+
+deb:
+  compression: zstd
