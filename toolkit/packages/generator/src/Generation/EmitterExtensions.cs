@@ -9,6 +9,20 @@ namespace Ace.Generator;
 internal static class EmitterExtensions
 {
     /// <summary>
+    /// Attach an <em>implementation</em> block (raw C# statements) to a structurally-built method
+    /// signature. The body may be given with or without the enclosing braces. This is the house
+    /// style for the generators: the <em>signature</em> is composed with <see cref="SyntaxFactory"/>
+    /// (typed, validated — a safeguard for contributors); only the opaque <em>implementation</em> is
+    /// authored as a code block. <c>NormalizeWhitespace()</c> owns the final layout.
+    /// </summary>
+    internal static TMethod WithRawBody<TMethod>(this TMethod method, string body)
+        where TMethod : BaseMethodDeclarationSyntax
+    {
+        string braced = body.TrimStart().StartsWith('{') ? body : "{" + body + "}";
+        return (TMethod)method.WithBody((BlockSyntax)ParseStatement(braced));
+    }
+
+    /// <summary>
     /// Attach a single-line XML <c>&lt;summary&gt;</c> doc comment as leading trivia,
     /// if <paramref name="doc"/> is non-empty. Applied last in each builder so it lands
     /// on the declaration's first token (above any attribute list).

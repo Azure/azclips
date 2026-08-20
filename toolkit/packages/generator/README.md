@@ -24,8 +24,8 @@ packages/generator/
       Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
         ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
-        ProcessorGenerator.cs             IR operations -> processor classes (IProcessor) [stub]
-        ProcessorBaseGenerator.cs         Template-like processor base (runtime wiring) [stub]
+        ProcessorGenerator.cs             IR operations -> processor classes (ProcessorBase<T>; real emission)
+        ProcessorBaseGenerator.cs         Processor runtime base: marker + generic ProcessorBase<T> (real emission)
         ProjectStubGenerator.cs           .csproj / project metadata / resources [stub]
     Model/                            Run-facing types + generated IR POCOs
       GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
@@ -171,17 +171,43 @@ agnostic to the single async driver and output streams one file at a time:
 | base | `ProcessorBaseGenerator` | template-like processor base that wires runtime dependencies |
 | stub | `ProjectStubGenerator` | `.csproj`, assembly metadata, resources |
 
-The stages are at different maturity levels. **`ModelGenerator` emits real model
-classes** from the IR — one class per model with every property mapped literally
-(logical `name` → C# member, `wireName` → `[JsonPropertyName]`, `optional`/
-`nullable` → nullable type, `docs`/`summary` → XML doc). It's deliberately
-faithful ("garbage in, garbage out"): no inheritance dedup, flattening,
-polymorphism, or enum emission yet (see its `TODO`). **`ProcessorGenerator`,
-`ProcessorBaseGenerator`, and `ProjectStubGenerator` are still scaffolds** — empty
-`partial class`es and a minimal `.csproj` — each with a `TODO` for the real
-emission. This split lets the model, operation, runtime-wiring, and project
-concerns evolve independently.
+The stages are at different maturity levels. **`ModelGenerator`,
+`ProcessorGenerator`, and `ProcessorBaseGenerator` emit real code**;
+`ProjectStubGenerator` is still a scaffold.
 
-The `ElasticSanModelTests` emit the real ElasticSan IR
-(`TestData/elasticsan.ir.json`, 59 models) and verify the model output parses;
-run `dotnet test` and open `artifacts/ElasticSan_Models/Models/` to see it.
+**`ModelGenerator`** emits one class per model with every property mapped
+literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
+`optional`/`nullable` → nullable type, `docs`/`summary` → XML doc).
+
+**`ProcessorGenerator`** emits one `{Verb}{Group}Processor : ProcessorBase<TResponse>`
+per operation: the public surface mirrors the API parameter surface exactly (one
+property per path/query parameter — `subscriptionId` inline, not special-cased),
+plus a single request-body member, and a `CreateRequestMessage` that builds the
+request (resolved host + path template with `{wireName}` rewritten to the C#
+member + `api-version`/query string; JSON body via `JsonContent.Create`).
+Long-running operations also emit `SendAsync() => SendAsyncLRO()`.
+
+**`ProcessorBaseGenerator`** emits the runtime base processors derive from — a
+non-generic marker `ProcessorBase : IProcessor` plus `ProcessorBase<TResponse>`
+(subscription resolution, the standard `ProcessAsync` pipeline, and the
+long-running-operation polling loop). It's "template-like" (only the package
+namespace varies), but built in the **house style**: signatures — class/base
+list, generic params/constraints, fields, properties, method signatures — are
+composed structurally with Roslyn `SyntaxFactory` as a safeguard; only method
+*implementations* are authored as raw code blocks via `WithRawBody`. The
+`SubscriptionId` property + `ResolveSubscriptionId` carry a `SEAM` marker for the
+pending reconciliation with the processors' own `subscriptionId` members.
+
+The IR-driven stages are deliberately faithful ("garbage in, garbage out") and
+null-tolerant. Deferred by design: model inheritance dedup / flattening /
+polymorphism / enum emission; and on the processor side, parameter **flattening**
+(the body is one model member for now), the LRO final-state/polling **option**
+overrides, header parameters, `[ArgumentInfo]` + defaults, pagination and
+validation (runtime concerns). See each stage's `TODO`. **`ProjectStubGenerator`
+remains a scaffold** — a minimal `.csproj`. This split lets the model, operation,
+runtime-wiring, and project concerns evolve independently.
+
+The `ElasticSanModelTests` and `ElasticSanProcessorTests` emit the real ElasticSan
+IR (`TestData/elasticsan.ir.json`, 59 models / 30 operations) and verify the
+output parses; run `dotnet test` and open `artifacts/ElasticSan_Models/` and
+`artifacts/ElasticSan_Processors/` to see it.
