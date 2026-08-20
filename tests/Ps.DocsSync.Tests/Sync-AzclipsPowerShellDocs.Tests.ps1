@@ -247,6 +247,7 @@ Describe 'Invoke-SyncApply' {
             moniker              = 'azclipsps-test'
             sourceRepoUrl        = 'https://github.com/Azure/azclips'
             sourceBranch         = 'main'
+            downloadHelpLinkBase = 'https://learn.microsoft.com/powershell/module'
         }
         $script:Plan = @(New-SyncPlan -Modules $modules -Moniker 'azclipsps-test' `
             -TargetRepoPath $script:Target -TargetModuleNamePattern 'Az.{ModuleName}' `

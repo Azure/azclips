@@ -170,8 +170,7 @@ function New-ModuleIndexContent
         [Parameter(Mandatory)][string]$RepoRootRelativeHelpDir
     )
 
-    $downloadHelpLinkRoot = if ($Config.downloadHelpLinkBase) { $Config.downloadHelpLinkBase.TrimEnd('/') } else { 'https://learn.microsoft.com/powershell/module' }
-    $downloadHelpLink = "$downloadHelpLinkRoot/$($TargetModuleName.ToLowerInvariant())"
+    $downloadHelpLink = "$($Config.downloadHelpLinkBase.TrimEnd('/'))/$($TargetModuleName.ToLowerInvariant())"
     # Module-index is generated at sync time (no `<TargetModuleName>.md` exists in-tree);
     # point at the help/ directory so docfx's "Edit this page" lands on the real source folder.
     $sourceUrl = "$($Config.sourceRepoUrl)/tree/$($Config.sourceBranch)/$RepoRootRelativeHelpDir"
