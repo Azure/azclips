@@ -17,6 +17,8 @@ namespace Benchmark.PS;
 [BenchmarkExtension("Resources")]
 public class ResourceGroupBenchmarks : PSBenchmarkBase
 {
+    private int _rgCounter = 0;
+    
     [Benchmark(Description = "PS: List RG")]
     public object? ListResourceGroups()
     {
@@ -27,7 +29,7 @@ public class ResourceGroupBenchmarks : PSBenchmarkBase
     [Benchmark(Description = "PS: Create RG")]
     public object? CreateResourceGroup()
     {
-        var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
+        var rgName = $"bench-rg-{Interlocked.Increment(ref _rgCounter)}";
         return RunPowerShellCommand("New-AzResourceGroup",
             ("SubscriptionId", SubscriptionId),
             ("Name", rgName),
