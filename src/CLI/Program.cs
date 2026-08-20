@@ -205,7 +205,8 @@ public class Program
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value));
+                var colorize = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, colorize));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>

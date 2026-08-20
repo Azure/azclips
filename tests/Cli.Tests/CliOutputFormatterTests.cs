@@ -211,6 +211,38 @@ public class CliOutputFormatterTests
         Assert.DoesNotContain("\\u00e9", result);
     }
 
+    // ── Colorize parameter ──────────────────────────────────────────
+
+    [Fact]
+    public void FormatValue_ShouldNotColorize_WhenColorizeIsFalse()
+    {
+        var obj = new { Name = "test-rg" };
+        var result = Core.Cli.CliOutputFormatter.FormatValue(obj, colorize: false);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldColorizeJsonOutput_WhenColorizeIsTrue()
+    {
+        var obj = new { Name = "test-rg" };
+        var result = Core.Cli.CliOutputFormatter.FormatValue(obj, colorize: true);
+
+        Assert.Contains('\u001b', result);
+
+        var stripped = System.Text.RegularExpressions.Regex.Replace(result, @"\u001b\[[0-9;]*m", string.Empty);
+        using var doc = JsonDocument.Parse(stripped);
+        Assert.Equal("test-rg", doc.RootElement.GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeStrings_EvenWhenColorizeIsTrue()
+    {
+        var result = Core.Cli.CliOutputFormatter.FormatValue("hello world", colorize: true);
+
+        Assert.Equal("hello world", result);
+    }
+
     /// <summary>
     /// A type that intentionally fails JSON serialization by containing a self-reference.
     /// </summary>
