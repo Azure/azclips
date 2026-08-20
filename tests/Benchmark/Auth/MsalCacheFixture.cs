@@ -13,7 +13,15 @@ namespace Benchmark.Auth;
 /// </summary>
 internal static class MsalCacheFixture
 {
-    public const string UserPrincipalName = "benchmark@contoso.com";
+    /// <summary>
+    /// The seeded account's user principal name, read from the seed document itself so it cannot
+    /// drift from the account MSAL will actually match against. The benchmark profile store is
+    /// seeded with this same value; when the two disagree, <c>MsalAccountSelector</c> matches no
+    /// account and every acquisition fails with <c>no_matching_account</c>.
+    /// </summary>
+    public static string UserPrincipalName => s_userPrincipalName.Value;
+
+    private static readonly Lazy<string> s_userPrincipalName = new(ReadUserPrincipalName);
 
     public static string AccessTokenSecret => s_accessTokenSecret.Value;
 
@@ -82,5 +90,18 @@ internal static class MsalCacheFixture
 
         throw new InvalidOperationException(
             $"Seed document '{SeedPath()}' contains no AccessToken entry.");
+    }
+
+    private static string ReadUserPrincipalName()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(SeedPath()));
+        foreach (var entry in document.RootElement.GetProperty("Account").EnumerateObject())
+        {
+            return entry.Value.GetProperty("username").GetString()
+                ?? throw new InvalidOperationException("Seed account has a null username.");
+        }
+
+        throw new InvalidOperationException(
+            $"Seed document '{SeedPath()}' contains no Account entry.");
     }
 }
