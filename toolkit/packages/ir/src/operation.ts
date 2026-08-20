@@ -11,6 +11,7 @@ import { z } from "zod";
 import { IRIdSchema, type IRId } from "./id.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
+import { IRLengthConstraintsSchema, type IRLengthConstraints } from "./constraints.js";
 import { AccessKinds, FormatKinds, type FormatKind, type IRAccess } from "./primitives.js";
 import {
   OperationHintsSchema,
@@ -46,6 +47,7 @@ export type IRParameter = {
   /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
   summary?: string | undefined;
   rendering?: ParameterHints | undefined;
+  constraints?: IRLengthConstraints | undefined;
 };
 
 export const IRParameterSchema: z.ZodType<IRParameter> = z
@@ -62,6 +64,7 @@ export const IRParameterSchema: z.ZodType<IRParameter> = z
     docs: z.string().optional(),
     summary: z.string().optional(),
     rendering: ParameterHintsSchema.optional(),
+    constraints: IRLengthConstraintsSchema.optional(),
   })
   .strict();
 

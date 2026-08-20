@@ -38,6 +38,7 @@ import type { BuildContext } from "./context.js";
 import { pascalCase } from "./naming.js";
 import { accessFrom } from "./annotations.js";
 import { typeRefFor, unwrapNullable } from "./types.js";
+import { lengthConstraintsFor } from "./constraints.js";
 
 /** Map TCGC's resolved visibility (a `@typespec/http` `Visibility` flags array)
  * onto IR's lifecycle phases. Returns `undefined` when the property is
@@ -152,6 +153,7 @@ export function propertyFrom(
   const visibility = visibilityPhases(prop);
   const flatten = flattenHintFor(prop);
   const access = accessFrom(prop.access);
+  const constraints = lengthConstraintsFor(ctx, prop.__raw);
 
   const common = {
     id,
@@ -164,6 +166,7 @@ export function propertyFrom(
     ...(prop.doc !== undefined ? { docs: prop.doc } : {}),
     ...(prop.summary !== undefined ? { summary: prop.summary } : {}),
     ...(access !== undefined ? { access } : {}),
+    ...(constraints !== undefined ? { constraints } : {}),
   };
 
   // Dispatch on the IR type-kind so the right discriminant lands on the

@@ -84,7 +84,7 @@ scope, so every `"csharp"`-scoped decorator is ignored.
   prop.__raw)` and the IR needs a field to hold them. Targets: ElasticSan 3–24, Volume 3–63,
   VolumeGroup 3–63, Snapshot 1–80.
 
-  - [ ] **TODO B1.1 — Support `@minLength` / `@maxLength`** → [TODO-3](#todo-3) · issue [Azure/CLIPS#529](https://github.com/Azure/CLIPS/issues/529).
+  - [x] **TODO B1.1 — Support `@minLength` / `@maxLength`** → [TODO-3](#todo-3) · issue [Azure/CLIPS#529](https://github.com/Azure/CLIPS/issues/529).
 - [x] <a id="b2"></a>**B2 — `@pattern` (`NamePattern`) — RESOLVED (will support; tracked).**
   Contract truth. Same mechanism as [B1](#b1): read `getPattern(program, prop.__raw)` and add a
   `pattern` field to the IR. Verified `ResourceNameParameter` needs no special handling — it expands
