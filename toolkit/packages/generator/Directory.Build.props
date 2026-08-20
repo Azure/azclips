@@ -1,0 +1,25 @@
+<Project>
+
+  <!--
+    Shared MSBuild settings for the @azure-client-engine/generator package.
+
+    MSBuild auto-imports the nearest Directory.Build.props above each project, so
+    this applies to the library (package root), the tests (test/**), and the
+    codegen tool (tools/**). Project-specific settings (RootNamespace, OutputType,
+    IsTestProject, package references, ...) stay in each .csproj.
+
+    The generator is a standalone .NET package: there is no parent
+    Directory.Build.props above it, so these are the effective defaults.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Scaffold: keep warnings non-fatal until the real implementation lands. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>
