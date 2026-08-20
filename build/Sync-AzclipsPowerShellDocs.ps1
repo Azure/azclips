@@ -82,26 +82,32 @@ function Get-PublishableModule
         throw "PS source root not found at $PsRoot"
     }
 
-    Get-ChildItem -Path $PsRoot -Directory | ForEach-Object {
-        $psd1 = Join-Path $_.FullName "$($_.Name).psd1"
-        $helpDir = Join-Path $_.FullName 'help'
+    # Plain foreach + explicit output list — the previous ForEach-Object pipeline pattern
+    # can be misinterpreted by Pester's internal wrapping on error, producing a
+    # "break/continue with mismatched label" secondary failure (pester/Pester#2669).
+    $results = @()
+    foreach ($dir in Get-ChildItem -Path $PsRoot -Directory)
+    {
+        $psd1 = Join-Path $dir.FullName "$($dir.Name).psd1"
+        $helpDir = Join-Path $dir.FullName 'help'
         $helpFiles = if (Test-Path $helpDir) {
-            Get-ChildItem -Path $helpDir -Filter '*.md' -File
+            @(Get-ChildItem -Path $helpDir -Filter '*.md' -File)
         } else {
             @()
         }
 
         if ((Test-Path $psd1) -and $helpFiles.Count -gt 0)
         {
-            [PSCustomObject]@{
-                Name       = $_.Name
-                SourceDir  = $_.FullName
-                Psd1Path   = $psd1
-                HelpDir    = $helpDir
-                HelpFiles  = $helpFiles
+            $results += [PSCustomObject]@{
+                Name      = $dir.Name
+                SourceDir = $dir.FullName
+                Psd1Path  = $psd1
+                HelpDir   = $helpDir
+                HelpFiles = $helpFiles
             }
         }
     }
+    $results
 }
 
 # ── Module index generation ─────────────────────────────────────────────────────
@@ -189,12 +195,19 @@ function New-ModuleIndexContent
         "## $TargetModuleName Cmdlets"
     )
 
-    foreach ($helpFile in $Module.HelpFiles | Sort-Object Name)
+    # Pre-sort to avoid the pipeline inside foreach — some Pester wrappers turn that into a
+    # break/continue with mismatched label during BeforeAll cleanup on failure.
+    $sortedHelpFiles = @($Module.HelpFiles | Sort-Object Name)
+    foreach ($helpFile in $sortedHelpFiles)
     {
         $cmdletName = [System.IO.Path]::GetFileNameWithoutExtension($helpFile.Name)
         $summary = Get-CmdletSynopsis -Path $helpFile.FullName
         $lines += "### [$cmdletName]($cmdletName.md)"
-        $lines += if ($summary) { $summary } else { "(No SYNOPSIS.)" }
+        if ($summary) {
+            $lines += $summary
+        } else {
+            $lines += '(No SYNOPSIS.)'
+        }
         $lines += ''
     }
 
