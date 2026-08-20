@@ -8,6 +8,7 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -21,8 +22,6 @@ namespace Benchmark;
 public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;
-    protected int RgCounter = 0;
-    protected int VmCounter = 0;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
 
     /// <summary>
@@ -53,12 +52,31 @@ public abstract class BenchmarkBase
     }
 
     /// <summary>
-    /// Initialize repo root (one-time setup).
+    /// The isolated, file-backed profile store the benchmarks resolve profiles from.
+    /// </summary>
+    protected string ProfileStoreRoot { get; private set; } = null!;
+
+    /// <summary>
+    /// Initialize repo root and the seeded profile store (one-time setup).
     /// </summary>
     protected void InitializeCommon()
     {
         RepoRoot = RepoLocator.GetRepoRoot();
+        ProfileStoreRoot = BenchmarkProfileStore.GetRoot(RepoRoot);
+
+        // The profile store is seeded and verified once during global setup to confirm that
+        // profiles are present. Executing without a profile is a supported workflow, but it is not
+        // the primary one and is therefore outside the scope of these benchmarks, if they were to fail gracefully.
+        SeedProfileStore();
+        BenchmarkProfileStore.VerifySeededAsync(ProfileStoreRoot).GetAwaiter().GetResult();
     }
+
+    /// <summary>
+    /// Resets the profile store to its seeded state. Called from each iteration's setup so every
+    /// iteration starts from identical bytes even when a benchmark writes profiles.
+    /// </summary>
+    protected void SeedProfileStore() =>
+        BenchmarkProfileStore.SeedAsync(ProfileStoreRoot).GetAwaiter().GetResult();
 
     /// <summary>
     /// Registers stub DI overrides for benchmark isolation.
@@ -71,7 +89,8 @@ public abstract class BenchmarkBase
         {
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IProfileService, StubProfileService>();
+            services.AddSingleton<IProfileService>(sp =>
+                new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStoreRoot));
             services.AddSingleton<IAuthService, StubAuthService>();
         });
     }
@@ -83,4 +102,9 @@ public abstract class BenchmarkBase
     {
         AzclipsServiceProvider.Dispose();
     }
+
+    /// <summary>
+    /// One-time cleanup: remove the benchmark profile store. Best-effort.
+    /// </summary>
+    protected void CleanupGlobal() => BenchmarkProfileStore.Cleanup(ProfileStoreRoot);
 }

@@ -171,6 +171,13 @@ foreach (var dllPath in extensionDlls)
 var exampleSyntaxReport = new ExampleSyntaxValidator().Validate(repoRoot, indexesByCliGroup);
 aggregateReport.Merge(exampleSyntaxReport);
 
+// Convention warning: `[ParameterGroup]` values must end with " Arguments". Walks every processor
+// type reachable through the loaded extension indexes; distinct-ed by the validator itself.
+var processorTypes = indexesByCliGroup.Values
+    .SelectMany(index => index.GetCommandTable(ClientType.CLI).Values.Select(m => m.ProcessorType));
+var groupConventionReport = new ParameterGroupConventionValidator().Validate(processorTypes);
+aggregateReport.Merge(groupConventionReport);
+
 
 // Build the cmdlet index from Microsoft Azure cmdlet assemblies (sibling assemblies in
 // artifacts/Debug/) and validate every powershell/pwsh fence in help markdown against it.

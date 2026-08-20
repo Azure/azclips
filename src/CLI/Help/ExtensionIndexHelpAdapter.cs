@@ -76,17 +76,24 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             return null;
         }
 
+        var processorType = metadata.ProcessorType;
         var parameters = metadata.Parameters
-            .Select(static kvp => new RuntimeHelpParameter(
-                Name: kvp.Key,
-                Aliases: kvp.Value.Aliases,
-                Required: kvp.Value.IsRequired,
-                Description: kvp.Value.Description,
-                Summary: kvp.Value.Description,
-                AllowedValues: kvp.Value.AllowedValues,
-                ParameterSetName: "(All)",
-                SupportsPipeline: false,
-                SupportsWildcards: false))
+            .Select(kvp =>
+            {
+                var property = ProcessorParameterReflection.FindPropertyForParameter(processorType, kvp.Value.Name);
+                return new RuntimeHelpParameter(
+                    Name: kvp.Key,
+                    Aliases: kvp.Value.Aliases,
+                    Required: kvp.Value.IsRequired,
+                    Description: kvp.Value.Description,
+                    Summary: kvp.Value.Description,
+                    AllowedValues: kvp.Value.AllowedValues,
+                    ParameterSetName: "(All)",
+                    SupportsPipeline: false,
+                    SupportsWildcards: false,
+                    GroupName: ProcessorParameterReflection.GetGroupName(property),
+                    ValueSources: ProcessorParameterReflection.GetValueSources(property));
+            })
             .ToList();
 
         var markdown = MarkdownCommandHelpProvider.Get(Verb, relativeKey);

@@ -25,19 +25,22 @@
         "name": "--address-prefixes",
         "required": false,
         "short_summary": "Address prefixes for the virtual network.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--admin-password",
         "required": true,
         "short_summary": "The administrator password.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Authentication Arguments"
       },
       {
         "name": "--admin-username",
         "required": true,
         "short_summary": "The administrator username.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Authentication Arguments"
       },
       {
         "name": "--location",
@@ -55,13 +58,15 @@
         "name": "--network-interface-name",
         "required": true,
         "short_summary": "The network interface name to create.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--network-security-group-name",
         "required": true,
         "short_summary": "The network security group name to create.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--profile",
@@ -73,73 +78,85 @@
         "name": "--resource-group",
         "required": true,
         "short_summary": "The resource group name.",
-        "long_summary": ""
+        "long_summary": "",
+        "value_sources": "az group list"
       },
       {
         "name": "--rule-accesses",
         "required": false,
         "short_summary": "Access types (Allow/Deny) of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--rule-destination-address-prefixes",
         "required": false,
         "short_summary": "Destination address prefixes of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--rule-destination-port-ranges",
         "required": false,
         "short_summary": "Destination port ranges of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--rule-directions",
         "required": false,
         "short_summary": "Directions of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--rule-names",
         "required": false,
         "short_summary": "Names of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--rule-priorities",
         "required": false,
         "short_summary": "Priorities of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--rule-protocols",
         "required": false,
         "short_summary": "Protocols of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--rule-source-address-prefixes",
         "required": false,
         "short_summary": "Source address prefixes of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--rule-source-port-ranges",
         "required": false,
         "short_summary": "Source port ranges of the security rules.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--subnet-address-prefixes",
         "required": false,
         "short_summary": "Address prefixes for each subnet.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--subnet-names",
         "required": false,
         "short_summary": "Names of the subnets.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--subscription-id",
@@ -151,7 +168,8 @@
         "name": "--virtual-network-name",
         "required": true,
         "short_summary": "The virtual network name to create.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--vm-size",

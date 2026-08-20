@@ -61,7 +61,7 @@ jobs:
     displayName: Sign PowerShell Module Packages
     pool:
       vmImage: ${{ parameters.windows_pool }}
-    timeoutInMinutes: 120
+    timeoutInMinutes: 60
     variables:
     - ${{ if eq(parameters.esrp_enable_windows_timestamp, true) }}:
       - name: ESRPAuthenticodeSignParameters
