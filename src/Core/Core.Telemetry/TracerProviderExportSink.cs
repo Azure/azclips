@@ -8,26 +8,53 @@ using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
 
-/// <summary>Exports through a TracerProvider built for the given telemetry target.</summary>
+/// <summary>Exports through one TracerProvider per configured telemetry target.</summary>
 internal sealed class TracerProviderExportSink : ITraceExportSink
 {
     private const int FlushTimeoutMilliseconds = 10_000;
 
-    private readonly TelemetryTarget _target;
+    private readonly IReadOnlyList<TelemetryTarget> _targets;
 
-    internal TracerProviderExportSink(TelemetryTarget target)
+    internal TracerProviderExportSink(IReadOnlyList<TelemetryTarget> targets)
     {
-        _target = target;
+        _targets = targets;
     }
 
+    /// <summary>
+    /// Picks the target whose verdict decides whether a trace file is deleted. Remote
+    /// outranks Local, so a failing local collector never blocks deletion.
+    /// </summary>
+    internal static TelemetryTarget SelectAuthoritative(IReadOnlyList<TelemetryTarget> targets) =>
+        targets.Contains(TelemetryTarget.Remote) ? TelemetryTarget.Remote : TelemetryTarget.Local;
+
     public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries)
+    {
+        var authoritative = SelectAuthoritative(_targets);
+        var delivered = true;
+
+        foreach (var target in _targets)
+        {
+            var exported = ExportTo(target, serviceName, entries);
+            if (target == authoritative)
+            {
+                delivered = exported;
+            }
+        }
+
+        return delivered;
+    }
+
+    private static bool ExportTo(
+        TelemetryTarget target,
+        string serviceName,
+        IReadOnlyList<TraceEntry> entries)
     {
         using var source = new ActivitySource(serviceName);
 
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
             .ConfigureResource(r => r.AddService(serviceName: serviceName));
-        TelemetryExporters.AddTraceExporters(builder, [_target]);
+        TelemetryExporters.AddTraceExporters(builder, [target]);
 
         using var provider = builder.Build()!;
 
