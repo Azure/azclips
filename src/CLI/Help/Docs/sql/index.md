@@ -10,5 +10,5 @@ Description: Manage Azure SQL resources. Currently scoped to logical SQL servers
 ### Create a SQL server in East US
 
 ```bash
-az sql server create --resource-group myResourceGroup --name myserver001 --location eastus --admin-user sqladmin --admin-password '<strong-password>'
+az sql server create --resource-group myResourceGroup --name myserver001 --location eastus --admin-user sqladmin --admin-password "$SQL_ADMIN_PASSWORD" --subscription-id 00000000-0000-0000-0000-000000000000
 ```

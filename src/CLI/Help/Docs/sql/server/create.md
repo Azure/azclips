@@ -10,17 +10,17 @@ Description: Create an Azure SQL logical server (`Microsoft.Sql/servers`), mirro
 ### Create a SQL server in East US
 
 ```bash
-az sql server create --resource-group myResourceGroup --name myserver001 --location eastus --admin-user sqladmin --admin-password '<strong-password>'
+az sql server create --resource-group myResourceGroup --name myserver001 --location eastus --admin-user sqladmin --admin-password "$SQL_ADMIN_PASSWORD" --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Create a SQL server with public network access disabled and TLS 1.2 enforced
 
 ```bash
-az sql server create -g myResourceGroup -n myserver001 -l eastus -u sqladmin -p '<strong-password>' --minimal-tls-version 1.2 --public-network-access Disabled
+az sql server create -g myResourceGroup -n myserver001 -l eastus -u sqladmin -p "$SQL_ADMIN_PASSWORD" --minimal-tls-version 1.2 --public-network-access Disabled --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Create a SQL server in a specific subscription and pin the server version
 
 ```bash
-az sql server create --resource-group myResourceGroup --name myserver001 --location westus2 --admin-user sqladmin --admin-password '<strong-password>' --server-version 12.0 --subscription-id 00000000-0000-0000-0000-000000000000
+az sql server create --resource-group myResourceGroup --name myserver001 --location westus2 --admin-user sqladmin --admin-password "$SQL_ADMIN_PASSWORD" --server-version 12.0 --subscription-id 00000000-0000-0000-0000-000000000000
 ```
