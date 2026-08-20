@@ -10,11 +10,21 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 {
     public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
     {
-        //TODO: handle positional arguemnts for CLI
         Dictionary<string, object> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
         foreach (var kvp in args)
         {
             string originalInput = kvp.Key;
+
+            // Multiple positional tokens (e.g. `az config set core.output.color always`) are all
+            // collected under the empty-string key by ExtensionParser. Bind each, in order, to the
+            // canonical parameter declared for that position: position 0 via the conventional [""]
+            // alias, subsequent positions via "1", "2", etc.
+            if (string.IsNullOrEmpty(originalInput))
+            {
+                BindPositionalArguments(kvp.Value, parameters, parameterAliases, parsedArguments);
+                continue;
+            }
+
             string key = originalInput;
             object value = kvp.Value;
 
@@ -44,6 +54,31 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             }
         }
         return parsedArguments;
+    }
+
+    private void BindPositionalArguments(object positionalSource, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Dictionary<string, object> parsedArguments)
+    {
+        var positionalValues = FlattenToStrings(positionalSource);
+        for (int i = 0; i < positionalValues.Length; i++)
+        {
+            // Position 0 uses the conventional [""] alias key (already relied on by several
+            // commands, e.g. `profile show <name>`); later positions use their 1-based index as
+            // a string key, e.g. ["1"] = "value" for `config set <key> <value>`.
+            var positionalKey = i == 0 ? string.Empty : i.ToString();
+            if (parameterAliases == null || !parameterAliases.TryGetValue(positionalKey, out var canonicalKey) || !parameters.TryGetValue(canonicalKey, out var parameterMetadata))
+            {
+                throw new ArgumentException($"Unrecognized positional argument(s): {string.Join(" ", positionalValues.Skip(i))}");
+            }
+
+            try
+            {
+                parsedArguments[parameterMetadata.Name] = propertyParser.ConvertToType(parameterMetadata.InvocationName, positionalValues[i], parameterMetadata.ParameterType);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException($"Failed to parse parameter '{parameterMetadata.InvocationName}': {ex.Message}", ex);
+            }
+        }
     }
 
     private object ParseArgument(string originalInput, object source, Type targetType)

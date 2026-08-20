@@ -79,6 +79,80 @@ public class CliArgumentValidationTests
     }
 
     [Fact]
+    public void ParseArguments_BindsPositionalArgs_ViaIndexedAliases()
+    {
+        // Mirrors `az config set core.output.color always`: the [""] alias binds position 0 to
+        // Key (matching the existing single-positional convention, e.g. `profile show <name>`),
+        // and the ["1"] alias binds position 1 to Value.
+        var provider = CreateProvider();
+
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["key"] = new("Key", "key", typeof(string), "Configuration key.", true, [], []),
+            ["value"] = new("Value", "value", typeof(string), "Configuration value.", true, [], []),
+            ["force"] = new("Force", "force", typeof(bool), "Allow unknown keys.", false, [], []),
+        };
+        var parameterAliases = new Dictionary<string, string> { [""] = "key", ["1"] = "value" };
+        var args = new Dictionary<string, object>
+        {
+            [string.Empty] = new List<List<string>> { new() { "core.output.color" }, new() { "always" } },
+        };
+
+        var parsed = provider.ParseArguments(args, parameters, parameterAliases);
+
+        Assert.Equal("core.output.color", parsed["Key"]);
+        Assert.Equal("always", parsed["Value"]);
+        Assert.DoesNotContain("Force", parsed.Keys);
+    }
+
+    [Fact]
+    public void ParseArguments_PositionalArgs_CoexistWithExplicitNamedFlag()
+    {
+        // `az config set core.output.color --value always`: the key is positional (position 0)
+        // while the value is supplied explicitly via --value.
+        var provider = CreateProvider();
+
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["key"] = new("Key", "key", typeof(string), "Configuration key.", true, [], []),
+            ["value"] = new("Value", "value", typeof(string), "Configuration value.", true, [], []),
+        };
+        var parameterAliases = new Dictionary<string, string> { [""] = "key", ["1"] = "value" };
+        var args = new Dictionary<string, object>
+        {
+            [string.Empty] = new List<List<string>> { new() { "core.output.color" } },
+            ["value"] = new List<List<string>> { new() { "always" } },
+        };
+
+        var parsed = provider.ParseArguments(args, parameters, parameterAliases);
+
+        Assert.Equal("core.output.color", parsed["Key"]);
+        Assert.Equal("always", parsed["Value"]);
+    }
+
+    [Fact]
+    public void ParseArguments_PositionalArgs_WithoutIndexedAlias_Throws()
+    {
+        // A second positional token with no corresponding ["1"] alias must be rejected rather than
+        // silently dropped.
+        var provider = CreateProvider();
+
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["key"] = new("Key", "key", typeof(string), "Configuration key.", true, [], []),
+        };
+        var parameterAliases = new Dictionary<string, string> { [""] = "key" };
+        var args = new Dictionary<string, object>
+        {
+            [string.Empty] = new List<List<string>> { new() { "core.output.color" }, new() { "always" } },
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+
+        Assert.Contains("Unrecognized positional argument", ex.Message);
+    }
+
+    [Fact]
     public void ParseArguments_MissingScalarValue_ErrorUsesShortAliasWhenUserTypedIt()
     {
         // When the user types a short alias (e.g. "-l" for "--long-flag"), the error should

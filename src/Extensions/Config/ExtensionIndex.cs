@@ -97,7 +97,8 @@ public class ExtensionIndex : IExtensionIndex
             ["key"] = new("Key", "key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["json"] = new("Json", "json", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
-        ParameterAliases: new Dictionary<string, string>()
+        // The key is accepted positionally (`config get <key>`) or via --key.
+        ParameterAliases: new Dictionary<string, string> { [""] = "key" }
     );
 
     private static readonly CommandMetadata s_setConfig_CLI = new(
@@ -113,7 +114,8 @@ public class ExtensionIndex : IExtensionIndex
             ["value"] = new("Value", "value", typeof(string), "Configuration value.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["force"] = new("Force", "force", typeof(bool), "Allow unknown keys.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
-        ParameterAliases: new Dictionary<string, string>()
+        // The key and value are accepted positionally (`config set <key> <value>`) or via --key/--value.
+        ParameterAliases: new Dictionary<string, string> { [""] = "key", ["1"] = "value" }
     );
 
     private static readonly CommandMetadata s_deleteConfig_CLI = new(
@@ -128,7 +130,8 @@ public class ExtensionIndex : IExtensionIndex
             ["key"] = new("Key", "key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["force"] = new("Force", "force", typeof(bool), "Allow unknown keys.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
-        ParameterAliases: new Dictionary<string, string>()
+        // The key is accepted positionally (`config delete <key>`) or via --key.
+        ParameterAliases: new Dictionary<string, string> { [""] = "key" }
     );
 
     private static readonly CommandMetadata s_listConfig_CLI = new(
