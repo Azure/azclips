@@ -102,12 +102,20 @@ Describe 'Resolve-TargetModuleName' {
 
 Describe 'New-SyncPlan' {
     BeforeAll {
-        $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
-        $script:Modules = @(Get-PublishableModule -PsRoot (Join-Path $repoRoot 'src/PS'))
-        $script:Config = Get-Content -Raw (Join-Path $repoRoot 'build/ps-docs-sync.config.json') | ConvertFrom-Json
-        $script:Plan = @(New-SyncPlan -Modules $script:Modules -Moniker 'test-moniker' `
-            -TargetRepoPath 'C:/fake/target' -TargetModuleNamePattern 'Az.{ModuleName}' `
-            -Config $script:Config -RepoRoot $repoRoot)
+        # try/catch surfaces the real exception if the plan-build fails — otherwise Pester's
+        # #2669 "break/continue with mismatched label" catches it and masks the true cause.
+        try {
+            $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
+            $script:Modules = @(Get-PublishableModule -PsRoot (Join-Path $repoRoot 'src/PS'))
+            $script:Config = Get-Content -Raw (Join-Path $repoRoot 'build/ps-docs-sync.config.json') | ConvertFrom-Json
+            $script:Plan = @(New-SyncPlan -Modules $script:Modules -Moniker 'test-moniker' `
+                -TargetRepoPath 'C:/fake/target' -TargetModuleNamePattern 'Az.{ModuleName}' `
+                -Config $script:Config -RepoRoot $repoRoot)
+        } catch {
+            Write-Host "BeforeAll caught: $($_.Exception.GetType().FullName): $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "StackTrace:`n$($_.ScriptStackTrace)" -ForegroundColor DarkYellow
+            throw
+        }
     }
 
     It 'emits one entry per cmdlet plus one module-index per module' {
