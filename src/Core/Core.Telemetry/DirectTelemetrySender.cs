@@ -12,6 +12,6 @@ public class DirectTelemetrySender : ITelemetrySender
 {
     public void ConfigureExporter(TracerProviderBuilder builder)
     {
-        TelemetryExporters.AddTraceExporter(builder, TelemetryTargetResolver.Resolve());
+        TelemetryExporters.AddTraceExporters(builder, [TelemetryTargetResolver.Resolve()]);
     }
 }

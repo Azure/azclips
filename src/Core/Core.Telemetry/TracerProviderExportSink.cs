@@ -27,7 +27,7 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
             .ConfigureResource(r => r.AddService(serviceName: serviceName));
-        TelemetryExporters.AddTraceExporter(builder, _target);
+        TelemetryExporters.AddTraceExporters(builder, [_target]);
 
         using var provider = builder.Build()!;
 
