@@ -1,9 +1,9 @@
 # Syncs AzClips PowerShell PlatyPS markdown into the destination docs repo
-# (MicrosoftDocs/azure-docs-powershell). Three-stage escape hatch (see -DryRun / -Force /
-# -Push). Push stage is intentionally stubbed until docs.ms bot-auth is decided.
+# (MicrosoftDocs/azure-docs-powershell). Three-stage escape hatch: dry-run (default; no flag)
+# / -Force (write to local target) / -Push (deferred until docs.ms bot-auth is decided).
 #
 # Usage:
-#   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1               # dry-run against sibling clone
+#   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1               # dry-run against sibling clone (default)
 #   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1 -Force         # writes to local target; no push
 #   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1 -Push          # WILL FAIL — deferred until auth-pattern decided
 #
@@ -43,7 +43,11 @@ if (-not $__loadOnly) {
     $effectiveMoniker = $Moniker
     if (-not $effectiveMoniker) { $effectiveMoniker = $env:AZCLIPS_PS_MONIKER }
     if (-not $effectiveMoniker) { $effectiveMoniker = $config.moniker }
-    if ([string]::IsNullOrWhiteSpace($effectiveMoniker) -or $effectiveMoniker -eq 'azclipsps-preview')
+    if ([string]::IsNullOrWhiteSpace($effectiveMoniker))
+    {
+        throw "Moniker is not set. Pass -Moniker, set `$env:AZCLIPS_PS_MONIKER, or edit the 'moniker' field in $ConfigPath."
+    }
+    if ($effectiveMoniker -eq 'azclipsps-preview')
     {
         Write-Host "warning: moniker is '$effectiveMoniker' — the placeholder default. Set AZCLIPS_PS_MONIKER or edit $ConfigPath before a real sync." -ForegroundColor Yellow
     }
@@ -160,39 +164,40 @@ function New-ModuleIndexContent
     )
 
     $downloadHelpLink = "https://learn.microsoft.com/powershell/module/$($TargetModuleName.ToLowerInvariant())"
-    $sourceUrl = "$($Config.sourceRepoUrl)/blob/$($Config.sourceBranch)/$RepoRootRelativeHelpDir/$TargetModuleName.md"
+    # Module-index is generated at sync time (no `<TargetModuleName>.md` exists in-tree);
+    # point at the help/ directory so docfx's "Edit this page" lands on the real source folder.
+    $sourceUrl = "$($Config.sourceRepoUrl)/tree/$($Config.sourceBranch)/$RepoRootRelativeHelpDir"
 
-    $sb = [System.Text.StringBuilder]::new()
-    [void]$sb.AppendLine('---')
-    [void]$sb.AppendLine("Module Name: $TargetModuleName")
-    [void]$sb.AppendLine("Module Guid: $($Manifest.Guid)")
-    [void]$sb.AppendLine("Download Help Link: $downloadHelpLink")
-    [void]$sb.AppendLine("Help Version: $($Manifest.ModuleVersion)")
-    [void]$sb.AppendLine('Locale: en-US')
-    [void]$sb.AppendLine("content_git_url: $sourceUrl")
-    [void]$sb.AppendLine("original_content_git_url: $sourceUrl")
-    [void]$sb.AppendLine('---')
-    [void]$sb.AppendLine()
-    [void]$sb.AppendLine("# $TargetModuleName Module")
-    [void]$sb.AppendLine('## Description')
-    if ($Manifest.Description) {
-        [void]$sb.AppendLine($Manifest.Description)
-    } else {
-        [void]$sb.AppendLine("TODO: fill in $TargetModuleName module description.")
-    }
-    [void]$sb.AppendLine()
-    [void]$sb.AppendLine("## $TargetModuleName Cmdlets")
+    # Explicit LF via .Append+"`n" avoids StringBuilder.AppendLine()'s Environment.NewLine
+    # emitting CRLF on Windows (mixing with the trailing LF and PlatyPS-source conventions).
+    $lines = @(
+        '---'
+        "Module Name: $TargetModuleName"
+        "Module Guid: $($Manifest.Guid)"
+        "Download Help Link: $downloadHelpLink"
+        "Help Version: $($Manifest.ModuleVersion)"
+        'Locale: en-US'
+        "content_git_url: $sourceUrl"
+        "original_content_git_url: $sourceUrl"
+        '---'
+        ''
+        "# $TargetModuleName Module"
+        '## Description'
+        $(if ($Manifest.Description) { $Manifest.Description } else { "TODO: fill in $TargetModuleName module description." })
+        ''
+        "## $TargetModuleName Cmdlets"
+    )
 
     foreach ($helpFile in $Module.HelpFiles | Sort-Object Name)
     {
         $cmdletName = [System.IO.Path]::GetFileNameWithoutExtension($helpFile.Name)
         $summary = Get-CmdletSynopsis -Path $helpFile.FullName
-        [void]$sb.AppendLine("### [$cmdletName]($cmdletName.md)")
-        if ($summary) { [void]$sb.AppendLine($summary) } else { [void]$sb.AppendLine("(No SYNOPSIS.)") }
-        [void]$sb.AppendLine()
+        $lines += "### [$cmdletName]($cmdletName.md)"
+        $lines += if ($summary) { $summary } else { "(No SYNOPSIS.)" }
+        $lines += ''
     }
 
-    return $sb.ToString().TrimEnd() + "`n"
+    return ($lines -join "`n").TrimEnd("`n") + "`n"
 }
 
 # ── Target path resolution ──────────────────────────────────────────────────────
@@ -437,7 +442,7 @@ if ($Force)
         throw "Target repo is not ready for sync. See errors above."
     }
 
-    $effectiveTimestamp = if ($Timestamp) { $Timestamp } else { (Get-Date -Format 'yyyyMMddHHmm') }
+    $effectiveTimestamp = if ($Timestamp) { $Timestamp } else { [DateTime]::UtcNow.ToString('yyyyMMddHHmm') }
     Write-Host ""
     Write-Host "Applying $($plan.Count) file(s) to $effectiveTargetRepoPath ..." -ForegroundColor Cyan
     $result = Invoke-SyncApply -Plan $plan -TargetRepoPath $effectiveTargetRepoPath -Moniker $effectiveMoniker -Timestamp $effectiveTimestamp

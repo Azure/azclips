@@ -149,7 +149,7 @@ Describe 'New-ModuleIndexContent' {
         $script:Body | Should -Match 'Module Guid: '
         $script:Body | Should -Match 'Download Help Link: https://learn\.microsoft\.com/powershell/module/az\.compute'
         $script:Body | Should -Match 'Locale: en-US'
-        $script:Body | Should -Match 'content_git_url:.+src/PS/Compute/help/Az\.Compute\.md'
+        $script:Body | Should -Match 'content_git_url:.+/tree/[^/\s]+/src/PS/Compute/help(\r?\n|$)'
     }
 
     It 'includes an H1 module heading' {
@@ -284,7 +284,7 @@ Describe 'Invoke-SyncApply' {
         $changedFiles.Count | Should -Be 3
     }
 
-    It 'copies cmdlet markdown byte-verbatim from source' {
+    It 'copies cmdlet markdown content-equivalent to source' {
         Invoke-SyncApply -Plan $script:Plan -TargetRepoPath $script:Target -Moniker 'azclipsps-test' -Timestamp '202608201203' | Out-Null
         $sourceContent = Get-Content -Raw (Join-Path $script:SrcRoot 'Foo/help/Get-Foo.md')
         $targetContent = Get-Content -Raw (Join-Path $script:Target 'azclipsps-test/Az.Foo/Get-Foo.md')
