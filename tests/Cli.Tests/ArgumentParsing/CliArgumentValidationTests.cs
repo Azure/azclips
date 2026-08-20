@@ -153,6 +153,32 @@ public class CliArgumentValidationTests
     }
 
     [Fact]
+    public void ParseArguments_PositionalArg_ConflictingWithExplicitFlag_Throws()
+    {
+        // `az config set core.output.color --key foo --value bar`: the positional token and the
+        // --key flag both target Key. This must be rejected deterministically rather than silently
+        // depending on dictionary iteration order to decide which one "wins".
+        var provider = CreateProvider();
+
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["key"] = new("Key", "key", typeof(string), "Configuration key.", true, [], []),
+            ["value"] = new("Value", "value", typeof(string), "Configuration value.", true, [], []),
+        };
+        var parameterAliases = new Dictionary<string, string> { [""] = "key", ["1"] = "value" };
+        var args = new Dictionary<string, object>
+        {
+            ["key"] = new List<List<string>> { new() { "foo" } },
+            ["value"] = new List<List<string>> { new() { "bar" } },
+            [string.Empty] = new List<List<string>> { new() { "core.output.color" } },
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+
+        Assert.Contains("positionally and by flag", ex.Message);
+    }
+
+    [Fact]
     public void ParseArguments_MissingScalarValue_ErrorUsesShortAliasWhenUserTypedIt()
     {
         // When the user types a short alias (e.g. "-l" for "--long-flag"), the error should
