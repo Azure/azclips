@@ -10,11 +10,11 @@ Design + phasing lives in [scratch/CLIPS-588-ps-sync-shim-PR-PLAN.md](../../scra
 
 ## Three-mode escape hatch
 
-| Mode | Flag | Effect | Auth needed |
-| --- | --- | --- | --- |
-| Dry-run (default) | — | Prints the copy plan; no filesystem writes | No |
-| Force | `-Force` | Writes to the local target repo + commits on a fresh branch. **No push.** | No |
-| Push | `-Push` | Would push the branch + open a PR. **Currently throws** — docs.ms bot-auth pattern is still pending. | Deferred |
+| Mode              | Flag     | Effect                                                                                               | Auth needed |
+| ----------------- | -------- | ---------------------------------------------------------------------------------------------------- | ----------- |
+| Dry-run (default) | —        | Prints the copy plan; no filesystem writes                                                           | No          |
+| Force             | `-Force` | Writes to the local target repo + commits on a fresh branch. **No push.**                            | No          |
+| Push              | `-Push`  | Would push the branch + open a PR. **Currently throws** — docs.ms bot-auth pattern is still pending. | Deferred    |
 
 ## Config
 
@@ -22,12 +22,12 @@ Design + phasing lives in [scratch/CLIPS-588-ps-sync-shim-PR-PLAN.md](../../scra
 
 ```json
 {
-  "moniker": "azclipsps-preview",
-  "targetRepoPath": "../azure-docs-powershell",
-  "targetModuleNamePattern": "Az.{ModuleName}",
-  "sourcePsRoot": "src/PS",
-  "sourceRepoUrl": "https://github.com/Azure/azclips",
-  "sourceBranch": "main"
+    "moniker": "azclipsps-preview",
+    "targetRepoPath": "../azure-docs-powershell",
+    "targetModuleNamePattern": "Az.{ModuleName}",
+    "sourcePsRoot": "src/PS",
+    "sourceRepoUrl": "https://github.com/Azure/azclips",
+    "sourceBranch": "main"
 }
 ```
 
@@ -131,13 +131,13 @@ Remove-Item ../azure-docs-powershell/azclipsps-preview -Recurse -Force
 
 ## Common failure modes
 
-| Error | Cause | Fix |
-| --- | --- | --- |
+| Error                                                | Cause                                                                                                  | Fix                                                               |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
 | `Target moniker folder '…' does not exist under '…'` | You skipped the "simulate onboarding" step (or the docs.ms desk-ticket is still pending in production) | Create the folder to simulate, or wait for onboarding to complete |
-| `Target working tree is dirty` | Uncommitted changes in the local target clone | Commit, stash, or `git checkout .` in the target |
-| `Target '…' is not a git repository` | `-TargetRepoPath` points somewhere that isn't a git repo | Check the path; typically `../azure-docs-powershell` |
-| `Branch 'azclips-ps-sync-…' already exists` | Re-running with the same `-Timestamp` | Delete the old branch or pass a fresh `-Timestamp` |
-| `-Push is not yet implemented` | Correct behavior — auth boundary | Use `-Force` and hand off to your normal PR flow |
+| `Target working tree is dirty`                       | Uncommitted changes in the local target clone                                                          | Commit, stash, or `git checkout .` in the target                  |
+| `Target '…' is not a git repository`                 | `-TargetRepoPath` points somewhere that isn't a git repo                                               | Check the path; typically `../azure-docs-powershell`              |
+| `Branch 'azclips-ps-sync-…' already exists`          | Re-running with the same `-Timestamp`                                                                  | Delete the old branch or pass a fresh `-Timestamp`                |
+| `-Push is not yet implemented`                       | Correct behavior — auth boundary                                                                       | Use `-Force` and hand off to your normal PR flow                  |
 
 ## Running the tests
 

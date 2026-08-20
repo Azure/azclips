@@ -4,5 +4,6 @@
   "targetModuleNamePattern": "Az.{ModuleName}",
   "sourcePsRoot": "src/PS",
   "sourceRepoUrl": "https://github.com/Azure/azclips",
-  "sourceBranch": "main"
+  "sourceBranch": "main",
+  "downloadHelpLinkBase": "https://learn.microsoft.com/powershell/module"
 }
