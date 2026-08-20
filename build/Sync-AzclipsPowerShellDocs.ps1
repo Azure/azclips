@@ -115,17 +115,18 @@ function Get-CmdletSynopsis
         [Parameter(Mandatory)][string]$Path
     )
 
+    # Avoids break/continue inside the foreach — some Pester versions warn on those under
+    # PS 7 and mis-report the whole Describe as failed. See pester/Pester#2669.
     $inSynopsis = $false
     foreach ($line in Get-Content -Path $Path)
     {
+        if ($inSynopsis -and $line -match '^## ') { return '' }
         if ($line -match '^## SYNOPSIS\s*$')
         {
             $inSynopsis = $true
-            continue
         }
-        if ($inSynopsis)
+        elseif ($inSynopsis)
         {
-            if ($line -match '^## ') { break }
             $trimmed = $line.Trim()
             if ($trimmed) { return $trimmed }
         }
