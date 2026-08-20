@@ -17,6 +17,7 @@ namespace Benchmark.CLI;
 public class VirtualMachineBenchmarks : CLIBenchmarkBase
 {
     private const string ResourceGroup = "bench-rg";
+    private int VmCounter = 0;
 
     [Benchmark(Description = "CLI: List VM")]
     public int ListVirtualMachines() =>

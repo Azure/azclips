@@ -21,10 +21,7 @@ if (!Directory.Exists(artifactsRoot))
 }
 
 var aggregateReport = new ValidationReport();
-string[] knownExtensionPrefixes =
-[
-    "Microsoft.Azure.Azclips.Extensions.",
-];
+var knownExtensionPrefixes = ExtensionAssemblyLoader.KnownExtensionPrefixes;
 string[] knownCmdletAssemblyPatterns =
 [
     "Microsoft.Azure.Azclips.Cmdlets.*.dll",
@@ -33,31 +30,14 @@ string[] knownCmdletAssemblyPatterns =
 var structureReport = new MarkdownStructureValidator().Validate(repoRoot);
 aggregateReport.Merge(structureReport);
 
+var wellFormednessReport = new MarkdigWellFormednessValidator().Validate(repoRoot);
+aggregateReport.Merge(wellFormednessReport);
+
 Directory.CreateDirectory(outputRoot);
 
-AssemblyLoadContext.Default.Resolving += (_, assemblyName) =>
-{
-    var alreadyLoaded = AssemblyLoadContext.Default.Assemblies
-        .FirstOrDefault(a => string.Equals(a.GetName().Name, assemblyName.Name, StringComparison.OrdinalIgnoreCase));
-    if (alreadyLoaded is not null)
-    {
-        return alreadyLoaded;
-    }
+ExtensionAssemblyLoader.InstallResolver(artifactsRoot);
 
-    var candidate = Directory
-        .EnumerateFiles(artifactsRoot, assemblyName.Name + ".dll", SearchOption.AllDirectories)
-        .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-        .OrderBy(static path => path.Contains($"{Path.DirectorySeparatorChar}Benchmark{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
-        .ThenBy(static path => path.Length)
-        .ThenBy(static path => path, StringComparer.OrdinalIgnoreCase)
-        .FirstOrDefault();
-
-    return candidate == null ? null : AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(candidate));
-};
-
-var extensionDlls = SelectPreferredAssemblyPaths(knownExtensionPrefixes
-    .SelectMany(prefix => Directory.EnumerateFiles(artifactsRoot, $"{prefix}*.dll", SearchOption.AllDirectories))
-    .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)));
+var extensionDlls = ExtensionAssemblyLoader.EnumerateExtensionAssemblies(artifactsRoot);
 
 if (extensionDlls.Count == 0)
 {
@@ -104,7 +84,6 @@ if (scaffoldExtension is not null)
             break;
         }
     }
-
     if (scaffoldIndex is null)
     {
         Console.Error.WriteLine($"--scaffold: no installed extension contributes verb '{scaffoldVerb}'.");
@@ -125,11 +104,10 @@ foreach (var dllPath in extensionDlls)
     var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
     var assemblyName = assembly.GetName().Name ?? string.Empty;
 
-    if (!TryGetExtensionName(assemblyName, knownExtensionPrefixes, out var extensionName))
+    if (!ExtensionAssemblyLoader.TryGetExtensionName(assemblyName, knownExtensionPrefixes, out var extensionName))
     {
         continue;
     }
-
     var version = assembly.GetName().Version?.ToString() ?? "1.0.0";
 
     IExtensionIndex extensionIndex;
@@ -193,13 +171,18 @@ foreach (var dllPath in extensionDlls)
 var exampleSyntaxReport = new ExampleSyntaxValidator().Validate(repoRoot, indexesByCliGroup);
 aggregateReport.Merge(exampleSyntaxReport);
 
+// Convention warning: `[ParameterGroup]` values must end with " Arguments". Walks every processor
+// type reachable through the loaded extension indexes; distinct-ed by the validator itself.
+var processorTypes = indexesByCliGroup.Values
+    .SelectMany(index => index.GetCommandTable(ClientType.CLI).Values.Select(m => m.ProcessorType));
+var groupConventionReport = new ParameterGroupConventionValidator().Validate(processorTypes);
+aggregateReport.Merge(groupConventionReport);
+
 
 // Build the cmdlet index from Microsoft Azure cmdlet assemblies (sibling assemblies in
 // artifacts/Debug/) and validate every powershell/pwsh fence in help markdown against it.
 var cmdletIndex = new CmdletIndex();
-var cmdletDlls = SelectPreferredAssemblyPaths(knownCmdletAssemblyPatterns
-    .SelectMany(pattern => Directory.EnumerateFiles(artifactsRoot, pattern, SearchOption.AllDirectories))
-    .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)));
+var cmdletDlls = ExtensionAssemblyLoader.EnumerateAssembliesByPattern(artifactsRoot, knownCmdletAssemblyPatterns);
 
 foreach (var dllPath in cmdletDlls)
 {
@@ -230,17 +213,19 @@ var psCompletenessReport = new PsCompletenessValidator().Validate(repoRoot);
 aggregateReport.Merge(psCompletenessReport);
 
 var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
-WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
 
 PrintGroupedSummary(aggregateReport);
-Console.WriteLine($"Generated {manifests.Count} help manifest(s) and HelpIndex.json in {outputRoot}");
 
 if (aggregateReport.HasErrors)
 {
+    EmitGitHubAnnotations(aggregateReport);
     var errorCount = aggregateReport.Errors.Count();
     Console.Error.WriteLine($"Help validation failed: {errorCount} error(s) collected across all stages. See grouped summary above.");
     return 1;
 }
+
+WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
+Console.WriteLine($"Generated {manifests.Count} help manifest(s) and HelpIndex.json in {outputRoot}");
 
 return 0;
 
@@ -255,73 +240,6 @@ static string? GetArg(string[] args, string name)
     }
 
     return null;
-}
-
-static bool TryGetExtensionName(string assemblyName, IEnumerable<string> knownPrefixes, out string extensionName)
-{
-    foreach (var prefix in knownPrefixes)
-    {
-        if (assemblyName.StartsWith(prefix, StringComparison.Ordinal))
-        {
-            extensionName = assemblyName[prefix.Length..].ToLowerInvariant();
-            return true;
-        }
-    }
-
-    extensionName = string.Empty;
-    return false;
-}
-
-static List<string> SelectPreferredAssemblyPaths(IEnumerable<string> candidates)
-{
-    var byIdentity = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-    foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
-    {
-        string identity;
-        try
-        {
-            identity = AssemblyName.GetAssemblyName(path).Name ?? Path.GetFileNameWithoutExtension(path);
-        }
-        catch
-        {
-            identity = Path.GetFileNameWithoutExtension(path);
-        }
-
-        if (!byIdentity.TryGetValue(identity, out var current))
-        {
-            byIdentity[identity] = path;
-            continue;
-        }
-
-        if (IsPreferredPath(path, current))
-        {
-            byIdentity[identity] = path;
-        }
-    }
-
-    return byIdentity.Values
-        .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
-        .ToList();
-}
-
-static bool IsPreferredPath(string candidate, string current)
-{
-    var sep = Path.DirectorySeparatorChar;
-    var candidateIsBenchmark = candidate.Contains($"{sep}Benchmark{sep}", StringComparison.OrdinalIgnoreCase);
-    var currentIsBenchmark = current.Contains($"{sep}Benchmark{sep}", StringComparison.OrdinalIgnoreCase);
-    if (candidateIsBenchmark != currentIsBenchmark)
-    {
-        return !candidateIsBenchmark;
-    }
-
-    // Prefer shorter canonical paths when both are same class (usually the primary artifact path).
-    if (candidate.Length != current.Length)
-    {
-        return candidate.Length < current.Length;
-    }
-
-    return string.Compare(candidate, current, StringComparison.OrdinalIgnoreCase) < 0;
 }
 
 // Renders the final summary: warnings first, then errors grouped by ProblemId, then
@@ -381,4 +299,52 @@ static void WriteJson<T>(string path, T value)
     });
 
     File.WriteAllText(path, json + Environment.NewLine);
+}
+
+// Emits GitHub Actions workflow commands (::error file=…,line=…,title=…::message) so errors
+// show as inline annotations on the PR "Files changed" tab instead of just log text.
+// See https://docs.github.com/actions/reference/workflow-commands-for-github-actions.
+// Guarded by GITHUB_ACTIONS=true so local runs stay quiet.
+static void EmitGitHubAnnotations(ValidationReport report)
+{
+    if (!string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.Ordinal))
+    {
+        return;
+    }
+
+    foreach (var issue in report.Errors)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(issue.FilePath))
+        {
+            // Normalise to forward slashes; GitHub matches annotation paths against the
+            // repo tree, which is always POSIX-style regardless of the runner OS.
+            var normalised = issue.FilePath.Replace('\\', '/');
+            parts.Add($"file={EscapeAnnotation(normalised, asProperty: true)}");
+        }
+        if (issue.Line is int line)
+        {
+            parts.Add($"line={line}");
+        }
+        if (!string.IsNullOrEmpty(issue.ProblemId))
+        {
+            parts.Add($"title={EscapeAnnotation(issue.ProblemId, asProperty: true)}");
+        }
+
+        var propList = parts.Count == 0 ? string.Empty : " " + string.Join(",", parts);
+        Console.WriteLine($"::error{propList}::{EscapeAnnotation(issue.Message)}");
+    }
+}
+
+// Encodes the reserved chars from the GH workflow-command grammar. Property values are a strict
+// superset of message data — they additionally reserve ',' and ':' as parser delimiters.
+static string EscapeAnnotation(string value, bool asProperty = false)
+{
+    var s = value
+        .Replace("%", "%25", StringComparison.Ordinal)
+        .Replace("\r", "%0D", StringComparison.Ordinal)
+        .Replace("\n", "%0A", StringComparison.Ordinal);
+    return asProperty
+        ? s.Replace(":", "%3A", StringComparison.Ordinal).Replace(",", "%2C", StringComparison.Ordinal)
+        : s;
 }

@@ -60,15 +60,15 @@ Everything else (including `group` / Resources and `vm` / Compute) is an install
 
 All under `az extension`. Kebab-case CLI convention.
 
-| Command                                        | Behavior                                                                                                                                                                                                          |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `az extension add <pkg>[@<version>] [--force]` | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. `--force` is required to overwrite an existing pinned installation (the pin is then carried forward). |
-| `az extension list`                            | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§3.5).                                                                               |
-| `az extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.azclips/extensions/<pkg>/`. Reports `ExtensionNotFound` for Bundled-only extensions (they're part of the install artifact — see the write boundary in [extension-framework.md §2.3](./extension-framework.md#23-extension-tiers)).                                                                                    |
-| `az extension update <name>[@<version>]`       | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.                                                                                                               |
-| `az extension pin <name>[@<version>]`          | Lock active version. With no version, pins the currently installed version.                                                                                                                                       |
-| `az extension unpin <name>`                    | Remove the pin.                                                                                                                                                                                                   |
-| `az extension show <name>`                     | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.                                                                                                              |
+| Command                                        | Behavior                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `az extension add <pkg>[@<version>] [--force]` | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. `--force` is required to overwrite an existing pinned installation (the pin is then carried forward).                                                                                     |
+| `az extension list`                            | Show installed extensions: name, `selectedVersion`, namespaces, install source, install date, and every discovered candidate per package (`candidates: [{ version, tier, location }]`, sorted by SemVer descending across Bundled + Installed tiers). `--by-verb` regroups output verb-headed (§3.5). |
+| `az extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.azclips/extensions/<pkg>/`. Reports `ExtensionNotFound` for Bundled-only extensions (they're part of the install artifact — see the write boundary in [extension-framework.md §2.3](./extension-framework.md#23-extension-tiers)).                        |
+| `az extension update <name>[@<version>]`       | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.                                                                                                                                                                                                   |
+| `az extension pin <name>[@<version>]`          | Lock active version. With no version, pins the currently installed version.                                                                                                                                                                                                                           |
+| `az extension unpin <name>`                    | Remove the pin.                                                                                                                                                                                                                                                                                       |
+| `az extension show <name>`                     | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.                                                                                                                                                                                                  |
 
 `extension add --name <token>` resolves two ways: **dotted token** → passthrough (full package id, including third-party); **bare token** that is _not_ a known verb → legacy `Microsoft.Azure.Azclips.Extensions.{name}` prefix-strip. A bare token that **is** a known verb in the embedded `ExtensionHintTable` is rejected with a usage error pointing the user at the owning package id (e.g. `add --name disk` errors with "use `--name Compute`"). The unit of install is a package, not a verb — accepting a verb here would silently pull in unrelated sibling verbs (Compute ships both `vm` and `disk`).
 
@@ -157,27 +157,59 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 
 ### 3.5 `extension list` output
 
-Default output groups by extension:
+Default output groups by extension. Each row carries every existing field plus `selectedVersion` (the version dispatch will route to) and `candidates` (every discovered `(version, tier, location)` triple, sorted by SemVer descending across both Bundled and Installed tiers):
 
+```jsonc
+[
+    {
+        "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
+        "verb": "vm",
+        "namespaces": ["vm", "disk"],
+        "version": "0.1.2",
+        "selectedVersion": "0.1.2",
+        "pinned": false,
+        "source": null,
+        "installedAt": "2026-08-13T...",
+        "location": "<install>/Extensions/.../Compute.dll",
+        "candidates": [
+            {
+                "version": "0.1.2",
+                "tier": "Bundled",
+                "location": "<install>/Extensions/.../Compute.dll",
+            },
+            {
+                "version": "0.1.1",
+                "tier": "Installed",
+                "location": "~/.azclips/extensions/.../0.1.1/Compute.dll",
+            },
+        ],
+    },
+]
 ```
-PackageId                                       Version   Namespaces             Pinned  InstalledAt
-Microsoft.Azure.Azclips.Extensions.Compute       1.1.0     vm, disk               no      2026-04-12
-Microsoft.Azure.Azclips.Extensions.Resources     1.0.0     group                  no      2026-04-12
-```
+
+With no pin, `selectedVersion` is the highest SemVer across tiers (here Bundled `0.1.2`). If the user runs `az extension pin --name Compute` while a lower version is currently selected, or pins the older version explicitly, `selectedVersion` follows the pin — the `candidates` array continues to surface every alternative so the user can see what they could unpin to.
+
+When both tiers report the same `(PackageId, ResolvedVersion, command surface)`, `ExtensionCandidateSelector` collapses them to one candidate before this projection runs — there is no meaningful choice to expose. The multi-tier array populates when versions actually differ across tiers.
 
 `--by-verb` regroups verb-headed:
 
 ```
 vm
-  Microsoft.Azure.Azclips.Extensions.Compute       1.1.0
+  Microsoft.Azure.Azclips.Extensions.Compute       0.1.2
   Contoso.VmPreviewExt                            0.3.0-preview
 disk
-  Microsoft.Azure.Azclips.Extensions.Compute       1.1.0
+  Microsoft.Azure.Azclips.Extensions.Compute       0.1.2
 group
   Microsoft.Azure.Azclips.Extensions.Resources     1.0.0
 ```
 
-JSON shapes are stable: default is `[{packageId, version, namespaces, ...}]`; `--by-verb` is `{verb: [{packageId, version, ...}]}`.
+Each contributor row under a verb carries the same `candidates` array as the default projection.
+
+**Field-level stability contract:**
+
+- Default JSON: `[{ packageId, verb, namespaces, version, selectedVersion, pinned, source, installedAt, location, candidates }]`. `version` remains for backward-compat and equals `selectedVersion`; consumers should migrate to `selectedVersion` in future changes.
+- `--by-verb` JSON: `{ verb: [{ packageId, version, selectedVersion, pinned, source, installedAt, location, candidates }] }`.
+- `candidates[i]` shape: `{ version, tier, location }`. `tier` is `"Bundled"` or `"Installed"` (path-inferred from the configured `assemblyLoading.installedExtensionsRoot`).
 
 ---
 

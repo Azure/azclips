@@ -30,6 +30,8 @@ public static class TelemetryTags
     public const string TenantId = "tenantId";
     public const string AuthType = "authType";
     public const string Mode = "mode";
+    /// <summary>cold or warm — whether this was the first module import in the process.</summary>
+    public const string ImportKind = "importKind";
 
     // todo: reserved for later product level instrumentation.
     public const string PropertyTagPrefix = "properties.";

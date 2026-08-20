@@ -89,11 +89,6 @@ The snapshot harness is a hand-rolled `SnapshotAssert.Matches(name, actual)`: it
 
 `tests/Benchmark` is an executable (`OutputType=Exe`) BenchmarkDotNet 0.13.12 project that references the real CLI, Runtime, DI, and Resources projects plus `Tests.Common` (`tests/Benchmark/Benchmark.csproj:4-8,17-25`). It measures cold-start and command execution for both the CLI and PowerShell surfaces, selectable via a `--product` filter, with `--local` and `--ci` modes controlling output paths and App Insights upload (`tests/Benchmark/Program.cs:22-42`).
 
-Benchmarks stay deterministic by reusing most of the same stub infrastructure as the unit tests.
-`BenchmarkBase.RegisterBenchmarkStubs()` overrides the DI container to register
-`StubHttpTerminateHandler`, `StubTelemetryService`, and `StubProfileService` before each iteration,
-then disposes the container in cleanup (`tests/Benchmark/BenchmarkBase.cs`).
-
 Authentication is the deliberate exception. `IAuthService` is **not** stubbed, because a real `az`
 invocation pays to read the MSAL token cache off disk and the benchmarks are meant to include that
 cost. Instead, `MsalClientOptions` points the real `MsalAuthService` at a scratch cache directory
@@ -104,6 +99,8 @@ MSAL always resolves from cache and never has a reason to reach the network; the
 is a tripwire that converts any lapse into a benchmark failure rather than a silently inflated
 number. `BenchmarkBase.VerifyAuthFixture()` asserts the cache hit once per run during
 `[GlobalSetup]`, so a drifted fixture fails setup instead of quietly changing what is measured.
+
+`IProfileService` is deliberately **not** stubbed. Benchmarks resolve profiles through the real, file-backed `ProfileService`, pointed at an isolated store at `artifacts/Benchmark/home/.azclips` and seeded with a single active `default` profile before every iteration (`tests/Common/Utilities/BenchmarkProfileStore.cs`). Without this the measured timings would omit the two file reads and JSON deserialize that `Engine.ResolveProfileAsync` costs a real user on every invocation. The store is re-seeded in `[IterationSetup]`, outside the measured region, so each iteration starts from identical bytes.
 
 ### In-process benchmark hooks in the CLI
 
@@ -127,6 +124,7 @@ flowchart LR
     end
     STUBS["Stub* handlers<br>(HTTP / telemetry / profile)"]
     AUTH["Real MsalAuthService<br>seeded cache + throwing MSAL HTTP factory"]
+    STUBS["Stub* handlers<br>(HTTP / telemetry / auth)"]
     BDN --> BASE --> STUBS
     BASE --> AUTH
     BDN --> NC --> RUN --> TEL
@@ -171,9 +169,8 @@ Coverlet is wired in via the `coverlet.collector` package reference in the share
 - `Agent/tests/Core.Agent.Tests/SnapshotTesting/SnapshotAssert.cs:15-37` — snapshot harness with `UPDATE_SNAPSHOTS`
 - `tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj:4-11` — fixture extension assembly
 - `tests/Benchmark/Benchmark.csproj:4-25` — BenchmarkDotNet project references
-- `tests/Benchmark/BenchmarkBase.cs` — stub DI registration, MSAL cache seeding, and fixture verification
-- `tests/Benchmark/Auth/MsalCacheFixture.cs`, `tests/Benchmark/Auth/ThrowingMsalHttpClientFactory.cs` — seeded MSAL cache and network tripwire
-- `src/Core/Core.Authentication/MsalClientOptions.cs` — cache directory and MSAL HTTP factory seam
+- `tests/Benchmark/BenchmarkBase.cs` — stub DI registration and real `ProfileService` wiring for benchmarks
+- `tests/Common/Utilities/BenchmarkProfileStore.cs` — isolated, seeded profile store used by benchmarks
 - [`src/CLI/Parser/GlobalArgParser.cs`](../../src/CLI/Parser/GlobalArgParser.cs), `src/CLI/Program.cs` (`SpawnTelemetryUploader`) — `--no-cache` and in-process benchmark hooks
 - `eng-docs/spec/benchmark-workflows.md:5-8` — 115% regression gate and dashboards
 - `AGENTS.md:38` — `MethodName_ShouldBehavior_WhenCondition` naming convention

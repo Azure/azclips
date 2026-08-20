@@ -10,6 +10,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Authentication;
 using Core.DependencyInjection;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -23,8 +24,6 @@ namespace Benchmark;
 public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;
-    protected int RgCounter = 0;
-    protected int VmCounter = 0;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
 
     /// <summary>Scratch directory holding the seeded MSAL token cache for this run.</summary>
@@ -58,7 +57,12 @@ public abstract class BenchmarkBase
     }
 
     /// <summary>
-    /// Initialize repo root and seed the MSAL token cache (one-time setup).
+    /// The isolated, file-backed profile store the benchmarks resolve profiles from.
+    /// </summary>
+    protected string ProfileStoreRoot { get; private set; } = null!;
+
+    /// <summary>
+    /// Initialize repo root and the seeded profile store (one-time setup).
     /// </summary>
     protected void InitializeCommon()
     {
@@ -66,7 +70,21 @@ public abstract class BenchmarkBase
 
         MsalCacheDirectory = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "msal");
         MsalCacheFixture.Seed(MsalCacheDirectory);
+        ProfileStoreRoot = BenchmarkProfileStore.GetRoot(RepoRoot);
+
+        // The profile store is seeded and verified once during global setup to confirm that
+        // profiles are present. Executing without a profile is a supported workflow, but it is not
+        // the primary one and is therefore outside the scope of these benchmarks, if they were to fail gracefully.
+        SeedProfileStore();
+        BenchmarkProfileStore.VerifySeededAsync(ProfileStoreRoot).GetAwaiter().GetResult();
     }
+
+    /// <summary>
+    /// Resets the profile store to its seeded state. Called from each iteration's setup so every
+    /// iteration starts from identical bytes even when a benchmark writes profiles.
+    /// </summary>
+    protected void SeedProfileStore() =>
+        BenchmarkProfileStore.SeedAsync(ProfileStoreRoot).GetAwaiter().GetResult();
 
     /// <summary>
     /// Registers stub DI overrides for benchmark isolation.
@@ -79,8 +97,8 @@ public abstract class BenchmarkBase
         {
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
-            services.AddSingleton<IProfileService>(
-                _ => new StubProfileService(userPrincipalName: MsalCacheFixture.UserPrincipalName));
+            services.AddSingleton<IProfileService>(sp =>
+                new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStoreRoot));
             services.AddSingleton(new MsalClientOptions
             {
                 CacheDirectory = MsalCacheDirectory,
@@ -147,4 +165,9 @@ public abstract class BenchmarkBase
     {
         AzclipsServiceProvider.Dispose();
     }
+
+    /// <summary>
+    /// One-time cleanup: remove the benchmark profile store. Best-effort.
+    /// </summary>
+    protected void CleanupGlobal() => BenchmarkProfileStore.Cleanup(ProfileStoreRoot);
 }

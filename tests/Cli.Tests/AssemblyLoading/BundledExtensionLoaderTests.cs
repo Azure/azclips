@@ -75,6 +75,47 @@ public class BundledExtensionLoaderTests
     }
 
     [Fact]
+    public void GetInstalledExtensions_ShouldFallBackToAssemblyInformationalVersion_WhenNupkgAbsent()
+    {
+        // Packaged-install shape: DLL present, no .nupkg. Loader reads AssemblyInformationalVersion
+        // via MetadataLoadContext instead of returning empty. Fixes Azure/CLIPS#534.
+        var name = $"Foo_{UniqueSuffix()}";
+        try
+        {
+            CreatePackage(name);
+
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
+
+            var entry = Assert.Single(installed, x => x.Name == name);
+            Assert.False(string.IsNullOrEmpty(entry.Version));
+            Assert.DoesNotContain('+', entry.Version);
+        }
+        finally
+        {
+            SafeDeletePackage(name);
+        }
+    }
+
+    [Fact]
+    public void GetInstalledExtensions_ShouldReturnEmptyVersion_WhenNupkgAbsentAndDllUnreadable()
+    {
+        // Neither .nupkg nor a loadable DLL — fallback returns empty (defensive posture).
+        var name = $"Foo_{UniqueSuffix()}";
+        try
+        {
+            CreatePackage(name, realDll: false);
+
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
+
+            Assert.Contains(installed, x => x.Name == name && x.Version == string.Empty);
+        }
+        finally
+        {
+            SafeDeletePackage(name);
+        }
+    }
+
+    [Fact]
     public void GetInstalledExtensions_ShouldReportAbsoluteDllLocation_ForBundledPackage()
     {
         // Location must be the absolute DLL path, not just the package directory or null.

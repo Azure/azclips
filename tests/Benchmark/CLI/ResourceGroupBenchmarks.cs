@@ -11,6 +11,8 @@ namespace Benchmark.CLI;
 [BenchmarkExtension("Resources")]
 public class ResourceGroupBenchmarks : CLIBenchmarkBase
 {
+    private int _rgCounter = 0;
+
     [Benchmark(Description = "CLI: List RG")]
     public int ListResourceGroups() =>
         RunCli("group", "list", "--subscription-id", SubscriptionId);
@@ -18,7 +20,7 @@ public class ResourceGroupBenchmarks : CLIBenchmarkBase
     [Benchmark(Description = "CLI: Create RG")]
     public int CreateResourceGroup()
     {
-        var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
+        var rgName = $"bench-rg-{Interlocked.Increment(ref _rgCounter)}";
         return RunCli("group", "create", "--name", rgName, "--location", "eastus", "--subscription-id", SubscriptionId);
     }
 

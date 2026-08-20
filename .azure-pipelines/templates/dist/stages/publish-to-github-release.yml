@@ -22,8 +22,6 @@ parameters:
 - name: GitHubReleaseName
   type: string
   default: 'azclips'
-- name: GitHubServiceConnection
-  type: string
 - name: signed_pipeline_name
   type: string
 - name: signed_build_id
@@ -137,32 +135,11 @@ stages:
           exit 1
         fi
 
-        assets=()
-        excluded_assets=()
-        for asset in "${discovered_assets[@]}"; do
-          case "$(basename "$asset")" in
-            *macos-x86_64*)
-              excluded_assets+=("$asset")
-              ;;
-            *)
-              assets+=("$asset")
-              ;;
-          esac
-        done
-
-        if [[ ${#assets[@]} -eq 0 ]]; then
-          echo "ERROR: No publishable .tar.gz or .zip release assets remain after filtering."
-          exit 1
-        fi
+        assets=("${discovered_assets[@]}")
 
         echo "Signed source pipeline: $signed_pipeline_name"
         echo "Signed source build id: $signed_build_id"
         echo "Signed artifact: $signed_artifact_name"
-
-        if [[ ${#excluded_assets[@]} -gt 0 ]]; then
-          echo "Assets excluded from GitHub release (${#excluded_assets[@]}):"
-          printf '  %s\n' "${excluded_assets[@]}"
-        fi
 
         echo "Assets to upload (${#assets[@]}):"
         printf '  %s\n' "${assets[@]}"
@@ -344,29 +321,65 @@ stages:
         echo "##vso[task.setvariable variable=ReleaseNotesFile]$release_notes_file"
       displayName: Prepare Release Tag And Assets
 
+    - template: ../steps/get-github-pat-token.yml
+      parameters:
+        azureSubscription: $(AzureSubscription)
+        keyVaultName: $(GitHubPatKeyVault)
+        secretName: $(GitHubPatSecretName)
+
     - ${{ if eq(parameters.GitHubReleaseAllowOverwrite, 'true') }}:
-      - task: GitHubRelease@1
+      - bash: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
+            echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
+            exit 1
+          fi
+
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "ERROR: GitHub CLI 'gh' is required to delete an existing release."
+            exit 1
+          fi
+
+          gh release delete "$(ReleaseTag)" --repo '${{ parameters.GitHubTargetRepo }}' --yes
         displayName: Delete Existing GitHub Release (If Any)
         continueOnError: true
-        inputs:
-          gitHubConnection: '${{ parameters.GitHubServiceConnection }}'
-          repositoryName: '${{ parameters.GitHubTargetRepo }}'
-          action: 'delete'
-          tag: '$(ReleaseTag)'
+        env:
+          GH_TOKEN: $(GH_TOKEN)
 
-    - task: GitHubRelease@1
+    - bash: |
+        set -euo pipefail
+
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
+          echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
+          exit 1
+        fi
+
+        if ! command -v gh >/dev/null 2>&1; then
+          echo "ERROR: GitHub CLI 'gh' is required to create a release."
+          exit 1
+        fi
+
+        release_args=(
+          "$(ReleaseTag)"
+          --repo '${{ parameters.GitHubTargetRepo }}'
+          --target "$(ReleaseTarget)"
+          --title "$(ReleaseName)"
+          --notes-file "$(ReleaseNotesFile)"
+        )
+
+        if [[ '${{ parameters.GitHubReleaseIsPrerelease }}' == 'true' ]]; then
+          release_args+=(--prerelease)
+        fi
+
+        shopt -s nullglob
+        release_assets=("$(Build.ArtifactStagingDirectory)"/release/*)
+        if [[ ${#release_assets[@]} -eq 0 ]]; then
+          echo "ERROR: No release assets found to upload."
+          exit 1
+        fi
+
+        gh release create "${release_args[@]}" "${release_assets[@]}"
       displayName: Create GitHub Release
-      inputs:
-        gitHubConnection: '${{ parameters.GitHubServiceConnection }}'
-        repositoryName: '${{ parameters.GitHubTargetRepo }}'
-        action: 'create'
-        target: '$(ReleaseTarget)'
-        tagSource: 'userSpecifiedTag'
-        tag: '$(ReleaseTag)'
-        title: '$(ReleaseName)'
-        isPreRelease: ${{ parameters.GitHubReleaseIsPrerelease }}
-        # GitHubRelease@1 expects filePath/releaseNotesFilePath for release notes files.
-        releaseNotesSource: 'filePath'
-        releaseNotesFilePath: '$(ReleaseNotesFile)'
-        assets: '$(Build.ArtifactStagingDirectory)/release/*'
-        addChangeLog: false
+      env:
+        GH_TOKEN: $(GH_TOKEN)

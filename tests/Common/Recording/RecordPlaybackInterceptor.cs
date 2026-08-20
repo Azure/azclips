@@ -176,6 +176,10 @@ public sealed class RecordPlaybackInterceptor(
             response.Headers.TryAddWithoutValidation(name, values);
         }
 
+        // Playback already has the next answer, so LRO poll delays are pure waste.
+        response.Headers.Remove("Retry-After");
+        response.Headers.TryAddWithoutValidation("Retry-After", "0");
+
         return response;
     }
 
