@@ -96,8 +96,10 @@ local collector was never a supported story.
 Suppressing it at the *reader* rather than in the parser means Release has no parse path to audit.
 The variable is inert in a shipped binary by construction, not by remembering to guard a branch.
 
-Both `#if` blocks are confined to private members. The `Resolve(compileDefault, environmentReader)`
-overload contains no conditional compilation, so parsing rules and defaults are asserted identically
+Both `#if` blocks are confined to two members, `EnvironmentReader` and `CompileTimeDefault`. They are
+`internal` rather than `private` so each can be asserted directly, which keeps the configuration
+tests off the ambient environment. The `Resolve(compileDefault, environmentReader)` overload contains
+no conditional compilation, so parsing rules and defaults are asserted identically
 regardless of which configuration the test assembly is built in — which is how the existing resolver
 tests already work.
 
