@@ -95,16 +95,14 @@ using OpenTelemetry.Trace;
 namespace Core.Telemetry;
 
 /// <summary>
-/// The single decision point that maps resolved <see cref="TelemetryTarget"/> values to
-/// the trace exporters added to a <see cref="TracerProviderBuilder"/>.
+/// Maps resolved <see cref="TelemetryTarget"/> values to the trace exporters added to a
+/// <see cref="TracerProviderBuilder"/>.
 /// </summary>
 internal static class TelemetryExporters
 {
     /// <summary>
-    /// Attaches one exporter per target and applies the sampler once. The sampler is a
-    /// provider-wide setting rather than a per-exporter one, so it is applied here for
-    /// whatever set is configured — the recording rule must not depend on which
-    /// destination happens to be present.
+    /// Attaches one exporter per target. The sampler is provider-wide, so it is applied
+    /// once for the whole set.
     /// </summary>
     internal static void AddTraceExporters(TracerProviderBuilder builder, IReadOnlyList<TelemetryTarget> targets)
     {
@@ -209,8 +207,8 @@ namespace Core.Telemetry.Tests;
 
 public class TracerProviderExportSinkTests
 {
-    // Construction only. Exercising TryExport here would build a live provider and
-    // block on ForceFlush; TraceUploaderTests covers the behavior through a fake.
+    // Construction only: TryExport would build a live provider and block on ForceFlush.
+    // TraceUploaderTests covers the behaviour through a fake.
     [Theory]
     [InlineData(TelemetryTarget.Local)]
     [InlineData(TelemetryTarget.Remote)]
@@ -233,7 +231,7 @@ public class TracerProviderExportSinkTests
     [Fact]
     public void SelectAuthoritative_PrefersRemote_WhenBothConfigured()
     {
-        // Remote owns retention so a stopped local collector can never pin trace files.
+        // Remote owns retention, so a stopped local collector never pins trace files.
         Assert.Equal(
             TelemetryTarget.Remote,
             TracerProviderExportSink.SelectAuthoritative(
@@ -260,8 +258,7 @@ public class TracerProviderExportSinkTests
     [Fact]
     public void SelectAuthoritative_ReturnsLocal_WhenLocalOnly()
     {
-        // Local-only is an explicit developer choice, so a failed local export must be
-        // retried rather than silently dropped.
+        // Local-only is an explicit choice, so a failed export is retried.
         Assert.Equal(
             TelemetryTarget.Local,
             TracerProviderExportSink.SelectAuthoritative([TelemetryTarget.Local]));
@@ -307,10 +304,8 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     }
 
     /// <summary>
-    /// Picks the target whose delivery verdict decides whether a trace file is deleted.
-    /// Remote outranks Local: when both are configured, a stopped local collector is
-    /// best-effort and must never pin files on disk. When Local is the only target the
-    /// developer asked for it explicitly, so its failure is worth a retry.
+    /// Picks the target whose verdict decides whether a trace file is deleted. Remote
+    /// outranks Local, so a failing local collector never blocks deletion.
     /// </summary>
     internal static TelemetryTarget SelectAuthoritative(IReadOnlyList<TelemetryTarget> targets) =>
         targets.Contains(TelemetryTarget.Remote) ? TelemetryTarget.Remote : TelemetryTarget.Local;
@@ -353,7 +348,7 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
 }
 ```
 
-`Contains` comes from `System.Linq`, which implicit usings already provide — do **not** add a `using System.Linq;` line, it would be flagged as unnecessary and fail the build.
+`Contains` is the LINQ extension method; `System.Linq` is already covered by implicit usings, so no extra `using` is needed.
 
 - [ ] **Step 4: Update the uploader composition root**
 
@@ -414,7 +409,6 @@ namespace Core.Telemetry.Tests;
 
 public class TelemetryTargetResolverTests
 {
-    // Private members may reference the internal TelemetryTarget enum freely.
     private static IReadOnlyList<TelemetryTarget> LocalOnly => [TelemetryTarget.Local];
     private static IReadOnlyList<TelemetryTarget> RemoteOnly => [TelemetryTarget.Remote];
     private static IReadOnlyList<TelemetryTarget> Both => [TelemetryTarget.Local, TelemetryTarget.Remote];
@@ -434,7 +428,7 @@ public class TelemetryTargetResolverTests
     [InlineData("LoCaL")]
     public void Resolve_LocalToken_ReturnsLocalOnly(string value)
     {
-        // Start from a different default to prove the override always wins.
+        // Start from a different default to prove the override wins.
         Assert.Equal(LocalOnly, TelemetryTargetResolver.Resolve(Both, _ => value));
     }
 
@@ -465,8 +459,8 @@ public class TelemetryTargetResolverTests
     [InlineData("local,remote")]
     public void Resolve_FallsBackToCompileDefault_OnUnrecognized(string value)
     {
-        // "none" is deliberately not a token: telemetry.enabled=false is the only opt-out.
-        // "local,remote" is not a token either: the accepted spelling is "both".
+        // "none" is not a token: telemetry.enabled=false is the only opt-out.
+        // "local,remote" is not a token: the accepted spelling is "both".
         Assert.Equal(Both, TelemetryTargetResolver.Resolve(Both, _ => value));
         Assert.Equal(RemoteOnly, TelemetryTargetResolver.Resolve(RemoteOnly, _ => value));
     }
@@ -496,7 +490,7 @@ public class TelemetryTargetResolverTests
     public void EnvironmentReader_IsLiveInDebug_AndInertInRelease()
     {
 #if DEBUG
-        // A uniquely named probe so this never collides with a developer's real setting.
+        // Uniquely named so it never collides with a real setting.
         const string ProbeVariable = "AZCLIPS_TELEMETRY_TARGET_READER_PROBE";
         try
         {
@@ -508,8 +502,7 @@ public class TelemetryTargetResolverTests
             Environment.SetEnvironmentVariable(ProbeVariable, null);
         }
 #else
-        // PATH is set on every supported platform, so a null result proves the reader
-        // is inert rather than merely reading an unset variable.
+        // PATH is always set, so a null result proves the reader is inert.
         Assert.Null(TelemetryTargetResolver.EnvironmentReader("PATH"));
 #endif
     }
@@ -538,26 +531,19 @@ using System.Collections.Generic;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Resolves the effective set of <see cref="TelemetryTarget"/> values. The default is
-/// chosen at compile time (Debug → Local and Remote, Release → Remote) and in Debug can be
-/// overridden by a direct read of the <c>AZCLIPS_TELEMETRY_TARGET</c> environment variable.
-/// This deliberately bypasses the surfaced configuration pipeline so the switch never
-/// appears in <c>config get/list/set</c> or tab-completion.
+/// Resolves the effective set of <see cref="TelemetryTarget"/> values. The default is chosen
+/// at compile time (Debug → Local and Remote, Release → Remote). In Debug it can be overridden
+/// with <c>AZCLIPS_TELEMETRY_TARGET</c>, which accepts <c>local</c>, <c>remote</c>, or
+/// <c>both</c>; Release does not read the environment. The variable bypasses the surfaced
+/// configuration pipeline, so it never appears in <c>config get/list/set</c> or tab-completion.
 ///
-/// In Release the variable is not read at all: once resolution can express more than one
-/// target, honouring it would let anything that can set an environment variable redirect a
-/// real user's telemetry to a local collector. The suppression lives in
-/// <see cref="EnvironmentReader"/> rather than in the parser, so a shipped binary has no
-/// override path to audit.
-///
-/// The resolved set is never empty. Turning telemetry off is <c>telemetry.enabled=false</c>,
-/// which is enforced separately in <see cref="TelemetryService"/>.
+/// The resolved set is never empty. Telemetry is disabled with <c>telemetry.enabled=false</c>.
 /// </summary>
 internal static class TelemetryTargetResolver
 {
     internal const string TargetEnvironmentVariable = "AZCLIPS_TELEMETRY_TARGET";
 
-    /// <summary>Resolves the target set using the compile-time default and the process environment.</summary>
+    /// <summary>Resolves the target set for this build.</summary>
     internal static IReadOnlyList<TelemetryTarget> Resolve() =>
         Resolve(CompileTimeDefault, EnvironmentReader);
 
@@ -580,7 +566,7 @@ internal static class TelemetryTargetResolver
         };
     }
 
-    /// <summary>Internal rather than private so the configuration guard can be asserted directly.</summary>
+    /// <summary>Reads the process environment in Debug; always returns null in Release.</summary>
     internal static Func<string, string?> EnvironmentReader =>
 #if DEBUG
         Environment.GetEnvironmentVariable;
@@ -588,7 +574,7 @@ internal static class TelemetryTargetResolver
         _ => null;
 #endif
 
-    /// <summary>Internal rather than private so the compiled default can be asserted directly.</summary>
+    /// <summary>The target set compiled into this build.</summary>
     internal static IReadOnlyList<TelemetryTarget> CompileTimeDefault =>
 #if DEBUG
         [TelemetryTarget.Local, TelemetryTarget.Remote];
