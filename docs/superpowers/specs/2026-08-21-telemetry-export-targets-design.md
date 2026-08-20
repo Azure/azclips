@@ -18,9 +18,8 @@ only ever exercised after release.
 ## Goal
 
 A Debug build exports to Jaeger and Azure Monitor simultaneously, so the remote path is exercised
-continuously without giving up local feedback. Spans are tagged with their build configuration so a
-developer can find their own runs in Application Insights and production queries can exclude them. A
-developer can drop back to local-only when they want it. Release behaviour does not change.
+continuously without giving up local feedback. A developer can drop back to local-only when they
+want it. Release behaviour does not change.
 
 ## Non-goals
 
@@ -176,51 +175,43 @@ There is one `TracerProvider` per client, so both exporters necessarily share it
 apply — this path writes no files. The only Debug cost is an inline OTLP attempt against a possibly
 dead Jaeger, already bounded by the 500 ms timeout in `TelemetryService.Dispose`.
 
-### Marking Debug traffic
-
-Debug spans land in the production resource alongside real traffic, and nothing on the root span
-distinguishes them. That blocks the goal as much as it hurts hygiene: a developer verifying the
-remote path needs to find their own spans among production volume. One tag on the root span fixes
-both:
-
-```csharp
-// TelemetryTags — camelCase, matching the other per-process invariants.
-public const string BuildConfiguration = "buildConfiguration";
-
-// TelemetryService.StartRootActivity, alongside the existing invariants.
-activity.SetTag(TelemetryTags.BuildConfiguration, BuildConfigurationResolver.Current);   // "Debug" | "Release"
-```
-
-`BuildConfigurationResolver.Current` is a single `#if DEBUG` constant. The key must also be added to
-`DefaultTelemetryPropertyFilter`'s allow-list: the filter is deny-by-default, so an unlisted key is
-silently stripped on `OnEnd` and the tag would never reach either backend.
-
-Production queries then exclude dev traffic with `| where buildConfiguration == "Release"`, and a
-developer finds their own runs with the inverse. The tag carries no personal or environmental data,
-so it fits the existing privacy model unchanged.
-
 ### Unchanged
 
 `FileTelemetrySender` never consulted the target and still does not: CLI and TUI always buffer to
-disk, and the fan-out happens in the uploader. `TelemetryOptions`, the config schema, the activity
-name filter, and the on-disk trace format are untouched. The property filter changes only by gaining
-one allow-listed key.
+disk, and the fan-out happens in the uploader. `TelemetryOptions`, the filter processors, the config
+schema, and the on-disk trace format are all untouched.
 
 ## Consequences
 
 - Debug builds send spans to the production Application Insights resource. This is intended and was
   chosen deliberately over standing up a dev resource.
-- **No existing tag separates Debug traffic from production traffic.** The root span carries
+- **No tag separates Debug traffic from production traffic.** The root span carries
   `InstallationId`, `ProductName`, `ProductVersion`, `SchemaVersion`, `TelemetryVersion`, and
   `ClientType`. `InstallationId` is a per-machine hash, and `ProductVersion` reads an
   `InformationalVersion` that the release pipeline commits into the project file rather than
   stamping at build time — so a local Debug build reports the same version as the shipped build from
-  that commit. This is why the `buildConfiguration` tag is in scope.
+  that commit. Debug spans are therefore indistinguishable from real traffic in Application
+  Insights, and locating your own runs means correlating `InstallationId` by hand. Addressing this
+  is deferred; see below.
 - A Debug uploader run under `both` with Jaeger down does extra work — one provider build plus a
   failing flush — before delivering to Azure Monitor. It does not block file deletion, because
   Remote owns retention whenever it is present.
 - Release carries one target, one exporter, no environment read: identical behaviour and cost to
   today.
+
+## Deferred
+
+**Marking Debug traffic.** A `buildConfiguration` tag on the root span would let production queries
+exclude dev traffic and let a developer find their own runs. It is out of scope here, to be picked
+up separately if the noise or the correlation friction becomes a problem in practice.
+
+Recorded so the next attempt does not re-derive it: the value is available from
+`AssemblyConfigurationAttribute`, which the SDK populates from `$(Configuration)` with no
+conditional compilation required — verified to yield `Debug` and `Release` respectively. It would
+sit in `TelemetryPropertyResolver` alongside `ProductVersion`, whose `GetEntryAssembly() ?? typeof(...)`
+and `Lazy<string>` shape it matches exactly. The key must also be added to
+`DefaultTelemetryPropertyFilter`'s allow-list, which is deny-by-default and would otherwise strip
+the tag on `OnEnd`.
 
 ## Testing
 
@@ -234,9 +225,6 @@ one allow-listed key.
   in `TraceUploaderTests`, matching the current comment explaining why `TryExport` is not exercised
   live.
 - **Exporters.** Existing tests compile and pass unchanged.
-- **Build-configuration tag.** `DefaultTelemetryPropertyFilter.IsAllowed("buildConfiguration")`
-  returns true, so the deny-by-default filter does not strip it. The root span emitted by
-  `StartRootActivity` carries the tag.
 - **Configuration guard.** One `#if DEBUG`-conditional test asserting that the real `Resolve()`
   honours the environment in Debug and ignores it in Release.
 
@@ -249,11 +237,7 @@ one allow-listed key.
 | `src/Core/Core.Telemetry/TracerProviderExportSink.cs` | Holds a set; per-target providers; `SelectAuthoritative` |
 | `src/Core/Core.Telemetry/DirectTelemetrySender.cs` | Loops the set |
 | `src/Core/Core.Telemetry/TelemetryUpload.cs` | Passes the resolved set to the sink |
-| `src/Core/Core.Abstractions/TelemetryTags.cs` | New `BuildConfiguration` key |
-| `src/Core/Core.Telemetry/TelemetryService.cs` | Tags the root span with the build configuration |
-| `src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs` | Allow-lists the new key |
 | `tests/Core.Telemetry.Tests/TelemetryTargetResolverTests.cs` | Set-returning assertions, new parse cases |
 | `tests/Core.Telemetry.Tests/TracerProviderExportSinkTests.cs` | Set construction, `SelectAuthoritative` cases |
-| `tests/Core.Telemetry.Tests/TelemetryPropertyFilterTests.cs` | Covers the new allow-listed key |
 | `wiki/02-deep-dive/telemetry.md` | Provider table, async-export verdict, Debug dual-sink note |
 | `eng-docs/spec/telemetry.md` | Destinations table reflects Debug shipping to both |
