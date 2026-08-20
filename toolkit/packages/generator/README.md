@@ -26,7 +26,7 @@ packages/generator/
         ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
         ProcessorGenerator.cs             IR operations -> processor classes (ProcessorBase<T>; real emission)
         ProcessorBaseGenerator.cs         Processor runtime base: marker + generic ProcessorBase<T> (real emission)
-        ProjectStubGenerator.cs           .csproj / project metadata / resources [stub]
+        ProjectStubGenerator.cs           extension .csproj (System.Xml.Linq; per-artifact …Emit)
     Model/                            Run-facing types + generated IR POCOs
       GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
       CSharpClass.cs                    Roslyn single-class scaffold (used by the stub generators)
@@ -203,9 +203,12 @@ null-tolerant. Deferred by design: model inheritance dedup / flattening /
 polymorphism / enum emission; and on the processor side, parameter **flattening**
 (the body is one model member for now), the LRO final-state/polling **option**
 overrides, header parameters, `[ArgumentInfo]` + defaults, pagination and
-validation (runtime concerns). See each stage's `TODO`. **`ProjectStubGenerator`
-remains a scaffold** — a minimal `.csproj`. This split lets the model, operation,
-runtime-wiring, and project concerns evolve independently.
+validation (runtime concerns). See each stage's `TODO`. **`ProjectStubGenerator`**
+emits the extension `.csproj` (identity, `Shared.props` import, compile-only
+`ProjectReference`s) composed structurally with `System.Xml.Linq` — one `…Emit`
+method per artifact, so assembly metadata / resources slot in later. This split
+lets the model, operation, runtime-wiring, and project concerns evolve
+independently.
 
 The `ElasticSanModelTests` and `ElasticSanProcessorTests` emit the real ElasticSan
 IR (`TestData/elasticsan.ir.json`, 59 models / 30 operations) and verify the
