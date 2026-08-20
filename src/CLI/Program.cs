@@ -492,16 +492,13 @@ public class Program
                 return;
             }
 
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = exePath,
-                Arguments = "--upload-telemetry",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
+            var startInfo = BuildTelemetryUploaderStartInfo(exePath);
 
-            Process.Start(startInfo);
-            // Don't wait — the background process runs independently.
+            var uploader = Process.Start(startInfo);
+            // Don't wait — the background process runs independently. Dispose
+            // immediately; we don't read from the redirected streams and don't
+            // want to keep handles open in this process.
+            uploader?.Dispose();
         }
         catch
         {
@@ -509,4 +506,27 @@ public class Program
             // and will be uploaded on the next CLI invocation.
         }
     }
+
+    /// <summary>
+    /// Builds the <see cref="ProcessStartInfo"/> for the detached telemetry uploader.
+    /// Internal (rather than inlined) so tests can assert the stdio redirection below
+    /// without actually spawning and waiting on a background process.
+    /// </summary>
+    internal static ProcessStartInfo BuildTelemetryUploaderStartInfo(string exePath) => new()
+    {
+        FileName = exePath,
+        Arguments = "--upload-telemetry",
+        UseShellExecute = false,
+        CreateNoWindow = true,
+        // Redirect (rather than inherit) stdio so the child gets its own pipe
+        // handles instead of the parent's. On Unix, an unredirected child
+        // inherits the parent's stdout/stderr/stdin file descriptors; if the
+        // parent's stdout is itself a pipe (e.g. `az ... | cat`), that pipe's
+        // write end stays open — and the downstream reader blocks waiting for
+        // EOF — until this detached uploader (which performs a real network
+        // upload) also exits, even though `az` itself has already returned.
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        RedirectStandardInput = true,
+    };
 }
