@@ -102,20 +102,14 @@ Describe 'Resolve-TargetModuleName' {
 
 Describe 'New-SyncPlan' {
     BeforeAll {
-        # try/catch surfaces the real exception if the plan-build fails — otherwise Pester's
-        # #2669 "break/continue with mismatched label" catches it and masks the true cause.
-        try {
-            $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
-            $script:Modules = @(Get-PublishableModule -PsRoot (Join-Path $repoRoot 'src/PS'))
-            $script:Config = Get-Content -Raw (Join-Path $repoRoot 'build/ps-docs-sync.config.json') | ConvertFrom-Json
-            $script:Plan = @(New-SyncPlan -Modules $script:Modules -Moniker 'test-moniker' `
-                -TargetRepoPath 'C:/fake/target' -TargetModuleNamePattern 'Az.{ModuleName}' `
-                -Config $script:Config -RepoRoot $repoRoot)
-        } catch {
-            Write-Host "BeforeAll caught: $($_.Exception.GetType().FullName): $($_.Exception.Message)" -ForegroundColor Red
-            Write-Host "StackTrace:`n$($_.ScriptStackTrace)" -ForegroundColor DarkYellow
-            throw
-        }
+        # Use a relative fake path — an absolute Windows-style path like 'C:/fake/target'
+        # makes Join-Path invoke drive resolution on Linux, which throws DriveNotFoundException.
+        $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
+        $script:Modules = @(Get-PublishableModule -PsRoot (Join-Path $repoRoot 'src/PS'))
+        $script:Config = Get-Content -Raw (Join-Path $repoRoot 'build/ps-docs-sync.config.json') | ConvertFrom-Json
+        $script:Plan = @(New-SyncPlan -Modules $script:Modules -Moniker 'test-moniker' `
+            -TargetRepoPath 'fake-target' -TargetModuleNamePattern 'Az.{ModuleName}' `
+            -Config $script:Config -RepoRoot $repoRoot)
     }
 
     It 'emits one entry per cmdlet plus one module-index per module' {
