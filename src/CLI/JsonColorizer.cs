@@ -20,7 +20,7 @@ internal static partial class JsonColorizer
     private const string LiteralColor = "\u001b[35m";  // magenta (true/false/null)
 
     [GeneratedRegex(
-        """("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)""")]
+        """("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b""")]
     private static partial Regex TokenPattern();
 
     /// <summary>
