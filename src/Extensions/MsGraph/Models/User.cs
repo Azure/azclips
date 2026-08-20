@@ -20,6 +20,10 @@ public class User
     public string? OfficeLocation { get; set; }
     public string? PreferredLanguage { get; set; }
     public string[]? BusinessPhones { get; set; }
+    public string? DeletedDateTime { get; set; }
+    public string? UsageLocation { get; set; }
+    public bool? AccountEnabled { get; set; }
+    public string? MailNickname { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
