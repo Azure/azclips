@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.StorageAccountTsp</AssemblyName>
+        <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.StorageAccountTsp</RootNamespace>
+        <Description>PowerShell binary cmdlets for AzClips StorageAccountTsp module (az storage account CRUD)</Description>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup>
+        <PackageReference Include="System.Management.Automation" Version="7.6.1" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\Common\CmdletOutputStreamsFactory.cs" Link="Common\CmdletOutputStreamsFactory.cs" />
+        <Compile Include="..\Common\CmdletEngineRunner.cs" Link="Common\CmdletEngineRunner.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+    </ItemGroup>
+</Project>
