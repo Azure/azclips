@@ -14,16 +14,16 @@ Project Azclips is a multi-project .NET 10 solution that produces both a native-
 
 | Requirement | Version | Why | Source |
 | --- | --- | --- | --- |
-| .NET SDK | **10.0.203** (roll-forward `latestMinor`) | Target framework is `net10.0` | `global.json:3` |
+| .NET SDK | **10.0.303** (roll-forward `latestMinor`) | Target framework is `net10.0` | `global.json:3` |
 | PowerShell | **7.0+** | Running the PowerShell modules | `README.md:76` |
 | Azure subscription | — | Live ARM calls (`az login`, `az group create`) | `README.md:77` |
 | PlatyPS | **1.0.1** (only for help artifacts) | `-GenerateHelpArtifacts`; auto-installed by `build/Install-BuildDependencies.ps1` | `README.md:78` |
 
-The SDK pin is deliberate. `global.json` requests `10.0.203` with `"rollForward": "latestMinor"` (`global.json:1`), meaning any installed 10.0.x SDK at or above that patch is acceptable, but a 9.x or 11.x SDK is not.
+The SDK pin is deliberate. `global.json` requests `10.0.303` with `"rollForward": "latestMinor"` (`global.json:1`), meaning the resolver selects the highest installed 10.x SDK whose version is at or above that baseline; a 9.x or 11.x SDK is not eligible.
 
 ```mermaid
 graph LR
-    SDK[".NET SDK 10.0.203<br>global.json"] --> BUILD["dotnet build -c Release<br>azclips.slnx"]
+    SDK[".NET SDK 10.0.303<br>global.json"] --> BUILD["dotnet build -c Release<br>azclips.slnx"]
     PS7["PowerShell 7+"] --> MODULES["Import PS modules"]
     PLATY["PlatyPS 1.0.1"] --> HELP["Help artifacts<br>(optional)"]
     BUILD --> AZ["artifacts/Release/Core.Cli/az"]
@@ -143,7 +143,7 @@ At runtime, user-scoped state is created under two roots, both centralized in `H
 Confirm your SDK resolves to what `global.json` pins:
 
 ```bash
-dotnet --info        # Version should be 10.0.x (>= 10.0.203)
+dotnet --info        # Version should be a compatible 10.x SDK (>= 10.0.303)
 dotnet --version     # Honors global.json roll-forward
 ```
 
@@ -151,7 +151,7 @@ If `dotnet --version` reports a 9.x SDK or errors on the pin, install the .NET 1
 
 ## References
 
-- `global.json:1` — SDK pin `10.0.203`, `rollForward: latestMinor`.
+- `global.json:1` — SDK pin `10.0.303`, `rollForward: latestMinor`.
 - `azclips.slnx:1` — solution layout (CLI, Core, Extensions, TUI, Agent, PS, tests, tools).
 - `Shared.props:8` — `OutputPath` / artifacts convention.
 - `src/Directory.Build.props:1` — shared build properties (`net10.0`, Nullable, TreatWarningsAsErrors).

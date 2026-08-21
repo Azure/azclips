@@ -262,7 +262,7 @@ Shared build settings live in two inherited files so you don't repeat them per p
 
 **Implicit usings** (`<ImplicitUsings>enable</ImplicitUsings>`) auto-import common namespaces (`System`, `System.Linq`, etc.) so files don't start with 15 `using` lines. That's why you'll see files use `List<T>` without an explicit `using System.Collections.Generic;`.
 
-The SDK version is pinned by `global.json` (`10.0.203`, roll-forward `latestMinor`). `dotnet` picks that SDK; if you don't have it, the build tells you.
+The SDK version is pinned by `global.json` (`10.0.303`, roll-forward `latestMinor`). `dotnet` picks that SDK; if you don't have it, the build tells you.
 
 **Project references vs. package references.** Inside `.csproj` you'll see `<ProjectReference>` (depend on another project in the repo, like `Core.Abstractions`) and `<PackageReference>` (a NuGet dependency, like `Microsoft.Identity.Client`). The dependency _direction_ is the architecture: concrete Core projects reference `Core.Abstractions`, never the reverse. Keep it that way or you'll create a cycle the build rejects.
 
@@ -669,7 +669,7 @@ The point of the detached uploader: **the user never waits on telemetry.** If th
 
 **Prerequisites:**
 
-- **.NET 10 SDK**, version **10.0.203** (pinned in `global.json`; `rollForward: latestMinor` accepts 10.0.2xx). Verify: `dotnet --info` and check the SDK line.
+- **.NET 10 SDK**, version **10.0.303** (pinned in `global.json`; `rollForward: latestMinor` accepts a compatible installed 10.x SDK at or above this version). Verify: `dotnet --info` and check the SDK line.
 - **PowerShell 7+** — for the cmdlet modules.
 - **An Azure subscription** — only for live ARM calls; most tests mock this.
 - **PlatyPS 1.0.1** — _only_ if you generate help artifacts; `build/Install-BuildDependencies.ps1` installs it.
@@ -683,7 +683,7 @@ git clone <repo> && cd azclips-main
 dotnet restore azclips.slnx
 ```
 
-If `dotnet` reports a version older than 10.0.203, install the .NET 10 SDK. The repo will _refuse_ to build with an incompatible SDK because `global.json` pins it — that's a feature, not a bug.
+If `dotnet` reports a version older than 10.0.303, install the .NET 10 SDK. The repo will _refuse_ to build with an incompatible SDK because `global.json` pins it — that's a feature, not a bug.
 
 <a name="p3-17"></a>
 
@@ -946,7 +946,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 30. **Idempotent init** — `Initialize` no-ops after the first call.
 31. **`LFUCache`** — least-frequently-used cache holding extension indices in the engine.
 32. **MSAL** — Microsoft Authentication Library; `MsalAuthService` implements `IAuthService`.
-33. **`net10.0`** — the target framework (SDK 10.0.203); _not_ .NET 9.
+33. **`net10.0`** — the target framework (SDK 10.0.303); _not_ .NET 9.
 34. **Nullable reference types** — compile-time null tracking (`string` vs `string?`), enabled repo-wide.
 35. **`openspec/`** — the design-change workflow (proposal/design/tasks/specs), e.g. profile-management.
 36. **`ProcessorContext`** — the per-command capability record (HTTP pipeline, publisher, auth, output, `Profile?`).
