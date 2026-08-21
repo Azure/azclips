@@ -10,7 +10,7 @@ parameters:
 jobs:
 - job: BuildCommonOutputs
   displayName: CLI Common Output
-  timeoutInMinutes: 90
+  timeoutInMinutes: 30
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
   steps:

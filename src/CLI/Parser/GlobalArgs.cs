@@ -42,7 +42,7 @@ internal sealed record GlobalArgs(
 /// Recognized <c>--output</c> value. Unknown values raise a usage error at parse time
 /// (see <see cref="GlobalArgParser.Parse"/>).
 /// </summary>
-internal enum OutputFormat
+public enum OutputFormat
 {
     Plain,
     Json,
