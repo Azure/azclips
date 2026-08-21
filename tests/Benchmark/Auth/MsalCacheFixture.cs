@@ -14,10 +14,8 @@ namespace Benchmark.Auth;
 internal static class MsalCacheFixture
 {
     /// <summary>
-    /// The seeded account's user principal name, read from the seed document itself so it cannot
-    /// drift from the account MSAL will actually match against. The benchmark profile store is
-    /// seeded with this same value; when the two disagree, <c>MsalAccountSelector</c> matches no
-    /// account and every acquisition fails with <c>no_matching_account</c>.
+    /// The seeded account's user principal name, read from the seed document so it always matches
+    /// the account MSAL selects.
     /// </summary>
     public static string UserPrincipalName => s_userPrincipalName.Value;
 

@@ -86,9 +86,7 @@ public abstract class BenchmarkBase
     /// iteration starts from identical bytes even when a benchmark writes profiles.
     /// </summary>
     /// <remarks>
-    /// The profile is seeded with the MSAL fixture's UPN because <c>MsalAccountSelector</c> matches
-    /// the cached account by user principal name. Seeding a profile without it makes every silent
-    /// acquisition fail with <c>no_matching_account</c>.
+    /// Seeds the MSAL fixture's UPN, which <c>MsalAccountSelector</c> matches the cached account by.
     /// </remarks>
     protected void SeedProfileStore() =>
         BenchmarkProfileStore.SeedAsync(ProfileStoreRoot, MsalCacheFixture.UserPrincipalName)

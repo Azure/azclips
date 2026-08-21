@@ -35,9 +35,8 @@ public static class BenchmarkProfileStore
     /// </summary>
     /// <param name="root">Directory to seed.</param>
     /// <param name="userPrincipalName">
-    /// UPN stamped on the seeded profile. Callers that exercise the real <c>MsalAuthService</c>
-    /// must supply the UPN of the account in their MSAL cache fixture, because account selection
-    /// matches on it. Defaults to null, which reproduces the original profile exactly.
+    /// UPN stamped on the seeded profile. Callers exercising the real <c>MsalAuthService</c> supply
+    /// the UPN of the account in their MSAL cache fixture, which account selection matches on.
     /// </param>
     public static async Task SeedAsync(string root, string? userPrincipalName = null)
     {
@@ -56,9 +55,8 @@ public static class BenchmarkProfileStore
     /// </summary>
     /// <param name="root">Directory to verify.</param>
     /// <param name="expectedUserPrincipalName">
-    /// When supplied, the UPN the seeded profile must carry. Checking it here turns a mismatch into
-    /// a clear profile-store failure instead of an opaque MSAL <c>no_matching_account</c> error
-    /// raised much later, from a component that has no idea the profile was the problem.
+    /// When supplied, the UPN the seeded profile must carry. Surfaces a mismatch as a profile-store
+    /// failure rather than an MSAL <c>no_matching_account</c> error raised later.
     /// </param>
     public static async Task VerifySeededAsync(string root, string? expectedUserPrincipalName = null)
     {
