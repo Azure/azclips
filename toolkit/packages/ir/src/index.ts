@@ -32,8 +32,8 @@ export {
 } from "./literal.js";
 
 export {
-  IRLengthConstraintsSchema,
-  type IRLengthConstraints,
+  IRConstraintsSchema,
+  type IRConstraints,
 } from "./constraints.js";
 
 export {

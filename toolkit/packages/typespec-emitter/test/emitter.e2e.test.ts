@@ -209,9 +209,9 @@ describe("emitter e2e: visibility-service.tsp → IRProperty.visibility", () => 
   });
 });
 
-describe("emitter e2e: length-service.tsp → primitive length constraints", () => {
-  const LENGTH_TSP = normalizePath(resolve(here, "fixtures", "length-service.tsp"));
-  let lengthIr: IR;
+describe("emitter e2e: constraints-service.tsp → primitive string constraints", () => {
+  const CONSTRAINTS_TSP = normalizePath(resolve(here, "fixtures", "constraints-service.tsp"));
+  let constraintsIr: IR;
 
   beforeAll(async () => {
     const written = new Map<string, string>();
@@ -222,40 +222,52 @@ describe("emitter e2e: length-service.tsp → primitive length constraints", () 
       },
       mkdirp: async (path: string) => path,
     };
-    const program = await compile(host, LENGTH_TSP, {
+    const program = await compile(host, CONSTRAINTS_TSP, {
       emit: [EMITTER],
       options: { [EMITTER]: { format: "json", outputFile: "ir.json", pretty: true } },
     });
     const errors = program.diagnostics.filter((d) => d.severity === "error");
     expect(errors).toEqual([]);
     const entry = [...written.entries()].find(([p]) => p.endsWith("ir.json"));
-    if (!entry) throw new Error("length fixture emitted no ir.json");
-    lengthIr = JSON.parse(entry[1]) as IR;
+    if (!entry) throw new Error("constraints fixture emitted no ir.json");
+    constraintsIr = JSON.parse(entry[1]) as IR;
   });
 
-  it("preserves @minLength and @maxLength on the decorated property only", () => {
-    expect(() => parseIR(lengthIr)).not.toThrow();
-    const widget = lengthIr.models.find((m) => m.name === "Widget");
+  it("preserves length and pattern decorators on properties and parameters", () => {
+    expect(() => parseIR(constraintsIr)).not.toThrow();
+    const widget = constraintsIr.models.find((m) => m.name === "Widget");
     expect(widget).toBeDefined();
 
     const constrained = widget!.properties.find((p) => p.wireName === "constrainedName");
     expect(constrained?.typeKind).toBe("primitive");
     if (constrained?.typeKind === "primitive") {
-      expect(constrained.constraints).toEqual({ minLength: 0, maxLength: 24 });
+      expect(constrained.constraints).toEqual({
+        minLength: 0,
+        maxLength: 24,
+        pattern: "^[A-Z]+$",
+      });
     }
 
     const scalarConstrained = widget!.properties.find(
       (p) => p.wireName === "scalarConstrainedName",
     );
-    expect(scalarConstrained?.constraints).toEqual({ minLength: 3, maxLength: 12 });
+    expect(scalarConstrained?.constraints).toEqual({
+      minLength: 3,
+      maxLength: 12,
+      pattern: "^[a-z]+$",
+    });
+
+    const blankPattern = widget!.properties.find((p) => p.wireName === "blankPattern");
+    expect(blankPattern?.constraints).toBeUndefined();
 
     const unconstrained = widget!.properties.find((p) => p.wireName === "unconstrainedName");
     expect(unconstrained?.constraints).toBeUndefined();
 
-    const getWidget = lengthIr.operations.find((o) => o.name === "getWidget");
+    const getWidget = constraintsIr.operations.find((o) => o.name === "getWidget");
     expect(getWidget?.pathParameters[0]?.constraints).toEqual({
       minLength: 1,
       maxLength: 10,
+      pattern: "^[0-9]+$",
     });
   });
 });

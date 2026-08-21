@@ -42,7 +42,7 @@ import {
   type IRTypeRefUnion,
 } from "./type-ref.js";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
-import { IRLengthConstraintsSchema, type IRLengthConstraints } from "./constraints.js";
+import { IRConstraintsSchema, type IRConstraints } from "./constraints.js";
 import {
   AccessKinds,
   UsageKinds,
@@ -108,7 +108,7 @@ type IRPropertyCommon = {
   summary?: string | undefined;
   /** Generated-code visibility (`@access`). Omitted when `public` (the default). */
   access?: IRAccess | undefined;
-  constraints?: IRLengthConstraints | undefined;
+  constraints?: IRConstraints | undefined;
 };
 
 const propertyCommon = {
@@ -124,7 +124,7 @@ const propertyCommon = {
   docs: z.string().optional(),
   summary: z.string().optional(),
   access: z.enum(AccessKinds).optional(),
-  constraints: IRLengthConstraintsSchema.optional(),
+  constraints: IRConstraintsSchema.optional(),
 };
 
 // ─── Property variants by type kind ─────────────────────────────────────

@@ -39,7 +39,7 @@ import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
 import { pascalCase } from "./naming.js";
 import { typeRefFor, unwrapNullable } from "./types.js";
-import { lengthConstraintsFor } from "./constraints.js";
+import { constraintsFor } from "./constraints.js";
 
 const VALID_COLLECTION_FORMATS: ReadonlySet<string> = new Set([
   "csv",
@@ -80,7 +80,7 @@ function paramOf(
     (p as SdkHeaderParameter | SdkQueryParameter).collectionFormat !== undefined
       ? clampCollectionFormat((p as SdkHeaderParameter | SdkQueryParameter).collectionFormat)
       : undefined;
-  const constraints = lengthConstraintsFor(ctx, p.__raw);
+  const constraints = constraintsFor(ctx, p.__raw);
 
   return {
     id,

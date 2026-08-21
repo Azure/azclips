@@ -13,7 +13,7 @@
  *   - Open enums: TCGC's `isFixed: false` enums lose their open-ness in IR.
  *     A one-shot `open-enum-as-closed` info diagnostic is emitted on the
  *     first such enum.
- *   - Primitive constraints other than `@minLength` / `@maxLength`: dropped
+ *   - Primitive constraints other than `@minLength`, `@maxLength`, and `@pattern`: dropped
  *     silently; the transformer layer (or a future IR bump) is the right
  *     home for these.
  *   - Cookies, tuples, streaming bodies: each diagnosed and skipped.
