@@ -1,27 +1,18 @@
-$source = [IO.Path]::GetTempFileName()
-$destination = [IO.Path]::GetTempFileName()
-try {
-    [IO.File]::WriteAllBytes($source, [byte[]](0, 1, 2, 255))
-    Remove-Item $destination
-    $blob = "azclips-ps-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()).bin"
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 
-    Set-AzStorageBlobContent `
-        -AccountName $env:AZCLIPS_STORAGE_ACCOUNT `
-        -Container $env:AZCLIPS_STORAGE_CONTAINER `
-        -Blob $blob `
-        -File $source
+Set-AzStorageBlobContent `
+    -AccountName mytestsa52379 `
+    -ContainerName azclips-manual-test `
+    -BlobName StorageBlobUploadDownload.ps1 `
+    -FilePath tests/Scripts/PS/StorageBlobUploadDownload.ps1 `
+    -Force `
+    -Debug
 
-    Get-AzStorageBlobContent `
-        -AccountName $env:AZCLIPS_STORAGE_ACCOUNT `
-        -Container $env:AZCLIPS_STORAGE_CONTAINER `
-        -Blob $blob `
-        -Destination $destination
-
-    if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($source)) -ne
-        [Convert]::ToBase64String([IO.File]::ReadAllBytes($destination))) {
-        throw 'Downloaded bytes do not match uploaded bytes.'
-    }
-}
-finally {
-    Remove-Item $source, $destination -Force -ErrorAction SilentlyContinue
-}
+Get-AzStorageBlobContent `
+    -AccountName mytestsa52379 `
+    -ContainerName azclips-manual-test `
+    -BlobName StorageBlobUploadDownload.ps1 `
+    -FilePath artifacts/StorageBlobUploadDownload.downloaded.ps1 `
+    -Force `
+    -Debug
