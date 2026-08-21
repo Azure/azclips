@@ -10,6 +10,10 @@ namespace ConstraintsService;
 @pattern("^[a-z]+$")
 scalar ConstrainedName extends string;
 
+@minValue(-10)
+@maxValue(10)
+scalar ConstrainedNumber extends int32;
+
 model Widget {
   @minLength(0)
   @maxLength(24)
@@ -22,6 +26,14 @@ model Widget {
   blankPattern: string;
 
   unconstrainedName: string;
+
+  @minValue(0)
+  @maxValue(100)
+  constrainedNumber: int32;
+
+  scalarConstrainedNumber: ConstrainedNumber;
+
+  unconstrainedNumber: int32;
 }
 
 @route("/widgets/{id}")
@@ -32,4 +44,9 @@ op getWidget(
   @maxLength(10)
   @pattern("^[0-9]+$")
   id: string,
+
+  @query
+  @minValue(0)
+  @maxValue(50)
+  count: int32,
 ): Widget;

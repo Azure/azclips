@@ -209,7 +209,7 @@ describe("emitter e2e: visibility-service.tsp → IRProperty.visibility", () => 
   });
 });
 
-describe("emitter e2e: constraints-service.tsp → primitive string constraints", () => {
+describe("emitter e2e: constraints-service.tsp → primitive constraints", () => {
   const CONSTRAINTS_TSP = normalizePath(resolve(here, "fixtures", "constraints-service.tsp"));
   let constraintsIr: IR;
 
@@ -233,7 +233,7 @@ describe("emitter e2e: constraints-service.tsp → primitive string constraints"
     constraintsIr = JSON.parse(entry[1]) as IR;
   });
 
-  it("preserves length and pattern decorators on properties and parameters", () => {
+  it("preserves string and numeric constraints on properties and parameters", () => {
     expect(() => parseIR(constraintsIr)).not.toThrow();
     const widget = constraintsIr.models.find((m) => m.name === "Widget");
     expect(widget).toBeDefined();
@@ -263,11 +263,30 @@ describe("emitter e2e: constraints-service.tsp → primitive string constraints"
     const unconstrained = widget!.properties.find((p) => p.wireName === "unconstrainedName");
     expect(unconstrained?.constraints).toBeUndefined();
 
+    const constrainedNumber = widget!.properties.find(
+      (p) => p.wireName === "constrainedNumber",
+    );
+    expect(constrainedNumber?.constraints).toEqual({ minValue: 0, maxValue: 100 });
+
+    const scalarConstrainedNumber = widget!.properties.find(
+      (p) => p.wireName === "scalarConstrainedNumber",
+    );
+    expect(scalarConstrainedNumber?.constraints).toEqual({ minValue: -10, maxValue: 10 });
+
+    const unconstrainedNumber = widget!.properties.find(
+      (p) => p.wireName === "unconstrainedNumber",
+    );
+    expect(unconstrainedNumber?.constraints).toBeUndefined();
+
     const getWidget = constraintsIr.operations.find((o) => o.name === "getWidget");
     expect(getWidget?.pathParameters[0]?.constraints).toEqual({
       minLength: 1,
       maxLength: 10,
       pattern: "^[0-9]+$",
+    });
+    expect(getWidget?.queryParameters[0]?.constraints).toEqual({
+      minValue: 0,
+      maxValue: 50,
     });
   });
 });

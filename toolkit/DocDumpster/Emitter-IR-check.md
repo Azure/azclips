@@ -78,19 +78,19 @@ scope, so every `"csharp"`-scoped decorator is ignored.
 
 ## Constraints
 
-- [x] <a id="b1"></a>**B1 — `@minLength` / `@maxLength` — RESOLVED (will support; tracked).**
+- [x] <a id="b1"></a>**B1 — `@minLength` / `@maxLength` — RESOLVED (supported).**
   Contract truth → must be preserved. These live in the compiler stateMap (not on the type) and TCGC
   doesn't surface them, so the emitter must extract them via `getMinLength`/`getMaxLength(program,
   prop.__raw)` and the IR needs a field to hold them. Targets: ElasticSan 3–24, Volume 3–63,
   VolumeGroup 3–63, Snapshot 1–80.
 
   - [x] **TODO B1.1 — Support `@minLength` / `@maxLength`** → [TODO-3](#todo-3) · issue [Azure/CLIPS#529](https://github.com/Azure/CLIPS/issues/529).
-- [x] <a id="b2"></a>**B2 — `@pattern` (`NamePattern`) — RESOLVED (will support; tracked).**
+- [x] <a id="b2"></a>**B2 — `@pattern` (`NamePattern`) — RESOLVED (supported).**
   Contract truth. Same mechanism as [B1](#b1): read `getPattern(program, prop.__raw)` and add a
   `pattern` field to the IR. Verified `ResourceNameParameter` needs no special handling — it expands
   to a standard `@pattern` with the concrete regex (readable on both the `name` property and the path
   param). Folded into [TODO-3](#todo-3) · issue [Azure/CLIPS#531](https://github.com/Azure/CLIPS/issues/531).
-- [x] <a id="b3"></a>**B3 — `@minValue` / `@maxValue` — RESOLVED (will support; tracked).**
+- [x] <a id="b3"></a>**B3 — `@minValue` / `@maxValue` — RESOLVED (supported).**
   Contract truth. Same mechanism as [B1](#b1)/[B2](#b2): read `getMinValue`/`getMaxValue(program,
   prop.__raw)` and add numeric bounds to the IR `constraints`. Target here: `@minValue(0)` on
   `DeleteRetentionPolicy.retentionPeriodDays`. Folded into [TODO-3](#todo-3) · issue
