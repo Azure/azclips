@@ -157,8 +157,10 @@ explicitly asked for Jaeger, so a failed delivery is retried rather than silentl
 "Remote decides, otherwise always succeed" rule would delete files after a failed local export,
 which is the one outcome a developer running local-only would find baffling.
 
-Replay runs once per target. `TraceReplayer` preserves the original `TraceId` while remapping
-SpanIds, so both backends see the same trace, and the duplicated work is negligible at the entry
+Replay runs once per target. `TraceReplayer` preserves the original `TraceId` across backends, so
+the same logical trace is visible in each backend and each backend's span tree is internally
+consistent. SpanIds are remapped per replay, so they differ between backends — the `TraceId` is the
+reliable correlation key. The duplicated work is negligible at the entry
 counts a single trace file holds.
 
 ### PowerShell

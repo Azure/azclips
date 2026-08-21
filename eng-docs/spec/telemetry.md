@@ -117,7 +117,7 @@ public async Task Foo()
 | **OTLP (local)** | `http://localhost:4317`, port via `AZCLIPS_OTLP_PORT` | Debug builds only |
 
 A Debug build exports to the local OTLP collector and Azure Monitor simultaneously; a Release build
-exports to Azure Monitor only. See `wiki/02-deep-dive/telemetry.md#export-targets`.
+exports to Azure Monitor only. See [`wiki/02-deep-dive/telemetry.md#export-targets`](../../wiki/02-deep-dive/telemetry.md#export-targets).
 
 ### Local File Export
 

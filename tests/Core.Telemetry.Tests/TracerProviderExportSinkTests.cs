@@ -6,7 +6,8 @@ namespace Core.Telemetry.Tests;
 public class TracerProviderExportSinkTests
 {
     // Construction only: TryExport would build a live provider and block on ForceFlush.
-    // TraceUploaderTests covers the behaviour through a fake.
+    // TraceUploaderTests exercises TraceUploader through a fake sink; it does not cover
+    // this class's fan-out loop.
     [Theory]
     [InlineData(TelemetryTarget.Local)]
     [InlineData(TelemetryTarget.Remote)]
@@ -24,6 +25,20 @@ public class TracerProviderExportSinkTests
             [TelemetryTarget.Local, TelemetryTarget.Remote]);
 
         Assert.NotNull(sink);
+    }
+
+    [Fact]
+    public void Constructor_Throws_WhenTargetsIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => new TracerProviderExportSink(null!));
+    }
+
+    [Fact]
+    public void Constructor_Throws_WhenTargetsIsEmpty()
+    {
+        Assert.Throws<ArgumentException>(
+            () => new TracerProviderExportSink([]));
     }
 
     [Fact]
@@ -60,5 +75,56 @@ public class TracerProviderExportSinkTests
         Assert.Equal(
             TelemetryTarget.Local,
             TracerProviderExportSink.SelectAuthoritative([TelemetryTarget.Local]));
+    }
+
+    // --- ExportToTargets fan-out loop ---
+
+    [Fact]
+    public void ExportToTargets_LocalRemote_LocalFails_ReturnsTrueFromRemote()
+    {
+        // Remote is authoritative; a stopped Jaeger must not pin trace files.
+        var result = TracerProviderExportSink.ExportToTargets(
+            [TelemetryTarget.Local, TelemetryTarget.Remote],
+            target => target == TelemetryTarget.Remote);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ExportToTargets_LocalRemote_RemoteFails_ReturnsFalse()
+    {
+        var result = TracerProviderExportSink.ExportToTargets(
+            [TelemetryTarget.Local, TelemetryTarget.Remote],
+            target => target == TelemetryTarget.Local);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ExportToTargets_LocalOnly_LocalFails_ReturnsFalse()
+    {
+        // Developer chose local-only explicitly; a failed delivery is retried.
+        var result = TracerProviderExportSink.ExportToTargets(
+            [TelemetryTarget.Local],
+            _ => false);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ExportToTargets_BothTargets_BothAreAttempted()
+    {
+        var invoked = new List<TelemetryTarget>();
+
+        TracerProviderExportSink.ExportToTargets(
+            [TelemetryTarget.Local, TelemetryTarget.Remote],
+            target =>
+            {
+                invoked.Add(target);
+                return true;
+            });
+
+        Assert.Contains(TelemetryTarget.Local, invoked);
+        Assert.Contains(TelemetryTarget.Remote, invoked);
     }
 }

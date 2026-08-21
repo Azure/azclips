@@ -101,6 +101,7 @@ public class TelemetryTargetResolverTests
 #else
         // PATH is always set, so a null result proves the reader is inert.
         Assert.Null(TelemetryTargetResolver.EnvironmentReader("PATH"));
+        Assert.Equal(RemoteOnly, TelemetryTargetResolver.Resolve());
 #endif
     }
 }

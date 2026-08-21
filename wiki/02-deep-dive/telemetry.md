@@ -134,7 +134,7 @@ collector, on a port that `AZCLIPS_OTLP_PORT` also controls.
 
 Because Debug spans go to the same Application Insights resource as production traffic, and no tag
 distinguishes them, locating your own runs means correlating on `InstallationId`. Marking dev
-traffic is deferred; see the design doc for the intended approach.
+traffic is deferred; see the [design doc](../../docs/superpowers/specs/2026-08-21-telemetry-export-targets-design.md) for the intended approach.
 
 ## Privacy model — the allow-list processors
 

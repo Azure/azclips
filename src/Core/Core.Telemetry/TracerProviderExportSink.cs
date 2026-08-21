@@ -17,6 +17,10 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
 
     internal TracerProviderExportSink(IReadOnlyList<TelemetryTarget> targets)
     {
+        ArgumentNullException.ThrowIfNull(targets);
+        if (targets.Count == 0)
+            throw new ArgumentException("At least one target is required.", nameof(targets));
+
         _targets = targets;
     }
 
@@ -27,14 +31,20 @@ internal sealed class TracerProviderExportSink : ITraceExportSink
     internal static TelemetryTarget SelectAuthoritative(IReadOnlyList<TelemetryTarget> targets) =>
         targets.Contains(TelemetryTarget.Remote) ? TelemetryTarget.Remote : TelemetryTarget.Local;
 
-    public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries)
+    public bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries) =>
+        ExportToTargets(_targets, target => ExportTo(target, serviceName, entries));
+
+    /// <summary>
+    /// Attempts every target and returns the authoritative target's verdict.
+    /// </summary>
+    internal static bool ExportToTargets(IReadOnlyList<TelemetryTarget> targets, Func<TelemetryTarget, bool> exportTo)
     {
-        var authoritative = SelectAuthoritative(_targets);
+        var authoritative = SelectAuthoritative(targets);
         var delivered = true;
 
-        foreach (var target in _targets)
+        foreach (var target in targets)
         {
-            var exported = ExportTo(target, serviceName, entries);
+            var exported = exportTo(target);
             if (target == authoritative)
             {
                 delivered = exported;
