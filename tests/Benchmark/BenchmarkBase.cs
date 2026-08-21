@@ -76,15 +76,24 @@ public abstract class BenchmarkBase
         // profiles are present. Executing without a profile is a supported workflow, but it is not
         // the primary one and is therefore outside the scope of these benchmarks, if they were to fail gracefully.
         SeedProfileStore();
-        BenchmarkProfileStore.VerifySeededAsync(ProfileStoreRoot).GetAwaiter().GetResult();
+        BenchmarkProfileStore.VerifySeededAsync(ProfileStoreRoot, MsalCacheFixture.UserPrincipalName)
+            .GetAwaiter()
+            .GetResult();
     }
 
     /// <summary>
     /// Resets the profile store to its seeded state. Called from each iteration's setup so every
     /// iteration starts from identical bytes even when a benchmark writes profiles.
     /// </summary>
+    /// <remarks>
+    /// The profile is seeded with the MSAL fixture's UPN because <c>MsalAccountSelector</c> matches
+    /// the cached account by user principal name. Seeding a profile without it makes every silent
+    /// acquisition fail with <c>no_matching_account</c>.
+    /// </remarks>
     protected void SeedProfileStore() =>
-        BenchmarkProfileStore.SeedAsync(ProfileStoreRoot).GetAwaiter().GetResult();
+        BenchmarkProfileStore.SeedAsync(ProfileStoreRoot, MsalCacheFixture.UserPrincipalName)
+            .GetAwaiter()
+            .GetResult();
 
     /// <summary>
     /// Registers stub DI overrides for benchmark isolation.
