@@ -6,8 +6,6 @@ Runbook for [build/Sync-AzclipsPowerShellDocs.ps1](../../build/Sync-AzclipsPower
 
 Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<TargetRepo>/<Moniker>/Az.<Module>/` and generates a per-module landing page (`Az.<Module>.md`). Zero content transformation — the target repo's docfx build (via `PSMD2Yaml`) handles the render.
 
-Design + phasing lives in [scratch/CLIPS-588-ps-sync-shim-PR-PLAN.md](../../scratch/CLIPS-588-ps-sync-shim-PR-PLAN.md). Track-level context: [scratch/CLIPS-588-pwsh-mslearn-PLAN.md](../../scratch/CLIPS-588-pwsh-mslearn-PLAN.md).
-
 ## Three-mode escape hatch
 
 | Mode              | Flag     | Effect                                                                                               | Auth needed |
@@ -156,7 +154,7 @@ Fork-PR safe — no secrets, no external clone, no `git push`.
 
 ## What's NOT covered (yet)
 
-- **Actual publish.** `-Push` throws by design. Real bot-PR-open + `git push` land when the docs.ms auth pattern is decided (see [scratch/CLIPS-588-pwsh-mslearn-PLAN.md](../../scratch/CLIPS-588-pwsh-mslearn-PLAN.md) → "Bot-PR authentication").
+- **Actual publish.** `-Push` throws by design. Real bot-PR-open + `git push` land when the docs.ms auth pattern is decided.
 - **Docset config.** Adding an AzClips moniker to `mapping/monikerMapping.json`, creating `docs-conceptual/<moniker>/toc.yml`, and configuring the docset with `PSMD2Yaml` are docs.ms's responsibility (via desk ticket). Our sync assumes those already exist and fails clearly if they don't.
 - **PR body customization / label management.** Deferred.
 - **Multi-moniker publishing.** Current script assumes a single moniker per invocation. Multi-version support (if we ever version AzClips-PS) means a config extension.

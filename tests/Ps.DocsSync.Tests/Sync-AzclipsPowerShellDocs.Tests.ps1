@@ -1,5 +1,4 @@
-# Pester tests for build/Sync-AzclipsPowerShellDocs.ps1 (Phases 1-2). See
-# scratch/CLIPS-588-ps-sync-shim-PR-PLAN.md.
+# Pester tests for build/Sync-AzclipsPowerShellDocs.ps1.
 #
 # Run: Invoke-Pester -Path tests/Ps.DocsSync.Tests/
 

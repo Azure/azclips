@@ -6,8 +6,6 @@
 #   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1               # dry-run against sibling clone (default)
 #   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1 -Force         # writes to local target; no push
 #   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1 -Push          # WILL FAIL — deferred until auth-pattern decided
-#
-# See scratch/CLIPS-588-ps-sync-shim-PR-PLAN.md for design.
 
 [CmdletBinding()]
 param(
