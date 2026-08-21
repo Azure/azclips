@@ -133,8 +133,10 @@ would let anything able to set an environment variable redirect a user's telemet
 collector, on a port that `AZCLIPS_OTLP_PORT` also controls.
 
 Because Debug spans go to the same Application Insights resource as production traffic, and no tag
-distinguishes them, locating your own runs means correlating on `InstallationId`. Marking dev
-traffic is deferred; see the [design doc](../../docs/superpowers/specs/2026-08-21-telemetry-export-targets-design.md) for the intended approach.
+distinguishes them, locating your own runs means correlating on `InstallationId`. Marking dev traffic
+with a build-configuration tag is deferred: the value is available from
+`AssemblyConfigurationAttribute`, and the key would also need adding to
+`DefaultTelemetryPropertyFilter`'s allow-list, which is deny-by-default.
 
 ## Privacy model — the allow-list processors
 
