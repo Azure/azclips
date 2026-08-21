@@ -151,7 +151,6 @@ public class MsalAuthService(
     public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
-        Console.WriteLine("PROBE_ACQUIRE_CALLED");
 
         // profile will be set from the engine, fallback for other direct caller like TUI/Tooling
         // TODO: Consider making the profile mandatory
