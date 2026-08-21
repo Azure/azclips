@@ -14,10 +14,6 @@ namespace Core.Telemetry;
 /// </summary>
 internal static class TelemetryExporters
 {
-    /// <summary>
-    /// Attaches one exporter per target. The sampler is provider-wide, so it is applied
-    /// once for the whole set.
-    /// </summary>
     internal static void AddTraceExporters(TracerProviderBuilder builder, IReadOnlyList<TelemetryTarget> targets)
     {
         foreach (var target in targets)
