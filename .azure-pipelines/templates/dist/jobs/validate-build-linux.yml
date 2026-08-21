@@ -61,10 +61,61 @@ jobs:
       ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" SKIP_RUNTIME="$(SkipRuntime)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
     displayName: Validate CLI Linux Tarball
 
+  - bash: |
+      set -euo pipefail
+      sudo apt-get update -qq
+      sudo apt-get install -y -qq gettext-base
+      tools_root="$(Agent.TempDirectory)/nfpm-2.46.3"
+      mkdir -p "$tools_root"
+      curl -fsSL https://github.com/goreleaser/nfpm/releases/download/v2.46.3/nfpm_2.46.3_Linux_x86_64.tar.gz \
+        | tar -xz -C "$tools_root" nfpm
+      echo "##vso[task.prependpath]$tools_root"
+    displayName: Install DEB Validation Tools
+    condition: and(succeeded(), eq(variables['Rid'], 'linux-x64'), eq(variables['BuildProfile'], 'full'))
+
+  - bash: |
+      set -euo pipefail
+      PACKAGE_VERSION="$(ArtifactVersion)" \
+        OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" \
+        PACKAGE_PROFILE="$(BuildProfile)" \
+        RID="$(Rid)" \
+        bash "${{ parameters.PackagingScriptsRoot }}/linux/deb/validate_linux_deb.sh"
+
+      release_deb="${{ parameters.PackagingLinuxOutRoot }}/Release/deb/azcli_$(ArtifactVersion)-1~noble_amd64.deb"
+      expected_sha="$(sha256sum "$release_deb" | cut -d' ' -f1)"
+      PACKAGE_VERSION="$(ArtifactVersion)" \
+        OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" \
+        PACKAGE_PROFILE="$(BuildProfile)" \
+        RID="$(Rid)" \
+        bash "${{ parameters.PackagingScriptsRoot }}/linux/deb/build_linux_deb.sh"
+      actual_sha="$(sha256sum "$release_deb" | cut -d' ' -f1)"
+      test "$actual_sha" = "$expected_sha"
+
+      PACKAGE_VERSION="$(ArtifactVersion)" \
+        PACKAGE_RELEASE="2~noble" \
+        OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" \
+        PACKAGE_PROFILE="$(BuildProfile)" \
+        RID="$(Rid)" \
+        bash "${{ parameters.PackagingScriptsRoot }}/linux/deb/build_linux_deb.sh"
+
+      bash "${{ parameters.PackagingScriptsRoot }}/linux/deb/test_linux_deb_ubuntu.sh" \
+        --deb-path "${{ parameters.PackagingLinuxOutRoot }}/Release/deb/azcli_$(ArtifactVersion)-1~noble_amd64.deb" \
+        --upgrade-deb-path "${{ parameters.PackagingLinuxOutRoot }}/Release/deb/azcli_$(ArtifactVersion)-2~noble_amd64.deb"
+    displayName: Validate CLI Ubuntu DEB
+    condition: and(succeeded(), eq(variables['Rid'], 'linux-x64'), eq(variables['BuildProfile'], 'full'))
+
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Linux Sim
     condition: always()
     inputs:
       targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
       artifact: Validate_Linux_Sim_$(Rid)_$(BuildProfile)
+      publishLocation: pipeline
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish CLI Ubuntu DEB Sim
+    condition: and(always(), eq(variables['Rid'], 'linux-x64'), eq(variables['BuildProfile'], 'full'))
+    inputs:
+      targetPath: $(Build.SourcesDirectory)/devops/sim/linux-deb
+      artifact: Validate_Linux_Deb_Sim_Noble_X64
       publishLocation: pipeline

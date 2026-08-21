@@ -2,7 +2,7 @@ name: azcli
 arch: ${DEB_ARCH}
 platform: linux
 version: ${PACKAGE_VERSION}
-release: "1~noble"
+release: ${PACKAGE_RELEASE}
 section: utils
 priority: optional
 maintainer: Azure CLI Team <azpycli@microsoft.com>

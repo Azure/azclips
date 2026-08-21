@@ -15,6 +15,8 @@ PAYLOAD_VALIDATOR="$PACKAGING_ROOT/linux/common/validate_linux_payload.sh"
 NFPM_CONFIG="${NFPM_CONFIG:-$SCRIPT_DIR/nfpm.yaml}"
 NFPM_VERSION="${NFPM_VERSION:-2.46.3}"
 PACKAGE_VERSION="${PACKAGE_VERSION:-$(dotnet msbuild src/CLI/Core.Cli.csproj -getProperty:Version -nologo | tail -n 1)}"
+PACKAGE_RELEASE="${PACKAGE_RELEASE:-1~noble}"
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
 
 case "$RID" in
   linux-x64) DEB_ARCH="amd64" ;;
@@ -52,13 +54,13 @@ fi
 
 bash "$PAYLOAD_VALIDATOR" --payload-dir "$PAYLOAD_DIR" --manifest "$PAYLOAD_MANIFEST"
 
-DEB_PATH="${DEB_PATH:-$OUT_ROOT/Release/deb/azcli_${PACKAGE_VERSION}-1~noble_${DEB_ARCH}.deb}"
+DEB_PATH="${DEB_PATH:-$OUT_ROOT/Release/deb/azcli_${PACKAGE_VERSION}-${PACKAGE_RELEASE}_${DEB_ARCH}.deb}"
 mkdir -p "$(dirname "$DEB_PATH")"
 rm -f "$DEB_PATH"
 
-export DEB_ARCH PACKAGE_VERSION PAYLOAD_DIR SCRIPT_DIR
+export DEB_ARCH PACKAGE_RELEASE PACKAGE_VERSION PAYLOAD_DIR SCRIPT_DIR SOURCE_DATE_EPOCH
 RENDERED_NFPM_CONFIG="$(mktemp)"
 trap 'rm -f "$RENDERED_NFPM_CONFIG"' EXIT
-envsubst "\$DEB_ARCH \$PACKAGE_VERSION \$PAYLOAD_DIR \$SCRIPT_DIR" < "$NFPM_CONFIG" > "$RENDERED_NFPM_CONFIG"
+envsubst "\$DEB_ARCH \$PACKAGE_RELEASE \$PACKAGE_VERSION \$PAYLOAD_DIR \$SCRIPT_DIR" < "$NFPM_CONFIG" > "$RENDERED_NFPM_CONFIG"
 nfpm package --config "$RENDERED_NFPM_CONFIG" --packager deb --target "$DEB_PATH"
 echo "Created $DEB_PATH"

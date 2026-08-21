@@ -10,7 +10,8 @@ OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/linux}"
 RID="${RID:-linux-x64}"
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-full}"
 PACKAGE_VERSION="${PACKAGE_VERSION:-$(dotnet msbuild src/CLI/Core.Cli.csproj -getProperty:Version -nologo | tail -n 1)}"
-DEB_PATH="${DEB_PATH:-$OUT_ROOT/Release/deb/azcli_${PACKAGE_VERSION}-1~noble_amd64.deb}"
+PACKAGE_RELEASE="${PACKAGE_RELEASE:-1~noble}"
+DEB_PATH="${DEB_PATH:-$OUT_ROOT/Release/deb/azcli_${PACKAGE_VERSION}-${PACKAGE_RELEASE}_amd64.deb}"
 PAYLOAD_MANIFEST="${PAYLOAD_MANIFEST:-$OUT_ROOT/manifests/cli/$RID/$PACKAGE_PROFILE/payload-manifest.json}"
 PAYLOAD_VALIDATOR="$PACKAGING_ROOT/linux/common/validate_linux_payload.sh"
 
@@ -33,7 +34,7 @@ assert_field() {
 }
 
 assert_field Package azcli
-assert_field Version "$PACKAGE_VERSION-1~noble"
+assert_field Version "$PACKAGE_VERSION-$PACKAGE_RELEASE"
 assert_field Architecture amd64
 assert_field Conflicts azure-cli
 
