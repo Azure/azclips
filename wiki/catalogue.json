@@ -5,7 +5,7 @@
   "primaryLanguage": "C# (.NET 10 / net10.0)",
   "generatedAgainst": {
     "targetFramework": "net10.0",
-    "sdk": "10.0.303 (global.json)",
+    "sdk": "10.0.203 (global.json)",
     "sourceOfTruth": "current working tree at /Users/yeliu/code/azclips-main",
     "note": "README.md, AGENTS.md and eng-docs/spec/ARCHITECTURE.md contain stale claims (.NET 9, in-process AgentEngine/Azure OpenAI, Bootstrapper class). This catalogue reflects the ACTUAL code."
   },
@@ -45,7 +45,7 @@
           "title": "Environment Setup",
           "type": "page",
           "output": "01-getting-started/environment-setup.md",
-          "prompt": "Step-by-step environment setup. Prerequisites: .NET 10 SDK pinned to 10.0.303 (`global.json:3`, roll-forward latestMinor), PowerShell 7+, an Azure subscription for live calls, and PlatyPS 1.0.1 only for help artifact generation (see `README.md:73`). Explain the solution layout from `azclips.slnx` (src/CLI, 10 Core projects, 6 Extensions, TUI, Agent, src/PS, tests, tools/Help). Show build commands: `dotnet build -c Release azclips.slnx` produces `artifacts/Release/Core.Cli/az`; note `scripts/deploy.sh` and the `build/` PowerShell scripts. Explain the artifacts output convention from `Shared.props:8` (OutputPath = artifacts/$(Configuration)/$(ExtName)/) and the shared build properties in `src/Directory.Build.props` (Nullable, ImplicitUsings, TreatWarningsAsErrors). Show where user state lands: `~/.azclips` (`src/Core/Core.Abstractions/HomePaths.cs:14`) and `{LocalApplicationData}/.azclips` for profiles/auth. Verify with `dotnet --info` matching global.json.",
+          "prompt": "Step-by-step environment setup. Prerequisites: .NET 10 SDK pinned to 10.0.203 (`global.json:3`, roll-forward latestMinor), PowerShell 7+, an Azure subscription for live calls, and PlatyPS 1.0.1 only for help artifact generation (see `README.md:73`). Explain the solution layout from `azclips.slnx` (src/CLI, 10 Core projects, 6 Extensions, TUI, Agent, src/PS, tests, tools/Help). Show build commands: `dotnet build -c Release azclips.slnx` produces `artifacts/Release/Core.Cli/az`; note `scripts/deploy.sh` and the `build/` PowerShell scripts. Explain the artifacts output convention from `Shared.props:8` (OutputPath = artifacts/$(Configuration)/$(ExtName)/) and the shared build properties in `src/Directory.Build.props` (Nullable, ImplicitUsings, TreatWarningsAsErrors). Show where user state lands: `~/.azclips` (`src/Core/Core.Abstractions/HomePaths.cs:14`) and `{LocalApplicationData}/.azclips` for profiles/auth. Verify with `dotnet --info` matching global.json.",
           "citations": [
             "global.json:1",
             "azclips.slnx:1",
@@ -260,7 +260,7 @@
               "title": "Build & CI/CD",
               "type": "page",
               "output": "02-deep-dive/build-cicd.md",
-              "prompt": "Explain the build and release toolchain. Local build: `dotnet build -c Release azclips.slnx` -> `artifacts/Release/`; the artifacts layout is driven by `Shared.props:8` (OutputPath per ExtName) and `src/Directory.Build.props` (net10.0, TreatWarningsAsErrors, analyzers). SDK is pinned by `global.json` (10.0.303, roll-forward latestMinor). Cover the `build/` PowerShell scripts (e.g. `Install-BuildDependencies.ps1` for PlatyPS, help artifact generation via `-GenerateHelpArtifacts`) and `scripts/deploy.sh` (builds + publishes CLI + copies PowerShell modules). Cover CI: `.azure-pipelines/` and `.github/` workflows, `devops/` assets; reference `eng-docs/spec/ci.md`. Explain the `tools/Help` help-generation tool and its tests. Explain the `openspec/` workflow (change proposals like `profile-management` with proposal/design/tasks/specs) as the design-doc process. Cover the help-docs pipeline: markdown under `src/CLI/Help/Docs/` parsed by `MarkdownCommandHelpProvider`/`FrontmatterParser` (`src/CLI/Help/`). Diagram: source -> build -> artifacts -> publish/deploy flow.",
+              "prompt": "Explain the build and release toolchain. Local build: `dotnet build -c Release azclips.slnx` -> `artifacts/Release/`; the artifacts layout is driven by `Shared.props:8` (OutputPath per ExtName) and `src/Directory.Build.props` (net10.0, TreatWarningsAsErrors, analyzers). SDK is pinned by `global.json` (10.0.203, roll-forward latestMinor). Cover the `build/` PowerShell scripts (e.g. `Install-BuildDependencies.ps1` for PlatyPS, help artifact generation via `-GenerateHelpArtifacts`) and `scripts/deploy.sh` (builds + publishes CLI + copies PowerShell modules). Cover CI: `.azure-pipelines/` and `.github/` workflows, `devops/` assets; reference `eng-docs/spec/ci.md`. Explain the `tools/Help` help-generation tool and its tests. Explain the `openspec/` workflow (change proposals like `profile-management` with proposal/design/tasks/specs) as the design-doc process. Cover the help-docs pipeline: markdown under `src/CLI/Help/Docs/` parsed by `MarkdownCommandHelpProvider`/`FrontmatterParser` (`src/CLI/Help/`). Diagram: source -> build -> artifacts -> publish/deploy flow.",
               "citations": [
                 "Shared.props:8",
                 "global.json:1",
