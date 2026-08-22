@@ -12,7 +12,7 @@ namespace Core.Engine;
 internal class ExecutionSession : ISession
 {
     private bool _disposed = false;
-    private bool _hasReportedResourceOperationFailure;
+    private volatile bool _hasReportedResourceOperationFailure;
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
