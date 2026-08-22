@@ -12,6 +12,7 @@ namespace Core.Engine;
 internal class ExecutionSession : ISession
 {
     private bool _disposed = false;
+    private bool _hasReportedResourceOperationFailure;
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
@@ -37,6 +38,10 @@ internal class ExecutionSession : ISession
         Id = $"{GetType().Name}-{clientType}-{Guid.NewGuid().ToString()}";
         Invocation = invocation;
         EventBus = new RuntimeEventBus(cancellationToken);
+        EventBus.Subscribe(Events.ResourceOperationFailed, _ =>
+        {
+            _hasReportedResourceOperationFailure = true;
+        });
         // wire output streams and logging service
         sessionOutputWriter = outputStreams.WriteOutput;
         outputStreamAdapter = new OutputStreamAdapter(outputStreams, EventBus.Token);
@@ -105,6 +110,9 @@ internal class ExecutionSession : ISession
                 var processor = await GetProcessor();
                 await EventBus.Publish(Events.ProcessorAcquired);
                 await processor.ProcessAsync();
+            }
+            catch (HttpRequestException) when (clientType == ClientType.PowerShell && _hasReportedResourceOperationFailure)
+            {
             }
             finally
             {
