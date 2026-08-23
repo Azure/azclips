@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// Generated from swagger operation StorageAccounts_GetProperties
+// Generated from TypeSpec operation StorageAccounts_GetProperties
+//   Source spec: specification/storage/Storage.Management
 //   GET /subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Storage/storageAccounts/{Name}
 //   Kind: get
 

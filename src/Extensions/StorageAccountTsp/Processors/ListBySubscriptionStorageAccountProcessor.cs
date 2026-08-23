@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// Generated from swagger operation StorageAccounts_List
+// Generated from TypeSpec operation StorageAccounts_List
+//   Source spec: specification/storage/Storage.Management
 //   GET /subscriptions/{SubscriptionId}/providers/Microsoft.Storage/storageAccounts
 //   Kind: list_by_sub
 

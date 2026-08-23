@@ -6,8 +6,9 @@
 //   Provider:    Microsoft.Storage
 //   API version: 2026-04-01
 //   Total types: 259
+//   Source:      TypeSpec (specification/storage/Storage.Management)
 //
-// The shape mirrors the swagger definitions with two adjustments:
+// The shape mirrors the source spec's definitions with two adjustments:
 //   * `allOf` inheritance from the ARM common-types `TrackedResource`/`ProxyResource`
 //     is inlined into the concrete class (Id/Name/Type/Location/Tags/SystemData).
 //   * Nested types deeper than the walker's traversal budget are typed as

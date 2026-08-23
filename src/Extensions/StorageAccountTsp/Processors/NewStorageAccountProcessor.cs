@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// Generated from swagger operation StorageAccounts_Create
+// Generated from TypeSpec operation StorageAccounts_Create
+//   Source spec: specification/storage/Storage.Management
 //   PUT /subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Storage/storageAccounts/{Name}
 //   Kind: create_or_update   |   LRO final-state-via: location
 

@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// Generated cmdlet for the StorageTsp extension.
+// Generated cmdlet for the StorageAccountTsp extension.
+// Source: TypeSpec (specification/storage/Storage.Management)
 using System.Collections;
 using System.Management.Automation;
 using System.Security;

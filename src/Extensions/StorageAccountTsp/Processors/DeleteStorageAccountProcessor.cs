@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// Generated from swagger operation StorageAccounts_Delete
+// Generated from TypeSpec operation StorageAccounts_Delete
+//   Source spec: specification/storage/Storage.Management
 //   DELETE /subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Storage/storageAccounts/{Name}
 //   Kind: delete
 

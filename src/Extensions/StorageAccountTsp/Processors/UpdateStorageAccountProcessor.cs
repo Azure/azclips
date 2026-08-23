@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// Generated from swagger operation StorageAccounts_Update
+// Generated from TypeSpec operation StorageAccounts_Update
+//   Source spec: specification/storage/Storage.Management
 //   PATCH /subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Storage/storageAccounts/{Name}
 //   Kind: update
 

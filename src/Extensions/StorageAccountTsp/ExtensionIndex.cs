@@ -10,6 +10,7 @@
 //   Provider:    Microsoft.Storage
 //   API version: 2026-04-01
 //   Operations:  7 (account CRUD + wait) of 121 total across 27 resource type(s)
+//   Source:      TypeSpec (specification/storage/Storage.Management)
 
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.StorageAccountTsp.Models;
