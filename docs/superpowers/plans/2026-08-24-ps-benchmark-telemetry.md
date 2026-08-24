@@ -59,8 +59,7 @@ public class TelemetrySenderRegistrationTests
     {
         // ModuleInitializer registers DirectTelemetrySender in the PREPEND phase, which runs
         // before these defaults. A default sender here would clobber it and silently disable
-        // PowerShell's telemetry export.
-        var services = new ServiceCollection();
+        // PowerShell's telemetry export.        var services = new ServiceCollection();
         services.RegisterTelemetryServices();
 
         Assert.DoesNotContain(services, descriptor => descriptor.ServiceType == typeof(ITelemetrySender));
@@ -90,8 +89,8 @@ using OpenTelemetry.Trace;
 namespace Cmdlets.Tests;
 
 /// <summary>
-/// Locks the registration-phase contract that lets a host (specifically PSBenchmarkBase) swap the
-/// telemetry sender the PowerShell module would otherwise install.
+/// Locks the registration-phase contract that lets a host — PSBenchmarkBase — supply its own
+/// telemetry sender to the PowerShell module.
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
 public class ModuleInitializerSenderRegistrationTests
@@ -120,8 +119,7 @@ public class ModuleInitializerSenderRegistrationTests
         try
         {
             // Mirrors PSBenchmarkBase: the host enqueues its override, then Import-Module runs
-            // ModuleInitializer.OnImport, which registers its own sender and initializes the
-            // container. The override must win.
+            // ModuleInitializer.OnImport. The override wins.
             AzclipsServiceProvider.OverrideRegistration(services =>
                 services.AddSingleton<ITelemetrySender>(new StubTelemetrySender()));
 
@@ -155,15 +153,14 @@ In `src/PS/Login/ModuleInitializer.cs`, replace the body of the `using (timeline
 ```csharp
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
-            // A default the host may replace. Prepends run before the framework defaults and
-            // before every override, so a host that registers its own sender — a benchmark
-            // capturing traces to files — wins. Nothing in RegisterTelemetryServices registers
-            // ITelemetrySender, so in production this survives and behaviour is unchanged.
+            // A default the host may replace: prepends run before the framework defaults and
+            // before every override. Nothing in RegisterTelemetryServices registers
+            // ITelemetrySender, so this is what PowerShell resolves.
             AzclipsServiceProvider.PrependRegistration(services =>
                 services.AddSingleton<ITelemetrySender, DirectTelemetrySender>());
 
-            // These stay overrides: RegisterTelemetryServices registers DefaultTelemetryProvider
-            // among the defaults, so a prepended PSTelemetryProvider would be clobbered by it.
+            // Overrides, because RegisterTelemetryServices registers DefaultTelemetryProvider
+            // among the defaults and a prepend would lose to it.
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
@@ -226,10 +223,10 @@ namespace Benchmark.Telemetry;
 /// them into the run's deliverable. Shared by the CLI and PowerShell benchmark bases.
 /// </summary>
 /// <remarks>
-/// Benchmark-only: nothing in src/ references this type.
+/// Benchmark-only.
 ///
 /// <para><b>Never runs inside the measured region.</b> Constructed in [GlobalSetup] and used from
-/// [GlobalCleanup], both of which BenchmarkDotNet excludes from measurement.</para>
+/// [GlobalCleanup], neither of which BenchmarkDotNet measures.</para>
 /// </remarks>
 internal sealed class BenchmarkTelemetryArtifacts
 {
@@ -238,9 +235,8 @@ internal sealed class BenchmarkTelemetryArtifacts
     private readonly string _benchmarkName;
 
     /// <summary>
-    /// Resolves this process's benchmark method and its directories, then clears anything left by
-    /// a previous run. The staging path is stable across runs, so that reset is the only thing
-    /// stopping runs bleeding into each other.
+    /// Resolves this process's benchmark method and its directories, then clears the root. The
+    /// staging path is stable across runs, so that clear is what keeps runs separate.
     /// </summary>
     internal BenchmarkTelemetryArtifacts(string repoRoot)
     {
@@ -255,7 +251,7 @@ internal sealed class BenchmarkTelemetryArtifacts
     /// <summary>Where warmup-iteration traces are written. Deleted unread by <see cref="Prune"/>.</summary>
     internal string WarmupDirectory => Path.Combine(_telemetryRoot, "warmup");
 
-    /// <summary>Where measured-iteration traces are written. The only directory ever consumed.</summary>
+    /// <summary>Where measured-iteration traces are written. The only directory consumed.</summary>
     internal string ActualDirectory => Path.Combine(_telemetryRoot, "actual");
 
     /// <summary>
@@ -412,19 +408,17 @@ namespace Benchmark.Telemetry;
 
 /// <summary>
 /// Writes one benchmark iteration's spans into either the warmup or the measured directory, chosen
-/// by the flag <see cref="StageLatch"/> sets while that iteration is running.
+/// by the flag <see cref="StageLatch"/> sets while that iteration runs.
 /// </summary>
 /// <remarks>
-/// Benchmark-only: nothing in src/ references this type.
+/// Benchmark-only.
 ///
 /// <para><b>Does not run inside the measured region.</b> Export is called on the batch processor's
-/// drain, which happens when the TracerProvider is disposed in [IterationCleanup]. Keeping the file
-/// write out of the measured region is the entire reason this design uses a batch processor rather
-/// than reusing FileTelemetrySender's SimpleActivityExportProcessor.</para>
+/// drain, which happens when the TracerProvider is disposed in [IterationCleanup].</para>
 ///
-/// <para>The inner FileExporter is created on first export rather than in the constructor, because
-/// the destination is not known until the iteration has actually run. Export is only ever called by
-/// the batch processor's single worker thread, so the lazy assignment needs no synchronisation.</para>
+/// <para>The inner FileExporter is created on first export, because the destination is not known
+/// until the iteration has run. Export is only ever called by the batch processor's single worker
+/// thread, so the lazy assignment needs no synchronisation.</para>
 /// </remarks>
 internal sealed class StageDirectedFileExporter : BaseExporter<Activity>
 {
@@ -443,9 +437,9 @@ internal sealed class StageDirectedFileExporter : BaseExporter<Activity>
     }
 
     /// <summary>
-    /// Records that this iteration was a measured one. Set-only: one span observed inside the
-    /// measured region proves the whole iteration is measured, and a stray span ending outside it
-    /// must not be able to undo that.
+    /// Records that this iteration is a measured one. Set-only: one span observed inside the
+    /// measured region proves the whole iteration is measured, and a span ending outside it must
+    /// not undo that.
     /// </summary>
     internal void MarkMeasured() => _measured = true;
 
@@ -468,23 +462,21 @@ using OpenTelemetry;
 namespace Benchmark.Telemetry;
 
 /// <summary>
-/// Records whether the iteration that produced a span was a measured one, so
-/// <see cref="StageDirectedFileExporter"/> can file its trace after BenchmarkDotNet has already
-/// closed the measured region.
+/// Records whether the iteration that produced a span is a measured one, so
+/// <see cref="StageDirectedFileExporter"/> can pick a directory after BenchmarkDotNet has closed
+/// the measured region.
 /// </summary>
 /// <remarks>
-/// Benchmark-only: nothing in src/ references this type.
+/// Benchmark-only.
 ///
 /// <para><b>Runs inside the measured region.</b> OpenTelemetry calls OnEnd on the thread that ends
-/// the activity — here, the cmdlet thread — so this is the one type in this namespace whose code
-/// BenchmarkDotNet times. It is therefore limited to a flag check, a volatile read, and a store: no
-/// allocation, no I/O, no locking.</para>
+/// the activity — the cmdlet thread — so this is limited to a flag check, a volatile read, and a
+/// store: no allocation, no I/O, no locking.</para>
 ///
-/// <para>Sampling the stage here is a necessity, not a preference. Engine.RunIteration raises
-/// WorkloadActualStart immediately before the measured call and WorkloadActualStop immediately
-/// after it, so BenchmarkStageListener.IsMeasured reads false in [IterationSetup] — where the
-/// TracerProvider is built — and false again in [IterationCleanup] — where the file is written.
-/// The only window in which it is true is while the benchmark method runs.</para>
+/// <para>Engine.RunIteration raises WorkloadActualStart immediately before the measured call and
+/// WorkloadActualStop immediately after it, so BenchmarkStageListener.IsMeasured reads false in
+/// [IterationSetup], where the TracerProvider is built, and false again in [IterationCleanup],
+/// where the file is written. It is true only while the benchmark method runs.</para>
 /// </remarks>
 internal sealed class StageLatch : BaseProcessor<Activity>
 {
@@ -499,10 +491,9 @@ internal sealed class StageLatch : BaseProcessor<Activity>
 
     public override void OnEnd(Activity data)
     {
-        // Unrecorded spans are dropped downstream, so they must not get a vote on this iteration's
-        // stage. ImportTraceFilter runs earlier in the chain and clears Recorded on the module
-        // import trace, which is emitted from a background thread whose timing relative to the
-        // measured region is not controlled.
+        // Unrecorded spans are dropped downstream, so they get no vote on the iteration's stage.
+        // ImportTraceFilter runs earlier in the chain and clears Recorded on the module import
+        // trace, which is emitted from a background thread whose timing is not controlled.
         if (data is null || !data.Recorded) return;
 
         if (_stage.IsMeasured) _destination.MarkMeasured();
@@ -529,22 +520,19 @@ namespace Benchmark.Telemetry;
 /// invocations.
 /// </summary>
 /// <remarks>
-/// Benchmark-only: nothing in src/ references this type.
+/// Benchmark-only.
 ///
-/// <para><b>Runs inside the measured region.</b> Like every OpenTelemetry processor, OnEnd executes
-/// on the thread that ends the activity, so this is kept to a tag lookup and a prefix comparison.</para>
+/// <para><b>Runs inside the measured region.</b> OnEnd executes on the thread that ends the
+/// activity, so this is limited to a tag lookup and a prefix comparison.</para>
 ///
-/// <para>Every iteration re-imports the module, so ImportTelemetry emits one startup trace per
-/// iteration — without this filter, roughly half of every sampled file would be module import
-/// rather than the cmdlet under test. The import root is named "PowerShell.Activity.Root", the same
-/// name a cmdlet root uses, so the only reliable discriminator is the importKind tag that
-/// ImportTelemetry.Emit sets on it; its child phases are matched by name prefix instead. The tag
-/// survives DefaultTelemetryPropertyFilterProcessor because TelemetryTags.ImportKind is on that
-/// filter's allowlist.</para>
+/// <para>Every iteration imports the module, so ImportTelemetry emits one startup trace per
+/// iteration. Its root is named "PowerShell.Activity.Root", the same name a cmdlet root uses, so
+/// the discriminator is the importKind tag ImportTelemetry.Emit sets on it; the child phases match
+/// on name prefix. The tag survives DefaultTelemetryPropertyFilterProcessor because
+/// TelemetryTags.ImportKind is on that filter's allowlist.</para>
 ///
-/// <para>Clearing the Recorded flag is the same mechanism DefaultActivityNameFilterProcessor uses:
-/// both SimpleActivityExportProcessor and BatchActivityExportProcessor skip unrecorded
-/// activities.</para>
+/// <para>Clearing the Recorded flag is the mechanism DefaultActivityNameFilterProcessor uses: both
+/// SimpleActivityExportProcessor and BatchActivityExportProcessor skip unrecorded activities.</para>
 /// </remarks>
 internal sealed class ImportTraceFilter : BaseProcessor<Activity>
 {
@@ -580,23 +568,21 @@ using OpenTelemetry.Trace;
 namespace Benchmark.Telemetry;
 
 /// <summary>
-/// The <see cref="ITelemetrySender"/> PowerShell benchmarks run with. Writes real trace files
-/// through the production FileExporter, but off the measured thread.
+/// The <see cref="ITelemetrySender"/> PowerShell benchmarks run with. Writes trace files through
+/// the production FileExporter, off the measured thread.
 /// </summary>
 /// <remarks>
-/// Benchmark-only: no production composition root registers this. PSBenchmarkBase supplies it via
-/// AzclipsServiceProvider.OverrideRegistration, which beats the DirectTelemetrySender the
-/// PowerShell module registers in the prepend phase.
+/// Benchmark-only. PSBenchmarkBase supplies it via AzclipsServiceProvider.OverrideRegistration,
+/// which beats the DirectTelemetrySender the PowerShell module registers in the prepend phase.
 ///
 /// <para><b>ConfigureExporter does not run inside the measured region.</b> PSBenchmarkBase resolves
-/// ITelemetryService in [IterationSetup] specifically to force provider construction — and
-/// therefore this method — before the stopwatch starts.</para>
+/// ITelemetryService in [IterationSetup] to force provider construction — and therefore this
+/// method — before the stopwatch starts.</para>
 ///
-/// <para>This is FileTelemetrySender with two substitutions: BatchActivityExportProcessor instead
-/// of SimpleActivityExportProcessor, so the timed thread only enqueues; and a stage-directed
-/// exporter instead of a fixed directory, so warmup and measured traces land apart. Everything
-/// created here is owned by the TracerProvider and dies with it in [IterationCleanup], where the
-/// batch shutdown drains the queue to disk.</para>
+/// <para>The batch processor means the timed thread only enqueues; the stage-directed exporter
+/// separates warmup traces from measured ones. Everything created here is owned by the
+/// TracerProvider and dies with it in [IterationCleanup], where the batch shutdown drains the queue
+/// to disk.</para>
 /// </remarks>
 internal sealed class BenchmarkFileTelemetrySender : ITelemetrySender
 {
@@ -616,12 +602,11 @@ internal sealed class BenchmarkFileTelemetrySender : ITelemetrySender
 
     public void ConfigureExporter(TracerProviderBuilder builder)
     {
-        // One exporter per iteration, so each iteration writes its own traces-<traceId>.log —
-        // the same shape the CLI benchmarks produce.
+        // One exporter per iteration, so each iteration writes its own traces-<traceId>.log.
         var exporter = new StageDirectedFileExporter(_warmupDirectory, _actualDirectory);
 
-        // Order matters: the latch must see the span while the measured region is still open, and
-        // the batch processor must enqueue it afterwards.
+        // Order matters: the latch reads the stage while the measured region is open, and the
+        // batch processor enqueues afterwards.
         builder.AddProcessor(new StageLatch(_stage, exporter));
         builder.AddProcessor(new BatchActivityExportProcessor(exporter));
     }
@@ -711,8 +696,8 @@ Replace `GlobalSetup` with:
         Console.WriteLine($"[Setup] PS benchmarks ready for '{ModuleName}' (stub HTTP)");
 
         // One process per benchmark case, so these are constant for the whole run. The listener
-        // tracks the engine's stage and the sender just holds two paths, so neither is per-iteration
-        // state — only what ConfigureExporter builds is.
+        // tracks the engine's stage and the sender holds two paths; only what ConfigureExporter
+        // builds is per-iteration.
         _telemetry = new BenchmarkTelemetryArtifacts(RepoRoot);
         _stage = new BenchmarkStageListener();
         _sender = new BenchmarkFileTelemetrySender(
@@ -728,20 +713,19 @@ Add this method to `PSBenchmarkBase`, directly after `GlobalSetup`:
 
 ```csharp
     /// <summary>
-    /// Registers the benchmark-only telemetry stack, replacing the StubTelemetryService that
-    /// <see cref="BenchmarkBase.RegisterBenchmarkStubs"/> installs.
+    /// Registers the benchmark telemetry stack: the real TelemetryService, a sender that writes
+    /// trace files, and the filter that drops module-import traces.
     /// </summary>
     /// <remarks>
-    /// Called from [IterationSetup], which BenchmarkDotNet does not time. Of everything registered
-    /// here, only StageLatch.OnEnd, ImportTraceFilter.OnEnd, and the batch enqueue execute inside
-    /// the measured region — provider construction and the file write do not.
+    /// Called from [IterationSetup], which BenchmarkDotNet does not measure. Of what is registered
+    /// here, only StageLatch.OnEnd, ImportTraceFilter.OnEnd, and the batch enqueue run inside the
+    /// measured region; provider construction and the file write do not.
     ///
     /// <para>Repeated every iteration because [IterationCleanup] disposes the container. DI
-    /// last-wins semantics put TelemetryService ahead of the stub. ITelemetrySender wins over the
-    /// module's DirectTelemetrySender because the module registers that in the prepend phase, which
-    /// runs before every override.</para>
+    /// last-wins semantics put TelemetryService ahead of the stub registration. ITelemetrySender
+    /// wins over the module's DirectTelemetrySender, which is registered in the prepend phase.</para>
     ///
-    /// <para>ITelemetryProvider is deliberately not registered here: ModuleInitializer registers
+    /// <para>ITelemetryProvider is deliberately absent: ModuleInitializer registers
     /// PSTelemetryProvider during Import-Module, which is enqueued after this and must win.</para>
     /// </remarks>
     private void RegisterTelemetryCapture()
@@ -751,10 +735,9 @@ Add this method to `PSBenchmarkBase`, directly after `GlobalSetup`:
             services.AddSingleton<ITelemetryService, TelemetryService>();
             services.AddSingleton<ITelemetrySender>(_sender);
 
-            // Factory rather than by-type: ImportTraceFilter is internal, and DI's constructor
-            // selection wants a public one. Matches how BenchmarkAssemblyConfigurationService and
-            // StageTraceDirectoryProvider are already registered. A fresh instance per container
-            // also keeps disposal correct, since the container is rebuilt every iteration.
+            // Factory rather than by-type: ImportTraceFilter is internal and DI's constructor
+            // selection wants a public one. A fresh instance per container also keeps disposal
+            // correct, since the container is rebuilt every iteration.
             services.AddSingleton<BaseProcessor<Activity>>(_ => new ImportTraceFilter());
         });
     }
@@ -783,11 +766,9 @@ Replace `IterationSetup` with:
             import.Invoke();
             ThrowOnPowerShellErrors(import, "Import-Module");
 
-            // Force the telemetry stack — TracerProvider, processors, exporter — to be built here,
-            // outside the measured region. Import-Module has just initialised the container, so
-            // this is the earliest point it can be resolved. Without this the first cmdlet would
-            // pay provider construction, which costs far more than the file write this design
-            // moves out of the measurement.
+            // Build the telemetry stack — TracerProvider, processors, exporter — here, outside the
+            // measured region. Import-Module has just initialised the container, so this is the
+            // earliest point it can be resolved.
             AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
         catch
@@ -806,7 +787,7 @@ Add this method after `IterationCleanup`:
 ```csharp
     /// <summary>
     /// Samples this benchmark's measured traces into the run's deliverable and removes the raw
-    /// directories. No draining is needed: every iteration's TracerProvider was disposed in
+    /// directories. No draining is needed: each iteration's TracerProvider was disposed in
     /// [IterationCleanup], which flushed that iteration's spans to disk.
     /// </summary>
     [GlobalCleanup]
