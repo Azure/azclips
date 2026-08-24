@@ -10,7 +10,6 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors
 {
     public class ExchangeAadAccessTokenForAcrRefreshTokenProcessor : AcrDataPlaneProcessorBase<AcrRefreshToken>
     {
-        public string Endpoint { get; set; } = string.Empty;
         public PostContentSchemaGrantType GrantType { get; set; } = PostContentSchemaGrantType.AccessToken;
         public string? Tenant { get; set; } = string.Empty;
         public string? AccessToken { get; set; } = string.Empty;

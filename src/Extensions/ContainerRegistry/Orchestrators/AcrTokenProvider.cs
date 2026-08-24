@@ -48,8 +48,8 @@ internal sealed class AcrTokenProvider
 
     private static readonly HttpClient s_httpClient = new();
 
-    private readonly IAuthHandler _authHandler;
-    private readonly JsonSerializerOptions _jsonOptions;
+    private readonly IAuthHandler _authHandler = null!;
+    private readonly JsonSerializerOptions _jsonOptions = null!;
 
     /// <summary>Cached ACR access token, keyed by (loginServer, scope).</summary>
     private string? _cachedToken;

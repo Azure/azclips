@@ -19,13 +19,15 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 ///   <item><see cref="SendAsync"/> — sends the request through the pipeline.</item>
 /// </list>
 /// </summary>
-public abstract class AcrDataPlaneProcessorBase : IProcessor
+public abstract partial class AcrDataPlaneProcessorBase : IProcessor
 {
     public IRuntimeHttpPipeline HttpPipeline = null!;
     public IEventPublisher Publisher = null!;
     public IAuthHandler AuthHandler = null!;
     public JsonSerializerOptions JsonOptions = null!;
     protected OutputStreamDelegate WriteOutput = null!;
+
+    public string Endpoint { get; set; } = string.Empty;
 
     protected virtual void BeforeInit() { }
     protected virtual void AfterInit() { }
@@ -312,16 +314,21 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
 /// Leaf processors implement <see cref="AcrDataPlaneProcessorBase.CreateRequestMessage"/>.
 /// </para>
 /// </summary>
-public class AcrDataPlaneProcessorBase<TResponse> : AcrDataPlaneProcessorBase where TResponse : class
+public partial class AcrDataPlaneProcessorBase<TResponse> : AcrDataPlaneProcessorBase where TResponse : class
 {
     /// <summary>
     /// Projects the deserialized response before writing to output.
     /// Override to unwrap envelopes or select sub-properties.
     /// </summary>
     protected virtual object SelectOutput(TResponse body) => body;
+    partial void AuthOverride();
+    private partial Task AuthOverrideAsync();
 
     public override async Task ProcessAsync()
     {
+        AuthOverride();
+        await AuthOverrideAsync();
+
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         using HttpResponseMessage response = await SendAsync();
 
