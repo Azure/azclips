@@ -5,6 +5,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
+using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
@@ -21,18 +22,16 @@ public class ListTagProcessor : AcrDataPlaneProcessorBase
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "RepositoryName")]
     public string RepositoryName { get; set; } = "";
 
-    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
-    protected override string GetScope() => $"repository:{RepositoryName}:metadata_read";
-
     public override async Task ProcessAsync()
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            string loginServer = GetLoginServer();
-            string scope = GetScope();
+            string loginServer = AcrTokenProvider.ResolveLoginServer(RegistryName);
+            string scope = $"repository:{RepositoryName}:metadata_read";
+            await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions, loginServer, scope);
 
-            List<string> pages = await SendAsyncPaged(loginServer, $"/acr/v1/{RepositoryName}/_tags", scope);
+            List<string> pages = await SendAsyncPaged(loginServer, $"/acr/v1/{RepositoryName}/_tags");
 
             var allTags = new List<TagAttributeBase>();
             string? registry = null;

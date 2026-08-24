@@ -1,47 +1,37 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Text.Json;
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
 /// <summary>
-/// Validates connectivity and authentication to an Azure Container Registry.
-/// Performs docker login by acquiring ACR credentials and invoking the local docker executable.
+/// ACR connect (docker login).
+/// Flow: AAD token → ACR refresh token → docker login --password-stdin.
 /// CLI: az acr connect --name myregistry
 /// PS:  Connect-AzContainerRegistry -Name myregistry
 /// </summary>
 public class ConnectAcrProcessor : AcrDataPlaneProcessorBase
 {
+    private const string AcrDockerUserName = "00000000-0000-0000-0000-000000000000";
+
     [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "Name")]
     public string Name { get; set; } = "";
-
-    public string UserName { get; private set; } = AcrDockerUserName;
-    public string Password { get; private set; } = "";
-
-    protected override string GetLoginServer() => ResolveLoginServer(Name);
 
     public override async Task ProcessAsync()
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            string loginServer = GetLoginServer();
+            string loginServer = AcrTokenProvider.ResolveLoginServer(Name);
 
-            // Acquire ACR refresh token via the auth orchestrator (AAD token → ACR refresh token)
-            var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, JsonOptions);
-            string refreshToken = await authOrchestrator.AcquireAcrRefreshTokenAsync(loginServer);
+            var tokenProvider = new AcrTokenProvider(AuthHandler, JsonOptions);
+            string refreshToken = await tokenProvider.AcquireAcrRefreshTokenAsync(loginServer);
 
-            // Use refresh token as the docker login password
-            Password = refreshToken;
-            AuthHandler.ApplyOverride = true;
-
-            // Call docker login
-            await DockerLoginAsync(loginServer);
+            await DockerLoginAsync(loginServer, refreshToken);
 
             await WriteOutput(new { LoginServer = loginServer, Status = "Login Succeeded" });
         }
@@ -51,12 +41,12 @@ public class ConnectAcrProcessor : AcrDataPlaneProcessorBase
         }
     }
 
-    private async Task DockerLoginAsync(string loginServer)
+    private static async Task DockerLoginAsync(string loginServer, string password)
     {
-        var startInfo = new System.Diagnostics.ProcessStartInfo
+        var startInfo = new ProcessStartInfo
         {
             FileName = "docker",
-            Arguments = $"login {loginServer} -u {UserName} --password-stdin",
+            Arguments = $"login {loginServer} -u {AcrDockerUserName} --password-stdin",
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -64,21 +54,19 @@ public class ConnectAcrProcessor : AcrDataPlaneProcessorBase
             CreateNoWindow = true,
         };
 
-        using var process = System.Diagnostics.Process.Start(startInfo)
-            ?? throw new InvalidOperationException("Failed to start docker process.");
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Failed to start docker process. Ensure docker is installed and available in PATH.");
 
-        await process.StandardInput.WriteLineAsync(Password);
+        await process.StandardInput.WriteLineAsync(password);
         process.StandardInput.Close();
 
-        string output = await process.StandardOutput.ReadToEndAsync();
         string error = await process.StandardError.ReadToEndAsync();
-
         await process.WaitForExitAsync();
 
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException(
-                $"Docker login failed (exit code {process.ExitCode}): {error}");
+                $"Docker login to '{loginServer}' failed (exit code {process.ExitCode}): {error}");
         }
     }
 }

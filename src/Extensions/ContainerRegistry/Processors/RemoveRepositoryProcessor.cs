@@ -4,6 +4,7 @@
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
@@ -20,13 +21,10 @@ public class RemoveRepositoryProcessor : AcrDataPlaneProcessorBase
     [ArgumentInfo(Required = true, Description = "The name of the repository to delete.", SerializedName = "Repository")]
     public string Repository { get; set; } = "";
 
-    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
-    protected override string GetScope() => $"repository:{Repository}:delete,metadata_read";
-
     protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string loginServer = GetLoginServer();
+        string loginServer = AcrTokenProvider.ResolveLoginServer(RegistryName);
         var request = new HttpRequestMessage(HttpMethod.Delete, $"https://{loginServer}/acr/v1/{Repository}");
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
@@ -37,6 +35,8 @@ public class RemoveRepositoryProcessor : AcrDataPlaneProcessorBase
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
+            await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions,
+                AcrTokenProvider.ResolveLoginServer(RegistryName), $"repository:{Repository}:delete,metadata_read");
             using HttpResponseMessage response = await SendAsync();
 
             if (response.Content is not null)

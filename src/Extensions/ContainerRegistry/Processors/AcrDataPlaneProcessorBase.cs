@@ -8,7 +8,6 @@ using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
-using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
@@ -17,8 +16,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// <c>ComputeProcessorBase</c>:
 /// <list type="bullet">
 ///   <item><see cref="CreateRequestMessage"/> — builds the outgoing HTTP request.</item>
-///   <item><see cref="GetScope"/> — returns the ACR scope required for the request.</item>
-///   <item><see cref="SendAsync"/> — acquires the ACR token and sends the request.</item>
+///   <item><see cref="SendAsync"/> — sends the request through the pipeline.</item>
 /// </list>
 /// </summary>
 public abstract class AcrDataPlaneProcessorBase : IProcessor
@@ -61,40 +59,6 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
 
     public virtual Task ProcessAsync() => Task.CompletedTask;
 
-
-    /*
-        From Yabo:
-        Not 100% sure for data plane in general but for ACR Endpoint is parameter instead of fixed in spec
-    */
-    protected const string Server = ".azurecr.io";
-
-    /// <summary>
-    /// Standard OAuth username for ACR token-based authentication.
-    /// </summary>
-    internal const string AcrDockerUserName = "00000000-0000-0000-0000-000000000000";
-
-    /// <summary>
-    /// Returns the ACR scope required for this request (e.g. "repository:myrepo:metadata_read").
-    /// Override in derived processors. Empty string means skip scope (for testing).
-    /// </summary>
-    protected virtual string GetScope() => "";
-
-    /// <summary>
-    /// Returns the login server FQDN (e.g. "myregistry.azurecr.io").
-    /// Override in derived processors to provide the endpoint.
-    /// </summary>
-    protected virtual string GetLoginServer() => "";
-
-    /// <summary>
-    /// Resolves a registry name to its login server FQDN.
-    /// </summary>
-    protected static string ResolveLoginServer(string registryName) => ResolveLoginServerFromName(registryName);
-
-    /// <summary>
-    /// Resolves a registry name to its login server FQDN. Accessible from orchestrators in the same assembly.
-    /// </summary>
-    internal static string ResolveLoginServerFromName(string registryName) => $"{registryName}{Server}";
-
     /// <summary>
     /// Processors override to build the outgoing <see cref="HttpRequestMessage"/>.
     /// </summary>
@@ -107,35 +71,13 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
     protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
 
     /// <summary>
-    /// Sends the request with ACR auth: acquires ACR token via the 3-step exchange flow,
-    /// sets <see cref="IAuthHandler.AcquireTokenAsyncOverride"/> to return the cached ACR token,
-    /// then sends through the pipeline.
+    /// Sends the request through the pipeline with authentication.
+    /// Auth must be configured on <see cref="IAuthHandler"/> before calling.
     /// </summary>
      internal async virtual Task<HttpResponseMessage> SendAsync()
         {
             IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
             IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-
-            // Wire up ACR auth: acquire token via 3-step exchange, override token delegate
-            string loginServer = GetLoginServer();
-            if (!string.IsNullOrEmpty(loginServer))
-            {
-                var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, JsonOptions);
-
-                string scope = GetScope();
-                string acrToken = await authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
-
-                // Override the token delegate to return the ACR access token
-                AuthHandler.AcquireTokenAsyncOverride = (scopes, tenantId, promptOnError, ct, profile) =>
-                    Task.FromResult(new AuthResult
-                    {
-                        AccessToken = acrToken,
-                        ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
-                        Scopes = Array.Empty<string>(),
-                        TenantId = tenantId ?? string.Empty,
-                    });
-                AuthHandler.ApplyOverride = true;
-            }
 
             using HttpRequestMessage _request = await CreateRequestMessage();
             HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
@@ -318,25 +260,12 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
 
     /// <summary>
     /// Sends paginated GET requests to an ACR data-plane endpoint, collecting all pages.
-    /// Acquires the ACR token for the given scope before fetching.
+    /// Auth must be configured on <see cref="IAuthHandler"/> before calling.
     /// </summary>
-    protected async Task<List<string>> SendAsyncPaged(string loginServer, string path, string scope)
+    protected async Task<List<string>> SendAsyncPaged(string loginServer, string path)
     {
         IRuntimeHttpPipeline pipeline = HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
         IEventPublisher publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-
-        // Wire up ACR auth
-        var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, JsonOptions);
-        string acrToken = await authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
-        AuthHandler.AcquireTokenAsyncOverride = (scopes, tenantId, promptOnError, ct, profile) =>
-            Task.FromResult(new AuthResult
-            {
-                AccessToken = acrToken,
-                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
-                Scopes = Array.Empty<string>(),
-                TenantId = tenantId ?? string.Empty,
-            });
-        AuthHandler.ApplyOverride = true;
 
         var pages = new List<string>();
         string? nextLink = $"https://{loginServer}{path}";
@@ -379,8 +308,8 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
 /// 1) Publish start, 2) <see cref="AcrDataPlaneProcessorBase.SendAsync"/>,
 /// 3) deserialize into <typeparamref name="TResponse"/>, 4) <see cref="SelectOutput"/>, 5) write output, 6) Publish end.
 /// <para>
-/// Leaf processors only need to implement <see cref="AcrDataPlaneProcessorBase.CreateRequestMessage"/>,
-/// <see cref="AcrDataPlaneProcessorBase.GetScope"/>, and <see cref="AcrDataPlaneProcessorBase.GetLoginServer"/>.
+/// Auth must be configured on <see cref="IAuthHandler"/> before <see cref="ProcessAsync"/> runs.
+/// Leaf processors implement <see cref="AcrDataPlaneProcessorBase.CreateRequestMessage"/>.
 /// </para>
 /// </summary>
 public class AcrDataPlaneProcessorBase<TResponse> : AcrDataPlaneProcessorBase where TResponse : class

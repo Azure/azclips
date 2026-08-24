@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
+using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
@@ -23,15 +24,19 @@ public class GetManifestProcessor : AcrDataPlaneProcessorBase<ManifestAttributes
     [ArgumentInfo(Required = true, Description = "The manifest reference (tag or digest).", SerializedName = "Reference")]
     public string Reference { get; set; } = "";
 
-    protected override string GetLoginServer() => ResolveLoginServer(RegistryName);
-    protected override string GetScope() => $"repository:{RepositoryName}:metadata_read";
-
     protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string loginServer = GetLoginServer();
+        string loginServer = AcrTokenProvider.ResolveLoginServer(RegistryName);
         var request = new HttpRequestMessage(HttpMethod.Get, $"https://{loginServer}/acr/v1/{RepositoryName}/_manifests/{Reference}");
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
+    }
+
+    public override async Task ProcessAsync()
+    {
+        await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions,
+            AcrTokenProvider.ResolveLoginServer(RegistryName), $"repository:{RepositoryName}:metadata_read");
+        await base.ProcessAsync();
     }
 }

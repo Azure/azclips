@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
 
@@ -17,8 +18,34 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 /// Token exchange requests use a raw <see cref="HttpClient"/> to avoid the pipeline
 /// injecting an ARM Bearer token, which ACR's oauth endpoints would reject.
 /// </summary>
-internal sealed class AcrAuthOrchestrator
+internal sealed class AcrTokenProvider
 {
+    /// <summary>ACR login server suffix.</summary>
+    internal const string AcrSuffix = ".azurecr.io";
+
+    /// <summary>Resolves a registry name to its login server FQDN.</summary>
+    internal static string ResolveLoginServer(string registryName) => $"{registryName}{AcrSuffix}";
+
+    /// <summary>
+    /// Acquires ACR token and wires <see cref="IAuthHandler.AcquireTokenAsyncOverride"/>
+    /// so subsequent pipeline calls carry the ACR Bearer token.
+    /// Call this before sending data-plane requests through the pipeline.
+    /// </summary>
+    internal static async Task SetupAuthAsync(IAuthHandler authHandler, JsonSerializerOptions jsonOptions, string loginServer, string scope)
+    {
+        var orchestrator = new AcrTokenProvider(authHandler, jsonOptions);
+        string acrToken = await orchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
+        authHandler.AcquireTokenAsyncOverride = (scopes, tenantId, promptOnError, ct, profile) =>
+            Task.FromResult(new AuthResult
+            {
+                AccessToken = acrToken,
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                Scopes = Array.Empty<string>(),
+                TenantId = tenantId ?? string.Empty,
+            });
+        authHandler.ApplyOverride = true;
+    }
+
     private static readonly HttpClient s_httpClient = new();
 
     private readonly IAuthHandler _authHandler;
@@ -29,7 +56,7 @@ internal sealed class AcrAuthOrchestrator
     private string? _cachedLoginServer;
     private string? _cachedScope;
 
-    public AcrAuthOrchestrator(
+    public AcrTokenProvider(
         IAuthHandler authHandler,
         JsonSerializerOptions jsonOptions)
     {
