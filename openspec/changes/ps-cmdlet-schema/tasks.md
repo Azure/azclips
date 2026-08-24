@@ -1,10 +1,11 @@
-Tasks are organized by the level each piece of schema targets — module, command, parameter, and
-output-formatting — following design.md's target-first method: for each level, the real PS SDK
-shape was found first (via live reflection or, for output-formatting, a direct generator-source
-audit), then a fixed framework decided what's in scope, then the schema/derivation was
-implemented. Pipeline mechanism (shared across all levels) and real-fixture verification are
+Tasks are organized by the level each piece of schema targets — module, command, parameter —
+following design.md's target-first method: for each level, the real PS SDK shape was found first
+(via live reflection), then a fixed framework decided what's in scope, then the schema/derivation
+was implemented. Pipeline mechanism (shared across all levels) and real-fixture verification are
 their own sections since they aren't level-specific. See design.md for the full target analysis,
-framework verdicts, and Appendix schema reference behind every task below.
+framework verdicts, and Appendix schema reference behind every task below. A fourth level
+(output-formatting, `Format.ps1xml`) was investigated and designed but is deliberately out of
+scope for now — see design.md's "Output-formatting level" section for why.
 
 ## Pipeline infrastructure
 
@@ -183,31 +184,6 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
 - [x] Added a unit test (synthetic fixture, mirroring the real `SubscriptionId`-across-`Get`/
       `List`-sets case) proving a parameter's effective `mandatory` can differ across two merged
       parameter sets on the same command, plus fallback and no-hint-at-all cases.
-
-## Output-formatting schema
-
-Goal: `Format.ps1xml`-equivalent table views for a command's output types — found by auditing the
-real generator (`ExportFormatPs1xml.cs`/`PsAttributes.cs`), not live reflection; see design.md's
-"Output-formatting level" section for the full real-target analysis and framework verdicts.
-
-- [ ] Add an optional `rendering.powershell` block to `IRModel`'s per-property hints
-      (`toolkit/packages/ir/src/hints.ts`): `formatIndex`, `formatLabel`, `formatWidth`,
-      `excludeFromFormat`. Add Zod schema + unit tests.
-- [ ] Add `PsFormatView` (`toolkit/packages/ps-commands`) and `deriveFormatViews(ir: IR):
-      PsFormatView[]` — a plain function (not a `TransformStep`), mirroring
-      `derivePsCommands`/`deriveModules`. Default column set: simple-scalar (mirrors the real
-      generator's `IsPsSimple()` check), non-`Inlined` (reusing IR's existing `FlattenHint`)
-      properties, ordered by `Origin` then declaration order; apply
-      `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` overrides where present.
-- [ ] Add a unit test proving the default-view rule against a synthetic model with a mix of
-      simple-scalar, complex/nested, and flattened (`Inlined`) properties — confirming only the
-      simple, non-inlined ones appear by default, in the right order.
-- [ ] Add a unit test proving a `formatIndex`/`formatLabel`/`formatWidth` override changes a
-      property's position/label/width in the derived view, and `excludeFromFormat` removes an
-      otherwise-eligible simple-scalar property.
-- [ ] Verify end-to-end against the real `resourcegroup.tsp` fixture: derive the format view for
-      its response model and confirm the column set matches what the model's own property shapes
-      predict (no hand-curation needed for the default case).
 
 ## Real-fixture verification & integration
 

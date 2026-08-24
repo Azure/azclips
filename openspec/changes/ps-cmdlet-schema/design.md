@@ -128,10 +128,11 @@ Processor-based, CLI+PS dual-surfaced architecture.
   load-bearing SDK attributes not modeled today; tracked as contingent on IR exposing the
   TypeSpec constraint decorators they'd derive from (see Parameter-level section), not excluded
   on the merits.
-- `Types.ps1xml` (ETS type extensions) — found alongside the real, in-scope `Format.ps1xml`
-  output-formatting level (see the dedicated "Output-formatting level" section below), but
-  excluded on its own merits: only 4 hand-authored files exist workspace-wide, not an
-  ecosystem-wide, generator-driven pattern like `Format.ps1xml`.
+- `Format.ps1xml`/`Types.ps1xml` (output-formatting, `FormatTableAttribute`/`DoNotFormatAttribute`/
+  ETS type extensions) — see the dedicated "Output-formatting level" section below. Genuinely
+  passes the framework (real, cheap, ecosystem-confirmed), but deliberately excluded anyway: it's
+  purely cosmetic (a Cmdlet works correctly with zero format view), unlike everything else in
+  this change, which is functionally load-bearing. Revisit once a real generator exists.
 - `ExportedFunctions`/`ExportedVariables`/`ExportedAliases`/`HelpInfoUri`/`IconUri` — see
   Module-level section; real `PSModuleInfo` fields with no IR-derivable source of truth or no
   azclips precedent (command aliases), not silently dropped.
@@ -352,7 +353,7 @@ constraint decorators (`@minValue`/`@maxValue`, `@minLength`/`@maxLength`, `@pat
 `@minItems`/`@maxItems`) that IR may not yet expose. Not added to the schema now; revisit once IR
 exposes these constraints (tracked separately, outside this change).
 
-## Output-formatting level (`Format.ps1xml`)
+## Output-formatting level (`Format.ps1xml`) — out of scope for now
 
 A fourth level exists beyond Module/Command/Parameter: how a command's **returned object**
 displays (`Format.ps1xml` table/list views). Found only after this design's own three levels were
@@ -377,35 +378,41 @@ not a nested object or collection). Ordered by explicit `Index` if present, else
 properties, `Source`/`Tags`/`InstanceView`, are complex/nested and excluded) and
 `VirtualMachineRunCommandInstanceView` (shows all 7 properties — every one happens to be a simple
 scalar): it's a deterministic function of each property's own shape, not per-model hand curation.
-Critically, `Origin: Inlined` is the exact same concept IR already tracks via its existing
-`FlattenHint` (see Goals: "Reuse IR's existing `FlattenHint` as-is") — the default rule needs no
-new IR data at all, just `IRModel`'s own property list, each property's type, and flatten info IR
-already carries.
+
+The real `[FormatTable]`/`suppress-format` overrides are themselves only ever authored in
+AutoRest.PowerShell's own `readme.md` `directive:` block (confirmed via real, in-repo examples:
+`Dns`/`Storage`/`Purview`'s `README.md`) — a downstream, post-compilation generator-config layer,
+never the API spec itself (TypeSpec or hand-written Swagger alike). That's real, additional
+evidence for the verdict below, not just a curiosity.
 
 ### Framework verdict
 | Field | (1) Real? | (2) IR-derivable? | (3) Ecosystem check | Verdict |
 |---|---|---|---|---|
-| Default table view (simple-scalar, non-inlined properties, in declaration order) | Yes — real generator output, consumed by PowerShell's formatting engine at runtime | **Yes, with zero new hint vocabulary** — a pure function of `IRModel`'s existing property list, each property's type, and the existing `FlattenHint`/origin data | Confirmed ecosystem-wide: 249 generated modules, one file each | **In scope** |
-| Per-property override (`FormatTableAttribute`-equivalent: index/label/width, `DoNotFormat`-equivalent exclude) | Yes — real, bounded per-property authoring surface | Yes — same shape as the parameter-level per-parameter-set override already in scope | Present in real generated output wherever the default ordering/labeling needs correcting | **In scope** — small, bounded, same pattern as existing per-field overrides |
+| Default table view (simple-scalar, non-inlined properties, in declaration order) | Yes — real generator output, consumed by PowerShell's formatting engine at runtime | Yes, cheaply — a pure function of `IRModel`'s existing property list, each property's type, and the existing `FlattenHint`/origin data | Confirmed ecosystem-wide: 249 generated modules, one file each | Passes the framework, but see decision below |
+| Per-property override (`FormatTableAttribute`-equivalent: index/label/width, `DoNotFormat`-equivalent exclude) | Yes — real, bounded per-property authoring surface | Yes, but with no realistic authoring path today (see below) | Present in real generated output; always authored via a downstream directive, never the spec | Out of scope for now |
 | `Types.ps1xml` (ETS type extensions) | Yes, but rare | — | Only 4 files exist workspace-wide (`Accounts`/`Sql`/`Functions`, all hand-authored, none auto-generated) — fails the "mature, ecosystem-wide" bar the `Format.ps1xml` evidence clears | Out of scope — not a generator-wide pattern |
 
-### Schema decided
-Unlike everything else this design initially assumed would need deferring, `Format.ps1xml`
-genuinely passes all three framework criteria **cheaply** — the default view requires no new IR
-hints at all, only a new derivation function. Split the same way as Module/Command/Parameter:
+### Decision: out of scope for now
+This is the one level in this design that genuinely passes the three-part framework **and** is
+still being deliberately excluded — not because it's expensive (it isn't; the default view is a
+cheap, pure function of data IR already has) but because it's a categorically different kind of
+requirement from everything else in this change:
 
-- **`hints.powershell` on `IRModel`'s per-property `rendering`** (a fourth namespace, alongside
-  `IROperation`/`IRParameter`/`IRSource`): optional `formatIndex`, `formatLabel`, `formatWidth`,
-  `excludeFromFormat` — all optional, all defaulting to the mechanical rule above when absent.
-- **`PsFormatView`**, a new type in the `ps-commands` package: `{ sourceModelId, columns:
-  { propertyName, label, width }[] }`, and `deriveFormatViews(ir: IR): PsFormatView[]` — a plain
-  function (not a `TransformStep`), mirroring `derivePsCommands`/`deriveModules` exactly: for
-  every `IRModel` reachable from a derived command's output types, computes the default column
-  set (simple-scalar, non-`Inlined` properties, ordered by `Origin` then declaration order),
-  applying any `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` overrides from
-  `rendering.powershell` where present.
-- `Types.ps1xml` stays excluded on the merits (not an ecosystem-wide, generator-driven pattern —
-  only 4 hand-authored files exist).
+- **Command/Parameter/Module-level schema is functionally load-bearing.** A generated Cmdlet
+  cannot exist without *some* value for verb/noun/mandatory/etc. — these are required inputs to
+  correct cmdlet behavior.
+- **Output-formatting is purely cosmetic.** A generated Cmdlet works completely correctly with
+  *zero* format view — PowerShell simply falls back to a default property dump. Nothing breaks, no
+  data is wrong, no binding fails. It only affects how polished the console output looks.
+
+Given `generate-ps-commands` is still an explicit debug placeholder — no real C# generator exists
+yet to consume *any* of this schema, Module-level included — investing further in the one part of
+this change with zero functional necessity is the wrong thing to prioritize right now. Revisit
+once a real generator exists and someone actually hits "my cmdlet's default console output looks
+bad" in practice; at that point the default-view derivation is cheap to add back (this section's
+research stays valid), and the override authoring question (a `model`/`property` directive
+selector, mirroring the real `format-table`/`suppress-format` directive) can be scoped then, with
+a real consumer to design against instead of a speculative one.
 
 ## Pipeline mechanism (cross-cutting, not level-specific)
 
@@ -541,17 +548,3 @@ per `PsParameterSet` it emits a binding for.
 | `alias` / `hidden` / `completer` | Copied from `hints.powershell` |
 | `summary` / `description` / `examples` / `lifecycleTag` | Copied from `hints.powershell` |
 | `httpPath` / `supportsPaging` / `helpUri` | Copied from `hints.powershell` |
-
-### `hints.powershell` on `IRModel`'s per-property `rendering` (output-formatting)
-| Field | Notes |
-|---|---|
-| `formatIndex` | Optional explicit column order override; mirrors `FormatTableAttribute.Index` |
-| `formatLabel` | Optional column header text override; mirrors `FormatTableAttribute.Label` |
-| `formatWidth` | Optional column width override; mirrors `FormatTableAttribute.Width` |
-| `excludeFromFormat` | Excludes this property from the default table view; mirrors `DoNotFormatAttribute` |
-
-### `ps-commands` package: `PsFormatView` (thin aggregate)
-| Field | Notes |
-|---|---|
-| `sourceModelId` | `IRModel.id` this view derives from |
-| `columns` | `{ propertyName, label, width }[]` — default: simple-scalar, non-`Inlined` properties in `Origin`-then-declaration order; overridden per-property by `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` |
