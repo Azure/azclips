@@ -247,13 +247,19 @@ identical, operation-independent infrastructure injected into every command (tod
 model, so folding it into `hints.powershell` would model something the schema has no way to
 derive.
 
-**`DefaultParameterSetName`, confirmed gap**: add a command-level `defaultParameterSetName` field
-to `PsCommand`, distinct from the per-operation `parameterSetName` each merged operation already
-contributes. Found by auditing the real `CmdletCommonMetadataAttribute` source directly (not just
-live reflection) — real precedent (`GetResourceGroupCmdlet`'s `DefaultParameterSetName = "List"`)
-was already cited in this design's prose without ever being backed by an actual schema field.
-Derivation: default to the source operation contributing the LEAST specific/most general
-parameter set when merging (e.g. `List` over `Get`) unless overridden.
+**`DefaultParameterSetName`, confirmed gap, implemented**: added a command-level
+`defaultParameterSetName` field to `PsCommand`, distinct from the per-operation `parameterSetName`
+each merged operation already contributes. Found by auditing the real
+`CmdletCommonMetadataAttribute` source directly (not just live reflection) — real precedent
+(`GetResourceGroupCmdlet`'s `DefaultParameterSetName = "List"`) was already cited in this design's
+prose without ever being backed by an actual schema field. `derivePsCommands()` computes it with a
+two-tier heuristic, both checked against real precedent: merging distinct source operations (e.g.
+`get`+`list`) prefers whichever has fewer required parameters — real precedent confirmed
+end-to-end against the real `ResourceGroup` fixture (`List` over `Get`, no `resourceGroupName`
+required); a single operation fanned into `base`+`Expanded` prefers `Expanded` — real precedent
+found directly in generated modules (e.g. `DefaultParameterSetName='CreateExpanded'`). No
+author-override mechanism was added — no existing per-operation hint field fits, and no real
+fixture needed one; revisit only if a real case surfaces where the heuristic picks wrong.
 
 **Per-parameter-set output types, tracked but not built now**: `OutputTypeAttribute.ParameterSetName`
 proves output types can vary per parameter set in principle, but checking the real generated
@@ -513,6 +519,12 @@ registrations; would need a CLI-aware dimension if that ever diverges.
 | `name` | Source-operation-derived (e.g. `"Get"`, `"List"`) |
 | `sourceOperationId` | Reference into IR — `hints.powershell` holds the parameter details |
 
+### `ps-commands` package: `resolveParameterHintForSet(parameter, setName)`
+A standalone helper, not a `PsParameterSet` field (kept bare by design — see above). Resolves a
+parameter's effective `mandatory`/`position`/`helpMessage` for one parameter set: checks
+`parameterSets[setName]` first, falls back to the flat value. A future generator calls this once
+per `PsParameterSet` it emits a binding for.
+
 ### `ps-commands` package: `PsCommand` (thin aggregate)
 | Field | Notes |
 |---|---|
@@ -521,7 +533,7 @@ registrations; would need a CLI-aware dimension if that ever diverges.
 | `supportsShouldProcess` / `confirmImpact` | Copied from `hints.powershell` |
 | `outputTypes` | By-id refs into IR |
 | `parameterSets` | `PsParameterSet[]` — one per merged source operation |
-| `defaultParameterSetName` | Mirrors `CmdletCommonMetadataAttribute.DefaultParameterSetName`; defaults to the most general merged set (e.g. `List` over `Get`) unless overridden |
+| `defaultParameterSetName` | Mirrors `CmdletCommonMetadataAttribute.DefaultParameterSetName`; computed by `derivePsCommands` — fewest-required-parameters wins across merged operations (e.g. `List` over `Get`), `Expanded` wins over `base` for a single fanned-out operation; no author override yet |
 | `sourceOperationIds` | IR operation id(s) this command derives from |
 | `alias` / `hidden` / `completer` | Copied from `hints.powershell` |
 | `summary` / `description` / `examples` / `lifecycleTag` | Copied from `hints.powershell` |

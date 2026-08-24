@@ -119,12 +119,18 @@ is a generator-default note, not a schema field, and why `SupportsTransactions`/
 - [x] Verify end-to-end against the real `resourcegroup.tsp` fixture (not synthetic operations):
       a command-hide directive matches the real `delete`-derived `Remove-AzResourceGroup` command
       by its actually-inferred verb/subject.
-- [ ] Add `defaultParameterSetName` to `PsCommand` (`toolkit/packages/ps-commands`), mirroring
+- [x] Add `defaultParameterSetName` to `PsCommand` (`toolkit/packages/ps-commands`), mirroring
       `CmdletCommonMetadataAttribute.DefaultParameterSetName` — confirmed gap found via a full
       audit of the real `Attributes.cs` source, not just live reflection. `derivePsCommands()`
-      defaults it to the most general merged parameter set (e.g. `List` over `Get`, matching the
-      real `GetResourceGroupCmdlet.DefaultParameterSetName = "List"` precedent) unless an author
-      override exists. Add unit tests using the real `ResourceGroup` fixture.
+      computes it with a two-tier heuristic, both checked against real precedent: merged distinct
+      operations (e.g. `get`+`list`) prefer the one with fewer required parameters (`List` over
+      `Get`, matching `GetResourceGroupCmdlet.DefaultParameterSetName = "List"`); a single
+      operation fanned into `base`+`Expanded` prefers `Expanded` (matching real generated modules'
+      `DefaultParameterSetName='CreateExpanded'`). No author-override mechanism yet — not added,
+      since there's no existing per-operation hint field for it and none of the real fixtures
+      needed one; revisit if a real case surfaces where the heuristic picks wrong. Added unit
+      tests in `derive.test.ts`/`schema.test.ts` and e2e coverage using the real `ResourceGroup`
+      fixture (`cli/test/create-ps-commands.e2e.test.ts`).
 
 ## Parameter-level schema
 
@@ -157,17 +163,21 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
       parameter survives `create-ps-commands` unclobbered (no parameter-level inference exists to
       conflict with it); a parameter-alias directive applies across every real operation sharing
       the `resourceGroupName` parameter.
-- [ ] Add an optional `parameterSets` map to `PowershellParameterHint`
+- [x] Add an optional `parameterSets` map to `PowershellParameterHint`
       (`toolkit/packages/ir/src/hints.ts`) — `Record<string, { mandatory?, position?,
       helpMessage? }>` keyed by parameter-set name. The existing flat `mandatory`/`position`/
-      `helpMessage` fields remain the default/fallback. Add Zod schema + unit tests confirming
+      `helpMessage` fields remain the default/fallback. Added Zod schema + unit tests confirming
       both the flat-only and per-set-override shapes round-trip.
-- [ ] Update `create-ps-commands`/`derivePsCommands()` to resolve a parameter's effective
-      `mandatory`/`position`/`helpMessage` by checking `parameterSets[setName]` first, falling
-      back to the flat value, for each `PsParameterSet` it produces.
-- [ ] Add a unit test (synthetic fixture, mirroring the real `SubscriptionId`-across-`Get`/
+- [x] Added `resolveParameterHintForSet(parameter, setName)` to `toolkit/packages/ps-commands`
+      (exported from `index.ts`), resolving a parameter's effective `mandatory`/`position`/
+      `helpMessage` by checking `parameterSets[setName]` first, falling back to the flat value.
+      Kept as a standalone helper rather than a `PsParameterSet` field, since `PsParameterSet`
+      stays bare by design (schema.ts) — parameter-level detail lives on the referenced
+      operation's own parameters, not the grouping shape. A future generator calls this per
+      `PsParameterSet` it emits a binding for.
+- [x] Added a unit test (synthetic fixture, mirroring the real `SubscriptionId`-across-`Get`/
       `List`-sets case) proving a parameter's effective `mandatory` can differ across two merged
-      parameter sets on the same command.
+      parameter sets on the same command, plus fallback and no-hint-at-all cases.
 
 ## Output-formatting schema
 
