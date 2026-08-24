@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Azure.Monitor.OpenTelemetry.Exporter;
+using OpenTelemetry;
 using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
@@ -36,6 +37,14 @@ internal static class TelemetryExporters
             {
                 options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
             });
+
+            // Export to Aria via OneCollector (trace→log bridge).
+            // Global collector → US storage (portal.aria.ms)
+            builder.AddProcessor(new SimpleActivityExportProcessor(
+                new AriaActivityExporter(WellKnownEndpoints.AriaConnectionString)));
+            // EU collector → EU storage (eu.portal.aria.ms), EUDB-compliant
+            builder.AddProcessor(new SimpleActivityExportProcessor(
+                new AriaActivityExporter(WellKnownEndpoints.AriaEuConnectionString)));
         }
         else
         {
