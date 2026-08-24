@@ -140,10 +140,32 @@ The provider is built in `IterationSetup`, which always runs before the measured
 export runs at cleanup, by which point the engine has already signalled the measured region closed, so
 asking at export time always answers "warmup" too.
 
-The answer is only knowable *during* the iteration. A small `StageLatch` processor reads
-`BenchmarkStageListener.IsMeasured` at `OnEnd`, on the cmdlet's own thread, and latches it:
+The answer is only knowable *during* the iteration. This is confirmed by `Engine.RunIteration` in
+BenchmarkDotNet 0.13.12, which brackets the events tightly around the clock:
 
 ```csharp
+if (!isOverhead) IterationSetupAction();     // IsMeasured == false
+EngineEventSource.Log.IterationStart(...);   // flips true
+var clock = Clock.Start();
+action(invokeCount / unrollFactor);          // the benchmark method
+var clockSpan = clock.GetElapsed();
+EngineEventSource.Log.IterationStop(...);    // flips false
+if (!isOverhead) IterationCleanupAction();   // IsMeasured == false
+```
+
+So a small `StageLatch` processor reads `BenchmarkStageListener.IsMeasured` at `OnEnd`, on the cmdlet's
+own thread, and latches it:
+
+```csharp
+/// <summary>
+/// Benchmark-only. Records whether this iteration was a measured one, so the exporter can file its
+/// trace after the engine has already closed the measured region.
+/// </summary>
+/// <remarks>
+/// OnEnd runs on the thread that ends the activity — the cmdlet thread — and therefore executes
+/// INSIDE BenchmarkDotNet's measured region. It is kept to a flag check, a volatile read, and a
+/// store: no allocation, no I/O, no locking. Nothing else in this type runs while timed.
+/// </remarks>
 public override void OnEnd(Activity data)
 {
     if (!data.Recorded) return;
@@ -162,6 +184,15 @@ import filter has already cleared `Recorded` by the time `StageLatch` runs, so t
 latch the stage. The set-only rule covers any other stray span the same way.
 
 Cost inside the measured region: one volatile read, plus the enqueue.
+
+**Rejected: making `BenchmarkStageListener` hold the answer.** The listener could set on
+`WorkloadActualStart` and clear on `WorkloadWarmupStart` instead of on `WorkloadActualStop`, leaving
+the flag readable during `IterationCleanup` and removing `StageLatch` entirely. It works, but it
+changes the meaning of a type CLI already depends on — from "the measured region is open now" to "the
+most recent bracket was a measured one" — which would require re-validating the CLI path for a saving
+of roughly six lines. The two also disagree about the extra-stats iteration that `[MemoryDiagnoser]`
+runs, which fires no engine events at all. Keeping the listener's contract precise is worth more than
+the class.
 
 ## Architecture
 
@@ -205,15 +236,39 @@ use the internal `FileExporter` without widening any surface.
 
 ### New benchmark types — `tests/Benchmark/Telemetry/`
 
+**All of these are benchmark-only.** They live in `tests/Benchmark`, are `internal` to that assembly,
+and are never registered by any production composition root. `src/CLI/Program.cs`, `TUI/Program.cs`,
+and `ModuleInitializer` continue to register `FileTelemetrySender` or `DirectTelemetrySender`; none of
+them can see these types. They exist solely to answer "which BenchmarkDotNet stage produced this
+span?", a question that has no meaning outside a benchmark run.
+
+Each entry states **where it runs relative to the measured region**, because that is the property this
+whole design turns on:
+
+| Type | Runs | In the timed region? |
+|---|---|---|
+| `BenchmarkFileTelemetrySender` | `ConfigureExporter`, once per iteration during `IterationSetup` | **No** — provider construction is deliberately pulled out of the measurement |
+| `StageLatch` | `OnEnd`, on the cmdlet thread as each span closes | **Yes** — one volatile read; this is the point |
+| `BatchActivityExportProcessor` | `OnEnd` enqueues; its thread drains at shutdown | **Enqueue yes, write no** |
+| `StageDirectedFileExporter` | `Export`, during the drain in `IterationCleanup` | **No** |
+| `ImportTraceFilter` | `OnEnd`, ahead of `StageLatch` | **Yes** — a tag lookup and a name prefix check |
+| `BenchmarkTelemetryArtifacts` | `GlobalSetup` / `GlobalCleanup` | **No** |
+
+So the measured region pays exactly: two cheap `OnEnd` checks and a queue enqueue. Everything else —
+building the provider, writing the file, sampling, deleting — happens in a BenchmarkDotNet hook that
+is not timed.
+
 **`BenchmarkFileTelemetrySender : ITelemetrySender`** — the benchmark's sender. Holds the two
 directory paths and the stage listener. `ConfigureExporter` builds a fresh chain per call:
 
 ```csharp
+// Called from PSTelemetryProvider's constructor, which the pre-warm in IterationSetup forces.
+// Not in the timed region.
 public void ConfigureExporter(TracerProviderBuilder builder)
 {
     var exporter = new StageDirectedFileExporter(_warmupDirectory, _actualDirectory);
-    builder.AddProcessor(new StageLatch(_stage, exporter));
-    builder.AddProcessor(new BatchActivityExportProcessor(exporter));
+    builder.AddProcessor(new StageLatch(_stage, exporter));          // OnEnd runs timed
+    builder.AddProcessor(new BatchActivityExportProcessor(exporter)); // enqueue timed, write not
 }
 ```
 
@@ -223,7 +278,7 @@ a stage-directed exporter instead of a fixed directory.
 
 **`StageDirectedFileExporter : BaseExporter<Activity>`** — constructs the production `FileExporter`
 lazily on first export, against whichever directory the latch selects. One exporter, one trace file
-per iteration.
+per iteration. `Export` runs on the batch processor's drain, inside `IterationCleanup` — **not timed**.
 
 ```csharp
 public override ExportResult Export(in Batch<Activity> batch) =>
@@ -231,28 +286,45 @@ public override ExportResult Export(in Batch<Activity> batch) =>
 ```
 
 **`StageLatch : BaseProcessor<Activity>`** — sets the exporter's measured flag when a recorded span
-ends inside the measured region. Set-only; see the decision above.
+ends inside the measured region. Set-only; see the decision above. **This is the one benchmark type
+whose code runs inside the timed region**, which is why it is kept to a `Recorded` check, a volatile
+read, and a store — no allocation, no I/O, no locking.
 
 **`ImportTraceFilter : BaseProcessor<Activity>`** — clears `Recorded` when the activity carries
 `TelemetryTags.ImportKind` or its name starts with `PowerShell.Startup`. Registered as an additional
 `BaseProcessor<Activity>`; `PSTelemetryProvider` adds every DI-registered processor to the builder
 *before* calling `sender.ConfigureExporter`, so the drop happens upstream of the latch and the queue.
+`OnEnd` runs **inside the timed region**, so it stays a tag lookup plus a prefix comparison.
 
 **`BenchmarkTelemetryArtifacts`** — the staging-root, telemetry-root, and benchmark-name resolution
-plus `Prune()` and `Reset()`, extracted from `CLIBenchmarkBase` so both bases share one copy.
-`CLIBenchmarkBase` is updated to use it; its behaviour is unchanged.
+plus `Prune()` and `Reset()`, extracted from `CLIBenchmarkBase` so both bases share one copy. Used
+only from `GlobalSetup` / `GlobalCleanup`, so **never timed**. `CLIBenchmarkBase` is updated to use
+it; its behaviour is unchanged.
 
 ### `PSBenchmarkBase` changes
 
-`GlobalSetup` — after the existing module staging: resolve the benchmark name, reset the telemetry
-root, construct the `BenchmarkStageListener` and the `BenchmarkFileTelemetrySender`. Both are
-stateless with respect to a single iteration — the listener tracks the engine's stage, and the sender
-just holds two paths — so neither needs rebuilding per iteration.
+Each hook below is labelled with whether BenchmarkDotNet times it. Only `ps.Invoke()` is.
 
-`IterationSetup` — `RegisterBenchmarkStubs()`, then `RegisterTelemetryCapture()`, then the existing
-runspace open and `Import-Module`, then the pre-warm:
+`GlobalSetup` (**not timed**) — after the existing module staging: resolve the benchmark name, reset
+the telemetry root, construct the `BenchmarkStageListener` and the `BenchmarkFileTelemetrySender`.
+Both are stateless with respect to a single iteration — the listener tracks the engine's stage, and
+the sender just holds two paths — so neither needs rebuilding per iteration.
+
+`IterationSetup` (**not timed**) — `RegisterBenchmarkStubs()`, then `RegisterTelemetryCapture()`, then
+the existing runspace open and `Import-Module`, then the pre-warm:
 
 ```csharp
+/// <summary>
+/// Registers the benchmark-only telemetry stack. Benchmark-scoped: none of these types exist in
+/// production, where PowerShell keeps DirectTelemetrySender.
+/// </summary>
+/// <remarks>
+/// Runs in [IterationSetup], which BenchmarkDotNet does not time. Of what is registered here, only
+/// StageLatch.OnEnd, ImportTraceFilter.OnEnd, and the batch enqueue execute inside the measured
+/// region; provider construction and the file write do not.
+///
+/// Repeated every iteration because [IterationCleanup] disposes the container.
+/// </remarks>
 private void RegisterTelemetryCapture()
 {
     AzclipsServiceProvider.OverrideRegistration(services =>
@@ -264,15 +336,22 @@ private void RegisterTelemetryCapture()
 }
 ```
 
-Registered every iteration because `IterationCleanup` disposes the container. `TelemetryService`'s
-constructor takes `(ITelemetryProvider, IConfigurationService, ClientType)`, all already registered —
-`ClientType` is seeded as `PowerShell` by `Initialize`.
+`TelemetryService`'s constructor takes `(ITelemetryProvider, IConfigurationService, ClientType)`, all
+already registered — `ClientType` is seeded as `PowerShell` by `Initialize`.
 
-`IterationCleanup` — unchanged. The existing `CleanupCommon()` call is what drains the queue, via the
-dispose chain described above.
+The pre-warm is a single `GetRequiredService<ITelemetryService>()`. It exists to force
+`PSTelemetryProvider` construction — and therefore `ConfigureExporter` — here rather than lazily
+inside the measured region.
 
-`GlobalCleanup` (new) — dispose the stage listener, prune `actual/` into `<benchmark>.jsonl`, delete
-the raw directories. No draining to do: every iteration already flushed its own. Never throws.
+`ps.Invoke()` (**timed**) — the only measured code. Telemetry cost inside it: `ImportTraceFilter.OnEnd`,
+`StageLatch.OnEnd`, and the batch enqueue, per span.
+
+`IterationCleanup` (**not timed**) — unchanged. The existing `CleanupCommon()` call is what drains the
+queue, via the dispose chain described above.
+
+`GlobalCleanup` (**not timed**, new) — dispose the stage listener, prune `actual/` into
+`<benchmark>.jsonl`, delete the raw directories. No draining to do: every iteration already flushed its
+own. Never throws.
 
 ### Data flow, one iteration
 
