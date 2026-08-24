@@ -74,7 +74,6 @@ public class MsalAuthService(
 
     private async Task<AuthResult> AcquireTokenWithDeviceCodeAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        var x = Options;
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
