@@ -61,6 +61,16 @@ export type PsCommand = {
   outputTypes: IRId[];
   /** One parameter set per merged source operation. */
   parameterSets: PsParameterSet[];
+  /**
+   * Mirrors `System.Management.Automation.CmdletCommonMetadataAttribute
+   * .DefaultParameterSetName`. `derivePsCommands` computes this: the most
+   * general merged source operation wins (fewest required parameters —
+   * real precedent: `GetResourceGroupCmdlet`'s `"List"` over `"Get"`); for
+   * a single source operation fanned into `base`+`Expanded` variants,
+   * `Expanded` wins (real precedent: generated modules commonly set e.g.
+   * `DefaultParameterSetName='CreateExpanded'`).
+   */
+  defaultParameterSetName: string;
   /** IR operation id(s) this command derives from. */
   sourceOperationIds: IRId[];
   /** Additional cmdlet aliases. */
@@ -87,6 +97,7 @@ export const PsCommandSchema: z.ZodType<PsCommand> = z
     confirmImpact: z.enum(ConfirmImpacts).optional(),
     outputTypes: z.array(IRIdSchema),
     parameterSets: z.array(PsParameterSetSchema).min(1),
+    defaultParameterSetName: z.string().min(1),
     sourceOperationIds: z.array(IRIdSchema).min(1),
     alias: z.array(z.string().min(1)).optional(),
     hidden: z.boolean().optional(),

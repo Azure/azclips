@@ -36,6 +36,7 @@ describe("PsCommand", () => {
       confirmImpact: "Medium",
       outputTypes: [],
       parameterSets: [validParameterSet],
+      defaultParameterSetName: "Get",
       sourceOperationIds: [OPERATION_ID],
       alias: ["nrg"],
       hidden: false,
@@ -59,6 +60,7 @@ describe("PsCommand", () => {
         supportsShouldProcess: true,
         outputTypes: [],
         parameterSets: [],
+        defaultParameterSetName: "Get",
         sourceOperationIds: [OPERATION_ID],
       }),
     ).toThrow();
@@ -72,7 +74,21 @@ describe("PsCommand", () => {
         supportsShouldProcess: true,
         outputTypes: [],
         parameterSets: [validParameterSet],
+        defaultParameterSetName: "Get",
         sourceOperationIds: [],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a command with no defaultParameterSetName", () => {
+    expect(() =>
+      PsCommandSchema.parse({
+        verb: "New",
+        noun: "AzResourceGroup",
+        supportsShouldProcess: true,
+        outputTypes: [],
+        parameterSets: [validParameterSet],
+        sourceOperationIds: [OPERATION_ID],
       }),
     ).toThrow();
   });

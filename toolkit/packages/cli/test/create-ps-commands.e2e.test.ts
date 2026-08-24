@@ -73,6 +73,9 @@ describe("create-ps-commands + derivePsCommands: resourcegroup.tsp end-to-end", 
     expect(get).toBeDefined();
     expect(get!.supportsShouldProcess).toBe(false);
     expect(get!.parameterSets.map((p) => p.name).sort()).toEqual(["Get", "List"]);
+    // Real precedent: GetResourceGroupCmdlet.DefaultParameterSetName = "List" — List has
+    // fewer required parameters (no resourceGroupName) than Get, so it's more general.
+    expect(get!.defaultParameterSetName).toBe("List");
   });
 
   it("produces a Remove-AzResourceGroup command from ResourceGroups.delete", async () => {

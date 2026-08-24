@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { emptyIR, type IROperation } from "@azure-client-engine/ir";
+import { emptyIR, type IROperation, type IRParameter } from "@azure-client-engine/ir";
 
-import { derivePsCommands } from "../src/derive.js";
+import { derivePsCommands, resolveParameterHintForSet } from "../src/derive.js";
 
 function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" | "method">): IROperation {
   return {
@@ -42,6 +42,7 @@ describe("derivePsCommands", () => {
     expect(command!.supportsShouldProcess).toBe(true);
     expect(command!.parameterSets).toHaveLength(1);
     expect(command!.outputTypes).toHaveLength(1);
+    expect(command!.defaultParameterSetName).toBe("createOrUpdate");
   });
 
   it("copies Milestone 1's operation-level fields (alias, hidden, summary, lifecycleTag, etc.) onto the derived command", () => {
@@ -85,10 +86,20 @@ describe("derivePsCommands", () => {
     );
   });
 
-  it("merges Get + List sharing verb+noun into one PsCommand with two parameter sets", () => {
+  it("merges Get + List sharing verb+noun into one PsCommand with two parameter sets, defaulting to the more general List (fewer required parameters), matching GetResourceGroupCmdlet's real precedent", () => {
     const get = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "get" },
       method: "GET",
+      pathParameters: [
+        {
+          id: { module: "<root>", namespace: ["ResourceGroups"], name: "resourceGroupName" },
+          name: "resourceGroupName",
+          wireName: "resourceGroupName",
+          type: { kind: "primitive", name: "string" },
+          optional: false,
+          nullable: false,
+        },
+      ],
       rendering: { powershell: { verb: "Get", noun: "ResourceGroup", parameterSetName: "Get" } },
     });
     const list = makeOperation({
@@ -102,6 +113,7 @@ describe("derivePsCommands", () => {
     expect(commands).toHaveLength(1);
     expect(commands[0]!.parameterSets.map((p) => p.name).sort()).toEqual(["Get", "List"]);
     expect(commands[0]!.supportsShouldProcess).toBe(false);
+    expect(commands[0]!.defaultParameterSetName).toBe("List");
   });
 
   it("skips operations create-ps-commands hasn't enriched yet", () => {
@@ -139,6 +151,7 @@ describe("derivePsCommands", () => {
       "CreateOrUpdate",
       "CreateOrUpdateExpanded",
     ]);
+    expect(command!.defaultParameterSetName).toBe("CreateOrUpdateExpanded");
   });
 
   it("does not fan out when the request body has no flatten-into-self hint", () => {
@@ -155,5 +168,70 @@ describe("derivePsCommands", () => {
     const [command] = derivePsCommands({ ...emptyIR(), operations: [operation] });
 
     expect(command!.parameterSets.map((p) => p.name)).toEqual(["CreateOrUpdate"]);
+    expect(command!.defaultParameterSetName).toBe("CreateOrUpdate");
+  });
+});
+
+describe("resolveParameterHintForSet", () => {
+  function makeParameter(overrides: Partial<IRParameter> = {}): IRParameter {
+    return {
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "subscriptionId" },
+      name: "subscriptionId",
+      wireName: "subscriptionId",
+      type: { kind: "primitive", name: "string" },
+      optional: true,
+      nullable: false,
+      ...overrides,
+    };
+  }
+
+  it("mirrors the real SubscriptionId-across-Get/List-sets case: mandatory differs per set", () => {
+    // Real precedent: SubscriptionId is mandatory when contributed by a Get-shaped
+    // operation stacking multiple [Parameter(ParameterSetName=...)] attributes, but
+    // optional (falls back to ambient context) for a List-shaped operation.
+    const parameter = makeParameter({
+      rendering: {
+        powershell: {
+          mandatory: false,
+          parameterSets: {
+            Get: { mandatory: true, position: 0 },
+            List: { mandatory: false },
+          },
+        },
+      },
+    });
+
+    expect(resolveParameterHintForSet(parameter, "Get")).toEqual({
+      mandatory: true,
+      position: 0,
+      helpMessage: undefined,
+    });
+    expect(resolveParameterHintForSet(parameter, "List")).toEqual({
+      mandatory: false,
+      position: undefined,
+      helpMessage: undefined,
+    });
+  });
+
+  it("falls back to the flat value when a set has no override entry", () => {
+    const parameter = makeParameter({
+      rendering: {
+        powershell: { mandatory: true, position: 2, helpMessage: "The subscription id." },
+      },
+    });
+
+    expect(resolveParameterHintForSet(parameter, "AnySet")).toEqual({
+      mandatory: true,
+      position: 2,
+      helpMessage: "The subscription id.",
+    });
+  });
+
+  it("resolves to all-undefined for a parameter with no powershell hint at all", () => {
+    expect(resolveParameterHintForSet(makeParameter(), "Get")).toEqual({
+      mandatory: undefined,
+      position: undefined,
+      helpMessage: undefined,
+    });
   });
 });
