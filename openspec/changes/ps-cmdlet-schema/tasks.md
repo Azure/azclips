@@ -47,21 +47,26 @@ IR-derivable; see design.md's Module-level section for the field-by-field framew
 why release/packaging `.psd1` fields (GUID, version, required modules, PSGallery metadata) are
 excluded.
 
-- [ ] Add a `rendering` field to `IRSource` (`toolkit/packages/ir/src/source.ts`) for the first
+- [x] Add a `rendering` field to `IRSource` (`toolkit/packages/ir/src/source.ts`) for the first
       time, with a `powershell` namespace holding just `description` (module summary text,
-      author-settable, last-writer-wins like every other hint). Add Zod schema + unit tests
-      confirming it round-trips without affecting existing `IRSource` validation.
-- [ ] Add `PsModule` to `toolkit/packages/ps-commands` (`{ sourceId, description,
+      author-settable, last-writer-wins like every other hint). Added Zod schema (`SourceHints`/
+      `PowershellSourceHint` in `hints.ts`) + unit tests confirming it round-trips without
+      affecting existing `IRSource` validation (`source.test.ts`, new).
+- [x] Add `PsModule` to `toolkit/packages/ps-commands` (`{ sourceId, description,
       cmdletsToExport }`) plus `deriveModules(ir: IR): PsModule[]`, grouping the already-derived
       `PsCommand[]` by source and flattening each group's `verb`+`noun` into `cmdletsToExport`.
       Called only from inside a `Generator`'s own `generate()` — never a pipeline stage.
-- [ ] Write unit tests using the real `ResourceGroup` fixture: compiling it end-to-end should
-      produce one `PsModule` whose `cmdletsToExport` contains exactly
+      Determines each command's source by looking up its first `sourceOperationId`'s real
+      `IROperation.source` — one lookup per command, not a full re-grouping of `ir.operations`.
+- [x] Write unit tests using the real `ResourceGroup` fixture: compiling it end-to-end produces
+      one `PsModule` whose `cmdletsToExport` contains exactly
       `["New-AzResourceGroup", "Get-AzResourceGroup", "Remove-AzResourceGroup"]` (bare noun,
-      matching `PsCommand.noun`'s existing prefix-combining convention).
-- [ ] Wire `deriveModules` into the `generate-ps-commands` placeholder generator alongside
-      `derivePsCommands`, writing both to `ps-commands.json` (e.g. `{ commands: [...], modules:
-      [...] }`), so a real `ace compile` invocation can preview module-level output the same way
+      matching `PsCommand.noun`'s existing prefix-combining convention) — verified in
+      `cli/test/create-ps-commands.e2e.test.ts`; synthetic multi-source and no-description-hint
+      cases covered in `ps-commands/test/derive.test.ts`.
+- [x] Wire `deriveModules` into the `generate-ps-commands` placeholder generator alongside
+      `derivePsCommands`, writing both to `ps-commands.json` as `{ commands: [...], modules:
+      [...] }`, so a real `ace compile` invocation can preview module-level output the same way
       it already can for commands.
 
 ## Command-level schema

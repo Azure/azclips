@@ -164,16 +164,19 @@ individual analysis).
 | `HelpInfoUri` (updatable-help catalog, distinct from the per-command `HelpUri` already in scope) | Yes | No — packaging/release concern, not spec-derived | Checked directly: absent from the same real manifest | Out of scope |
 | `IconUri` | Yes | No — PSGallery marketing metadata, same bucket as `ProjectUri`/`Tags` | Checked directly: absent from the same real manifest (icon is set at the PSGallery listing level, not the module manifest) | Out of scope |
 
-### Schema decided
-Give `IRSource` a `rendering` field for the first time (mirroring `IROperation`/`IRModel`/
+### Schema decided, implemented
+Gave `IRSource` a `rendering` field for the first time (mirroring `IROperation`/`IRModel`/
 `IREnum`, which already have one) with a `powershell` namespace holding just `description`.
-Separately, add `PsModule` to the `ps-commands` package — `{ sourceId, description,
+Separately, added `PsModule` to the `ps-commands` package — `{ sourceId, description,
 cmdletsToExport }` — and a `deriveModules(ir: IR): PsModule[]` function that groups the
 already-derived `PsCommand[]` by source and flattens each group's `verb`+`noun` names into
 `cmdletsToExport`. Mirrors the Command-level split exactly: per-node authoring lives as an IR
 hint; cross-cutting grouping is a separate, later function, not a pipeline stage (see "Why
 grouping can't happen inside a `TransformStep`" below) — called only from inside a `Generator`'s
-own `generate(ir, context)`.
+own `generate(ir, context)`. Verified end-to-end against the real `ResourceGroup` fixture:
+`cmdletsToExport` comes back as exactly `["New-AzResourceGroup", "Get-AzResourceGroup",
+"Remove-AzResourceGroup"]`. Wired into `generate-ps-commands`, which now writes
+`{ commands, modules }` to `ps-commands.json`.
 
 **Alternative considered**: model the full `.psd1` manifest shape as `hints.powershell` on
 `IRSource`. Rejected — most of those fields have no TypeSpec-derivable source of truth; forcing
