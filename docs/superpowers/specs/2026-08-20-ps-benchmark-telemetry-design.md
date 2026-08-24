@@ -123,19 +123,26 @@ covers it.
 Suppressing the emit itself was rejected: it would also remove the pre-warm side effect the design
 depends on, and it would need a production seam. Dropping at export keeps production untouched.
 
-### Sinks are shared across iterations; the processor added per iteration is a proxy
+### The background writers must outlive the iteration that created them
 
-Each iteration builds its own `TracerProvider` and disposes it in `IterationCleanup`, which shuts down
-and disposes every processor in its chain. A shared router added directly would therefore be destroyed
-by the first iteration.
+The two batch processors own the background writer threads. They need to survive the whole benchmark
+— all 10,000 iterations — and drain once at the end.
 
-`ConfigureExporter` instead adds a fresh `NonDisposingProcessor` per iteration that forwards
-`OnStart`/`OnEnd` to the one shared router and swallows shutdown and dispose. The router — and its two
-batch processors and two `FileExporter`s — live for the whole benchmark process and are drained once,
-in `GlobalCleanup`.
+But every iteration destroys its telemetry chain. `IterationCleanup` disposes the DI container, which
+disposes `TelemetryService`, which disposes the `TracerProvider`. OpenTelemetry's dispose then walks
+the provider's processor chain and shuts down every processor in it.
 
-The CLI design considered a no-op-dispose proxy and rejected it as not worth the trouble. Here it is
-load-bearing rather than an optimisation: without it, iterations 2 through 5000 write nothing.
+So attaching the shared router directly is self-defeating: the first iteration would shut down the
+writer threads, and every iteration after it would write nothing.
+
+`ConfigureExporter` therefore attaches a fresh `NonDisposingProcessor` each iteration — a thin
+stand-in that passes spans *inward* to the shared router but does not pass shutdown or dispose
+*outward* to it. Each iteration disposes its own throwaway wrapper; the router, its two batch
+processors, and its two `FileExporter`s survive, and `GlobalCleanup` drains them once.
+
+The CLI design considered a proxy like this and rejected it as not worth the trouble — fairly, since
+CLI builds a fresh exporter per iteration and has nothing that needs to survive. Here nothing works
+without it.
 
 ## Architecture
 
@@ -197,9 +204,10 @@ without the writer thread ever becoming the bottleneck, across a 5000-iteration 
 size it to hold several thousand spans and shorten the flush interval to roughly a second, so the
 writer drains continuously instead of in 5-second surges.
 
-**`NonDisposingProcessor : BaseProcessor<Activity>`** — forwards `OnStart`/`OnEnd` to an inner
-processor; `OnShutdown` returns `true` without shutting the inner one down, and `Dispose(bool)` is a
-no-op.
+**`NonDisposingProcessor : BaseProcessor<Activity>`** — the per-iteration stand-in that stops
+`TracerProvider.Dispose()` from tearing down the shared router. Forwards `OnStart`/`OnEnd` to an
+inner processor; `OnShutdown` returns `true` without shutting the inner one down, and `Dispose(bool)`
+is a no-op.
 
 **`ImportTraceFilter : BaseProcessor<Activity>`** — clears `Recorded` when the activity carries
 `TelemetryTags.ImportKind` or its name starts with `PowerShell.Startup`. Registered as an additional
