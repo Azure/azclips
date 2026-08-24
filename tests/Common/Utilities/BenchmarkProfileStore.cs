@@ -33,21 +33,32 @@ public static class BenchmarkProfileStore
     /// <summary>
     /// Seeds the store with a single active <see cref="ProfileName"/> profile.
     /// </summary>
-    public static async Task SeedAsync(string root)
+    /// <param name="root">Directory to seed.</param>
+    /// <param name="userPrincipalName">
+    /// UPN stamped on the seeded profile. Callers exercising the real <c>MsalAuthService</c> supply
+    /// the UPN of the account in their MSAL cache fixture, which account selection matches on.
+    /// </param>
+    public static async Task SeedAsync(string root, string? userPrincipalName = null)
     {
         Directory.CreateDirectory(root);
         DeleteIfExists(Path.Combine(root, ProfilesFileName));
         DeleteIfExists(Path.Combine(root, ActiveProfileFileName));
 
         var service = new ProfileService(new NullLoggingService(), root);
-        await service.SaveAndActivateProfileAsync(CreateSeedProfile());
+        await service.SaveAndActivateProfileAsync(CreateSeedProfile(userPrincipalName));
     }
 
     /// <summary>
     /// A single shot verification that the store resolves the seeded <see cref="ProfileName"/> profile.
-    /// Throws if the store is missing or resolves a different profile.
+    /// Throws if the store is missing, resolves a different profile, or — when
+    /// <paramref name="expectedUserPrincipalName"/> is supplied — carries a different UPN.
     /// </summary>
-    public static async Task VerifySeededAsync(string root)
+    /// <param name="root">Directory to verify.</param>
+    /// <param name="expectedUserPrincipalName">
+    /// When supplied, the UPN the seeded profile must carry. Surfaces a mismatch as a profile-store
+    /// failure rather than an MSAL <c>no_matching_account</c> error raised later.
+    /// </param>
+    public static async Task VerifySeededAsync(string root, string? expectedUserPrincipalName = null)
     {
         var service = new ProfileService(new NullLoggingService(), root);
         var active = await service.GetActiveProfileAsync();
@@ -57,6 +68,16 @@ public static class BenchmarkProfileStore
             throw new InvalidOperationException(
                 $"Benchmark profile store at '{root}' did not resolve the seeded '{ProfileName}' profile " +
                 $"(resolved: '{active?.Name ?? "<null>"}'). Benchmarks would measure a profile-less path.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedUserPrincipalName) &&
+            !string.Equals(active.UserPrincipalName, expectedUserPrincipalName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Benchmark profile store at '{root}' seeded user principal name " +
+                $"'{active.UserPrincipalName ?? "<null>"}' but '{expectedUserPrincipalName}' was expected. " +
+                "MSAL account selection matches on the UPN, so a mismatch makes every silent token " +
+                "acquisition fail with 'no_matching_account'.");
         }
     }
 
@@ -74,13 +95,14 @@ public static class BenchmarkProfileStore
         catch (UnauthorizedAccessException) { /* best-effort */ }
     }
 
-    private static Profile CreateSeedProfile() => new()
+    private static Profile CreateSeedProfile(string? userPrincipalName) => new()
     {
         Name = ProfileName,
         TenantId = BenchmarkTenantId,
         SubscriptionId = BenchmarkSubscriptionId,
         CloudName = "AzureCloud",
         AuthMethod = AuthMethod.Browser,
+        UserPrincipalName = userPrincipalName,
     };
 
     private static void DeleteIfExists(string path)
