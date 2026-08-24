@@ -37,9 +37,9 @@ artifacts/Benchmark/telemetry/<benchmark>/warmup/traces-<traceId>.log
 artifacts/Benchmark/telemetry/<benchmark>/actual/traces-<traceId>.log
 ```
 
-Each directory holds a single append-only file rather than one per iteration — see *Deliberate
-divergences* below. Warmup traces are written for real so warmup and measured iterations do the same
-work, then deleted unread. Only `actual/` is consumed.
+Each directory holds one `traces-<traceId>.log` per iteration, exactly as CLI does. Warmup traces are
+written for real so warmup and measured iterations do the same work, then deleted unread. Only
+`actual/` is consumed.
 
 **After the run**, `actual/` is sampled down and collapsed into one file per benchmark method — e.g.
 `PS.ResourceGroupBenchmarks.ListResourceGroups.jsonl` — which `Program.Main` moves into the
@@ -65,8 +65,8 @@ requirement above. `FileTelemetrySender` wires `SimpleActivityExportProcessor`, 
 resolves its directory once, inside `ConfigureExporter`.
 
 So the benchmark supplies its own `ITelemetrySender` that wires the *same production `FileExporter`*
-behind OpenTelemetry's `BatchActivityExportProcessor`. Identical bytes on disk; the write happens on
-OTel's background thread.
+behind OpenTelemetry's `BatchActivityExportProcessor`. Identical bytes on disk; the enqueue happens on
+the cmdlet thread, the write does not.
 
 This is production parity for PowerShell, which is the parity that matters here: prod PS batches, so
 benchmark PS batches.
@@ -81,24 +81,6 @@ more than the file write this change is avoiding.
 `IterationSetup` therefore resolves `ITelemetryService` explicitly after `Import-Module`, forcing the
 build before the stopwatch starts. Today this only happens by luck: `ImportTelemetry.EmitInBackground`
 resolves the service on a `Task.Run`, which may or may not win the race.
-
-### The stage is read at span end, not at provider build
-
-This is the consequence of the decision above, and the core of the design.
-
-CLI answers "warmup or measured?" via `StageTraceDirectoryProvider`, called from
-`FileTelemetrySender.ConfigureExporter`. That works for CLI because the provider is built inside the
-measured region. For PS the provider is built in `IterationSetup`, which is *always* outside the
-measured region — so the answer would always be "warmup", and `actual/` would be empty.
-
-The fix is to move the question to a moment where the answer is genuinely known: `OnEnd`, on the
-cmdlet's own thread, inside the measured region. A routing processor reads
-`BenchmarkStageListener.IsMeasured` there — one volatile read — and forwards the activity to the
-batch processor for the matching directory. The background thread then writes to a directory that was
-already decided, so a drain that lands after the iteration ended still files correctly.
-
-Resolving the directory inside `FileExporter.Export` instead was rejected: that runs on the writer
-thread at an arbitrary later time, which makes attribution racy in exactly the way this avoids.
 
 ### Module-import traces are dropped
 
@@ -123,26 +105,63 @@ covers it.
 Suppressing the emit itself was rejected: it would also remove the pre-warm side effect the design
 depends on, and it would need a production seam. Dropping at export keeps production untouched.
 
-### The background writers must outlive the iteration that created them
+### Everything is per-iteration, and the drain happens in `IterationCleanup`
 
-The two batch processors own the background writer threads. They need to survive the whole benchmark
-— all 10,000 iterations — and drain once at the end.
+Nothing telemetry-related outlives an iteration. The `TracerProvider`, the batch processor, and the
+exporter are all built in `IterationSetup` and destroyed in `IterationCleanup`, alongside the runspace
+and the imported module that are already rebuilt every iteration.
 
-But every iteration destroys its telemetry chain. `IterationCleanup` disposes the DI container, which
-disposes `TelemetryService`, which disposes the `TracerProvider`. OpenTelemetry's dispose then walks
-the provider's processor chain and shuts down every processor in it.
+That falls out of the existing teardown rather than fighting it. `IterationCleanup` disposes the DI
+container, which disposes `TelemetryService` (`ITelemetryService : IDisposable`), which disposes the
+`TracerProvider`. OpenTelemetry's dispose shuts down the processor chain, and shutting down a
+`BatchActivityExportProcessor` **drains its queue to the exporter before returning**.
 
-So attaching the shared router directly is self-defeating: the first iteration would shut down the
-writer threads, and every iteration after it would write nothing.
+So the write still happens, and it happens in `IterationCleanup` — which BenchmarkDotNet does not
+time. The measured region pays only the enqueue. The requirement is met by the existing lifecycle,
+with no shared state and no lifetime tricks:
 
-`ConfigureExporter` therefore attaches a fresh `NonDisposingProcessor` each iteration — a thin
-stand-in that passes spans *inward* to the shared router but does not pass shutdown or dispose
-*outward* to it. Each iteration disposes its own throwaway wrapper; the router, its two batch
-processors, and its two `FileExporter`s survive, and `GlobalCleanup` drains them once.
+```
+IterationSetup (untimed)   build provider + batch processor + exporter
+ps.Invoke()    (TIMED)     span ends -> enqueue -> return
+IterationCleanup (untimed) dispose container -> drain queue -> file written
+```
 
-The CLI design considered a proxy like this and rejected it as not worth the trouble — fairly, since
-CLI builds a fresh exporter per iteration and has nothing that needs to survive. Here nothing works
-without it.
+The cost is one background thread created and destroyed per iteration, entirely outside the measured
+region.
+
+This also removes the need to tune the batch queue. The drain is triggered by shutdown, not by the
+5-second scheduled flush, so the default delay never applies; the default queue size only has to hold
+one cmdlet invocation's spans, which it does comfortably.
+
+### The stage is latched during the measured region, sticky toward `actual`
+
+The provider is built in `IterationSetup`, which always runs before the measured region, so asking
+"warmup or measured?" at build time always answers "warmup" — `actual/` would be empty. And the
+export runs at cleanup, by which point the engine has already signalled the measured region closed, so
+asking at export time always answers "warmup" too.
+
+The answer is only knowable *during* the iteration. A small `StageLatch` processor reads
+`BenchmarkStageListener.IsMeasured` at `OnEnd`, on the cmdlet's own thread, and latches it:
+
+```csharp
+public override void OnEnd(Activity data)
+{
+    if (!data.Recorded) return;
+    if (_stage.IsMeasured) _destination.MarkMeasured();  // set-only, never cleared
+}
+```
+
+Set-only is what makes it correct. Every span in one iteration belongs to the same stage, so a single
+span observed inside the measured region proves the whole iteration is measured; in a warmup iteration
+no span ever observes `IsMeasured == true`. The exporter reads the latch once, at drain time, and
+picks its directory.
+
+The `data.Recorded` guard matters because `ImportTelemetry.EmitInBackground` emits on a background
+thread whose timing is not controlled — it could end a span while the measured region is open. The
+import filter has already cleared `Recorded` by the time `StageLatch` runs, so those spans cannot
+latch the stage. The set-only rule covers any other stray span the same way.
+
+Cost inside the measured region: one volatile read, plus the enqueue.
 
 ## Architecture
 
@@ -186,33 +205,38 @@ use the internal `FileExporter` without widening any surface.
 
 ### New benchmark types — `tests/Benchmark/Telemetry/`
 
-**`StageRoutingTelemetrySender : ITelemetrySender`** — the benchmark's sender. Holds the shared
-router; `ConfigureExporter` adds a fresh `NonDisposingProcessor` wrapping it.
-
-**`StageRouter : BaseProcessor<Activity>`** — one per benchmark process. Owns two
-`BatchActivityExportProcessor`s, each wrapping a `FileExporter` pointed at `warmup/` or `actual/`.
+**`BenchmarkFileTelemetrySender : ITelemetrySender`** — the benchmark's sender. Holds the two
+directory paths and the stage listener. `ConfigureExporter` builds a fresh chain per call:
 
 ```csharp
-public override void OnEnd(Activity data) =>
-    (_stage.IsMeasured ? _actual : _warmup).OnEnd(data);
+public void ConfigureExporter(TracerProviderBuilder builder)
+{
+    var exporter = new StageDirectedFileExporter(_warmupDirectory, _actualDirectory);
+    builder.AddProcessor(new StageLatch(_stage, exporter));
+    builder.AddProcessor(new BatchActivityExportProcessor(exporter));
+}
 ```
 
-`OnForceFlush`, `OnShutdown`, and `Dispose` forward to both children. Queue sizing is set explicitly
-rather than left at OTel's defaults (2048 queued, 5 s flush interval), which are tuned for interactive
-command rates, not a benchmark loop. The constraint: the queue must absorb one iteration's burst
-without the writer thread ever becoming the bottleneck, across a 5000-iteration stage. Concretely,
-size it to hold several thousand spans and shorten the flush interval to roughly a second, so the
-writer drains continuously instead of in 5-second surges.
+Everything it creates is owned by the `TracerProvider` and dies with it. This is `FileTelemetrySender`
+with two substitutions: `BatchActivityExportProcessor` instead of `SimpleActivityExportProcessor`, and
+a stage-directed exporter instead of a fixed directory.
 
-**`NonDisposingProcessor : BaseProcessor<Activity>`** — the per-iteration stand-in that stops
-`TracerProvider.Dispose()` from tearing down the shared router. Forwards `OnStart`/`OnEnd` to an
-inner processor; `OnShutdown` returns `true` without shutting the inner one down, and `Dispose(bool)`
-is a no-op.
+**`StageDirectedFileExporter : BaseExporter<Activity>`** — constructs the production `FileExporter`
+lazily on first export, against whichever directory the latch selects. One exporter, one trace file
+per iteration.
+
+```csharp
+public override ExportResult Export(in Batch<Activity> batch) =>
+    (_inner ??= new FileExporter(_measured ? _actualDirectory : _warmupDirectory)).Export(batch);
+```
+
+**`StageLatch : BaseProcessor<Activity>`** — sets the exporter's measured flag when a recorded span
+ends inside the measured region. Set-only; see the decision above.
 
 **`ImportTraceFilter : BaseProcessor<Activity>`** — clears `Recorded` when the activity carries
 `TelemetryTags.ImportKind` or its name starts with `PowerShell.Startup`. Registered as an additional
 `BaseProcessor<Activity>`; `PSTelemetryProvider` adds every DI-registered processor to the builder
-*before* calling `sender.ConfigureExporter`, so the drop happens upstream of routing.
+*before* calling `sender.ConfigureExporter`, so the drop happens upstream of the latch and the queue.
 
 **`BenchmarkTelemetryArtifacts`** — the staging-root, telemetry-root, and benchmark-name resolution
 plus `Prune()` and `Reset()`, extracted from `CLIBenchmarkBase` so both bases share one copy.
@@ -221,7 +245,9 @@ plus `Prune()` and `Reset()`, extracted from `CLIBenchmarkBase` so both bases sh
 ### `PSBenchmarkBase` changes
 
 `GlobalSetup` — after the existing module staging: resolve the benchmark name, reset the telemetry
-root, construct the `BenchmarkStageListener` and the `StageRouter`.
+root, construct the `BenchmarkStageListener` and the `BenchmarkFileTelemetrySender`. Both are
+stateless with respect to a single iteration — the listener tracks the engine's stage, and the sender
+just holds two paths — so neither needs rebuilding per iteration.
 
 `IterationSetup` — `RegisterBenchmarkStubs()`, then `RegisterTelemetryCapture()`, then the existing
 runspace open and `Import-Module`, then the pre-warm:
@@ -238,49 +264,46 @@ private void RegisterTelemetryCapture()
 }
 ```
 
-Registered every iteration because `IterationCleanup` disposes the container; the sender instance is
-the same throughout. `TelemetryService`'s constructor takes `(ITelemetryProvider, IConfigurationService,
-ClientType)`, all already registered — `ClientType` is seeded as `PowerShell` by `Initialize`.
+Registered every iteration because `IterationCleanup` disposes the container. `TelemetryService`'s
+constructor takes `(ITelemetryProvider, IConfigurationService, ClientType)`, all already registered —
+`ClientType` is seeded as `PowerShell` by `Initialize`.
 
-`IterationCleanup` — unchanged.
+`IterationCleanup` — unchanged. The existing `CleanupCommon()` call is what drains the queue, via the
+dispose chain described above.
 
-`GlobalCleanup` (new) — dispose the stage listener, dispose the router (which drains both queues),
-prune `actual/` into `<benchmark>.jsonl`, delete the raw directories. Never throws.
+`GlobalCleanup` (new) — dispose the stage listener, prune `actual/` into `<benchmark>.jsonl`, delete
+the raw directories. No draining to do: every iteration already flushed its own. Never throws.
 
 ### Data flow, one iteration
 
 ```
 IterationSetup (untimed)
   register stubs -> register telemetry capture -> Import-Module -> resolve ITelemetryService
-                                                  (prepends Direct,   (builds TracerProvider)
-                                                   override wins)
+                                                  (prepends Direct,   (builds TracerProvider,
+                                                   override wins)      batch processor, exporter)
 
 ps.Invoke() (TIMED)
-  span ends -> name filter -> property filter -> ImportTraceFilter -> NonDisposingProcessor
-            -> StageRouter.OnEnd: read IsMeasured, enqueue -> returns
-
-OTel batch thread (untimed)
-  drain -> FileExporter -> actual/traces-<id>.log
+  span ends -> name filter -> property filter -> ImportTraceFilter
+            -> StageLatch: read IsMeasured, latch -> BatchProcessor: enqueue -> returns
 
 IterationCleanup (untimed)
-  dispose container -> TracerProvider disposed -> proxy swallows it -> router survives
+  dispose container -> dispose TelemetryService -> dispose TracerProvider
+                    -> batch shutdown drains queue -> FileExporter
+                    -> <stage>/traces-<traceId>.log
 
 GlobalCleanup (untimed, once)
-  dispose router -> drain -> TraceSampler.Prune -> delete raw dirs
+  TraceSampler.Prune(actual/) -> <benchmark>.jsonl -> delete raw dirs
 ```
 
-## Deliberate divergences from the CLI design
+## Deliberate divergence from the CLI design
 
-**One appended trace file per stage, not one per iteration.** CLI constructs a `FileExporter` per
-iteration, so each iteration writes its own `traces-<traceId>.log`. Here the exporters are shared, and
-`FileExporter` caches its path from the first activity it sees, so each directory ends up with a
-single appended file. `TraceSampler` groups by `TraceId`, so the sampled output is identical — and it
-avoids ~10,000 transient files per benchmark method. CLI's file-per-iteration fidelity argument was
-about modelling a real `az` process's cost; that argument does not apply once the write is off the
-measured thread.
+**`StageTraceDirectoryProvider` is not used by PS.** CLI builds its provider inside the measured
+region, so resolving the directory at build time gives the right answer there. PS builds its provider
+in `IterationSetup`, where that answer is always "warmup", so the decision moves to the `StageLatch`
+instead. The type stays, unchanged, for CLI.
 
-**`StageTraceDirectoryProvider` is not used by PS.** The stage decision moved into the router. The
-type stays, unchanged, for CLI.
+Otherwise the shape matches CLI: one `FileExporter` per iteration writing one `traces-<traceId>.log`,
+roughly 10,000 transient files per benchmark method, deleted in that method's `GlobalCleanup`.
 
 ## Failure handling
 
@@ -288,16 +311,27 @@ A telemetry failure must never change the benchmark's exit code.
 
 | Situation | Behaviour |
 |---|---|
-| Router drain throws or times out on dispose | Caught in `GlobalCleanup`, printed as `[Telemetry] <name>: ...`. Runs untimed, after the last iteration. |
-| Batch queue overflows | OTel drops silently. Mitigated by sizing the queue above one run's span count and shortening the flush interval. The observable signal is the existing `kept N sampled trace(s)` line. |
+| Drain exceeds `TelemetryService.Dispose`'s 500 ms cap | That iteration's trace is truncated or lost. See below — this is the one risk the per-iteration model introduces. |
+| Batch queue overflows | OTel drops silently. The default 2048 capacity is far above one cmdlet invocation's span count, and the queue starts empty every iteration. |
 | Telemetry disabled in `~/.azclips/config.json` | No spans at all; `kept 0` with the existing message naming both possible causes. |
 | Pruning fails (parse error, locked file) | `[Telemetry]` warning, exit code stays green. |
 | `--benchmarkName` absent from the child command line | `GlobalSetup` throws rather than writing under a guessed name. |
 | Stale `artifacts/Benchmark/telemetry/<benchmark>/` from a previous run | `GlobalSetup` deletes it first. |
 
-`TelemetryService.Dispose()` caps `TracerProvider.Dispose()` at 500 ms on every iteration. Because the
-proxy swallows shutdown, that cap can never truncate benchmark data — the real drain happens once, in
-`GlobalCleanup`.
+**On the 500 ms cap.** `TelemetryService.Dispose()` runs `TracerProvider.Dispose()` on a `Task` and
+waits at most 500 ms, to avoid a real command hanging on an unreachable exporter. Under this design
+that wait is what the drain happens inside, so it becomes the deadline for writing an iteration's
+trace.
+
+It should not bind: a drain is a handful of spans and one `File.AppendAllText`, which is
+sub-millisecond in the normal case. But it is not guaranteed, and a slow disk could clip a trace. The
+consequence is a missing trace, not a corrupt one — `TraceSampler` groups by `TraceId` and a partial
+file simply yields fewer traces. The end-to-end assertion below (exactly 5 traces from 5 measured
+iterations) is what would surface it, and a full run tolerates losing a few of 5000 because the output
+is sampled to 100 anyway.
+
+This is accepted rather than worked around: the alternative is a production change to
+`TelemetryService.Dispose` purely to serve benchmarks, which is worse.
 
 ## Consequences
 
