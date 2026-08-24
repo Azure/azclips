@@ -38,7 +38,7 @@ The PowerShell module currently registers `ITelemetrySender` via `OverrideRegist
 - Consumes: `AzclipsServiceProvider.PrependRegistration(Action<IServiceCollection>)` and `AzclipsServiceProvider.OverrideRegistration(Action<IServiceCollection>)`, both existing in `Core.DependencyInjection`.
 - Produces: the ordering guarantee every later task depends on — after `Import-Module`, `AzclipsServiceProvider.GetRequiredService<ITelemetrySender>()` returns the host's sender when the host registered one via `OverrideRegistration` before the import, and `DirectTelemetrySender` otherwise.
 
-- [ ] **Step 1: Write the failing test that the framework defaults own no sender**
+- [ ] **Step 1: Write the regression test that the framework defaults own no sender**
 
 This is the fact the whole prepend scheme rests on. If a default is ever added, PowerShell silently loses `DirectTelemetrySender`.
 
@@ -171,7 +171,7 @@ In `src/PS/Login/ModuleInitializer.cs`, replace the body of the `using (timeline
         }
 ```
 
-- [ ] **Step 6: Run both test projects to verify all four tests pass**
+- [ ] **Step 6: Run both test projects to verify all three tests pass**
 
 Run: `dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj --filter "FullyQualifiedName~ModuleInitializerSenderRegistrationTests"`
 Expected: PASS (2 tests).
