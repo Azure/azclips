@@ -34,7 +34,7 @@ $rg  = 'rg-sql-test'
 $loc = 'southeastasia'
 $srv = "azclips-sql-$(Get-Date -Format 'yyMMddHHmmss')"
 
-# ponytail: three tiny helpers instead of Pester - these scripts run standalone against
+# three tiny helpers instead of Pester - these scripts run standalone against
 # live Azure and must not require a module that is not a repo dependency.
 $script:Failures = 0
 
@@ -89,7 +89,7 @@ Assert-AreEqual $loc   $server.Location                    'minimal create echoe
 Assert-AreEqual 'Microsoft.Sql/servers' $server.Type       'minimal create returns the SQL server resource type'
 Assert-AreEqual "/subscriptions/$sub/resourceGroups/$rg/providers/Microsoft.Sql/servers/$srv" $server.Id 'minimal create returns the full ARM id'
 Assert-AreEqual 'Ready' $server.Properties.State           'LRO ran to a Ready server rather than returning the 202 body'
-Assert-AreEqual "$srv.database.windows.net" $server.Properties.FullyQualifiedDomainName 'minimal create returns the resolvable FQDN'
+Assert-AreEqual ('{0}.database{1}' -f $srv, '.windows.net') $server.Properties.FullyQualifiedDomainName 'minimal create returns the resolvable FQDN'
 Assert-AreEqual 'sqladmin' $server.Properties.AdministratorLogin 'minimal create echoes the administrator login'
 # The password is create-only input and must never come back on the response.
 Assert-AreEqual $null  $server.Properties.AdministratorLoginPassword 'response does not echo the administrator password'

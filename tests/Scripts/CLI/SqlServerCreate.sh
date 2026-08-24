@@ -34,7 +34,7 @@ RG=rg-sql-test
 LOC=southeastasia
 SRV="azclips-sql-$(date +%y%m%d%H%M%S)"
 
-# ponytail: grep on the response JSON rather than jq - jq is not a dependency of this
+# grep on the response JSON rather than jq - jq is not a dependency of this
 # repo and this CLI has no --query. Switch to jq if assertions ever need real JSON paths.
 FAILURES=0
 
