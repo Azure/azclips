@@ -11,14 +11,14 @@ outline: deep
 Azclips is a short-lived command-line process: a single `az` invocation may last only milliseconds, yet its telemetry must reach Azure Monitor reliably without adding user-visible latency. `Core.Telemetry` reconciles three competing goals:
 
 1. **Privacy first.** Only command *names*, parameter *names*, success/failure, and basic environment data leave the machine — never parameter values, URLs, or other personal content (`README.md:153`). This is enforced structurally by allow-list processors, not by trusting call sites.
-2. **Zero blocking on exit.** The CLI must not wait on a network round-trip to App Insights. Activities are exported synchronously to *local files*, and a **detached** background process replays them later (`src/CLI/Program.cs:146-150`).
+2. **Zero blocking on exit.** The CLI must not wait on a network round-trip to App Insights. Activities are exported synchronously to *local files*, and a **detached** background process replays them later (`src/CLI/Program.cs`).
 3. **Uniform capture.** Everything is a `System.Diagnostics.Activity` (an OpenTelemetry span). Any code that wraps work in `using var _ = source.StartActivity(...)` is captured automatically (`eng-docs/spec/telemetry.md`).
 
 Telemetry is built on OpenTelemetry for .NET and is **on by default**; opt out with `telemetry.enabled=false` (`README.md:157-166`). Targets `net10.0`; the internal assembly namespace is `Azclips`.
 
 ## Activity capture
 
-`TelemetryService` is the core-facing API. It starts a **root activity** per process and per-command child activities from a client-specific `ActivitySource` (`src/Core/Core.Telemetry/TelemetryService.cs:19-40`). The CLI drives it explicitly: `StartRootActivity` opens the greatest ancestor span, `TagInvocation` stamps the command/module/parameter tags onto that root, and `StartActivity("AzureCLI.ProcessCommand")` wraps the actual execution (`src/CLI/Program.cs:67,77,79-80`).
+`TelemetryService` is the core-facing API. It starts a **root activity** per process and per-command child activities from a client-specific `ActivitySource` (`src/Core/Core.Telemetry/TelemetryService.cs:19-40`). The CLI drives it explicitly: `StartRootActivity` opens the greatest ancestor span, `TagInvocation` stamps the command/module/parameter tags onto that root, and `StartActivity("AzureCLI.ProcessCommand")` wraps the actual execution (`src/CLI/Program.cs`).
 
 ```mermaid
 flowchart TB
@@ -102,9 +102,41 @@ emits nothing — such a session runs no cmdlets, so it produces no telemetry ei
 | --- | --- | --- | --- |
 | `CLITelemetryProvider` | `ClientType.CLI` | `FileTelemetrySender` (file buffer) | `src/CLI/Telemetry/CLITelemetryProvider.cs:16-45` |
 | `TUITelemetryProvider` | `ClientType.TUI` | `FileTelemetrySender` (file buffer) | `TUI/Telemetry/TUITelemetryProvider.cs:14-45` |
-| `DirectTelemetrySender` (PowerShell) | — | Azure Monitor inline, no buffering | `src/Core/Core.Telemetry/DirectTelemetrySender.cs:14-27` |
+| `DirectTelemetrySender` (PowerShell) | — | Resolved targets inline, no buffering | `src/Core/Core.Telemetry/DirectTelemetrySender.cs` |
 
 The `telemetry.enabled` opt-out is enforced in `TelemetryService.StartActivity` / `StartRootActivity` at call time — the service reads `TelemetryOptions.Enabled` via `IConfigurationService` on every span and returns `null` when disabled, so `Set-AzConfig` / `az config set` take effect on the very next cmdlet without a module reload (`src/Core/Core.Telemetry/TelemetryService.cs`, `src/Core/Core.Abstractions/TelemetryOptions.cs:6-8`). Providers always build the full pipeline regardless of the config value, so the opt-out is symmetric in both directions. All providers register the same filter processors, HTTP-client instrumentation, and resource service name via `ProcessUtils.GetRunningProcess()` (`src/CLI/Telemetry/CLITelemetryProvider.cs:25-44`).
+
+## Export targets
+
+Where telemetry goes is resolved separately from whether it is collected. `TelemetryTargetResolver`
+returns a never-empty set of targets:
+
+| Build | Default targets | Notes |
+| --- | --- | --- |
+| Debug | Local **and** Remote | Jaeger for fast feedback, Azure Monitor to prove the remote path still works |
+| Release | Remote | Unchanged from previous behaviour |
+
+In a Debug build the default can be overridden with `AZCLIPS_TELEMETRY_TARGET`, which accepts
+exactly `local`, `remote`, or `both`. Anything else — including an empty value — falls back to the
+compiled default. There is no `none`: disabling remote export while developing is
+`AZCLIPS_TELEMETRY_TARGET=local`, and disabling telemetry entirely is `telemetry.enabled=false`.
+
+```bash
+# Debug only: stop sending your local runs to Application Insights.
+AZCLIPS_TELEMETRY_TARGET=local az group list
+```
+
+**Release ignores the variable completely.** The suppression lives in the resolver's environment
+reader rather than in its parser, so a shipped binary has no override path at all. This is
+deliberate: once the resolver can express more than one target, honouring the variable in Release
+would let anything able to set an environment variable redirect a user's telemetry to a local
+collector, on a port that `AZCLIPS_OTLP_PORT` also controls.
+
+Because Debug spans go to the same Application Insights resource as production traffic, and no tag
+distinguishes them, locating your own runs means correlating on `InstallationId`. Marking dev traffic
+with a build-configuration tag is deferred: the value is available from
+`AssemblyConfigurationAttribute`, and the key would also need adding to
+`DefaultTelemetryPropertyFilter`'s allow-list, which is deny-by-default.
 
 ## Privacy model — the allow-list processors
 
@@ -121,9 +153,9 @@ Even parameter **values** are masked at the source: `TelemetryService.FormatPara
 
 ## Async export path
 
-For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs:32-35`; `src/Core/Core.Telemetry/TelemetryService.cs:96-106`). `FileExporter` serializes each batch to `traces-{traceId}.log` under `%LocalAppData%/Azclips/traces`, appending a timestamped JSON batch per write (`src/Core/Core.Telemetry/FileExporter.cs:27-89`; `src/Core/Core.Telemetry/FileTelemetrySender.cs:26-30`).
+For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs:96-106`). Note that `ConfigureExporter` no longer takes a directory argument — the trace directory is owned by `TraceFileStore.DefaultDirectory` (`src/Core/Core.Telemetry/TraceFileStore.cs`). `FileExporter` serializes each batch to `traces-{traceId}.log` under `%LocalAppData%/Azclips/traces`, appending a timestamped JSON batch per write (`src/Core/Core.Telemetry/FileExporter.cs:27-89`).
 
-After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs:146-150,410-440`). That child's very first branch calls `FileTelemetrySender.SendPendingStatic()` and returns (`src/CLI/Program.cs:34-38`).
+After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs`). That child's very first branch calls `TelemetryUpload.RunPending()` and returns (`src/Core/Core.Telemetry/TelemetryUpload.cs`).
 
 ```mermaid
 sequenceDiagram
@@ -138,10 +170,10 @@ sequenceDiagram
     Cmd->>Cmd: dispose DI, return exit code
     Cmd->>Up: SpawnTelemetryUploader() (Process.Start, no wait)
     Cmd-->>Cmd: process exits
-    Up->>Disk: claim .log -> rename .uploading
-    Up->>Up: parse batches, group by service.name
-    Up->>Up: topologically order + remap SpanIds
-    Up->>AM: replay via AddAzureMonitorTraceExporter + ForceFlush(10s)
+    Up->>Disk: claim .log -> rename .uploading (TraceFileStore)
+    Up->>Up: parse batches, group by service.name (TraceUploader)
+    Up->>Up: topologically order + remap SpanIds (TraceReplayer)
+    Up->>AM: replay + ForceFlush(10s) (TracerProviderExportSink)
     AM-->>Up: flush ok
     Up->>Disk: delete uploaded files
 
@@ -152,17 +184,17 @@ sequenceDiagram
     style AM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-### The uploader (`SendPendingStatic`)
+### The uploader (`TraceUploader`)
 
-`SendPendingStatic` is engineered for concurrent, crash-tolerant delivery (`src/Core/Core.Telemetry/FileTelemetrySender.cs:43-141`):
+`TraceUploader.Run` is engineered for concurrent, crash-tolerant delivery (`src/Core/Core.Telemetry/TraceUploader.cs`):
 
 - **Stale reclaim** — `.uploading` files older than 5 minutes (from a crashed uploader) are renamed back to `.log`.
-- **Atomic claim** — each `.log` is renamed to `.uploading` before reading, so concurrent uploaders and in-flight writers never process the same file.
-- **Group by service** — traces are grouped by original `service.name` so each replays with the correct `cloud_RoleName` (CLI vs PowerShell) in App Insights.
-- **Hierarchy-preserving replay** — because the OTel API assigns fresh SpanIds, `ReplayEntries` topologically orders parents-before-children and rewrites each child's parent context to the parent's *new* SpanId, keeping the original `TraceId` and tree intact (`src/Core/Core.Telemetry/FileTelemetrySender.cs:202-355`).
-- **Delete only on success** — files are deleted only if `ForceFlush(10_000)` succeeds; otherwise they remain for the next attempt (`src/Core/Core.Telemetry/FileTelemetrySender.cs:126-138`).
+- **Atomic claim** — each `.log` is renamed to `.uploading` before reading, so concurrent uploaders and in-flight writers never process the same file. This claim protocol is owned by `TraceFileStore.ClaimPending` (`src/Core/Core.Telemetry/TraceFileStore.cs`).
+- **Group by service** — `TraceUploader.Run` groups traces by original `service.name` so each replays with the correct `cloud_RoleName` (CLI vs PowerShell) in App Insights (`src/Core/Core.Telemetry/TraceUploader.cs`).
+- **Hierarchy-preserving replay** — because the OTel API assigns fresh SpanIds, `TraceReplayer.ReplayEntries` topologically orders parents-before-children and rewrites each child's parent context to the parent's *new* SpanId, keeping the original `TraceId` and tree intact (`src/Core/Core.Telemetry/TraceReplayer.cs`).
+- **Delete only on success** — `TracerProviderExportSink.TryExport` returns false on a failed flush, leaving files on disk for `TraceUploader.Run` to retry on the next attempt. With more than one target it builds **one provider per target** and flushes each independently, then reports the verdict of the highest-ranked target present (Remote outranks Local). A stopped Jaeger container therefore never pins trace files on a developer's machine, while a developer who asked for local-only still gets retries.
 
-The Azure Monitor destination is a hard-coded connection string in `WellKnownEndpoints` (`src/Core/Core.Telemetry/WellKnownEndpoints.cs:6-9`). Note the uploader itself only runs when the host executable is `az`/`az.exe`, so in-process benchmark runs never attempt to flush (`src/CLI/Program.cs:417-422`).
+The Azure Monitor destination is a hard-coded connection string in `WellKnownEndpoints` (`src/Core/Core.Telemetry/WellKnownEndpoints.cs`), used by both Debug and Release builds. Note the uploader itself only runs when the host executable is `az`/`az.exe`, so in-process benchmark runs never attempt to flush (`src/CLI/Program.cs`).
 
 ## Local timing — `TimingActivityListener`
 
@@ -189,8 +221,12 @@ With telemetry disabled, the client keeps the base `DefaultTelemetryProvider` wh
 - `src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs` / `DefaultTelemetryActivityNameFilter.cs` — allow-lists
 - `src/Core/Core.Telemetry/DefaultTelemetryPropertyFilterProcessor.cs` / `DefaultActivityNameFilterProcessor.cs` — OnEnd scrubbing
 - `src/Core/Core.Telemetry/FileExporter.cs` — synchronous JSON file buffer
-- `src/Core/Core.Telemetry/FileTelemetrySender.cs` — uploader, atomic claim, hierarchy-preserving replay
+- `src/Core/Core.Telemetry/FileTelemetrySender.cs` — configures the file-buffer exporter
+- `src/Core/Core.Telemetry/TraceFileStore.cs` — trace directory, file naming, claim protocol
+- `src/Core/Core.Telemetry/TraceFileFormat.cs` — on-disk batch format, shared by writer and reader
+- `src/Core/Core.Telemetry/TraceReplayer.cs` — hierarchy-preserving replay
+- `src/Core/Core.Telemetry/TraceUploader.cs` / `TelemetryUpload.cs` — orchestration and composition root
 - `src/Core/Core.Telemetry/DirectTelemetrySender.cs`, `WellKnownEndpoints.cs` — direct export + Azure Monitor endpoint
 - `src/Core/Core.Telemetry/TimingActivityListener.cs`, `DIRegisterExtensions.cs` — local timing + DI wiring
-- `src/CLI/Program.cs:34,67,79,149,410` — root activity, `--upload-telemetry`, detached spawn
+- `src/CLI/Program.cs` — root activity, `--upload-telemetry`, detached spawn
 - `eng-docs/spec/telemetry.md`, `README.md:151-166` — telemetry spec and opt-out

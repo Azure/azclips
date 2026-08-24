@@ -42,7 +42,7 @@ public class Program
 
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
-            await FileTelemetrySender.SendPendingStatic();
+            TelemetryUpload.RunPending();
             return 0;
         }
 
@@ -67,6 +67,7 @@ public class Program
             {
                 services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
                 services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
+                services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
                 services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
             });
