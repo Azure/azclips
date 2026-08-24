@@ -331,7 +331,23 @@ export type PowershellParameterHint = {
   /** Hides this parameter from tab-completion/help. Mirrors `ParameterAttribute.DontShow` (per-parameter — distinct from the operation-level `hidden`, which hides the whole command). */
   dontShow?: boolean | undefined;
   defaultValue?: DefaultValueHint | undefined;
+  /**
+   * Per-parameter-set overrides for `mandatory`/`position`/`helpMessage`, keyed by parameter-set
+   * name — matches the real `System.Management.Automation.ParameterSetMetadata` structure
+   * exactly (confirmed live: the same parameter can have different `IsMandatory`/`Position`/
+   * `HelpMessage` per set it belongs to). The flat fields above remain the default/fallback used
+   * when a parameter belongs to only one set, or a specific set has no override entry here.
+   */
+  parameterSets?: Record<string, { mandatory?: boolean | undefined; position?: number | undefined; helpMessage?: string | undefined }> | undefined;
 };
+
+const ParameterSetOverrideSchema = z
+  .object({
+    mandatory: z.boolean().optional(),
+    position: z.number().int().min(0).optional(),
+    helpMessage: z.string().min(1).optional(),
+  })
+  .strict();
 
 export const PowershellParameterHintSchema: z.ZodType<PowershellParameterHint> = z
   .object({
@@ -351,6 +367,7 @@ export const PowershellParameterHintSchema: z.ZodType<PowershellParameterHint> =
     readOnly: z.boolean().optional(),
     dontShow: z.boolean().optional(),
     defaultValue: DefaultValueHintSchema.optional(),
+    parameterSets: z.record(z.string().min(1), ParameterSetOverrideSchema).optional(),
   })
   .strict();
 

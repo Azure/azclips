@@ -9,4 +9,4 @@ export {
   type PsCommand,
 } from "./schema.js";
 
-export { derivePsCommands } from "./derive.js";
+export { derivePsCommands, resolveParameterHintForSet, type ResolvedParameterHint } from "./derive.js";

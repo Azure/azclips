@@ -47,6 +47,32 @@ describe("hints.powershell (ParameterHints) — Milestone 1", () => {
     expect(() => ParameterHintsSchema.parse({ powershell: { position: 1.5 } })).toThrow();
   });
 
+  it("round-trips per-parameter-set mandatory/position/helpMessage overrides, keyed by set name", () => {
+    const hint: ParameterHints = {
+      powershell: {
+        mandatory: false,
+        parameterSets: {
+          Get: { mandatory: true, position: 1, helpMessage: "The subscription to get." },
+          List: { mandatory: false },
+        },
+      },
+    };
+
+    expect(ParameterHintsSchema.parse(hint)).toEqual(hint);
+  });
+
+  it("accepts a parameter hint with only flat mandatory/position/helpMessage (no parameterSets)", () => {
+    const parsed = ParameterHintsSchema.parse({ powershell: { mandatory: true, position: 0 } });
+
+    expect(parsed.powershell?.parameterSets).toBeUndefined();
+  });
+
+  it("rejects a parameterSets entry with the wrong field type", () => {
+    expect(() =>
+      ParameterHintsSchema.parse({ powershell: { parameterSets: { Get: { mandatory: "yes" } } } }),
+    ).toThrow();
+  });
+
   it("does not leak the parameter powershell namespace onto unrelated node kinds", () => {
     expect(() => ModelHintsSchema.parse({ powershell: { mandatory: true } })).toThrow();
   });
