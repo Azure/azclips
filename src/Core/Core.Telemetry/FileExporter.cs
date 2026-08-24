@@ -29,10 +29,8 @@ internal class FileExporter : BaseExporter<Activity>
         {
             var traces = new List<object>();
 
-            // Single pass. A BatchExportProcessor supplies a Batch<Activity> backed by a circular
-            // buffer that dequeues as it is enumerated, so a second loop would silently skip
-            // whatever an earlier one consumed. The file path is taken from the first activity on
-            // the way past rather than from a separate look-ahead loop.
+            // Single pass: a Batch<Activity> backed by a circular buffer dequeues as it is
+            // enumerated, so the file path is taken from the first activity on the way past.
             foreach (var activity in batch)
             {
                 _filePath ??= CreateTraceFilePath(activity.TraceId.ToString());
