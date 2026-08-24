@@ -20,9 +20,6 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
-            // A default the host may replace: prepends run before the framework defaults and
-            // before every override. Nothing in RegisterTelemetryServices registers
-            // ITelemetrySender, so this is what PowerShell resolves.
             AzclipsServiceProvider.PrependRegistration(services =>
                 services.AddSingleton<ITelemetrySender, DirectTelemetrySender>());
 
