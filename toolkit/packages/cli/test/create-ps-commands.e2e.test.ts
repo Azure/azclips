@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 import { compile, createPsCommandsFactory, createTransformPipeline } from "@azure-client-engine/compiler";
-import { derivePsCommands, deriveModules, deriveFormatViews } from "@azure-client-engine/ps-commands";
+import { derivePsCommands, deriveModules } from "@azure-client-engine/ps-commands";
 import type { IR } from "@azure-client-engine/ir";
 
 // These tests fork the real (compiled) worker process, so they must exercise the
@@ -236,32 +236,5 @@ describe("create-ps-commands + derivePsCommands: resourcegroup.tsp end-to-end", 
     expect(modules[0]!.cmdletsToExport.sort()).toEqual(
       ["New-AzResourceGroup", "Get-AzResourceGroup", "Remove-AzResourceGroup"].sort(),
     );
-  });
-
-  it("deriveFormatViews produces a ResourceGroup view matching its own simple-scalar properties (name, location)", async () => {
-    const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
-    const pipeline = createTransformPipeline("output-formatting", [
-      createPsCommandsFactory({ subjectPrefix: "Az" }),
-    ]);
-
-    const result = await compile(
-      { entrypoint: RESOURCE_GROUP_TSP },
-      { emit: producer, transform: pipeline },
-    );
-    expect(result.success).toBe(true);
-
-    const views = deriveFormatViews(result.ir!);
-    const resourceGroupView = views.find((v) => v.sourceModelId.name === "ResourceGroup");
-
-    expect(resourceGroupView).toBeDefined();
-    // `properties` (the nested ResourceGroupProperties object) is excluded by default —
-    // only `Name`/`Location`, the model's own simple-scalar properties, qualify.
-    expect(resourceGroupView!.columns.map((c) => c.propertyName).sort()).toEqual(["Location", "Name"]);
-
-    // ResourceGroupProperties itself gets its own view too — real precedent (Az.Astro's
-    // AstroIdentity) shows non-response models get views as well, not just response bodies.
-    const propertiesView = views.find((v) => v.sourceModelId.name === "ResourceGroupProperties");
-    expect(propertiesView).toBeDefined();
-    expect(propertiesView!.columns.map((c) => c.propertyName)).toEqual(["ProvisioningState"]);
   });
 });

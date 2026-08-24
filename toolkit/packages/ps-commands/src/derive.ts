@@ -17,10 +17,9 @@ import {
   type IROperation,
   type IRId,
   type IRParameter,
-  type IRProperty,
   type IRTypeRef,
 } from "@azure-client-engine/ir";
-import type { PsCommand, PsFormatView, PsModule, PsParameterSet } from "./schema.js";
+import type { PsCommand, PsModule, PsParameterSet } from "./schema.js";
 
 /** Model/enum refs carry an id directly; array refs recurse into their element. Others have none. */
 function extractTypeRefId(type: IRTypeRef): IRId | undefined {
@@ -213,74 +212,4 @@ export function deriveModules(ir: IR): PsModule[] {
   }
 
   return modules;
-}
-
-/** Mirrors the real generator's `IsPsSimple()` check: scalar types only, no nested object/array/union. */
-function isSimpleScalar(property: IRProperty): boolean {
-  return property.typeKind === "primitive" || property.typeKind === "enum";
-}
-
-/** Any override field present forces inclusion, mirroring the real `pf.FormatTable != null` check. */
-function hasFormatOverride(property: IRProperty): boolean {
-  const format = property.rendering?.powershell;
-  return format?.formatIndex !== undefined || format?.formatLabel !== undefined || format?.formatWidth !== undefined;
-}
-
-function isEligibleForFormat(property: IRProperty): boolean {
-  if (property.rendering?.powershell?.excludeFromFormat) return false;
-  return hasFormatOverride(property) || isSimpleScalar(property);
-}
-
-/** Inherited properties sort before owned ones — `model.properties` denormalizes inheritance, so `inheritedFrom` is already known. */
-function originRank(property: IRProperty): 0 | 1 {
-  return property.inheritedFrom !== undefined ? 0 : 1;
-}
-
-/**
- * Default column order: explicit `formatIndex` wins outright; otherwise
- * inherited properties sort before owned ones (mirrors the real generator's
- * `Origin` ordering), then declaration order.
- */
-function compareForFormat(a: IRProperty, b: IRProperty, declarationIndex: Map<IRProperty, number>): number {
-  const aIndex = a.rendering?.powershell?.formatIndex;
-  const bIndex = b.rendering?.powershell?.formatIndex;
-  if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex;
-  if (aIndex !== undefined) return -1;
-  if (bIndex !== undefined) return 1;
-
-  const originDelta = originRank(a) - originRank(b);
-  if (originDelta !== 0) return originDelta;
-
-  return declarationIndex.get(a)! - declarationIndex.get(b)!;
-}
-
-/**
- * `deriveFormatViews`: computes one `Format.ps1xml`-equivalent `PsFormatView`
- * per `IRModel` that has at least one eligible column. Plain function, not a
- * pipeline stage — same rationale as `derivePsCommands`/`deriveModules`.
- * Scoped to every `IRModel` in the IR (not just operation output types) —
- * real precedent (`Az.Astro.format.ps1xml`) shows request-only/pipeline-
- * identity model types get views too, not only response bodies.
- */
-export function deriveFormatViews(ir: IR): PsFormatView[] {
-  const views: PsFormatView[] = [];
-
-  for (const model of ir.models) {
-    const eligible = model.properties.filter((property) => isEligibleForFormat(property));
-    if (eligible.length === 0) continue; // matches the real generator: no view for zero qualifying columns
-
-    const declarationIndex = new Map(model.properties.map((property, index) => [property, index] as const));
-    const ordered = [...eligible].sort((a, b) => compareForFormat(a, b, declarationIndex));
-
-    views.push({
-      sourceModelId: model.id,
-      columns: ordered.map((property) => ({
-        propertyName: property.name,
-        label: property.rendering?.powershell?.formatLabel,
-        width: property.rendering?.powershell?.formatWidth,
-      })),
-    });
-  }
-
-  return views;
 }

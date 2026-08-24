@@ -106,40 +106,9 @@ export const CommonHintsSchema: z.ZodType<CommonHints> = z
 
 // ─── Property hints, parameterized by type kind ─────────────────────────
 
-/**
- * Output-formatting overrides for a model property — mirrors the real
- * AutoRest.PowerShell generator's `FormatTableAttribute`/`DoNotFormatAttribute`
- * (found by auditing `ExportFormatPs1xml.cs`/`PsAttributes.cs` directly, not
- * live reflection). All optional: the default table view (simple-scalar,
- * non-inlined properties, in declaration order) needs none of these; they
- * only matter to correct that default. Shared across every property-hint
- * variant (Object/Value/Collection) since the real `[FormatTable]` override
- * can force even a normally-excluded complex property into the view.
- */
-export type PowershellPropertyFormatHint = {
-  /** Explicit column order override. Mirrors `FormatTableAttribute.Index`. */
-  formatIndex?: number | undefined;
-  /** Explicit column header text override. Mirrors `FormatTableAttribute.Label`. */
-  formatLabel?: string | undefined;
-  /** Explicit column width override. Mirrors `FormatTableAttribute.Width`. */
-  formatWidth?: number | undefined;
-  /** Excludes this property from the default table view. Mirrors `DoNotFormatAttribute`. */
-  excludeFromFormat?: boolean | undefined;
-};
-
-export const PowershellPropertyFormatHintSchema: z.ZodType<PowershellPropertyFormatHint> = z
-  .object({
-    formatIndex: z.number().int().min(0).optional(),
-    formatLabel: z.string().min(1).optional(),
-    formatWidth: z.number().int().min(1).optional(),
-    excludeFromFormat: z.boolean().optional(),
-  })
-  .strict();
-
 export type ObjectPropertyHints = CommonHints & {
   flatten?: FlattenHint | undefined;
   serialization?: SerializationHint | undefined;
-  powershell?: PowershellPropertyFormatHint | undefined;
 };
 
 export const ObjectPropertyHintsSchema: z.ZodType<ObjectPropertyHints> = z
@@ -148,7 +117,6 @@ export const ObjectPropertyHintsSchema: z.ZodType<ObjectPropertyHints> = z
     docs: DocsHintSchema.optional(),
     flatten: FlattenHintSchema.optional(),
     serialization: SerializationHintSchema.optional(),
-    powershell: PowershellPropertyFormatHintSchema.optional(),
   })
   .strict();
 
@@ -161,7 +129,6 @@ export type ValuePropertyHints = CommonHints & {
   /** Render this value as a strong-typed wrapper (e.g., a value object). */
   wrapperType?: { id: IRId } | undefined;
   serialization?: SerializationHint | undefined;
-  powershell?: PowershellPropertyFormatHint | undefined;
 };
 
 export const ValuePropertyHintsSchema: z.ZodType<ValuePropertyHints> = z
@@ -170,13 +137,11 @@ export const ValuePropertyHintsSchema: z.ZodType<ValuePropertyHints> = z
     docs: DocsHintSchema.optional(),
     wrapperType: z.object({ id: IRIdSchema }).strict().optional(),
     serialization: SerializationHintSchema.optional(),
-    powershell: PowershellPropertyFormatHintSchema.optional(),
   })
   .strict();
 
 export type CollectionPropertyHints = CommonHints & {
   serialization?: SerializationHint | undefined;
-  powershell?: PowershellPropertyFormatHint | undefined;
 };
 
 export const CollectionPropertyHintsSchema: z.ZodType<CollectionPropertyHints> = z
@@ -184,7 +149,6 @@ export const CollectionPropertyHintsSchema: z.ZodType<CollectionPropertyHints> =
     clientApi: ClientApiHintSchema.optional(),
     docs: DocsHintSchema.optional(),
     serialization: SerializationHintSchema.optional(),
-    powershell: PowershellPropertyFormatHintSchema.optional(),
   })
   .strict();
 

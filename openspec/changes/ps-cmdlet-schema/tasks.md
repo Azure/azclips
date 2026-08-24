@@ -186,44 +186,28 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
 
 ## Output-formatting schema
 
-Goal: `Format.ps1xml`-equivalent table views for every model in the IR, not just operation output
-types (see the scope correction below) — found by auditing the real generator
-(`ExportFormatPs1xml.cs`/`PsAttributes.cs`), not live reflection; see design.md's
+Goal: `Format.ps1xml`-equivalent table views for a command's output types — found by auditing the
+real generator (`ExportFormatPs1xml.cs`/`PsAttributes.cs`), not live reflection; see design.md's
 "Output-formatting level" section for the full real-target analysis and framework verdicts.
 
-- [x] Add an optional `rendering.powershell` block to `IRModel`'s per-property hints
+- [ ] Add an optional `rendering.powershell` block to `IRModel`'s per-property hints
       (`toolkit/packages/ir/src/hints.ts`): `formatIndex`, `formatLabel`, `formatWidth`,
-      `excludeFromFormat`. Added to all three property-hint variants (`ObjectPropertyHints`/
-      `ValuePropertyHints`/`CollectionPropertyHints`), since a real `[FormatTable]` override can
-      force even a complex property into the view. Added Zod schema (`PowershellPropertyFormatHint`)
-      + unit tests (`ir/test/format-hints.test.ts`, new).
-- [x] Add `PsFormatView` (`toolkit/packages/ps-commands`) and `deriveFormatViews(ir: IR):
+      `excludeFromFormat`. Add Zod schema + unit tests.
+- [ ] Add `PsFormatView` (`toolkit/packages/ps-commands`) and `deriveFormatViews(ir: IR):
       PsFormatView[]` — a plain function (not a `TransformStep`), mirroring
-      `derivePsCommands`/`deriveModules`. **Scope correction**: iterates every `IRModel` in
-      `ir.models`, not just models reachable from a derived command's output types — the real
-      generator reflects over every class in the generated `Models` namespace regardless of
-      request/response role, and real evidence (`AstroIdentity`, `ErrorDetail` both getting views
-      in `Az.Astro.format.ps1xml`) confirms non-response models get views too. Default column set:
-      simple-scalar (`typeKind` `primitive`/`enum`, mirrors the real generator's `IsPsSimple()`
-      check), inherited properties (via `inheritedFrom`, which IR already denormalizes onto every
-      property) before owned ones, then declaration order; any of `formatIndex`/`formatLabel`/
-      `formatWidth` forces inclusion even for an otherwise-excluded complex property, mirroring
-      the real `pf.FormatTable != null` check; `excludeFromFormat` removes an otherwise-eligible
-      property. Models with zero eligible columns get no view, matching the real generator's own
-      `.Where(vp => vp.Properties.Any())` filter. Deliberately does not build a flatten-walker for
-      hoisted/`Inlined` properties — not needed by any real fixture today (see design.md).
-- [x] Added a unit test proving the default-view rule against a synthetic model with a mix of
-      simple-scalar, complex, and inherited properties — confirming only the simple ones appear by
-      default, inherited-before-owned, then declaration order (`ps-commands/test/derive.test.ts`).
-- [x] Added unit tests proving `formatIndex`/`formatLabel`/`formatWidth` overrides change a
-      property's position/label/width in the derived view, `excludeFromFormat` removes an
-      otherwise-eligible property, and a format override forces an otherwise-excluded complex
-      property into the view.
-- [x] Verified end-to-end against the real `resourcegroup.tsp` fixture
-      (`cli/test/create-ps-commands.e2e.test.ts`): `ResourceGroup`'s view contains exactly its own
-      simple-scalar properties (`Name`/`Location`), excluding the nested `Properties` object; and
-      `ResourceGroupProperties` — a model never directly returned as an operation response —
-      still gets its own view, proving the corrected all-models scope.
+      `derivePsCommands`/`deriveModules`. Default column set: simple-scalar (mirrors the real
+      generator's `IsPsSimple()` check), non-`Inlined` (reusing IR's existing `FlattenHint`)
+      properties, ordered by `Origin` then declaration order; apply
+      `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` overrides where present.
+- [ ] Add a unit test proving the default-view rule against a synthetic model with a mix of
+      simple-scalar, complex/nested, and flattened (`Inlined`) properties — confirming only the
+      simple, non-inlined ones appear by default, in the right order.
+- [ ] Add a unit test proving a `formatIndex`/`formatLabel`/`formatWidth` override changes a
+      property's position/label/width in the derived view, and `excludeFromFormat` removes an
+      otherwise-eligible simple-scalar property.
+- [ ] Verify end-to-end against the real `resourcegroup.tsp` fixture: derive the format view for
+      its response model and confirm the column set matches what the model's own property shapes
+      predict (no hand-curation needed for the default case).
 
 ## Real-fixture verification & integration
 

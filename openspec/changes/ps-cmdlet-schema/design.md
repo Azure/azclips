@@ -389,36 +389,21 @@ already carries.
 | Per-property override (`FormatTableAttribute`-equivalent: index/label/width, `DoNotFormat`-equivalent exclude) | Yes — real, bounded per-property authoring surface | Yes — same shape as the parameter-level per-parameter-set override already in scope | Present in real generated output wherever the default ordering/labeling needs correcting | **In scope** — small, bounded, same pattern as existing per-field overrides |
 | `Types.ps1xml` (ETS type extensions) | Yes, but rare | — | Only 4 files exist workspace-wide (`Accounts`/`Sql`/`Functions`, all hand-authored, none auto-generated) — fails the "mature, ecosystem-wide" bar the `Format.ps1xml` evidence clears | Out of scope — not a generator-wide pattern |
 
-### Schema decided, implemented
+### Schema decided
 Unlike everything else this design initially assumed would need deferring, `Format.ps1xml`
 genuinely passes all three framework criteria **cheaply** — the default view requires no new IR
 hints at all, only a new derivation function. Split the same way as Module/Command/Parameter:
 
-- **`rendering.powershell` on `IRModel`'s per-property hints** (`ObjectPropertyHints`/
-  `ValuePropertyHints`/`CollectionPropertyHints` — a property-level namespace, alongside
-  `IROperation`/`IRParameter`/`IRSource`'s own): optional `formatIndex`, `formatLabel`,
-  `formatWidth`, `excludeFromFormat` — all optional, all defaulting to the mechanical rule above
-  when absent. Added to all three property-hint variants (not just simple-value properties),
-  since the real `[FormatTable]` override can force even a normally-excluded complex property into
-  the view.
+- **`hints.powershell` on `IRModel`'s per-property `rendering`** (a fourth namespace, alongside
+  `IROperation`/`IRParameter`/`IRSource`): optional `formatIndex`, `formatLabel`, `formatWidth`,
+  `excludeFromFormat` — all optional, all defaulting to the mechanical rule above when absent.
 - **`PsFormatView`**, a new type in the `ps-commands` package: `{ sourceModelId, columns:
-  { propertyName, label?, width? }[] }`, and `deriveFormatViews(ir: IR): PsFormatView[]` — a plain
-  function (not a `TransformStep`), mirroring `derivePsCommands`/`deriveModules`. **Scoped to every
-  `IRModel` in `ir.models`, not just models reachable from a derived command's output types** —
-  corrected after checking the real generator again: it reflects over every exported class in the
-  generated `Models` namespace with no request/response distinction, and real evidence
-  (`AstroIdentity`, a pipeline-identity input type, and `ErrorDetail`, an error-detail type, both
-  getting views in the real `Az.Astro.format.ps1xml`) confirms non-response models get views too.
-  Computes the default column set (simple-scalar — `typeKind` `primitive`/`enum` —, non-inherited
-  properties sorting after inherited ones, via the `inheritedFrom` IR already denormalizes onto
-  every property; declaration order otherwise), applying any
-  `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` overrides where present. Models
-  with zero eligible columns get no view at all (matches the real generator's own
-  `.Where(vp => vp.Properties.Any())` filter). **Deliberately does not build a flatten-walker for
-  model properties** (the real generator's `Origin: Inlined` exclusion, for properties hoisted up
-  from a flattened nested object) — an object-typed property marked `flatten.into: "self"` is
-  already excluded by the simple-scalar check alone, so nothing currently needs a merged/hoisted
-  property view; revisit only if a real fixture needs one.
+  { propertyName, label, width }[] }`, and `deriveFormatViews(ir: IR): PsFormatView[]` — a plain
+  function (not a `TransformStep`), mirroring `derivePsCommands`/`deriveModules` exactly: for
+  every `IRModel` reachable from a derived command's output types, computes the default column
+  set (simple-scalar, non-`Inlined` properties, ordered by `Origin` then declaration order),
+  applying any `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` overrides from
+  `rendering.powershell` where present.
 - `Types.ps1xml` stays excluded on the merits (not an ecosystem-wide, generator-driven pattern —
   only 4 hand-authored files exist).
 
@@ -557,10 +542,10 @@ per `PsParameterSet` it emits a binding for.
 | `summary` / `description` / `examples` / `lifecycleTag` | Copied from `hints.powershell` |
 | `httpPath` / `supportsPaging` / `helpUri` | Copied from `hints.powershell` |
 
-### `rendering.powershell` on `IRModel`'s per-property hints (output-formatting)
+### `hints.powershell` on `IRModel`'s per-property `rendering` (output-formatting)
 | Field | Notes |
 |---|---|
-| `formatIndex` | Optional explicit column order override; mirrors `FormatTableAttribute.Index`; also forces an otherwise-excluded complex property into the view |
+| `formatIndex` | Optional explicit column order override; mirrors `FormatTableAttribute.Index` |
 | `formatLabel` | Optional column header text override; mirrors `FormatTableAttribute.Label` |
 | `formatWidth` | Optional column width override; mirrors `FormatTableAttribute.Width` |
 | `excludeFromFormat` | Excludes this property from the default table view; mirrors `DoNotFormatAttribute` |
@@ -568,5 +553,5 @@ per `PsParameterSet` it emits a binding for.
 ### `ps-commands` package: `PsFormatView` (thin aggregate)
 | Field | Notes |
 |---|---|
-| `sourceModelId` | `IRModel.id` this view derives from — computed for every `IRModel` in `ir.models` with at least one eligible column, not just output/response types |
-| `columns` | `{ propertyName, label?, width? }[]` — default: simple-scalar (`primitive`/`enum`) properties, inherited before owned, then declaration order; overridden per-property by `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` |
+| `sourceModelId` | `IRModel.id` this view derives from |
+| `columns` | `{ propertyName, label, width }[]` — default: simple-scalar, non-`Inlined` properties in `Origin`-then-declaration order; overridden per-property by `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` |
