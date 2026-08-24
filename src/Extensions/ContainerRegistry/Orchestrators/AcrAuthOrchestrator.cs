@@ -2,27 +2,26 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
-using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 /// <summary>
-/// ACR per-request auth provider. Implements <see cref="IRequestAuthProvider"/> to control
-/// how each outgoing HTTP request is authenticated:
+/// ACR token acquisition orchestrator. Handles the 3-step token exchange:
 /// <list type="bullet">
-///   <item>Token exchange requests (<c>/oauth2/exchange</c>, <c>/oauth2/token</c>): skip pipeline auth.</item>
-///   <item>Data-plane requests to the login server: use the ACR access token.</item>
-///   <item>All other requests: fall through to default (ARM) auth.</item>
+///   <item>Step 1: Acquire AAD token via default auth delegate.</item>
+///   <item>Step 2: Exchange AAD token for ACR refresh token (POST /oauth2/exchange).</item>
+///   <item>Step 3: Exchange ACR refresh token for ACR access token (POST /oauth2/token).</item>
 /// </list>
+/// Token exchange requests use a raw <see cref="HttpClient"/> to avoid the pipeline
+/// injecting an ARM Bearer token, which ACR's oauth endpoints would reject.
 /// </summary>
-internal sealed class AcrAuthOrchestrator : IRequestAuthProvider
+internal sealed class AcrAuthOrchestrator
 {
+    private static readonly HttpClient s_httpClient = new();
+
     private readonly IAuthHandler _authHandler;
-    private readonly IRuntimeHttpPipeline _pipeline;
-    private readonly IEventPublisher _publisher;
     private readonly JsonSerializerOptions _jsonOptions;
 
     /// <summary>Cached ACR access token, keyed by (loginServer, scope).</summary>
@@ -32,42 +31,10 @@ internal sealed class AcrAuthOrchestrator : IRequestAuthProvider
 
     public AcrAuthOrchestrator(
         IAuthHandler authHandler,
-        IRuntimeHttpPipeline pipeline,
-        IEventPublisher publisher,
         JsonSerializerOptions jsonOptions)
     {
         _authHandler = authHandler;
-        _pipeline = pipeline;
-        _publisher = publisher;
         _jsonOptions = jsonOptions;
-    }
-
-    /// <inheritdoc />
-    public Task<RequestAuthResult> GetAuthAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
-    {
-        var uri = request.RequestUri;
-        if (uri is null)
-            return Task.FromResult(RequestAuthResult.Default);
-
-        string path = uri.AbsolutePath;
-
-        // Token exchange endpoints: skip auth so the pipeline doesn't inject a Bearer header
-        if (path.EndsWith("/oauth2/exchange", StringComparison.OrdinalIgnoreCase) ||
-            path.EndsWith("/oauth2/token", StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(RequestAuthResult.Skip);
-        }
-
-        // Data-plane requests: use cached ACR token if available
-        if (_cachedToken is not null &&
-            _cachedLoginServer is not null &&
-            uri.Host.Equals(_cachedLoginServer, StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(RequestAuthResult.WithToken(_cachedToken));
-        }
-
-        // Anything else (e.g. ARM calls) uses default auth
-        return Task.FromResult(RequestAuthResult.Default);
     }
 
     /// <summary>
@@ -140,18 +107,15 @@ internal sealed class AcrAuthOrchestrator : IRequestAuthProvider
             ["access_token"] = aadToken
         });
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        var response = await _pipeline.SendAsync(request, _publisher);
+        using var response = await s_httpClient.PostAsync(url, content);
 
         if (!response.IsSuccessStatusCode)
         {
             string errorBody = await response.Content.ReadAsStringAsync();
-            response.Dispose();
             throw new HttpRequestException($"ACR token exchange failed ({response.StatusCode}): {errorBody}");
         }
 
         string body = await response.Content.ReadAsStringAsync();
-        response.Dispose();
         var tokenResponse = JsonSerializer.Deserialize<AcrTokenResponse>(body, _jsonOptions)
             ?? throw new InvalidOperationException("Failed to exchange AAD token for ACR refresh token.");
 
@@ -170,8 +134,7 @@ internal sealed class AcrAuthOrchestrator : IRequestAuthProvider
             ["refresh_token"] = refreshToken
         });
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        using var response = await _pipeline.SendAsync(request, _publisher);
+        using var response = await s_httpClient.PostAsync(url, content);
         response.EnsureSuccessStatusCode();
 
         string body = await response.Content.ReadAsStringAsync();

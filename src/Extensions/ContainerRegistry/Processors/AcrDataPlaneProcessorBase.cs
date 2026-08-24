@@ -108,7 +108,7 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
 
     /// <summary>
     /// Sends the request with ACR auth: acquires ACR token via the 3-step exchange flow,
-    /// wires the <see cref="AcrAuthOrchestrator"/> as <see cref="IRequestAuthProvider"/>,
+    /// sets <see cref="IAuthHandler.AcquireTokenAsyncOverride"/> to return the cached ACR token,
     /// then sends through the pipeline.
     /// </summary>
      internal async virtual Task<HttpResponseMessage> SendAsync()
@@ -116,17 +116,24 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
             IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
             IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
 
-            // Wire up ACR auth: acquire token via 3-step exchange, set as RequestAuthProvider
+            // Wire up ACR auth: acquire token via 3-step exchange, override token delegate
             string loginServer = GetLoginServer();
             if (!string.IsNullOrEmpty(loginServer))
             {
-                var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, _httpPipeline, _publisher, JsonOptions);
-                AuthHandler.RequestAuthProvider = authOrchestrator;
+                var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, JsonOptions);
 
                 string scope = GetScope();
-                await authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
+                string acrToken = await authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
 
-                // Signal override intent (RequestAuthProvider takes priority in AuthHandler)
+                // Override the token delegate to return the ACR access token
+                AuthHandler.AcquireTokenAsyncOverride = (scopes, tenantId, promptOnError, ct, profile) =>
+                    Task.FromResult(new AuthResult
+                    {
+                        AccessToken = acrToken,
+                        ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                        Scopes = Array.Empty<string>(),
+                        TenantId = tenantId ?? string.Empty,
+                    });
                 AuthHandler.ApplyOverride = true;
             }
 
@@ -319,9 +326,16 @@ public abstract class AcrDataPlaneProcessorBase : IProcessor
         IEventPublisher publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
 
         // Wire up ACR auth
-        var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, pipeline, publisher, JsonOptions);
-        AuthHandler.RequestAuthProvider = authOrchestrator;
-        await authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
+        var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, JsonOptions);
+        string acrToken = await authOrchestrator.AcquireAcrAccessTokenAsync(loginServer, scope);
+        AuthHandler.AcquireTokenAsyncOverride = (scopes, tenantId, promptOnError, ct, profile) =>
+            Task.FromResult(new AuthResult
+            {
+                AccessToken = acrToken,
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                Scopes = Array.Empty<string>(),
+                TenantId = tenantId ?? string.Empty,
+            });
         AuthHandler.ApplyOverride = true;
 
         var pages = new List<string>();

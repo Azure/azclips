@@ -33,13 +33,6 @@ namespace Core.Abstractions.Runtime.Handler
         bool ApplyOverride { get; set; }
 
         /// <summary>
-        /// Optional per-request auth provider. When set, the auth handler consults it
-        /// before each request to decide whether to skip auth, use a custom token, or
-        /// fall through to the default token acquisition.
-        /// </summary>
-        IRequestAuthProvider? RequestAuthProvider { get; set; }
-
-        /// <summary>
         /// Sends an HTTP request step with authentication.
         /// </summary>
         SendAsyncStep SendAsync { get; }

@@ -33,8 +33,7 @@ public class ConnectAcrProcessor : AcrDataPlaneProcessorBase
             string loginServer = GetLoginServer();
 
             // Acquire ACR refresh token via the auth orchestrator (AAD token → ACR refresh token)
-            var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, HttpPipeline, Publisher, JsonOptions);
-            AuthHandler.RequestAuthProvider = authOrchestrator;
+            var authOrchestrator = new AcrAuthOrchestrator(AuthHandler, JsonOptions);
             string refreshToken = await authOrchestrator.AcquireAcrRefreshTokenAsync(loginServer);
 
             // Use refresh token as the docker login password

@@ -3,8 +3,6 @@
 
 using System.Diagnostics;
 using System.Text.Json;
-using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
@@ -17,19 +15,13 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 internal sealed class ConnectAcrOrchestrator
 {
     private readonly IAuthHandler _authHandler;
-    private readonly IRuntimeHttpPipeline _pipeline;
-    private readonly IEventPublisher _publisher;
     private readonly JsonSerializerOptions _jsonOptions;
 
     public ConnectAcrOrchestrator(
         IAuthHandler authHandler,
-        IRuntimeHttpPipeline pipeline,
-        IEventPublisher publisher,
         JsonSerializerOptions jsonOptions)
     {
         _authHandler = authHandler;
-        _pipeline = pipeline;
-        _publisher = publisher;
         _jsonOptions = jsonOptions;
     }
 
@@ -42,11 +34,8 @@ internal sealed class ConnectAcrOrchestrator
         string loginServer = AcrDataPlaneProcessorBase.ResolveLoginServerFromName(registryName);
 
         // Acquire ACR refresh token (used as docker login password)
-        var authOrchestrator = new AcrAuthOrchestrator(_authHandler, _pipeline, _publisher, _jsonOptions);
-        _authHandler.RequestAuthProvider = authOrchestrator;
+        var authOrchestrator = new AcrAuthOrchestrator(_authHandler, _jsonOptions);
         string refreshToken = await authOrchestrator.AcquireAcrRefreshTokenAsync(loginServer);
-
-        _authHandler.ApplyOverride = true;
 
         // Invoke docker login
         await DockerLoginAsync(loginServer, refreshToken);
