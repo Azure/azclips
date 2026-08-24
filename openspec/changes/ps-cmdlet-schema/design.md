@@ -355,10 +355,15 @@ exposes these constraints (tracked separately, outside this change).
 
 ## Output-formatting level (`Format.ps1xml`) — out of scope for now
 
-A fourth level exists beyond Module/Command/Parameter: how a command's **returned object**
-displays (`Format.ps1xml` table/list views). Found only after this design's own three levels were
-already drafted, by directly searching the real ecosystem rather than reasoning from attribute
-source code.
+A fourth level exists beyond Module/Command/Parameter: how a **model's instances** display in the
+PowerShell console (`Format.ps1xml` table/list views). Found only after this design's own three
+levels were already drafted, by directly searching the real ecosystem rather than reasoning from
+attribute source code. **Not scoped to a command's response/output types** — checked directly:
+real `Az.Astro.format.ps1xml` gives `AstroIdentity` (a pipeline-identity *input* type, never
+returned by any cmdlet) and `ErrorDetail` (an error-detail type) their own views too. The real
+generator (`ExportFormatPs1xml.cs`) confirms why: it reflects over every exported class in the
+generated `Models` namespace, with no request/response distinction at all — the concern is "could
+a user ever see an instance of this type," not "is this type a command's output."
 
 ### Real target (found directly in `azure-powershell/generated/**/*.Autorest/`)
 249 `*.format.ps1xml` files, essentially one per generated module (e.g.
@@ -378,6 +383,8 @@ not a nested object or collection). Ordered by explicit `Index` if present, else
 properties, `Source`/`Tags`/`InstanceView`, are complex/nested and excluded) and
 `VirtualMachineRunCommandInstanceView` (shows all 7 properties — every one happens to be a simple
 scalar): it's a deterministic function of each property's own shape, not per-model hand curation.
+Applied to azclips's own IR, this would mean iterating every `IRModel` in `ir.models` — not just
+ones reachable from a `PsCommand`'s output types — with the same scope caveat validated above.
 
 The real `[FormatTable]`/`suppress-format` overrides are themselves only ever authored in
 AutoRest.PowerShell's own `readme.md` `directive:` block (confirmed via real, in-repo examples:
