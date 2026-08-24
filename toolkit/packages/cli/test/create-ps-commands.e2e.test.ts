@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 import { compile, createPsCommandsFactory, createTransformPipeline } from "@azure-client-engine/compiler";
-import { derivePsCommands } from "@azure-client-engine/ps-commands";
+import { derivePsCommands, deriveModules } from "@azure-client-engine/ps-commands";
 import type { IR } from "@azure-client-engine/ir";
 
 // These tests fork the real (compiled) worker process, so they must exercise the
@@ -216,5 +216,25 @@ describe("create-ps-commands + derivePsCommands: resourcegroup.tsp end-to-end", 
     const get = result.ir!.operations.find((o) => o.id.name === "get");
     const resourceGroupName = get!.pathParameters.find((p) => p.name === "resourceGroupName");
     expect(resourceGroupName!.rendering!.powershell!.aliases).toEqual(["Name"]);
+  });
+
+  it("deriveModules produces one PsModule whose cmdletsToExport matches the real ResourceGroups cmdlets", async () => {
+    const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
+    const pipeline = createTransformPipeline("module-level", [
+      createPsCommandsFactory({ subjectPrefix: "Az" }),
+    ]);
+
+    const result = await compile(
+      { entrypoint: RESOURCE_GROUP_TSP },
+      { emit: producer, transform: pipeline },
+    );
+    expect(result.success).toBe(true);
+
+    const modules = deriveModules(result.ir!);
+
+    expect(modules).toHaveLength(1);
+    expect(modules[0]!.cmdletsToExport.sort()).toEqual(
+      ["New-AzResourceGroup", "Get-AzResourceGroup", "Remove-AzResourceGroup"].sort(),
+    );
   });
 });

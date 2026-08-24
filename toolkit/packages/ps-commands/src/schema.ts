@@ -114,3 +114,27 @@ export const PsCommandSchema: z.ZodType<PsCommand> = z
     helpUri: z.string().min(1).optional(),
   })
   .strict();
+
+/**
+ * One generated PowerShell module (one merged `IRSource`). Thin aggregate,
+ * same rationale as `PsCommand`: per-source authoring (`description`) lives
+ * as `hints.powershell` on `IRSource.rendering`; this only holds what that
+ * hint structurally cannot express — the flattened list of every `PsCommand`
+ * grouped under this source. See `deriveModules` in `derive.js`.
+ */
+export type PsModule = {
+  /** `IRSource.id` this module derives from. */
+  sourceId: string;
+  /** Copied from `IRSource.rendering.powershell.description`. */
+  description?: string | undefined;
+  /** Flattened `verb`-`noun` command names (e.g. `"New-AzResourceGroup"`), one per grouped `PsCommand`. */
+  cmdletsToExport: string[];
+};
+
+export const PsModuleSchema: z.ZodType<PsModule> = z
+  .object({
+    sourceId: z.string().min(1),
+    description: z.string().min(1).optional(),
+    cmdletsToExport: z.array(z.string().min(1)),
+  })
+  .strict();

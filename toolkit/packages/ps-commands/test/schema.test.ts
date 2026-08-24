@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { PsCommandSchema, PsParameterSetSchema, type PsCommand, type PsParameterSet } from "../src/index.js";
+import { PsCommandSchema, PsModuleSchema, PsParameterSetSchema, type PsCommand, type PsModule, type PsParameterSet } from "../src/index.js";
 
 const OPERATION_ID = {
   module: "<root>",
@@ -91,5 +91,27 @@ describe("PsCommand", () => {
         sourceOperationIds: [OPERATION_ID],
       }),
     ).toThrow();
+  });
+});
+
+describe("PsModule", () => {
+  it("parses a valid module", () => {
+    const module: PsModule = {
+      sourceId: "Microsoft.Resources",
+      description: "Resource group management cmdlets.",
+      cmdletsToExport: ["New-AzResourceGroup", "Get-AzResourceGroup", "Remove-AzResourceGroup"],
+    };
+
+    expect(PsModuleSchema.parse(module)).toEqual(module);
+  });
+
+  it("accepts a module with no description", () => {
+    const parsed = PsModuleSchema.parse({ sourceId: "Microsoft.Resources", cmdletsToExport: [] });
+
+    expect(parsed.description).toBeUndefined();
+  });
+
+  it("rejects a module with no sourceId", () => {
+    expect(() => PsModuleSchema.parse({ cmdletsToExport: [] })).toThrow();
   });
 });

@@ -384,6 +384,36 @@ export const ParameterHintsSchema: z.ZodType<ParameterHints> = z
   .strict();
 
 /**
+ * PowerShell module-shape fields for a source (one TypeSpec entrypoint, one
+ * generated module). Scoped narrowly to `description` \u2014 release/packaging
+ * `.psd1` fields (GUID, version, required modules, PSGallery metadata) have
+ * no IR-derivable source of truth; see ps-cmdlet-schema's design.md
+ * Module-level section for the full field-by-field framework verdicts.
+ */
+export type PowershellSourceHint = {
+  /** Module summary/description text; author-settable, not yet wired to a TypeSpec decorator. */
+  description?: string | undefined;
+};
+
+export const PowershellSourceHintSchema: z.ZodType<PowershellSourceHint> = z
+  .object({
+    description: z.string().min(1).optional(),
+  })
+  .strict();
+
+export type SourceHints = CommonHints & {
+  powershell?: PowershellSourceHint | undefined;
+};
+
+export const SourceHintsSchema: z.ZodType<SourceHints> = z
+  .object({
+    clientApi: ClientApiHintSchema.optional(),
+    docs: DocsHintSchema.optional(),
+    powershell: PowershellSourceHintSchema.optional(),
+  })
+  .strict();
+
+/**
  * Hints attached to an operation's request body. Reuses the property-level
  * `FlattenHint` so the body's "flatten into method signature" decision is
  * expressed with the same vocabulary as model-property flattening.

@@ -318,7 +318,7 @@ describe("ace compile: --config pipeline (create-ps-commands)", () => {
 });
 
 describe("ace compile: --config generator (generate-ps-commands)", () => {
-  it("writes ps-commands.json with the derived PsCommand[] when both create-ps-commands and generate-ps-commands are configured", async () => {
+  it("writes ps-commands.json with the derived PsCommand[]/PsModule[] when both create-ps-commands and generate-ps-commands are configured", async () => {
     const configPath = join(dir, "generate-ps-commands.json");
     writeFileSync(
       configPath,
@@ -341,11 +341,10 @@ describe("ace compile: --config generator (generate-ps-commands)", () => {
     ]);
     expect(code).toBe(0);
 
-    const commands = JSON.parse(readFileSync(join(outDir, "ps-commands.json"), "utf8")) as {
-      verb: string;
-      noun: string;
-      parameterSets: { name: string }[];
-    }[];
+    const { commands, modules } = JSON.parse(readFileSync(join(outDir, "ps-commands.json"), "utf8")) as {
+      commands: { verb: string; noun: string; parameterSets: { name: string }[] }[];
+      modules: { sourceId: string; cmdletsToExport: string[] }[];
+    };
 
     const get = commands.find((c) => c.verb === "Get" && c.noun === "AzPet");
     expect(get).toBeDefined();
@@ -353,5 +352,9 @@ describe("ace compile: --config generator (generate-ps-commands)", () => {
 
     const create = commands.find((c) => c.verb === "New" && c.noun === "AzPet");
     expect(create).toBeDefined();
+
+    expect(modules).toHaveLength(1);
+    expect(modules[0]!.cmdletsToExport).toContain("New-AzPet");
+    expect(modules[0]!.cmdletsToExport).toContain("Get-AzPet");
   });
 });

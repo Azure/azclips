@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { IRServerSchema, IRApiVersionStampSchema, type IRServer, type IRApiVersionStamp } from "./operation.js";
 import { IRAuthSchema, type IRAuth } from "./auth.js";
+import { SourceHintsSchema, type SourceHints } from "./hints.js";
 
 export type IRSource = {
   /** Stable identifier — e.g. "Microsoft.Storage". Doubles as IRId.module for types declared in this source. */
@@ -25,6 +26,7 @@ export type IRSource = {
   rootNamespace: string[];
   /** Service authentication requirement, if the service declares one. */
   auth?: IRAuth | undefined;
+  rendering?: SourceHints | undefined;
 };
 
 export const IRSourceSchema: z.ZodType<IRSource> = z
@@ -35,5 +37,6 @@ export const IRSourceSchema: z.ZodType<IRSource> = z
     server: IRServerSchema,
     rootNamespace: z.array(z.string().min(1)),
     auth: IRAuthSchema.optional(),
+    rendering: SourceHintsSchema.optional(),
   })
   .strict();

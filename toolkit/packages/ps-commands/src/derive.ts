@@ -19,7 +19,7 @@ import {
   type IRParameter,
   type IRTypeRef,
 } from "@azure-client-engine/ir";
-import type { PsCommand, PsParameterSet } from "./schema.js";
+import type { PsCommand, PsModule, PsParameterSet } from "./schema.js";
 
 /** Model/enum refs carry an id directly; array refs recurse into their element. Others have none. */
 function extractTypeRefId(type: IRTypeRef): IRId | undefined {
@@ -176,4 +176,40 @@ export function derivePsCommands(ir: IR): PsCommand[] {
   }
 
   return commands;
+}
+
+/**
+ * `deriveModules`: groups `derivePsCommands`'s output by source into the
+ * final `PsModule[]`. Plain function, not a pipeline stage — same rationale
+ * as `derivePsCommands` (design.md Decision 8). Assumes every operation
+ * merged into one `PsCommand` shares a single source — true for any real
+ * input, since merging groups by `id.module`, which "doubles as" a source's
+ * id (see `IRSource`'s docstring); only the first source operation is
+ * actually looked up.
+ */
+export function deriveModules(ir: IR): PsModule[] {
+  const commands = derivePsCommands(ir);
+  const groups = new Map<string, PsCommand[]>();
+
+  for (const command of commands) {
+    const firstOperationId = command.sourceOperationIds[0];
+    const operation = ir.operations.find((op) => idEquals(op.id, firstOperationId!));
+    if (operation === undefined) continue; // shouldn't happen for real IR; defensive skip
+
+    const members = groups.get(operation.source);
+    if (members) members.push(command);
+    else groups.set(operation.source, [command]);
+  }
+
+  const modules: PsModule[] = [];
+  for (const [sourceId, groupCommands] of groups) {
+    const source = ir.sources.find((s) => s.id === sourceId);
+    modules.push({
+      sourceId,
+      description: source?.rendering?.powershell?.description,
+      cmdletsToExport: groupCommands.map((command) => `${command.verb}-${command.noun}`),
+    });
+  }
+
+  return modules;
 }

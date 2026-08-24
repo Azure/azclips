@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ModelHintsSchema, OperationHintsSchema, type OperationHints } from "../src/index.js";
+import { ModelHintsSchema, OperationHintsSchema, SourceHintsSchema, type OperationHints, type SourceHints } from "../src/index.js";
 
 describe("hints.powershell (OperationHints)", () => {
   it("round-trips a fully populated powershell hint", () => {
@@ -48,5 +48,27 @@ describe("hints.powershell (OperationHints)", () => {
 
   it("does not leak the powershell namespace onto unrelated node kinds", () => {
     expect(() => ModelHintsSchema.parse({ powershell: { verb: "Get" } })).toThrow();
+  });
+});
+
+describe("hints.powershell (SourceHints) — module-level", () => {
+  it("round-trips a populated source powershell hint", () => {
+    const hint: SourceHints = { powershell: { description: "Resource group management cmdlets." } };
+
+    expect(SourceHintsSchema.parse(hint)).toEqual(hint);
+  });
+
+  it("accepts SourceHints with no powershell namespace at all", () => {
+    const parsed = SourceHintsSchema.parse({});
+
+    expect(parsed.powershell).toBeUndefined();
+  });
+
+  it("rejects an empty description string", () => {
+    expect(() => SourceHintsSchema.parse({ powershell: { description: "" } })).toThrow();
+  });
+
+  it("does not leak the source powershell namespace onto unrelated node kinds", () => {
+    expect(() => ModelHintsSchema.parse({ powershell: { description: "x" } })).toThrow();
   });
 });

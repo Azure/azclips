@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { emptyIR, type IROperation, type IRParameter } from "@azure-client-engine/ir";
+import { emptyIR, type IROperation, type IRParameter, type IRSource } from "@azure-client-engine/ir";
 
-import { derivePsCommands, resolveParameterHintForSet } from "../src/derive.js";
+import { derivePsCommands, deriveModules, resolveParameterHintForSet } from "../src/derive.js";
 
 function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" | "method">): IROperation {
   return {
@@ -233,5 +233,81 @@ describe("resolveParameterHintForSet", () => {
       position: undefined,
       helpMessage: undefined,
     });
+  });
+});
+
+describe("deriveModules", () => {
+  function makeSource(overrides: Partial<IRSource> = {}): IRSource {
+    return {
+      id: "<root>",
+      entrypoint: "resourcegroup.tsp",
+      apiVersion: { value: "2025-04-01", location: "query", parameterName: "api-version" },
+      server: { kind: "literal", url: "https://management.azure.com" },
+      rootNamespace: ["ResourceGroups"],
+      ...overrides,
+    };
+  }
+
+  it("groups every derived command under its source into one PsModule with cmdletsToExport", () => {
+    const createOrUpdate = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+      rendering: { powershell: { verb: "New", noun: "ResourceGroup", subjectPrefix: "Az", confirmImpact: "Medium" } },
+    });
+    const get = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "get" },
+      method: "GET",
+      rendering: { powershell: { verb: "Get", noun: "ResourceGroup", subjectPrefix: "Az", parameterSetName: "Get" } },
+    });
+
+    const source = makeSource({
+      rendering: { powershell: { description: "Resource group management cmdlets." } },
+    });
+
+    const modules = deriveModules({
+      ...emptyIR(),
+      sources: [source],
+      operations: [createOrUpdate, get],
+    });
+
+    expect(modules).toHaveLength(1);
+    expect(modules[0]!.sourceId).toBe("<root>");
+    expect(modules[0]!.description).toBe("Resource group management cmdlets.");
+    expect(modules[0]!.cmdletsToExport.sort()).toEqual(["Get-AzResourceGroup", "New-AzResourceGroup"]);
+  });
+
+  it("omits description when the source has no rendering hint", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+      rendering: { powershell: { verb: "New", noun: "ResourceGroup", subjectPrefix: "Az" } },
+    });
+
+    const modules = deriveModules({ ...emptyIR(), sources: [makeSource()], operations: [operation] });
+
+    expect(modules[0]!.description).toBeUndefined();
+  });
+
+  it("groups operations from different sources into separate modules", () => {
+    const fromRoot = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+      source: "<root>",
+      rendering: { powershell: { verb: "New", noun: "ResourceGroup", subjectPrefix: "Az" } },
+    });
+    const fromOther = makeOperation({
+      id: { module: "Other", namespace: ["Widgets"], name: "createOrUpdate" },
+      method: "PUT",
+      source: "Other",
+      rendering: { powershell: { verb: "New", noun: "Widget", subjectPrefix: "Az" } },
+    });
+
+    const modules = deriveModules({
+      ...emptyIR(),
+      sources: [makeSource(), makeSource({ id: "Other" })],
+      operations: [fromRoot, fromOther],
+    });
+
+    expect(modules.map((m) => m.sourceId).sort()).toEqual(["<root>", "Other"]);
   });
 });
