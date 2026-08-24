@@ -23,8 +23,6 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             AzclipsServiceProvider.PrependRegistration(services =>
                 services.AddSingleton<ITelemetrySender, DirectTelemetrySender>());
 
-            // Overrides, because RegisterTelemetryServices registers DefaultTelemetryProvider
-            // among the defaults and a prepend would lose to it.
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
