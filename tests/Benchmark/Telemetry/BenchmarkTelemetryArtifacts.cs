@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Tests.Common.Utilities;
+
 namespace Benchmark.Telemetry;
 
 /// <summary>
@@ -30,7 +32,7 @@ internal sealed class BenchmarkTelemetryArtifacts
         _stagingRoot = BenchmarkTelemetryPaths.StagingRoot(repoRoot);
         _telemetryRoot = Path.Combine(_stagingRoot, _benchmarkName);
 
-        TryDeleteDirectory(_telemetryRoot);
+        TempFileCleanup.TryDeleteDirectory(_telemetryRoot);
     }
 
     /// <summary>Where warmup-iteration traces are written. Deleted unread by <see cref="Prune"/>.</summary>
@@ -68,20 +70,7 @@ internal sealed class BenchmarkTelemetryArtifacts
         }
         finally
         {
-            TryDeleteDirectory(_telemetryRoot);
+            TempFileCleanup.TryDeleteDirectory(_telemetryRoot);
         }
-    }
-
-    internal static void TryDeleteDirectory(string path)
-    {
-        try
-        {
-            if (Directory.Exists(path))
-            {
-                Directory.Delete(path, recursive: true);
-            }
-        }
-        catch (IOException) { /* best-effort */ }
-        catch (UnauthorizedAccessException) { /* best-effort */ }
     }
 }

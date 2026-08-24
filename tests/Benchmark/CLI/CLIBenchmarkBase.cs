@@ -53,7 +53,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         // Benchmark-scoped extensions home: a copy of the real ~/.azclips/extensions layout that the
         // resolver, reconciler, and InstalledExtensionLoader all agree on.
         _extensionsRoot = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "extensions");
-        BenchmarkTelemetryArtifacts.TryDeleteDirectory(_extensionsRoot);
+        TempFileCleanup.TryDeleteDirectory(_extensionsRoot);
         Directory.CreateDirectory(_extensionsRoot);
 
         // Fallback path for source build output.
@@ -126,7 +126,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
         // Best-effort: InstalledExtensionLoader caches the extension ALC for the process
         // lifetime, so the staged DLL may still be locked here. A leftover home is harmless.
-        BenchmarkTelemetryArtifacts.TryDeleteDirectory(
+        TempFileCleanup.TryDeleteDirectory(
             Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
     }
 
