@@ -41,9 +41,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
-    private BenchmarkStageListener _stage = null!;
     private StageTraceDirectoryProvider _traceDirectory = null!;
-    private BenchmarkTelemetryArtifacts _telemetryArtifacts = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -75,13 +73,12 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         Console.WriteLine(
             $"[Setup] CLI benchmarks ready (stub HTTP, real MSAL cache IO); staged {stagedCount} extension(s)");
 
-        _telemetryArtifacts = new BenchmarkTelemetryArtifacts(RepoRoot);
+        InitializeTelemetryCommon();
 
-        _stage = new BenchmarkStageListener();
         _traceDirectory = new StageTraceDirectoryProvider(
-            _telemetryArtifacts.WarmupDirectory,
-            _telemetryArtifacts.ActualDirectory,
-            _stage);
+            TelemetryArtifacts.WarmupDirectory,
+            TelemetryArtifacts.ActualDirectory,
+            Stage);
     }
 
     [IterationSetup]
@@ -120,8 +117,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     [GlobalCleanup]
     public void GlobalCleanup()
     {
-        _stage?.Dispose();
-        _telemetryArtifacts?.Prune();
+        CleanupTelemetryCommon();
         CleanupGlobal();
 
         // Best-effort: InstalledExtensionLoader caches the extension ALC for the process
