@@ -36,7 +36,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     private string _psModuleManifestPath = null!;
     private Runspace _runspace = null!;
     private BenchmarkStageListener _stage = null!;
-    private BenchmarkTelemetryArtifacts _telemetry = null!;
+    private BenchmarkTelemetryArtifacts _telemetryArtifacts = null!;
     private BenchmarkFileTelemetrySender _sender = null!;
 
     [GlobalSetup]
@@ -53,12 +53,12 @@ public abstract class PSBenchmarkBase : BenchmarkBase
         // One process per benchmark case, so these are constant for the whole run. The listener
         // tracks the engine's stage and the sender holds two paths; only what ConfigureExporter
         // builds is per-iteration.
-        _telemetry = new BenchmarkTelemetryArtifacts(RepoRoot);
+        _telemetryArtifacts = new BenchmarkTelemetryArtifacts(RepoRoot);
         _stage = new BenchmarkStageListener();
         _sender = new BenchmarkFileTelemetrySender(
             _stage,
-            _telemetry.WarmupDirectory,
-            _telemetry.ActualDirectory);
+            _telemetryArtifacts.WarmupDirectory,
+            _telemetryArtifacts.ActualDirectory);
     }
 
     /// <summary>
@@ -142,7 +142,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     public void GlobalCleanup()
     {
         _stage?.Dispose();
-        _telemetry?.Prune();
+        _telemetryArtifacts?.Prune();
         CleanupGlobal();
     }
 
