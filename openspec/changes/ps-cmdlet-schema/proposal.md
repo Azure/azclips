@@ -1,11 +1,13 @@
 ## Why
 
-Azclips issue #452 ("[Cirrus Codegen] Design PS attribute schema") asks for a schema that lets
-the Cirrus TypeSpec-to-C# codegen pipeline emit PowerShell cmdlets. Today the pipeline goes
-TypeSpec -> IR (`toolkit/packages/typespec-emitter`, complete) -> a pluggable `TransformStep`
-pipeline + `Generator` (`toolkit/packages/compiler`, complete but empty: `identityPipeline`,
-`noopGenerator`). Nothing yet turns an `IROperation`/`IRModel`/`IREnum` into a PowerShell
-cmdlet's shape.
+The PowerShell SDK already defines a certain target shape for a module/command/parameter —
+verified directly via live reflection (`Import-Module Az.Accounts`, `Get-Command
+New-AzResourceGroup`, inspecting the real `System.Management.Automation.PSModuleInfo`/`CmdletInfo`/
+`CommandMetadata`/`ParameterMetadata`/`ParameterSetMetadata`), not assumed from precedent or
+generator conventions. This schema works backward from that confirmed target to decide what
+Cirrus's IR needs to carry, level by level (module, command, parameter), rather than starting
+from IR/Emitter and designing vocabulary forward. See design.md's Context for the full method and
+the three-part framework used to decide, for every real SDK field found, whether it belongs.
 
 Azclips already has a working, hand-written convention for this (Resources/Compute/Login
 extensions): every command is THREE artifacts — a thin `PSCmdlet` shell, a business-logic
@@ -17,12 +19,14 @@ once per PS/CLI variant — e.g. `s_newResourceGroup_PS` and `s_newResourceGroup
 re-declare `Required`/`Description`/`Type` for the same `NewResourceGroupProcessor`, differing
 only in key casing: `"Name"` vs `"name"`).
 
-AutoRest.PowerShell (reference only — azclips does not depend on it or use it) already solved an
-equivalent problem for Az PowerShell: verb/noun inference, parameter-set/variant fan-out, body
-flattening, and a directive-based customization mechanism (`docs/directives.md`). Its concrete
-policies are reusable as design precedent even though its architecture (single class calling a
-generated low-level client directly, proxy-cmdlet layer) does not match azclips's Processor-based
-architecture and is explicitly not adopted.
+AutoRest.PowerShell (reference only — azclips does not depend on it or use it) is real, working
+precedent for the exact target-first method this change follows: its `Export-ProxyCmdlet`
+reflects on an already-compiled module's real `CommandInfo`/`ParameterMetadata` and derives its
+grouping model directly from those real reflected types, rather than inventing an upfront schema.
+Its own concrete policies (verb/noun inference, parameter-set/variant fan-out, body flattening, a
+directive-based customization mechanism) are reusable as design precedent even though its
+architecture (single class calling a generated low-level client directly, proxy-cmdlet layer)
+does not match azclips's Processor-based architecture and is explicitly not adopted.
 
 ## What Changes
 
@@ -56,6 +60,13 @@ architecture and is explicitly not adopted.
 - Design a directive-style (`select`/`where`/`set`) customization/override mechanism passed as
   `TransformStep` options, layered on top of inline `hints.powershell` overrides — modeled on
   AutoRest's `docs/directives.md`.
+- Add a `powershell` hints namespace to `IRSource.rendering` (module-level, new for this change
+  since `IRSource` had no `rendering` field before) plus a `deriveModules(ir): PsModule[]`
+  function in `ps-commands`, covering only what's genuinely derivable from IR at the module level
+  (`description`, `cmdletsToExport`) — verified directly against the real
+  `System.Management.Automation.PSModuleInfo`/`.psd1` shape that release/packaging fields (GUID,
+  version, required modules, etc.) have no TypeSpec-derivable source of truth and stay out of
+  scope.
 - Scope: PowerShell surface only — no CLI dual-registration in this change. The actual Roslyn/C#
   generator implementation is a separate, later effort; `noopGenerator` stays a stub after this
   change.
@@ -64,21 +75,28 @@ architecture and is explicitly not adopted.
 
 ### New Capabilities
 
-- `ps-command-vocabulary`: the PS-relevant attribute vocabulary, modeled as `hints.powershell`
-  fields on IR operations/parameters (Cmdlet/Parameter/OutputType, `ArgumentInfoAttribute`,
-  `ProcessorInfoAttribute`, `CommandMetadata`-equivalent fields, plus create/update/read-only
-  mutability flags and default-value expressions confirmed as real gaps by cross-checking
-  AutoRest's actual generated runtime attributes) scoped to what azclips actually needs. Excludes
-  AutoRest features on a case-by-case merit basis — architectural mismatch (API profiles, legacy
-  HTTP-pipeline parameters), redundancy with IR (wire-location categories), or large enough to
-  warrant a separate follow-on change (the breaking-change/deprecation attribute family) — not a
-  blanket "azclips doesn't have it yet."
+- `ps-command-vocabulary`: the PS-relevant attribute vocabulary at the command (cmdlet) level,
+  modeled as `hints.powershell` fields on IR operations (Cmdlet/`OutputType`,
+  `ProcessorInfoAttribute`-equivalent fields) scoped to what azclips actually needs. Excludes
+  AutoRest features on a case-by-case merit basis — architectural mismatch, redundancy with IR,
+  or large enough to warrant a separate follow-on change — not a blanket "azclips doesn't have it
+  yet."
+- `ps-parameter-vocabulary`: the PS-relevant attribute vocabulary at the parameter level, modeled
+  as `hints.powershell` fields on IR parameters (`ArgumentInfoAttribute`/`[Parameter]`-equivalent
+  fields, mutability flags, default-value expressions, and per-parameter-set variation —
+  confirmed as a real, structural gap by reflecting directly on the real
+  `System.Management.Automation.ParameterMetadata`/`ParameterSetMetadata` shape).
 - `ps-command-derivation`: the `create-ps-commands` `TransformStep` (verb/noun policy, namespace
   grouping, ShouldProcess/ConfirmImpact policy — writing resolved values into `hints.powershell`)
   plus `ps-commands`'s separate `derivePsCommands()` function (multi-operation parameter-set merge,
   variant fan-out, flatten-hint reuse) that groups the enriched IR afterward.
 - `ps-command-customization`: the directive-style override mechanism for renaming/hiding/
   adjusting generated commands and parameters.
+- `ps-module-vocabulary`: module-level PS vocabulary (`IRSource.rendering.powershell`'s
+  `description`, plus `ps-commands`'s `PsModule`/`deriveModules()`), scoped to only what's
+  genuinely IR-derivable — verified against the real `PSModuleInfo`/`.psd1` shape that
+  release/packaging fields (GUID, version, required modules, PSGallery metadata) are out of
+  scope, since nothing in a TypeSpec resource definition determines them.
 
 ### Modified Capabilities
 
@@ -86,10 +104,10 @@ _(none — no existing PS-schema specs to modify)_
 
 ## Impact
 
-- `toolkit/packages/ir/src/hints.ts`: new `powershell` namespace on `OperationHints` (Milestone 0)
-  and `ParameterHints` (Milestone 1) — not `CommonHints`, so it doesn't leak onto
-  `ModelHints`/`EnumHints`. Now the home for most per-parameter/per-command vocabulary, not just
-  authoring overrides.
+- `toolkit/packages/ir/src/hints.ts`: new `powershell` namespace on `OperationHints`
+  (command-level) and `ParameterHints` (parameter-level) — not `CommonHints`, so it doesn't leak
+  onto `ModelHints`/`EnumHints`. Now the home for most per-parameter/per-command vocabulary, not
+  just authoring overrides.
 - `toolkit/packages/compiler`: new `TransformStep` implementation, registered via
   `CompilerRegistry`; no change to the backbone itself (`identityPipeline`/`noopGenerator`
   mechanics already support this).
@@ -109,3 +127,7 @@ _(none — no existing PS-schema specs to modify)_
   remains `noopGenerator`.
 - No impact yet on `src/PS`, `src/Extensions/*`, `src/Core` — those stay hand-written until a
   later change implements the actual C# generator consuming this schema.
+- `toolkit/packages/ir/src/source.ts`: `IRSource` gains a `rendering` field for the first time,
+  with a `powershell` namespace (`description`).
+- `toolkit/packages/ps-commands`: new `PsModule` aggregate + `deriveModules(ir): PsModule[]`,
+  grouping already-derived `PsCommand[]` by source.

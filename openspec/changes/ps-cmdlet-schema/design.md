@@ -1,467 +1,542 @@
 ## Context
 
-Azclips's Cirrus codegen pipeline (`toolkit/packages/{ir,typespec-emitter,compiler}`) already
-goes TypeSpec -> `IR` (complete) -> a `TransformStep` pipeline + `Generator` (backbone complete,
-but `identityPipeline`/`noopGenerator` — empty). This change designs what a PowerShell-targeting
-`TransformStep` should produce; it does not implement the C# generator itself.
+**Method**: work backward from a certain target, not forward from IR/Emitter. The PowerShell SDK
+already defines exactly what a module/command/parameter must look like — that shape isn't up for
+debate, so it's the starting point, not something to guess at from precedent or convention. For
+each level (module, command, parameter), this design:
+1. Lists every real field found by reflecting on an actual, running PowerShell module (not by
+   reading attribute source code, and not by inferring from generator conventions) —
+   `System.Management.Automation.PSModuleInfo` / `CmdletInfo` / `CommandMetadata` /
+   `ParameterMetadata` / `ParameterSetMetadata`, verified live: `Import-Module Az.Accounts`,
+   `Get-Command New-AzResourceGroup`, `$cmd.Parameters["Name"].ParameterSets["..."]`, etc.
+2. Decides whether each field belongs in `hints.powershell` using a fixed framework (below).
+3. Records the resulting schema, and — just as importantly — what was excluded and why.
 
-**Real hand-written precedent (traced end-to-end during design: `NewResourceGroupProcessor.cs` +
-`NewResourceGroupCmdlet.cs` + `Resources/ExtensionIndex.cs`)**:
-- A **Cmdlet** class: `[Cmdlet(verb, noun, SupportsShouldProcess, ConfirmImpact)]` +
-  `[OutputType]` + per-property `[Parameter(Mandatory, ParameterSetName)]`. `ProcessRecord` is
-  near-identical boilerplate everywhere: build a `Dictionary<string,object>` from
-  `MyInvocation.BoundParameters`, construct a `CommandInvocation(extensionName, invocationName,
-  parameters, ...)`, call `engine.OpenExecutionSession(invocation, streams, token).Run()`. The
-  Cmdlet never references its Processor type directly — resolution is by name via
-  `CommandMetadata`/`IExtensionIndex` at runtime.
-- A **Processor** class (e.g. `NewResourceGroupProcessor : ResourcesProcessorBase<ResourceGroup>`):
-  properties decorated with `[ArgumentInfo(Required, Description, SerializedName, ...)]`
-  (duplicating the Cmdlet's own parameters today, by hand). The only override needed is
-  `CreateRequestMessage()`, building the raw `HttpRequestMessage`; the shared
-  `*ProcessorBase<T>` (one per extension) already handles send/deserialize/error-mapping/
-  telemetry. Azclips has **no separate AutoRest-style low-level client class** — the Processor
-  fuses "layer 2" (HTTP call) and business logic.
-- An **`ExtensionIndex`** registration: one `CommandMetadata` per (processor x client-type) — a
-  `_PS` entry (PascalCase parameter keys, `InvocationName` like `"New-AzResourceGroup"`) and a
-  `_CLI` entry (kebab-case keys, `"group create"`), both pointing at the same `ProcessorType`.
-- `GetResourceGroupCmdlet` already merges Get+List operations into ONE cmdlet with two parameter
-  sets (`"Get"`, `"List"`) — real precedent for multi-operation merge (see Decision 5).
+A fourth level (output-formatting, `Format.ps1xml`) was found later by directly auditing the
+real AutoRest.PowerShell generator source and the generated ecosystem, rather than by live
+reflection — the same method, applied to a level this design didn't start out looking for (see
+the dedicated "Output-formatting level" section).
 
-**AutoRest.PowerShell** (reference only — not a dependency, not architecturally compatible) was
-mined for reusable *policy*, not architecture: `create-commands-v2.ts`/`ps-namer-v2.ts`/
-`modifiers-v2.ts`, the `PwshModel`/`CommandOperation` shapes, `docs/directives.md`'s
-`select`/`where`/`set` customization grammar, and `docs/autorest-configuration.md`'s default
-`verb-mapping:` table. Its single-class-calls-generated-client-directly model and proxy-cmdlet
-layer are explicitly rejected — they don't match azclips's Processor-based, CLI+PS dual-surfaced
-architecture.
+Only after that is the derivation mechanism (the pipeline that actually produces this schema from
+IR) designed, and only then do the implementation tasks reuse whatever's fastest to build it
+(`tasks.md`).
+
+**Decision framework**, applied to every field found by reflection:
+1. **Real & load-bearing?** Genuinely enforced/used by PowerShell at runtime, not vestigial (the
+   same test that found azclips's own `ArgumentInfoAttribute.Required` is never actually read by
+   anything — see below).
+2. **IR-derivable?** Does a TypeSpec resource definition actually determine this fact, or is it a
+   fixed/release-level/generator-policy constant (like a module's `GUID`, or `-Profile`)?
+3. **Verified against the real, mature ecosystem** (azure-powershell + AutoRest.PowerShell, not
+   azclips's own current hand-written surface) — checking a small, still-growing codebase for
+   "do we use this yet" produces a conclusion that goes stale as azclips grows; checking whether
+   the *entire* mature Az PowerShell ecosystem (thousands of cmdlets) ever needs a field is a
+   durable signal that doesn't need revisiting later.
+
+Include a field only if (1) and (2) pass; (3) is the tiebreaker/evidence for genuinely uncertain
+cases, replacing any temptation to reason from "does azclips's own code use this yet" (which
+would wrongly exclude something azclips just hasn't gotten around to, and wrongly include
+something no real Az module ever needed either).
+
+**Real hand-written azclips precedent** (traced end-to-end: `NewResourceGroupProcessor.cs` +
+`NewResourceGroupCmdlet.cs` + `Resources/ExtensionIndex.cs`): every command today is declared up
+to FOUR times by hand, with no shared source of truth — a real drift risk once this is
+code-generated at scale:
+- A **Cmdlet** class: `[Cmdlet(verb, noun, SupportsShouldProcess, ConfirmImpact)]` + `[OutputType]`
+  + per-property `[Parameter(Mandatory, ParameterSetName)]` — the one place carrying the REAL,
+  live PS SDK truth (confirmed: `System.Management.Automation.ParameterAttribute`/`CmdletAttribute`
+  binding actually runs this).
+- A **Processor** class: properties decorated with `[ArgumentInfo(Required, Description,
+  SerializedName, ...)]`, duplicating the Cmdlet's parameters by hand. Traced its real consumer
+  (`ExtensionHelpManifestBuilder`) and found most of its fields (`Required`, `Description`,
+  `Aliases`, `Enums`) are never actually read by anything — only `ParameterSetName`,
+  `SupportsPipeline`, `SupportsWildcards`, `SerializedName` are. A concrete, demonstrated bug from
+  this: `GetResourceGroupProcessor.Name`'s `[ArgumentInfo]` has no `ParameterSetName`, so generated
+  help wrongly claims it applies to `"(All)"` sets — the real Cmdlet correctly scopes it to `"Get"`
+  only.
+- An **`ExtensionIndex`** registration: one `CommandMetadata` per (processor × client-type) — a
+  `_PS` entry and a `_CLI` entry, both pointing at the same `ProcessorType`, each hand-typing an
+  identical `Description`/`IsRequired`/`AllowedValues` per parameter (differing only in key
+  casing). This IS the genuinely live, dual-surface runtime path — confirmed by tracing the real
+  call chain: `ExecutionSession.GetProcessor()` → `ArgumentParsingService.BindArgumentsToProcessor()`,
+  reading `ExtensionIndex`'s `ParameterMetadata`, for both CLI and PS.
+
+**AutoRest.PowerShell + azure-powershell** (reference only — azclips does not depend on either)
+were used two ways: (a) as a real, working example of the exact "reflect on the real target,
+derive everything else from it" method this design follows (`ExportProxyCmdlet.cs` reflects on an
+already-compiled module's real `CommandInfo`/`ParameterMetadata` via `Get-Command`, and derives
+its `VariantGroup`/`Variant` model directly from those real reflected types — it never invents an
+upfront schema); (b) as the evidence source for framework criterion 3 (mature-ecosystem usage
+checks), not as a source of vocabulary in its own right. Its architecture (proxy-cmdlet layer
+calling a generated low-level client directly) is not adopted — it doesn't match azclips's
+Processor-based, CLI+PS dual-surfaced architecture.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- PowerShell surface only (confirmed scope decision — no CLI dual-registration this change).
-- The new schema targets/is a superset of azclips's EXISTING runtime attribute shapes
-  (`ArgumentInfoAttribute`, `[Parameter]`, `[Cmdlet]`/`[OutputType]`, `ProcessorInfoAttribute`,
-  `CommandMetadata`) rather than inventing a disconnected parallel model.
-- One canonical parameter representation drives both the Cmdlet's `[Parameter]` and the
-  Processor's `[ArgumentInfo]`, eliminating today's hand-written duplication/drift risk.
-- Include a customization/override mechanism (directive-style), designed now rather than deferred.
+- PowerShell surface only (no CLI dual-registration in this change).
+- Every included field is justified by the three-part framework above, not by precedent alone.
+- One canonical parameter representation drives what would otherwise be duplicated across the
+  Cmdlet's `[Parameter]` and the Processor's `[ArgumentInfo]`.
+- A customization/override mechanism (directive-style), designed now rather than deferred.
 - Reuse IR's existing `FlattenHint` as-is for body-expansion; no new IR field for this.
 
-**Non-Goals:**
-- CLI-surface command generation/dual-registration (`_CLI`-style `CommandMetadata` entries) —
-  deferred; only the `_PS` shape is in scope.
+**Non-Goals** (each excluded by the framework above, not by "azclips doesn't have it yet"):
+- CLI-surface command generation/dual-registration — deferred; only the PS shape is in scope.
 - The actual Roslyn/C# generator implementation that consumes this schema — separate, later
   effort; `noopGenerator` remains a stub after this change.
-- `AsJob` (background-job execution) — real, near-universal need in mature Az PowerShell
-  modules, but blocked on a named prerequisite: azclips's `Engine`/`ExecutionSession` runs
-  commands synchronously (`session.Run()`) with no async/job execution path today. Modeling an
-  `AsJob` schema field now would be dead vocabulary with nothing to generate against. Revisit
-  once `Engine` gains background-execution support.
-- Azure API-profile gating (AutoRest's `ProfileAttribute`, e.g. Azure Stack Hub multi-version
-  support) — architectural mismatch, not a maturity gap: it solves multi-simultaneous-API-version
-  builds, while azclips builds one API version per module. Revisit only if azclips adopts
-  multi-profile builds.
-- `DefaultProfile`/`Break`/`HttpPipelineAppend`/`HttpPipelinePrepend` (legacy Az PowerShell
-  context-override/debugger-attach/HTTP-pipeline-interception parameters) — tied to the legacy
-  Az PowerShell HTTP-pipeline runtime, which azclips's `Engine` deliberately doesn't replicate.
-  Azclips's real equivalent is `-Profile` — resolved as generator-level boilerplate, not schema
-  vocabulary (see Decision 3's closing note): it's operation-independent infrastructure injected
-  identically into every command, unlike every other schema field, which traces back to a
-  specific IR operation/parameter/model.
-- The breaking-change/deprecation attribute family (`CmdletBreakingChangeAttribute`,
-  `ParameterBreakingChangeAttribute`, `OutputBreakingChangeAttribute`,
-  `ParameterSetBreakingChangeAttribute`, `PreviewMessageAttribute`) — a large, self-contained
-  vocabulary (versioning, effective dates, replacement-cmdlet suggestions) that deserves its own
-  dedicated design effort as a follow-on change, not folded into this schema's initial scope. The
-  simpler lifecycle-tag concept (Preview/Deprecated/Experimental/GA) this family also covers is
-  already in scope via `hints.powershell`'s help/lifecycle-tag fields (Decision 3) — only the
-  richer migration-messaging mechanics are deferred.
-- `ModelCmdletAttribute`-style helper cmdlets (e.g. `New-AzXObject`, for constructing complex
-  nested model instances as pipeline input) — no azclips pattern needs complex nested-object
-  pipeline construction today, and Decision 5's Expanded/flattened variant already covers the
-  common case. Revisit if flattening proves insufficient for deeply-nested models.
-- `ExternalDocsAttribute` — low value-add (a single URL link) relative to complexity; a safe,
-  purely-additive field to add later with no architectural impact, so it isn't worth the initial
-  scope.
-- AutoRest-internal bookkeeping attributes with no identified azclips use case even on merit:
-  `ExportAsAttribute` (enum export-type override), `OriginAttribute` (flatten provenance —
-  already covered by reusing `FlattenHint`, see Decision 6), `ConstantAttribute`,
-  `InternalExportAttribute`, `NotSuggestDefaultParameterSetAttribute`.
-- `FormatTableAttribute`/`DoNotFormatAttribute` (format.ps1xml table-column layout) — output
-  *formatting* (view layer) is orthogonal to command/parameter *shape* modeling; a distinct
-  future schema if azclips adopts custom table views, not this change's concern.
-- `ViaIdentity` and `ViaJsonString`/`ViaJsonFilePath` variant fan-out — no proxy-cmdlet-layer
-  need justifies them yet.
-- A generated `[Category]` (Path/Query/Body/Runtime) wire-location attribute — would duplicate
-  what IR's operation model already encodes (path/query/body parameter kind) rather than fill a
-  gap. Only the `Azure`/`Runtime` categories (cross-cutting globals like `-AsJob`/`-DefaultProfile`
-  with no IR equivalent) are a real open question, tracked under the `-Profile`-as-vocabulary
-  discussion above.
+- `AsJob` (background-job execution) — framework check (2)/(3) both real, but framework check on
+  azclips's own architecture blocks it: `Engine`/`ExecutionSession` runs synchronously
+  (`session.Run()`) with no background-execution path today. Modeling it now would be dead
+  vocabulary with nothing to generate against; revisit once `Engine` gains that capability.
+- Azure API-profile gating (`ProfileAttribute`) — architectural mismatch: solves
+  multi-simultaneous-API-version builds, while azclips builds one API version per module.
+- `DefaultProfile`/`Break`/`HttpPipelineAppend`/`HttpPipelinePrepend` — tied to the legacy Az
+  PowerShell HTTP-pipeline runtime azclips's `Engine` doesn't replicate. Azclips's real
+  equivalent, `-Profile`, is operation-independent generator boilerplate (see the Command-level
+  section), not per-node vocabulary.
+- The breaking-change/deprecation attribute family (`CmdletBreakingChangeAttribute` and
+  siblings) — a large, self-contained vocabulary deserving its own design effort, not folded in
+  here. The simpler lifecycle-tag concept (Preview/Deprecated/Experimental/GA) this family also
+  covers is already in scope (Command-level section).
+- `ModelCmdletAttribute`-style helper cmdlets, `ExternalDocsAttribute`, AutoRest-internal
+  bookkeeping attributes with no azclips use case even on merit (`ExportAsAttribute`,
+  `OriginAttribute`, `ConstantAttribute`, `InternalExportAttribute`,
+  `NotSuggestDefaultParameterSetAttribute`),
+  `ViaIdentity`/`ViaJsonString`/`ViaJsonFilePath` variant fan-out, a generated `[Category]`
+  wire-location attribute (duplicates what IR already encodes) — see prior reasoning per item;
+  none passes framework criterion (2) or (3) today.
+- Module manifest (`.psd1`)/`PSModuleInfo` release-and-packaging fields — see Module-level section.
+- `SupportsTransactions`/`RemotingCapability`/`HelpMessageBaseName`/`HelpMessageResourceId` — see
+  Command-level and Parameter-level sections; confirmed absent across the mature ecosystem
+  (framework criterion 3), not merely unused by azclips today.
+- `ExperimentName`/`ExperimentAction` (`ParameterAttribute`'s real engine-level experimental-
+  feature gating) — no azclips equivalent exists (no experimental-feature-flag system today);
+  distinct from this schema's own documentation-only `lifecycleTag`, which stays in scope.
+- `OutputTypeAttribute.ParameterSetName` (per-parameter-set output types) — a real SDK capability,
+  but checking the generated ecosystem (`Advisor`, `Compute`) found zero real uses of it; fails
+  framework criterion 3 today, unlike the analogous per-parameter-set `mandatory`/`position`/
+  `helpMessage` finding, which does have direct real-target evidence. See Command-level section.
+- `ValidateScriptAttribute`/`ValidateDriveAttribute`/`ValidateUserDriveAttribute`/
+  `ValidateTrustedDataAttribute`, `ArgumentTransformationAttribute`, `PSTypeNameAttribute` — real
+  SDK attributes, found via a full audit of `Attributes.cs`, excluded because none apply to
+  REST-API-derived parameters (arbitrary script logic, filesystem-provider/WDAC-security
+  specifics, custom transformation logic, or WMI-style loose typing beyond azclips's clean
+  TypeSpec-derived types).
+- `ValidateRangeAttribute`/`ValidateLengthAttribute`/`ValidatePatternAttribute`/
+  `ValidateCountAttribute`/`ValidateNotNullAttribute`/`ValidateNotNullOrEmptyAttribute` — real,
+  load-bearing SDK attributes not modeled today; tracked as contingent on IR exposing the
+  TypeSpec constraint decorators they'd derive from (see Parameter-level section), not excluded
+  on the merits.
+- `Types.ps1xml` (ETS type extensions) — found alongside the real, in-scope `Format.ps1xml`
+  output-formatting level (see the dedicated "Output-formatting level" section below), but
+  excluded on its own merits: only 4 hand-authored files exist workspace-wide, not an
+  ecosystem-wide, generator-driven pattern like `Format.ps1xml`.
+- `ExportedFunctions`/`ExportedVariables`/`ExportedAliases`/`HelpInfoUri`/`IconUri` — see
+  Module-level section; real `PSModuleInfo` fields with no IR-derivable source of truth or no
+  azclips precedent (command aliases), not silently dropped.
+- `IsDynamic` (dynamic parameters) — see Parameter-level section; real but requires
+  runtime-conditional parameter computation azclips's static, TypeSpec-derived parameters don't
+  need today.
 
-## Decisions
+## Module-level schema
 
-### 1. Layering: two-stage derivation, three generated artifacts per command
+### Real target (reflected live against `Az.Accounts`)
+`$module = Get-Module Az.Accounts; $module.GetType().FullName` → `System.Management.Automation.
+PSModuleInfo`. Full property list: `Name`, `Version`, `Guid`, `Author`, `CompanyName`, `Copyright`,
+`Description`, `PowerShellVersion`, `CompatiblePSEditions`, `RequiredModules`,
+`RequiredAssemblies`, `ProjectUri`, `LicenseUri`, `Tags`, `ReleaseNotes`, `Prefix`, `ModuleType`,
+`ExportedCmdlets`, `ExportedFunctions`, `ExportedAliases`, `ExportedVariables`, `HelpInfoUri`,
+`IconUri`, and several build/runtime-only fields (`ClrVersion`, `DotNetFrameworkVersion`,
+`ModuleBase`, `SessionState`, etc. — never plausible IR-derived vocabulary, skipped without
+individual analysis).
 
-**Decision**: Derivation happens in two separate stages, mirroring AutoRest.PowerShell's own
-real split (see Decision 8): (i) the `create-ps-commands` `TransformStep` — genuinely `IR -> IR`,
-since that's what the real `TransformStep` interface requires — enriches each `IROperation`'s
-`hints.powershell` in place (verb, noun, parameter-set name, `ConfirmImpact`), the same way
-AutoRest's `CommandOperation extends ProgrammaticOperation` bolts PS fields onto the same
-operation object; (ii) a separate, plain function, `derivePsCommands(ir): PsCommand[]` (in the
-`ps-commands` package, not a pipeline stage), groups operations sharing a resolved verb+noun
-into one `PsCommand` with one `PsParameterSet` per source operation. Together these drive generation
-of the three artifacts azclips already hand-writes: (a) a Cmdlet class (attributes + boilerplate
-`ProcessRecord`), (b) a Processor class subclassing the extension's existing `*ProcessorBase<T>`
-with `[ArgumentInfo]`-decorated properties and a `CreateRequestMessage()` built from the IR
-operation's method/pathTemplate/requestBody (illustrative forward context — the actual
-request-building codegen is the later, separate C# generator's concern; this change produces the
-enriched IR + `PsCommand[]` model, not C# output), (c) an `ExtensionIndex` `CommandMetadata`
-registration entry (PS-only `ClientType`).
+### Framework verdicts
+| Field | (1) Real? | (2) IR-derivable? | (3) Ecosystem check | Verdict |
+|---|---|---|---|---|
+| `ExportedCmdlets` | Yes, as a `PSModuleInfo` concept | **Yes** — free; it's the flattened list of every derived command's name | Checked a real generated manifest directly (`Az.Advisor.psd1`): it declares `FunctionsToExport`, not `CmdletsToExport` — AutoRest.PowerShell's proxy cmdlets are PowerShell **functions** (script-based), not compiled `[Cmdlet]` classes. azclips's own Cmdlets are real compiled classes (confirmed earlier: `NewResourceGroupCmdlet.cs`'s `[Cmdlet(...)]`), a deliberate, different architecture (see Goals) — so azclips's manifest should use `CmdletsToExport`, not copy the field name, just the "flattened export list" concept | **In scope** — as `CmdletsToExport`, matching azclips's own real architecture |
+| `Description` | Yes | **Yes** — same pattern as `summary`/`docs` already captured per-operation/per-model | Confirmed present in the same real manifest (`Description = 'Microsoft Azure PowerShell: Advisor cmdlets'`) | **In scope** |
+| `Guid`, `Version`, `Author`, `CompanyName`, `Copyright` | Yes (real fields) | **No** — release/versioning identity, kept stable across releases; nothing in a TypeSpec resource definition determines them | Confirmed present in the same real manifest, all fixed publisher-identity values (`'Microsoft Corporation'`, etc.), not per-module/per-spec derived | Out of scope |
+| `RequiredModules`/`RequiredAssemblies`, `PowerShellVersion`, `CompatiblePSEditions` | Yes | **No** — packaging/dependency constraints, not spec-derived | Confirmed present in the same real manifest (`RequiredAssemblies`, `PowerShellVersion = '5.1'`, `CompatiblePSEditions = 'Core', 'Desktop'`); `RequiredModules` itself absent in this sample — dependency wiring happens elsewhere in this architecture | Out of scope |
+| `ProjectUri`/`LicenseUri`/`Tags`/`ReleaseNotes` | Yes | **No** — PSGallery marketing/release metadata | Confirmed present under the same manifest's `PrivateData.PSData` block | Out of scope |
+| `ExportedFunctions`/`ExportedVariables` | Yes, but N/A | — azclips only ever generates cmdlets, never advanced functions or exported variables | `ExportedVariables`/`VariablesToExport` confirmed absent from the same real manifest; `ExportedFunctions` is real for AutoRest.PowerShell specifically because of its function-based architecture (see `ExportedCmdlets` row above) — not evidence azclips needs it | Out of scope |
+| `ExportedAliases` (`AliasesToExport`/`New-Alias`) | Yes — real, distinct from a parameter's `[Alias]` | Yes, trivially (could alias a command's own name), but no azclips precedent uses command aliases — Az's own guidelines actively discourage them for discoverability | Checked directly: `AliasesToExport` is absent from the same real manifest — confirmed absent, not merely "no azclips precedent yet" | Out of scope |
+| `HelpInfoUri` (updatable-help catalog, distinct from the per-command `HelpUri` already in scope) | Yes | No — packaging/release concern, not spec-derived | Checked directly: absent from the same real manifest | Out of scope |
+| `IconUri` | Yes | No — PSGallery marketing metadata, same bucket as `ProjectUri`/`Tags` | Checked directly: absent from the same real manifest (icon is set at the PSGallery listing level, not the module manifest) | Out of scope |
 
-**Rationale**: Matches the real, currently-working convention exactly (see Context) — new
-generated code integrates with the existing `Engine`/`ExecutionSession`/telemetry/help
-infrastructure with no special-casing, and reviewers/maintainers see the same shape they already
-know from hand-written extensions. The two-stage split isn't optional structuring — it's required
-by the real `TransformStep` interface (`run(ir: IR, context): IR`, and `IR` is a strict Zod
-schema with no room for an arbitrary `PsCommand[]`), discovered when implementation started. See
-Decision 8 for the full reasoning and the AutoRest precedent that validates this exact split.
+### Schema decided
+Give `IRSource` a `rendering` field for the first time (mirroring `IROperation`/`IRModel`/
+`IREnum`, which already have one) with a `powershell` namespace holding just `description`.
+Separately, add `PsModule` to the `ps-commands` package — `{ sourceId, description,
+cmdletsToExport }` — and a `deriveModules(ir: IR): PsModule[]` function that groups the
+already-derived `PsCommand[]` by source and flattens each group's `verb`+`noun` names into
+`cmdletsToExport`. Mirrors the Command-level split exactly: per-node authoring lives as an IR
+hint; cross-cutting grouping is a separate, later function, not a pipeline stage (see "Why
+grouping can't happen inside a `TransformStep`" below) — called only from inside a `Generator`'s
+own `generate(ir, context)`.
 
-**Alternative considered**: AutoRest's model — one class per cmdlet variant that both carries
-`[Cmdlet]`/`[Parameter]` attributes AND calls a generated low-level API client directly in
-`ProcessRecord`. Rejected: this doesn't match azclips's actual architecture, where business logic
-is deliberately separated into a shared-CLI+PS `IProcessor`, not fused into the PS surface.
+**Alternative considered**: model the full `.psd1` manifest shape as `hints.powershell` on
+`IRSource`. Rejected — most of those fields have no TypeSpec-derivable source of truth; forcing
+them into this schema would produce vocabulary with nothing real to populate it. They need their
+own authoring surface (e.g. a per-extension packaging config), a distinct, later concern.
 
-**Note on CLI sharing the Processor**: the Processor is consumed by both `_PS` and `_CLI`
-`CommandMetadata` entries, yet this (nominally PS-scoped) vocabulary still owns its
-`[ArgumentInfo]` fields. This is safe today because the Processor is already surface-agnostic in
-the real code: `ExtensionIndex.cs`'s `s_newResourceGroup_PS` and `s_newResourceGroup_CLI` point at
-the identical `typeof(Processors.NewResourceGroupProcessor)`, with the same `[ArgumentInfo]`
-properties — only `CommandMetadata.Parameters`' key casing (`"Name"` vs `"name"`) and
-`InvocationName` differ per surface. If CLI's parameter needs ever diverge from PS's at the
-Processor level, this schema would need a CLI-aware dimension too — but per the Non-Goals above,
-that's an explicitly deferred, not a live, concern.
+## Command-level schema
 
-### 2. Vocabulary lives as IR hints, not a parallel schema
+### Real target (reflected live against `New-AzResourceGroup`)
+`$cmd = Get-Command New-AzResourceGroup; $cmd.GetType().FullName` → `System.Management.Automation.
+CmdletInfo`. Properties: `CommandType`, `DefaultParameterSet`, `HelpUri`, `ImplementingType`,
+`Module`, `ModuleName`, `Name`, `Noun`, `OutputType`, `Parameters`, `ParameterSets`, `Source`,
+`Verb`, `Version`. Notably, `$cmd.Noun` returns `"AzResourceGroup"` — the real reflected noun
+already includes the module prefix (unlike this schema's deliberate `noun`/`subjectPrefix` split,
+kept separate internally since `derivePsCommands` needs to combine them, but worth knowing the
+real target doesn't expose them separately).
 
-**Decision**: Per-parameter/per-command PS vocabulary (mandatory, wireName, mutability flags,
-help, etc.) is modeled as `hints.powershell` fields directly on `IROperation`/`IRParameter` —
-mirroring AutoRest's real `CommandOperation extends ProgrammaticOperation` (same object, PS
-facet added), adapted to IR's hint-mutation mechanism since IR nodes are immutable Zod data, not
-classes that can be subtyped. The separate `ps-commands` package holds only the thin
-cross-operation aggregate (`PsCommand`/`PsParameterSet`, referencing IR operation ids) that hints
-structurally cannot express — not a redeclaration of `ArgumentInfoAttribute`/`[Parameter]`/
-`[Cmdlet]`/`[OutputType]`/`CommandMetadata`'s fields.
+`CmdletInfo` alone doesn't carry `ConfirmImpact`/`SupportsShouldProcess` — those live on the real
+`System.Management.Automation.CommandMetadata` type (`[CommandMetadata]::new($cmd)`): `Name`,
+`CommandType`, `DefaultParameterSetName`, `SupportsShouldProcess`, `SupportsPaging`,
+`PositionalBinding`, `SupportsTransactions`, `HelpUri`, `RemotingCapability`, `ConfirmImpact`,
+`Parameters`.
 
-**Rationale**: These runtime types are already in production use and consumed by existing
-infrastructure (argument binding, telemetry, help); reusing their field shapes (now as hints,
-not a redundant parallel package) avoids a translation-layer maintenance burden. Attaching the
-data directly to the same IR node it describes — rather than a separate schema that references
-the node by id — is both the AutoRest-precedented approach and requires no new package to hold
-fields that are properties of a single node, not a cross-node relationship.
+### Framework verdicts
+| Field | (1) Real? | (2) IR-derivable? | (3) Ecosystem check | Verdict |
+|---|---|---|---|---|
+| `Verb`/`Noun` | Yes | Yes — from the operation's action word + resource name | — | **In scope** |
+| `SupportsShouldProcess`/`ConfirmImpact` | Yes | Yes — from HTTP method | — | **In scope** |
+| `SupportsPaging`/`HelpUri` | Yes | Yes — trivially derivable | — | **In scope** |
+| Alias, hidden, completer, summary/description/examples, lifecycle tag, `httpPath` | Yes (mirrors `ProcessorInfoAttribute`) | Yes | — | **In scope** |
+| `PositionalBinding` | Yes | No — same category as `-Profile` (see below) | Checked directly: every AutoRest-generated module sets `PositionalBinding = $false` on every proxy cmdlet, confirmed systematically across 13+ generated azure-powershell modules — a universal generator default, not an occasional per-command choice | **Generator-default note, not a schema field** (see below) |
+| `SupportsTransactions` | Rarely used PS-wide | — | Checked directly against real azure-powershell code (hand-written and generated, across Compute/Network/Resources/Storage/Accounts/Authorization/KeyVault/Sql and several generated modules): **completely absent** | Out of scope — durable, not "azclips hasn't gotten there" |
+| `RemotingCapability` | Rarely relevant | — | Same check, same result: **completely absent** | Out of scope |
+| `DefaultParameterSetName` (`CmdletCommonMetadataAttribute`) | Yes — real command-level field, distinct from the per-operation `parameterSetName` | Yes — real precedent already cited in prose (`GetResourceGroupCmdlet`'s `DefaultParameterSetName = "List"`) but never actually given a schema field | Checked directly: `DefaultParameterSetName=` appears on the generated `[CmdletBinding(...)]` of essentially every proxy cmdlet across the generated ecosystem (101+ matches across 63+ files in an initial, truncated sample spanning `ADDomainServices`/`Advisor`/`Aks`/`AksArc`) — a universal, load-bearing pattern, not a rare one | **In scope — confirmed gap**, found via a full audit of `Attributes.cs` (`CmdletCommonMetadataAttribute`), then verified against the real generated ecosystem |
+| `OutputTypeAttribute.ParameterSetName` | Yes — real SDK capability, output types can be scoped per parameter set (`[OutputType(typeof(X), ParameterSetName = new[] {"Get"})]`) | Yes, in principle — same shape as the per-parameter-set finding for parameters | Checked directly: every `[OutputType(...)]` occurrence found across `Advisor`'s and `Compute`'s generated `exports`/`internal` proxy cmdlets is unqualified (no `ParameterSetName=` argument used anywhere) — a real SDK capability the mature ecosystem doesn't actually exercise | **Tracked, not built now** — fails criterion 3; revisit only if a real per-set output-type need surfaces (see Open Questions) |
 
-**Alternative considered**: A full independent `ps-commands` schema redeclaring every
-per-parameter/per-command field (the original plan). Rejected once the real `TransformStep`
-interface and AutoRest's actual `CommandOperation` precedent were checked — it would duplicate
-data that already has a natural home on the IR node itself, and the package would need to
-re-implement id-based dereferencing for data that's naturally already collocated in IR.
+### Schema decided
+`hints.powershell` on `IROperation.rendering`: `verb`, `noun`, `subjectPrefix`, `parameterSetName`,
+`confirmImpact`, `alias`, `hidden`, completer reference, `summary`/`description`/`examples`
+(mirrors `ProcessorInfoAttribute`), lifecycle tag (Preview/Deprecated/Experimental/GA), `httpPath`
+equivalent (path template + api-version), `supportsPaging`, `helpUri`.
 
-### 3. Vocabulary scope (as `hints.powershell` fields)
+**Verb/noun policy**: verb via table lookup seeded from AutoRest's real default table
+(`autorest.powershell/powershell/autorest-configuration.md`'s `verb-mapping:` block:
+`Create`/`CreateOrUpdate`→`New`, `Update`→`Update`, etc.). **A table match always wins regardless
+of HTTP method** — verified against real precedent: azclips's own `NewResourceGroupProcessor`
+issues an HTTP PUT for `ResourceGroups.createOrUpdate`, yet the real cmdlet is
+`New-AzResourceGroup`, not `Set-AzResourceGroup`. Only when the action word has no table entry at
+all does the schema fall back to an HTTP-method default (PUT→`Set`, PATCH→`Update`, POST→`Invoke`).
+Noun is the singularized resource/model name plus a configurable subject prefix (kept as its own
+field, not baked into `noun`, so it can be recombined later).
 
-**Decision**: Vocabulary is limited to what's enumerated in Context/Non-Goals, modeled as
-`hints.powershell` fields on `IROperation.rendering` (per-command: Verb/Noun/
-`SupportsShouldProcess`/`ConfirmImpact`/`OutputType`/Alias plus a `ProcessorInfoAttribute`-style
-Summary/Examples/Tags(Preview/Deprecated/Experimental/GA) block and an `HttpPath`-equivalent
-— cheap since IR already carries the path template/api-version) and on `IRParameter.rendering`
-(per-parameter: Mandatory, `ParameterSetName`, `HelpMessage`, pipeline-binding, wildcards,
-aliases, `SerializedName`, `ValidateSet` values, completer reference, mutability flags
-(`readOnly`/`create`/`update`, mirroring AutoRest's real `InfoAttribute.ReadOnly/Create/Update`
-— needed so generated Update variants correctly omit create-only/server-computed properties),
-and an optional default-value expression (script/name/set-condition, mirroring
-`DefaultInfoAttribute` — needed for patterns like defaulting `-SubscriptionId` from the current
-context)).
+**Multi-operation merge + variant fan-out**: two distinct mechanisms, both in `ps-commands`'s
+`derivePsCommands()` (not inside `create-ps-commands` — see below):
+- **Multi-operation merge**: operations sharing a resolved verb+noun under the same
+  `id.namespace` merge into one `PsCommand` with one parameter set per source operation (real
+  precedent: `GetResourceGroupCmdlet`'s `"Get"`/`"List"` parameter sets).
+- **Single-operation variant fan-out**: limited to `base` (whole body) and `Expanded` (flattened
+  body, reusing IR's existing `FlattenHint` — no new PS-specific flatten heuristic). `ViaIdentity`
+  and `ViaJsonString`/`ViaJsonFilePath` explicitly excluded — no proxy-cmdlet layer justifies them.
 
-**Rationale**: `ProcessorInfoAttribute`'s `Tags`/`Examples` already give PlatyPS-consumable help
-metadata for free — the schema doesn't need to invent its own help model. The mutability flags
-and default-value expression were confirmed as real, low-cost gaps (not present in azclips's
-current `ArgumentInfoAttribute`) by cross-checking AutoRest's actual runtime attribute
-definitions (`InfoAttribute`/`DefaultInfoAttribute` in a real generated module's
-`generated/runtime/` folder) rather than just AutoRest's config docs — both map directly onto
-real, everyday Az PowerShell needs (Update cmdlets that must not resend read-only properties;
-parameters that default from ambient context).
+**`PositionalBinding`, resolved**: belongs in the same category as `-Profile` — fixed
+generator-level policy applied identically to every generated command, not `hints.powershell`
+vocabulary an author would override per-operation. The future C# generator should set
+`PositionalBinding = false` unconditionally on every generated `[Cmdlet(...)]`, with no schema
+field behind it.
 
-**Reviewer feedback follow-up**: after initial review, the vocabulary was additionally
-cross-checked directly against the real `System.Management.Automation.ParameterAttribute`/
-`CmdletAttribute` types (not just azclips's own `ArgumentInfoAttribute`/`ProcessorInfoAttribute`,
-which predate and only partially cover the real PS SDK shape). That surfaced five genuine,
-low-cost gaps, now added: `position` (`ParameterAttribute.Position`),
-`valueFromRemainingArguments` (`ParameterAttribute.ValueFromRemainingArguments`), `dontShow`
-(`ParameterAttribute.DontShow` — per-parameter, distinct from the existing operation-level
-`hidden`), `supportsPaging` and `helpUri` (`CmdletAttribute.SupportsPaging`/`.HelpUri`). The
-broader reviewer question — whether this vocabulary should live as a shared abstraction across
-`Core.Abstractions`, extensions, and codegen rather than only in `hints.powershell` — is a larger
-architectural question tracked as an Open Question below, not resolved by this field addition.
+**`-Profile`, resolved**: stays generator-level boilerplate, not schema vocabulary. It's
+identical, operation-independent infrastructure injected into every command (today, via
+`ExtensionIndex`'s static-constructor loop) — it has no connection to any IR operation/parameter/
+model, so folding it into `hints.powershell` would model something the schema has no way to
+derive.
 
-**Alternative considered**: Port AutoRest's full vocabulary including the breaking-change/
-preview/API-profile/`ExternalDocs`/`Category`/format-table attributes. Rejected per the
-reasoning in Non-Goals above — each is either an architectural mismatch, a large separate effort,
-or redundant with IR — not simply "unused today."
+**`DefaultParameterSetName`, confirmed gap**: add a command-level `defaultParameterSetName` field
+to `PsCommand`, distinct from the per-operation `parameterSetName` each merged operation already
+contributes. Found by auditing the real `CmdletCommonMetadataAttribute` source directly (not just
+live reflection) — real precedent (`GetResourceGroupCmdlet`'s `DefaultParameterSetName = "List"`)
+was already cited in this design's prose without ever being backed by an actual schema field.
+Derivation: default to the source operation contributing the LEAST specific/most general
+parameter set when merging (e.g. `List` over `Get`) unless overridden.
 
-**Resolved note — `-Profile`**: `-Profile` stays generator-level boilerplate, not schema
-vocabulary. It's identical, operation-independent infrastructure injected into every command
-(today, via `ExtensionIndex`'s static-constructor loop) — unlike every field above, it has no
-connection to any IR operation/parameter/model, so folding it into `hints.powershell` would
-model something the schema has no way to derive.
+**Per-parameter-set output types, tracked but not built now**: `OutputTypeAttribute.ParameterSetName`
+proves output types can vary per parameter set in principle, but checking the real generated
+ecosystem (`Advisor`, `Compute`) found zero uses of that qualifier — every generated
+`[OutputType(...)]` is unqualified. Unlike `DefaultParameterSetName` (confirmed heavily used) or
+the per-parameter-set `mandatory`/`position`/`helpMessage` finding (direct real-target evidence
+via `ParameterSetMetadata`), this fails framework criterion 3. Not added to `PsCommand.outputTypes`
+now; revisit only if a real need surfaces.
 
-### 4. Verb/noun policy
+**Command-level directives**: a directive-style (`select: "command"`/`where`/`set`) mechanism,
+passed as `create-ps-commands`'s `options`, for bulk/discoverable renames/hides/adjustments —
+modeled on AutoRest's `docs/directives.md` grammar. Applied as defaults, before the final
+`hints.powershell` write; an existing inline hint always wins over a directive's value for the
+same field (directives are bulk defaults, inline hints are node-specific authoring).
 
-**Decision**: Verb is derived from the IR operation's leading action word via a table lookup
-seeded from AutoRest's real default table (`autorest.powershell/powershell/
-autorest-configuration.md`'s `verb-mapping:` block: `Create`->`New`, `CreateOrUpdate`->`New`,
-`Delete`->`Remove`, `Get`->`Get`, `List`->`Get` (merged as a parameter set — see Decision 5),
-`Update`->`Update`). **A table match always wins regardless of HTTP method.** Only when the
-action word has no table entry at all does the schema fall back to an HTTP-method-based default:
-PUT->`Set`, DELETE->`Remove`, PATCH->`Update`, GET->`Get`, POST->`Invoke`. Noun is the
-singularized resource/model name plus a configurable subject prefix (confirmed real: `"Az"` in
-`AzResourceGroup`).
+## Parameter-level schema
 
-**Rationale**: This is a solved problem with an existing, tunable default table; reusing it
-avoids re-deriving verb heuristics from scratch and stays consistent with PowerShell's approved
-verbs guidance that AutoRest's table already encodes. Table-match-wins precedence is required by
-real precedent, not just convenience: azclips's own hand-written `NewResourceGroupProcessor`
-issues an HTTP PUT for `ResourceGroups.createOrUpdate`, yet the real cmdlet is `New-AzResourceGroup`
-(verb `New`), not `Set-AzResourceGroup`. An earlier draft of this decision special-cased PUT to
-always win for `Update`/`CreateOrUpdate` actions — that would have generated the wrong verb for
-this exact, already-shipping cmdlet. The HTTP-method fallback exists only for the case where the
-operationId's action word doesn't match any table entry at all (e.g. a non-standard verb word),
-mirroring how AutoRest's own table has independent `Create: New` and `Put: Set` entries rather
-than one conditioned on the other.
+### Real target (reflected live against `New-AzResourceGroup`'s parameters)
+`$p = $cmd.Parameters["Tag"]; $p.GetType().FullName` → `System.Management.Automation.
+ParameterMetadata`. Full property list: `Aliases`, `Attributes`, `IsDynamic`, `Name`,
+`ParameterSets`, `ParameterType`, `SwitchParameter`. **Critically, there is no flat
+`IsMandatory`/`Position` here** — those live one level deeper:
 
-**Alternative considered**: Derive verbs purely from HTTP method (GET->Get, PUT->Set, POST->
-Invoke, DELETE->Remove, PATCH->Update) without an action-word table. Rejected as too coarse —
-loses the ability to distinguish e.g. `Reboot`->`Restart` or `Capture`->`Export` from a generic
-POST->`Invoke` fallback, and — per the `ResourceGroups` case above — would misname well-known
-create operations that are implemented as PUT.
+`$p.ParameterSets["__AllParameterSets"].GetType().FullName` → `System.Management.Automation.
+ParameterSetMetadata`. Full property list: `HelpMessage`, `HelpMessageBaseName`,
+`HelpMessageResourceId`, `IsMandatory`, `Position`, `ValueFromPipeline`,
+`ValueFromPipelineByPropertyName`, `ValueFromRemainingArguments`. Confirmed live: the same
+parameter can have *different* `IsMandatory`/`Position`/`HelpMessage` per parameter set it
+belongs to — `ParameterMetadata.ParameterSets` is a dictionary keyed by set name, not a single
+flat value.
 
-### 5. Variant fan-out for v1
+**Properties vs. Attributes, an important distinction found during this exercise**:
+`ParameterMetadata`'s properties are PowerShell's own pre-aggregated summary, computed from the
+real C# attributes on the underlying property. Several real, load-bearing facts are **not**
+exposed as convenient properties at all — only as raw `Attributes` instances you must filter by
+type: `ValidateSetAttribute` (→ `allowedValues`; confirmed via
+`$p.Attributes | Where-Object { $_ -is [ValidateSetAttribute] } | Select -Expand ValidValues`),
+`ArgumentCompleterAttribute` (→ `completer`), `AliasAttribute` (→ `aliases`, though this one *is*
+also surfaced as a `ParameterMetadata.Aliases` property).
 
-**Decision**: Two distinct mechanisms, both needed, and both implemented in `ps-commands`'s
-`derivePsCommands()` grouping function (not inside the `create-ps-commands` `TransformStep` itself —
-see Decision 8):
-  (a) **Multi-operation merge**: when two or more IR operations under the same `id.namespace`
-      resolve to the same verb+noun (e.g. `get` + `list`), merge them into one `PsCommand` with
-      one parameter set per source operation (real precedent: `GetResourceGroupCmdlet`'s
-      `"Get"`/`"List"` parameter sets).
-  (b) **Single-operation variant fan-out**: limited to `base` (whole body object) and `Expanded`
-      (flattened body via IR's existing `FlattenHint`) for v1. `ViaIdentity` and
-      `ViaJsonString`/`ViaJsonFilePath` are deferred (see Non-Goals).
+### Framework verdicts
+| Field | (1) Real? | (2) IR-derivable? | (3) Ecosystem check | Verdict |
+|---|---|---|---|---|
+| `mandatory`, `position`, `helpMessage`, `valueFromPipeline`, `valueFromPipelineByPropertyName`, `valueFromRemainingArguments` | Yes (`ParameterSetMetadata`) | Yes | — | **In scope**, but see per-parameter-set finding below |
+| `aliases` (`AliasAttribute`) | Yes | Yes | — | **In scope** |
+| `allowedValues` (`ValidateSetAttribute`) | Yes — found only via raw `Attributes`, not a `ParameterMetadata` property | Yes | — | **In scope** |
+| `completer` (`ArgumentCompleterAttribute`) | Yes — same, raw `Attributes` only | Yes | — | **In scope** |
+| `supportsWildcards` | Yes | Yes | — | **In scope** |
+| `readOnly`/`create`/`update` mutability | Not a native PS SDK concept — mirrors AutoRest's real `InfoAttribute.ReadOnly/Create/Update` | Yes — lets generated Update variants correctly omit create-only/server-computed properties | Confirmed present in a real generated module's `generated/runtime/` folder | **In scope** |
+| Default-value expression | Mirrors AutoRest's real `DefaultInfoAttribute` | Yes — e.g. defaulting `-SubscriptionId` from ambient context | Same source | **In scope** |
+| `dontShow` | Yes (`ParameterAttribute.DontShow`) | Yes | — | **In scope** — per-parameter, distinct from the operation-level `hidden` |
+| `HelpMessageBaseName`/`HelpMessageResourceId` | Real but niche (resource-based/localized help lookup) | — | Checked directly against real azure-powershell code: **completely absent** — the entire ecosystem uses inline `HelpMessage` strings exclusively | Out of scope |
+| `ValidateRange`/`ValidateLength`/`ValidatePattern`/`ValidateCount`/`ValidateNotNull(OrEmpty)` (the `Validate*` constraint family) | Yes — real, load-bearing SDK attributes, found via a full audit of `Attributes.cs`, not modeled at all today | **Contingent** — maps directly onto real TypeSpec decorators (`@minValue`/`@maxValue`, `@minLength`/`@maxLength`, `@pattern`, `@minItems`/`@maxItems`, required-ness), becoming genuinely IR-derivable once IR exposes those constraints | Checked directly: zero occurrences of `ValidateRange(`/`ValidateLength(`/`ValidatePattern(` found across `Advisor`'s, `Compute`'s, and `KeyVault`'s generated proxy-cmdlet exports; `ValidateNotNull()` appears only on generator-boilerplate parameters (`DefaultProfile`, `HttpPipelineAppend`/`Prepend`), never on real REST-derived business parameters | **Tracked, not yet in scope** — fails criterion 3 today too, consistent with the IR gap; see note below |
+| `ExperimentName`/`ExperimentAction` (`ParameterAttribute`) | Yes — real engine-level feature-flag gating, distinct from the documentation-only `lifecycleTag` this schema already has | No azclips equivalent — no experimental-feature-flag system exists today | Checked directly: zero occurrences across the same generated samples | Out of scope (see Non-Goals) |
+| `PSDefaultValueAttribute` | Yes, but non-semantic — purely a documentation aid for tooling, not binding logic | Already covered by the existing `defaultValue` field, which drives real default-application logic | Checked directly: zero occurrences across the same generated samples — confirms this isn't a pattern the real generator invests in either | No new schema field — a future generator can additionally emit this attribute FROM the existing `defaultValue` field as a documentation bonus, though the ecosystem evidence suggests this bonus is low-value |
+| `ValidateScript`/`ValidateDrive`/`ValidateUserDrive`/`ValidateTrustedData` | Real SDK attributes | No — arbitrary script logic, filesystem-provider-specific, or WDAC security policy; none apply to REST-API-derived parameters | — | Out of scope |
+| `ArgumentTransformationAttribute`, `PSTypeNameAttribute` | Real SDK attributes | No — arbitrary custom transformation logic / WMI-style loose typing beyond the .NET type system; azclips's types are all clean TypeSpec-derived classes | — | Out of scope |
+| `IsDynamic` (`ParameterMetadata`, backing `IDynamicParameters`) | Yes, but complex — parameters computed/added at runtime based on other parameter values | No — azclips's parameters are all statically known from the TypeSpec definition; nothing produces runtime-conditional parameter sets today | — | Out of scope |
 
-**Rationale**: (a) is a real, already-adopted azclips convention, distinct from AutoRest's
-per-operation variant model, and must be modeled explicitly rather than conflated with (b).
-Limiting (b) to two variants matches azclips's simpler no-proxy-cmdlet architecture — there's no
-current product need for identity-piping or JSON-escape-hatch variants.
+### Schema decided
+`hints.powershell` on `IRParameter.rendering`: `mandatory`, `parameterSetName`, `helpMessage`,
+`position`, `valueFromPipeline`/`valueFromPipelineByPropertyName`, `valueFromRemainingArguments`,
+`supportsWildcards`, `aliases`, `allowedValues` (`ValidateSet` equivalent), completer reference,
+mutability flags (`readOnly`/`create`/`update`), `dontShow`, and an optional default-value
+expression (script/name/set-condition).
 
-**Alternative considered**: Adopt all four of AutoRest's variants (base/Expanded/ViaIdentity/
-ViaJsonString) up front. Rejected — no proxy-cmdlet layer or build-time customization system
-exists in azclips to justify the extra generated surface area yet; revisit if product need
-emerges.
+**Per-parameter-set field variation** (the one real structural gap this exercise found): extend
+`hints.powershell` on `IRParameter.rendering` with an optional `parameterSets` map —
+`Record<string, { mandatory?, position?, helpMessage? }>` — keyed by parameter-set name, so these
+three fields can vary per set, matching the real `ParameterSetMetadata` structure exactly. The
+existing flat `mandatory`/`position`/`helpMessage` fields remain the default/fallback used when a
+parameter belongs to only one set (today's common case) or a specific set has no override entry.
+This is exactly the case multi-operation merge produces most often: a shared parameter name
+across several source operations, each with potentially different requirements for it.
 
-### 6. Flatten/body-expansion
+**Parameter-level directives**: the same directive mechanism as Command-level
+(`select: "parameter"`/`where`/`set`), for bulk parameter renames/hides/alias assignment across
+every command sharing a parameter name.
 
-**Decision**: Reuse IR's existing `FlattenHint` (`toolkit/packages/ir/src/hints.ts`) as-is for
-the `Expanded` variant. No new IR field.
+**`Validate*` constraint family, tracked but not yet in scope**: `ValidateRangeAttribute`,
+`ValidateLengthAttribute`, `ValidatePatternAttribute`, `ValidateCountAttribute`, and
+`ValidateNotNullAttribute`/`ValidateNotNullOrEmptyAttribute` are real, load-bearing SDK attributes
+with no equivalent in `hints.powershell` today — found by auditing `Attributes.cs` directly, not
+by live reflection (they're compile-time decorations, not runtime `ParameterMetadata` properties).
+Unlike `ValidateSet`/`ArgumentCompleter` (already in scope), these map onto real TypeSpec
+constraint decorators (`@minValue`/`@maxValue`, `@minLength`/`@maxLength`, `@pattern`,
+`@minItems`/`@maxItems`) that IR may not yet expose. Not added to the schema now; revisit once IR
+exposes these constraints (tracked separately, outside this change).
 
-**Rationale**: IR already models this; adding a parallel PS-specific flattening heuristic would
-create two sources of truth for the same concept.
+## Output-formatting level (`Format.ps1xml`)
 
-**Alternative considered**: A PS-specific flatten threshold/naming heuristic (mirroring
-AutoRest's own bespoke logic). Rejected — unnecessary given IR already has this.
+A fourth level exists beyond Module/Command/Parameter: how a command's **returned object**
+displays (`Format.ps1xml` table/list views). Found only after this design's own three levels were
+already drafted, by directly searching the real ecosystem rather than reasoning from attribute
+source code.
 
-### 7. Customization/override hook
+### Real target (found directly in `azure-powershell/generated/**/*.Autorest/`)
+249 `*.format.ps1xml` files, essentially one per generated module (e.g.
+`generated/Astro/Astro.Autorest/Az.Astro.format.ps1xml`), confirmed real and mechanically
+generated, not hand-maintained: `autorest-configuration.md` wires
+`format-ps1xml: $(current-folder)/$(module-name).format.ps1xml`, and `build-module.ps1` calls a
+real `Export-FormatPs1xml` cmdlet during every module build.
 
-**Decision**: A directive-style (`select`/`where`/`set`) configuration, passed as the
-`create-ps-commands` `TransformStep`'s `options` (matching `CompileConfig.pipeline`'s existing
-per-step options bag), for bulk/discoverable renames/hides/adjustments — applied during the same
-enrichment stage that writes resolved values into `hints.powershell`, layered on top of inline
-`hints.powershell` overrides for single-node authoring overrides. Modeled on AutoRest's
-`docs/directives.md` grammar.
+**The actual generation rule, read directly from the real generator**
+(`ExportFormatPs1xml.cs`/`PsAttributes.cs`), not guessed from output samples: for every model
+type, include a property in the table view if it isn't marked `[DoNotFormat]` / project-excluded,
+and either (a) it carries an explicit `[FormatTable(Index/Label/Width)]` override, or (b) its
+`Origin != Inlined` and its .NET type `IsPsSimple()` (a scalar — string/number/bool/enum/date,
+not a nested object or collection). Ordered by explicit `Index` if present, else by `Origin`
+(`Inherited`/`Owned`/`Inlined`) then declaration order. This explains the real difference between
+`VirtualMachineRunCommand` (shows only `Location`/`Name`/`ResourceGroupName` — its other
+properties, `Source`/`Tags`/`InstanceView`, are complex/nested and excluded) and
+`VirtualMachineRunCommandInstanceView` (shows all 7 properties — every one happens to be a simple
+scalar): it's a deterministic function of each property's own shape, not per-model hand curation.
+Critically, `Origin: Inlined` is the exact same concept IR already tracks via its existing
+`FlattenHint` (see Goals: "Reuse IR's existing `FlattenHint` as-is") — the default rule needs no
+new IR data at all, just `IRModel`'s own property list, each property's type, and flatten info IR
+already carries.
 
-**Rationale**: Directives give bulk, greppable, version-controllable overrides without touching
-generated-from-IR authoring hints per node; this mirrors a proven, working mechanism. Applying
-them inside `create-ps-commands` (rather than in the later `derivePsCommands()` grouping step) keeps
-all of a command's naming/shape resolution — inference, directives, inline hints — in one place,
-before grouping ever reads the result.
+### Framework verdict
+| Field | (1) Real? | (2) IR-derivable? | (3) Ecosystem check | Verdict |
+|---|---|---|---|---|
+| Default table view (simple-scalar, non-inlined properties, in declaration order) | Yes — real generator output, consumed by PowerShell's formatting engine at runtime | **Yes, with zero new hint vocabulary** — a pure function of `IRModel`'s existing property list, each property's type, and the existing `FlattenHint`/origin data | Confirmed ecosystem-wide: 249 generated modules, one file each | **In scope** |
+| Per-property override (`FormatTableAttribute`-equivalent: index/label/width, `DoNotFormat`-equivalent exclude) | Yes — real, bounded per-property authoring surface | Yes — same shape as the parameter-level per-parameter-set override already in scope | Present in real generated output wherever the default ordering/labeling needs correcting | **In scope** — small, bounded, same pattern as existing per-field overrides |
+| `Types.ps1xml` (ETS type extensions) | Yes, but rare | — | Only 4 files exist workspace-wide (`Accounts`/`Sql`/`Functions`, all hand-authored, none auto-generated) — fails the "mature, ecosystem-wide" bar the `Format.ps1xml` evidence clears | Out of scope — not a generator-wide pattern |
 
-**Alternative considered**: azure-powershell's `custom/` partial-class pattern (post-generation,
-hand-written overrides). Explicitly out of scope for this change — that's a generator-stage
-concern (how generated code coexists with hand overrides), not a schema-stage one.
+### Schema decided
+Unlike everything else this design initially assumed would need deferring, `Format.ps1xml`
+genuinely passes all three framework criteria **cheaply** — the default view requires no new IR
+hints at all, only a new derivation function. Split the same way as Module/Command/Parameter:
 
-**Precedence**: when a directive and an inline `hints.powershell` override both target the same
-node, the inline hint wins — it is authored at the specific node, while a directive is a bulk/
-pattern-based default. Directives apply first as defaults; inline hints are resolved last.
+- **`hints.powershell` on `IRModel`'s per-property `rendering`** (a fourth namespace, alongside
+  `IROperation`/`IRParameter`/`IRSource`): optional `formatIndex`, `formatLabel`, `formatWidth`,
+  `excludeFromFormat` — all optional, all defaulting to the mechanical rule above when absent.
+- **`PsFormatView`**, a new type in the `ps-commands` package: `{ sourceModelId, columns:
+  { propertyName, label, width }[] }`, and `deriveFormatViews(ir: IR): PsFormatView[]` — a plain
+  function (not a `TransformStep`), mirroring `derivePsCommands`/`deriveModules` exactly: for
+  every `IRModel` reachable from a derived command's output types, computes the default column
+  set (simple-scalar, non-`Inlined` properties, ordered by `Origin` then declaration order),
+  applying any `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` overrides from
+  `rendering.powershell` where present.
+- `Types.ps1xml` stays excluded on the merits (not an ecosystem-wide, generator-driven pattern —
+  only 4 hand-authored files exist).
 
-### 8. `create-ps-commands` stays IR -> IR; grouping is a separate function
+## Pipeline mechanism (cross-cutting, not level-specific)
 
-**Decision**: `create-ps-commands` is a genuine `TransformStep` — `run(ir: IR, context): IR` — that
-enriches each `IROperation`'s `hints.powershell` in place (verb, noun, parameter-set name,
-`ConfirmImpact`) rather than returning a `PsCommand[]`. A separate, plain function,
-`derivePsCommands(ir: IR): PsCommand[]` (in `ps-commands`, not a pipeline stage), reads the enriched
-IR afterward and groups operations sharing a resolved verb+noun into one `PsCommand` with one
-`PsParameterSet` per source operation.
+**Why two stages are required, not chosen for style**: `create-ps-commands` is a genuine
+`TransformStep` — `run(ir: IR, context): IR` — that enriches each node's `rendering.powershell` in
+place rather than returning a `PsCommand[]`/`PsModule[]`. This was discovered as a hard
+implementation blocker: the real `TransformStep` interface
+(`toolkit/packages/compiler/src/transform.ts`) requires returning an `IR`, and `IRSchema` is a
+`.strict()` Zod schema with no room for an arbitrary aggregate. The `Generator` interface is
+similarly constrained (`{ files: Map<string,string> }`, meant for text output). A separate, plain
+function (`derivePsCommands`/`deriveModules`, in `ps-commands`, not a pipeline stage) reads the
+already-enriched IR afterward and does the cross-node grouping. Checking AutoRest.PowerShell's
+own real architecture confirmed this exact split is the working precedent, not an
+azclips-specific workaround: its `create-commands-v2.ts` enriches each operation individually,
+while the actual grouping into one exported command with multiple parameter sets happens in a
+completely separate, later stage (`PsProxyTypes.cs`'s `VariantGroup`/`Variant`, run via C#
+reflection over already-generated proxy cmdlet classes) — AutoRest doesn't merge inside its
+per-operation enrichment step either.
 
-**Rationale**: This was discovered as a hard implementation blocker, not chosen for style: the
-real `TransformStep` interface (`toolkit/packages/compiler/src/transform.ts`) requires returning
-an `IR`, and `IRSchema` is a `.strict()` Zod schema (`schemaVersion`/`sources`/`models`/`enums`/
-`operations`) with no room for an arbitrary `PsCommand[]`. The `Generator` interface (`generate.ts`)
-is similarly constrained — `{ files: Map<string,string> }`, meant for text output, not
-structured objects. Checking AutoRest.PowerShell's own real architecture confirmed this exact
-two-stage split is the working precedent, not an azclips-specific workaround: its
-`create-commands-v2.ts` plugin enriches each operation individually (`CommandOperation extends
-ProgrammaticOperation`, with a single `variant: string` — no merge field), while the actual
-grouping into one exported command with multiple parameter sets happens in a completely separate,
-later stage — `resources/psruntime/BuildTime/Models/PsProxyTypes.cs`'s `VariantGroup`/`Variant`
-classes, which run via C# reflection over already-generated proxy cmdlet classes, grouping them
-by `CmdletName`/`CmdletNoun`. AutoRest doesn't do the merge inside its per-operation enrichment
-step either.
+**Where the derive functions actually get called**: never as a pipeline stage — only from inside
+a `Generator`'s own `generate(ir, context)`, since that's the one stage in `compile()` not
+required to return `IR`. The real, future Roslyn/C# generator will call `derivePsCommands(ir)`/
+`deriveModules(ir)` internally as the first thing it does, exactly mirroring how AutoRest's
+`Export-ProxyCmdlet` does its own `GroupBy` reflection downstream of per-operation enrichment.
+`generate-ps-commands` is this eventual generator's placeholder — registered under its final
+registry id/factory name now, so there's no rename/re-export churn later; today it only calls
+`derivePsCommands(ir)`/`deriveModules(ir)` and writes the result as `ps-commands.json`.
 
-**Alternative considered**: Extend `GeneratorOutput` with an optional generic `data?: unknown`
-field so `create-ps-commands` could run as a `Generator` and return `PsCommand[]` via `files`
-(serialized as a JSON manifest, e.g. `commands.json`). Rejected for this change — it would
-modify the shared `compiler` package's public interface for every future generator, a more
-invasive change than reusing IR's existing hint-mutation mechanism, which already solves the
-same problem for every other per-node PS override.
+**Vocabulary lives as IR hints, not a parallel schema**: per-parameter/per-command PS vocabulary
+is modeled directly on `IROperation`/`IRParameter`/`IRSource` — mirroring AutoRest's real
+`CommandOperation extends ProgrammaticOperation` (same object, PS facet added), adapted to IR's
+hint-mutation mechanism since IR nodes are immutable Zod data, not subtypeable classes. The
+separate `ps-commands` package holds only the thin cross-node aggregates (`PsCommand`/
+`PsParameterSet`/`PsModule`) that hints structurally cannot express — not a redeclaration of any
+per-node field.
 
-**Where `derivePsCommands` actually gets called**: never as a pipeline stage — its only legitimate
-caller is a `Generator`'s own `generate(ir, context)`, since that's the one stage in `compile()`
-not required to return `IR` (nothing runs after it). The real, future Roslyn/C# generator will
-call `derivePsCommands(ir)` internally as the first thing it does, exactly mirroring how AutoRest's
-`Export-ProxyCmdlet` does its own `GroupBy` reflection downstream of `powershell-v2`'s per-operation
-enrichment, not as a distinct pipeline stage. Milestone 0 registers `generate-ps-commands`
-(task 0.17) as this eventual generator's placeholder — same registry id/factory name it will keep
-once it grows real C# output, so there's no rename/re-export churn later. Today it only calls
-`derivePsCommands(ir)` and writes the result as `ps-commands.json` (`noopGenerator` remains the
-default), so the full `IR -> (enriched IR) -> PsCommand[]` path is reachable through a real
-`ace compile` invocation now, without waiting on the real C# output.
+**`ExtensionIndex`/Processor generation note**: the illustrative three-artifact story (Cmdlet +
+Processor + `ExtensionIndex` entry) assumed each is an isolated, generatable unit — checking the
+real file (`src/Extensions/Resources/ExtensionIndex.cs`) shows it isn't: it's a single,
+non-`partial` class mixing hand-written `_PS`/`_CLI` `CommandMetadata` fields, `s_psTable`/
+`s_cliTable`, and shared lookup methods. A PS-only generator can't safely emit a whole
+replacement file without clobbering the hand-written CLI side. Splitting `ExtensionIndex` into a
+`partial class` is a real prerequisite change to azclips's existing code, deferred to whichever
+later change implements the C# generator. Separately, the Processor's `[ArgumentInfo]` fields are
+nominally PS-scoped vocabulary but the Processor itself is shared with CLI — safe today only
+because every traced example shows identical `[ArgumentInfo]` values across `_PS`/`_CLI`
+registrations; would need a CLI-aware dimension if that ever diverges.
 
-## Open Questions (Phase 2/3 design work still in progress — not yet resolved)
+## Open Questions
 
-- Exact Zod type definitions for `ps-commands`'s thin `PsCommand`/`PsParameterSet` aggregate —
-  drafted as implementation tasks in `tasks.md`, not finalized here.
-- Exact field list/types for the `powershell` hints namespace in `hints.ts` — vocabulary is
-  decided (Decision 3) but not yet typed as Zod schema; drafted as a task in `tasks.md`.
-- Exact directive grammar (the `select`/`where`/`set` config shape and its TransformStep-options
-  binding) — high-level mechanism is decided (Decision 7); the concrete grammar is a task in
-  `tasks.md`.
-- **`ExtensionIndex` generation is unresolved and NOT solvable by this schema alone.** Decision 1's
-  artifact (c) ("an `ExtensionIndex` `CommandMetadata` registration entry, PS-only `ClientType`")
-  assumed this is an isolated, generatable unit — checking the real file
-  (`src/Extensions/Resources/ExtensionIndex.cs`) shows it isn't: it's a single, non-`partial`
-  class mixing hand-written `_PS` and `_CLI` `CommandMetadata` fields, `s_psTable`/`s_cliTable`,
-  one shared `static ExtensionIndex()` constructor, and shared `ClientType`-switched lookup
-  methods. A PS-only generator can't safely emit a whole replacement file without clobbering the
-  hand-written CLI side. Splitting `ExtensionIndex` into a `partial class` (hand-written CLI +
-  shared machinery, generated PS-only fields) is a real prerequisite change to azclips's existing
-  code — deferred to whichever later change actually implements the C# generator.
-- **Whether `hints.powershell` should be a shared abstraction across `Core.Abstractions` +
-  extensions + codegen, not just a codegen-internal IR namespace.** Raised in reviewer feedback
-  on this change's first PR: today's vocabulary is *codegen-only* — hand-written extensions keep
-  using their own `ArgumentInfoAttribute`/`ProcessorInfoAttribute`/`CommandMetadata` in
-  `Core.Abstractions`, a separate (and, per the same feedback, not fully
-  `System.Management.Automation`-aligned) definition. Unifying these into one shared,
-  core-owned abstraction is a real, larger architectural question — explicitly distinct from the
-  "single source of truth emitted at build-time from a shared spec" idea the reviewer also raised
-  and asked to defer. Not resolved here; revisit once more reviewer feedback lands.
-
-**RESOLVED**: home for the new, thin Zod aggregate package is `toolkit/packages/ps-commands`
-(npm name `@azure-client-engine/ps-commands`), matching the existing
-`@azure-client-engine/<name>` convention (`ir`, `compiler`, `typespec-emitter`, `cli`). Renamed
-from the original `ps-model` once its scope shrank to just the `PsCommand`/`PsParameterSet`
-aggregate + `derivePsCommands()` (see Decisions 2 and 8) — "model" no longer fit once it stopped
-holding the full vocabulary.
+- Exact directive grammar's JSON/YAML shape and its `TransformStep`-options binding — high-level
+  mechanism decided above; concrete grammar is a `tasks.md` implementation detail.
+- Whether `hints.powershell` should be a shared abstraction across `Core.Abstractions` +
+  extensions + codegen, not just a codegen-internal IR namespace — investigated at length
+  (a full draft OpenSpec change unifying `hints.powershell` with `ArgumentInfoAttribute` was
+  written and then abandoned once tracing real consumers showed `ArgumentInfoAttribute` is mostly
+  unused, and `hints.powershell`'s real target is the Cmdlet's actual `[Parameter]` attribute, not
+  an intermediate C# type). The one genuinely live, duplicated-today vocabulary —
+  `ParameterMetadata`/`CommandMetadata` in each extension's `ExtensionIndex.cs`, hand-typed twice
+  per parameter (`_PS`/`_CLI`) — remains a real, separate, not-yet-scoped problem.
 
 ## Appendix: Full Schema Reference
 
-A consolidated, field-by-field view of everything this change models, so nothing already decided
-gets lost across Decisions/tasks. Each field is tagged with the milestone (`tasks.md`) that
-introduces it. Split into two parts per Decisions 2/8: per-node vocabulary lives as
-`hints.powershell` on IR; the cross-operation grouping shape lives in `ps-commands`.
+### `hints.powershell` on `IRSource.rendering` (module-level)
+| Field | Notes |
+|---|---|
+| `description` | Module summary/description text; author-settable, not yet wired to a TypeSpec decorator |
+
+### `ps-commands` package: `PsModule` (thin aggregate)
+| Field | Notes |
+|---|---|
+| `sourceId` | `IRSource.id` this module derives from |
+| `description` | Copied from `IRSource.rendering.powershell` |
+| `cmdletsToExport` | Flattened `verb`+`noun` names from every `PsCommand` grouped under this source |
 
 ### `hints.powershell` on `IROperation.rendering` (per-command)
-| Field | Milestone | Notes |
-|---|---|---|
-| `verb` | 0 | Resolved by `create-ps-commands`; overridable by authors |
-| `noun` | 0 | Bare, singularized, WITHOUT subject prefix (e.g. `"ResourceGroup"`) — resolved by `create-ps-commands`; overridable by authors |
-| `subjectPrefix` | 0 | Own field, not baked into `noun` (e.g. `"Az"`) — combined with `noun` at grouping time into `PsCommand.noun` |
-| `parameterSetName` | 0 | Source-operation-derived (e.g. `"Get"`, `"List"`) |
-| `confirmImpact` | 0 | From HTTP method; overridable by authors |
-| `alias` | 1 | |
-| `hidden` | 1 | |
-| completer reference | 1 | Mirrors `CompleterInfoAttribute` |
-| `summary` / `description` / `examples` | 1 | Mirrors `ProcessorInfoAttribute` |
-| lifecycle tag | 1 | Preview / Deprecated / Experimental / GA |
-| `httpPath` equivalent | 1 | Path template + api-version |
-| `supportsPaging` | 1 | Mirrors `System.Management.Automation.CmdletAttribute.SupportsPaging` |
-| `helpUri` | 1 | Mirrors `System.Management.Automation.CmdletAttribute.HelpUri` |
+| Field | Notes |
+|---|---|
+| `verb` | Resolved by `create-ps-commands`; overridable by authors |
+| `noun` | Bare, singularized, WITHOUT subject prefix (e.g. `"ResourceGroup"`) |
+| `subjectPrefix` | Own field, not baked into `noun` (e.g. `"Az"`) — combined into `PsCommand.noun` at grouping time |
+| `parameterSetName` | Source-operation-derived (e.g. `"Get"`, `"List"`) |
+| `confirmImpact` | From HTTP method; overridable by authors |
+| `alias` | |
+| `hidden` | |
+| completer reference | Mirrors `CompleterInfoAttribute` |
+| `summary` / `description` / `examples` | Mirrors `ProcessorInfoAttribute` |
+| lifecycle tag | Preview / Deprecated / Experimental / GA |
+| `httpPath` equivalent | Path template + api-version |
+| `supportsPaging` | Mirrors `System.Management.Automation.CmdletAttribute.SupportsPaging` |
+| `helpUri` | Mirrors `System.Management.Automation.CmdletAttribute.HelpUri` |
 
 ### `hints.powershell` on `IRParameter.rendering` (per-parameter)
-None of this exists yet in Milestone 0 — `PsParameterSet` is a bare `{ name, sourceOperationId }`
-reference (task 0.5) with no parameter-level detail, and M0's own proof (task 0.15) only asserts
-`PsCommand`-level fields. All of it, including `mandatory`, is introduced together in Milestone 1.
-
-| Field | Milestone | Notes |
-|---|---|---|
-| `mandatory` | 1 | |
-| `parameterSetName` | 1 | |
-| `helpMessage` | 1 | |
-| `position` | 1 | Mirrors `System.Management.Automation.ParameterAttribute.Position` |
-| `valueFromPipeline` / `valueFromPipelineByPropertyName` | 1 | |
-| `valueFromRemainingArguments` | 1 | Mirrors `ParameterAttribute.ValueFromRemainingArguments` |
-| `supportsWildcards` | 1 | |
-| `aliases` | 1 | |
-| `allowedValues` | 1 | `ValidateSet` equivalent |
-| completer reference | 1 | Mirrors `CompleterInfoAttribute` |
-| `readOnly` / `create` / `update` | 1 | Mutability flags; mirrors `InfoAttribute.ReadOnly/Create/Update` |
-| `dontShow` | 1 | Per-parameter hide (distinct from the operation-level `hidden`); mirrors `ParameterAttribute.DontShow` |
-| default-value expression | 1 | Mirrors `DefaultInfoAttribute` (script/name/set-condition) |
+| Field | Notes |
+|---|---|
+| `mandatory` | Flat default; overridable per set via `parameterSets` |
+| `parameterSetName` | |
+| `helpMessage` | Flat default; overridable per set via `parameterSets` |
+| `position` | Mirrors `ParameterAttribute.Position`; flat default, overridable per set |
+| `valueFromPipeline` / `valueFromPipelineByPropertyName` | |
+| `valueFromRemainingArguments` | Mirrors `ParameterAttribute.ValueFromRemainingArguments` |
+| `supportsWildcards` | |
+| `aliases` | |
+| `allowedValues` | `ValidateSet` equivalent — only ever surfaced via raw `Attributes` on the real SDK type, never a `ParameterMetadata` property |
+| completer reference | Mirrors `CompleterInfoAttribute`/`ArgumentCompleterAttribute` — same "raw attributes only" caveat |
+| `readOnly` / `create` / `update` | Mutability flags; mirrors `InfoAttribute.ReadOnly/Create/Update` |
+| `dontShow` | Per-parameter hide (distinct from the operation-level `hidden`); mirrors `ParameterAttribute.DontShow` |
+| default-value expression | Mirrors `DefaultInfoAttribute` (script/name/set-condition) |
+| `parameterSets` | Optional per-set override map — `{ mandatory?, position?, helpMessage? }` keyed by set name, matching real `ParameterSetMetadata`'s structure |
 
 ### `ps-commands` package: `PsParameterSet` (thin aggregate)
-| Field | Milestone | Notes |
-|---|---|---|
-| `name` | 0 | Source-operation-derived (e.g. `"Get"`, `"List"`) |
-| `sourceOperationId` | 0 | Reference into IR \u2014 hints.powershell holds the parameter details |
+| Field | Notes |
+|---|---|
+| `name` | Source-operation-derived (e.g. `"Get"`, `"List"`) |
+| `sourceOperationId` | Reference into IR — `hints.powershell` holds the parameter details |
 
 ### `ps-commands` package: `PsCommand` (thin aggregate)
-| Field | Milestone | Notes |
-|---|---|---|
-| `verb` / `noun` | 0 | Copied from the grouped operations' resolved `hints.powershell` |
-| `subjectPrefix` | 0 | Configurable, e.g. `"Az"` |
-| `supportsShouldProcess` / `confirmImpact` | 0 | Copied from `hints.powershell` |
-| `outputTypes` | 0 | By-id refs into IR |
-| `parameterSets` | 0 | `PsParameterSet[]` \u2014 one per merged source operation |
-| `sourceOperationIds` | 0 | IR operation id(s) this command derives from |
-| `alias` / `hidden` / `completer` | 1 | Copied from `hints.powershell` (fixed post-M1: `derivePsCommands` initially missed these) |
-| `summary` / `description` / `examples` / `lifecycleTag` | 1 | Copied from `hints.powershell` |
-| `httpPath` / `supportsPaging` / `helpUri` | 1 | Copied from `hints.powershell` |
+| Field | Notes |
+|---|---|
+| `verb` / `noun` | Copied from the grouped operations' resolved `hints.powershell` |
+| `subjectPrefix` | Configurable, e.g. `"Az"` |
+| `supportsShouldProcess` / `confirmImpact` | Copied from `hints.powershell` |
+| `outputTypes` | By-id refs into IR |
+| `parameterSets` | `PsParameterSet[]` — one per merged source operation |
+| `defaultParameterSetName` | Mirrors `CmdletCommonMetadataAttribute.DefaultParameterSetName`; defaults to the most general merged set (e.g. `List` over `Get`) unless overridden |
+| `sourceOperationIds` | IR operation id(s) this command derives from |
+| `alias` / `hidden` / `completer` | Copied from `hints.powershell` |
+| `summary` / `description` / `examples` / `lifecycleTag` | Copied from `hints.powershell` |
+| `httpPath` / `supportsPaging` / `helpUri` | Copied from `hints.powershell` |
 
-### `derivePsCommands(ir: IR): PsCommand[]` (plain function, not a pipeline stage)
-Groups IR operations sharing a resolved `hints.powershell.verb`+`noun` (within the same
-`id.namespace`) into one `PsCommand` with one `PsParameterSet` per source operation. Also applies
-single-operation variant fan-out (`base`/`Expanded`, reusing `FlattenHint`) per Decision 5.
+### `hints.powershell` on `IRModel`'s per-property `rendering` (output-formatting)
+| Field | Notes |
+|---|---|
+| `formatIndex` | Optional explicit column order override; mirrors `FormatTableAttribute.Index` |
+| `formatLabel` | Optional column header text override; mirrors `FormatTableAttribute.Label` |
+| `formatWidth` | Optional column width override; mirrors `FormatTableAttribute.Width` |
+| `excludeFromFormat` | Excludes this property from the default table view; mirrors `DoNotFormatAttribute` |
 
-### Directive grammar (`select`/`where`/`set` — applied inside `create-ps-commands`, Milestone 2)
-- `select`: `command` \| `parameter`
-- `where` (command): `verb`, `subject`, `subject-prefix`, `parameter-name`
-- `where` (parameter): `parameter-name`, optionally `verb`/`subject`/`subject-prefix`
-- `set`: alias, hidden, and other per-selector overrides
-- Precedence: inline `hints.powershell` wins over directives (Decision 7)
-
-### Explicitly excluded (see Non-Goals for full reasoning)
-CLI dual-registration, the actual C# generator's output, `AsJob`, API-profile gating, legacy
-`DefaultProfile`/`Break`/HTTP-pipeline parameters, the breaking-change/deprecation attribute
-family, `ModelCmdletAttribute`-style object-constructor cmdlets, `ExternalDocsAttribute`,
-AutoRest-internal bookkeeping attributes (`ExportAs`/`Origin`/`Constant`/`InternalExport`/
-`NotSuggestDefaultParameterSet`), `FormatTableAttribute`/`DoNotFormatAttribute`,
-`ViaIdentity`/`ViaJsonString`/`ViaJsonFilePath` variants, and the `[Category]` wire-location
-attribute. `-Profile` is resolved as generator-level boilerplate, not modeled vocabulary (see
-Decision 3's closing note).
-
-
+### `ps-commands` package: `PsFormatView` (thin aggregate)
+| Field | Notes |
+|---|---|
+| `sourceModelId` | `IRModel.id` this view derives from |
+| `columns` | `{ propertyName, label, width }[]` — default: simple-scalar, non-`Inlined` properties in `Origin`-then-declaration order; overridden per-property by `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` |

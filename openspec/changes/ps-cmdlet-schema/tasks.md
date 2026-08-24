@@ -1,176 +1,228 @@
-Tasks are organized into milestones, each a working checkpoint rather than a component. Milestone
-0 is a deliberately thin vertical slice: minimal `hints.powershell` + minimal `ps-commands`
-aggregate + minimal derivation, wired end-to-end and proven against a real fixture, before any
-richness is added. See `design.md`'s Decisions 1/2/8 for why derivation is split into two stages
-(the `create-ps-commands` `TransformStep` enriches `hints.powershell`; the separate
-`derivePsCommands()` function groups the result) and the Appendix for the full schema reference.
+Tasks are organized by the level each piece of schema targets — module, command, parameter, and
+output-formatting — following design.md's target-first method: for each level, the real PS SDK
+shape was found first (via live reflection or, for output-formatting, a direct generator-source
+audit), then a fixed framework decided what's in scope, then the schema/derivation was
+implemented. Pipeline mechanism (shared across all levels) and real-fixture verification are
+their own sections since they aren't level-specific. See design.md for the full target analysis,
+framework verdicts, and Appendix schema reference behind every task below.
 
-## Milestone 0: Fast path — prove `IR -> PsCommand[]` works end-to-end
+## Pipeline infrastructure
 
-Goal: one simple IR operation produces one correct `PsCommand`, run through the real pipeline
-mechanism plus `derivePsCommands()`. No directives yet; inline-hint overrides work "for free" once
-`hints.powershell` exists, since `create-ps-commands` must respect last-writer-wins semantics.
+Goal: the mechanism every level's schema flows through — scaffolding only, no vocabulary yet.
 
-- [x] 0.1 Add a minimal `powershell` sub-namespace to `toolkit/packages/ir/src/hints.ts`'s
-      `OperationHints` (not `CommonHints` — these fields are operation-specific and would
-      otherwise leak onto `ModelHints`/`EnumHints`/`ParameterHints`, which alias `CommonHints`
-      directly): `verb`, `noun`, `parameterSetName`, `confirmImpact` only. This is a hard
-      prerequisite for `create-ps-commands` to write into — not deferrable authoring-hook polish.
-      Add a doc comment describing the new namespace (`hints.ts` has no prior mention of
-      "powershell" today — confirmed by inspection, not an existing comment needing an update).
-- [x] 0.2 Add unit tests confirming the new namespace round-trips through IR's existing Zod
-      validation without affecting non-PS consumers.
-- [x] 0.3 Create `toolkit/packages/ps-commands` (npm name `@azure-client-engine/ps-commands`),
-      matching the existing `@azure-client-engine/<name>` workspace conventions (`ir`, `compiler`,
-      `typespec-emitter`) — `package.json`, `tsconfig.json`, `src/index.ts`. Add this package to
-      the root `toolkit/tsconfig.json` solution's `references` array — npm workspaces alone
-      won't include it in `tsc -b` builds.
-- [x] 0.4 Add `@azure-client-engine/ir` and `zod` as dependencies.
-- [x] 0.5 Define the thin `PsParameterSet` aggregate (Zod schema): `name` (source-operation-derived,
-      e.g. `"Get"`/`"List"`), `sourceOperationId` (reference into IR — parameter details live on
-      the referenced `IRParameter`'s `hints.powershell`, not redeclared here).
-- [x] 0.6 Define the thin `PsCommand` aggregate: `verb`, `noun`, `subjectPrefix`,
-      `supportsShouldProcess`, `confirmImpact` (copied from the grouped operations' resolved
-      `hints.powershell`), `outputTypes` (by-id refs), `parameterSets` (`PsParameterSet[]`),
-      `sourceOperationIds`.
-- [x] 0.7 Write unit tests asserting the schema rejects a command with no parameter sets and
-      rejects a parameter set with no source operation id (Zod validation smoke tests).
-- [x] 0.8 Scaffold the `create-ps-commands` `TransformStep` in `toolkit/packages/compiler`
+- [x] Create `toolkit/packages/ps-commands` (npm name `@azure-client-engine/ps-commands`),
+      matching the existing `@azure-client-engine/<name>` workspace conventions — `package.json`,
+      `tsconfig.json`, `src/index.ts`. Added to the root `toolkit/tsconfig.json` solution's
+      `references` array. Depends on `@azure-client-engine/ir` and `zod`.
+- [x] Scaffold the `create-ps-commands` `TransformStep` in `toolkit/packages/compiler`
       (implements the real `TransformStep` interface — `run(ir: IR, context): IR` — from
-      `transform.ts`; it enriches `hints.powershell` in place, it does not return a `PsCommand[]`),
+      `transform.ts`; enriches `hints.powershell` in place, never returns an aggregate),
       registered via `CompilerRegistry` under id `create-ps-commands`.
-- [x] 0.9 Implement namespace-based grouping: recover client/operation-group candidates from
-      each `IROperation.id.namespace`.
-- [x] 0.10 Implement the verb-mapping table (seeded from AutoRest's default
+- [x] Wire `create-ps-commands` into the real `ace compile` CLI: `toolkit/packages/cli` registers
+      it in a default `CompilerRegistry`. A config file with `{"pipeline":
+      [{"use": "create-ps-commands"}]}` opts a real `ace compile` invocation into
+      `hints.powershell` enrichment; absent that key, behavior is byte-for-byte unchanged
+      (identity pipeline).
+- [x] Register a `generate-ps-commands` `Generator` (`toolkit/packages/compiler`) under its
+      eventual real-generator registry id/factory name, so there's no rename/re-export churn once
+      it grows real C# output. Today its `generate()` only calls `derivePsCommands(ir)` internally
+      and serializes the result as `ps-commands.json`, opted into via
+      `{"generator": {"use": "generate-ps-commands"}}`; the default remains `noopGenerator`.
+      Confirms `derivePsCommands` is only ever called from inside a `Generator`'s own
+      `generate()` — never a separate pipeline stage (design.md's pipeline-mechanism section).
+- [x] Design and document the concrete `select`/`where`/`set` directive grammar (JSON/YAML shape)
+      accepted as the `create-ps-commands` step's `options`, modeled on AutoRest's
+      `docs/directives.md` (selectors: `command`, `parameter`; filters: verb, subject,
+      subject-prefix, parameter-name).
+- [x] Implement directive matching and application inside the `create-ps-commands` step, applied
+      as defaults before the final `hints.powershell` write — an existing inline hint value wins
+      over a directive's.
+
+## Module-level schema
+
+Goal: cover the one real gap found by reflecting directly on a real PS module
+(`System.Management.Automation.PSModuleInfo`, verified live against `Az.Accounts`) — nothing in
+this schema modeled module-level facts before this. Scoped narrowly to what's genuinely
+IR-derivable; see design.md's Module-level section for the field-by-field framework verdicts and
+why release/packaging `.psd1` fields (GUID, version, required modules, PSGallery metadata) are
+excluded.
+
+- [ ] Add a `rendering` field to `IRSource` (`toolkit/packages/ir/src/source.ts`) for the first
+      time, with a `powershell` namespace holding just `description` (module summary text,
+      author-settable, last-writer-wins like every other hint). Add Zod schema + unit tests
+      confirming it round-trips without affecting existing `IRSource` validation.
+- [ ] Add `PsModule` to `toolkit/packages/ps-commands` (`{ sourceId, description,
+      cmdletsToExport }`) plus `deriveModules(ir: IR): PsModule[]`, grouping the already-derived
+      `PsCommand[]` by source and flattening each group's `verb`+`noun` into `cmdletsToExport`.
+      Called only from inside a `Generator`'s own `generate()` — never a pipeline stage.
+- [ ] Write unit tests using the real `ResourceGroup` fixture: compiling it end-to-end should
+      produce one `PsModule` whose `cmdletsToExport` contains exactly
+      `["New-AzResourceGroup", "Get-AzResourceGroup", "Remove-AzResourceGroup"]` (bare noun,
+      matching `PsCommand.noun`'s existing prefix-combining convention).
+- [ ] Wire `deriveModules` into the `generate-ps-commands` placeholder generator alongside
+      `derivePsCommands`, writing both to `ps-commands.json` (e.g. `{ commands: [...], modules:
+      [...] }`), so a real `ace compile` invocation can preview module-level output the same way
+      it already can for commands.
+
+## Command-level schema
+
+Goal: match the real target found by reflecting on `System.Management.Automation.CmdletInfo`/
+`CommandMetadata` (verified live against `Get-Command New-AzResourceGroup`) — verb/noun,
+`ShouldProcess`/`ConfirmImpact`, help metadata, multi-operation merge, and variant fan-out. See
+design.md's Command-level section for the framework verdicts (including why `PositionalBinding`
+is a generator-default note, not a schema field, and why `SupportsTransactions`/
+`RemotingCapability` are excluded — both checked directly against real azure-powershell usage).
+
+- [x] Add a minimal `powershell` sub-namespace to `toolkit/packages/ir/src/hints.ts`'s
+      `OperationHints` (not `CommonHints` — these fields are operation-specific and would
+      otherwise leak onto `ModelHints`/`EnumHints`/`ParameterHints`): `verb`, `noun`,
+      `parameterSetName`, `confirmImpact`. Add unit tests confirming round-trip through IR's
+      existing Zod validation without affecting non-PS consumers.
+- [x] Implement namespace-based grouping: recover client/operation-group candidates from each
+      `IROperation.id.namespace` (IR flattened the original client/operation-group hierarchy
+      away).
+- [x] Implement the verb-mapping table (seeded from AutoRest's real default
       `autorest-configuration.md` table): action-word table lookup always wins (`Create`/
-      `CreateOrUpdate`->`New`, `Update`->`Update`, etc.); only fall back to an HTTP-method-based
-      default (PUT->`Set`, PATCH->`Update`, POST->`Invoke`) when the action word has no table
-      entry at all. Write the resolved verb into `hints.powershell.verb`, respecting any
-      pre-existing authored value (last-writer-wins — an author's inline override is never
-      clobbered). Verify against the real `ResourceGroups.createOrUpdate` (PUT) precedent, which
-      must resolve to `New`, not `Set`.
-- [x] 0.11 Implement noun inference: singularize the resource/model name, write into
-      `hints.powershell.noun` (bare, no prefix); write the configurable subject prefix into its
-      own `hints.powershell.subjectPrefix` field (not baked into `noun` — kept separate so
-      `PsCommand.subjectPrefix` in `ps-commands` can be populated too; combined into the final,
-      generation-ready `PsCommand.noun` by `derivePsCommands`, task 0.13).
-- [x] 0.12 Implement `SupportsShouldProcess`/`ConfirmImpact` policy from HTTP method (PUT/POST/
-      PATCH/DELETE => true; GET => false); write into `hints.powershell.confirmImpact`.
-- [x] 0.13 Implement `derivePsCommands(ir: IR): PsCommand[]` in `ps-commands` — a plain function, not
-      a pipeline stage — that reads the now-enriched IR and groups operations under the same
-      `id.namespace` sharing a resolved verb+noun into one `PsCommand`, with one `PsParameterSet` per
-      source operation.
-- [x] 0.14 Author a minimal `ResourceGroup` TypeSpec fixture (`resourcegroup.tsp`) mimicking the
-      real `Microsoft.Resources` ResourceGroups shape (`get`, `createOrUpdate` (PUT), `delete`,
+      `CreateOrUpdate`→`New`, `Update`→`Update`, etc.); only fall back to an HTTP-method-based
+      default (PUT→`Set`, PATCH→`Update`, POST→`Invoke`) when the action word has no table entry
+      at all. Write the resolved verb into `hints.powershell.verb`, respecting any pre-existing
+      authored value. Verified against the real `ResourceGroups.createOrUpdate` (PUT) precedent,
+      which resolves to `New`, not `Set`.
+- [x] Implement noun inference: singularize the resource/model name into `hints.powershell.noun`
+      (bare, no prefix); write the configurable subject prefix into its own
+      `hints.powershell.subjectPrefix` field (not baked into `noun` — combined into the final
+      `PsCommand.noun` by `derivePsCommands`).
+- [x] Implement `SupportsShouldProcess`/`ConfirmImpact` policy from HTTP method (PUT/POST/PATCH/
+      DELETE ⇒ true; GET ⇒ false); write into `hints.powershell.confirmImpact`.
+- [x] Implement `derivePsCommands(ir: IR): PsCommand[]` in `ps-commands` — a plain function, not a
+      pipeline stage — that reads the enriched IR and groups operations under the same
+      `id.namespace` sharing a resolved verb+noun into one `PsCommand`, with one `PsParameterSet`
+      per source operation.
+- [x] Extend `hints.powershell` on `IROperation.rendering` with: `alias`, `hidden`, completer
+      reference, `summary`/`description`/`examples` (mirrors `ProcessorInfoAttribute`), a
+      lifecycle tag (Preview/Deprecated/Experimental/GA), and an `httpPath` equivalent (path
+      template + api-version).
+- [x] Implement single-operation variant fan-out limited to `base` and `Expanded` (reusing IR's
+      existing `FlattenHint`) inside `derivePsCommands()`; explicitly do not implement
+      `ViaIdentity`/`ViaJsonString`.
+- [x] Reviewer-feedback follow-up: cross-check the operation-level vocabulary against the real
+      `System.Management.Automation.CmdletAttribute` (not just azclips's own
+      `ProcessorInfoAttribute`). Added `supportsPaging`, `helpUri`
+      (`CmdletAttribute.SupportsPaging`/`.HelpUri`).
+- [x] Bug fix: `derivePsCommands()` never copied the operation-level richness fields (`alias`,
+      `hidden`, `completer`, `summary`, `description`, `examples`, `lifecycleTag`, `httpPath`,
+      `supportsPaging`, `helpUri`) onto the derived `PsCommand`. Added the missing fields to
+      `PsCommand`/`PsCommandSchema` and `derivePsCommands()`, so a future generator reading
+      `PsCommand[]` doesn't have to separately re-inspect the source IR.
+- [x] Write a unit test covering a directive hiding a command by verb+subject, and a conflicting
+      directive+inline-hint case resolving in the inline hint's favor (`ConfirmImpact`).
+- [x] Verify end-to-end against the real `resourcegroup.tsp` fixture (not synthetic operations):
+      a command-hide directive matches the real `delete`-derived `Remove-AzResourceGroup` command
+      by its actually-inferred verb/subject.
+- [ ] Add `defaultParameterSetName` to `PsCommand` (`toolkit/packages/ps-commands`), mirroring
+      `CmdletCommonMetadataAttribute.DefaultParameterSetName` — confirmed gap found via a full
+      audit of the real `Attributes.cs` source, not just live reflection. `derivePsCommands()`
+      defaults it to the most general merged parameter set (e.g. `List` over `Get`, matching the
+      real `GetResourceGroupCmdlet.DefaultParameterSetName = "List"` precedent) unless an author
+      override exists. Add unit tests using the real `ResourceGroup` fixture.
+
+## Parameter-level schema
+
+Goal: match the real target found by reflecting on `System.Management.Automation.
+ParameterMetadata`/`ParameterSetMetadata` (verified live against
+`(Get-Command New-AzResourceGroup).Parameters`) — mandatory/help/pipeline-binding/wildcards/
+aliases/allowed-values/mutability/defaults, and (found only after reflecting on real
+`ParameterSetMetadata`) per-parameter-set variation. See design.md's Parameter-level section for
+the framework verdicts, including the "properties vs. raw attributes" distinction that surfaced
+`allowedValues`/`completer`.
+
+- [x] Add a `powershell` sub-namespace to `toolkit/packages/ir/src/hints.ts`'s `ParameterHints`
+      (its first field — `ParameterHints` was still a plain `CommonHints` alias) with:
+      `mandatory`, `parameterSetName`, `helpMessage`, `valueFromPipeline`/
+      `valueFromPipelineByPropertyName`, `supportsWildcards`, `aliases`, `allowedValues`
+      (`ValidateSet`), completer reference, mutability flags (`readOnly`/`create`/`update`,
+      mirroring AutoRest's real `InfoAttribute.ReadOnly/Create/Update`), and an optional
+      default-value expression (mirroring `DefaultInfoAttribute`).
+- [x] Reviewer-feedback follow-up: cross-check the parameter-level vocabulary directly against the
+      real `System.Management.Automation.ParameterAttribute` (not just azclips's own
+      `ArgumentInfoAttribute`, which only partially covers the real PS SDK shape). Added the
+      confirmed gaps: `position` (`ParameterAttribute.Position`), `dontShow`
+      (`ParameterAttribute.DontShow` — per-parameter, distinct from the operation-level `hidden`),
+      `valueFromRemainingArguments` (`ParameterAttribute.ValueFromRemainingArguments`).
+- [x] Write a unit test covering a directive renaming a parameter's alias across every matching
+      command, and a unit test covering a non-matching directive not hiding/renaming anything it
+      shouldn't.
+- [x] Verify end-to-end against the real `resourcegroup.tsp` fixture: an author-inline parameter
+      hint (`mandatory`/`helpMessage`/`position`) set on the real `resourceGroupName` path
+      parameter survives `create-ps-commands` unclobbered (no parameter-level inference exists to
+      conflict with it); a parameter-alias directive applies across every real operation sharing
+      the `resourceGroupName` parameter.
+- [ ] Add an optional `parameterSets` map to `PowershellParameterHint`
+      (`toolkit/packages/ir/src/hints.ts`) — `Record<string, { mandatory?, position?,
+      helpMessage? }>` keyed by parameter-set name. The existing flat `mandatory`/`position`/
+      `helpMessage` fields remain the default/fallback. Add Zod schema + unit tests confirming
+      both the flat-only and per-set-override shapes round-trip.
+- [ ] Update `create-ps-commands`/`derivePsCommands()` to resolve a parameter's effective
+      `mandatory`/`position`/`helpMessage` by checking `parameterSets[setName]` first, falling
+      back to the flat value, for each `PsParameterSet` it produces.
+- [ ] Add a unit test (synthetic fixture, mirroring the real `SubscriptionId`-across-`Get`/
+      `List`-sets case) proving a parameter's effective `mandatory` can differ across two merged
+      parameter sets on the same command.
+
+## Output-formatting schema
+
+Goal: `Format.ps1xml`-equivalent table views for a command's output types — found by auditing the
+real generator (`ExportFormatPs1xml.cs`/`PsAttributes.cs`), not live reflection; see design.md's
+"Output-formatting level" section for the full real-target analysis and framework verdicts.
+
+- [ ] Add an optional `rendering.powershell` block to `IRModel`'s per-property hints
+      (`toolkit/packages/ir/src/hints.ts`): `formatIndex`, `formatLabel`, `formatWidth`,
+      `excludeFromFormat`. Add Zod schema + unit tests.
+- [ ] Add `PsFormatView` (`toolkit/packages/ps-commands`) and `deriveFormatViews(ir: IR):
+      PsFormatView[]` — a plain function (not a `TransformStep`), mirroring
+      `derivePsCommands`/`deriveModules`. Default column set: simple-scalar (mirrors the real
+      generator's `IsPsSimple()` check), non-`Inlined` (reusing IR's existing `FlattenHint`)
+      properties, ordered by `Origin` then declaration order; apply
+      `formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat` overrides where present.
+- [ ] Add a unit test proving the default-view rule against a synthetic model with a mix of
+      simple-scalar, complex/nested, and flattened (`Inlined`) properties — confirming only the
+      simple, non-inlined ones appear by default, in the right order.
+- [ ] Add a unit test proving a `formatIndex`/`formatLabel`/`formatWidth` override changes a
+      property's position/label/width in the derived view, and `excludeFromFormat` removes an
+      otherwise-eligible simple-scalar property.
+- [ ] Verify end-to-end against the real `resourcegroup.tsp` fixture: derive the format view for
+      its response model and confirm the column set matches what the model's own property shapes
+      predict (no hand-curation needed for the default case).
+
+## Real-fixture verification & integration
+
+Goal: prove the whole pipeline (all three levels + mechanism) against a real, hand-authored
+TypeSpec fixture with a genuine hand-written comparison, and document the result — not
+level-specific, so kept separate from the schema sections above.
+
+- [x] Author a minimal `ResourceGroup` TypeSpec fixture (`resourcegroup.tsp`) mimicking the real
+      `Microsoft.Resources` ResourceGroups shape (`get`, `createOrUpdate` (PUT), `delete`,
       subscription-scoped `list`), chosen specifically because a real hand-written comparison
       exists (`src/PS/Resources/Cmdlets/{New,Get}ResourceGroupCmdlet.cs` +
       `src/Extensions/Resources/Processors/*ResourceGroupProcessor.cs`). Committed under
-      `toolkit/packages/compiler/test/fixtures/resource-group/`. Deliberately NOT built on
+      `toolkit/packages/compiler/test/fixtures/resource-group/`. Deliberately not built on
       `@azure-tools/typespec-azure-resource-manager`'s resource-modeling decorators, so the
-      resulting IR shape (operation names, HTTP methods, namespace) stays fully predictable.
-      No static `resourcegroup.ir.json` is committed — compiled dynamically at test time instead
-      (via `compile()`), matching this codebase's own established e2e-test precedent
-      (`typespec-emitter/test/emitter.e2e.test.ts`'s and `compiler/test/compile.e2e.test.ts`'s
-      own stated rationale: a static IR snapshot would be robust against nothing an emitter
-      change wouldn't immediately invalidate anyway, and risks machine-specific absolute paths).
-- [x] 0.15 Wire `create-ps-commands` into a non-identity `TransformPipeline`, compile the
+      resulting IR shape stays fully predictable. No static IR snapshot is committed — compiled
+      dynamically at test time instead, matching this codebase's own established e2e-test
+      precedent.
+- [x] Wire `create-ps-commands` into a non-identity `TransformPipeline`, compile the
       `ResourceGroup` fixture through the real `compile()` backbone with it, then call
       `derivePsCommands()` on the result and confirm: `ResourceGroups.createOrUpdate` produces one
       `PsCommand` with verb `New`, noun `AzResourceGroup`, `SupportsShouldProcess = true`, and
-      `ConfirmImpact = "Medium"`; `ResourceGroups.get` + `.list` merge into one `Get`/`AzResourceGroup`
-      command with two parameter sets; `ResourceGroups.delete` produces `Remove`/`AzResourceGroup`
-      — proof the full `IR -> (enriched IR) -> PsCommand[]` path executes via the compiler
-      backbone's existing pipeline mechanism plus the separate grouping function.
-- [x] 0.16 Wire `create-ps-commands` into the real `ace compile` CLI (moved up from Milestone 3,
-      since M0 already proves the underlying mechanism works): `toolkit/packages/cli` registers
-      `create-ps-commands` in a default `CompilerRegistry`. A config file with `{"pipeline":
-      [{"use": "create-ps-commands"}]}` now opts a real `ace compile` invocation into
-      `hints.powershell` enrichment; absent that key, behavior is byte-for-byte unchanged
-      (identity pipeline).
-- [x] 0.17 Register a `generate-ps-commands` `Generator` (`toolkit/packages/compiler`, alongside
-      `create-ps-commands` — not `toolkit/packages/cli`, which stays a thin shell) under its
-      eventual real-generator registry id/factory name, so there's no rename/re-export churn once
-      it grows real C# output (Cmdlet + Processor classes; `ExtensionIndex` PS-only registration
-      remains a separate, unresolved prerequisite — see design.md's Open Questions). For now its
-      `generate()` only calls `derivePsCommands(ir)` internally and serializes the result as
-      `ps-commands.json`. Gives a real `ace compile` invocation a concrete way to see
-      `PsCommand[]` output today (no C# back end exists yet to consume it) via
-      `{"generator": {"use": "generate-ps-commands"}}`; the default remains `noopGenerator`,
-      unaffected. Confirms `derivePsCommands` is only ever called from inside a `Generator`'s own
-      `generate()` — never a separate pipeline stage — see design.md Decision 8.
-
-## Milestone 1: Full vocabulary & derivation richness (ps-command-vocabulary, ps-command-derivation)
-
-Goal: fill in everything Milestone 0 deferred so the schema/derivation match real precedent
-exactly, not just the simple case.
-
-- [x] 1.1 Add a `powershell` sub-namespace to `toolkit/packages/ir/src/hints.ts`'s
-      `ParameterHints` (this is its first field — `ParameterHints` was still a plain `CommonHints`
-      alias after Milestone 0) with: `mandatory`, `parameterSetName`, `helpMessage`,
-      `valueFromPipeline`/`valueFromPipelineByPropertyName`, `supportsWildcards`, `aliases`,
-      `allowedValues` (ValidateSet), completer reference, mutability flags (`readOnly`/`create`/
-      `update`, mirroring AutoRest's real `InfoAttribute.ReadOnly/Create/Update` — lets generated
-      Update variants correctly omit create-only/server-computed properties), and an optional
-      default-value expression (script/name/set-condition, mirroring `DefaultInfoAttribute`).
-- [x] 1.2 Extend `hints.powershell` on `IROperation.rendering` with: `alias`, `hidden`, completer
-      reference, summary/description/examples (mirrors `ProcessorInfoAttribute`), a lifecycle tag
-      (Preview/Deprecated/Experimental/GA), and an `HttpPath`-equivalent (path template +
-      api-version — trivially derivable from the operation itself).
-- [x] 1.3 Implement single-operation variant fan-out limited to `base` and `Expanded` (reusing
-      IR's existing `FlattenHint`) inside `derivePsCommands()`; explicitly do not implement
-      `ViaIdentity`/`ViaJsonString`.
-- [x] 1.4 Write unit tests using the `ResourceGroup` fixture as a real-data regression case,
-      diffed against the real hand-written cmdlets: assert `ResourceGroups.get` +
-      `ResourceGroups.list` merge into one command with `Get`/`List` parameter sets (matching
-      `GetResourceGroupCmdlet`'s real `DefaultParameterSetName = "List"` + two parameter sets),
-      assert `ResourceGroups.createOrUpdate` (PUT) resolves to verb `New` — not `Set` — matching
-      `NewResourceGroupCmdlet`, and assert the Expanded variant flattens `ResourceGroupProperties`
-      (exercised end-to-end in `cli/test/create-ps-commands.e2e.test.ts` via a test-only
-      flatten-decision step, since no real flatten-decision `TransformStep` exists yet).
-- [x] 1.5 Reviewer-feedback follow-up: cross-check the vocabulary directly against the real
-      `System.Management.Automation.ParameterAttribute`/`CmdletAttribute` types (not just
-      azclips's own `ArgumentInfoAttribute`/`ProcessorInfoAttribute`, which only partially cover
-      the real PS SDK shape). Add the five confirmed gaps: `position`, `dontShow` (per-parameter,
-      distinct from the existing operation-level `hidden`), `valueFromRemainingArguments` on
-      `PowershellParameterHint`; `supportsPaging`, `helpUri` on `PowershellOperationHint`. The
-      broader "shared abstraction across `Core.Abstractions` + extensions + codegen" question
-      from the same feedback is tracked as a design.md Open Question, not resolved here.
-- [x] 1.6 Bug fix, found while planning M2's real-fixture verification: `derivePsCommands()` never
-      copied task 1.2's new `PowershellOperationHint` fields (`alias`, `hidden`, `completer`,
-      `summary`, `description`, `examples`, `lifecycleTag`, `httpPath`, `supportsPaging`,
-      `helpUri`) onto the derived `PsCommand` — it was written in Milestone 0 and never updated.
-      Added the missing fields to `PsCommand`/`PsCommandSchema` and `derivePsCommands()`, so a
-      future generator reading `PsCommand[]` doesn't have to separately re-inspect the source IR.
-
-## Milestone 2: Directive-style customization (ps-command-customization)
-
-Goal: bulk/pattern-based overrides layered on top of the inline-hint overrides that already work
-as of Milestone 0 (an author setting `hints.powershell.verb` directly is already honored by
-`create-ps-commands`'s last-writer-wins write — no additional wiring needed for that case).
-
-- [x] 2.1 Design and document the concrete `select`/`where`/`set` directive grammar (JSON/YAML
-      shape) accepted as the `create-ps-commands` step's `options`, modeled on AutoRest's
-      `docs/directives.md` (selectors: `command`, `parameter`; filters: verb, subject,
-      subject-prefix, parameter-name).
-- [x] 2.2 Implement directive matching and application inside the `create-ps-commands` step, applied
-      as defaults before the final `hints.powershell` write (per design.md Decision 7's
-      precedence rule: an existing inline hint value wins over a directive's).
-- [x] 2.3 Write unit tests covering: a directive renaming a parameter alias across matching
-      commands, a directive hiding a command, and a conflicting directive+inline-hint case
-      resolving in the inline hint's favor.
-- [x] 2.4 Verify Milestones 1 and 2 end-to-end against the real `resourcegroup.tsp` fixture (not
-      just synthetic operations), in `cli/test/create-ps-commands.e2e.test.ts`: an author-inline
-      parameter hint (`mandatory`/`helpMessage`/`position`) set on the real `resourceGroupName`
-      path parameter survives `create-ps-commands` unclobbered (no parameter-level inference
-      exists to conflict with it); a command-hide directive matches the real `delete`-derived
-      `Remove-AzResourceGroup` command by its actually-inferred verb/subject; a parameter-alias
-      directive applies across every real operation sharing the `resourceGroupName` parameter.
-
-## Milestone 3: Integration & documentation
-
-- [x] 3.1 Update `toolkit`'s own README/status docs (whichever tracked file currently describes
-      pipeline completeness) to reflect that a PS-command-enrichment `TransformStep` plus a
-      `ps-commands` grouping package now exist (still no C# `Generator` — that remains a
-      separate, later change). No such status doc existed yet (confirmed by inspection —
-      `toolkit/README.md` only covered dependency management); added a "Pipeline status" section
-      to it.
+      `ConfirmImpact = "Medium"`; `ResourceGroups.get` + `.list` merge into one `Get`/
+      `AzResourceGroup` command with two parameter sets (matching `GetResourceGroupCmdlet`'s real
+      `DefaultParameterSetName = "List"`); `ResourceGroups.delete` produces `Remove`/
+      `AzResourceGroup`; the Expanded variant flattens `ResourceGroupProperties` (via a test-only
+      flatten-decision step, since no real flatten-decision `TransformStep` exists yet) — proof
+      the full `IR -> (enriched IR) -> PsCommand[]` path executes via the compiler backbone's
+      existing pipeline mechanism plus the separate grouping function.
+- [x] Update `toolkit`'s own README/status docs to reflect that a PS-command-enrichment
+      `TransformStep` plus a `ps-commands` grouping package now exist (still no C# `Generator` —
+      that remains a separate, later change). No such status doc existed yet (confirmed by
+      inspection — `toolkit/README.md` only covered dependency management); added a "Pipeline
+      status" section to it.
