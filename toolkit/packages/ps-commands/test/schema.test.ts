@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { PsCommandSchema, PsModuleSchema, PsParameterSetSchema, type PsCommand, type PsModule, type PsParameterSet } from "../src/index.js";
+import { PsCommandSchema, PsFormatViewSchema, PsModuleSchema, PsParameterSetSchema, type PsCommand, type PsFormatView, type PsModule, type PsParameterSet } from "../src/index.js";
 
 const OPERATION_ID = {
   module: "<root>",
@@ -113,5 +113,28 @@ describe("PsModule", () => {
 
   it("rejects a module with no sourceId", () => {
     expect(() => PsModuleSchema.parse({ cmdletsToExport: [] })).toThrow();
+  });
+});
+
+describe("PsFormatView", () => {
+  it("parses a valid view", () => {
+    const view: PsFormatView = {
+      sourceModelId: { module: "<root>", namespace: [], name: "ResourceGroup" },
+      columns: [
+        { propertyName: "Location" },
+        { propertyName: "Name", label: "ResourceGroupName", width: 30 },
+      ],
+    };
+
+    expect(PsFormatViewSchema.parse(view)).toEqual(view);
+  });
+
+  it("rejects a view with no columns", () => {
+    expect(() =>
+      PsFormatViewSchema.parse({
+        sourceModelId: { module: "<root>", namespace: [], name: "ResourceGroup" },
+        columns: [],
+      }),
+    ).toThrow();
   });
 });

@@ -138,3 +138,41 @@ export const PsModuleSchema: z.ZodType<PsModule> = z
     cmdletsToExport: z.array(z.string().min(1)),
   })
   .strict();
+
+/**
+ * One `Format.ps1xml`-equivalent table view for one `IRModel`. Thin
+ * aggregate, same rationale as `PsCommand`/`PsModule`: per-property
+ * authoring (`formatIndex`/`formatLabel`/`formatWidth`/`excludeFromFormat`)
+ * lives as `hints.powershell` on each property's own `rendering`; this only
+ * holds the computed result — the final, ordered column list. Scoped to
+ * every `IRModel` in the IR, not just operation output types (real
+ * precedent: `Format.ps1xml` views exist for request-only and
+ * pipeline-identity model types too, not only response bodies). See
+ * `deriveFormatViews` in `derive.js`.
+ */
+export type PsFormatView = {
+  /** `IRModel.id` this view derives from. */
+  sourceModelId: IRId;
+  /**
+   * Ordered columns. `label` is undefined unless explicitly overridden — a
+   * future generator falls back to `propertyName` as the header text.
+   */
+  columns: { propertyName: string; label?: string | undefined; width?: number | undefined }[];
+};
+
+export const PsFormatViewSchema: z.ZodType<PsFormatView> = z
+  .object({
+    sourceModelId: IRIdSchema,
+    columns: z
+      .array(
+        z
+          .object({
+            propertyName: z.string().min(1),
+            label: z.string().min(1).optional(),
+            width: z.number().int().min(1).optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict();

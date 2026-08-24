@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { emptyIR, type IROperation, type IRParameter, type IRSource } from "@azure-client-engine/ir";
+import {
+  emptyIR,
+  type IRModel,
+  type IROperation,
+  type IRParameter,
+  type IRProperty,
+  type IRSource,
+} from "@azure-client-engine/ir";
 
-import { derivePsCommands, deriveModules, resolveParameterHintForSet } from "../src/derive.js";
+import { derivePsCommands, deriveModules, deriveFormatViews, resolveParameterHintForSet } from "../src/derive.js";
 
 function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" | "method">): IROperation {
   return {
@@ -309,5 +316,117 @@ describe("deriveModules", () => {
     });
 
     expect(modules.map((m) => m.sourceId).sort()).toEqual(["<root>", "Other"]);
+  });
+});
+
+describe("deriveFormatViews", () => {
+  function makeProperty(overrides: Partial<IRProperty> & Pick<IRProperty, "name" | "typeKind">): IRProperty {
+    const base = {
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: overrides.name },
+      wireName: overrides.name,
+      optional: true,
+      nullable: false,
+    };
+    switch (overrides.typeKind) {
+      case "object":
+        return { ...base, type: { kind: "model", id: base.id }, ...overrides } as IRProperty;
+      case "collection":
+        return {
+          ...base,
+          type: { kind: "array", element: { kind: "primitive", name: "string" } },
+          ...overrides,
+        } as IRProperty;
+      default:
+        return { ...base, type: { kind: "primitive", name: "string" }, ...overrides } as IRProperty;
+    }
+  }
+
+  function makeModel(overrides: Partial<IRModel> & Pick<IRModel, "properties">): IRModel {
+    return {
+      id: { module: "<root>", namespace: [], name: "ResourceGroup" },
+      name: "ResourceGroup",
+      source: "<root>",
+      ...overrides,
+    };
+  }
+
+  it("default view: simple-scalar properties only, inherited before owned, then declaration order", () => {
+    const model = makeModel({
+      properties: [
+        makeProperty({ name: "Tags", typeKind: "object" }), // complex — excluded
+        makeProperty({ name: "Name", typeKind: "primitive" }),
+        makeProperty({ name: "Id", typeKind: "primitive", inheritedFrom: { module: "<root>", namespace: [], name: "Resource" } }),
+        makeProperty({ name: "Servers", typeKind: "collection" }), // complex — excluded
+        makeProperty({ name: "Location", typeKind: "primitive" }),
+      ],
+    });
+
+    const [view] = deriveFormatViews({ ...emptyIR(), models: [model] });
+
+    expect(view).toBeDefined();
+    expect(view!.sourceModelId).toEqual(model.id);
+    // Id is inherited (Origin: Inherited) so it sorts first; Name/Location keep declaration order.
+    expect(view!.columns.map((c) => c.propertyName)).toEqual(["Id", "Name", "Location"]);
+  });
+
+  it("formatIndex/formatLabel/formatWidth override the default position/label/width", () => {
+    const model = makeModel({
+      properties: [
+        makeProperty({ name: "Name", typeKind: "primitive" }),
+        makeProperty({
+          name: "Location",
+          typeKind: "primitive",
+          rendering: { powershell: { formatIndex: 0, formatLabel: "Region", formatWidth: 15 } },
+        }),
+      ],
+    });
+
+    const [view] = deriveFormatViews({ ...emptyIR(), models: [model] });
+
+    expect(view!.columns).toEqual([
+      { propertyName: "Location", label: "Region", width: 15 },
+      { propertyName: "Name", label: undefined, width: undefined },
+    ]);
+  });
+
+  it("excludeFromFormat removes an otherwise-eligible simple-scalar property", () => {
+    const model = makeModel({
+      properties: [
+        makeProperty({ name: "Name", typeKind: "primitive" }),
+        makeProperty({
+          name: "InternalId",
+          typeKind: "primitive",
+          rendering: { powershell: { excludeFromFormat: true } },
+        }),
+      ],
+    });
+
+    const [view] = deriveFormatViews({ ...emptyIR(), models: [model] });
+
+    expect(view!.columns.map((c) => c.propertyName)).toEqual(["Name"]);
+  });
+
+  it("a format override forces an otherwise-excluded complex property into the view", () => {
+    const model = makeModel({
+      properties: [
+        makeProperty({
+          name: "Tags",
+          typeKind: "object",
+          rendering: { powershell: { formatIndex: 0 } },
+        }),
+      ],
+    });
+
+    const [view] = deriveFormatViews({ ...emptyIR(), models: [model] });
+
+    expect(view!.columns.map((c) => c.propertyName)).toEqual(["Tags"]);
+  });
+
+  it("produces no view for a model with zero eligible columns", () => {
+    const model = makeModel({
+      properties: [makeProperty({ name: "Tags", typeKind: "object" })],
+    });
+
+    expect(deriveFormatViews({ ...emptyIR(), models: [model] })).toHaveLength(0);
   });
 });
