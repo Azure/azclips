@@ -1,0 +1,237 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+//
+// Generated dispatch tables for the {{ model.name }} extension.
+//
+//   Provider:    {{ model.provider_ns }}
+//   API version: {{ model.api_version }}
+//   Operations:  {{ ops.size }} across {{ model.resources.size }} resource type(s)
+{{~ if model.source_kind != "" ~}}
+//   Source:      {{ model.source_kind }}{{ if model.source_spec != "" }} ({{ model.source_spec }}{{ if model.source_commit != "" }}@{{ model.source_commit | short_sha }}{{ end }}){{ end }}
+{{~ end ~}}
+
+using Core.Abstractions;
+using Microsoft.Azure.Azclips.Extensions.{{ model.name }}.Models;
+
+namespace Microsoft.Azure.Azclips.Extensions.{{ model.name }}
+{
+{{~ for cli_verb in (cli_verbs_unique ops) ~}}
+    [ExtensionVerb("{{ cli_verb }}")]
+{{~ end ~}}
+    public partial class ExtensionIndex : IExtensionIndex
+    {
+        // ── PS Command Metadata ──
+{{~ emitted_ps = [] ~}}
+{{~ for op in ops ~}}
+{{~ effective_processor = cfg_map_str model.config "orchestrator_overrides" op.processor_class op.processor_class ~}}
+{{~ orchestrator_switch = cfg_map_str model.config "orchestrator_optional_switches" effective_processor "" ~}}
+{{~ if !(emitted_ps | array.contains effective_processor) ~}}
+{{~ emitted_ps = emitted_ps | array.add effective_processor ~}}
+        private static readonly CommandMetadata s_{{ effective_processor }}_PS = new(
+            Name: "{{ effective_processor }}",
+            InvocationName: "{{ op.ps_invocation_name }}",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.{{ model.name }}.Processors.{{ effective_processor }}",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.{{ model.name }}",
+            ProcessorType: typeof(Processors.{{ effective_processor }}),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+{{~ if op.has_rg ~}}
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+{{~ end ~}}
+{{~ is_terminal = terminal_kind op.kind ~}}
+{{~ slot_seen = [] ~}}
+{{~ for slot in op.path_slots ~}}
+{{~ if for.last && is_terminal && op.has_name ~}}
+{{~ if !(slot_seen | array.contains "Name") ~}}
+{{~ slot_seen = slot_seen | array.add "Name" ~}}
+                ["Name"]              = new("Name", "Name", typeof(string), "{{ slot_desc_or slot "Resource name" }}.", IsRequired: true, Aliases: [{{ name_alias = cfg_map_str model.config "ps_name_alias_by_resource" op.resource_name "" }}{{ if name_alias != "" }}"{{ name_alias }}"{{ end }}], AllowedValues: []),
+{{~ end ~}}
+{{~ else ~}}
+{{~ if !(slot_seen | array.contains slot[0]) ~}}
+{{~ slot_seen = slot_seen | array.add slot[0] ~}}
+                ["{{ slot[0] }}"] = new("{{ slot[0] }}", "{{ slot[0] }}", typeof(string), "{{ slot_desc_or slot slot[0] }}.", IsRequired: true, Aliases: [{{ if slot[0] == "Name" }}{{ name_alias = cfg_map_str model.config "ps_name_alias_by_resource" op.resource_name "" }}{{ if name_alias != "" }}"{{ name_alias }}"{{ end }}{{ end }}], AllowedValues: []),
+{{~ end ~}}
+{{~ end ~}}
+{{~ end ~}}
+{{~ body_seen = [] ~}}
+{{~ for p in op.body_params ~}}
+{{~ if !(body_seen | array.contains p.ps_name) ~}}
+{{~ body_seen = body_seen | array.add p.ps_name ~}}
+                ["{{ p.ps_name }}"] = new("{{ p.ps_name }}", "{{ p.ps_name }}", {{ p.ps_type_metadata }}, "{{ p.description | escape_quotes }}", IsRequired: {{ p.required ? "true" : "false" }}, Aliases: [{{ param_alias = cfg_map_str model.config "ps_parameter_aliases" p.ps_name "" }}{{ if p.ps_name == "Tags" }}"Tag"{{ else if param_alias != "" }}"{{ param_alias }}"{{ end }}], AllowedValues: []),
+{{~ end ~}}
+{{~ end ~}}
+{{~ if op.kind == "delete" ~}}
+                ["Force"] = new("Force", "Force", typeof(bool), "Suppress the confirmation prompt.", IsRequired: false, Aliases: [], AllowedValues: []),
+{{~ end ~}}
+{{~ if op.is_lro ~}}
+                ["NoWait"]            = new("NoWait", "NoWait", typeof(bool), "Do not wait for the long-running operation to complete; return the initial response immediately.", IsRequired: false, Aliases: [], AllowedValues: []),
+{{~ end ~}}
+{{~ if orchestrator_switch != "" ~}}
+                ["{{ orchestrator_switch }}"] = new("{{ orchestrator_switch }}", "{{ orchestrator_switch }}", typeof(bool), "Enable the optional orchestrated execution path.", IsRequired: false, Aliases: [], AllowedValues: []),
+{{~ end ~}}
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+{{~ end ~}}
+{{~ end ~}}
+        // ── CLI Command Metadata ──
+        // Dedupe by cli_invocation_name so synthetic ops (e.g. wait) that reuse an
+        // existing processor still get their own CommandMetadata with the correct
+        // InvocationName. Prevents "duplicate key" collisions at discovery time
+        // when s_cliTable enumerates its Values.
+{{~ emitted_cli = [] ~}}
+{{~ for op in ops ~}}
+{{~ if !(emitted_cli | array.contains op.cli_invocation_name) ~}}
+{{~ emitted_cli = emitted_cli | array.add op.cli_invocation_name ~}}
+{{~ cli_var_suffix = sanitize_ident op.cli_invocation_name ~}}
+{{~ effective_processor = cfg_map_str model.config "orchestrator_overrides" op.processor_class op.processor_class ~}}
+{{~ orchestrator_switch = cfg_map_str model.config "orchestrator_optional_switches" effective_processor "" ~}}
+        private static readonly CommandMetadata s_{{ effective_processor }}_CLI_{{ cli_var_suffix }} = new(
+            Name: "{{ effective_processor }}",
+            InvocationName: "{{ op.cli_invocation_name }}",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.{{ model.name }}.Processors.{{ effective_processor }}",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.{{ model.name }}",
+            ProcessorType: typeof(Processors.{{ effective_processor }}),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+{{~ if op.has_rg ~}}
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: ["-g"], AllowedValues: []),
+{{~ end ~}}
+{{~ is_terminal = terminal_kind op.kind ~}}
+{{~ slot_seen = [] ~}}
+{{~ for slot in op.path_slots ~}}
+{{~ if for.last && is_terminal && op.has_name ~}}
+{{~ if !(slot_seen | array.contains "name") ~}}
+{{~ slot_seen = slot_seen | array.add "name" ~}}
+                ["name"]            = new("Name", "name", typeof(string), "{{ slot_desc_or slot "Resource name" }}.", IsRequired: true, Aliases: ["-n"], AllowedValues: []),
+{{~ end ~}}
+{{~ else ~}}
+{{~ lk = slot[0] | kebab ~}}
+{{~ if !(slot_seen | array.contains lk) ~}}
+{{~ slot_seen = slot_seen | array.add lk ~}}
+                ["{{ lk }}"] = new("{{ slot[0] }}", "{{ lk }}", typeof(string), "{{ slot_desc_or slot slot[0] }}.", IsRequired: true, Aliases: [{{ if lk == "name" }}"-n"{{ end }}], AllowedValues: []),
+{{~ end ~}}
+{{~ end ~}}
+{{~ end ~}}
+{{~ body_seen = [] ~}}
+{{~ for p in op.body_params ~}}
+{{~ if !(body_seen | array.contains p.cli_name) ~}}
+{{~ body_seen = body_seen | array.add p.cli_name ~}}
+                ["{{ p.cli_name }}"] = new("{{ p.ps_name }}", "{{ p.cli_name }}", {{ p.ps_type_metadata }}, "{{ p.description | escape_quotes }}", IsRequired: {{ p.required ? "true" : "false" }}, Aliases: [], AllowedValues: []),
+{{~ end ~}}
+{{~ end ~}}
+{{~ if op.is_lro ~}}
+                ["no-wait"]         = new("NoWait", "no-wait", typeof(bool), "Do not wait for the long-running operation to complete; return the initial response immediately.", IsRequired: false, Aliases: [], AllowedValues: []),
+{{~ end ~}}
+{{~ if op.body_params.size > 0 ~}}
+                ["body-json-patch"] = new("BodyJsonPatch", "body-json-patch", typeof(string), "Raw JSON deep-merged into the request body after flat parameters. Escape hatch for schema shapes the emitter cannot flatten (e.g. arrays of models).", IsRequired: false, Aliases: [], AllowedValues: []),
+{{~ end ~}}
+{{~ if orchestrator_switch != "" ~}}
+                ["{{ orchestrator_switch | kebab }}"] = new("{{ orchestrator_switch }}", "{{ orchestrator_switch | kebab }}", typeof(bool), "Enable the optional orchestrated execution path.", IsRequired: false, Aliases: [], AllowedValues: []),
+{{~ end ~}}
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+{{~ end ~}}
+{{~ end ~}}
+        // ── Dispatch Tables ──
+        // NOTE: intentionally NOT `readonly` — the static ctor calls RegisterCustomCommands()
+        // which lets hand-written partials (Custom/) add entries. If you need to add a new
+        // CLI/PS alias without touching the generator, do it there. See Custom/README.md.
+        private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
+        {
+{{~ ps_added = [] ~}}
+{{~ for op in ops ~}}
+{{~ if !(ps_added | array.contains op.ps_invocation_name) ~}}
+{{~ ps_added = ps_added | array.add op.ps_invocation_name ~}}
+{{~ effective_processor = cfg_map_str model.config "orchestrator_overrides" op.processor_class op.processor_class ~}}
+            ["{{ op.ps_invocation_name }}"] = s_{{ effective_processor }}_PS,
+{{~ end ~}}
+{{~ end ~}}
+        };
+
+        private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
+        {
+{{~ cli_added = [] ~}}
+{{~ for op in ops ~}}
+{{~ if !(cli_added | array.contains op.cli_invocation_name) ~}}
+{{~ cli_added = cli_added | array.add op.cli_invocation_name ~}}
+{{~ cli_var_suffix = sanitize_ident op.cli_invocation_name ~}}
+{{~ effective_processor = cfg_map_str model.config "orchestrator_overrides" op.processor_class op.processor_class ~}}
+            ["{{ op.cli_invocation_name }}"] = s_{{ effective_processor }}_CLI_{{ cli_var_suffix }},
+{{~ end ~}}
+{{~ end ~}}
+        };
+
+        // Inject the shared --profile / -Profile parameter into every command.
+        // Also fold in any custom command metadata registered by hand-written
+        // partial classes under this Extension's Custom/ folder — see
+        // Custom/README.md for the extension pattern.
+        static ExtensionIndex()
+        {
+            RegisterCustomCommands();
+            foreach (var metadata in s_cliTable.Values)
+            {
+                metadata.Parameters.TryAdd("profile", new ParameterMetadata("Profile", "profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
+            }
+            foreach (var metadata in s_psTable.Values)
+            {
+                metadata.Parameters.TryAdd("Profile", new ParameterMetadata("Profile", "Profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
+            }
+        }
+
+        // Partial hook — implement in Custom/ to add extra commands, aliases, or param
+        // overrides after the generated tables are populated. Default no-op if no
+        // hand-written partial provides one.
+        static partial void RegisterCustomCommands();
+
+        public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
+        {
+            var table = clientType switch
+            {
+                ClientType.PowerShell => s_psTable,
+                ClientType.CLI => s_cliTable,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+            return table.TryGetValue(name, out var metadata)
+                ? metadata
+                : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
+        }
+
+        public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable,
+                ClientType.CLI => s_cliTable,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
+
+        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable.Values,
+                ClientType.CLI => s_cliTable.Values,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
+
+        public IEnumerable<string> GetCommandKeys(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable.Keys,
+                ClientType.CLI => s_cliTable.Keys,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
+    }
+}

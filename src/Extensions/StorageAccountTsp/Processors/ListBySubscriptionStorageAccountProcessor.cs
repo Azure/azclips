@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 //
 // Generated from TypeSpec operation StorageAccounts_List
-//   Source spec: specification/storage/Storage.Management
+//   Source spec: specification/storage/Storage.Management@56e69a6
 //   GET /subscriptions/{SubscriptionId}/providers/Microsoft.Storage/storageAccounts
 //   Kind: list_by_sub
 

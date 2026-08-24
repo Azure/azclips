@@ -6,7 +6,7 @@
 //   Provider:    Microsoft.Storage
 //   API version: 2026-04-01
 //   Total types: 259
-//   Source:      TypeSpec (specification/storage/Storage.Management)
+//   Source:      TypeSpec (specification/storage/Storage.Management@56e69a6)
 //
 // The shape mirrors the source spec's definitions with two adjustments:
 //   * `allOf` inheritance from the ARM common-types `TrackedResource`/`ProxyResource`

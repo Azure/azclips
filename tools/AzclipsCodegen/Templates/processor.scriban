@@ -1,0 +1,277 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+{{~## ─ Body construction helper ─
+    Given an op, emit `Model body = new Model { ... };` for the create/update
+    action. Envelope-level params sit on the outer object; nested-parent params
+    build a per-parent inner object; property-level params populate the
+    Properties initializer.  ##~}}
+{{~ func build_body(op)
+    envelope_ps = envelope_params op.body_params
+    property_ps = property_params op.body_params
+    nested_ps = nested_params op.body_params
+    parents = nested_parents_of op.body_params
+    nf = op.kind == "update" ? "!" : ""
+    mns = "Microsoft.Azure.Azclips.Extensions." + model.name + ".Models"
+    tsp_mode = false
+    for p in op.body_params
+        if p.json_path != ""
+            tsp_mode = true
+        end
+    end ~}}
+{{~ if tsp_mode ~}}
+
+        HttpContent bodyContent = BuildNestedBody(new (string, object?)[]
+        {
+{{~ for p in op.body_params ~}}
+{{~ pval = p.is_password ? "(" + p.ps_name + " is null ? null : (object)new System.Net.NetworkCredential(string.Empty, " + p.ps_name + ").Password)" : "(object?)" + p.ps_name ~}}
+            ("{{ p.json_path }}", {{ pval }}),
+{{~ end ~}}
+        }, bodyJsonPatch: BodyJsonPatch);
+{{~ else if op.request_class == "" || op.request_class == "object" ~}}
+
+        object body = new {};
+        HttpContent bodyContent = JsonBody(body);
+{{~ else ~}}
+
+        {{ mns }}.{{ op.request_class }} body = new {{ mns }}.{{ op.request_class }}
+        {
+{{~ for p in envelope_ps
+    field = slot_field p.body_slot 1 ~}}
+{{~ if field == "identity" ~}}
+            Identity = new {{ mns }}.ManagedServiceIdentity { Type = {{ p.ps_name }} ?? string.Empty },
+{{~ else if field == "sku" ~}}
+            Sku = new {{ mns }}.Sku { Name = {{ p.ps_name }} ?? string.Empty },
+{{~ else ~}}
+            {{ field | pascalize }} = {{ p.ps_name }}{{ if nf != "" && !p.required }}{{ nf }}{{ end }},
+{{~ end ~}}
+{{~ end ~}}
+{{~ if property_ps.size > 0 || nested_ps.size > 0 ~}}
+{{~ props_class = resolve_props_class model op.request_class ~}}
+{{~ if props_class != "" ~}}
+            Properties = new {{ mns }}.{{ props_class }}
+            {
+{{~ for p in property_ps
+    field = slot_field p.body_slot 1 ~}}
+                {{ field | pascalize }} = {{ p.ps_name }}{{ if nf != "" && !p.required }}{{ nf }}{{ end }},
+{{~ end ~}}
+{{~ for parent in parents
+    parent_pascal = parent | pascalize
+    kids = params_of_parent op.body_params parent ~}}
+                {{ parent_pascal }} = new {{ mns }}.{{ parent_pascal }}
+                {
+{{~ for p in kids
+    sub = slot_field p.body_slot 2 ~}}
+                    {{ sub | pascalize }} = {{ p.ps_name }}{{ if nf != "" && !p.required }}{{ nf }}{{ end }},
+{{~ end ~}}
+                },
+{{~ end ~}}
+            },
+{{~ end ~}}
+{{~ end ~}}
+        };
+        HttpContent bodyContent = JsonBody(body);
+{{~ end ~}}
+{{~ end ~}}
+{{~ func raw_url(op) ~}}
+        string url = $"https://management.azure.com{{ op.url_template }}?api-version={{ "{" }}{{ model.name }}Constants.ApiVersion{{ "}" }}";
+{{~ end ~}}
+{{~ func append_query(op, url_name) ~}}
+{{~ for p in op.body_params ~}}
+{{~ if p.json_path | string.starts_with "$" ~}}
+        if ({{ if p.cs_type == "string" }}!string.IsNullOrWhiteSpace({{ p.ps_name }}){{ else }}{{ p.ps_name }} is not null{{ end }})
+        {
+            {{ url_name }} += "&{{ p.json_path }}=" + Uri.EscapeDataString(
+                System.Convert.ToString({{ p.ps_name }}, System.Globalization.CultureInfo.InvariantCulture)!);
+        }
+{{~ end ~}}
+{{~ end ~}}
+{{~ end ~}}
+//
+// Generated from {{ model.source_kind | first_or "swagger" }} operation {{ op.operation_id }}
+{{~ if model.source_spec != "" ~}}
+//   Source spec: {{ model.source_spec }}{{ if model.source_commit != "" }}@{{ model.source_commit | short_sha }}{{ end }}
+{{~ end ~}}
+//   {{ op.http_method }} {{ op.path }}
+//   Kind: {{ op.kind }}{{ if op.is_lro }}   |   LRO final-state-via: {{ op.lro_final_via }}{{ end }}
+
+using Core.Abstractions.Runtime;
+{{~ if op.is_lro ~}}
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+{{~ end ~}}
+using Microsoft.Azure.Azclips.Extensions.{{ model.name }}.Models;
+{{~ use_alias = op.response_class != "object" && op.response_class != "string" && op.response_class != "JsonElement" ~}}
+{{~ if use_alias ~}}
+using _Response = Microsoft.Azure.Azclips.Extensions.{{ model.name }}.Models.{{ op.response_class }};
+{{~ end ~}}
+
+namespace Microsoft.Azure.Azclips.Extensions.{{ model.name }}.Processors;
+
+public class {{ op.processor_class }} : {{ model.name }}ProcessorBase<{{ if use_alias }}_Response{{ else }}{{ op.response_class }}{{ end }}>
+{
+{{~ copied_body_params = [] ~}}
+{{~ is_terminal = terminal_kind op.kind ~}}
+{{~ has_rg = op.has_rg ~}}
+{{~ if has_rg ~}}
+    public string ResourceGroupName { get; set; } = string.Empty;
+{{~ end ~}}
+{{~ slot_names_seen = has_rg ? ["ResourceGroupName", "SubscriptionId"] : ["SubscriptionId"] ~}}
+{{~ for slot in op.path_slots ~}}
+{{~ if for.last && is_terminal && op.has_name ~}}
+{{~## Terminal-name rename: last slot in a terminal-kind op becomes property `Name`
+    so processor.scriban-emitted `<Res>Uri(rg, Name)` calls compile. Handle three
+    cases so we don't drop a declaration on the floor:
+      1. Slot IS already named "Name" — emit it directly (avoid double-declare).
+      2. `Name` not yet declared and slot has a different name — rename it to Name.
+      3. `Name` already declared earlier (rare: IR duplicated the slot at position 0
+         AND generated another placeholder for the same URL segment) — declare the
+         current slot under its own name so the property still exists. ##~}}
+{{~ if slot[0] == "Name" ~}}
+{{~ if !(slot_names_seen | array.contains "Name") ~}}
+{{~ slot_names_seen = slot_names_seen | array.add "Name" ~}}
+    public string Name { get; set; } = string.Empty;
+{{~ end ~}}
+{{~ else if !(slot_names_seen | array.contains "Name") ~}}
+{{~ slot_names_seen = slot_names_seen | array.add "Name" ~}}
+    public string Name { get; set; } = string.Empty;
+{{~ else if !(slot_names_seen | array.contains slot[0]) ~}}
+{{~ slot_names_seen = slot_names_seen | array.add slot[0] ~}}
+    public string {{ slot[0] }} { get; set; } = string.Empty;
+{{~ end ~}}
+{{~ else ~}}
+{{~ if !(slot_names_seen | array.contains slot[0]) ~}}
+{{~ slot_names_seen = slot_names_seen | array.add slot[0] ~}}
+    public string {{ slot[0] }} { get; set; } = string.Empty;
+{{~ end ~}}
+{{~ end ~}}
+{{~ end ~}}
+{{~ if op.body_params.size > 0 ~}}
+
+    // Body parameters (flattened from {{ op.request_class ? op.request_class : "request schema" }}).
+    // Optional escape hatch for cases where the tsp emitter can't cleanly flatten
+    // (e.g. array-of-model like VMSS networkProfile.networkInterfaceConfigurations).
+    // Deep-merged into the built body just before the request goes out.
+    public string? BodyJsonPatch { get; set; }
+{{~ ## Skip any body param whose name collides with a path slot, an implicit
+    identity property, or a base-class field (Publisher/HttpPipeline/etc.) to
+    avoid CS0102 duplicate declarations or CS1061 shadowing errors. Only reserve
+    ResourceGroupName when the operation actually has an RG path slot — otherwise
+    a subscription-scope action whose body carries a `resourceGroupName` field
+    (e.g. CheckNameAvailability) won't declare the property and callers of the
+    BuildNestedBody(...) leaf list see CS0103 on the missing name. ##~}}
+{{~ reserved_bp = slot_names_seen | array.add "SubscriptionId" | array.add "BodyJsonPatch" ~}}
+{{~ if has_rg ~}}
+{{~ reserved_bp = reserved_bp | array.add "ResourceGroupName" ~}}
+{{~ end ~}}
+{{~ ## ProcessorBase members that must not be shadowed by body param properties.
+    Includes fields (Publisher/HttpPipeline/JsonOptions/WriteOutput/ResolvedProfile/Profile),
+    static utility types accessed via `Events.*` (the base carries a nested static
+    Events class), and inherited properties like Token/CancellationToken that appear
+    in LRO helper subtypes. Shadowing any of these breaks CreateRequestMessage
+    (CS1061 / CS0108). ##~}}
+{{~ reserved_bp = reserved_bp | array.add "Publisher" | array.add "HttpPipeline" | array.add "JsonOptions" | array.add "WriteOutput" | array.add "ResolvedProfile" | array.add "Profile" | array.add "Events" | array.add "Token" | array.add "CancellationToken" ~}}
+{{~ for p in (required_of op.body_params) ~}}
+{{~ if !(reserved_bp | array.contains p.ps_name) ~}}
+{{~ reserved_bp = reserved_bp | array.add p.ps_name ~}}
+{{~ copied_body_params = copied_body_params | array.add p.ps_name ~}}
+{{~ pt = p.cs_type ~}}
+    public {{ pt }} {{ p.ps_name }} { get; set; }{{ if pt == "string" }} = string.Empty;{{ else if pt | string.starts_with "List<" }} = new();{{ else if pt | string.starts_with "Dictionary<" }} = new();{{ else if pt | string.starts_with "IList<" }} = new();{{ else if pt | string.starts_with "IReadOnlyList<" }} = new();{{ else if pt | string.starts_with "HashSet<" }} = new();{{ else if pt == "int" || pt == "long" || pt == "double" || pt == "float" || pt == "bool" || pt == "DateTimeOffset" || pt == "TimeSpan" || pt == "Guid" }} = default;{{ else if pt | string.ends_with "?" }}{{ else }} = default!;{{ end }}
+{{~ end ~}}
+{{~ end ~}}
+{{~ for p in (optional_of op.body_params) ~}}
+{{~ if !(reserved_bp | array.contains p.ps_name) ~}}
+{{~ reserved_bp = reserved_bp | array.add p.ps_name ~}}
+{{~ copied_body_params = copied_body_params | array.add p.ps_name ~}}
+{{~ pt = p.cs_type ~}}
+    public {{ pt }} {{ p.ps_name }} { get; set; }{{ if pt | string.ends_with "?" }}{{ else if pt == "string" }} = string.Empty;{{ else if pt | string.starts_with "List<" }} = new();{{ else if pt | string.starts_with "Dictionary<" }} = new();{{ else if pt | string.starts_with "IList<" }} = new();{{ else if pt | string.starts_with "IReadOnlyList<" }} = new();{{ else if pt | string.starts_with "HashSet<" }} = new();{{ else if pt == "int" || pt == "long" || pt == "double" || pt == "float" || pt == "bool" || pt == "DateTimeOffset" || pt == "TimeSpan" || pt == "Guid" }} = default;{{ else }} = default!;{{ end }}
+{{~ end ~}}
+{{~ end ~}}
+{{~ end ~}}
+
+    /// <summary>
+    /// Copies the generated command parameter surface to an atomic child
+    /// processor created by an orchestrator.
+    /// </summary>
+    protected void CopyParametersTo({{ op.processor_class }} target)
+    {
+        target.SubscriptionId = SubscriptionId;
+        target.Profile = Profile;
+        target.NoWait = NoWait;
+{{~ if has_rg ~}}
+        target.ResourceGroupName = ResourceGroupName;
+{{~ end ~}}
+{{~ for parameter_name in slot_names_seen ~}}
+{{~ if parameter_name != "SubscriptionId" && parameter_name != "ResourceGroupName" ~}}
+        target.{{ parameter_name }} = {{ parameter_name }};
+{{~ end ~}}
+{{~ end ~}}
+{{~ if op.body_params.size > 0 ~}}
+        target.BodyJsonPatch = BodyJsonPatch;
+{{~ end ~}}
+{{~ for parameter_name in copied_body_params ~}}
+        target.{{ parameter_name }} = {{ parameter_name }};
+{{~ end ~}}
+    }
+
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
+    {
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+{{~## Prefer op.resource_name (raw C# resource class name) so the <X>Uri() /
+    <X>CollectionUri...() helper calls match the names emitted on ProcessorBase.
+    Fall back to resource_label for older IR that didn't populate resource_name. ##~}}
+{{~ res_pascal = op.resource_name != "" ? op.resource_name : op.resource_label ~}}
+{{~ if op.kind == "get" && op.is_simple_parent_op ~}}
+        string url = {{ res_pascal }}Uri(ResourceGroupName, Name);
+{{ append_query op "url" }}
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
+{{~ else if op.kind == "list_by_rg" && op.is_simple_parent_op ~}}
+        string url = {{ res_pascal }}CollectionUriByResourceGroup(ResourceGroupName);
+{{ append_query op "url" }}
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
+{{~ else if op.kind == "list_by_sub" && op.is_simple_parent_op ~}}
+        string url = {{ res_pascal }}CollectionUriBySubscription();
+{{ append_query op "url" }}
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
+{{~ else if op.kind == "create_or_update" && op.is_simple_parent_op ~}}
+{{ build_body op }}
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, {{ res_pascal }}Uri(ResourceGroupName, Name))
+        {
+            Content = bodyContent
+        };
+{{~ else if op.kind == "update" && op.is_simple_parent_op ~}}
+{{ build_body op }}
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Patch, {{ res_pascal }}Uri(ResourceGroupName, Name))
+        {
+            Content = bodyContent
+        };
+{{~ else if op.kind == "delete" && op.is_simple_parent_op ~}}
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, {{ res_pascal }}Uri(ResourceGroupName, Name));
+{{~ else ~}}
+{{ raw_url op }}
+{{ append_query op "url" }}
+{{~ if op.body_params.size > 0 && op.http_method != "GET" && op.http_method != "DELETE" ~}}
+{{ build_body op }}
+        HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("{{ op.http_method }}"), url)
+        {
+            Content = bodyContent
+        };
+{{~ else ~}}
+        HttpRequestMessage request = new HttpRequestMessage(new HttpMethod("{{ op.http_method }}"), url);
+{{~ end ~}}
+{{~ end ~}}
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+        return request;
+    }
+{{~ if op.is_lro ~}}
+
+{{~ if op.lro_final_via == "location" ~}}
+    protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
+{{~ else ~}}
+    protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
+{{~ end ~}}
+    protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
+    protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
+    protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
+
+    internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
+{{~ end ~}}
+}

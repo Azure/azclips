@@ -6,7 +6,7 @@
 // evolve independently. Runtime behaviour is identical to the Compute variant.
 //
 // Generated from provider Microsoft.Storage (api-version 2026-04-01).
-// Source: TypeSpec (specification/storage/Storage.Management)
+// Source: TypeSpec (specification/storage/Storage.Management@56e69a6)
 
 using System.Net;
 using System.Net.Http.Json;
@@ -773,7 +773,7 @@ namespace Microsoft.Azure.Azclips.Extensions.StorageAccountTsp.Processors
     internal static class StorageTspConstants
     {
         // Pinned to the API version declared in the source spec
-        // (TypeSpec: specification/storage/Storage.Management).
+        // (TypeSpec: specification/storage/Storage.Management@56e69a6).
         public const string ApiVersion = "2026-04-01";
     }
 }

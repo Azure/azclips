@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Microsoft.Azure.Azclips.Extensions.{{ model.name }}</AssemblyName>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <RootNamespace>Microsoft.Azure.Azclips.Extensions.{{ model.name }}</RootNamespace>
+        <ExtName>Microsoft.Azure.Azclips.Extensions.{{ model.name }}</ExtName>
+
+        <Description>{{ model.description }}</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
+
+        <PackageId>Microsoft.Azure.Azclips.Extensions.{{ model.name }}</PackageId>
+        <Version>0.1.0</Version>
+        <Authors>Microsoft Corporation</Authors>
+        <Company>Microsoft Corporation</Company>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+    </ItemGroup>
+{{~## Optional extra package references, driven by RP config.  ##~}}
+{{~ extra_pkgs = cfg_get model.config "extra_package_references" ~}}
+{{~ if extra_pkgs ~}}
+    <ItemGroup>
+{{~ for pkg in extra_pkgs ~}}
+        <PackageReference Include="{{ pkg.name }}" Version="{{ pkg.version }}"{{ if pkg.private_assets }} PrivateAssets="{{ pkg.private_assets }}"{{ end }} />
+{{~ end ~}}
+    </ItemGroup>
+{{~ end ~}}
+{{~ extra_projs = cfg_get model.config "extra_project_references" ~}}
+{{~ if extra_projs ~}}
+    <ItemGroup>
+{{~ for proj in extra_projs ~}}
+        <ProjectReference Include="{{ proj }}">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+{{~ end ~}}
+    </ItemGroup>
+{{~ end ~}}
+{{~## Provenance comment (opt-in). Records spec + config provenance.  ##~}}
+{{~ if cfg_bool model.config "emit_provenance_comment" ~}}
+    <!--
+        RP:            {{ model.name }}
+        Provider NS:   {{ model.provider_ns }}
+        API version:   {{ model.api_version }}
+        Source:        {{ model.source_kind | first_or "swagger" }}{{ if model.source_spec != "" }} ({{ model.source_spec }}{{ if model.source_commit != "" }}@{{ model.source_commit | short_sha }}{{ end }}){{ end }}
+        Resources:     {{ model.resources.size }}
+        Operations:    {{ ops.size }}
+    -->
+{{~ end ~}}
+</Project>

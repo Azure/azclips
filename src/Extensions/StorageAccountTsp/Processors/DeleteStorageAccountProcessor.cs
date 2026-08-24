@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 //
 // Generated from TypeSpec operation StorageAccounts_Delete
-//   Source spec: specification/storage/Storage.Management
+//   Source spec: specification/storage/Storage.Management@56e69a6
 //   DELETE /subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Storage/storageAccounts/{Name}
 //   Kind: delete
 
