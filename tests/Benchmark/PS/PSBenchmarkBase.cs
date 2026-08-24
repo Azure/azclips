@@ -63,16 +63,8 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     /// trace files, and the filter that drops module-import traces.
     /// </summary>
     /// <remarks>
-    /// Called from [IterationSetup], which BenchmarkDotNet does not measure. Of what is registered
-    /// here, only StageLatch.OnEnd, ImportTraceFilter.OnEnd, and the batch enqueue run inside the
-    /// measured region; provider construction and the file write do not.
-    ///
-    /// <para>Repeated every iteration because [IterationCleanup] disposes the container. DI
-    /// last-wins semantics put TelemetryService ahead of the stub registration. ITelemetrySender
-    /// wins over the module's DirectTelemetrySender, which is registered in the prepend phase.</para>
-    ///
-    /// <para>ITelemetryProvider is deliberately absent: ModuleInitializer registers
-    /// PSTelemetryProvider during Import-Module, which is enqueued after this and must win.</para>
+    /// Runs every iteration because [IterationCleanup] disposes the container. ITelemetryProvider
+    /// is omitted so the PSTelemetryProvider that Import-Module registers wins.
     /// </remarks>
     private void RegisterTelemetryCapture()
     {
@@ -82,8 +74,7 @@ public abstract class PSBenchmarkBase : BenchmarkBase
             services.AddSingleton<ITelemetrySender>(_sender);
 
             // Factory rather than by-type: ImportTraceFilter is internal and DI's constructor
-            // selection wants a public one. A fresh instance per container also keeps disposal
-            // correct, since the container is rebuilt every iteration.
+            // selection wants a public one.
             services.AddSingleton<BaseProcessor<Activity>>(_ => new ImportTraceFilter());
         });
     }
