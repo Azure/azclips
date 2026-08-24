@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry;
@@ -12,12 +13,12 @@ public class ExtensionIndex : IExtensionIndex
     // ── PS Command Metadata ──
 
     private static readonly CommandMetadata s_connect_PS = new(
-        Name: "ConnectAcrProcessor",
+        Name: "ConnectAcrOrchestrator",
         InvocationName: "Connect-AzContainerRegistry",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors.ConnectAcrProcessor",
+        FullName: "Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators.ConnectAcrOrchestrator",
         AssemblyName: "Microsoft.Azure.Azclips.Extensions.ContainerRegistry",
-        ProcessorType: typeof(ConnectAcrProcessor),
+        ProcessorType: typeof(ConnectAcrOrchestrator),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["Name"] = new("Name", "Name", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -166,12 +167,12 @@ public class ExtensionIndex : IExtensionIndex
     // ── CLI Command Metadata ──
 
     private static readonly CommandMetadata s_connect_CLI = new(
-        Name: "ConnectAcrProcessor",
+        Name: "ConnectAcrOrchestrator",
         InvocationName: "acr connect",
         Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors.ConnectAcrProcessor",
+        FullName: "Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators.ConnectAcrOrchestrator",
         AssemblyName: "Microsoft.Azure.Azclips.Extensions.ContainerRegistry",
-        ProcessorType: typeof(ConnectAcrProcessor),
+        ProcessorType: typeof(ConnectAcrOrchestrator),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["name"] = new("Name", "name", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),

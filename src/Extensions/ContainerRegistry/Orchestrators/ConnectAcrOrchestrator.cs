@@ -4,9 +4,8 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
-
-namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
+using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
+namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 /// <summary>
 /// ACR connect (docker login).
@@ -14,7 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// CLI: az acr connect --name myregistry
 /// PS:  Connect-AzContainerRegistry -Name myregistry
 /// </summary>
-public class ConnectAcrProcessor : AcrDataPlaneProcessorBase
+public class ConnectAcrOrchestrator : AcrDataPlaneProcessorBase
 {
     private const string AcrDockerUserName = "00000000-0000-0000-0000-000000000000";
 
