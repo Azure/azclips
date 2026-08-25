@@ -19,7 +19,7 @@
             <TableColumnItems>
               <TableColumnItem><PropertyName>Name</PropertyName></TableColumnItem>
               <TableColumnItem>
-                <ScriptBlock>if ($_.Id -match '(?i)/resourceGroups/([^/]+)') { $matches[1] }</ScriptBlock>
+                <ScriptBlock>if ($null -ne $_.Id) { [regex]::Match($_.Id, '(?i)/resourceGroups/([^/]+)').Groups[1].Value }</ScriptBlock>
               </TableColumnItem>
               <TableColumnItem><PropertyName>Location</PropertyName></TableColumnItem>
               <TableColumnItem>
