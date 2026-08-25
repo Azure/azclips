@@ -607,26 +607,138 @@ public class StorageBlobProcessorTests
     }
 
     [Fact]
-    public void ExtensionIndex_ExposesUploadAndDownloadCommands()
+    public async Task List_FollowsMarkersAndHonorsResultLimit()
+    {
+        var queries = new List<string>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            queries.Add(request.RequestUri!.Query);
+            string xml = queries.Count == 1
+                ? """
+                  <EnumerationResults><Blobs><Blob><Name>one.txt</Name><Properties><Last-Modified>Mon, 24 Aug 2026 00:00:00 GMT</Last-Modified><Etag>"one"</Etag><Content-Length>1</Content-Length><Content-Type>text/plain</Content-Type><BlobType>BlockBlob</BlobType><AccessTier>Hot</AccessTier></Properties><Metadata><owner>test</owner></Metadata><BlobTags><TagSet><Tag><Key>kind</Key><Value>report</Value></Tag></TagSet></BlobTags></Blob><Blob><Name>two.txt</Name><Properties><Last-Modified>Mon, 24 Aug 2026 00:00:00 GMT</Last-Modified><Etag>"two"</Etag></Properties></Blob></Blobs><NextMarker>next marker</NextMarker></EnumerationResults>
+                  """
+                : """
+                  <EnumerationResults><Blobs><Blob><Name>three.txt</Name><Properties><Last-Modified>Mon, 24 Aug 2026 00:00:00 GMT</Last-Modified><Etag>"three"</Etag></Properties></Blob></Blobs><NextMarker /></EnumerationResults>
+                  """;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(xml) };
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new ListStorageBlobProcessor_Orchestrator(), pipeline, output);
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.Prefix = "folder/";
+        processor.NumResults = 3;
+        processor.Include = ["metadata", "tags"];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, pipeline.SendCount);
+        Assert.Contains("prefix=folder%2F", queries[0]);
+        Assert.Contains("maxresults=3", queries[0]);
+        Assert.Contains("include=metadata%2Ctags", queries[0]);
+        Assert.Contains("marker=next%20marker", queries[1]);
+        Assert.Contains("maxresults=1", queries[1]);
+        StorageBlob[] blobs = Assert.IsType<StorageBlob[]>(Assert.Single(output.WrittenValues));
+        Assert.Equal(["one.txt", "two.txt", "three.txt"], blobs.Select(blob => blob.Name));
+        Assert.Equal("test", blobs[0].Metadata["owner"]);
+        Assert.Equal("report", blobs[0].Tags["kind"]);
+        Assert.Equal(1, blobs[0].ContentLength);
+    }
+
+    [Fact]
+    public async Task Show_ReturnsBlobProperties()
+    {
+        var methods = new List<HttpMethod>();
+        var requests = new List<Uri>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            requests.Add(request.RequestUri!);
+            methods.Add(request.Method);
+            if (request.RequestUri!.Query == "?comp=tags")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        "<Tags><TagSet><Tag><Key>kind</Key><Value>report</Value></Tag></TagSet></Tags>")
+                };
+            }
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[12]),
+                Headers = { ETag = new EntityTagHeaderValue("\"etag\"") },
+            };
+            response.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob");
+            response.Headers.TryAddWithoutValidation("x-ms-access-tier", "Cool");
+            response.Headers.TryAddWithoutValidation("x-ms-meta-owner", "test");
+            return response;
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new ShowStorageBlobProcessor_Orchestrator(), pipeline, output);
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "blob.txt";
+        processor.IncludeTag = true;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal([HttpMethod.Head, HttpMethod.Get], methods);
+        Assert.Equal("?comp=tags", requests[1].Query);
+        StorageBlob blob = Assert.IsType<StorageBlob>(Assert.Single(output.WrittenValues));
+        Assert.Equal("blob.txt", blob.Name);
+        Assert.Equal("BlockBlob", blob.BlobType);
+        Assert.Equal(12, blob.ContentLength);
+        Assert.Equal("test", blob.Metadata["owner"]);
+        Assert.Equal("report", blob.Tags["kind"]);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK, true)]
+    [InlineData(HttpStatusCode.NotFound, false)]
+    public async Task Exists_ReturnsBoolean(HttpStatusCode status, bool expected)
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(status));
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new BlobExistsProcessor_Orchestrator(), pipeline, output);
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "blob.txt";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(expected, Assert.IsType<bool>(Assert.Single(output.WrittenValues)));
+    }
+
+    [Fact]
+    public void ExtensionIndex_ExposesBlobCommands()
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex();
 
         IReadOnlyDictionary<string, CommandMetadata> commands = index.GetCommandTable(ClientType.CLI);
 
-        Assert.Equal(2, commands.Count);
+        Assert.Equal(5, commands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob download"].ProcessorType));
         Assert.True(commands["storage blob upload"].Parameters["overwrite"].IsRequired is false);
+        Assert.IsType<ListStorageBlobProcessor_Orchestrator>(
+            Activator.CreateInstance(commands["storage blob list"].ProcessorType));
+        Assert.IsType<ShowStorageBlobProcessor_Orchestrator>(
+            Activator.CreateInstance(commands["storage blob show"].ProcessorType));
+        Assert.IsType<BlobExistsProcessor_Orchestrator>(
+            Activator.CreateInstance(commands["storage blob exists"].ProcessorType));
 
         IReadOnlyDictionary<string, CommandMetadata> powerShellCommands =
             index.GetCommandTable(ClientType.PowerShell);
-        Assert.Equal(2, powerShellCommands.Count);
+        Assert.Equal(4, powerShellCommands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(powerShellCommands["Set-AzStorageBlobContent"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
             Activator.CreateInstance(powerShellCommands["Get-AzStorageBlobContent"].ProcessorType));
+        Assert.IsType<ListStorageBlobProcessor_Orchestrator>(
+            Activator.CreateInstance(powerShellCommands["Get-AzStorageBlob_List"].ProcessorType));
+        Assert.IsType<ShowStorageBlobProcessor_Orchestrator>(
+            Activator.CreateInstance(powerShellCommands["Get-AzStorageBlob_Get"].ProcessorType));
     }
 
     private static T CreateProcessor<T>(

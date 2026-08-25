@@ -5,7 +5,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
 internal static class StorageBlobCustomizationHelpers
 {
-    internal static string BuildBlobUrl(string accountName, string containerName, string blobName)
+    internal static string BuildContainerUrl(string accountName, string containerName)
     {
         if (accountName.Length is < 3 or > 24
             || accountName.Any(c => !(char.IsAsciiLetterLower(c) || c is >= '0' and <= '9')))
@@ -24,6 +24,11 @@ internal static class StorageBlobCustomizationHelpers
                 "ContainerName is not a valid Azure Blob container name.",
                 nameof(containerName));
         }
+        return $"https://{accountName}.blob.core.windows.net/{Uri.EscapeDataString(containerName)}";
+    }
+
+    internal static string BuildBlobUrl(string accountName, string containerName, string blobName)
+    {
         if (string.IsNullOrWhiteSpace(blobName)
             || blobName.Length > 1024
             || blobName.Any(char.IsControl))
@@ -36,7 +41,7 @@ internal static class StorageBlobCustomizationHelpers
         string escapedBlobName = string.Join(
             "/",
             blobName.Split('/', StringSplitOptions.None).Select(Uri.EscapeDataString));
-        return $"https://{accountName}.blob.core.windows.net/{Uri.EscapeDataString(containerName)}/{escapedBlobName}";
+        return $"{BuildContainerUrl(accountName, containerName)}/{escapedBlobName}";
     }
 
     internal static string ValidateBlobUrl(string absoluteUri)

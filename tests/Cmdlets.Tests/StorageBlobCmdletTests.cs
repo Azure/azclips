@@ -52,4 +52,16 @@ public class StorageBlobCmdletTests
         Assert.Equal(JobState.Completed, job.JobStateInfo.State);
         session.Verify(value => value.Run(), Times.Once);
     }
+
+    [Fact]
+    public void GetStorageBlobSupportsListAndGetParameterSets()
+    {
+        CmdletAttribute cmdlet = typeof(GetStorageBlobCmdlet).GetCustomAttribute<CmdletAttribute>()!;
+        PropertyInfo blobName = typeof(GetStorageBlobCmdlet).GetProperty(nameof(GetStorageBlobCmdlet.BlobName))!;
+
+        Assert.Equal("List", cmdlet.DefaultParameterSetName);
+        Assert.Contains(
+            blobName.GetCustomAttributes<ParameterAttribute>(),
+            parameter => parameter.ParameterSetName == "Get" && parameter.Mandatory);
+    }
 }
