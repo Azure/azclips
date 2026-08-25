@@ -16,6 +16,7 @@
       <Aliases>CmdletsConfig</Aliases>
     </ProjectReference>
     <ProjectReference Include="../../src/PS/Login/Cmdlets.Login.csproj" />
+    <ProjectReference Include="../../src/PS/Storage/Cmdlets.Storage.csproj" />
     <ProjectReference Include="../../src/Extensions/Login/Extensions.Login.csproj" />
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />

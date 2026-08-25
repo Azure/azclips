@@ -113,6 +113,99 @@ public class StorageBlobProcessorTests
         }
     }
 
+    [Fact]
+    public async Task Upload_AppliesMetadataTagsPropertiesAndTier()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string sourcePath = Path.Combine(directory, "source.bin");
+            await File.WriteAllBytesAsync(sourcePath, [1, 2, 3]);
+            HttpRequestMessage? sent = null;
+            var pipeline = new FakeHttpPipeline((request, _) =>
+            {
+                sent = request;
+                return new HttpResponseMessage(HttpStatusCode.Created);
+            });
+            var processor = CreateProcessor(new BlockBlobUploadProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
+            processor.AccountName = "account123";
+            processor.ContainerName = "container";
+            processor.BlobName = "blob.bin";
+            processor.FilePath = sourcePath;
+            processor.Metadata = ["owner=test"];
+            processor.Tags = ["kind=report"];
+            processor.Properties = ["ContentType=text/plain"];
+            processor.StandardBlobTier = "Cool";
+            processor.EncryptionScope = "scope1";
+
+            await processor.ProcessAsync();
+
+            Assert.Equal("test", sent!.Headers.GetValues("x-ms-meta-owner").Single());
+            Assert.Equal("kind=report", sent.Headers.GetValues("x-ms-tags").Single());
+            Assert.Equal("text/plain", sent.Headers.GetValues("x-ms-blob-content-type").Single());
+            Assert.Equal("Cool", sent.Headers.GetValues("x-ms-access-tier").Single());
+            Assert.Equal("scope1", sent.Headers.GetValues("x-ms-encryption-scope").Single());
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Upload_PageAndAppendBlobsUseTheirRequiredRequests()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string pagePath = Path.Combine(directory, "page.bin");
+            await File.WriteAllBytesAsync(pagePath, new byte[512]);
+            var pageRequests = new List<(string? Type, string Query, string? Range)>();
+            var pagePipeline = new FakeHttpPipeline((request, _) =>
+            {
+                pageRequests.Add((
+                    request.Headers.TryGetValues("x-ms-blob-type", out var types) ? types.Single() : null,
+                    request.RequestUri!.Query,
+                    request.Headers.TryGetValues("x-ms-range", out var ranges) ? ranges.Single() : null));
+                return new HttpResponseMessage(HttpStatusCode.Created);
+            });
+            var page = CreateProcessor(new BlockBlobUploadProcessor_Orchestrator(), pagePipeline, new FakeOutputHandler());
+            page.AccountName = "account123";
+            page.ContainerName = "container";
+            page.BlobName = "page.bin";
+            page.FilePath = pagePath;
+            page.BlobType = "Page";
+
+            await page.ProcessAsync();
+
+            Assert.Equal(("PageBlob", "", (string?)null), pageRequests[0]);
+            Assert.Equal((null, "?comp=page", "bytes=0-511"), pageRequests[1]);
+
+            string appendPath = Path.Combine(directory, "append.bin");
+            await File.WriteAllBytesAsync(appendPath, [1, 2, 3]);
+            var appendQueries = new List<string>();
+            var appendPipeline = new FakeHttpPipeline((request, _) =>
+            {
+                appendQueries.Add(request.RequestUri!.Query);
+                return new HttpResponseMessage(HttpStatusCode.Created);
+            });
+            var append = CreateProcessor(new BlockBlobUploadProcessor_Orchestrator(), appendPipeline, new FakeOutputHandler());
+            append.AccountName = "account123";
+            append.ContainerName = "container";
+            append.BlobName = "append.bin";
+            append.FilePath = appendPath;
+            append.BlobType = "Append";
+
+            await append.ProcessAsync();
+
+            Assert.Equal(["", "?comp=appendblock"], appendQueries);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.Conflict)]
     [InlineData(HttpStatusCode.PreconditionFailed)]
@@ -252,6 +345,117 @@ public class StorageBlobProcessorTests
     }
 
     [Fact]
+    public async Task Download_DirectoryDestinationUsesBlobNameAndChecksMd5()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            byte[] expected = [9, 8, 7];
+            Uri? requestUri = null;
+            var pipeline = new FakeHttpPipeline((request, _) =>
+            {
+                requestUri = request.RequestUri;
+                var content = new ByteArrayContent(expected);
+                content.Headers.ContentMD5 = Convert.FromBase64String("DI6D171OTV6cFwkySCwyZA==");
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+            });
+            var processor = CreateProcessor(new BlobDownloadProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
+            processor.AccountName = "account123";
+            processor.ContainerName = "container";
+            processor.BlobName = "folder/report.bin";
+            processor.FilePath = directory;
+            processor.SnapshotTime = "2026-08-24T00:00:00.0000000Z";
+            processor.CheckMd5 = true;
+
+            await processor.ProcessAsync();
+
+            Assert.Contains("snapshot=", requestUri!.Query);
+            string downloaded = Assert.Single(Directory.GetFiles(directory, "report.bin.*"));
+            Assert.Equal(expected, await File.ReadAllBytesAsync(downloaded));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Download_RejectsNonAzureAbsoluteUri()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK));
+            var processor = CreateProcessor(new BlobDownloadProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
+            processor.AbsoluteUri = "https://example.com/blob";
+            processor.FilePath = Path.Combine(directory, "blob");
+
+            await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+            Assert.Equal(0, pipeline.SendCount);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Download_DirectUriSupportsAnonymousAndManagedDiskAudienceRetry()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            var anonymousPipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent([1])
+            });
+            var anonymous = CreateProcessor(
+                new BlobDownloadProcessor_Orchestrator(),
+                anonymousPipeline,
+                new FakeOutputHandler(),
+                authenticated: false);
+            anonymous.AbsoluteUri = "https://account123.blob.core.windows.net/container/blob";
+            anonymous.FilePath = Path.Combine(directory, "anonymous.bin");
+
+            await anonymous.ProcessAsync();
+
+            Assert.Equal([1], await File.ReadAllBytesAsync(anonymous.FilePath));
+
+            string[]? retryScopes = null;
+            var managedDiskPipeline = new FakeHttpPipeline((request, _) =>
+            {
+                if (!request.Options.TryGetValue(RuntimeHttpRequestOptions.Scopes, out retryScopes)
+                    || retryScopes.SequenceEqual(["https://storage.azure.com/.default"]))
+                {
+                    var unauthorized = new HttpResponseMessage(HttpStatusCode.Unauthorized);
+                    unauthorized.Headers.TryAddWithoutValidation(
+                        "WWW-Authenticate",
+                        "Bearer resource_id=\"https://disk.azure.com\"");
+                    return unauthorized;
+                }
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([2]) };
+            });
+            var managedDisk = CreateProcessor(
+                new BlobDownloadProcessor_Orchestrator(),
+                managedDiskPipeline,
+                new FakeOutputHandler());
+            managedDisk.AbsoluteUri = "https://md-account.blob.core.windows.net/container/blob";
+            managedDisk.FilePath = Path.Combine(directory, "managed.bin");
+
+            await managedDisk.ProcessAsync();
+
+            Assert.NotNull(retryScopes);
+            Assert.Equal(["https://disk.azure.com/.default"], retryScopes!);
+            Assert.Equal([2], await File.ReadAllBytesAsync(managedDisk.FilePath));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ExtensionIndex_ExposesUploadAndDownloadCommands()
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex();
@@ -274,7 +478,11 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(powerShellCommands["Get-AzStorageBlobContent"].ProcessorType));
     }
 
-    private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
+    private static T CreateProcessor<T>(
+        T processor,
+        FakeHttpPipeline pipeline,
+        FakeOutputHandler output,
+        bool authenticated = true)
         where T : StorageBlobProcessorBase
     {
         var profile = new Profile
@@ -283,12 +491,13 @@ public class StorageBlobProcessorTests
             SubscriptionId = "subscription",
             CloudName = "AzureCloud",
         };
+        Profile? resolvedProfile = authenticated ? profile : null;
         processor.Init(new ProcessorContext(
             pipeline,
             new FakeEventPublisher(),
-            new FakeAuthHandler(profile),
+            new FakeAuthHandler(resolvedProfile),
             output,
-            profile));
+            resolvedProfile));
         return processor;
     }
 
