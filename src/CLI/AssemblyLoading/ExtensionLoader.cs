@@ -17,16 +17,41 @@ public interface IExtensionLoader
     Assembly? LoadExtension(string extensionName, string? version = null);
 
     /// <summary>
-    /// Enumerates all extensions this loader knows about on disk. Returns (folderName, version)
-    /// pairs where <c>folderName</c> can be passed verbatim back to
-    /// <see cref="LoadExtension"/>. Default returns empty — loaders that cannot enumerate
-    /// (e.g. built-in loaders without a static manifest) simply do not contribute.
+    /// Enumerates all extensions this loader knows about on disk. Returns
+    /// <c>(folderName, version, location)</c> triples where <c>folderName</c> can be passed
+    /// verbatim back to <see cref="LoadExtension"/> and <c>location</c> is the absolute path
+    /// to the primary DLL that would be loaded (or <c>null</c> if this loader cannot report
+    /// one). Default returns empty — loaders that cannot enumerate (e.g. built-in loaders
+    /// without a static manifest) simply do not contribute.
     /// </summary>
-    IEnumerable<(string Name, string Version)> GetInstalledExtensions() => [];
+    IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions() => [];
 }
 
-public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
+/// <summary>
+/// Loads <b>Bundled</b> extensions — DLLs that ship alongside <c>az.exe</c> from the packaged install
+/// (<c>&lt;install&gt;/Extensions/&lt;PackageId&gt;/</c>) or the local build output (<c>artifacts/&lt;Config&gt;/</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// The runtime knows only two tiers: <b>Bundled</b> (this loader) and <b>Installed</b>
+/// (<c>InstalledExtensionLoader</c>, which covers extensions placed by <c>az extension add</c>
+/// under <c>~/.azclips/extensions/</c>). Dispatch is uniform across both — no Core-tier exception.
+/// The set of extensions expected to ship in every install lives in the packaging profile
+/// (<c>devops/scripts/packaging/config/lean_package.config</c>), not the runtime.
+/// </para>
+/// <para>
+/// <b>Version resolution</b> for a Bundled extension is driven by the on-disk <c>.nupkg</c>
+/// (produced by <c>GeneratePackageOnBuild=true</c> in local builds). Packaged installs strip the
+/// <c>.nupkg</c> at packaging time, so <see cref="GetInstalledExtensions"/> reports
+/// <c>Version = string.Empty</c> for those — dispatch then takes the unversioned load path.
+/// See <c>docs/spec/extension-framework.md §3.2</c>.
+/// </para>
+/// </remarks>
+public class BundledExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
+        new(StringComparer.OrdinalIgnoreCase);
+
     internal class ExtensionLoadContext(string extensionPath, ILoggingService? loggingService = null) : AssemblyLoadContext
     {
         private readonly AssemblyDependencyResolver _resolver = new(extensionPath);
@@ -45,13 +70,13 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
         {
             if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
             {
-                _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in BuiltinExtensionLoader.");
+                _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Skipping shared assembly '{assemblyName.Name}'.");
                 return null;
             }
             string? assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
             if (assemblyPath != null)
             {
-                _loggingService?.Debug($"Loading assembly from path: {assemblyPath}");
+                _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Loading dependency assembly from '{assemblyPath}'.");
                 return LoadManagedAssembly(assemblyPath);
             }
             return null;
@@ -105,11 +130,25 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             packageId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static IEnumerable<string> GetCandidateRoots(string configuredBuiltinInstallationDir)
+    /// <summary>
+    /// Default root directory for bundled extensions: the packaging layout
+    /// (<c>&lt;install&gt;/Extensions/</c>) in Release, or <c>artifacts/&lt;Config&gt;/</c> in
+    /// local dev builds. Not user-configurable — packaging always writes here.
+    /// </summary>
+    public static string GetDefaultRoot()
+    {
+#if DEBUG
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+#else
+        return Path.Combine(AppContext.BaseDirectory, "Extensions");
+#endif
+    }
+
+    private static IEnumerable<string> GetCandidateRoots()
     {
         var roots = new[]
         {
-            configuredBuiltinInstallationDir,
+            GetDefaultRoot(),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug")),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release"))
@@ -120,41 +159,104 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Attempts to load a Bundled extension by name, optionally at a specific version.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Unversioned request</b> (<paramref name="version"/> null or empty): returns the first
+    /// on-disk match under any configured Bundled root. Used by the <c>az login</c>-style path where
+    /// dispatch has no version to enforce.
+    /// </para>
+    /// <para>
+    /// <b>Versioned request:</b> only serves the load when the on-disk <c>.nupkg</c> in the package
+    /// folder reports the exact same version. If the folder has no <c>.nupkg</c> (packaged install)
+    /// or the versions mismatch, returns <c>null</c> so the loader chain can defer to
+    /// <c>InstalledExtensionLoader</c>. This preserves user-installed shadowing: a user who
+    /// <c>az extension add</c>'s a newer version wins over the Bundled copy.
+    /// </para>
+    /// <para>
+    /// The versioned-match branch was added to fix Azure/CLIPS#522: local Debug/Release builds
+    /// discover Bundled extensions with a real version from the <c>.nupkg</c>, and dispatch then
+    /// requires that version — previously refused, causing "could not be found by any extension
+    /// loader" errors even though the DLL was sitting right there.
+    /// </para>
+    /// </remarks>
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
-        if (!string.IsNullOrEmpty(version))
-        {
-            return null;
-        }
+        _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        foreach (var root in GetCandidateRoots(_options.BuiltinInstallationDir))
+        foreach (var root in GetCandidateRoots())
         {
             foreach (var directoryName in GetCandidateDirectoryNames(extensionName, _options.ExtensionFolderPrefix))
             {
+                var packageDir = Path.Combine(root, directoryName);
+                if (!Directory.Exists(packageDir))
+                {
+                    continue;
+                }
+
+                // Versioned request: only serve if the on-disk .nupkg matches exactly. Unversioned
+                // request: trust the caller and take the first assembly-name match. See Azure/CLIPS#522.
+                if (!string.IsNullOrEmpty(version))
+                {
+                    var discoveredVersion = ResolvePackageVersion(packageDir, directoryName, _loggingService);
+                    if (string.IsNullOrEmpty(discoveredVersion) ||
+                        !string.Equals(discoveredVersion, version, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
                 foreach (var assemblyName in GetCandidateAssemblyNames(extensionName))
                 {
-                    var extensionPath = Path.Combine(root, directoryName, $"{assemblyName}.dll");
+                    var extensionPath = Path.Combine(packageDir, $"{assemblyName}.dll");
+                    _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Probing '{extensionPath}'.");
                     if (!File.Exists(extensionPath))
                     {
                         continue;
                     }
 
-                    var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-                    return loadContext.LoadManagedAssembly(extensionPath);
+                    Assembly assembly;
+                    if (_options.BypassExtensionCache)
+                    {
+                        var freshCtx = new ExtensionLoadContext(extensionPath, _loggingService);
+                        assembly = freshCtx.LoadManagedAssembly(extensionPath);
+                    }
+                    else
+                    {
+                        var entry = s_cache.GetOrAdd(
+                            extensionPath,
+                            key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+                            {
+                                var ctx = new ExtensionLoadContext(key, _loggingService);
+                                return (ctx, ctx.LoadManagedAssembly(key));
+                            }));
+                        assembly = entry.Value.Assembly;
+                    }
+                    stopwatch.Stop();
+
+                    var loadedVersion = string.IsNullOrEmpty(version)
+                        ? ResolvePackageVersion(packageDir, directoryName, _loggingService)
+                        : version;
+                    _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Loaded '{extensionName}' v{(string.IsNullOrEmpty(loadedVersion) ? "?" : loadedVersion)} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
+                    ExtensionLoadTracker.Record(extensionName, stopwatch.Elapsed.TotalMilliseconds, loadedVersion, extensionPath);
+                    return assembly;
                 }
             }
         }
 
-        _loggingService?.Debug($"Extension '{extensionName}' not found in builtin extensions directory, will try other sources. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'");
+        _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Extension '{extensionName}' (version='{version ?? "any"}') not found; will try other loaders. Checked root(s): '{string.Join(";", GetCandidateRoots())}'.");
         return null;
     }
 
     /// <inheritdoc/>
-    public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
+    public IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions()
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var root in GetCandidateRoots(_options.BuiltinInstallationDir))
+        foreach (var root in GetCandidateRoots())
         {
             if (!Directory.Exists(root))
             {
@@ -180,24 +282,25 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                     continue;
                 }
 
-                var hasAssembly = GetCandidateAssemblyNames(shortName)
+                var assemblyPath = GetCandidateAssemblyNames(shortName)
                     .Select(assemblyName => Path.Combine(packageDir, $"{assemblyName}.dll"))
-                    .Any(File.Exists);
+                    .FirstOrDefault(File.Exists);
 
-                if (!hasAssembly)
+                if (assemblyPath is null)
                 {
                     continue;
                 }
 
-                var discoveredVersion = ResolvePackageVersionFromNupkg(packageDir, packageId, _loggingService);
+                var discoveredVersion = ResolvePackageVersion(packageDir, packageId, _loggingService);
 
                 seen.Add(shortName);
-                yield return (shortName, discoveredVersion);
+                // Normalize to an absolute path — Location is documented as absolute.
+                yield return (shortName, discoveredVersion, Path.GetFullPath(assemblyPath));
             }
         }
     }
 
-    private static string ResolvePackageVersionFromNupkg(string packageDir, string packageId, ILoggingService? loggingService)
+    private static string ResolvePackageVersion(string packageDir, string packageId, ILoggingService? loggingService)
     {
         var prefix = packageId + ".";
         var versions = Directory.EnumerateFiles(packageDir, "*.nupkg", SearchOption.TopDirectoryOnly)
@@ -207,7 +310,21 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             .OrderByDescending(parsed => parsed)
             .ToList();
 
-        return versions.Count == 0 ? string.Empty : versions[0].ToString();
+        if (versions.Count > 0)
+        {
+            loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolved version '{versions[0]}' for '{packageId}' via .nupkg scan.");
+            return versions[0].ToString();
+        }
+
+        // Fallback when no .nupkg is present in the package directory.
+        var attributeVersion = AssemblyVersionReader.TryReadInformationalVersion(packageDir, packageId);
+        if (!string.IsNullOrEmpty(attributeVersion))
+        {
+            loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolved version '{attributeVersion}' for '{packageId}' via AssemblyInformationalVersion (no .nupkg present).");
+            return attributeVersion;
+        }
+
+        return string.Empty;
     }
 
     private static NuGetVersion? ParseVersionFromNupkg(string nupkgPath, string packageId, string packagePrefix, ILoggingService? loggingService)
@@ -263,7 +380,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
     }
 }
 
-public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
+public class InstalledExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Directory, string AssemblyPath), Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
         new();
@@ -286,7 +403,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
         {
             if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
             {
-                _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in MultiVersionExtensionLoader.");
+                _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Skipping shared assembly '{assemblyName.Name}'.");
                 return null;
             }
             string assemblyPath = Path.Combine(ExtensionDirectory, $"{assemblyName.Name}.dll");
@@ -328,7 +445,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
     {
         foreach (var candidateName in GetCandidateDirectoryNames(extensionName, _options.ExtensionFolderPrefix))
         {
-            var candidateRoot = Path.Combine(_options.VersionedInstallationDir, candidateName);
+            var candidateRoot = Path.Combine(_options.InstalledExtensionsRoot, candidateName);
             if (!Directory.Exists(candidateRoot))
             {
                 continue;
@@ -387,10 +504,13 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
 
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
+        _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         var extensionDir = ResolveExtensionDirectory(extensionName, version);
         if (extensionDir is null)
         {
-            _loggingService?.Debug($"Extension '{extensionName}' not found in multi-version extensions directory, will try other sources. Checked root: '{_options.VersionedInstallationDir}'");
+            _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Extension '{extensionName}' not found under installed extensions root. Root: '{_options.InstalledExtensionsRoot}'.");
             return null;
         }
 
@@ -400,39 +520,50 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
 
         if (extensionPath is null)
         {
-            _loggingService?.Debug($"Extension '{extensionName}' version '{version}' not found in multi-version extensions directory. Checked path: '{extensionDir}'");
+            _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Extension '{extensionName}' version '{version}' has no matching .dll under '{extensionDir}'.");
             return null;
         }
 
+        _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Probing '{extensionPath}'.");
+
+        Assembly assembly;
         if (_options.BypassExtensionCache)
         {
             // ExtensionLoadContext expects a directory (Path.Combine in Load resolves siblings).
             // Cache hits below already pass key.Directory directly.
             var freshCtx = new ExtensionLoadContext(extensionDir, _loggingService);
-            return freshCtx.LoadManagedAssembly(extensionPath);
+            assembly = freshCtx.LoadManagedAssembly(extensionPath);
+        }
+        else
+        {
+            var entry = s_cache.GetOrAdd(
+                (extensionDir, extensionPath),
+                key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+                {
+                    var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
+                    var asm = ctx.LoadManagedAssembly(key.AssemblyPath);
+                    return (ctx, asm);
+                }));
+            assembly = entry.Value.Assembly;
         }
 
-        var entry = s_cache.GetOrAdd(
-            (extensionDir, extensionPath),
-            key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
-            {
-                var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
-                var asm = ctx.LoadManagedAssembly(key.AssemblyPath);
-                return (ctx, asm);
-            }));
-        return entry.Value.Assembly;
+        stopwatch.Stop();
+        var resolvedVersion = version ?? Path.GetFileName(extensionDir);
+        _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Loaded '{extensionName}' v{resolvedVersion} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
+        ExtensionLoadTracker.Record(extensionName, stopwatch.Elapsed.TotalMilliseconds, resolvedVersion, extensionPath);
+        return assembly;
     }
 
     /// <inheritdoc/>
-    public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
+    public IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions()
     {
-        if (!Directory.Exists(_options.VersionedInstallationDir))
+        if (!Directory.Exists(_options.InstalledExtensionsRoot))
         {
             yield break;
         }
 
-        var packageDirs = Directory.GetDirectories(_options.VersionedInstallationDir);
-        
+        var packageDirs = Directory.GetDirectories(_options.InstalledExtensionsRoot);
+
         foreach (var packageDir in packageDirs)
         {
             var fullPackageName = Path.GetFileName(packageDir);
@@ -456,10 +587,27 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
                 .Select(item => item.versionName)
                 .FirstOrDefault();
 
-            if (!string.IsNullOrWhiteSpace(latestVersion))
+            if (string.IsNullOrWhiteSpace(latestVersion))
             {
-                yield return (shortName, latestVersion);
+                continue;
             }
+
+            var latestVersionDir = Path.Combine(packageDir, latestVersion);
+            var assemblyPath = GetCandidateAssemblyNames(shortName)
+                .Select(assemblyName => Path.Combine(latestVersionDir, $"{assemblyName}.dll"))
+                .FirstOrDefault(File.Exists);
+
+            if (assemblyPath is null)
+            {
+                // Version directory exists but the DLL is missing (corrupt/partial install).
+                // Skip — dispatch couldn't load it anyway, and consumers rely on Name/Version pairs
+                // being backed by a loadable assembly. Matches BundledExtensionLoader's gate.
+                continue;
+            }
+
+            // Normalize to an absolute path — Location is documented as absolute, but a
+            // user-configured relative InstalledExtensionsRoot would otherwise leak through.
+            yield return (shortName, latestVersion, Path.GetFullPath(assemblyPath));
         }
     }
 }

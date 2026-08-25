@@ -79,7 +79,7 @@ internal static class VersionInformationProvider
         {
             InstallLocation = GetInstallLocation(),
             ConfigLocation = Path.GetDirectoryName(configFilePath) ?? configFilePath,
-            ExtensionsLocation = configurationService.GetConfiguration<AssemblyLoadingOptions>().VersionedInstallationDir
+            ExtensionsLocation = configurationService.GetConfiguration<AssemblyLoadingOptions>().InstalledExtensionsRoot
         };
 
         return info;

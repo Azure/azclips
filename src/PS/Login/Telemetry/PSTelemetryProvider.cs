@@ -15,12 +15,13 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
 
 public class PSTelemetryProvider : DefaultTelemetryProvider
 {
-    public PSTelemetryProvider(IConfigurationService configurationService, IEnumerable<BaseProcessor<Activity>> filterProcessors)
+    // The Enabled check no longer lives here — TelemetryService gates every
+    // Start*Activity call at runtime so telemetry.enabled changes take effect on
+    // the next cmdlet without requiring a module reload.
+    public PSTelemetryProvider(
+        IEnumerable<BaseProcessor<Activity>> filterProcessors,
+        ITelemetrySender sender)
     {
-        var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
-        if (!isTelemetryEnabled) return;
-
-        var sender = new DirectTelemetrySender();
         ActivitySource = new ActivitySource(ClientType.PowerShell.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(ClientType.PowerShell.ToString())
@@ -40,7 +41,7 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
             builder.AddProcessor(processor);
         }
 
-        sender.ConfigureExporter(builder, string.Empty);
+        sender.ConfigureExporter(builder);
         TracerProvider = builder.Build();
     }
 }

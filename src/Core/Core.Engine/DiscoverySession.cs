@@ -79,11 +79,12 @@ internal class DiscoverySession : ISession
                         PackageId: packageId,
                         ResolvedVersion: reportedVersion,
                         Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
-                        Commands: commands));
+                        Commands: commands,
+                        Location: info.Location));
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Failed to load extension in discovery session {Id}: {ex.Message}");
+                    outputStreamAdapter.Warn($"[{nameof(DiscoverySession)}] Session {Id} failed to load extension '{info.Name}': {ex.Message}");
                 }
             }
         }
@@ -107,11 +108,12 @@ internal class DiscoverySession : ISession
                         PackageId: packageId,
                         ResolvedVersion: version,
                         Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
-                        Commands: commands));
+                        Commands: commands,
+                        Location: null));
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Failed to load extension '{name}' in discovery session {Id}: {ex.Message}");
+                    outputStreamAdapter.Warn($"[{nameof(DiscoverySession)}] Session {Id} failed to load extension '{name}': {ex.Message}");
                 }
             }
         }
@@ -131,11 +133,12 @@ internal class DiscoverySession : ISession
                     PackageId: metadata.AssemblyName,
                     ResolvedVersion: version,
                     Verbs: ExtensionVerbDeclarations.GetDeclaredVerbs(index),
-                    Commands: new Dictionary<string, CommandMetadata> { [metadata.InvocationName] = metadata }));
+                    Commands: new Dictionary<string, CommandMetadata> { [metadata.InvocationName] = metadata },
+                    Location: null));
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Failed to load extension '{extensionNames[0]}' in discovery session {Id}: {ex.Message}");
+                outputStreamAdapter.Warn($"[{nameof(DiscoverySession)}] Session {Id} failed to load extension '{extensionNames[0]}': {ex.Message}");
             }
         }
 

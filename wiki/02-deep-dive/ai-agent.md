@@ -14,9 +14,9 @@ approval — runs it. The agent lives in the `Agent/` project (`Core.Agent.cspro
 assembly `azclips-agent`).
 
 > ### ⚠️ Fact vs. stale documentation
-> `docs/spec/ARCHITECTURE.md` describes the agent as *"Azure OpenAI Integration — CloudAgent
+> `eng-docs/spec/ARCHITECTURE.md` describes the agent as *"Azure OpenAI Integration — CloudAgent
 > with GPT-4o-mini"* driven by an `AgentEngine`/`OrchestratorEngine`
-> (`docs/spec/ARCHITECTURE.md:9`, `:20`). **That document is stale.** The shipping agent is
+> (`eng-docs/spec/ARCHITECTURE.md:9`, `:20`). **That document is stale.** The shipping agent is
 > built on the **GitHub Copilot SDK** (`GitHub.Copilot.SDK` `1.0.0`,
 > `Agent/Core.Agent.csproj:31`) which drives a **bundled Copilot CLI daemon** resolved from
 > the SDK's NuGet payload (`Agent/BundledDaemonResolver.cs:11`). There is no `CloudAgent`,
@@ -383,4 +383,4 @@ via `TUI/AgentMode/AgentModeEntry.cs` (`Agent/Program.cs:1`).
 - `Agent/prompts/oneshot.md`, `inline.md`, `tui.md`
 - `TUI/AgentMode/AgentModeEntry.cs`, `src/CLI/Program.cs` — CLI fallback → agent-mode entry
 - `src/Core/Core.Abstractions/AgentOptions.cs` — `agent.enabled`, `agent.provider`, `builtin` model
-- `docs/spec/agent-experience.md` — agent UX spec; `docs/spec/ARCHITECTURE.md` — **stale** re: the agent
+- `eng-docs/spec/agent-experience.md` — agent UX spec; `eng-docs/spec/ARCHITECTURE.md` — **stale** re: the agent

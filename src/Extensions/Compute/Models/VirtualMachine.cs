@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
@@ -22,6 +23,11 @@ public class VirtualMachineProperties
     public NetworkProfile NetworkProfile { get; set; } = null!;
     public SecurityProfile? SecurityProfile { get; set; }
     public DiagnosticsProfile? DiagnosticsProfile { get; set; }
+
+    // Set by ARM on responses; null when this model is used as a create request body.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProvisioningState { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 

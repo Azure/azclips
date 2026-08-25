@@ -1,28 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Threading.Tasks;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
 
 /// <summary>
-/// Telemetry sender for PowerShell: exports traces directly to Azure Monitor
-/// via the TracerProvider pipeline. No file buffering or replay needed.
+/// Exports traces inline via the TracerProvider pipeline, one exporter per resolved
+/// target. No file buffering or replay.
 /// </summary>
 public class DirectTelemetrySender : ITelemetrySender
 {
-    public void ConfigureExporter(TracerProviderBuilder builder, string traceDirectory)
+    public void ConfigureExporter(TracerProviderBuilder builder)
     {
-        builder.AddAzureMonitorTraceExporter(options =>
-        {
-            options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
-        });
+        TelemetryExporters.AddTraceExporters(builder, TelemetryTargetResolver.Resolve());
     }
-
-    /// <summary>
-    /// No-op: telemetry is already exported inline by the TracerProvider.
-    /// </summary>
-    public Task SendPendingAsync() => Task.CompletedTask;
 }

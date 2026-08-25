@@ -17,14 +17,14 @@ variables:
 - template: templates/dist/variables/release.yml
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
+  - group: 'esrp-signing-codes'
+  - group: 'get-github-pat-token'
 - name: ReleasePipelineName
   value: ${{ variables.stable_release_pipeline_name }}
 - name: SourceProject
   value: ${{ variables.release_project }}
 - name: GitHubTargetRepo
   value: ${{ variables.github_target_repo }}
-- name: GitHubServiceConnection
-  value: ${{ variables.github_service_connection }}
 - name: GitHubReleasePrefix
   value: dist
 - name: GitHubReleaseIsPrerelease
@@ -146,7 +146,6 @@ stages:
     GitHubReleaseAllowOverwrite: 'false'
     GitHubReleaseIsPrerelease: ${{ variables.GitHubReleaseIsPrerelease }}
     GitHubReleaseName: ${{ variables.GitHubReleaseName }}
-    GitHubServiceConnection: ${{ variables.GitHubServiceConnection }}
     signed_pipeline_name: ${{ variables.ReleasePipelineName }}
     signed_build_id: $(Build.BuildId)
     signed_artifact_source: current

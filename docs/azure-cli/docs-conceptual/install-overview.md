@@ -1,11 +1,17 @@
-# Installing azcli and azps
+---
+title: Install the Azure CLI private preview
+description: Learn how to install the Azure CLI private preview.
+---
 
-A release delivers two products:
+# Install the Azure CLI private preview
 
-- **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). Ships in two flavours:
-  - **lean** — built-in extensions only.
-  - **full** — built-in + add-on extensions bundled.
-- **azps** — the Az PowerShell modules (`Az.*`).
+The Azure CLI private preview ships as **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). It ships in two flavours:
+
+- **full** — built-in + add-on extensions bundled.
+- **lean** — built-in extensions only.
+
+> [!NOTE]
+> For the Az PowerShell modules, see the [Azure PowerShell private preview install overview](../../azure-powershell/docs-conceptual/install-overview.md).
 
 ## Install azcli (one command)
 
@@ -69,6 +75,9 @@ By default the installer does **not** modify your `PATH`, so azcli (`az`) instal
 
 - **Make it permanent** (optional) — add the same line to your shell profile (`~/.zshrc` / `~/.bashrc`, or your PowerShell `$PROFILE`). Note that putting the folder on `PATH` makes `az` resolve to azcli and **shadows** the classic `azure-cli`.
 
+> [!TIP]
+> Want to keep both installed and switch between the classic Azure CLI and the preview build in the same session? See [Switch between the classic Azure CLI and the preview build](./switch-cli-versions.md).
+
 ## Uninstall
 
 ```bash
@@ -87,20 +96,18 @@ Removes the install directory. Pass `--force` / `-Force` to remove a folder that
 
 | You want to… | Guide |
 | --- | --- |
-| Install azcli manually / offline (no `gh`, or you already have the archive) | [docs/install-cli-manual.md](./install-cli-manual.md) |
-| Add an add-on azcli extension (lean installs, or a specific version) | [docs/install-cli-extensions.md](./install-cli-extensions.md) |
-| Enable `az` tab completion (bash / zsh / PowerShell) | [docs/install-cli-completions.md](./install-cli-completions.md) |
-| Enable AI-based error recovery in Azure CLI | [docs/ai-based-error-recovery.md](./ai-based-error-recovery.md) |
-| Install azps (Az PowerShell modules) | [docs/install-powershell-modules.md](../../azure-powershell/docs-conceptual/install-powershell-modules.md) |
+| Install azcli manually / offline (no `gh`, or you already have the archive) | [install-cli-manual.md](./install-cli-manual.md) |
+| Add an add-on azcli extension (lean installs, or a specific version) | [install-cli-extensions.md](./install-cli-extensions.md) |
+| Enable `az` tab completion (bash / zsh / PowerShell) | [install-cli-completions.md](./install-cli-completions.md) |
+| Enable AI-based error recovery in Azure CLI | [ai-based-error-recovery.md](./ai-based-error-recovery.md) |
 
 ## What's in a release
 
 | Category | Files | Platforms | Notes |
 | --- | --- | --- | --- |
 | CLI archives | `azcli-lean-…` and `azcli-…` | 6 (Win/Linux/macOS × x64/Arm64) | Lean = built-in extensions only; Full = built-in + add-on extensions bundled. Self-contained, no .NET SDK needed. |
-| Component roll-ups | `azcli-extensions-<version>.tar.gz`, `azps-cmdlets-<version>.tar.gz` | agnostic | Convenience bundles of all extension / all PowerShell module packages. |
+| Extension roll-up | `azcli-extensions-<version>.tar.gz` | agnostic | Convenience bundle of all extension packages. |
 | CLI extension packages | `azcli.extensions.*.nupkg` | agnostic | Install into an existing CLI with `az extension add`. |
-| PowerShell module packages | `Az.*.nupkg` | agnostic | Install with the bundled `InstallModule.ps1`. Requires PowerShell 7.6+. |
 
 ## Supported platforms
 

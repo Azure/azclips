@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Config.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Config
-ms.date: 06/03/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzConfig
 ---
@@ -24,9 +24,6 @@ Remove-AzConfig -Key <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -122,6 +119,8 @@ HelpMessage: ""
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -151,6 +150,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ## OUTPUTS
+
+### System.String
+
+Status string confirming the operation, in the form `Deleted <key>`.
 
 ## NOTES
 

@@ -30,7 +30,7 @@ CompanyName = 'Microsoft Corporation'
 Copyright = 'Microsoft Corporation. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'AzClips - Resources'
+Description = 'Azure PowerShell - Resources'
 
 # Minimum version of the PowerShell engine required by this module
 PowerShellVersion = '5.1'

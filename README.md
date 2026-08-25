@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Build and Test](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml)
-[![Needs review](https://img.shields.io/badge/status-needs%20review-orange.svg)](#)
+[![Published](https://img.shields.io/badge/status-published-green.svg)](#)
 <!-- NEEDS ENG REVIEW: confirm the Build and Test badge/workflow before publishing (private-repo badge only renders for members with access). -->
 
 > [!IMPORTANT]
@@ -30,6 +30,10 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 1. **Install** — see the [Azure CLI install overview](docs/azure-cli/docs-conceptual/install-overview.md) and the [Azure PowerShell modules install guide](docs/azure-powershell/docs-conceptual/install-powershell-modules.md) for the single-command install (Windows, Linux, macOS). Packages ship via [GitHub Releases](https://github.com/Azure/azclips/releases).
 2. **Verify** — run `az --version`.
 3. **Sign in** — run `az login`.
+4. **Explore supported commands**
+   - CLI: `config`, `deployment`, `disk`, `extension`, `group`, `login`, `logout`, `profile`, `rest`, and `vm`
+   - PowerShell: **Login**, **Resources**, **Compute**, and **Config**
+   - Additional commands will continue to be added in weekly iterations.
 
 > `az` installs side-by-side with the classic `azure-cli` and does **not** modify your `PATH` by default. See the [install overview](docs/azure-cli/docs-conceptual/install-overview.md) for PATH and offline options.
 
@@ -111,7 +115,7 @@ Please share early and often.
 - **[Pulse survey](https://forms.cloud.microsoft/r/n0H7LqgM5e)** — short (~5 min) Microsoft Forms survey.
 - **Moderated sessions** — group and 1:1; details will be shared over email.
 
-We review on a regular cadence. For quick collaboration with the Product Group, you will be added to a Microsoft Teams channel. Share your Teams ID if you haven't been added yet.
+We review on a regular cadence. For quick collaboration with the Product Group, you will be added to a Microsoft Teams channel. Share your Teams ID on the invite email if you haven't been added yet.
 
 > Never include secrets, tokens, customer data, tenant IDs, or subscription IDs in issues or discussions.
 

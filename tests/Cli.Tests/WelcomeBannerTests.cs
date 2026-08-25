@@ -33,7 +33,7 @@ public class WelcomeBannerTests
         WelcomeBanner.Write(writer);
         var output = writer.ToString();
 
-        Assert.Contains("AzCLIPS", output);
+        Assert.Contains("Azure CLI", output);
         Assert.Contains("az --help", output);
     }
 

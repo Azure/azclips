@@ -19,7 +19,8 @@
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
-          "supportsWildcards": false
+          "supportsWildcards": false,
+          "groupName": "Managed Identity Arguments"
         },
         {
           "name": "identity",
@@ -31,7 +32,8 @@
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
-          "supportsWildcards": false
+          "supportsWildcards": false,
+          "groupName": "Managed Identity Arguments"
         },
         {
           "name": "object-id",
@@ -43,7 +45,8 @@
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
-          "supportsWildcards": false
+          "supportsWildcards": false,
+          "groupName": "Managed Identity Arguments"
         },
         {
           "name": "out-profile",
@@ -79,7 +82,8 @@
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
-          "supportsWildcards": false
+          "supportsWildcards": false,
+          "groupName": "Managed Identity Arguments"
         },
         {
           "name": "subscription-id",

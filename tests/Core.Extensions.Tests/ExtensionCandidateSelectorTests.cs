@@ -232,6 +232,146 @@ public sealed class ExtensionCandidateSelectorTests
         Assert.Empty(selected.Ignored);
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // ReportUnresolvablePin — user-visible diagnostic added in #522.
+    //
+    // When the file registry pins a specific version but the pinned version is not present in the
+    // discovered candidate set, ExtensionCandidateSelector silently falls back to the highest
+    // available version (see P9 above). ReportUnresolvablePin makes that drift visible.
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ReportUnresolvablePin_ShouldEmitError_WhenPinnedVersionMissing()
+    {
+        var candidates = new[]
+        {
+            CreateInfo("Contoso.Widget", "1.2.0", ["widget create"]),
+            CreateInfo("Contoso.Widget", "1.3.0", ["widget create"]),
+        };
+        var persisted = new ExtensionRegistryEntry
+        {
+            Version = "9.9.9",
+            Pinned = true,
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        var selection = ExtensionCandidateSelector.Select(candidates, persisted);
+        Assert.NotEqual(ExtensionSelectionReason.Pinned, selection.Reason);
+
+        var logger = new RecordingLoggingService();
+
+        ExtensionCandidateSelector.ReportUnresolvablePin("Contoso.Widget", selection, persisted, logger);
+
+        var error = Assert.Single(logger.Errors);
+        Assert.Contains("9.9.9", error, StringComparison.Ordinal);
+        Assert.Contains("Contoso.Widget", error, StringComparison.Ordinal);
+        Assert.Contains("Falling back to", error, StringComparison.Ordinal);
+        Assert.Contains(selection.Selected.ResolvedVersion, error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReportUnresolvablePin_ShouldBeSilent_WhenPinResolves()
+    {
+        var candidates = new[]
+        {
+            CreateInfo("Contoso.Widget", "1.2.0", ["widget create"]),
+            CreateInfo("Contoso.Widget", "1.3.0", ["widget create"]),
+        };
+        var persisted = new ExtensionRegistryEntry
+        {
+            Version = "1.2.0",
+            Pinned = true,
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        var selection = ExtensionCandidateSelector.Select(candidates, persisted);
+        Assert.Equal(ExtensionSelectionReason.Pinned, selection.Reason);
+
+        var logger = new RecordingLoggingService();
+
+        ExtensionCandidateSelector.ReportUnresolvablePin("Contoso.Widget", selection, persisted, logger);
+
+        Assert.Empty(logger.Errors);
+    }
+
+    [Fact]
+    public void ReportUnresolvablePin_ShouldBeSilent_WhenSingleCandidateMatchesPin()
+    {
+        // Regression: when only one candidate exists AND it happens to match the pinned version,
+        // Select short-circuits with SingleCandidate reason (never entering the Pinned branch).
+        // The diagnostic must still stay silent — the selected version DOES match the pin.
+        // Discovered when testing `az extension pin --name Compute` against a single-source install.
+        var candidates = new[]
+        {
+            CreateInfo("Contoso.Widget", "1.2.0", ["widget create"]),
+        };
+        var persisted = new ExtensionRegistryEntry
+        {
+            Version = "1.2.0",
+            Pinned = true,
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        var selection = ExtensionCandidateSelector.Select(candidates, persisted);
+        Assert.Equal(ExtensionSelectionReason.SingleCandidate, selection.Reason);
+
+        var logger = new RecordingLoggingService();
+
+        ExtensionCandidateSelector.ReportUnresolvablePin("Contoso.Widget", selection, persisted, logger);
+
+        Assert.Empty(logger.Errors);
+    }
+
+    [Fact]
+    public void ReportUnresolvablePin_ShouldBeSilent_WhenNotPinned()
+    {
+        var candidates = new[]
+        {
+            CreateInfo("Contoso.Widget", "1.2.0", ["widget create"]),
+            CreateInfo("Contoso.Widget", "1.3.0", ["widget create"]),
+        };
+        var persisted = new ExtensionRegistryEntry
+        {
+            Version = "9.9.9",
+            Pinned = false, // <- not pinned; version drift is not a user concern
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        var selection = ExtensionCandidateSelector.Select(candidates, persisted);
+        var logger = new RecordingLoggingService();
+
+        ExtensionCandidateSelector.ReportUnresolvablePin("Contoso.Widget", selection, persisted, logger);
+
+        Assert.Empty(logger.Errors);
+    }
+
+    [Fact]
+    public void ReportUnresolvablePin_ShouldTolerateNullLogger()
+    {
+        var candidates = new[]
+        {
+            CreateInfo("Contoso.Widget", "1.2.0", ["widget create"]),
+            CreateInfo("Contoso.Widget", "1.3.0", ["widget create"]),
+        };
+        var persisted = new ExtensionRegistryEntry
+        {
+            Version = "9.9.9",
+            Pinned = true,
+            InstalledAt = DateTimeOffset.UtcNow,
+        };
+        var selection = ExtensionCandidateSelector.Select(candidates, persisted);
+
+        // Must not throw.
+        ExtensionCandidateSelector.ReportUnresolvablePin("Contoso.Widget", selection, persisted, loggingService: null);
+    }
+
+    private sealed class RecordingLoggingService : ILoggingService
+    {
+        public List<string> Errors { get; } = [];
+        public void Log(string message) { }
+        public void Info(string message) { }
+        public void Verbose(string message) { }
+        public void Debug(string message) { }
+        public void Warn(string message) { }
+        public void Error(string message) => Errors.Add(message);
+    }
+
     private static DiscoveredExtensionInfo CreateInfo(string packageId, string version, IEnumerable<string> commandNames)
     {
         var commands = commandNames.ToDictionary(
@@ -252,6 +392,6 @@ public sealed class ExtensionCandidateSelectorTests
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        return new DiscoveredExtensionInfo(packageId, version, verbs, commands);
+        return new DiscoveredExtensionInfo(packageId, version, verbs, commands, Location: null);
     }
 }

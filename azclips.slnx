@@ -22,6 +22,7 @@
     <Project Path="src/Extensions/Login/Extensions.Login.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
+    <Project Path="src/Extensions/ContainerRegistry/Extensions.ContainerRegistry.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
@@ -41,14 +42,16 @@
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />
+    <Project Path="tests/Scenario.Tests/Scenario.Tests.csproj" />
     <Project Path="tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Fixtures/">
     <Project Path="tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj" />
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
-  <Folder Name="/src/Extensions/ContainerRegistry/">
-    <Project Path="src/Extensions/ContainerRegistry/Extensions.ContainerRegistry.csproj" />
+  <Folder Name="/tools/Help/">
+      <Project Path="tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj" />
+      <Project Path="tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" />
   </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />

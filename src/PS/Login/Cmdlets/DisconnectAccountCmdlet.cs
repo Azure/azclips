@@ -9,6 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
 [Cmdlet(VerbsCommunications.Disconnect, CommandNoun, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[OutputType(typeof(void))]
 public class DisconnectAccountCmdlet : PSCmdlet
 {
     private const string CommandNoun = Constants.CommandPrefix + "Account";

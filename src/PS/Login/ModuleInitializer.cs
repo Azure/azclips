@@ -15,13 +15,22 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 {
     public void OnImport()
     {
-        AzclipsServiceProvider.OverrideRegistration(services =>
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        var importKind = ImportTelemetry.NextImportKind();
+
+        using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
-            services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
-            services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
-            services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
-        });
-        AzclipsServiceProvider.Initialize(ClientType.PowerShell);
+            AzclipsServiceProvider.OverrideRegistration(services =>
+            {
+                services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
+                services.AddSingleton<ITelemetrySender, DirectTelemetrySender>();
+                services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
+                services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
+            });
+            AzclipsServiceProvider.Initialize(ClientType.PowerShell);
+        }
+
+        ImportTelemetry.EmitInBackground(timeline, importKind, DateTime.UtcNow);
     }
 
     public void OnRemove(PSModuleInfo module)

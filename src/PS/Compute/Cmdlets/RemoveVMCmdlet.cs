@@ -9,14 +9,12 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 [Cmdlet(VerbsCommon.Remove, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
+[OutputType(typeof(void))]
 public class RemoveVMCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
-
-    [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
 
     [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
@@ -26,6 +24,9 @@ public class RemoveVMCmdlet : PSCmdlet
 
     [Parameter(Mandatory = true)]
     public string ResourceGroupName { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     protected override void BeginProcessing()
     {

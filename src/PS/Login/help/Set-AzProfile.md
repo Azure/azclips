@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Login
-ms.date: 07/02/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Set-AzProfile
 ---
@@ -17,7 +17,7 @@ Sets the active profile by name.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 Set-AzProfile [-Name] <string> [<CommonParameters>]
@@ -47,19 +47,19 @@ The name of the saved profile to activate.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: 0
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: 0
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -73,11 +73,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
+### Core.Abstractions.Profile
 
-The activated profile containing information about the tenant, subscription, etc..
+The activated profile object with its tenant ID, subscription ID, cloud, and authentication method after the switch.
 
 ## NOTES
 
 ## RELATED LINKS
-

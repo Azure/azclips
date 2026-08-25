@@ -7,11 +7,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Extension.Processors;
 
 internal static class DiscoveryBackedExtensionRegistry
 {
-    private static readonly HashSet<string> s_builtInPackageIds = BuiltInExtensions.Map.Values
-        .Select(static value => value.PackageId)
-        .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
     public static ExtensionRegistry BuildDiscoveredWithPreferences(ExtensionRegistry fileRegistry)
+        => BuildDiscoveredWithCandidates(fileRegistry).Collapsed;
+
+    /// <summary>
+    /// Returns the collapsed <see cref="ExtensionRegistry"/> (one selected candidate per package)
+    /// alongside the per-package <see cref="SelectedExtensionCandidate"/> so callers can surface
+    /// every discovered candidate (all versions across Bundled + Installed tiers) if they need it.
+    /// </summary>
+    public static (ExtensionRegistry Collapsed, IReadOnlyDictionary<string, SelectedExtensionCandidate> Selections)
+        BuildDiscoveredWithCandidates(ExtensionRegistry fileRegistry)
     {
         ArgumentNullException.ThrowIfNull(fileRegistry);
 
@@ -27,6 +32,7 @@ internal static class DiscoveryBackedExtensionRegistry
         }
 
         var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
+        var selections = new Dictionary<string, SelectedExtensionCandidate>(StringComparer.OrdinalIgnoreCase);
         var infos = RunDiscoverySession();
 
         foreach (var group in infos.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
@@ -34,63 +40,14 @@ internal static class DiscoveryBackedExtensionRegistry
             fileRegistry.Extensions.TryGetValue(group.Key, out var fileEntry);
             var selection = ExtensionCandidateSelector.Select(group.ToList(), fileEntry);
             loggingService?.Debug(ExtensionCandidateSelector.BuildDiagnostics(
-                context: "DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences",
+                context: "DiscoveryBackedExtensionRegistry.BuildDiscoveredWithCandidates",
                 selection: selection,
                 persistedPreference: fileEntry));
-            var info = selection.Selected;
+            ExtensionCandidateSelector.ReportUnresolvablePin(group.Key, selection, fileEntry, loggingService);
 
-            if (s_builtInPackageIds.Contains(info.PackageId))
-            {
-                continue;
-            }
-
-            var entry = new ExtensionRegistryEntry
-            {
-                Verb = info.Verbs.FirstOrDefault(),
-                Version = info.ResolvedVersion,
-                Pinned = false,
-                Source = null,
-                InstalledAt = DateTimeOffset.UtcNow,
-            };
-
-            foreach (var ns in info.Verbs.Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                entry.Namespaces.Add(ns);
-            }
-
-            foreach (var command in info.Commands.Keys)
-            {
-                var (verb, path) = ToContribution(command);
-                if (string.IsNullOrEmpty(verb))
-                {
-                    continue;
-                }
-
-                if (!entry.Contributions.Any(c =>
-                    string.Equals(c.Verb, verb, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(c.Path, path, StringComparison.OrdinalIgnoreCase)))
-                {
-                    entry.Contributions.Add(new Contribution { Verb = verb, Path = path });
-                }
-            }
-
-            // Some extension indexes may not populate Verbs; derive from discovered command leaves.
-            if (entry.Namespaces.Count == 0)
-            {
-                foreach (var derivedNs in entry.Contributions
-                    .Select(static c => c.Verb)
-                    .Distinct(StringComparer.OrdinalIgnoreCase))
-                {
-                    entry.Namespaces.Add(derivedNs);
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(entry.Verb))
-            {
-                entry.Verb = entry.Namespaces.FirstOrDefault();
-            }
-
-            discovered.Extensions[info.PackageId] = entry;
+            var entry = BuildRegistryEntry(selection.Selected);
+            discovered.Extensions[selection.Selected.PackageId] = entry;
+            selections[selection.Selected.PackageId] = selection;
         }
 
         foreach (var (packageId, fileEntry) in fileRegistry.Extensions)
@@ -105,7 +62,61 @@ internal static class DiscoveryBackedExtensionRegistry
             discoveredEntry.InstalledAt = fileEntry.InstalledAt;
         }
 
-        return discovered;
+        return (discovered, selections);
+    }
+
+    private static ExtensionRegistryEntry BuildRegistryEntry(DiscoveredExtensionInfo info)
+    {
+        // Include every discovered package (Core, Bundled, Installed); tier is implied by Location.
+        // Bundled/Core rows have no persisted registry entry, so InstalledAt is a best-effort proxy from the DLL mtime; the persisted timestamp overwrites this in the caller for user-installed rows.
+        var entry = new ExtensionRegistryEntry
+        {
+            Verb = info.Verbs.FirstOrDefault(),
+            Version = info.ResolvedVersion,
+            Pinned = false,
+            Source = null,
+            InstalledAt = TryGetDllTimestamp(info.Location) ?? DateTimeOffset.UtcNow,
+            Location = info.Location,
+        };
+
+        foreach (var ns in info.Verbs.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            entry.Namespaces.Add(ns);
+        }
+
+        foreach (var command in info.Commands.Keys)
+        {
+            var (verb, path) = ToContribution(command);
+            if (string.IsNullOrEmpty(verb))
+            {
+                continue;
+            }
+
+            if (!entry.Contributions.Any(c =>
+                string.Equals(c.Verb, verb, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(c.Path, path, StringComparison.OrdinalIgnoreCase)))
+            {
+                entry.Contributions.Add(new Contribution { Verb = verb, Path = path });
+            }
+        }
+
+        // Some extension indexes may not populate Verbs; derive from discovered command leaves.
+        if (entry.Namespaces.Count == 0)
+        {
+            foreach (var derivedNs in entry.Contributions
+                .Select(static c => c.Verb)
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                entry.Namespaces.Add(derivedNs);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(entry.Verb))
+        {
+            entry.Verb = entry.Namespaces.FirstOrDefault();
+        }
+
+        return entry;
     }
 
     private static List<DiscoveredExtensionInfo> RunDiscoverySession()
@@ -155,5 +166,30 @@ internal static class DiscoveryBackedExtensionRegistry
         var verb = parts[0];
         var path = parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty;
         return (verb, path);
+    }
+
+    private static DateTimeOffset? TryGetDllTimestamp(string? location)
+    {
+        if (string.IsNullOrEmpty(location))
+        {
+            return null;
+        }
+
+        try
+        {
+            // GetLastWriteTimeUtc returns 1601-01-01 (the FILETIME epoch) when the file is
+            // missing rather than throwing, so call it unconditionally and treat any
+            // suspiciously old timestamp as "unknown". Guards against that sentinel value
+            // (which is not DateTime.MinValue) and against platform variations, without
+            // racing File.Exists.
+            var timestamp = File.GetLastWriteTimeUtc(location);
+            return timestamp.Year < 1980
+                ? null
+                : new DateTimeOffset(timestamp, TimeSpan.Zero);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

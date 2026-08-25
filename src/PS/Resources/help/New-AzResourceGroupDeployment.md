@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Resources
-ms.date: 06/16/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzResourceGroupDeployment
 ---
@@ -20,17 +20,14 @@ Deploy an ARM or Bicep template into an existing resource group.
 ### \_\_AllParameterSets
 
 ```
-New-AzResourceGroupDeployment -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-TemplateUri <string>] [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
+New-AzResourceGroupDeployment -ResourceGroupName <string> -Name <string> [-TemplateUri <string>]
+ [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
  [-ParametersUri <string>] [-ParametersFile <string>] [-Mode <string>] [-Parameter <string[]>]
- [-RollbackOnError] [-RollbackToDeploymentName <string>] [-ValidationLevel <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+ [-RollbackOnError] [-RollbackToDeploymentName <string>] [-ValidationLevel <string>]
+ [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -158,6 +155,27 @@ HelpMessage: ""
 ### -ParametersUri
 
 URI of a remote ARM/Bicep parameters file (for example, a blob URL).
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -Profile
+
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -398,9 +416,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-Returns the deployment object describing the deployment name, provisioning state, and any output values declared by the template.
+The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.
 
 ## NOTES
 

@@ -67,6 +67,7 @@ jobs:
 
     # Decode the base 64 encoded pfx and save the Signing_Certificate
     - name: Decode the pfx
+      if: github.event_name != 'pull_request'
       run: |
         $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.Base64_Encoded_Pfx }}")
         $certificatePath = Join-Path -Path $env:Certificate_Directory -ChildPath GitHubActionsWorkflow.pfx
@@ -114,6 +115,7 @@ jobs:
     
     # Sign the appx package
     - name: Sign the appx package
+      if: github.event_name != 'pull_request'
       run: |
         $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
         $latestBinDir = Get-ChildItem -Path $windowsKitBinRoot -Directory |
@@ -129,6 +131,7 @@ jobs:
 
     # Remove the pfx
     - name: Remove the pfx
+      if: github.event_name != 'pull_request'
       run: Remove-Item -path $env:Certificate_Directory\GitHubActionsWorkflow.pfx
 
     # Upload the MSIX package:
