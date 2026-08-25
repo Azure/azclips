@@ -43,7 +43,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private string _extensionsRoot = null!;
     private BenchmarkStageListener _stage = null!;
     private StageTraceDirectoryProvider _traceDirectory = null!;
-    private string _stagingRoot = null!;    // artifacts/Benchmark/telemetry
+    private string _stagingRoot = null!;    // artifacts/BenchmarkTelemetry
     private string _telemetryRoot = null!;  // <_stagingRoot>/<benchmark>
     private string _benchmarkName = null!;
 
@@ -79,7 +79,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
         // One process per benchmark case, so these are constant for the whole run.
         _benchmarkName = BenchmarkName.FromCommandLine();
-        _stagingRoot = Path.Combine(RepoRoot, "artifacts", "Benchmark", "telemetry");
+        _stagingRoot = BenchmarkTelemetryPaths.StagingRoot(RepoRoot);
         _telemetryRoot = Path.Combine(_stagingRoot, _benchmarkName);
 
         // The staging path is stable across runs; this is what stops them bleeding together.

@@ -5,6 +5,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Reflection;
+using Benchmark.Telemetry;
 using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Exporters;
@@ -60,8 +61,7 @@ public class Program
 
         // Benchmarks write telemetry to a stable staging path because their child processes cannot
         // know artifactsPath. Clear it first so post-run collection can only pick up this run.
-        var telemetryStagingRoot = Path.Combine(
-            RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", "telemetry");
+        var telemetryStagingRoot = BenchmarkTelemetryPaths.StagingRoot(RepoLocator.GetRepoRoot());
         TryDeleteDirectory(telemetryStagingRoot);
 
         var config = ManualConfig.CreateEmpty()
