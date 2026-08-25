@@ -486,16 +486,12 @@ public class Program
             var startInfo = BuildTelemetryUploaderStartInfo(Environment.ProcessPath);
             if (startInfo is null) return;
 
-            // Must run before Process.Start — see DetachedStdio for why redirection
-            // alone is not enough on Windows.
+            // Windows process guard, must be run before process creation.
             DetachedStdio.SuppressStandardHandleInheritance();
 
             using var uploader = Process.Start(startInfo);
-            // Drop our ends of the three pipes immediately. Nothing here reads or writes
-            // them, and closing them means a stray write from the uploader fails fast
-            // instead of blocking once the pipe buffer fills.
+            // Drop our ends of the three pipes immediately.
             CloseRedirectedStreams(uploader);
-            // Don't wait — the background process runs independently.
         }
         catch
         {
@@ -525,12 +521,9 @@ public class Program
             Arguments = "--upload-telemetry",
             UseShellExecute = false,
             CreateNoWindow = true,
-            // The uploader outlives us, so it must NOT inherit our stdio handles.
-            // Without redirection the child keeps the write end of the caller's pipe
-            // open, and a reader (`az ... | jq`) only sees EOF once every writer is
-            // gone — so the shell would block on the upload instead of returning when
-            // `az` exits. Redirecting hands the child its own pipes, which we close
-            // right after start.
+            // The uploader outlives us, so it must not inherit our stdio: an
+            // inherited pipe keeps the caller's reader waiting on the upload
+            // rather than on `az`.
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

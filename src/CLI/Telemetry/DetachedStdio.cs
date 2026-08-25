@@ -8,17 +8,6 @@ namespace Core.Cli.Telemetry;
 /// <summary>
 /// Keeps a detached background child from holding on to the CLI's own stdio.
 /// </summary>
-/// <remarks>
-/// A child that outlives <c>az</c> must not keep the caller's stdout open: a pipe reader
-/// (<c>az ... | jq</c>) only observes EOF once every writer has closed its end, so an
-/// inherited handle makes the shell wait for the background upload rather than for the
-/// command. Redirecting the child's streams covers this on Unix, where exec replaces
-/// descriptors 0-2 outright. Windows needs one more step, because <c>Process.Start</c>
-/// always calls <c>CreateProcess</c> with <c>bInheritHandles: true</c> — that duplicates
-/// <em>every</em> inheritable handle into the child, including the standard handles the
-/// shell marked inheritable when it handed us the pipe. Clearing that flag first is what
-/// keeps the duplicate out of the child.
-/// </remarks>
 internal static class DetachedStdio
 {
     private const int StdInputHandle = -10;

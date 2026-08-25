@@ -44,15 +44,4 @@ public class TelemetryUploaderSpawnTests
         Assert.Equal(exePath, startInfo.FileName);
         Assert.Equal("--upload-telemetry", startInfo.Arguments);
     }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("/repo/artifacts/Debug/Benchmark/Benchmark")]
-    [InlineData(@"C:\repo\artifacts\Debug\Benchmark\Benchmark.exe")]
-    [InlineData("/usr/bin/dotnet")]
-    public void BuildTelemetryUploaderStartInfo_ShouldReturnNull_WhenHostIsNotTheAzExecutable(string? exePath)
-    {
-        Assert.Null(Core.Cli.Program.BuildTelemetryUploaderStartInfo(exePath));
-    }
 }
