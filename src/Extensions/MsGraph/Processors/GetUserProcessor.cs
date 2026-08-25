@@ -18,19 +18,19 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     {
         [ArgumentInfo(
             Required = true,
-            Description = @"The object ID or user principal name (UPN) of the user.",
+            Description = @"key: id of user",
             SerializedName = @"Id")]
         public string Id { get; set; } = "";
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to return via OData $select.",
+            Description = @"Select properties to be returned",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related properties to include in the response via OData $expand, for example memberOf.",
+            Description = @"Expand related entities",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 

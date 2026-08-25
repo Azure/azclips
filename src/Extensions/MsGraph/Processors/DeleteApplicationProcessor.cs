@@ -14,9 +14,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     public class DeleteApplicationProcessor : GraphProcessorBase<object>
     {
         [ArgumentInfo(
-        Required = true,
-        Description = @"The object ID of the application registration to delete.",
-        SerializedName = @"Id")]
+            Required = true,
+            Description = @"key: id of application",
+            SerializedName = @"Id")]
         public string Id { get; set; } = "";
 
         protected override async Task<HttpRequestMessage> CreateRequestMessage()

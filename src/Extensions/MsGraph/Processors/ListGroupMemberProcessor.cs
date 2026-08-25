@@ -24,43 +24,43 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     {
         [ArgumentInfo(
             Required = true,
-            Description = @"The object ID of the group whose members to list.",
+            Description = @"key: id of group",
             SerializedName = @"GroupId")]
         public string GroupId { get; set; } = "";
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $filter expression.",
+            Description = @"Filter items by property values",
             SerializedName = @"Filter")]
         public string? Filter { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to return via OData $select.",
+            Description = @"Select properties to be returned",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related properties to include in the response via OData $expand.",
+            Description = @"Expand related entities",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $orderby values.",
+            Description = @"Order items by property values",
             SerializedName = @"Orderby")]
         public string[]? Orderby { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $search expression. Requires ConsistencyLevel eventual.",
+            Description = @"Search items by search phrases",
             SerializedName = @"Search")]
         public string? Search { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Set to 'eventual' to enable advanced query features such as $search, $count, or $orderby on non-indexed properties.",
+            Description = @"Indicates the requested consistency level. Documentation URL: https://developer.microsoft.com/en-us/office/blogs/microsoft-graph-advanced-queries-for-directory-objects-are-now-generally-available/",
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 

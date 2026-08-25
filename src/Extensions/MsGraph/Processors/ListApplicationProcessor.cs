@@ -19,31 +19,31 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     {
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $filter expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax.",
+            Description = @"Filter items by property values",
             SerializedName = @"Filter")]
         public string? Filter { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Properties to project via OData $select.",
+            Description = @"Select properties to be returned",
             SerializedName = @"Select")]
         public string[]? Select { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Property paths to sort by via OData $orderby (for example, displayName).",
+            Description = @"Order items by property values",
             SerializedName = @"Orderby")]
         public string[]? Orderby { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Free-text search expression mapped to OData $search (for example, ""displayName:contoso"").",
+            Description = @"Search items by search phrases",
             SerializedName = @"Search")]
         public string? Search { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Value sent as the ConsistencyLevel HTTP header. Required (typically 'eventual') when using advanced queries such as $search or $orderby on non-indexed properties.",
+            Description = @"Indicates the requested consistency level. Documentation URL: https://developer.microsoft.com/en-us/office/blogs/microsoft-graph-advanced-queries-for-directory-objects-are-now-generally-available/",
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 

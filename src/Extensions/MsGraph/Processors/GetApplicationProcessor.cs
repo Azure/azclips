@@ -10,9 +10,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     public class GetApplicationProcessor : GraphProcessorBase<Application>
     {
         [ArgumentInfo(
-        Required = true,
-        Description = @"The object ID of the application registration.",
-        SerializedName = @"Id")]
+            Required = true,
+            Description = @"key: id of application",
+            SerializedName = @"Id")]
         public string Id { get; set; } = "";
 
         protected override async Task<HttpRequestMessage> CreateRequestMessage()

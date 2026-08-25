@@ -12,13 +12,13 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     {
         [ArgumentInfo(
         Required = true,
-        Description = @"The display name of the application registration.",
+        Description = @"The display name for the application. Supports $filter (eq, ne, NOT, ge, le, in, startsWith), $search, and $orderBy.",
         SerializedName = @"DisplayName")]
         public string DisplayName { get; set; } = "";
 
         [ArgumentInfo(
         Required = false,
-        Description = @"The Microsoft account types supported for sign-in (e.g. AzureADMyOrg, AzureADMultipleOrgs, AzureADandPersonalMicrosoftAccount).",
+        Description = @"Specifies the Microsoft accounts that are supported for the current application. Supported values are: AzureADMyOrg, AzureADMultipleOrgs, AzureADandPersonalMicrosoftAccount, PersonalMicrosoftAccount. See more in the table below. Supports $filter (eq, ne, NOT).",
         SerializedName = @"SignInAudience")]
         public string SignInAudience { get; set; } = "";
 
