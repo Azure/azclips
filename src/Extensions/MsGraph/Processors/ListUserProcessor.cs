@@ -19,8 +19,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// </summary>
     public class ListUserProcessor : GraphProcessorBase<UserList>
     {
-        private const string ConsistencyLevelHeaderName = "ConsistencyLevel";
-
         [ArgumentInfo(
             Required = false,
             Description = @"OData $filter expression, for example ""accountEnabled eq true"".",
@@ -65,11 +63,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 + ODataQueryBuilder.Build(filter: Filter, select: Select, expand: Expand, orderby: Orderby, search: Search);
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-
-            if (!string.IsNullOrWhiteSpace(ConsistencyLevel))
-            {
-                request.Headers.TryAddWithoutValidation(ConsistencyLevelHeaderName, ConsistencyLevel);
-            }
+            request.SetConsistencyLevel(ConsistencyLevel);
 
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;

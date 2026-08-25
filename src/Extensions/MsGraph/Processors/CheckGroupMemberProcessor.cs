@@ -17,6 +17,13 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// Convenience features (display-name resolution for the group) live in
     /// <c>Orchestrators/CheckGroupMemberProcessor_Orchestrator</c>.
     /// </summary>
+    /// <remarks>
+    /// Hand-authored atomic: the <c>/directoryObjects</c> path is not defined in the
+    /// azure-powershell v1.0 OpenAPI spec cut this extension targets for codegen. Once codegen
+    /// consumes the upstream <c>msgraph-metadata</c> spec (which does document this action) or
+    /// the azure-powershell spec is extended, this class becomes a codegen candidate and the
+    /// <c>SelectOutput</c> boolean reduction below moves to the orchestrator.
+    /// </remarks>
     public class CheckGroupMemberProcessor : GraphProcessorBase<CheckMemberGroupsResponse>
     {
         [ArgumentInfo(

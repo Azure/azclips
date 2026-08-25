@@ -13,10 +13,15 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// features (accepting a display-name prefix or exact name for the group, ...) live in
     /// <c>Orchestrators/ListGroupMemberProcessor_Orchestrator</c>.
     /// </summary>
+    /// <remarks>
+    /// Hand-authored atomic: <c>/groups/{group-id}/members</c> is only referenced via an
+    /// <c>x-ms-links</c> operationId in the azure-powershell v1.0 OpenAPI spec cut and doesn't
+    /// have a full inline path definition. Once codegen either follows those link references or
+    /// consumes the upstream <c>msgraph-metadata</c> spec (which does define the full sub-path),
+    /// this class becomes a codegen candidate.
+    /// </remarks>
     public class ListGroupMemberProcessor : GraphProcessorBase<DirectoryObjectList>
     {
-        private const string ConsistencyLevelHeaderName = "ConsistencyLevel";
-
         [ArgumentInfo(
             Required = true,
             Description = @"The object ID of the group whose members to list.",
@@ -72,11 +77,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 + ODataQueryBuilder.Build(filter: Filter, select: Select, expand: Expand, orderby: Orderby, search: Search);
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-
-            if (!string.IsNullOrWhiteSpace(ConsistencyLevel))
-            {
-                request.Headers.TryAddWithoutValidation(ConsistencyLevelHeaderName, ConsistencyLevel);
-            }
+            request.SetConsistencyLevel(ConsistencyLevel);
 
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;

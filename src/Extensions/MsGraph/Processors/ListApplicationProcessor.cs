@@ -17,8 +17,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// </summary>
     public class ListApplicationProcessor : GraphProcessorBase<ApplicationList>
     {
-        private const string ConsistencyLevelHeaderName = "ConsistencyLevel";
-
         [ArgumentInfo(
             Required = false,
             Description = @"OData $filter expression applied by Microsoft Graph. Passed through verbatim; Graph validates the syntax.",
@@ -57,12 +55,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 + ODataQueryBuilder.Build(filter: Filter, select: Select, orderby: Orderby, search: Search);
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-
-            if (!string.IsNullOrWhiteSpace(ConsistencyLevel))
-            {
-                // Graph-specific header; TryAddWithoutValidation bypasses .NET's built-in allow-list.
-                request.Headers.TryAddWithoutValidation(ConsistencyLevelHeaderName, ConsistencyLevel);
-            }
+            request.SetConsistencyLevel(ConsistencyLevel);
 
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;
