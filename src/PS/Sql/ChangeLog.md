@@ -17,6 +17,9 @@
 -->
 ## Upcoming Release
 
+* Added `New-AzSqlDatabase` to create an Azure SQL database
+    - The database location is inherited from its server, matching `az sql db create`
+
 ## Version 0.1.0
 
 * First preview
