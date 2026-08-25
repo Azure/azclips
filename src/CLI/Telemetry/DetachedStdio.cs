@@ -10,6 +10,7 @@ namespace Core.Cli.Telemetry;
 /// </summary>
 internal static class DetachedStdio
 {
+    // Defined in accordance to https://learn.microsoft.com/en-us/windows/console/getstdhandle#parameters
     private const int StdInputHandle = -10;
     private const int StdOutputHandle = -11;
     private const int StdErrorHandle = -12;
