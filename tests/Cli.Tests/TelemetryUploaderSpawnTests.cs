@@ -12,10 +12,14 @@ namespace Cli.Tests;
 public class TelemetryUploaderSpawnTests
 {
     [Theory]
-    [InlineData("/usr/local/bin/az")]
-    [InlineData(@"C:\Program Files\azclips\az.exe")]
-    public void BuildTelemetryUploaderStartInfo_ShouldRedirectAllStdio_WhenSpawningUploader(string exePath)
+    [InlineData("az")]
+    [InlineData("az.exe")]
+    public void BuildTelemetryUploaderStartInfo_ShouldRedirectAllStdio_WhenSpawningUploader(string exeName)
     {
+        // Built with Path.Combine so the separators are native: the production guard
+        // uses Path.GetFileName, which only recognises the running OS's separator.
+        var exePath = Path.Combine(AppContext.BaseDirectory, exeName);
+
         var startInfo = Core.Cli.Program.BuildTelemetryUploaderStartInfo(exePath);
 
         Assert.NotNull(startInfo);
@@ -34,10 +38,12 @@ public class TelemetryUploaderSpawnTests
     }
 
     [Theory]
-    [InlineData("/usr/local/bin/az")]
-    [InlineData(@"C:\Program Files\azclips\az.exe")]
-    public void BuildTelemetryUploaderStartInfo_ShouldReenterSameExecutable_WhenSpawningUploader(string exePath)
+    [InlineData("az")]
+    [InlineData("az.exe")]
+    public void BuildTelemetryUploaderStartInfo_ShouldReenterSameExecutable_WhenSpawningUploader(string exeName)
     {
+        var exePath = Path.Combine(AppContext.BaseDirectory, exeName);
+
         var startInfo = Core.Cli.Program.BuildTelemetryUploaderStartInfo(exePath);
 
         Assert.NotNull(startInfo);
