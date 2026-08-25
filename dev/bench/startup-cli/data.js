@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787613722761,
+  "lastUpdate": 1787673047708,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -2646,6 +2646,48 @@ window.BENCHMARK_DATA = {
             "value": 227310205.3,
             "unit": "ns",
             "range": "± 3196369.8183226595"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d035a5168dd3d9467fd089917ce3ea6ff2f0984a",
+          "message": "{Telemetry} Fix piped STDOUT telemetry stall (#753)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az account show profile --active | cat -`\n`az profile show --active | jq -r .userPrincipalName`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- Fix telemetry emission child processes maintaining references to\nparent pipe buffers for both unix and windows causing delayed pipe\nexecution\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n`time az account show profile --active | cat -`\n`time az profile show --active | jq -r .userPrincipalName`\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-08-26T01:35:21+10:00",
+          "tree_id": "6c9245b4524536e49aa74a46798c04b2805e24bf",
+          "url": "https://github.com/Azure/azclips/commit/d035a5168dd3d9467fd089917ce3ea6ff2f0984a"
+        },
+        "date": 1787673045659,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 228587588.02,
+            "unit": "ns",
+            "range": "± 4068151.2031621593"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 228187509.5,
+            "unit": "ns",
+            "range": "± 2883197.465226265"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 226900779.61,
+            "unit": "ns",
+            "range": "± 2585342.4461520156"
           }
         ]
       }
