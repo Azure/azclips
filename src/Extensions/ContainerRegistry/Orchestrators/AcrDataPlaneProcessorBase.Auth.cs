@@ -1,11 +1,24 @@
-using System.Net.Http.Json;
 using Core.Abstractions;
-using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Models;
+using Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Orchestrators;
 
 namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 
 public partial class AcrDataPlaneProcessorBase<TResponse>
 {
-    // Auth is handled by each processor's ProcessAsync via AcrTokenProvider.SetupAuthAsync.
-    private partial Task AuthOverrideAsync() => Task.CompletedTask;
+    private async partial Task AuthOverrideAsync()
+    {
+        string loginServer = AcrTokenProvider.ResolveLoginServer(Endpoint);
+        var tokenProvider = new AcrTokenProvider(AuthHandler, JsonOptions);
+        string refreshToken = await tokenProvider.AcquireAcrRefreshTokenAsync(loginServer);
+
+        AuthHandler.ApplyOverride = true;
+        AuthHandler.AcquireTokenAsyncOverride = (resource, tenant, forceRefresh, ct, profile) =>
+            Task.FromResult(new AuthResult
+            {
+                AccessToken = refreshToken,
+                TenantId = tenant ?? string.Empty,
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                Scopes = Array.Empty<string>()
+            });
+    }
 }

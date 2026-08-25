@@ -25,8 +25,6 @@ public class ListTagProcessor : AcrDataPlaneProcessorBase
         try
         {
             string loginServer = AcrTokenProvider.ResolveLoginServer(Endpoint);
-            string scope = $"repository:{RepositoryName}:metadata_read";
-            await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions, loginServer, scope);
 
             List<string> pages = await SendAsyncPaged(loginServer, $"/acr/v1/{RepositoryName}/_tags");
 

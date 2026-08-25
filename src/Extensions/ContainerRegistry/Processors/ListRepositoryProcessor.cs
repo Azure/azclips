@@ -22,7 +22,6 @@ public class ListRepositoryProcessor : AcrDataPlaneProcessorBase
         try
         {
             string loginServer = AcrTokenProvider.ResolveLoginServer(Endpoint);
-            await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions, loginServer, "registry:catalog:*");
 
             List<string> pages = await SendAsyncPaged(loginServer, "/acr/v1/_catalog");
 

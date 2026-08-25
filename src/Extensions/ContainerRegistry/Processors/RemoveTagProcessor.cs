@@ -34,8 +34,6 @@ public class RemoveTagProcessor : AcrDataPlaneProcessorBase
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions,
-                AcrTokenProvider.ResolveLoginServer(Endpoint), $"repository:{RepositoryName}:delete,metadata_read");
             using HttpResponseMessage response = await SendAsync();
         }
         finally

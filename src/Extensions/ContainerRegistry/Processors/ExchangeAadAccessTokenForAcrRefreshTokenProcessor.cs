@@ -19,7 +19,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-            string uri = $"{LoginUri}/oauth2/exchange?api-version=2021-07-01";
+            string uri = $"https://{LoginUri}/oauth2/exchange?api-version=2021-07-01";
             var values = new List<KeyValuePair<string, string>>
             {
                 new KeyValuePair<string, string>("grant_type", GrantType.ToString()),

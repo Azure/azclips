@@ -29,11 +29,4 @@ public class GetTagProcessor : AcrDataPlaneProcessorBase<TagAttributes>
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
-
-    public override async Task ProcessAsync()
-    {
-        await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions,
-            AcrTokenProvider.ResolveLoginServer(Endpoint), $"repository:{RepositoryName}:metadata_read");
-        await base.ProcessAsync();
-    }
 }

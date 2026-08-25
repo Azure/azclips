@@ -34,8 +34,6 @@ public class RemoveManifestProcessor : AcrDataPlaneProcessorBase
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions,
-                AcrTokenProvider.ResolveLoginServer(Endpoint), $"repository:{RepositoryName}:delete");
             using HttpResponseMessage response = await SendAsync();
         }
         finally
