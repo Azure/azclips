@@ -136,7 +136,10 @@ function resolveOperationHints(
   const alias = existing.alias ?? directiveSet.alias;
   const hidden = existing.hidden ?? directiveSet.hidden;
 
-  return { hints: { verb, noun, subjectPrefix, parameterSetName, confirmImpact, alias, hidden }, identity };
+  return {
+    hints: { ...existing, verb, noun, subjectPrefix, parameterSetName, confirmImpact, alias, hidden },
+    identity,
+  };
 }
 
 /** Resolve one parameter's `hints.powershell`, applying matching directives as a fallback default. */

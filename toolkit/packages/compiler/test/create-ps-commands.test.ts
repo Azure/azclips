@@ -67,6 +67,43 @@ describe("create-ps-commands (TransformStep)", () => {
     expect(result.operations[0]!.rendering!.powershell!.noun).toBe("ResourceGroup");
   });
 
+  it("preserves pre-existing richness fields the transform never resolves itself", async () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+      rendering: {
+        powershell: {
+          summary: "Creates or updates a resource group.",
+          description: "Long description.",
+          examples: ["New-AzResourceGroup -Name foo -Location westus"],
+          lifecycleTag: "GA",
+          httpPath: { path: "/subscriptions/{id}/resourceGroups/{name}", apiVersion: "2025-04-01" },
+          supportsPaging: false,
+          helpUri: "https://learn.microsoft.com/powershell/module/az.resources/new-azresourcegroup",
+        },
+      },
+    });
+
+    const step = createPsCommandsFactory({ subjectPrefix: "Az" });
+    const result = await step.run({ ...emptyIR(), operations: [operation] }, CONTEXT);
+
+    const enriched = result.operations[0]!.rendering!.powershell!;
+    // The transform still resolves verb/noun/confirmImpact as usual...
+    expect(enriched.verb).toBe("New");
+    expect(enriched.noun).toBe("ResourceGroup");
+    expect(enriched.confirmImpact).toBe("Medium");
+    // ...without dropping fields it never itself resolves.
+    expect(enriched.summary).toBe("Creates or updates a resource group.");
+    expect(enriched.description).toBe("Long description.");
+    expect(enriched.examples).toEqual(["New-AzResourceGroup -Name foo -Location westus"]);
+    expect(enriched.lifecycleTag).toBe("GA");
+    expect(enriched.httpPath).toEqual({ path: "/subscriptions/{id}/resourceGroups/{name}", apiVersion: "2025-04-01" });
+    expect(enriched.supportsPaging).toBe(false);
+    expect(enriched.helpUri).toBe(
+      "https://learn.microsoft.com/powershell/module/az.resources/new-azresourcegroup",
+    );
+  });
+
   it("infers noun from the pageable item type, not the containing namespace, when they disagree (real Azure Fleet gap)", async () => {
     // Real gap found compiling the real Azure Fleet spec: listVirtualMachineScaleSets is
     // declared under the Fleets interface (namespace: ["Fleets"]) but is a pageable operation

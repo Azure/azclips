@@ -8,6 +8,7 @@
 
 import {
   idEquals,
+  serializeId,
   type IR,
   type IROperation,
   type IRId,
@@ -163,16 +164,18 @@ export function derivePsCommands(ir: IR): PsCommand[] {
 
 /**
  * Groups `derivePsCommands`'s output by source into the final `PsModule[]`. Plain function,
- * not a pipeline stage (design.md Decision 8). Only the first source operation of each
- * command is looked up, since merging groups by `id.module`, which doubles as a source's id.
+ * not a pipeline stage (design.md Decision 8). `PsCommand` doesn't store a source reference
+ * directly, so each command's source is recovered by looking up its first source operation's
+ * own `IROperation.source` (already the source's id) via a pre-built index.
  */
 export function deriveModules(ir: IR): PsModule[] {
   const commands = derivePsCommands(ir);
+  const operationsById = new Map(ir.operations.map((op) => [serializeId(op.id), op]));
   const groups = new Map<string, PsCommand[]>();
 
   for (const command of commands) {
     const firstOperationId = command.sourceOperationIds[0];
-    const operation = ir.operations.find((op) => idEquals(op.id, firstOperationId!));
+    const operation = operationsById.get(serializeId(firstOperationId!));
     if (operation === undefined) continue; // shouldn't happen for real IR; defensive skip
 
     const members = groups.get(operation.source);
