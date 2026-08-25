@@ -18,6 +18,7 @@ public abstract class StorageBlobProcessorBase : IProcessor
     internal bool UseProfileAuthentication { get; set; } = true;
 
     public string? Profile { get; set; }
+    
 
     protected virtual HttpMethod Method =>
         throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(Method)}.");
