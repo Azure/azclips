@@ -64,4 +64,20 @@ public class StorageBlobCmdletTests
             blobName.GetCustomAttributes<ParameterAttribute>(),
             parameter => parameter.ParameterSetName == "Get" && parameter.Mandatory);
     }
+
+    [Fact]
+    public void RemoveStorageBlobSupportsConfirmationAndDeleteOptions()
+    {
+        CmdletAttribute cmdlet = typeof(RemoveStorageBlobCmdlet).GetCustomAttribute<CmdletAttribute>()!;
+        PropertyInfo blobName = typeof(RemoveStorageBlobCmdlet).GetProperty(nameof(RemoveStorageBlobCmdlet.BlobName))!;
+
+        Assert.True(cmdlet.SupportsShouldProcess);
+        Assert.Equal(ConfirmImpact.High, cmdlet.ConfirmImpact);
+        Assert.Contains(
+            blobName.GetCustomAttributes<ParameterAttribute>(),
+            parameter => parameter.Mandatory && parameter.Position == 0);
+        Assert.Equal(
+            typeof(SwitchParameter),
+            typeof(RemoveStorageBlobCmdlet).GetProperty(nameof(RemoveStorageBlobCmdlet.PassThru))!.PropertyType);
+    }
 }

@@ -558,13 +558,91 @@ public class StorageBlobProcessorTests
     }
 
     [Fact]
+    public async Task Delete_SendsOptionsAndWritesPassThru()
+    {
+        HttpRequestMessage? sent = null;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sent = request;
+            return new HttpResponseMessage(HttpStatusCode.Accepted);
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new DeleteStorageBlobProcessor(), pipeline, output);
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "folder/blob.txt";
+        processor.VersionId = "version 1";
+        processor.LeaseId = "lease";
+        processor.IfMatch = "\"etag\"";
+        processor.TagCondition = "\"status\"='ready'";
+        processor.PassThru = true;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(HttpMethod.Delete, sent!.Method);
+        Assert.Equal(
+            "https://account123.blob.core.windows.net/container/folder/blob.txt?versionid=version%201",
+            sent.RequestUri!.AbsoluteUri);
+        Assert.Equal("lease", sent.Headers.GetValues("x-ms-lease-id").Single());
+        Assert.Equal("\"etag\"", sent.Headers.GetValues("If-Match").Single());
+        Assert.Equal("\"status\"='ready'", sent.Headers.GetValues("x-ms-if-tags").Single());
+        Assert.True(Assert.IsType<bool>(Assert.Single(output.WrittenValues)));
+    }
+
+    [Fact]
+    public async Task Delete_RejectsConflictingSnapshotOptionsBeforeSending()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.Accepted));
+        var processor = CreateProcessor(
+            new DeleteStorageBlobProcessor(),
+            pipeline,
+            new FakeOutputHandler());
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "blob.txt";
+        processor.SnapshotTime = "2026-08-25T00:00:00Z";
+        processor.VersionId = "version";
+
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task Delete_SendsSnapshotAndPermanentDeleteOptions()
+    {
+        Uri? sentUri = null;
+        string? deleteSnapshots = null;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentUri = request.RequestUri;
+            deleteSnapshots = request.Headers.GetValues("x-ms-delete-snapshots").Single();
+            return new HttpResponseMessage(HttpStatusCode.Accepted);
+        });
+        var processor = CreateProcessor(
+            new DeleteStorageBlobProcessor(),
+            pipeline,
+            new FakeOutputHandler());
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "blob.txt";
+        processor.DeleteSnapshots = "include";
+        processor.PermanentDelete = true;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal("?deletetype=Permanent", sentUri!.Query);
+        Assert.Equal("include", deleteSnapshots);
+    }
+
+    [Fact]
     public void ExtensionIndex_ExposesBlobCommands()
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex();
 
         IReadOnlyDictionary<string, CommandMetadata> commands = index.GetCommandTable(ClientType.CLI);
 
-        Assert.Equal(7, commands.Count);
+        Assert.Equal(8, commands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
@@ -580,10 +658,12 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(commands["storage blob show"].ProcessorType));
         Assert.IsType<BlobExistsProcessor>(
             Activator.CreateInstance(commands["storage blob exists"].ProcessorType));
+        Assert.IsType<DeleteStorageBlobProcessor>(
+            Activator.CreateInstance(commands["storage blob delete"].ProcessorType));
 
         IReadOnlyDictionary<string, CommandMetadata> powerShellCommands =
             index.GetCommandTable(ClientType.PowerShell);
-        Assert.Equal(4, powerShellCommands.Count);
+        Assert.Equal(5, powerShellCommands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(powerShellCommands["Set-AzStorageBlobContent"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
@@ -592,6 +672,8 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(powerShellCommands["Get-AzStorageBlob_List"].ProcessorType));
         Assert.IsType<ShowStorageBlobProcessor>(
             Activator.CreateInstance(powerShellCommands["Get-AzStorageBlob_Get"].ProcessorType));
+        Assert.IsType<DeleteStorageBlobProcessor>(
+            Activator.CreateInstance(powerShellCommands["Remove-AzStorageBlob"].ProcessorType));
     }
 
     [Fact]

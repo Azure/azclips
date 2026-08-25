@@ -103,6 +103,11 @@ public sealed class ExtensionIndex : IExtensionIndex
         typeof(Processors.BlobExistsProcessor),
         NamedBlobParameters());
 
+    private static readonly CommandMetadata s_deleteBlob = BlobCommand(
+        "storage blob delete",
+        typeof(Processors.DeleteStorageBlobProcessor),
+        DeleteBlobParameters());
+
     private static readonly CommandMetadata s_listBlobPs = BlobCommand(
         "Get-AzStorageBlob_List",
         typeof(Processors.ListStorageBlobProcessor),
@@ -113,6 +118,11 @@ public sealed class ExtensionIndex : IExtensionIndex
         typeof(Processors.ShowStorageBlobProcessor),
         NamedBlobParametersPowerShell());
 
+    private static readonly CommandMetadata s_deleteBlobPs = BlobCommand(
+        "Remove-AzStorageBlob",
+        typeof(Processors.DeleteStorageBlobProcessor),
+        DeleteBlobParametersPowerShell());
+
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new(StringComparer.OrdinalIgnoreCase)
     {
         ["storage blob upload"] = s_uploadBlob,
@@ -122,6 +132,7 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["storage blob list"] = s_listBlob,
         ["storage blob show"] = s_showBlob,
         ["storage blob exists"] = s_existsBlob,
+        ["storage blob delete"] = s_deleteBlob,
     };
 
     private static readonly IReadOnlyDictionary<string, CommandMetadata> s_psTable =
@@ -131,6 +142,7 @@ public sealed class ExtensionIndex : IExtensionIndex
             ["Get-AzStorageBlobContent"] = s_downloadBlobPs,
             ["Get-AzStorageBlob_List"] = s_listBlobPs,
             ["Get-AzStorageBlob_Get"] = s_showBlobPs,
+            ["Remove-AzStorageBlob"] = s_deleteBlobPs,
         };
 
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -247,6 +259,24 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 
+    private static Dictionary<string, ParameterMetadata> DeleteBlobParameters() => new()
+    {
+        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
+        ["container-name"] = new("ContainerName", "container-name", typeof(string), "Blob container name.", true, ["c"], []),
+        ["name"] = new("BlobName", "name", typeof(string), "Blob name.", true, ["n"], []),
+        ["snapshot"] = new("SnapshotTime", "snapshot", typeof(string), "Blob snapshot timestamp.", false, [], []),
+        ["version-id"] = new("VersionId", "version-id", typeof(string), "Blob version ID.", false, [], []),
+        ["delete-snapshots"] = new("DeleteSnapshots", "delete-snapshots", typeof(string), "Delete snapshots with or without the base blob.", false, [], ["include", "only"]),
+        ["permanent-delete"] = new("PermanentDelete", "permanent-delete", typeof(bool), "Permanently delete a soft-deleted blob.", false, [], []),
+        ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "Required lease ID for a leased blob.", false, [], []),
+        ["if-match"] = new("IfMatch", "if-match", typeof(string), "Delete only when the ETag matches.", false, [], []),
+        ["if-none-match"] = new("IfNoneMatch", "if-none-match", typeof(string), "Delete only when the ETag does not match.", false, [], []),
+        ["if-modified-since"] = new("IfModifiedSince", "if-modified-since", typeof(string), "Delete only when modified since this date.", false, [], []),
+        ["if-unmodified-since"] = new("IfUnmodifiedSince", "if-unmodified-since", typeof(string), "Delete only when unmodified since this date.", false, [], []),
+        ["tag-condition"] = new("TagCondition", "tag-condition", typeof(string), "Delete only when blob tags match.", false, [], []),
+        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
     private static Dictionary<string, ParameterMetadata> UploadBlobParametersPowerShell() => new()
     {
         ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
@@ -297,6 +327,24 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["Marker"] = new("Marker", "Marker", typeof(string), "Continuation marker.", false, [], []),
         ["NumResults"] = new("NumResults", "NumResults", typeof(int), "Maximum number of blobs to return.", false, [], []),
         ["Include"] = new("Include", "Include", typeof(string[]), "Additional datasets to include.", false, [], []),
+        ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> DeleteBlobParametersPowerShell() => new()
+    {
+        ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
+        ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "Blob container name.", true, [], []),
+        ["BlobName"] = new("BlobName", "BlobName", typeof(string), "Blob name.", true, [], []),
+        ["SnapshotTime"] = new("SnapshotTime", "SnapshotTime", typeof(string), "Blob snapshot timestamp.", false, [], []),
+        ["VersionId"] = new("VersionId", "VersionId", typeof(string), "Blob version ID.", false, [], []),
+        ["DeleteSnapshots"] = new("DeleteSnapshots", "DeleteSnapshots", typeof(string), "Snapshot deletion option.", false, [], ["include", "only"]),
+        ["LeaseId"] = new("LeaseId", "LeaseId", typeof(string), "Required lease ID for a leased blob.", false, [], []),
+        ["IfMatch"] = new("IfMatch", "IfMatch", typeof(string), "Delete only when the ETag matches.", false, [], []),
+        ["IfNoneMatch"] = new("IfNoneMatch", "IfNoneMatch", typeof(string), "Delete only when the ETag does not match.", false, [], []),
+        ["IfModifiedSince"] = new("IfModifiedSince", "IfModifiedSince", typeof(string), "Delete only when modified since this date.", false, [], []),
+        ["IfUnmodifiedSince"] = new("IfUnmodifiedSince", "IfUnmodifiedSince", typeof(string), "Delete only when unmodified since this date.", false, [], []),
+        ["TagCondition"] = new("TagCondition", "TagCondition", typeof(string), "Delete only when blob tags match.", false, [], []),
+        ["PassThru"] = new("PassThru", "PassThru", typeof(bool), "Return true after deletion.", false, [], []),
         ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 }
