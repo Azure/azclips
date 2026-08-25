@@ -6,11 +6,16 @@
  * TypeSpec-free (see `pipeline.test.ts`'s emit-seam tests) — the only way to
  * turn a real `.tsp` fixture into IR is the CLI's out-of-process
  * `createSubprocessEmitProducer`, exactly as `tsp-compile.test.ts` does for
- * `pets.tsp`. Compiles the hand-authored `resourcegroup.tsp` fixture
- * (chosen because a real hand-written comparison exists — see the fixture's
- * own header comment) through the real `compile()` backbone with
- * `create-ps-commands` in the transform pipeline, then calls the separate
- * `derivePsCommands()` (see design.md Decision 8) on the result.
+ * `pets.tsp`. Compiles the real, official `Microsoft.Resources` TypeSpec
+ * (from `azure-rest-api-specs`, unmodified aside from being vendored
+ * locally) through the real `compile()` backbone with `create-ps-commands`
+ * in the transform pipeline, then calls the separate `derivePsCommands()`
+ * (see design.md Decision 8) on the result. Real spec, not hand-simplified
+ * like `fleet.e2e.test.ts`'s comparison point used to be — includes
+ * `Operations`/`ResourceGroups`/`Resources`/`Tags`/`Providers`, 24 derived
+ * commands total, exercising the noun-inference fix
+ * (`listByResourceGroup` correctly separates from `Get-AzResourceGroup`)
+ * against the exact real-world case that inspired it.
  */
 
 import { dirname, resolve } from "node:path";
@@ -31,14 +36,14 @@ const RESOURCE_GROUP_TSP = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
-  "compiler",
+  "typespec-emitter",
   "test",
   "fixtures",
   "resource-group",
-  "resourcegroup.tsp",
+  "main.tsp",
 );
 
-describe("create-ps-commands + derivePsCommands: resourcegroup.tsp end-to-end", () => {
+describe("create-ps-commands + derivePsCommands: real Microsoft.Resources spec end-to-end", () => {
   it("produces a New-AzResourceGroup command from ResourceGroups.createOrUpdate", async () => {
     const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
     const pipeline = createTransformPipeline("m0", [createPsCommandsFactory({ subjectPrefix: "Az" })]);
@@ -218,7 +223,7 @@ describe("create-ps-commands + derivePsCommands: resourcegroup.tsp end-to-end", 
     expect(resourceGroupName!.rendering!.powershell!.aliases).toEqual(["Name"]);
   });
 
-  it("deriveModules produces one PsModule whose cmdletsToExport matches the real ResourceGroups cmdlets", async () => {
+  it("deriveModules groups every real Microsoft.Resources command into one PsModule, ResourceGroups cmdlets included", async () => {
     const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
     const pipeline = createTransformPipeline("module-level", [
       createPsCommandsFactory({ subjectPrefix: "Az" }),
@@ -233,8 +238,33 @@ describe("create-ps-commands + derivePsCommands: resourcegroup.tsp end-to-end", 
     const modules = deriveModules(result.ir!);
 
     expect(modules).toHaveLength(1);
-    expect(modules[0]!.cmdletsToExport.sort()).toEqual(
-      ["New-AzResourceGroup", "Get-AzResourceGroup", "Remove-AzResourceGroup"].sort(),
+    expect(modules[0]!.cmdletsToExport).toEqual(
+      expect.arrayContaining(["New-AzResourceGroup", "Get-AzResourceGroup", "Remove-AzResourceGroup"]),
     );
+    // Real spec spans Operations/ResourceGroups/Resources/Tags/Providers, not just
+    // ResourceGroups — proves the module groups the whole real RP, not a hand-picked subset.
+    expect(modules[0]!.cmdletsToExport.length).toBeGreaterThan(20);
+  });
+
+  it("listByResourceGroup gets its own command instead of merging into Get-AzResourceGroup (the real case the noun-inference fix was built for)", async () => {
+    const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
+    const pipeline = createTransformPipeline("noun-inference", [
+      createPsCommandsFactory({ subjectPrefix: "Az" }),
+    ]);
+
+    const result = await compile(
+      { entrypoint: RESOURCE_GROUP_TSP },
+      { emit: producer, transform: pipeline },
+    );
+    const commands = derivePsCommands(result.ir!);
+
+    const get = commands.find((c) => c.verb === "Get" && c.noun === "AzResourceGroup");
+    expect(get!.parameterSets.map((p) => p.name).sort()).toEqual(["Get", "List"]);
+
+    // listByResourceGroup returns ResourceListResult (GenericResourceExpanded), not
+    // ResourceGroup — real evidence the noun must follow the response model.
+    const genericResourceList = commands.find((c) => c.parameterSets.some((p) => p.name === "ListByResourceGroup"));
+    expect(genericResourceList).toBeDefined();
+    expect(genericResourceList!.noun).not.toBe("AzResourceGroup");
   });
 });

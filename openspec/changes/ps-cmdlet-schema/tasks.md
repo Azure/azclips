@@ -187,22 +187,24 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
 
 ## Real-fixture verification & integration
 
-Goal: prove the whole pipeline (all three levels + mechanism) against a real, hand-authored
-TypeSpec fixture with a genuine hand-written comparison, and document the result — not
-level-specific, so kept separate from the schema sections above.
+Goal: prove the whole pipeline (all three levels + mechanism) against a real TypeSpec fixture
+with a genuine hand-written comparison, and document the result — not level-specific, so kept
+separate from the schema sections above.
 
-- [x] Author a minimal `ResourceGroup` TypeSpec fixture (`resourcegroup.tsp`) mimicking the real
-      `Microsoft.Resources` ResourceGroups shape (`get`, `createOrUpdate` (PUT), `delete`,
-      subscription-scoped `list`), chosen specifically because a real hand-written comparison
+- [x] Vendor the real, official `Microsoft.Resources` TypeSpec (`ResourceGroup.tsp` + supporting
+      files) from `azure-rest-api-specs`, unmodified aside from being copied locally — replaced
+      an earlier hand-simplified `resourcegroup.tsp` fixture once the real spec was confirmed to
+      compile cleanly end-to-end. Chosen specifically because a real hand-written comparison
       exists (`src/PS/Resources/Cmdlets/{New,Get}ResourceGroupCmdlet.cs` +
       `src/Extensions/Resources/Processors/*ResourceGroupProcessor.cs`). Committed under
-      `toolkit/packages/compiler/test/fixtures/resource-group/`. Deliberately not built on
-      `@azure-tools/typespec-azure-resource-manager`'s resource-modeling decorators, so the
-      resulting IR shape stays fully predictable. No static IR snapshot is committed — compiled
-      dynamically at test time instead, matching this codebase's own established e2e-test
-      precedent.
-- [x] Wire `create-ps-commands` into a non-identity `TransformPipeline`, compile the
-      `ResourceGroup` fixture through the real `compile()` backbone with it, then call
+      `toolkit/packages/typespec-emitter/test/fixtures/resource-group/`. Built on the real
+      `@azure-tools/typespec-azure-resource-manager` templates (unlike the fixture it replaced) —
+      spans the whole `Microsoft.Resources` RP (`Operations`/`ResourceGroups`/`Resources`/`Tags`/
+      `Providers`, 24 derived commands), not just `ResourceGroups`. No static IR snapshot is
+      committed — compiled dynamically at test time instead, matching this codebase's own
+      established e2e-test precedent.
+- [x] Wire `create-ps-commands` into a non-identity `TransformPipeline`, compile the real
+      `Microsoft.Resources` fixture through the real `compile()` backbone with it, then call
       `derivePsCommands()` on the result and confirm: `ResourceGroups.createOrUpdate` produces one
       `PsCommand` with verb `New`, noun `AzResourceGroup`, `SupportsShouldProcess = true`, and
       `ConfirmImpact = "Medium"`; `ResourceGroups.get` + `.list` merge into one `Get`/

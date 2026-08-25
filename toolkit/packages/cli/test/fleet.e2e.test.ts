@@ -3,11 +3,11 @@
  * management API (`Microsoft.AzureFleet`, from the real `azure-rest-api-specs`
  * TypeSpec source, built on the real `@azure-tools/typespec-azure-resource-manager`
  * templates) through the real `create-ps-commands` + `derivePsCommands`/
- * `deriveModules` pipeline — unlike `resourcegroup.tsp` (hand-simplified,
- * avoids the ARM template library so its IR shape stays fully predictable),
- * this fixture exercises real ARM LRO operations, a 4-way-candidate
- * parameter-set merge, and a nested list operation whose response model
- * doesn't match its containing interface.
+ * `deriveModules` pipeline — a second real fixture alongside the real
+ * `Microsoft.Resources` one (`create-ps-commands.e2e.test.ts`), covering
+ * a different RP: real ARM LRO operations, a 4-way-candidate parameter-set
+ * merge, and a nested list operation whose response model doesn't match
+ * its containing interface.
  *
  * Found this exact gap by compiling this fixture: `listVirtualMachineScaleSets`
  * is declared under the `Fleets` interface but returns `VirtualMachineScaleSetListResult`,
