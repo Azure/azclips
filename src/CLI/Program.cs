@@ -499,10 +499,21 @@ public class Program
                 Arguments = "--upload-telemetry",
                 UseShellExecute = false,
                 CreateNoWindow = true,
+
+                // Must not inherit our stdio. If the caller captured our output through a
+                // pipe, an inherited write handle keeps that pipe open for the uploader's
+                // whole lifetime, so the caller blocks on EOF seconds after we exited.
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
             };
 
-            Process.Start(startInfo);
             // Don't wait — the background process runs independently.
+            var uploader = Process.Start(startInfo);
+
+            // Nothing will ever read these, so close them now rather than leaving the
+            // uploader able to fill a buffer no one drains.
+            uploader?.StandardInput.Close();
         }
         catch
         {

@@ -1,0 +1,115 @@
+name: Managed Identity Live
+
+# Real Azure managed-identity live test: builds the self-contained az bundle,
+# uploads it to a blob in the resource group, then uses `az vm run-command` to
+# pull it onto a Linux VM and verify `login --identity` + `vm show` for system-
+# and user-assigned identities. No SSH is used. Runs against real Azure
+# resources, so it is manual only — never on PRs, and not on a schedule.
+#
+# There is deliberately no cron. The VM is developer-owned and long-lived, so an
+# unattended run has no good option: leaving the VM up to satisfy it bills around
+# the clock, and letting the schedule provision means it silently recreates a VM
+# that was destroyed on purpose. A weekly red X for infrastructure that is simply
+# absent is worse than no check. If an unattended health check is wanted, give CI
+# its own alias so it can provision and destroy a sandbox of its own, rather than
+# sharing the developer's.
+#
+# Configuration comes from the `dev` environment variables published by
+# `dotnet run --project tests/Live/Tool -- --bootstrap`. Nothing here is
+# hardcoded, so each fork targets its own identity and resources.
+#
+# The infrastructure itself is NOT provisioned by default. Developers own it:
+# it is created locally by tests/Live/Terraform/linux-vm/provision-infrastructure.sh, and
+# CI and the developer share one Terraform state per alias. Leaving CI a
+# read-only consumer of the outputs keeps it from racing the developer for the
+# state lock. Set the `provision` input when the infrastructure genuinely needs
+# creating or updating.
+on:
+  workflow_dispatch:
+    inputs:
+      provision:
+        description: "Provision/update the VM first (needed after a rebootstrap or destroy)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: mi-live
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC login to Azure
+  contents: read
+
+jobs:
+  mi-live:
+    runs-on: ubuntu-latest
+
+    # REQUIRED. The federated credential created by --bootstrap trusts the OIDC
+    # subject "repo:<owner>/<repo>:environment:dev". Removing or renaming this
+    # makes the token subject stop matching and the Azure login fails. Keep it in
+    # sync with GitHubEnvironment in tests/Live/Tool/Bootstrap.cs.
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # The bundle is published --self-contained, so a cold run downloads the
+      # whole runtime pack from nuget.org. That is normally ~30s but is entirely
+      # at the mercy of nuget throughput: it has been observed taking over six
+      # minutes, which is most of the job. setup-dotnet's own `cache` input
+      # needs packages.lock.json files, which this repo does not use.
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.props', 'global.json') }}
+          # A partial hit still avoids the runtime pack download, which is the
+          # part that actually hurts.
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          # Pinned, not `latest`. CI and developers share one state blob per
+          # alias, and Terraform stamps its own version into that state on every
+          # write — after which any older binary refuses to read it. An unpinned
+          # runner would silently bump the shared state the first time the
+          # `provision` input above is used, locking every developer out until
+          # they upgraded too. Keep in sync with required_version in
+          # tests/Live/Terraform/*/versions.tf.
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run MI live test
+        env:
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+          TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          # terraform.tfvars is gitignored (local-only), so CI supplies the alias
+          # here. It must match the one used locally: it selects the Terraform
+          # state blob and every resource name, including the resource group.
+          TF_VAR_alias: ${{ vars.ALIAS }}
+          # Absent unless the dispatch input was ticked.
+          PROVISION: ${{ inputs.provision }}
+        run: |
+          # No SSH: the test ships the bundle via an Azure Storage blob and runs
+          # it on the VM with `az vm run-command`.
+          args=()
+          [[ "${PROVISION:-false}" == "true" ]] && args+=(--provision)
+          dotnet run --project tests/Live/Tool -- "${args[@]}"

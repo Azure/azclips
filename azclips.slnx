@@ -41,6 +41,9 @@
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />
+    <Project Path="tests/Live/Live.Tests/Live.Tests.csproj" />
+    <Project Path="tests/Live/Tool/Live.Tool.csproj" />
+    <Project Path="tests/Live/Tool.Tests/Live.Tool.Tests.csproj" />
     <Project Path="tests/Scenario.Tests/Scenario.Tests.csproj" />
     <Project Path="tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj" />
   </Folder>

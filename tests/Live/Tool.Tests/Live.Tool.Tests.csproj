@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Live.Tool.Tests</RootNamespace>
+    <AssemblyName>Live.Tool.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Tool/Live.Tool.csproj" />
+  </ItemGroup>
+
+</Project>
