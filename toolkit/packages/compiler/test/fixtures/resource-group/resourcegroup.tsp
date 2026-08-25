@@ -13,10 +13,12 @@
 import "@typespec/http";
 import "@typespec/rest";
 import "@typespec/versioning";
+import "@azure-tools/typespec-azure-core";
 
 using TypeSpec.Http;
 using TypeSpec.Rest;
 using TypeSpec.Versioning;
+using Azure.Core;
 
 @service(#{ title: "Resources" })
 @server("https://management.azure.com", "ARM endpoint")
@@ -38,7 +40,8 @@ model ResourceGroup {
 }
 
 model ResourceGroupListResult {
-  value: ResourceGroup[];
+  @pageItems value: ResourceGroup[];
+  @nextLink nextLink?: url;
 }
 
 @route("/subscriptions/{subscriptionId}/resourcegroups")

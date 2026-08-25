@@ -66,4 +66,48 @@ describe("create-ps-commands (TransformStep)", () => {
     // Noun was left unset by the author, so inference still fills it in (bare, no prefix).
     expect(result.operations[0]!.rendering!.powershell!.noun).toBe("ResourceGroup");
   });
+
+  it("infers noun from the pageable item type, not the containing namespace, when they disagree (real Azure Fleet gap)", async () => {
+    // Real gap found compiling the real Azure Fleet spec: listVirtualMachineScaleSets is
+    // declared under the Fleets interface (namespace: ["Fleets"]) but is a pageable operation
+    // over VirtualMachineScaleSet, not Fleet — the noun must follow the real item type (IR's
+    // own computed IRPageableSemantics.itemType), or it wrongly merges into Get-AzFleet. The
+    // response's own type (the page-wrapper model) is deliberately NOT what's asserted here —
+    // real wrapper naming has no consistent convention across specs.
+    const operation = makeOperation({
+      id: { module: "Microsoft.AzureFleet", namespace: ["Fleets"], name: "listVirtualMachineScaleSets" },
+      method: "GET",
+      responses: [
+        {
+          statusCode: { kind: "exact", code: 200 },
+          isError: false,
+          type: { kind: "model", id: { module: "Microsoft.AzureFleet", namespace: [], name: "VirtualMachineScaleSetListResult" } },
+        },
+      ],
+      semantics: {
+        kind: "pageable",
+        itemType: { kind: "model", id: { module: "Microsoft.AzureFleet", namespace: [], name: "VirtualMachineScaleSet" } },
+        itemsPath: "value",
+        nextLinkPath: "nextLink",
+      },
+    });
+
+    const step = createPsCommandsFactory({ subjectPrefix: "Az" });
+    const result = await step.run({ ...emptyIR(), operations: [operation] }, CONTEXT);
+
+    expect(result.operations[0]!.rendering!.powershell!.noun).toBe("VirtualMachineScaleSet");
+  });
+
+  it("falls back to the containing namespace when the operation has no model response (e.g. delete)", async () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "delete" },
+      method: "DELETE",
+      responses: [{ statusCode: { kind: "exact", code: 204 }, isError: false }],
+    });
+
+    const step = createPsCommandsFactory({ subjectPrefix: "Az" });
+    const result = await step.run({ ...emptyIR(), operations: [operation] }, CONTEXT);
+
+    expect(result.operations[0]!.rendering!.powershell!.noun).toBe("ResourceGroup");
+  });
 });

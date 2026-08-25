@@ -20,6 +20,7 @@ import type {
   IR,
   IROperation,
   IRParameter,
+  IRTypeRef,
   ParameterHints,
   PowershellOperationHint,
 } from "@azure-client-engine/ir";
@@ -58,6 +59,46 @@ function resourceNameCandidate(operation: IROperation): string {
   return segments.length > 0 ? segments[segments.length - 1]! : operation.id.name;
 }
 
+/** Model/enum refs carry a name directly; array refs recurse into their element. Others have none. */
+function modelNameOfTypeRef(type: IRTypeRef): string | undefined {
+  switch (type.kind) {
+    case "model":
+    case "enum":
+      return type.id.name;
+    case "array":
+      return modelNameOfTypeRef(type.element);
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * The resource name implied by what the operation actually returns, not by which interface it's
+ * declared under — real gap found by compiling the real Azure Fleet spec: `listVirtualMachineScaleSets`
+ * (declared under the `Fleets` interface, so `resourceNameCandidate` alone would say "Fleet") returns
+ * `VirtualMachineScaleSetListResult`, and real Az naming follows the returned resource, not the
+ * containing interface. For pageable operations, uses IR's own already-computed
+ * `IRPageableSemantics.itemType` rather than guessing at the page-wrapper model's own name — real
+ * wrapper naming has no consistent convention across specs (`FleetListResult`, `PetPage`, etc.), but
+ * the real item type is exact. Model type names are already singular by convention (unlike the
+ * pluralized namespace/interface names `resourceNameCandidate` falls back to), so this is never
+ * additionally singularized.
+ */
+function responseModelNameCandidate(operation: IROperation): string | undefined {
+  if (operation.semantics?.kind === "pageable") {
+    const name = modelNameOfTypeRef(operation.semantics.itemType);
+    if (name !== undefined) return name;
+  }
+
+  for (const response of operation.responses) {
+    if (response.isError || response.type === undefined) continue;
+    const name = modelNameOfTypeRef(response.type);
+    if (name === undefined) continue;
+    return name;
+  }
+  return undefined;
+}
+
 /** Every parameter name on an operation — path, query, and header (directive `parameterName` matching scope). */
 function parameterNamesOf(operation: IROperation): string[] {
   return [
@@ -82,7 +123,7 @@ function resolveOperationHints(
   const existing = operation.rendering?.powershell ?? {};
 
   const inferredVerb = resolveVerb(operation.id.name, operation.method);
-  const inferredNoun = singularize(resourceNameCandidate(operation));
+  const inferredNoun = responseModelNameCandidate(operation) ?? singularize(resourceNameCandidate(operation));
   // "" means "no prefix configured" — must stay undefined, not "", since
   // PowershellOperationHintSchema's subjectPrefix is a non-empty string when present.
   const inferredSubjectPrefix = options.subjectPrefix || undefined;

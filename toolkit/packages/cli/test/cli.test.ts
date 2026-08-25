@@ -348,7 +348,9 @@ describe("ace compile: --config generator (generate-ps-commands)", () => {
 
     const get = commands.find((c) => c.verb === "Get" && c.noun === "AzPet");
     expect(get).toBeDefined();
-    expect(get!.parameterSets.map((p) => p.name).sort()).toEqual(["Get", "GetStatus", "List"]);
+    // GetStatus resolves to its own command now (it returns PetOperationStatus, a
+    // different model than Get/List's Pet) rather than wrongly merging in by namespace.
+    expect(get!.parameterSets.map((p) => p.name).sort()).toEqual(["Get", "List"]);
 
     const create = commands.find((c) => c.verb === "New" && c.noun === "AzPet");
     expect(create).toBeDefined();
