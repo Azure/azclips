@@ -10,13 +10,15 @@
  * (from `azure-rest-api-specs`, unmodified aside from being vendored
  * locally) through the real `compile()` backbone with `create-ps-commands`
  * in the transform pipeline, then calls the separate `derivePsCommands()`
- * (see design.md Decision 8) on the result. Real spec, not hand-simplified
- * like `fleet.e2e.test.ts`'s comparison point used to be — includes
- * `Operations`/`ResourceGroups`/`Resources`/`Tags`/`Providers`, 24 derived
- * commands total, exercising the noun-inference fix
- * (`listByResourceGroup` correctly separates from `Get-AzResourceGroup`)
- * against the exact real-world case that inspired it.
+ * (see design.md Decision 8) on the result. Spans `Operations`/
+ * `ResourceGroups`/`Resources`/`Tags`/`Providers`, 24 derived commands
+ * total, exercising the noun-inference fix (`listByResourceGroup`
+ * correctly separates from `Get-AzResourceGroup`) against the exact
+ * real-world case that inspired it — an earlier, separate real fixture
+ * (the actual Azure Compute Fleet spec) found the same gap first and was
+ * removed once this fixture was confirmed to cover it too.
  */
+
 
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
