@@ -1,20 +1,10 @@
 /**
- * `generate-ps-commands`: the placeholder for the eventual real PowerShell
- * artifact generator (Cmdlet + Processor classes; `ExtensionIndex` PS-only
- * registration is a separate, unresolved prerequisite — see design.md's
- * Open Questions). Kept under its final registry id/factory name now so
- * there's no rename/re-export churn once it grows real C# output.
- *
- * Today it only calls `derivePsCommands(ir)`/`deriveModules(ir)` and
- * serializes the result as JSON (`noopGenerator` remains the default
- * `Generator`), so a real `ace compile` invocation has a concrete way to
- * see `PsCommand[]`/`PsModule[]` output, without a C# back end to consume
- * it yet.
- *
- * Both derive functions are called here, inside `generate()`, rather than
- * as a separate pipeline stage — see design.md Decision 8: a `Generator` is
- * the one stage in `compile()` not required to return `IR`, since nothing
- * runs after it.
+ * Placeholder for the eventual real PowerShell generator (Cmdlet + Processor classes).
+ * Kept under its final registry id/factory name now to avoid rename churn later. Today
+ * it just calls `derivePsCommands(ir)`/`deriveModules(ir)` and writes the result as JSON,
+ * so `ace compile` has a concrete way to see `PsCommand[]`/`PsModule[]` output. Called
+ * here inside `generate()` rather than as a pipeline stage, since `Generator` is the one
+ * `compile()` stage not required to return `IR` (design.md Decision 8).
  */
 
 import type { Generator, GeneratorContext, GeneratorOutput } from "./generate.js";

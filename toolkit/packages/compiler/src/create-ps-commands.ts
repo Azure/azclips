@@ -1,18 +1,9 @@
 /**
- * `create-ps-commands`: enriches each `IROperation`'s `hints.powershell` in
- * place (verb, noun, parameterSetName, confirmImpact). Genuinely `IR -> IR`
- * — see ps-cmdlet-schema's design.md Decision 8 for why this can't instead
- * return a `PsCommand[]`, and why grouping into `PsCommand`s is a separate,
- * later function (`derivePsCommands`, in `@azure-client-engine/ps-commands`).
- *
- * Named with a `Ps` qualifier (not bare `create-commands`) since azclips has
- * both a CLI and a PS surface — this step is PowerShell-only.
- *
- * Any field an author already set via `hints.powershell` is left untouched
- * (ordinary last-writer-wins hint semantics) — this transform only fills in
- * what's missing. Directive-style bulk overrides (design.md Decision 7) are
- * applied as a fallback default layered between inference and inline hints
- * — see `directives.ts`.
+ * `TransformStep` that enriches each `IROperation`'s `hints.powershell` in place
+ * (verb, noun, parameterSetName, confirmImpact) — grouping into `PsCommand`s
+ * happens later, in `derivePsCommands` (design.md Decision 8). Only fills in
+ * fields an author hasn't already set; directives (`directives.ts`) apply as a
+ * fallback layer between inference and inline hints (design.md Decision 7).
  */
 
 import type {
@@ -74,15 +65,10 @@ function modelNameOfTypeRef(type: IRTypeRef): string | undefined {
 
 /**
  * The resource name implied by what the operation actually returns, not by which interface it's
- * declared under — real gap found by compiling the real Azure Fleet spec: `listVirtualMachineScaleSets`
- * (declared under the `Fleets` interface, so `resourceNameCandidate` alone would say "Fleet") returns
- * `VirtualMachineScaleSetListResult`, and real Az naming follows the returned resource, not the
- * containing interface. For pageable operations, uses IR's own already-computed
- * `IRPageableSemantics.itemType` rather than guessing at the page-wrapper model's own name — real
- * wrapper naming has no consistent convention across specs (`FleetListResult`, `PetPage`, etc.), but
- * the real item type is exact. Model type names are already singular by convention (unlike the
- * pluralized namespace/interface names `resourceNameCandidate` falls back to), so this is never
- * additionally singularized.
+ * declared under — a nested list operation can return a different resource than its containing
+ * interface implies. Prefers IR's own `itemType` for pageable operations over guessing at the
+ * page-wrapper model's name (wrapper naming has no consistent convention across specs). Response/
+ * item type names are already singular, so never additionally singularized.
  */
 function responseModelNameCandidate(operation: IROperation): string | undefined {
   if (operation.semantics?.kind === "pageable") {
@@ -124,15 +110,12 @@ function resolveOperationHints(
 
   const inferredVerb = resolveVerb(operation.id.name, operation.method);
   const inferredNoun = responseModelNameCandidate(operation) ?? singularize(resourceNameCandidate(operation));
-  // "" means "no prefix configured" — must stay undefined, not "", since
-  // PowershellOperationHintSchema's subjectPrefix is a non-empty string when present.
+  // "" means "not configured"; keep as undefined since the schema requires a non-empty string.
   const inferredSubjectPrefix = options.subjectPrefix || undefined;
   const inferredConfirmImpact = isMutatingMethod(operation.method) ? "Medium" : undefined;
 
-  // Directive matching evaluates against the "already-authored, else inferred" identity —
-  // what the operation's verb/noun/subjectPrefix would be with no directive at all. Returned
-  // as-is (not the post-directive result) so parameter-level directive matching can use the
-  // same pre-directive identity, rather than one a command-level directive already changed.
+  // Directive matching uses this pre-directive identity, so parameter-level directives see
+  // the same values regardless of what a command-level directive later overrides.
   const identity: CommandIdentity = {
     verb: existing.verb ?? inferredVerb,
     subject: existing.noun ?? inferredNoun,

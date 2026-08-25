@@ -165,21 +165,14 @@ export const EnumHintsSchema: z.ZodType<EnumHints> = CommonHintsSchema;
 
 // ─── PowerShell hints (operation-level and parameter-level) ─────────────
 //
-// No prior mention of "powershell" existed in this file before the
-// ps-cmdlet-schema change (confirmed by inspection, not an existing
-// anticipated namespace). Fields are both an authoring-override input and
-// the `create-ps-commands` transform's (in @azure-client-engine/compiler)
-// write target: it resolves verb/noun/parameterSetName/confirmImpact from
-// IR + policy and writes the result back here, leaving any value an author
-// already set untouched (ordinary last-writer-wins hint-merge semantics —
-// no special-casing needed). Mirrors AutoRest.PowerShell's own
-// `CommandOperation extends ProgrammaticOperation` pattern (PS facet bolted
-// onto the same operation object), adapted to IR's immutable-node model.
+// Both an authoring-override input and `create-ps-commands`'s write target: it resolves
+// verb/noun/parameterSetName/confirmImpact from IR + policy and writes the result back here,
+// leaving any value an author already set untouched. Mirrors AutoRest.PowerShell's own
+// `CommandOperation extends ProgrammaticOperation` pattern, adapted to IR's immutable nodes.
 
 /**
- * PowerShell `ConfirmImpact` level. Shared between `PowershellOperationHint`
- * and `@azure-client-engine/ps-commands`'s `PsCommand` aggregate so the two
- * packages can't drift on the allowed values.
+ * PowerShell `ConfirmImpact` level, shared with `ps-commands`'s `PsCommand`
+ * so the two packages can't drift on allowed values.
  */
 export const ConfirmImpacts = ["None", "Low", "Medium", "High"] as const;
 export type ConfirmImpact = (typeof ConfirmImpacts)[number];
@@ -228,11 +221,7 @@ export const DefaultValueHintSchema: z.ZodType<DefaultValueHint> = z
   })
   .strict();
 
-/**
- * PowerShell command-shape fields for an operation. See ps-cmdlet-schema's
- * design.md Decisions 3/8 for the full field list and why this lives here
- * rather than in a separate package.
- */
+/** PowerShell command-shape fields for an operation (design.md Decisions 3/8). */
 export type PowershellOperationHint = {
   /** PowerShell approved verb, e.g. "Get", "New", "Set". */
   verb?: string | undefined;
@@ -301,11 +290,7 @@ export const OperationHintsSchema: z.ZodType<OperationHints> = z
   })
   .strict();
 
-/**
- * PowerShell command-shape fields for a parameter. Mirrors `ArgumentInfoAttribute`
- * (mandatory/mutability/default-value) and PS `[Parameter]` (pipeline-binding,
- * wildcards, aliases, `ValidateSet`, completer). See design.md Decision 3.
- */
+/** PowerShell command-shape fields for a parameter. Mirrors `ArgumentInfoAttribute` and PS `[Parameter]` (design.md Decision 3). */
 export type PowershellParameterHint = {
   mandatory?: boolean | undefined;
   /** Parameter-set name this parameter belongs to (defaults to the containing operation's). */
@@ -332,11 +317,8 @@ export type PowershellParameterHint = {
   dontShow?: boolean | undefined;
   defaultValue?: DefaultValueHint | undefined;
   /**
-   * Per-parameter-set overrides for `mandatory`/`position`/`helpMessage`, keyed by parameter-set
-   * name — matches the real `System.Management.Automation.ParameterSetMetadata` structure
-   * exactly (confirmed live: the same parameter can have different `IsMandatory`/`Position`/
-   * `HelpMessage` per set it belongs to). The flat fields above remain the default/fallback used
-   * when a parameter belongs to only one set, or a specific set has no override entry here.
+   * Per-parameter-set overrides for `mandatory`/`position`/`helpMessage`, keyed by set name —
+   * mirrors real `ParameterSetMetadata`. The flat fields above are the default/fallback.
    */
   parameterSets?: Record<string, { mandatory?: boolean | undefined; position?: number | undefined; helpMessage?: string | undefined }> | undefined;
 };
@@ -384,11 +366,9 @@ export const ParameterHintsSchema: z.ZodType<ParameterHints> = z
   .strict();
 
 /**
- * PowerShell module-shape fields for a source (one TypeSpec entrypoint, one
- * generated module). Scoped narrowly to `description` \u2014 release/packaging
- * `.psd1` fields (GUID, version, required modules, PSGallery metadata) have
- * no IR-derivable source of truth; see ps-cmdlet-schema's design.md
- * Module-level section for the full field-by-field framework verdicts.
+ * PowerShell module-shape fields for a source (one TypeSpec entrypoint, one generated module).
+ * Scoped to `description` only — `.psd1` release/packaging fields have no IR-derivable source
+ * of truth (design.md Module-level section).
  */
 export type PowershellSourceHint = {
   /** Module summary/description text; author-settable, not yet wired to a TypeSpec decorator. */

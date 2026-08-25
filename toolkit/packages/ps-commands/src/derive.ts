@@ -1,14 +1,9 @@
 /**
- * `derivePsCommands`: groups an already-enriched `IR` (post `create-ps-commands`)
- * into the final `PsCommand[]`. Plain function, not a pipeline stage — see
- * ps-cmdlet-schema's design.md Decision 8 for why grouping can't happen
- * inside `create-ps-commands` itself.
- *
- * Operations under the same `id.namespace` sharing a resolved verb+noun
- * merge into one `PsCommand` with one `PsParameterSet` per source operation
- * (real precedent: `GetResourceGroupCmdlet`'s `"Get"`/`"List"` parameter
- * sets). Operations `create-ps-commands` hasn't enriched yet (no resolved
- * `verb`/`noun`) are skipped.
+ * Groups an already-enriched `IR` (post `create-ps-commands`) into the final `PsCommand[]`.
+ * Plain function, not a pipeline stage (design.md Decision 8). Operations under the same
+ * `id.namespace` sharing a resolved verb+noun merge into one `PsCommand` with one
+ * `PsParameterSet` per source operation (real precedent: `GetResourceGroupCmdlet`'s
+ * `"Get"`/`"List"` sets). Operations `create-ps-commands` hasn't enriched are skipped.
  */
 
 import {
@@ -58,11 +53,9 @@ function groupKey(operation: IROperation): string | undefined {
 }
 
 /**
- * One source operation's parameter set(s). Single-operation variant fan-out
- * (design.md Decision 5b) is limited to `base` (whole body object) and
- * `Expanded` (body properties flattened, reusing IR's existing `FlattenHint`
- * rather than a new PS-specific heuristic — Decision 6). `ViaIdentity` and
- * `ViaJsonString`/`ViaJsonFilePath` are explicitly not implemented.
+ * One source operation's parameter set(s). Fan-out (design.md Decision 5b/6) is limited to
+ * `base` and `Expanded` (flattened body, reusing IR's `FlattenHint`); `ViaIdentity` and
+ * `ViaJsonString`/`ViaJsonFilePath` are not implemented.
  */
 function parameterSetsFor(operation: IROperation): PsParameterSet[] {
   const baseName = operation.rendering!.powershell!.parameterSetName ?? operation.id.name;
@@ -88,13 +81,9 @@ export type ResolvedParameterHint = {
 };
 
 /**
- * Resolves a parameter's effective `mandatory`/`position`/`helpMessage` for one
- * `PsParameterSet`, checking `parameterSets[setName]` first and falling back to
- * the flat value — matching the real `System.Management.Automation.
- * ParameterSetMetadata` structure, where the same parameter can carry different
- * values per set it belongs to. Called by a future generator per `PsParameterSet`
- * it emits a binding for; `PsParameterSet` itself stays bare (see schema.ts) since
- * this is parameter-level detail, not command-grouping detail.
+ * Resolves a parameter's effective `mandatory`/`position`/`helpMessage` for one `PsParameterSet`,
+ * checking `parameterSets[setName]` first and falling back to the flat value — mirrors real
+ * `ParameterSetMetadata`, where the same parameter can carry different values per set.
  */
 export function resolveParameterHintForSet(parameter: IRParameter, setName: string): ResolvedParameterHint {
   const ps = parameter.rendering?.powershell;
@@ -107,15 +96,9 @@ export function resolveParameterHintForSet(parameter: IRParameter, setName: stri
 }
 
 /**
- * Mirrors `CmdletCommonMetadataAttribute.DefaultParameterSetName`. Two real
- * precedents, checked directly against the generated ecosystem (design.md's
- * Command-level section):
- * - Merging distinct source operations (e.g. `get`+`list`): the one with
- *   fewer required parameters is more general and wins — real precedent
- *   `GetResourceGroupCmdlet`'s `DefaultParameterSetName = "List"`, not `"Get"`.
- * - A single source operation fanned into `base`+`Expanded` variants:
- *   `Expanded` wins — real precedent, e.g. generated modules commonly set
- *   `DefaultParameterSetName='CreateExpanded'`, not the base/whole-body set.
+ * Mirrors `CmdletCommonMetadataAttribute.DefaultParameterSetName` (design.md Command-level
+ * section). Merged operations: fewest required parameters wins (e.g. `GetResourceGroupCmdlet`'s
+ * `"List"` over `"Get"`). Single operation fanned into `base`+`Expanded`: `Expanded` wins.
  */
 function defaultParameterSetNameFor(
   operations: readonly IROperation[],
@@ -179,13 +162,9 @@ export function derivePsCommands(ir: IR): PsCommand[] {
 }
 
 /**
- * `deriveModules`: groups `derivePsCommands`'s output by source into the
- * final `PsModule[]`. Plain function, not a pipeline stage — same rationale
- * as `derivePsCommands` (design.md Decision 8). Assumes every operation
- * merged into one `PsCommand` shares a single source — true for any real
- * input, since merging groups by `id.module`, which "doubles as" a source's
- * id (see `IRSource`'s docstring); only the first source operation is
- * actually looked up.
+ * Groups `derivePsCommands`'s output by source into the final `PsModule[]`. Plain function,
+ * not a pipeline stage (design.md Decision 8). Only the first source operation of each
+ * command is looked up, since merging groups by `id.module`, which doubles as a source's id.
  */
 export function deriveModules(ir: IR): PsModule[] {
   const commands = derivePsCommands(ir);

@@ -1,14 +1,7 @@
 /**
- * Verb inference table (task 0.10 / design.md Decision 4).
- *
- * An action-word table match always wins, regardless of HTTP method. Only
- * when the operation's action word has no table entry does the schema fall
- * back to an HTTP-method-based default. This precedence is required by real
- * precedent, not just convenience: azclips's own hand-written
- * `NewResourceGroupProcessor` issues a PUT for `ResourceGroups.createOrUpdate`,
- * yet the real cmdlet is `New-AzResourceGroup` — an earlier draft that let
- * PUT override the table match would have produced `Set-AzResourceGroup`,
- * which does not match any shipping cmdlet.
+ * Verb inference table (design.md Decision 4). An action-word table match always wins over
+ * the HTTP-method fallback — required by real precedent: `ResourceGroups.createOrUpdate` is a
+ * PUT, but the real cmdlet is `New-AzResourceGroup`, not `Set-AzResourceGroup`.
  */
 
 import type { HttpMethod } from "@azure-client-engine/ir";

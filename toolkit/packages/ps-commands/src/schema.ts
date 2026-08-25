@@ -1,16 +1,11 @@
 /**
- * Thin, cross-operation grouping shape (`PsCommand`/`PsParameterSet`). Named
- * with a `Ps` prefix (not bare `Command`) to stay unambiguous alongside
- * azclips's own `CommandMetadata`, which spans both PS and CLI surfaces —
- * this schema is PowerShell-only.
+ * Thin, cross-operation grouping shape (`PsCommand`/`PsParameterSet`). Named with a `Ps`
+ * prefix to stay distinct from azclips's own CLI+PS `CommandMetadata`.
  *
- * Per ps-cmdlet-schema's design.md Decisions 2/8: per-node PS vocabulary
- * (verb, noun, mandatory, help, etc.) lives as `hints.powershell` directly
- * on IR operations/parameters, not here. This package holds only what
- * `hints.powershell` structurally cannot express — the fact that multiple
- * IR operations (e.g. `get` + `list`) merge into one PowerShell command
- * with one parameter set per source operation. See `derivePsCommands` in
- * `derive.js` for how this is assembled from an enriched `IR`.
+ * Per design.md Decisions 2/8, per-node PS vocabulary (verb, noun, mandatory, etc.) lives
+ * as `hints.powershell` on IR operations/parameters, not here — this package only holds
+ * what hints can't express: that multiple IR operations (e.g. `get`+`list`) merge into one
+ * command with one parameter set per source operation. See `derivePsCommands` in `derive.js`.
  */
 
 import { z } from "zod";
@@ -25,11 +20,7 @@ import {
   type CompleterHint,
 } from "@azure-client-engine/ir";
 
-/**
- * One source operation's contribution to a merged `PsCommand`. Deliberately
- * bare — parameter-level detail (mandatory, help, etc.) lives on the
- * referenced operation's own parameters' `hints.powershell`, not here.
- */
+/** One source operation's contribution to a merged `PsCommand`; parameter-level detail lives on the referenced operation's own parameters, not here. */
 export type PsParameterSet = {
   /** Source-operation-derived, e.g. "Get", "List". */
   name: string;
@@ -45,10 +36,9 @@ export const PsParameterSetSchema: z.ZodType<PsParameterSet> = z
   .strict();
 
 /**
- * A PowerShell command, grouped from one or more IR operations sharing a
- * resolved verb+noun. All fields below are copied from the grouped
- * operations' resolved `hints.powershell` at grouping time (see
- * `derivePsCommands`), not independently authored here.
+ * A PowerShell command, grouped from one or more IR operations sharing a resolved verb+noun.
+ * Every field is copied from the grouped operations at grouping time (`derivePsCommands`),
+ * not independently authored here.
  */
 export type PsCommand = {
   verb: string;
@@ -62,13 +52,9 @@ export type PsCommand = {
   /** One parameter set per merged source operation. */
   parameterSets: PsParameterSet[];
   /**
-   * Mirrors `System.Management.Automation.CmdletCommonMetadataAttribute
-   * .DefaultParameterSetName`. `derivePsCommands` computes this: the most
-   * general merged source operation wins (fewest required parameters —
-   * real precedent: `GetResourceGroupCmdlet`'s `"List"` over `"Get"`); for
-   * a single source operation fanned into `base`+`Expanded` variants,
-   * `Expanded` wins (real precedent: generated modules commonly set e.g.
-   * `DefaultParameterSetName='CreateExpanded'`).
+   * Mirrors `CmdletCommonMetadataAttribute.DefaultParameterSetName`. Computed by
+   * `derivePsCommands`: fewest-required-parameters wins across merged operations
+   * (e.g. `List` over `Get`), `Expanded` wins over `base` for a fanned-out operation.
    */
   defaultParameterSetName: string;
   /** IR operation id(s) this command derives from. */
@@ -116,11 +102,9 @@ export const PsCommandSchema: z.ZodType<PsCommand> = z
   .strict();
 
 /**
- * One generated PowerShell module (one merged `IRSource`). Thin aggregate,
- * same rationale as `PsCommand`: per-source authoring (`description`) lives
- * as `hints.powershell` on `IRSource.rendering`; this only holds what that
- * hint structurally cannot express — the flattened list of every `PsCommand`
- * grouped under this source. See `deriveModules` in `derive.js`.
+ * One generated PowerShell module (one merged `IRSource`). Same rationale as `PsCommand`:
+ * per-source authoring lives as `hints.powershell` on `IRSource.rendering`; this only holds
+ * the flattened list of every `PsCommand` grouped under this source. See `deriveModules`.
  */
 export type PsModule = {
   /** `IRSource.id` this module derives from. */

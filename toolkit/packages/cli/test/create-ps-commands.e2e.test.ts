@@ -1,22 +1,12 @@
 /**
- * Milestone 0 proof: `IR -> (enriched IR) -> PsCommand[]` end-to-end, via a
- * real dynamic TypeSpec compile.
- *
- * Lives in `cli` (not `compiler`) because the compiler orchestrator is
- * TypeSpec-free (see `pipeline.test.ts`'s emit-seam tests) — the only way to
- * turn a real `.tsp` fixture into IR is the CLI's out-of-process
- * `createSubprocessEmitProducer`, exactly as `tsp-compile.test.ts` does for
- * `pets.tsp`. Compiles the real, official `Microsoft.Resources` TypeSpec
- * (from `azure-rest-api-specs`, unmodified aside from being vendored
- * locally) through the real `compile()` backbone with `create-ps-commands`
- * in the transform pipeline, then calls the separate `derivePsCommands()`
- * (see design.md Decision 8) on the result. Spans `Operations`/
- * `ResourceGroups`/`Resources`/`Tags`/`Providers`, 24 derived commands
- * total, exercising the noun-inference fix (`listByResourceGroup`
- * correctly separates from `Get-AzResourceGroup`) against the exact
- * real-world case that inspired it — an earlier, separate real fixture
- * (the actual Azure Compute Fleet spec) found the same gap first and was
- * removed once this fixture was confirmed to cover it too.
+ * `IR -> (enriched IR) -> PsCommand[]` end-to-end, via a real dynamic TypeSpec compile.
+ * Lives in `cli` (not `compiler`) because turning a real `.tsp` fixture into IR requires
+ * the CLI's out-of-process `createSubprocessEmitProducer` (see `tsp-compile.test.ts`).
+ * Compiles the real, official `Microsoft.Resources` TypeSpec (vendored from
+ * `azure-rest-api-specs`) through `compile()` with `create-ps-commands`, then
+ * `derivePsCommands()`/`deriveModules()` (design.md Decision 8) — 24 derived commands,
+ * exercising the noun-inference fix (`listByResourceGroup` stays separate from
+ * `Get-AzResourceGroup`).
  */
 
 

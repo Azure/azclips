@@ -32,14 +32,9 @@ import { stageLocalProject, type StagedProject } from "./staging.js";
 import { createSubprocessEmitProducer } from "./tsp-compile.js";
 
 /**
- * Transform steps and generators available to a `--config` file's `pipeline`/
- * `generator` (see `CompileConfig.pipeline`/`.generator`). `create-ps-commands`
- * (ps-cmdlet-schema's `hints.powershell` enrichment step) and
- * `generate-ps-commands` (today just a debug/preview generator that writes the
- * derived `PsCommand[]` as JSON — kept under its eventual real-generator name
- * so there's no rename later) are both opt-in — absent `pipeline`/`generator`,
- * `compile()` still defaults to the identity pipeline and `noopGenerator`, so
- * existing `--config` files are unaffected.
+ * Transform steps and generators available to a `--config` file's `pipeline`/`generator`.
+ * Both `create-ps-commands` and `generate-ps-commands` are opt-in — absent `pipeline`/
+ * `generator`, `compile()` still defaults to the identity pipeline and `noopGenerator`.
  */
 const REGISTRY = createRegistry({
   transforms: { "create-ps-commands": createPsCommandsFactory },
@@ -139,10 +134,8 @@ async function runCompile(args: string[]): Promise<number> {
     return 2;
   }
 
-  // --config points at a JSON file of app-resolved, generation-time settings,
-  // loaded here as CompileInput.config (a CompileConfig) — e.g. `pipeline` opts
-  // into a registered transform step like `create-ps-commands`. --api-version is
-  // sugar for config.apiVersion and takes precedence when both are given.
+  // --config loads a JSON CompileConfig (e.g. `pipeline` opts into a registered transform
+  // step). --api-version is sugar for config.apiVersion and takes precedence when both are given.
   let config: CompileConfig | undefined;
   if (configPath !== undefined) {
     const loaded = await loadConfig(configPath);

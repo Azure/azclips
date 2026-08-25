@@ -1,17 +1,10 @@
 /**
- * Directive-style (`select`/`where`/`set`) bulk overrides for
- * `create-ps-commands`, per ps-cmdlet-schema's design.md Decision 7. Modeled
- * on AutoRest.PowerShell's real `docs/directives.md` grammar, narrowed to
- * this schema's scope: only `command` and `parameter` selectors (no
- * `model`/`property` — those are out of scope, see design.md's Non-Goals).
- *
- * Precedence (Decision 7): an inline `hints.powershell` value an author
- * already set always wins; a directive only supplies a *fallback* default,
- * applied on top of plain inference, never overriding an explicit inline
- * value. Directive matching itself is evaluated against that same
- * "already-authored, else inferred" value — the operation's resolved
- * identity as it would be if no directive existed — mirroring how AutoRest's
- * own directives match already-resolved verb/subject from an earlier stage.
+ * Directive-style (`select`/`where`/`set`) bulk overrides for `create-ps-commands`
+ * (design.md Decision 7), modeled on AutoRest.PowerShell's directive grammar but
+ * narrowed to `command`/`parameter` selectors (no `model`/`property` — out of
+ * scope, see design.md's Non-Goals). An inline `hints.powershell` value always
+ * wins; a directive only supplies a fallback default over plain inference,
+ * matched against the operation's resolved (authored-or-inferred) identity.
  */
 
 import { z } from "zod";
@@ -22,10 +15,8 @@ export const DirectiveSelectors = ["command", "parameter"] as const;
 export type DirectiveSelector = (typeof DirectiveSelectors)[number];
 
 /**
- * Filter criteria. `subject` is the bare noun (no subject prefix), matching
- * `hints.powershell.noun`'s own bare convention. `parameterName` filters a
- * `parameter` selector's own name, or (for a `command` selector) requires
- * the command to have a parameter with that name.
+ * Filter criteria. `subject` is the bare noun (no prefix). `parameterName` filters a
+ * parameter's own name, or — for a `command` selector — requires a matching parameter to exist.
  */
 export type DirectiveWhere = {
   verb?: string | undefined;
@@ -83,8 +74,7 @@ export const DirectiveSchema: z.ZodType<Directive> = z
     set: DirectiveSetSchema,
   })
   .strict()
-  // An explicit `select: "parameter"` with no `where.parameterName` can never match anything
-  // (matchesParameter always requires it) — reject at validation time rather than silently no-op.
+  // A "parameter" selector with no `where.parameterName` can never match anything — reject up front.
   .refine((directive) => directive.select !== "parameter" || directive.where.parameterName !== undefined, {
     message: 'A "parameter" selector directive requires `where.parameterName`.',
     path: ["where", "parameterName"],
@@ -93,10 +83,8 @@ export const DirectiveSchema: z.ZodType<Directive> = z
 export const DirectivesSchema: z.ZodType<Directive[]> = z.array(DirectiveSchema);
 
 /**
- * Resolve which kind of node a directive targets. Mirrors AutoRest's own
- * inference: an explicit `select` always wins; absent that, a `parameterName`
- * filter with no `select` defaults to `"parameter"` (matching AutoRest's own
- * default — see `docs/directives.md`'s first example), otherwise `"command"`.
+ * Resolve which kind of node a directive targets: explicit `select` wins, else a `parameterName`
+ * filter implies `"parameter"`, otherwise `"command"` (mirrors AutoRest's own inference).
  */
 export function resolveSelector(directive: Directive): DirectiveSelector {
   if (directive.select !== undefined) return directive.select;
