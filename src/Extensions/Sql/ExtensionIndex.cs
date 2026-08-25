@@ -63,15 +63,75 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql
             }
         );
 
+        // PS Command Metadata
+        private static readonly CommandMetadata s_newSqlDatabase_PS = new(
+            Name: "NewSqlDatabaseProcessor_Orchestrator",
+            InvocationName: "New-AzSqlDatabase",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Sql.Orchestrators.NewSqlDatabaseProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Sql",
+            ProcessorType: typeof(Orchestrators.NewSqlDatabaseProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]                = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"]             = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ServerName"]                    = new("ServerName", "ServerName", typeof(string), "The name of the SQL server that hosts the database.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["DatabaseName"]                  = new("Name", "DatabaseName", typeof(string), "The name of the database.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Edition"]                       = new("Edition", "Edition", typeof(string), "The edition (service tier) of the database, for example GeneralPurpose.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["RequestedServiceObjectiveName"] = new("ServiceObjective", "RequestedServiceObjectiveName", typeof(string), "The service objective (SKU name) of the database, for example S0 or GP_Gen5_2.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Family"]                        = new("Family", "Family", typeof(string), "The compute generation of the database SKU, for example Gen5.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Capacity"]                      = new("Capacity", "Capacity", typeof(int), "The capacity (vCores or DTUs) of the database SKU.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["CollationName"]                 = new("Collation", "CollationName", typeof(string), "The collation of the database.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["MaxSizeBytes"]                  = new("MaxSizeBytes", "MaxSizeBytes", typeof(long), "The maximum size of the database in bytes.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ElasticPoolName"]               = new("ElasticPoolName", "ElasticPoolName", typeof(string), "The name of the elastic pool to create the database in.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ZoneRedundant"]                 = new("ZoneRedundant", "ZoneRedundant", typeof(bool), "Whether the database is zone redundant.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        // CLI Command Metadata
+        private static readonly CommandMetadata s_newSqlDatabase_CLI = new(
+            Name: "NewSqlDatabaseProcessor_Orchestrator",
+            InvocationName: "sql db create",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Sql.Orchestrators.NewSqlDatabaseProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Sql",
+            ProcessorType: typeof(Orchestrators.NewSqlDatabaseProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]     = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-group"]      = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["server"]              = new("ServerName", "server", typeof(string), "The name of the SQL server that hosts the database.", IsRequired: true, Aliases: ["s"], AllowedValues: []),
+                ["name"]                = new("Name", "name", typeof(string), "The name of the database.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["edition"]             = new("Edition", "edition", typeof(string), "The edition (service tier) of the database, for example GeneralPurpose.", IsRequired: false, Aliases: ["e"], AllowedValues: []),
+                ["service-objective"]   = new("ServiceObjective", "service-objective", typeof(string), "The service objective (SKU name) of the database, for example S0 or GP_Gen5_2.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["family"]              = new("Family", "family", typeof(string), "The compute generation of the database SKU, for example Gen5.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["capacity"]            = new("Capacity", "capacity", typeof(int), "The capacity (vCores or DTUs) of the database SKU.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["collation"]           = new("Collation", "collation", typeof(string), "The collation of the database.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["max-size-bytes"]      = new("MaxSizeBytes", "max-size-bytes", typeof(long), "The maximum size of the database in bytes.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["elastic-pool"]        = new("ElasticPoolName", "elastic-pool", typeof(string), "The name of the elastic pool to create the database in.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["zone-redundant"]      = new("ZoneRedundant", "zone-redundant", typeof(bool), "Whether the database is zone redundant.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+                ["g"] = "resource-group",
+                ["s"] = "server",
+                ["e"] = "edition",
+            }
+        );
+
         // Dispatch Tables
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
             ["New-AzSqlServer"] = s_newSqlServer_PS,
+            ["New-AzSqlDatabase"] = s_newSqlDatabase_PS,
         };
 
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["sql server create"] = s_newSqlServer_CLI,
+            ["sql db create"] = s_newSqlDatabase_CLI,
         };
 
         static ExtensionIndex()
