@@ -43,23 +43,8 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
-            var queryParts = new List<string>();
-
-            if (Select is { Length: > 0 })
-            {
-                queryParts.Add($"$select={Uri.EscapeDataString(string.Join(',', Select))}");
-            }
-
-            if (Expand is { Length: > 0 })
-            {
-                queryParts.Add($"$expand={Uri.EscapeDataString(string.Join(',', Expand))}");
-            }
-
-            string uri = $"https://graph.microsoft.com/v1.0/users/{Uri.EscapeDataString(Id)}";
-            if (queryParts.Count > 0)
-            {
-                uri = $"{uri}?{string.Join('&', queryParts)}";
-            }
+            string uri = $"https://graph.microsoft.com/v1.0/users/{Uri.EscapeDataString(Id)}"
+                + ODataQueryBuilder.Build(select: Select, expand: Expand);
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);

@@ -60,38 +60,8 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         {
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
-            var queryParts = new List<string>();
-
-            if (!string.IsNullOrWhiteSpace(Filter))
-            {
-                queryParts.Add($"$filter={Uri.EscapeDataString(Filter)}");
-            }
-
-            if (Select is { Length: > 0 })
-            {
-                queryParts.Add($"$select={Uri.EscapeDataString(string.Join(',', Select))}");
-            }
-
-            if (Expand is { Length: > 0 })
-            {
-                queryParts.Add($"$expand={Uri.EscapeDataString(string.Join(',', Expand))}");
-            }
-
-            if (Orderby is { Length: > 0 })
-            {
-                queryParts.Add($"$orderby={Uri.EscapeDataString(string.Join(',', Orderby))}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(Search))
-            {
-                queryParts.Add($"$search={Uri.EscapeDataString(Search)}");
-            }
-
-            string uri = $"https://graph.microsoft.com/v1.0/groups";
-            if (queryParts.Count > 0)
-            {
-                uri = $"{uri}?{string.Join('&', queryParts)}";
-            }
+            string uri = "https://graph.microsoft.com/v1.0/groups"
+                + ODataQueryBuilder.Build(filter: Filter, select: Select, expand: Expand, orderby: Orderby, search: Search);
 
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
 
