@@ -50,8 +50,14 @@ public abstract class StorageBlobProcessorBase : IProcessor
 
     protected HttpRequestMessage CreateRequest(HttpMethod method)
     {
-        ValidateStorageTarget();
+        ValidateStorageTarget(requireBlob: true);
         return CreateRequest(method, BuildBlobUri());
+    }
+
+    protected HttpRequestMessage CreateContainerRequest(HttpMethod method, string query)
+    {
+        ValidateStorageTarget(requireBlob: false);
+        return CreateRequest(method, new UriBuilder(BuildContainerUri()) { Query = query }.Uri);
     }
 
     protected HttpRequestMessage CreateRequest(HttpMethod method, Uri requestUri, bool requireProfile = true)
@@ -95,19 +101,15 @@ public abstract class StorageBlobProcessorBase : IProcessor
             "/",
             BlobName.Split('/', StringSplitOptions.None).Select(Uri.EscapeDataString));
         return new Uri(
-            $"https://{AccountName}.blob.core.windows.net/{Uri.EscapeDataString(ContainerName)}/{escapedBlobName}",
+            $"{BuildContainerUri()}/{escapedBlobName}",
             UriKind.Absolute);
     }
 
-    protected Uri BuildContainerUri()
-    {
-        ValidateStorageTarget(requireBlobName: false);
-        return new Uri(
-            $"https://{AccountName}.blob.core.windows.net/{Uri.EscapeDataString(ContainerName)}",
-            UriKind.Absolute);
-    }
+    private Uri BuildContainerUri() => new(
+        $"https://{AccountName}.blob.core.windows.net/{Uri.EscapeDataString(ContainerName)}",
+        UriKind.Absolute);
 
-    private void ValidateStorageTarget(bool requireBlobName = true)
+    private void ValidateStorageTarget(bool requireBlob)
     {
         if (ResolvedProfile is null)
         {
@@ -129,10 +131,10 @@ public abstract class StorageBlobProcessorBase : IProcessor
             throw new ArgumentException("ContainerName is not a valid Azure Blob container name.", nameof(ContainerName));
         }
 
-        if (requireBlobName
+        if (requireBlob
             && (string.IsNullOrWhiteSpace(BlobName)
-            || BlobName.Length > 1024
-            || BlobName.Any(char.IsControl)))
+                || BlobName.Length > 1024
+                || BlobName.Any(char.IsControl)))
         {
             throw new ArgumentException("BlobName must contain 1-1024 non-control characters.", nameof(BlobName));
         }

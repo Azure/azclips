@@ -88,12 +88,40 @@ public sealed class ExtensionIndex : IExtensionIndex
         Parameters: DownloadBlobParametersPowerShell(),
         ParameterAliases: new Dictionary<string, string>());
 
+    private static readonly CommandMetadata s_listBlob = BlobCommand(
+        "storage blob list",
+        typeof(Processors.ListStorageBlobProcessor),
+        ListBlobParameters());
+
+    private static readonly CommandMetadata s_showBlob = BlobCommand(
+        "storage blob show",
+        typeof(Processors.ShowStorageBlobProcessor),
+        NamedBlobParameters());
+
+    private static readonly CommandMetadata s_existsBlob = BlobCommand(
+        "storage blob exists",
+        typeof(Processors.BlobExistsProcessor),
+        NamedBlobParameters());
+
+    private static readonly CommandMetadata s_listBlobPs = BlobCommand(
+        "Get-AzStorageBlob_List",
+        typeof(Processors.ListStorageBlobProcessor),
+        ListBlobParametersPowerShell());
+
+    private static readonly CommandMetadata s_showBlobPs = BlobCommand(
+        "Get-AzStorageBlob_Get",
+        typeof(Processors.ShowStorageBlobProcessor),
+        NamedBlobParametersPowerShell());
+
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new(StringComparer.OrdinalIgnoreCase)
     {
         ["storage blob upload"] = s_uploadBlob,
         ["storage blob download"] = s_downloadBlob,
         ["storage blob upload-batch"] = s_uploadBlobBatch,
         ["storage blob download-batch"] = s_downloadBlobBatch,
+        ["storage blob list"] = s_listBlob,
+        ["storage blob show"] = s_showBlob,
+        ["storage blob exists"] = s_existsBlob,
     };
 
     private static readonly IReadOnlyDictionary<string, CommandMetadata> s_psTable =
@@ -101,6 +129,8 @@ public sealed class ExtensionIndex : IExtensionIndex
         {
             ["Set-AzStorageBlobContent"] = s_uploadBlobPs,
             ["Get-AzStorageBlobContent"] = s_downloadBlobPs,
+            ["Get-AzStorageBlob_List"] = s_listBlobPs,
+            ["Get-AzStorageBlob_Get"] = s_showBlobPs,
         };
 
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -124,6 +154,23 @@ public sealed class ExtensionIndex : IExtensionIndex
 
     public IEnumerable<string> GetCommandKeys(ClientType clientType) =>
         GetCommandTable(clientType).Keys;
+
+    private static CommandMetadata BlobCommand(
+        string invocationName,
+        Type processorType,
+        Dictionary<string, ParameterMetadata> parameters) => new(
+            Name: processorType.Name,
+            InvocationName: invocationName,
+            Aliases: [],
+            FullName: processorType.FullName!,
+            AssemblyName: AssemblyName,
+            ProcessorType: processorType,
+            Parameters: parameters,
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["c"] = "container-name",
+                ["n"] = "name",
+            });
 
     private static Dictionary<string, ParameterMetadata> UploadBlobParameters() => new()
     {
@@ -179,6 +226,27 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 
+    private static Dictionary<string, ParameterMetadata> NamedBlobParameters() => new()
+    {
+        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
+        ["container-name"] = new("ContainerName", "container-name", typeof(string), "Blob container name.", true, ["c"], []),
+        ["name"] = new("BlobName", "name", typeof(string), "Blob name.", true, ["n"], []),
+        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> ListBlobParameters() => new()
+    {
+        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
+        ["container-name"] = new("ContainerName", "container-name", typeof(string), "Blob container name.", true, ["c"], []),
+        ["prefix"] = new("Prefix", "prefix", typeof(string), "Filter blobs by name prefix.", false, [], []),
+        ["marker"] = new("Marker", "marker", typeof(string), "Continuation marker.", false, [], []),
+        ["num-results"] = new("NumResults", "num-results", typeof(int), "Maximum number of blobs to return.", false, [], []),
+        ["include"] = new("Include", "include", typeof(string[]), "Additional datasets to include.", false, [], [
+            "copy", "deleted", "metadata", "snapshots", "uncommittedblobs", "versions", "tags",
+            "immutabilitypolicy", "legalhold", "deletedwithversions"]),
+        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
     private static Dictionary<string, ParameterMetadata> UploadBlobParametersPowerShell() => new()
     {
         ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
@@ -209,6 +277,26 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["VersionId"] = new("VersionId", "VersionId", typeof(string), "Blob version ID.", false, [], []),
         ["CheckMd5"] = new("CheckMd5", "CheckMd5", typeof(bool), "Validate the response MD5 checksum.", false, [], []),
         ["TagCondition"] = new("TagCondition", "TagCondition", typeof(string), "Tag condition for the read.", false, [], []),
+        ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> NamedBlobParametersPowerShell() => new()
+    {
+        ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
+        ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "Blob container name.", true, [], []),
+        ["BlobName"] = new("BlobName", "BlobName", typeof(string), "Blob name.", true, [], []),
+        ["IncludeTag"] = new("IncludeTag", "IncludeTag", typeof(bool), "Include blob tags.", false, [], []),
+        ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> ListBlobParametersPowerShell() => new()
+    {
+        ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
+        ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "Blob container name.", true, [], []),
+        ["Prefix"] = new("Prefix", "Prefix", typeof(string), "Filter blobs by name prefix.", false, [], []),
+        ["Marker"] = new("Marker", "Marker", typeof(string), "Continuation marker.", false, [], []),
+        ["NumResults"] = new("NumResults", "NumResults", typeof(int), "Maximum number of blobs to return.", false, [], []),
+        ["Include"] = new("Include", "Include", typeof(string[]), "Additional datasets to include.", false, [], []),
         ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 }

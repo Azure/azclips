@@ -73,9 +73,7 @@ public sealed class BlobDownloadBatchProcessor_Orchestrator : StorageBlobProcess
                 query += $"&marker={Uri.EscapeDataString(marker)}";
             }
 
-            using HttpRequestMessage request = CreateRequest(
-                HttpMethod.Get,
-                new UriBuilder(BuildContainerUri()) { Query = query }.Uri);
+            using HttpRequestMessage request = CreateContainerRequest(HttpMethod.Get, query);
             using HttpResponseMessage response = await SendAsync(request);
             await response.EnsureSuccessAsync(Publisher);
             await using Stream content = await response.Content.ReadAsStreamAsync(Publisher.Token);
