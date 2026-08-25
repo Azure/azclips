@@ -51,6 +51,12 @@ with a configurable subject prefix.
 - **WHEN** an IR operation targets the `ResourceGroups` resource with subject prefix `Az`
 - **THEN** the inferred noun SHALL be `AzResourceGroup`
 
+#### Scenario: Response model wins over the containing interface's name
+- **WHEN** an IR operation is declared under one resource's interface but its response (or, for
+  a pageable operation, its item type) is a different resource's model
+- **THEN** the inferred noun SHALL be derived from the response/item model's name
+- **AND NOT** from the containing interface's namespace segment
+
 ### Requirement: Operations sharing a verb+noun are merged into one command via parameter sets
 When multiple IR operations under the same namespace resolve to the same verb+noun, the schema
 SHALL represent them as one command with one parameter set per source operation, rather than as

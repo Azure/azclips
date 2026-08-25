@@ -114,10 +114,10 @@ _(none — no existing PS-schema specs to modify)_
 - New package `toolkit/packages/ps-commands` (`@azure-client-engine/ps-commands`) holding the
   thin `PsCommand`/`PsParameterSet` grouping types and the `derivePsCommands()` function — not a
   redeclaration of every field, since those live as `hints.powershell` on IR.
-- A tracked `ResourceGroup` IR fixture (hand-authored TypeSpec mimicking `Microsoft.Resources`
-  ResourceGroups, chosen so its generated command model can be diffed against the real
-  hand-written `New`/`GetResourceGroupCmdlet` + Processors) added under a test-fixtures
-  directory, used by `create-ps-commands` unit tests.
+- A tracked `ResourceGroup` IR fixture (the real, official `Microsoft.Resources` TypeSpec,
+  vendored unmodified from `azure-rest-api-specs`, chosen so its generated command model can be
+  diffed against the real hand-written `New`/`GetResourceGroupCmdlet` + Processors) added under
+  a test-fixtures directory, used by `create-ps-commands` unit tests.
 - `toolkit/packages/compiler`: registers a `generate-ps-commands` `Generator` under its eventual
   real-generator name (Cmdlet + Processor classes; `ExtensionIndex` PS-only registration is a
   separate, unresolved prerequisite — see design.md's Open Questions), so there's no rename later.

@@ -228,7 +228,12 @@ issues an HTTP PUT for `ResourceGroups.createOrUpdate`, yet the real cmdlet is
 `New-AzResourceGroup`, not `Set-AzResourceGroup`. Only when the action word has no table entry at
 all does the schema fall back to an HTTP-method default (PUT→`Set`, PATCH→`Update`, POST→`Invoke`).
 Noun is the singularized resource/model name plus a configurable subject prefix (kept as its own
-field, not baked into `noun`, so it can be recombined later).
+field, not baked into `noun`, so it can be recombined later). Prefers the resource name implied by
+what the operation actually *returns* (its response model, or IR's own `itemType` for pageable
+operations) over the containing interface's namespace segment — found by compiling a real spec
+end-to-end: a nested list operation (e.g. `ResourceGroups.listByResourceGroup`, returning
+`GenericResourceExpanded`) can return a different resource's list result than its interface name
+implies, and real Az naming follows the returned resource, not the containing interface.
 
 **Multi-operation merge + variant fan-out**: two distinct mechanisms, both in `ps-commands`'s
 `derivePsCommands()` (not inside `create-ps-commands` — see below):

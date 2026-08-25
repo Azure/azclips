@@ -60,9 +60,9 @@ excluded.
       Determines each command's source by looking up its first `sourceOperationId`'s real
       `IROperation.source` — one lookup per command, not a full re-grouping of `ir.operations`.
 - [x] Write unit tests using the real `ResourceGroup` fixture: compiling it end-to-end produces
-      one `PsModule` whose `cmdletsToExport` contains exactly
-      `["New-AzResourceGroup", "Get-AzResourceGroup", "Remove-AzResourceGroup"]` (bare noun,
-      matching `PsCommand.noun`'s existing prefix-combining convention) — verified in
+      one `PsModule` whose `cmdletsToExport` contains every derived command (24 total, e.g.
+      `New-AzResourceGroup`, `Get-AzResourceGroup`, `Remove-AzResourceGroup` among them; bare
+      noun, matching `PsCommand.noun`'s existing prefix-combining convention) — verified in
       `cli/test/create-ps-commands.e2e.test.ts`; synthetic multi-source and no-description-hint
       cases covered in `ps-commands/test/derive.test.ts`.
 - [x] Wire `deriveModules` into the `generate-ps-commands` placeholder generator alongside
@@ -98,6 +98,13 @@ is a generator-default note, not a schema field, and why `SupportsTransactions`/
       (bare, no prefix); write the configurable subject prefix into its own
       `hints.powershell.subjectPrefix` field (not baked into `noun` — combined into the final
       `PsCommand.noun` by `derivePsCommands`).
+- [x] Bug fix: prefer the resource name implied by the operation's own response (or, for
+      pageable operations, IR's `itemType`) over the containing interface's namespace segment —
+      a nested list operation can return a different resource's list result than its interface
+      implies. Found by compiling a real spec end-to-end; verified against the real
+      `Microsoft.Resources` fixture's `listByResourceGroup` (returns `GenericResourceExpanded`,
+      not `ResourceGroup`), which now correctly derives its own command instead of merging into
+      `Get-AzResourceGroup`.
 - [x] Implement `SupportsShouldProcess`/`ConfirmImpact` policy from HTTP method (PUT/POST/PATCH/
       DELETE ⇒ true; GET ⇒ false); write into `hints.powershell.confirmImpact`.
 - [x] Implement `derivePsCommands(ir: IR): PsCommand[]` in `ps-commands` — a plain function, not a
@@ -122,7 +129,7 @@ is a generator-default note, not a schema field, and why `SupportsTransactions`/
       `PsCommand[]` doesn't have to separately re-inspect the source IR.
 - [x] Write a unit test covering a directive hiding a command by verb+subject, and a conflicting
       directive+inline-hint case resolving in the inline hint's favor (`ConfirmImpact`).
-- [x] Verify end-to-end against the real `resourcegroup.tsp` fixture (not synthetic operations):
+- [x] Verify end-to-end against the real `Microsoft.Resources` fixture (not synthetic operations):
       a command-hide directive matches the real `delete`-derived `Remove-AzResourceGroup` command
       by its actually-inferred verb/subject.
 - [x] Add `defaultParameterSetName` to `PsCommand` (`toolkit/packages/ps-commands`), mirroring
@@ -164,7 +171,7 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
 - [x] Write a unit test covering a directive renaming a parameter's alias across every matching
       command, and a unit test covering a non-matching directive not hiding/renaming anything it
       shouldn't.
-- [x] Verify end-to-end against the real `resourcegroup.tsp` fixture: an author-inline parameter
+- [x] Verify end-to-end against the real `Microsoft.Resources` fixture: an author-inline parameter
       hint (`mandatory`/`helpMessage`/`position`) set on the real `resourceGroupName` path
       parameter survives `create-ps-commands` unclobbered (no parameter-level inference exists to
       conflict with it); a parameter-alias directive applies across every real operation sharing
