@@ -22,6 +22,7 @@ public abstract class StorageBlobProcessorBase : IProcessor
     public string ContainerName { get; set; } = string.Empty;
     public string BlobName { get; set; } = string.Empty;
     public string? Profile { get; set; }
+    
 
     public IProcessor Init(ProcessorContext context)
     {
