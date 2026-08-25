@@ -10,10 +10,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
 public sealed class BlockBlobUploadProcessor_Orchestrator : StorageBlobProcessorBase
 {
-    private const long MaxSingleUploadBytes = 5000L * 1024 * 1024;
-
     public string FilePath { get; set; } = string.Empty;
     public bool Overwrite { get; set; }
+    public string BlobType { get; set; } = "Block";
+    public string[] Metadata { get; set; } = [];
+    public string[] Tags { get; set; } = [];
+    public string[] Properties { get; set; } = [];
+    public string? StandardBlobTier { get; set; }
+    public string? PremiumPageBlobTier { get; set; }
+    public string? EncryptionScope { get; set; }
+    public string? TagCondition { get; set; }
 
     public override async Task ProcessAsync()
     {
@@ -29,11 +35,10 @@ public sealed class BlockBlobUploadProcessor_Orchestrator : StorageBlobProcessor
         {
             throw new FileNotFoundException($"Upload file '{sourcePath}' does not exist.", sourcePath);
         }
-        if (sourceInfo.Length > MaxSingleUploadBytes)
+        if (string.IsNullOrWhiteSpace(BlobName))
         {
-            throw new InvalidOperationException("Files larger than 5000 MiB require block upload, which is not supported yet.");
+            BlobName = Path.GetFileName(sourcePath);
         }
-
         await using FileStream source = File.OpenRead(sourcePath);
         BlockBlobUploadProcessor processor = CreateExtendedProcessor<BlockBlobUploadProcessor>(p =>
         {
@@ -43,6 +48,14 @@ public sealed class BlockBlobUploadProcessor_Orchestrator : StorageBlobProcessor
             p.Content = source;
             p.ContentLength = source.Length;
             p.Overwrite = Overwrite;
+            p.BlobType = BlobType;
+            p.Metadata = Metadata;
+            p.Tags = Tags;
+            p.Properties = Properties;
+            p.StandardBlobTier = StandardBlobTier;
+            p.PremiumPageBlobTier = PremiumPageBlobTier;
+            p.EncryptionScope = EncryptionScope;
+            p.TagCondition = TagCondition;
         });
 
         using HttpResponseMessage response = await processor.SendAsync();
@@ -50,7 +63,6 @@ public sealed class BlockBlobUploadProcessor_Orchestrator : StorageBlobProcessor
             && response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
         {
             const string message = "The blob already exists. Pass --overwrite to replace it.";
-            await Publisher.Publish(Events.ResourceOperationFailed, message);
             throw new HttpRequestException(message, null, response.StatusCode);
         }
         await response.EnsureSuccessAsync(Publisher);

@@ -1,7 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net;
 using System.Management.Automation;
+using System.Collections;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
@@ -23,7 +25,7 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
     [Alias("Container")]
     public string ContainerName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter]
     [Alias("Blob")]
     public string BlobName { get; set; } = "";
 
@@ -33,6 +35,36 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
 
     [Parameter]
     public SwitchParameter Force { get; set; }
+
+    [Parameter]
+    [ValidateSet("Block", "Page", "Append", IgnoreCase = true)]
+    public string BlobType { get; set; } = "Block";
+
+    [Parameter]
+    public Hashtable? Metadata { get; set; }
+
+    [Parameter]
+    [Alias("Tag")]
+    public Hashtable? Tags { get; set; }
+
+    [Parameter]
+    public Hashtable? Properties { get; set; }
+
+    [Parameter]
+    [ValidateSet("Hot", "Cool", "Cold", "Archive", IgnoreCase = true)]
+    public string? StandardBlobTier { get; set; }
+
+    [Parameter]
+    public string? PremiumPageBlobTier { get; set; }
+
+    [Parameter]
+    public string? EncryptionScope { get; set; }
+
+    [Parameter]
+    public string? TagCondition { get; set; }
+
+    [Parameter]
+    public SwitchParameter AsJob { get; set; }
 
     [Parameter]
     public string? Profile { get; set; }
@@ -57,7 +89,15 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
             ["BlobName"] = BlobName,
             ["FilePath"] = FilePath,
             ["Overwrite"] = Force.IsPresent,
+            ["BlobType"] = BlobType,
+            ["Metadata"] = ToPairs(Metadata),
+            ["Tags"] = ToPairs(Tags),
+            ["Properties"] = ToPairs(Properties),
         };
+        AddOptional(parameters, nameof(StandardBlobTier), StandardBlobTier);
+        AddOptional(parameters, nameof(PremiumPageBlobTier), PremiumPageBlobTier);
+        AddOptional(parameters, nameof(EncryptionScope), EncryptionScope);
+        AddOptional(parameters, nameof(TagCondition), TagCondition);
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
             parameters["Profile"] = Profile!;
@@ -74,8 +114,49 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
             MyInvocation.MyCommand.Version?.ToString());
         telemetryService.TagInvocation(invocation);
 
-        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
-        session.Run();
+        if (AsJob)
+        {
+            var job = new StorageTransferJob("Set-AzStorageBlobContent", engine, invocation);
+            JobRepository.Add(job);
+            WriteObject(job);
+            return;
+        }
+
+        try
+        {
+            Run(invocation);
+        }
+        catch (HttpRequestException exception) when (
+            !Force.IsPresent
+            && exception.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
+        {
+            if (!ShouldContinue(
+                $"Blob '{AccountName}/{ContainerName}/{BlobName}' already exists. Overwrite it?",
+                null))
+            {
+                return;
+            }
+
+            parameters["Overwrite"] = true;
+            Run(invocation);
+        }
+
+        void Run(CommandInvocation commandInvocation)
+        {
+            using ISession session = engine.OpenExecutionSession(commandInvocation, streams, _cts.Token);
+            session.Run();
+        }
+    }
+
+    private static string[] ToPairs(Hashtable? values) =>
+        values?.Cast<DictionaryEntry>().Select(entry => $"{entry.Key}={entry.Value}").ToArray() ?? [];
+
+    private static void AddOptional(IDictionary<string, object> parameters, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            parameters[name] = value;
+        }
     }
 
     protected override void EndProcessing() => _cts.Dispose();

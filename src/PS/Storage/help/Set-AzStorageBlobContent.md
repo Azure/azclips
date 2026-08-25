@@ -20,8 +20,11 @@ Upload a local file to an Azure Storage blob.
 ### __AllParameterSets
 
 ```
-Set-AzStorageBlobContent -AccountName <string> -ContainerName <string> -BlobName <string>
- -FilePath <string> [-Force] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Set-AzStorageBlobContent -AccountName <string> -ContainerName <string> [-BlobName <string>]
+ -FilePath <string> [-BlobType <string>] [-Metadata <hashtable>] [-Tags <hashtable>]
+ [-Properties <hashtable>] [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>]
+ [-EncryptionScope <string>] [-TagCondition <string>] [-Force] [-Profile <string>]
+ [-AsJob] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -31,7 +34,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Uploads a local file as a block blob. By default, the command fails if the blob already exists; use `-Force` to replace it.
+Uploads a local file as a block, page, or append blob. Blob names default to the local file name. Metadata, tags, properties, access tiers, encryption scopes, and tag conditions are supported. By default, the command asks before replacing an existing blob; use `-Force` to replace it without prompting.
 
 ## EXAMPLES
 
@@ -235,7 +238,6 @@ The completed blob transfer, including source, destination, ETag, last-modified 
 
 ## NOTES
 
-Single-request uploads are limited to 5000 MiB.
+Block blobs larger than 5000 MiB use staged block upload. Page blob files must be a multiple of 512 bytes.
 
 ## RELATED LINKS
-

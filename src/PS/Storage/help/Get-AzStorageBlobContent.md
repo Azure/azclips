@@ -17,11 +17,21 @@ Download an Azure Storage blob to a local file.
 
 ## SYNTAX
 
-### __AllParameterSets
+### Name
 
 ```
 Get-AzStorageBlobContent -AccountName <string> -ContainerName <string> -BlobName <string>
- -FilePath <string> [-Force] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-FilePath <string>] [-SnapshotTime <datetimeoffset>] [-VersionId <string>] [-CheckMd5]
+ [-TagCondition <string>] [-Force] [-Profile <string>] [-AsJob] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
+```
+
+### Uri
+
+```
+Get-AzStorageBlobContent -AbsoluteUri <string> [-FilePath <string>] [-CheckMd5]
+ [-TagCondition <string>] [-Force] [-Profile <string>] [-AsJob] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -31,7 +41,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Downloads the specified blob to a local path. The destination directory must exist. By default, the command fails if the destination file already exists; use `-Force` to replace it.
+Downloads a blob by storage name or Azure Blob URL. The destination may be a file or directory; when omitted, the blob name is used in the current directory. Snapshots, versions, tag conditions, and MD5 checking are supported. Existing files require confirmation unless `-Force` is supplied.
 
 ## EXAMPLES
 
@@ -235,7 +245,6 @@ The completed blob transfer, including source, destination, ETag, last-modified 
 
 ## NOTES
 
-The destination directory must exist before running the command.
+Existing files require confirmation unless `-Force` is supplied.
 
 ## RELATED LINKS
-

@@ -51,7 +51,17 @@ public abstract class StorageBlobProcessorBase : IProcessor
     protected HttpRequestMessage CreateRequest(HttpMethod method)
     {
         ValidateStorageTarget();
-        var request = new HttpRequestMessage(method, BuildBlobUri());
+        return CreateRequest(method, BuildBlobUri());
+    }
+
+    protected HttpRequestMessage CreateRequest(HttpMethod method, Uri requestUri, bool requireProfile = true)
+    {
+        if (requireProfile && ResolvedProfile is null)
+        {
+            throw new InvalidOperationException("An active profile is required. Run 'az login' or pass --profile.");
+        }
+
+        var request = new HttpRequestMessage(method, requestUri);
         request.Options.Set(RuntimeHttpRequestOptions.Scopes, s_storageScopes);
         request.Headers.TryAddWithoutValidation("x-ms-version", StorageApiVersion);
         request.Headers.TryAddWithoutValidation(
@@ -60,9 +70,9 @@ public abstract class StorageBlobProcessorBase : IProcessor
         return request;
     }
 
-    protected async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
+    protected async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, bool requireProfile = true)
     {
-        if (ResolvedProfile is null)
+        if (requireProfile && ResolvedProfile is null)
         {
             throw new InvalidOperationException("An active profile is required. Run 'az login' or pass --profile.");
         }
