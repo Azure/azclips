@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Storage.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Storage
-ms.date: 08/19/2026
+ms.date: 08/25/2026
 PlatyPS schema version: 2024-05-01
 title: Set-AzStorageBlobContent
 ---
@@ -20,17 +20,14 @@ Upload a local file to an Azure Storage blob.
 ### __AllParameterSets
 
 ```
-Set-AzStorageBlobContent -AccountName <string> -ContainerName <string> [-BlobName <string>]
- -FilePath <string> [-BlobType <string>] [-Metadata <hashtable>] [-Tags <hashtable>]
+Set-AzStorageBlobContent -AccountName <string> -ContainerName <string> -FilePath <string>
+ [-BlobName <string>] [-Force] [-BlobType <string>] [-Metadata <hashtable>] [-Tags <hashtable>]
  [-Properties <hashtable>] [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>]
- [-EncryptionScope <string>] [-TagCondition <string>] [-Force] [-Profile <string>]
- [-AsJob] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-EncryptionScope <string>] [-TagCondition <string>] [-AsJob] [-Profile <string>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -69,6 +66,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -AsJob
+
+Runs the cmdlet as a background job.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -BlobName
 
 The name to assign to the uploaded blob.
@@ -82,7 +100,28 @@ Aliases:
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -BlobType
+
+The blob type to create: Block, Page, or Append. The default is Block.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -135,6 +174,27 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -EncryptionScope
+
+The encryption scope to use for the uploaded blob.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -FilePath
 
 The path of the local file to upload.
@@ -178,6 +238,48 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Metadata
+
+Metadata key-value pairs to assign to the blob.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -PremiumPageBlobTier
+
+The access tier to assign to a premium page blob.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Profile
 
 Name of a saved profile to use instead of the currently active profile.
@@ -187,6 +289,91 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Properties
+
+HTTP property key-value pairs to assign to the blob.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -StandardBlobTier
+
+The access tier to assign to a standard blob: Hot, Cool, Cold, or Archive.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -TagCondition
+
+An SQL-style condition that existing blob tags must satisfy.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tags
+
+Tag key-value pairs to assign to the blob.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- Tag
 ParameterSets:
 - Name: (All)
   Position: Named

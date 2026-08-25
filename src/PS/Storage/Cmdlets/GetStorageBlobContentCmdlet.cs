@@ -30,13 +30,13 @@ public sealed class GetStorageBlobContentCmdlet : PSCmdlet
     [Alias("Blob")]
     public string BlobName { get; set; } = "";
 
-    [Parameter]
-    [Alias("Destination", "Path")]
-    public string FilePath { get; set; } = "";
-
     [Parameter(Mandatory = true, ParameterSetName = UriParameterSet, ValueFromPipelineByPropertyName = true)]
     [Alias("Uri", "BlobUri")]
     public string? AbsoluteUri { get; set; }
+
+    [Parameter]
+    [Alias("Destination", "Path")]
+    public string FilePath { get; set; } = "";
 
     [Parameter]
     public SwitchParameter Force { get; set; }

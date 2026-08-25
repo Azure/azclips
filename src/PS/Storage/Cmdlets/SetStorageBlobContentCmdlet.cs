@@ -25,13 +25,13 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
     [Alias("Container")]
     public string ContainerName { get; set; } = "";
 
-    [Parameter]
-    [Alias("Blob")]
-    public string BlobName { get; set; } = "";
-
     [Parameter(Mandatory = true)]
     [Alias("File")]
     public string FilePath { get; set; } = "";
+
+    [Parameter]
+    [Alias("Blob")]
+    public string BlobName { get; set; } = "";
 
     [Parameter]
     public SwitchParameter Force { get; set; }
