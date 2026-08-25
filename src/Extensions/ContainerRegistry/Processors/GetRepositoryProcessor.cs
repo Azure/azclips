@@ -15,9 +15,6 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// </summary>
 public class GetRepositoryProcessor : AcrDataPlaneProcessorBase<RepositoryAttributes>
 {
-    [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
-    public string RegistryName { get; set; } = "";
-
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "Repository")]
     public string Repository { get; set; } = "";
 
