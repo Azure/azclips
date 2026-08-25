@@ -35,7 +35,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(ListRepositoryProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"] = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"] = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
     );
@@ -49,7 +49,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(GetRepositoryProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"] = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"] = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["Repository"]   = new("Repository", "Repository", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -64,7 +64,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(RemoveRepositoryProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"] = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"] = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["Repository"]   = new("Repository", "Repository", typeof(string), "The name of the repository to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -79,7 +79,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(ListManifestProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"]   = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"]   = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["RepositoryName"] = new("RepositoryName", "RepositoryName", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -94,7 +94,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(GetManifestProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"]   = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"]   = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["RepositoryName"] = new("RepositoryName", "RepositoryName", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["Reference"]      = new("Reference", "Reference", typeof(string), "The manifest reference (tag or digest).", IsRequired: true, Aliases: [], AllowedValues: []),
         },
@@ -110,7 +110,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(RemoveManifestProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"]   = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"]   = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["RepositoryName"] = new("RepositoryName", "RepositoryName", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["Reference"]      = new("Reference", "Reference", typeof(string), "The manifest reference (tag or digest).", IsRequired: true, Aliases: [], AllowedValues: []),
         },
@@ -126,7 +126,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(ListTagProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"]   = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"]   = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["RepositoryName"] = new("RepositoryName", "RepositoryName", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -141,7 +141,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(GetTagProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"]   = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"]   = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["RepositoryName"] = new("RepositoryName", "RepositoryName", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["Tag"]            = new("Tag", "Tag", typeof(string), "The tag name.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
@@ -157,7 +157,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(RemoveTagProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["RegistryName"]   = new("RegistryName", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["RegistryName"]   = new("Endpoint", "RegistryName", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["RepositoryName"] = new("RepositoryName", "RepositoryName", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["Tag"]            = new("Tag", "Tag", typeof(string), "The tag name to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
@@ -189,7 +189,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(ListRepositoryProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"] = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"] = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
     );
@@ -203,7 +203,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(GetRepositoryProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"]   = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"]   = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["repository"] = new("Repository", "repository", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -218,7 +218,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(RemoveRepositoryProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"]   = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"]   = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["repository"] = new("Repository", "repository", typeof(string), "The name of the repository to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -233,7 +233,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(ListManifestProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"]   = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"]   = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["repository"] = new("RepositoryName", "repository", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -248,7 +248,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(GetManifestProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"]   = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"]   = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["repository"] = new("RepositoryName", "repository", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["reference"]  = new("Reference", "reference", typeof(string), "The manifest reference (tag or digest).", IsRequired: true, Aliases: [], AllowedValues: []),
         },
@@ -264,7 +264,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(RemoveManifestProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"]   = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"]   = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["repository"] = new("RepositoryName", "repository", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["reference"]  = new("Reference", "reference", typeof(string), "The manifest reference (tag or digest).", IsRequired: true, Aliases: [], AllowedValues: []),
         },
@@ -280,7 +280,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(ListTagProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"]   = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"]   = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["repository"] = new("RepositoryName", "repository", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
@@ -295,7 +295,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(GetTagProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"]   = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"]   = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["repository"] = new("RepositoryName", "repository", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["tag"]        = new("Tag", "tag", typeof(string), "The tag name.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
@@ -311,7 +311,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(RemoveTagProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["registry"]   = new("RegistryName", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["registry"]   = new("Endpoint", "registry", typeof(string), "The name of the container registry.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["repository"] = new("RepositoryName", "repository", typeof(string), "The name of the repository.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["tag"]        = new("Tag", "tag", typeof(string), "The tag name to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
         },

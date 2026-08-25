@@ -15,9 +15,6 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// </summary>
 public class GetManifestProcessor : AcrDataPlaneProcessorBase<ManifestAttributes>
 {
-    [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
-    public string RegistryName { get; set; } = "";
-
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "RepositoryName")]
     public string RepositoryName { get; set; } = "";
 
@@ -27,7 +24,7 @@ public class GetManifestProcessor : AcrDataPlaneProcessorBase<ManifestAttributes
     protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string loginServer = AcrTokenProvider.ResolveLoginServer(RegistryName);
+        string loginServer = AcrTokenProvider.ResolveLoginServer(Endpoint);
         var request = new HttpRequestMessage(HttpMethod.Get, $"https://{loginServer}/acr/v1/{RepositoryName}/_manifests/{Reference}");
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
@@ -36,7 +33,7 @@ public class GetManifestProcessor : AcrDataPlaneProcessorBase<ManifestAttributes
     public override async Task ProcessAsync()
     {
         await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions,
-            AcrTokenProvider.ResolveLoginServer(RegistryName), $"repository:{RepositoryName}:metadata_read");
+            AcrTokenProvider.ResolveLoginServer(Endpoint), $"repository:{RepositoryName}:metadata_read");
         await base.ProcessAsync();
     }
 }

@@ -16,15 +16,12 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// </summary>
 public class ListRepositoryProcessor : AcrDataPlaneProcessorBase
 {
-    [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
-    public string RegistryName { get; set; } = "";
-
     public override async Task ProcessAsync()
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            string loginServer = AcrTokenProvider.ResolveLoginServer(RegistryName);
+            string loginServer = AcrTokenProvider.ResolveLoginServer(Endpoint);
             await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions, loginServer, "registry:catalog:*");
 
             List<string> pages = await SendAsyncPaged(loginServer, "/acr/v1/_catalog");

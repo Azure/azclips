@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors
 {
     public class ExchangeAcrRefreshTokenForAcrAccessTokenProcessor : AcrDataPlaneProcessorBase<AcrAccessToken>
     {
-        public string Endpoint { get; set; } = string.Empty;
+        public string LoginUri { get; set; } = string.Empty;
         public PostContentSchemaGrantType GrantType { get; set; } = PostContentSchemaGrantType.AccessToken;
         public string? Tenant { get; set; } = string.Empty;
         public string? AccessToken { get; set; } = string.Empty;
@@ -19,11 +19,11 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-            string uri = $"{Endpoint}/oauth2/token?api-version=2021-07-01";
+            string uri = $"{LoginUri}/oauth2/token?api-version=2021-07-01";
             var values = new List<KeyValuePair<string, string>>
             {
                 new KeyValuePair<string, string>("grant_type", GrantType.ToString()),
-                new KeyValuePair<string, string>("service", Endpoint)
+                new KeyValuePair<string, string>("service", LoginUri)
             };
             if (!string.IsNullOrEmpty(Tenant))
             {

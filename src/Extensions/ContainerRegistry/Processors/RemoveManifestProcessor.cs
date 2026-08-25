@@ -14,9 +14,6 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// </summary>
 public class RemoveManifestProcessor : AcrDataPlaneProcessorBase
 {
-    [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
-    public string RegistryName { get; set; } = "";
-
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "RepositoryName")]
     public string RepositoryName { get; set; } = "";
 
@@ -26,7 +23,7 @@ public class RemoveManifestProcessor : AcrDataPlaneProcessorBase
     protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string loginServer = AcrTokenProvider.ResolveLoginServer(RegistryName);
+        string loginServer = AcrTokenProvider.ResolveLoginServer(Endpoint);
         var request = new HttpRequestMessage(HttpMethod.Delete, $"https://{loginServer}/v2/{RepositoryName}/manifests/{Reference}");
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
@@ -38,7 +35,7 @@ public class RemoveManifestProcessor : AcrDataPlaneProcessorBase
         try
         {
             await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions,
-                AcrTokenProvider.ResolveLoginServer(RegistryName), $"repository:{RepositoryName}:delete");
+                AcrTokenProvider.ResolveLoginServer(Endpoint), $"repository:{RepositoryName}:delete");
             using HttpResponseMessage response = await SendAsync();
         }
         finally

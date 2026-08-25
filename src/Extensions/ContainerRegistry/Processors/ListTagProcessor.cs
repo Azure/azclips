@@ -16,9 +16,6 @@ namespace Microsoft.Azure.Azclips.Extensions.ContainerRegistry.Processors;
 /// </summary>
 public class ListTagProcessor : AcrDataPlaneProcessorBase
 {
-    [ArgumentInfo(Required = true, Description = "The name of the container registry.", SerializedName = "RegistryName")]
-    public string RegistryName { get; set; } = "";
-
     [ArgumentInfo(Required = true, Description = "The name of the repository.", SerializedName = "RepositoryName")]
     public string RepositoryName { get; set; } = "";
 
@@ -27,7 +24,7 @@ public class ListTagProcessor : AcrDataPlaneProcessorBase
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            string loginServer = AcrTokenProvider.ResolveLoginServer(RegistryName);
+            string loginServer = AcrTokenProvider.ResolveLoginServer(Endpoint);
             string scope = $"repository:{RepositoryName}:metadata_read";
             await AcrTokenProvider.SetupAuthAsync(AuthHandler, JsonOptions, loginServer, scope);
 
