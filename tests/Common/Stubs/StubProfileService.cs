@@ -14,7 +14,13 @@ public class StubProfileService : IProfileService
     private readonly Dictionary<string, Profile> _profiles;
     private string? _active;
 
-    public StubProfileService(bool seedDefault = true)
+    /// <param name="seedDefault">Seed a single active "default" profile.</param>
+    /// <param name="userPrincipalName">
+    /// UPN stamped on the seeded profile. Required by callers that exercise the real
+    /// <c>MsalAuthService</c>, because account selection matches the cached account by UPN.
+    /// Defaults to null, which preserves the original behaviour for existing callers.
+    /// </param>
+    public StubProfileService(bool seedDefault = true, string? userPrincipalName = null)
     {
         _profiles = new Dictionary<string, Profile>(StringComparer.OrdinalIgnoreCase);
         if (seedDefault)
@@ -26,6 +32,7 @@ public class StubProfileService : IProfileService
                 SubscriptionId = "00000000-0000-0000-0000-000000000000",
                 CloudName = "AzureCloud",
                 AuthMethod = AuthMethod.Browser,
+                UserPrincipalName = userPrincipalName,
             };
             _profiles[profile.Name] = profile;
             _active = profile.Name;
