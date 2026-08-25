@@ -509,8 +509,9 @@ public class Program
         if (string.IsNullOrEmpty(exePath)) return null;
 
         // In-process benchmark mode: do not attempt to flush telemetry as in benchmark execution process
-        if (!exePath.EndsWith("az", StringComparison.OrdinalIgnoreCase) &&
-            !exePath.EndsWith("az.exe", StringComparison.OrdinalIgnoreCase))
+        var exeName = Path.GetFileName(exePath);
+        if (!exeName.Equals("az", StringComparison.OrdinalIgnoreCase) &&
+            !exeName.Equals("az.exe", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
