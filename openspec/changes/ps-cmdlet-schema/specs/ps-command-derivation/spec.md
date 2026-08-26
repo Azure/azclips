@@ -51,6 +51,12 @@ with a configurable subject prefix.
 - **WHEN** an IR operation targets the `ResourceGroups` resource with subject prefix `Az`
 - **THEN** the inferred noun SHALL be `AzResourceGroup`
 
+#### Scenario: Bare noun is not duplicated when it's already a suffix of the subject prefix
+- **WHEN** a command's subject prefix already ends with its bare noun (e.g. subject prefix
+  `AzComputeFleet`, bare noun `Fleet`)
+- **THEN** the combined noun SHALL be the subject prefix alone (`AzComputeFleet`)
+- **AND NOT** the subject prefix with the bare noun appended again (`AzComputeFleetFleet`)
+
 #### Scenario: Response model wins over the containing interface's name
 - **WHEN** an IR operation is declared under one resource's interface but its response (or, for
   a pageable operation, its item type) is a different resource's model

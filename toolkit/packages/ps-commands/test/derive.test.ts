@@ -45,6 +45,35 @@ describe("derivePsCommands", () => {
     expect(command!.defaultParameterSetName).toBe("createOrUpdate");
   });
 
+  it("skips the bare noun when it's already a suffix of the subject prefix (real ComputeFleet precedent)", () => {
+    // Real bug found comparing our output against the real azure-powershell ComputeFleet
+    // module: Get-AzComputeFleet, not Get-AzComputeFleetFleet, for the module's own eponymous
+    // Fleet resource.
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Fleets"], name: "get" },
+      method: "GET",
+      rendering: { powershell: { verb: "Get", noun: "Fleet", subjectPrefix: "AzComputeFleet" } },
+    });
+
+    const [command] = derivePsCommands({ ...emptyIR(), operations: [operation] });
+
+    expect(command!.noun).toBe("AzComputeFleet");
+  });
+
+  it("still appends the bare noun in full when it isn't a suffix of the subject prefix", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Fleets"], name: "listVirtualMachineScaleSets" },
+      method: "GET",
+      rendering: {
+        powershell: { verb: "Get", noun: "VirtualMachineScaleSet", subjectPrefix: "AzComputeFleet" },
+      },
+    });
+
+    const [command] = derivePsCommands({ ...emptyIR(), operations: [operation] });
+
+    expect(command!.noun).toBe("AzComputeFleetVirtualMachineScaleSet");
+  });
+
   it("copies the operation-level richness fields (alias, hidden, summary, lifecycleTag, etc.) onto the derived command", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },

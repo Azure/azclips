@@ -184,9 +184,9 @@ already-derived `PsCommand[]` by source and flattens each group's `verb`+`noun` 
 `cmdletsToExport`. Mirrors the Command-level split exactly: per-node authoring lives as an IR
 hint; cross-cutting grouping is a separate, later function, not a pipeline stage (see "Why
 grouping can't happen inside a `TransformStep`" below) — called only from inside a `Generator`'s
-own `generate(ir, context)`. Verified end-to-end against the real `ResourceGroup` fixture:
-`cmdletsToExport` comes back as exactly `["New-AzResourceGroup", "Get-AzResourceGroup",
-"Remove-AzResourceGroup"]`. Wired into `generate-ps-commands`, which now writes
+own `generate(ir, context)`. Verified end-to-end against the real Azure Fleet fixture:
+`cmdletsToExport` includes `"New-AzFleet"`, `"Get-AzFleet"`, and `"Remove-AzFleet"` among the
+full set of derived commands. Wired into `generate-ps-commands`, which now writes
 `{ commands, modules }` to `ps-commands.json`.
 
 **Alternative considered**: model the full `.psd1` manifest shape as `hints.powershell` on
@@ -240,10 +240,19 @@ all does the schema fall back to an HTTP-method default (PUT→`Set`, PATCH→`U
 Noun is the singularized resource/model name plus a configurable subject prefix (kept as its own
 field, not baked into `noun`, so it can be recombined later). Prefers the resource name implied by
 what the operation actually *returns* (its response model, or IR's own `itemType` for pageable
-operations) over the containing interface's namespace segment — found by compiling a real spec
-end-to-end: a nested list operation (e.g. `ResourceGroups.listByResourceGroup`, returning
-`GenericResourceExpanded`) can return a different resource's list result than its interface name
-implies, and real Az naming follows the returned resource, not the containing interface.
+operations) over the containing interface's namespace segment — found by compiling the real
+Azure Fleet spec end-to-end: `Fleets.listVirtualMachineScaleSets` (declared under the `Fleets`
+interface, returning `VirtualMachineScaleSetListResult`) can return a different resource's list
+result than its interface name implies, and real Az naming follows the returned resource, not the
+containing interface.
+
+**Noun/subject-prefix combining, dedups a repeated bare noun**: `derivePsCommands`'s
+`combineNoun()` skips the bare noun when it's already a suffix of the subject prefix, rather than
+plain string concatenation — found by diffing our derived commands directly against the real,
+currently-generated `azure-powershell/generated/ComputeFleet/ComputeFleet.Autorest/exports/`: its
+own `subject-prefix: "ComputeFleet"` config produces `Get-AzComputeFleet` (not
+`Get-AzComputeFleetFleet`) for its own eponymous `Fleet` resource, while unrelated nouns
+(`VirtualMachine`) still get the prefix appended in full (`Get-AzComputeFleetVirtualMachine`).
 
 **Other fields derived directly from IR, not just author-settable**: `httpPath` from the
 operation's own `pathTemplate`/`apiVersion`; `supportsPaging` from IR's own
@@ -281,11 +290,12 @@ each merged operation already contributes. Found by auditing the real
 prose without ever being backed by an actual schema field. `derivePsCommands()` computes it with a
 two-tier heuristic, both checked against real precedent: merging distinct source operations (e.g.
 `get`+`list`) prefers whichever has fewer required parameters — real precedent confirmed
-end-to-end against the real `ResourceGroup` fixture (`List` over `Get`, no `resourceGroupName`
-required); a single operation fanned into `base`+`Expanded` prefers `Expanded` — real precedent
-found directly in generated modules (e.g. `DefaultParameterSetName='CreateExpanded'`). No
-author-override mechanism was added — no existing per-operation hint field fits, and no real
-fixture needed one; revisit only if a real case surfaces where the heuristic picks wrong.
+end-to-end against the real Azure Fleet fixture (`ListBySubscription` over `Get`/
+`ListByResourceGroup`, needing neither `resourceGroupName` nor `fleetName`); a single operation
+fanned into `base`+`Expanded` prefers `Expanded` — real precedent found directly in generated
+modules (e.g. `DefaultParameterSetName='CreateExpanded'`). No author-override mechanism was
+added — no existing per-operation hint field fits, and no real fixture needed one; revisit only
+if a real case surfaces where the heuristic picks wrong.
 
 **Per-parameter-set output types, tracked but not built now**: `OutputTypeAttribute.ParameterSetName`
 proves output types can vary per parameter set in principle, but checking the real generated

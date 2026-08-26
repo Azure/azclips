@@ -118,6 +118,19 @@ function defaultParameterSetNameFor(
   return expanded?.name ?? parameterSets[0]!.name;
 }
 
+/**
+ * Combines subject prefix + bare noun, skipping the bare noun when it's already a suffix of
+ * the prefix (case-insensitive) — real precedent: the real `ComputeFleet` module's own
+ * `subject-prefix` config produces `Get-AzComputeFleet`, not `Get-AzComputeFleetFleet`, for its
+ * own eponymous `Fleet` resource, while unrelated nouns (`VirtualMachine`) still get the prefix
+ * appended in full.
+ */
+function combineNoun(subjectPrefix: string | undefined, noun: string): string {
+  const prefix = subjectPrefix ?? "";
+  if (prefix !== "" && prefix.toLowerCase().endsWith(noun.toLowerCase())) return prefix;
+  return prefix + noun;
+}
+
 export function derivePsCommands(ir: IR): PsCommand[] {
   const groups = new Map<string, IROperation[]>();
 
@@ -138,7 +151,7 @@ export function derivePsCommands(ir: IR): PsCommand[] {
 
     commands.push({
       verb: ps.verb!,
-      noun: (ps.subjectPrefix ?? "") + ps.noun!,
+      noun: combineNoun(ps.subjectPrefix, ps.noun!),
       subjectPrefix: ps.subjectPrefix,
       supportsShouldProcess: ps.confirmImpact !== undefined,
       confirmImpact: ps.confirmImpact,

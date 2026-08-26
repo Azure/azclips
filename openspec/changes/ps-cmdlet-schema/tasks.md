@@ -59,11 +59,11 @@ excluded.
       Called only from inside a `Generator`'s own `generate()` — never a pipeline stage.
       Determines each command's source by looking up its first `sourceOperationId`'s real
       `IROperation.source` — one lookup per command, not a full re-grouping of `ir.operations`.
-- [x] Write unit tests using the real `ResourceGroup` fixture: compiling it end-to-end produces
-      one `PsModule` whose `cmdletsToExport` contains every derived command (24 total, e.g.
-      `New-AzResourceGroup`, `Get-AzResourceGroup`, `Remove-AzResourceGroup` among them; bare
-      noun, matching `PsCommand.noun`'s existing prefix-combining convention) — verified in
-      `cli/test/create-ps-commands.e2e.test.ts`; synthetic multi-source and no-description-hint
+- [x] Write unit tests using the real Azure Fleet fixture: compiling it end-to-end produces
+      one `PsModule` whose `cmdletsToExport` contains every derived command (e.g.
+      `New-AzFleet`, `Get-AzFleet`, `Remove-AzFleet` among them; bare noun, matching
+      `PsCommand.noun`'s existing prefix-combining convention) — verified in
+      `cli/test/fleet.e2e.test.ts`; synthetic multi-source and no-description-hint
       cases covered in `ps-commands/test/derive.test.ts`.
 - [x] Wire `deriveModules` into the `generate-ps-commands` placeholder generator alongside
       `derivePsCommands`, writing both to `ps-commands.json` as `{ commands: [...], modules:
@@ -101,10 +101,10 @@ is a generator-default note, not a schema field, and why `SupportsTransactions`/
 - [x] Bug fix: prefer the resource name implied by the operation's own response (or, for
       pageable operations, IR's `itemType`) over the containing interface's namespace segment —
       a nested list operation can return a different resource's list result than its interface
-      implies. Found by compiling a real spec end-to-end; verified against the real
-      `Microsoft.Resources` fixture's `listByResourceGroup` (returns `GenericResourceExpanded`,
-      not `ResourceGroup`), which now correctly derives its own command instead of merging into
-      `Get-AzResourceGroup`.
+      implies. Found by compiling the real Azure Fleet spec end-to-end:
+      `listVirtualMachineScaleSets` is declared under the `Fleets` interface but returns
+      `VirtualMachineScaleSetListResult`, not `Fleet` — it now correctly derives its own
+      `Get-AzVirtualMachineScaleSet` command instead of merging into `Get-AzFleet`.
 - [x] Implement `SupportsShouldProcess`/`ConfirmImpact` policy from HTTP method (PUT/POST/PATCH/
       DELETE ⇒ true; GET ⇒ false); write into `hints.powershell.confirmImpact`.
 - [x] Audit every already-declared `hints.powershell` field against what `IROperation` itself
@@ -136,9 +136,9 @@ is a generator-default note, not a schema field, and why `SupportsTransactions`/
       `PsCommand[]` doesn't have to separately re-inspect the source IR.
 - [x] Write a unit test covering a directive hiding a command by verb+subject, and a conflicting
       directive+inline-hint case resolving in the inline hint's favor (`ConfirmImpact`).
-- [x] Verify end-to-end against the real `Microsoft.Resources` fixture (not synthetic operations):
-      a command-hide directive matches the real `delete`-derived `Remove-AzResourceGroup` command
-      by its actually-inferred verb/subject.
+- [x] Verify end-to-end against the real Azure Fleet fixture (not synthetic operations): a
+      command-hide directive matches the real `delete`-derived `Remove-AzFleet` command by its
+      actually-inferred verb/subject.
 - [x] Add `defaultParameterSetName` to `PsCommand` (`toolkit/packages/ps-commands`), mirroring
       `CmdletCommonMetadataAttribute.DefaultParameterSetName` — confirmed gap found via a full
       audit of the real `Attributes.cs` source, not just live reflection. `derivePsCommands()`
@@ -149,8 +149,8 @@ is a generator-default note, not a schema field, and why `SupportsTransactions`/
       `DefaultParameterSetName='CreateExpanded'`). No author-override mechanism yet — not added,
       since there's no existing per-operation hint field for it and none of the real fixtures
       needed one; revisit if a real case surfaces where the heuristic picks wrong. Added unit
-      tests in `derive.test.ts`/`schema.test.ts` and e2e coverage using the real `ResourceGroup`
-      fixture (`cli/test/create-ps-commands.e2e.test.ts`).
+      tests in `derive.test.ts`/`schema.test.ts` and e2e coverage using the real Azure Fleet
+      fixture (`cli/test/fleet.e2e.test.ts`).
 
 ## Parameter-level schema
 
@@ -178,11 +178,11 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
 - [x] Write a unit test covering a directive renaming a parameter's alias across every matching
       command, and a unit test covering a non-matching directive not hiding/renaming anything it
       shouldn't.
-- [x] Verify end-to-end against the real `Microsoft.Resources` fixture: an author-inline parameter
-      hint (`mandatory`/`helpMessage`/`position`) set on the real `resourceGroupName` path
-      parameter survives `create-ps-commands` unclobbered even though `mandatory`/`helpMessage`
-      are now also IR-derived (an author-set value always wins over inference); a parameter-alias
-      directive applies across every real operation sharing the `resourceGroupName` parameter.
+- [x] Verify end-to-end against the real Azure Fleet fixture: an author-inline parameter hint
+      (`mandatory`/`helpMessage`/`position`) set on the real `fleetName` path parameter survives
+      `create-ps-commands` unclobbered even though `mandatory`/`helpMessage` are now also
+      IR-derived (an author-set value always wins over inference); a parameter-alias directive
+      applies across every real operation sharing the `fleetName` parameter.
 - [x] Add an optional `parameterSets` map to `PowershellParameterHint`
       (`toolkit/packages/ir/src/hints.ts`) — `Record<string, { mandatory?, position?,
       helpMessage? }>` keyed by parameter-set name. The existing flat `mandatory`/`position`/
@@ -208,33 +208,46 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
 
 ## Real-fixture verification & integration
 
-Goal: prove the whole pipeline (all three levels + mechanism) against a real TypeSpec fixture
-with a genuine hand-written comparison, and document the result — not level-specific, so kept
-separate from the schema sections above.
+Goal: prove the whole pipeline (all three levels + mechanism) against a real TypeSpec fixture with
+a genuine, currently-generated counterpart to diff against, and document the result — not
+level-specific, so kept separate from the schema sections above.
 
-- [x] Vendor the real, official `Microsoft.Resources` TypeSpec (`ResourceGroup.tsp` + supporting
-      files) from `azure-rest-api-specs`, unmodified aside from being copied locally — replaced
-      an earlier hand-simplified `resourcegroup.tsp` fixture once the real spec was confirmed to
-      compile cleanly end-to-end. Chosen specifically because a real hand-written comparison
-      exists (`src/PS/Resources/Cmdlets/{New,Get}ResourceGroupCmdlet.cs` +
-      `src/Extensions/Resources/Processors/*ResourceGroupProcessor.cs`). Committed under
-      `toolkit/packages/typespec-emitter/test/fixtures/resource-group/`. Built on the real
-      `@azure-tools/typespec-azure-resource-manager` templates (unlike the fixture it replaced) —
-      spans the whole `Microsoft.Resources` RP (`Operations`/`ResourceGroups`/`Resources`/`Tags`/
-      `Providers`, 24 derived commands), not just `ResourceGroups`. No static IR snapshot is
-      committed — compiled dynamically at test time instead, matching this codebase's own
-      established e2e-test precedent.
-- [x] Wire `create-ps-commands` into a non-identity `TransformPipeline`, compile the real
-      `Microsoft.Resources` fixture through the real `compile()` backbone with it, then call
-      `derivePsCommands()` on the result and confirm: `ResourceGroups.createOrUpdate` produces one
-      `PsCommand` with verb `New`, noun `AzResourceGroup`, `SupportsShouldProcess = true`, and
-      `ConfirmImpact = "Medium"`; `ResourceGroups.get` + `.list` merge into one `Get`/
-      `AzResourceGroup` command with two parameter sets (matching `GetResourceGroupCmdlet`'s real
-      `DefaultParameterSetName = "List"`); `ResourceGroups.delete` produces `Remove`/
-      `AzResourceGroup`; the Expanded variant flattens `ResourceGroupProperties` (via a test-only
+- [x] Vendor the real Azure Compute Fleet management API TypeSpec (`Microsoft.AzureFleet`, from
+      `azure-rest-api-specs`, unmodified aside from being copied locally), built on the real
+      `@azure-tools/typespec-azure-resource-manager` templates. Committed under
+      `toolkit/packages/typespec-emitter/test/fixtures/fleet/`. Chosen (over a
+      `Microsoft.Resources`/`ResourceGroup`-based fixture, tried first and then removed) because
+      it has a real, currently-generated counterpart already checked into this workspace to diff
+      against: `azure-powershell/generated/ComputeFleet/ComputeFleet.Autorest/exports/*.ps1`,
+      built via the real `@azure-tools/typespec-powershell` emitter (confirmed by its own
+      `tspconfig.yaml`) — unlike `Microsoft.Resources`'s `ResourceGroup` cmdlets, which turned out
+      to be hand-written, pre-dating AutoRest.PowerShell entirely, with no real generated
+      counterpart to check against. No static IR snapshot is committed — compiled dynamically at
+      test time instead, matching this codebase's own established e2e-test precedent.
+- [x] Wire `create-ps-commands` into a non-identity `TransformPipeline`, compile the real Fleet
+      fixture through the real `compile()` backbone with it, then call `derivePsCommands()` on the
+      result and confirm: `Fleets.createOrUpdate` produces one `PsCommand` with verb `New`, noun
+      `AzFleet`, `SupportsShouldProcess = true`; `Fleets.get` + `.listByResourceGroup` +
+      `.listBySubscription` merge into one `Get`/`AzFleet` command with three parameter sets,
+      defaulting to the most general (`ListBySubscription`); `Fleets.delete` produces
+      `Remove`/`AzFleet`; the Expanded variant flattens the Fleet request body (via a test-only
       flatten-decision step, since no real flatten-decision `TransformStep` exists yet) — proof
       the full `IR -> (enriched IR) -> PsCommand[]` path executes via the compiler backbone's
       existing pipeline mechanism plus the separate grouping function.
+- [x] Diffed our derived `PsCommand[]` directly against the real generated
+      `ComputeFleet.Autorest/exports/*.ps1` file list and their `param()` blocks. Found and fixed
+      a real bug: `derivePsCommands`'s noun/subject-prefix combining was plain string
+      concatenation, producing `AzComputeFleetFleet` where the real module produces
+      `AzComputeFleet` for its own eponymous `Fleet` resource (subject prefix `ComputeFleet`
+      already ends with the bare noun `Fleet`). Added `combineNoun()` (`ps-commands/src/derive.ts`)
+      to skip the bare noun when it's already a suffix of the subject prefix, with unit tests for
+      both the dedup and non-dedup (`VirtualMachineScaleSet`) cases. Also confirmed (not bugs):
+      the real module's own `hide`-`Operation`-by-directive config explains why
+      `Get-AzComputeFleetOperation` isn't in its `exports/` folder (our own directive mechanism
+      already supports the same thing); and a real per-variant verb override (`Set-AzComputeFleet`
+      as a second exported verb alongside `Update-AzComputeFleet` for the same operation's
+      `Expanded` variant) is a genuine, tracked gap our schema can't express yet — no single
+      command has one verb *per variant*, only one verb overall.
 - [x] Update `toolkit`'s own README/status docs to reflect that a PS-command-enrichment
       `TransformStep` plus a `ps-commands` grouping package now exist (still no C# `Generator` —
       that remains a separate, later change). No such status doc existed yet (confirmed by
