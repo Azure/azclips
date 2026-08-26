@@ -18,6 +18,7 @@ public sealed class StartStorageBlobCopyProcessor : StorageBlobProcessorBase
         {
             throw new ArgumentException("SourceUri must be an absolute HTTP or HTTPS URL up to 2048 characters.", nameof(SourceUri));
         }
+        
 
         Uri destination = new UriBuilder(BuildBlobUri()) { Query = "comp=copy" }.Uri;
         using HttpRequestMessage request = CreateRequest(HttpMethod.Put, destination);
