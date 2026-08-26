@@ -50,14 +50,20 @@ code-generated at scale:
   + per-property `[Parameter(Mandatory, ParameterSetName)]` — the one place carrying the REAL,
   live PS SDK truth (confirmed: `System.Management.Automation.ParameterAttribute`/`CmdletAttribute`
   binding actually runs this).
-- A **Processor** class: properties decorated with `[ArgumentInfo(Required, Description,
-  SerializedName, ...)]`, duplicating the Cmdlet's parameters by hand. Traced its real consumer
-  (`ExtensionHelpManifestBuilder`) and found most of its fields (`Required`, `Description`,
-  `Aliases`, `Enums`) are never actually read by anything — only `ParameterSetName`,
-  `SupportsPipeline`, `SupportsWildcards`, `SerializedName` are. A concrete, demonstrated bug from
-  this: `GetResourceGroupProcessor.Name`'s `[ArgumentInfo]` has no `ParameterSetName`, so generated
-  help wrongly claims it applies to `"(All)"` sets — the real Cmdlet correctly scopes it to `"Get"`
-  only.
+- A **Processor** class: properties decorated with a single `[ArgumentInfo(Required, Description,
+  SerializedName, ...)]` — structurally not the same level as the Cmdlet's real parameter
+  attributes: `ArgumentInfoAttribute` has no `AllowMultiple = true` (one instance per property,
+  one `ParameterSetName` string, default `"(All)"`), while the real `ParameterAttribute` does —
+  confirmed directly: `GetResourceGroupCmdlet.SubscriptionId` stacks two separate
+  `[Parameter(ParameterSetName = "Get", ...)]`/`[Parameter(ParameterSetName = "List", ...)]`
+  instances, a per-parameter-set variation `ArgumentInfo` cannot express at all. Traced its real
+  consumer (`ExtensionHelpManifestBuilder`) and found most of its fields (`Required`,
+  `Description`, `Aliases`, `Enums`) are never actually read by anything anyway — only
+  `ParameterSetName`, `SupportsPipeline`, `SupportsWildcards`, `SerializedName` are. A concrete,
+  demonstrated bug from this structural gap: `GetResourceGroupProcessor.Name`'s single
+  `[ArgumentInfo]` has no `ParameterSetName`, so generated help wrongly claims it applies to
+  `"(All)"` sets — the real Cmdlet correctly scopes it to `"Get"` only, via its own, separate
+  `[Parameter(ParameterSetName = "Get", ...)]`.
 - An **`ExtensionIndex`** registration: one `CommandMetadata` per (processor × client-type) — a
   `_PS` entry and a `_CLI` entry, both pointing at the same `ProcessorType`, each hand-typing an
   identical `Description`/`IsRequired`/`AllowedValues` per parameter (differing only in key
