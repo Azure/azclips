@@ -1,0 +1,4 @@
+{
+  "pipeline": [{ "use": "create-ps-commands", "options": { "subjectPrefix": "Az" } }],
+  "generator": { "use": "generate-ps-commands" }
+}

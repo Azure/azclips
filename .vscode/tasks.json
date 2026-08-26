@@ -13,6 +13,15 @@
 		},
 		{
 			"type": "shell",
+			"command": "npm run build --workspaces",
+			"label": "toolkit: build",
+			"options": {
+				"cwd": "${workspaceFolder}/toolkit"
+			},
+			"problemMatcher": []
+		},
+		{
+			"type": "shell",
 			"command": "npm run preview",
 			"label": "wiki: preview",
 			"options": {

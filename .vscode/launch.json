@@ -100,9 +100,52 @@
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "toolkit: debug vitest file",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/toolkit/node_modules/vitest/vitest.mjs",
+            "args": ["run", "${input:toolkitTestFile}", "--no-file-parallelism"],
+            "cwd": "${input:toolkitPackageDir}",
+            "console": "integratedTerminal",
+            "smartStep": true,
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+        },
+        {
+            "name": "toolkit: debug ace compile (create-ps-commands + generate-ps-commands)",
+            "type": "node",
+            "request": "launch",
+            "preLaunchTask": "toolkit: build",
+            "program": "${workspaceFolder}/toolkit/packages/cli/dist/src/cli.js",
+            "args": [
+                "compile",
+                "--tsp-location",
+                "${workspaceFolder}/toolkit/packages/typespec-emitter/test/fixtures/resource-group/main.tsp",
+                "--config",
+                "${workspaceFolder}/toolkit/.debug/generate-ps-commands.config.json",
+                "--out-dir",
+                "${workspaceFolder}/toolkit/.debug/out"
+            ],
+            "cwd": "${workspaceFolder}/toolkit",
+            "console": "integratedTerminal",
+            "outFiles": ["${workspaceFolder}/toolkit/packages/*/dist/**/*.js"],
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
         }
     ],
     "inputs": [
+        {
+            "id": "toolkitTestFile",
+            "type": "promptString",
+            "description": "Test file to debug, relative to its package (e.g. test/create-ps-commands.e2e.test.ts)",
+            "default": "test/create-ps-commands.e2e.test.ts"
+        },
+        {
+            "id": "toolkitPackageDir",
+            "type": "promptString",
+            "description": "Package directory containing that test (e.g. ${workspaceFolder}/toolkit/packages/cli)",
+            "default": "${workspaceFolder}/toolkit/packages/cli"
+        },
         {
             "id": "azArg1",
             "type": "promptString",
