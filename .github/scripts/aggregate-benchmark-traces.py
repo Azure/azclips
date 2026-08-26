@@ -113,6 +113,140 @@ def read_spans(path):
     return spans, malformed
 
 
+# -------------------------------------------------------------- tree building
+
+def group_by_trace(spans):
+    """One group per TraceId, i.e. per CLI or cmdlet invocation."""
+    traces = defaultdict(list)
+    for span in spans:
+        traces[span.get("TraceId") or ""].append(span)
+    return list(traces.values())
+
+
+def child_sort_key(span):
+    """Order siblings by start time; SpanId breaks ties so ordering is deterministic."""
+    return (parse_time(span.get("StartTime")) or FAR_FUTURE, span.get("SpanId") or "")
+
+
+def link(spans):
+    """Return (children_by_parent_id, roots).
+
+    A span is a root when it has no parent, or when its parent is absent from this
+    trace. The latter is a truncated export: BatchActivityExportProcessor drains on
+    shutdown in [IterationCleanup] and a span still in flight is dropped.
+    """
+    known = {span["SpanId"] for span in spans}
+    children = defaultdict(list)
+    roots = []
+    for span in spans:
+        parent = span.get("ParentSpanId")
+        if parent and parent in known and parent != span["SpanId"]:
+            children[parent].append(span)
+        else:
+            roots.append(span)
+    return children, roots
+
+
+def flatten(root, children):
+    """Walk one trace, returning [(path, duration_ms, start_offset_ms)].
+
+    Same-named siblings are indexed by start order, so a path is unique within a
+    trace. That matters because SessionCreated, AuthBeforeTokenAcquisition, and
+    ActionStart are started from event handlers in Engine.Subscriptions.cs and can
+    each fire more than once under the same parent.
+    """
+    root_start = parse_time(root.get("StartTime"))
+    collected = []
+    visited = set()
+
+    def visit(span, path):
+        span_id = span["SpanId"]
+        if span_id in visited:
+            return
+        visited.add(span_id)
+
+        start = parse_time(span.get("StartTime"))
+        offset = (start - root_start).total_seconds() * 1000.0 if start and root_start else 0.0
+        collected.append((path, float(span.get("Duration") or 0.0), offset))
+
+        counts = defaultdict(int)
+        for child in sorted(children.get(span_id, []), key=child_sort_key):
+            name = child.get("OperationName") or "<unnamed>"
+            index = counts[name]
+            counts[name] += 1
+            visit(child, path + ((name, index),))
+
+    visit(root, ((root.get("OperationName") or "<unnamed>", 0),))
+    return collected
+
+
+# ---------------------------------------------------------------- aggregation
+
+class Report:
+    """Cross-trace totals for one benchmark method, keyed by node path."""
+
+    def __init__(self, stem, product, extension):
+        self.stem = stem
+        self.product = product
+        self.extension = extension
+        self.trace_count = 0
+        self.malformed = 0
+        self.orphan_subtrees = 0
+        self.rootless_traces = 0
+        self.nodes = {}
+
+    def add(self, path, duration, offset):
+        node = self.nodes.get(path)
+        if node is None:
+            node = {"total": 0.0, "count": 0, "offset_total": 0.0}
+            self.nodes[path] = node
+        node["total"] += duration
+        node["count"] += 1
+        node["offset_total"] += offset
+
+    def average(self, path):
+        node = self.nodes[path]
+        return node["total"] / node["count"] if node["count"] else 0.0
+
+    def mean_offset(self, path):
+        node = self.nodes[path]
+        return node["offset_total"] / node["count"] if node["count"] else 0.0
+
+    def coverage(self, path):
+        return self.nodes[path]["count"]
+
+    @property
+    def root_path(self):
+        """The dominant single-element path. More than one means the root's name varied."""
+        roots = [path for path in self.nodes if len(path) == 1]
+        if not roots:
+            return None
+        return max(roots, key=lambda path: self.nodes[path]["count"])
+
+
+def aggregate_file(path, stem, product, extension):
+    spans, malformed = read_spans(path)
+    report = Report(stem, product, extension)
+    report.malformed = malformed
+
+    for trace_spans in group_by_trace(spans):
+        children, roots = link(trace_spans)
+        if not roots:
+            # Only reachable if every span's parent is present, i.e. a reference
+            # cycle. Counted rather than dropped silently.
+            report.rootless_traces += 1
+            continue
+        roots.sort(key=child_sort_key)
+        # Keep the earliest root. Other roots are detached subtrees from a truncated
+        # export; reparenting them would fabricate a hierarchy that never existed.
+        report.orphan_subtrees += len(roots) - 1
+        report.trace_count += 1
+        for node_path, duration, offset in flatten(roots[0], children):
+            report.add(node_path, duration, offset)
+
+    return report
+
+
 # --------------------------------------------------------------- entry point
 
 def run(args):
@@ -121,11 +255,18 @@ def run(args):
         print(f"[traces] no telemetry .jsonl found under '{args.input}'")
         return 0
 
-    for path, stem, product, extension in files:
-        spans, malformed = read_spans(path)
-        traces = {span.get("TraceId") or "" for span in spans}
-        print(f"[traces] {extension or '-'}/{product or '-'}/{stem}: "
-              f"{len(spans)} span(s), {len(traces)} trace(s), {malformed} malformed")
+    reports = [aggregate_file(*item) for item in files]
+    usable = [report for report in reports if report.trace_count > 0]
+    print(f"[traces] aggregated {len(usable)} benchmark(s) from {len(files)} file(s)")
+
+    if args.debug_paths:
+        for report in usable:
+            print(f"\n== {report.stem} ({report.trace_count} traces, "
+                  f"{report.orphan_subtrees} orphans, {report.malformed} malformed)")
+            for path in sorted(report.nodes, key=lambda p: (len(p), report.mean_offset(p))):
+                trail = " > ".join(f"{name}[{index}]" for name, index in path)
+                print(f"   {report.average(path):9.3f} ms  "
+                      f"{report.coverage(path):3d}/{report.trace_count}  {trail}")
 
     return 0
 
@@ -137,6 +278,8 @@ def main():
     parser.add_argument("--summary-out", help="append the ASCII report here; omit for stdout")
     parser.add_argument("--comment-out", help="write the PR comment body here")
     parser.add_argument("--run-url", help="link target embedded in the comment")
+    parser.add_argument("--debug-paths", action="store_true",
+                        help="dump raw path keys with averages instead of rendering")
     args = parser.parse_args()
 
     try:
