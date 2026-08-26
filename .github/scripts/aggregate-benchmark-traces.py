@@ -321,6 +321,57 @@ def render_report(report):
     return "\n".join(lines)
 
 
+# ------------------------------------------------------------------- outputs
+
+def render_summary(reports):
+    """Markdown for $GITHUB_STEP_SUMMARY, truncated to stay under the 1 MiB cap."""
+    blocks = ["## 🔬 Benchmark Trace Hierarchy", ""]
+    used = sum(len(block.encode("utf-8")) for block in blocks)
+    truncated = 0
+
+    for report in reports:
+        body = render_report(report)
+        if body is None:
+            continue
+        block = "```\n" + body + "\n```\n"
+        size = len(block.encode("utf-8"))
+        if used + size > SUMMARY_BUDGET_BYTES:
+            truncated += 1
+            continue
+        blocks.append(block)
+        used += size
+
+    if truncated:
+        blocks.append(
+            f"\n_Output truncated: {truncated} benchmark(s) omitted to stay under "
+            "GitHub's 1 MiB job summary limit._\n")
+
+    return "\n".join(blocks)
+
+
+def render_comment(reports, run_url):
+    """An index table linking to the job summary, or None when nothing was aggregated."""
+    rows = []
+    for report in reports:
+        root = report.root_path
+        if root is None or report.trace_count == 0:
+            continue
+        rows.append(f"| {report.extension or '—'} | {report.product or '—'} "
+                    f"| `{report.stem.rsplit('.', 1)[-1]}` | {report.trace_count} "
+                    f"| {report.average(root):.3f} ms |")
+
+    if not rows:
+        return None
+
+    lines = ["## 🔬 Benchmark Trace Hierarchy", "",
+             "| Extension | Product | Benchmark | Traces | Root avg |",
+             "|---|---|---|---|---|", *rows, ""]
+    if run_url:
+        lines.extend([f"[📊 View full trace hierarchies]({run_url})", ""])
+    lines.append(COMMENT_MARKER)
+    return "\n".join(lines)
+
+
 # --------------------------------------------------------------- entry point
 
 def run(args):
@@ -343,10 +394,21 @@ def run(args):
                       f"{report.occurrences(path):3d}/{report.trace_count}  {trail}")
         return 0
 
-    for report in usable:
-        body = render_report(report)
+    summary = render_summary(usable)
+    if args.summary_out:
+        # Append: the runner may already have written to $GITHUB_STEP_SUMMARY.
+        with open(args.summary_out, "a", encoding="utf-8") as handle:
+            handle.write(summary + "\n")
+        print(f"[traces] wrote summary to {args.summary_out}")
+    else:
+        print(summary)
+
+    if args.comment_out:
+        body = render_comment(usable, args.run_url)
         if body:
-            print("\n" + body)
+            with open(args.comment_out, "w", encoding="utf-8") as handle:
+                handle.write(body + "\n")
+            print(f"[traces] wrote comment body to {args.comment_out}")
     return 0
 
 
