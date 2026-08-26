@@ -33,10 +33,14 @@ IR) designed, and only then do the implementation tasks reuse whatever's fastest
    the *entire* mature Az PowerShell ecosystem (thousands of cmdlets) ever needs a field is a
    durable signal that doesn't need revisiting later.
 
-Include a field only if (1) and (2) pass; (3) is the tiebreaker/evidence for genuinely uncertain
-cases, replacing any temptation to reason from "does azclips's own code use this yet" (which
-would wrongly exclude something azclips just hasn't gotten around to, and wrongly include
-something no real Az module ever needed either).
+Include a field only if (1), (2), **and** (3) all pass — none of the three is a mere tiebreaker;
+any one failing is sufficient to exclude a field, replacing any temptation to reason from "does
+azclips's own code use this yet" (which would wrongly exclude something azclips just hasn't
+gotten around to, and wrongly include something no real Az module ever needed either). Confirmed
+by the applied verdicts below: `OutputTypeAttribute.ParameterSetName` passes (1) and (2) but is
+excluded solely for failing (3) (the mature ecosystem never actually exercises it); `Guid`/
+`Version`/etc. fail only (2) (nothing in a TypeSpec resource definition determines them) despite
+being unambiguously real (1).
 
 **Real hand-written azclips precedent** (traced end-to-end: `NewResourceGroupProcessor.cs` +
 `NewResourceGroupCmdlet.cs` + `Resources/ExtensionIndex.cs`): every command today is declared up
