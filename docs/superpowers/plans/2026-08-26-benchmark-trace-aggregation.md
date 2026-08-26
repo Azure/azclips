@@ -990,6 +990,11 @@ Add at the end of `.github/workflows/benchmark-comment.yml`, at the same indenta
       - name: Find PR number
         if: steps.download.outcome == 'success'
         id: find-pr
+        # A closed or merged PR leaves nothing to comment on. That is a normal
+        # outcome, so the step reports it and the job stays green; the post step
+        # still skips, because it gates on this step's outcome rather than its
+        # conclusion.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -1033,6 +1038,12 @@ Add at the end of `.github/workflows/benchmark-comment.yml`, at the same indenta
                "--jq", f'[.[] | select(.body | contains("{marker}")) | .id][0]'],
               capture_output=True, text=True,
           )
+          if found.returncode != 0:
+              # Falling through would POST a second comment on every transient
+              # failure, so stop instead — the next run updates in place.
+              print(f"::warning::Could not list PR comments; skipping. {found.stderr.strip()}")
+              sys.exit(0)
+
           existing_id = found.stdout.strip()
 
           if existing_id and existing_id != "null":
