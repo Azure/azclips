@@ -45,7 +45,7 @@ describe("derivePsCommands", () => {
     expect(command!.defaultParameterSetName).toBe("createOrUpdate");
   });
 
-  it("copies Milestone 1's operation-level fields (alias, hidden, summary, lifecycleTag, etc.) onto the derived command", () => {
+  it("copies the operation-level richness fields (alias, hidden, summary, lifecycleTag, etc.) onto the derived command", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
       method: "PUT",

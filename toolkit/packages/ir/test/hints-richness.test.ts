@@ -1,6 +1,8 @@
 /**
- * Milestone 1: hints.powershell vocabulary richness — round-trip tests for
- * ParameterHints' new powershell namespace and OperationHints' new fields.
+ * Round-trip tests for the parameter-level and command-level `hints.powershell` richness
+ * fields (mandatory/position/aliases/mutability/etc. on `ParameterHints`; alias/hidden/
+ * summary/lifecycleTag/etc. on `OperationHints`) — see design.md's Parameter-level and
+ * Command-level sections.
  */
 
 import { describe, expect, it } from "vitest";
@@ -13,7 +15,7 @@ import {
   type OperationHints,
 } from "../src/index.js";
 
-describe("hints.powershell (ParameterHints) — Milestone 1", () => {
+describe("hints.powershell (ParameterHints) — richness fields", () => {
   it("round-trips a fully populated parameter powershell hint", () => {
     const hint: ParameterHints = {
       powershell: {
@@ -78,7 +80,7 @@ describe("hints.powershell (ParameterHints) — Milestone 1", () => {
   });
 });
 
-describe("hints.powershell (OperationHints) — Milestone 1 extensions", () => {
+describe("hints.powershell (OperationHints) — richness fields", () => {
   it("round-trips alias/hidden/help/lifecycle/httpPath fields", () => {
     const hint: OperationHints = {
       powershell: {

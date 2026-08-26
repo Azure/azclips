@@ -32,7 +32,7 @@ function makeParameter(name: string): IROperation["pathParameters"][number] {
   };
 }
 
-describe("create-ps-commands: directives (Milestone 2)", () => {
+describe("create-ps-commands: directives (ps-command-customization)", () => {
   it("renames a parameter's alias across every matching command", async () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "get" },

@@ -90,13 +90,12 @@ describe("create-ps-commands + derivePsCommands: real Microsoft.Resources spec e
     expect(del!.supportsShouldProcess).toBe(true);
   });
 
-  it("Expanded variant flattens ResourceGroupProperties (Milestone 1 fan-out, exercised end-to-end)", async () => {
+  it("Expanded variant flattens ResourceGroupProperties (variant fan-out, exercised end-to-end)", async () => {
     // No flatten-decision TransformStep exists yet in this codebase (a real,
     // separate gap — see design.md's Non-Goals discussion on FlattenHint reuse).
     // This test-only step simulates what that future transform would produce,
     // so the *plumbing* between create-ps-commands and derivePsCommands' fan-out
-    // (Milestone 1) is proven end-to-end rather than only in derive.test.ts's
-    // isolated unit tests.
+    // is proven end-to-end rather than only in derive.test.ts's isolated unit tests.
     const simulateFlattenDecision = {
       name: "simulate-flatten-decision",
       run: (ir: IR): IR => ({
@@ -116,7 +115,7 @@ describe("create-ps-commands + derivePsCommands: real Microsoft.Resources spec e
     };
 
     const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
-    const pipeline = createTransformPipeline("m1", [
+    const pipeline = createTransformPipeline("variant-fan-out", [
       createPsCommandsFactory({ subjectPrefix: "Az" }),
       simulateFlattenDecision,
     ]);
@@ -134,7 +133,7 @@ describe("create-ps-commands + derivePsCommands: real Microsoft.Resources spec e
     ]);
   });
 
-  it("Milestone 1 parameter hints survive a real compile unclobbered (create-ps-commands infers no parameter-level fields)", async () => {
+  it("parameter hints survive a real compile unclobbered (create-ps-commands infers no parameter-level fields)", async () => {
     // hints.powershell has no TypeSpec-decorator authoring path yet — this test-only step
     // stands in for that, simulating an author setting parameter-level hints inline before
     // create-ps-commands runs, on the real `resourceGroupName` path parameter shared by
@@ -164,7 +163,7 @@ describe("create-ps-commands + derivePsCommands: real Microsoft.Resources spec e
     };
 
     const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
-    const pipeline = createTransformPipeline("m1", [
+    const pipeline = createTransformPipeline("parameter-hints", [
       simulateAuthoring,
       createPsCommandsFactory({ subjectPrefix: "Az" }),
     ]);
@@ -186,9 +185,9 @@ describe("create-ps-commands + derivePsCommands: real Microsoft.Resources spec e
     });
   });
 
-  it("Milestone 2 directives apply against real ResourceGroups operations", async () => {
+  it("directives apply against real ResourceGroups operations", async () => {
     const producer = createSubprocessEmitProducer(resolveToolchain(RESOURCE_GROUP_TSP));
-    const pipeline = createTransformPipeline("m2", [
+    const pipeline = createTransformPipeline("directives", [
       createPsCommandsFactory({
         subjectPrefix: "Az",
         directives: [
