@@ -25,19 +25,22 @@
         "name": "--client-id",
         "required": false,
         "short_summary": "Client ID of the user-assigned managed identity.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Managed Identity Arguments"
       },
       {
         "name": "--identity",
         "required": false,
         "short_summary": "Login using managed identity in the current environment.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Managed Identity Arguments"
       },
       {
         "name": "--object-id",
         "required": false,
         "short_summary": "Object ID of the user-assigned managed identity.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Managed Identity Arguments"
       },
       {
         "name": "--out-profile",
@@ -55,7 +58,8 @@
         "name": "--resource-id",
         "required": false,
         "short_summary": "Resource ID of the user-assigned managed identity.",
-        "long_summary": ""
+        "long_summary": "",
+        "group_name": "Managed Identity Arguments"
       },
       {
         "name": "--subscription-id",

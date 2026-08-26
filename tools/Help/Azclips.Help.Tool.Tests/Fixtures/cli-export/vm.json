@@ -78,7 +78,8 @@
         "name": "--resource-group",
         "required": true,
         "short_summary": "The resource group name.",
-        "long_summary": ""
+        "long_summary": "",
+        "value_sources": "az group list"
       },
       {
         "name": "--rule-accesses",

@@ -15,9 +15,8 @@ public class TUITelemetryProvider : DefaultTelemetryProvider
     // The Enabled check no longer lives here — TelemetryService gates every
     // Start*Activity call at runtime so telemetry.enabled changes take effect on
     // the next command without requiring a TUI restart.
-    public TUITelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
+    public TUITelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors, ITelemetrySender sender)
     {
-        FileTelemetrySender sender = new();
         ActivitySource = new ActivitySource(ClientType.TUI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(ClientType.TUI.ToString())
@@ -37,7 +36,7 @@ public class TUITelemetryProvider : DefaultTelemetryProvider
             builder.AddProcessor(processor);
         }
 
-        sender.ConfigureExporter(builder, FileTelemetrySender.GetTraceDirectory());
+        sender.ConfigureExporter(builder);
         TracerProvider = builder.Build()!;
     }
 }

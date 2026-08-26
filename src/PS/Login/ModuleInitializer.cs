@@ -23,6 +23,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
+                services.AddSingleton<ITelemetrySender, DirectTelemetrySender>();
                 services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
             });

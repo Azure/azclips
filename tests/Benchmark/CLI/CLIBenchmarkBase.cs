@@ -65,13 +65,16 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             stagedCount++;
         }
 
+        VerifyAuthFixture();
+
         Console.WriteLine(
-            $"[Setup] CLI benchmarks ready (stub HTTP); staged {stagedCount} extension(s)");
+            $"[Setup] CLI benchmarks ready (stub HTTP, real MSAL cache IO); staged {stagedCount} extension(s)");
     }
 
     [IterationSetup]
     public void IterationSetup()
     {
+        SeedProfileStore();
         RegisterBenchmarkStubs();
         RegisterExtensionResolution();
     }
@@ -85,6 +88,8 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     [GlobalCleanup]
     public void GlobalCleanup()
     {
+        CleanupGlobal();
+
         // Best-effort: InstalledExtensionLoader caches the extension ALC for the process
         // lifetime, so the staged DLL may still be locked here. A leftover home is harmless.
         TryDeleteDirectory(Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));

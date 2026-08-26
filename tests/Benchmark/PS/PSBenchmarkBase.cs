@@ -37,12 +37,15 @@ public abstract class PSBenchmarkBase : BenchmarkBase
 
         _psModuleManifestPath = PSManifestStager.StageModule(RepoRoot, ModuleName);
 
-        Console.WriteLine($"[Setup] PS benchmarks ready for '{ModuleName}' (stub HTTP)");
+        VerifyAuthFixture();
+
+        Console.WriteLine($"[Setup] PS benchmarks ready for '{ModuleName}' (stub HTTP, real MSAL cache IO)");
     }
 
     [IterationSetup]
     public void IterationSetup()
     {
+        SeedProfileStore();
         RegisterBenchmarkStubs();
 
         // Prime the runspace and import the module. Module import execution is excluded from the measured region, so that the benchmark measures only the cmdlet invocation.
@@ -74,6 +77,9 @@ public abstract class PSBenchmarkBase : BenchmarkBase
         _runspace?.Dispose();
         _runspace = null!;
     }
+
+    [GlobalCleanup]
+    public void GlobalCleanup() => CleanupGlobal();
 
     protected object? RunPowerShellCommand(
         string command,

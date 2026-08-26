@@ -80,5 +80,9 @@ namespace Azclips.Help.Tool.Validation
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";
         public const string ExtensionIndexLoadFailed = "Tool_ExtensionIndexLoadFailed";
+
+        // ParameterGroupConventionValidator. Warns when a `[ParameterGroup]` value doesn't end in
+        // " Arguments" (the convention Azure CLI uses uniformly for its group headers).
+        public const string GRP_NonConventionalGroupName = "GRP_NonConventionalGroupName";
     }
 }

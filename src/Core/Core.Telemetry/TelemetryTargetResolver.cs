@@ -2,25 +2,30 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 
 namespace Core.Telemetry;
 
 /// <summary>
-/// Resolves the effective <see cref="TelemetryTarget"/>. The default is chosen at
-/// compile time (Debug → Local, Release → Remote) and can be overridden only by a
-/// direct read of the <c>AZCLIPS_TELEMETRY_TARGET</c> environment variable. This
-/// deliberately bypasses the surfaced configuration pipeline so the switch never
-/// appears in <c>config get/list/set</c> or tab-completion.
+/// Resolves the effective set of <see cref="TelemetryTarget"/> values. The default is chosen
+/// at compile time (Debug → Local and Remote, Release → Remote). In Debug it can be overridden
+/// with <c>AZCLIPS_TELEMETRY_TARGET</c>, which accepts <c>local</c>, <c>remote</c>, or
+/// <c>both</c>; Release does not read the environment. The variable bypasses the surfaced
+/// configuration pipeline, so it never appears in <c>config get/list/set</c> or tab-completion.
+///
+/// The resolved set is never empty. Telemetry is disabled with <c>telemetry.enabled=false</c>.
 /// </summary>
 internal static class TelemetryTargetResolver
 {
     internal const string TargetEnvironmentVariable = "AZCLIPS_TELEMETRY_TARGET";
 
-    /// <summary>Resolves the target using the compile-time default and the process environment.</summary>
-    internal static TelemetryTarget Resolve() =>
-        Resolve(CompileTimeDefault, Environment.GetEnvironmentVariable);
+    /// <summary>Resolves the target set for this build.</summary>
+    internal static IReadOnlyList<TelemetryTarget> Resolve() =>
+        Resolve(CompileTimeDefault, EnvironmentReader);
 
-    internal static TelemetryTarget Resolve(TelemetryTarget compileDefault, Func<string, string?> environmentReader)
+    internal static IReadOnlyList<TelemetryTarget> Resolve(
+        IReadOnlyList<TelemetryTarget> compileDefault,
+        Func<string, string?> environmentReader)
     {
         var raw = environmentReader(TargetEnvironmentVariable)?.Trim();
         if (string.IsNullOrEmpty(raw))
@@ -30,16 +35,26 @@ internal static class TelemetryTargetResolver
 
         return raw.ToLowerInvariant() switch
         {
-            "local" => TelemetryTarget.Local,
-            "remote" => TelemetryTarget.Remote,
+            "local" => [TelemetryTarget.Local],
+            "remote" => [TelemetryTarget.Remote],
+            "both" => [TelemetryTarget.Local, TelemetryTarget.Remote],
             _ => compileDefault,
         };
     }
 
-    private static TelemetryTarget CompileTimeDefault =>
+    /// <summary>Reads the process environment in Debug; always returns null in Release.</summary>
+    internal static Func<string, string?> EnvironmentReader =>
 #if DEBUG
-        TelemetryTarget.Local;
+        Environment.GetEnvironmentVariable;
 #else
-        TelemetryTarget.Remote;
+        _ => null;
+#endif
+
+    /// <summary>The target set compiled into this build.</summary>
+    internal static IReadOnlyList<TelemetryTarget> CompileTimeDefault =>
+#if DEBUG
+        [TelemetryTarget.Local, TelemetryTarget.Remote];
+#else
+        [TelemetryTarget.Remote];
 #endif
 }

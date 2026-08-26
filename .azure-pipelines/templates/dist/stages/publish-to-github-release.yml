@@ -135,32 +135,11 @@ stages:
           exit 1
         fi
 
-        assets=()
-        excluded_assets=()
-        for asset in "${discovered_assets[@]}"; do
-          case "$(basename "$asset")" in
-            *macos-x86_64*)
-              excluded_assets+=("$asset")
-              ;;
-            *)
-              assets+=("$asset")
-              ;;
-          esac
-        done
-
-        if [[ ${#assets[@]} -eq 0 ]]; then
-          echo "ERROR: No publishable .tar.gz or .zip release assets remain after filtering."
-          exit 1
-        fi
+        assets=("${discovered_assets[@]}")
 
         echo "Signed source pipeline: $signed_pipeline_name"
         echo "Signed source build id: $signed_build_id"
         echo "Signed artifact: $signed_artifact_name"
-
-        if [[ ${#excluded_assets[@]} -gt 0 ]]; then
-          echo "Assets excluded from GitHub release (${#excluded_assets[@]}):"
-          printf '  %s\n' "${excluded_assets[@]}"
-        fi
 
         echo "Assets to upload (${#assets[@]}):"
         printf '  %s\n' "${assets[@]}"
