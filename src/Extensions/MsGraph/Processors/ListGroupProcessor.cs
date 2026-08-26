@@ -67,7 +67,5 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;
         }
-
-        protected override object SelectOutput(GroupList body) => body.Value ?? [];
     }
 }
