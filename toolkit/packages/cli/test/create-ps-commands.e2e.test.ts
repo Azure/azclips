@@ -133,7 +133,7 @@ describe("create-ps-commands + derivePsCommands: real Microsoft.Resources spec e
     ]);
   });
 
-  it("parameter hints survive a real compile unclobbered (create-ps-commands infers no parameter-level fields)", async () => {
+  it("parameter hints survive a real compile unclobbered (an author-set value wins over create-ps-commands' own mandatory/helpMessage inference)", async () => {
     // hints.powershell has no TypeSpec-decorator authoring path yet — this test-only step
     // stands in for that, simulating an author setting parameter-level hints inline before
     // create-ps-commands runs, on the real `resourceGroupName` path parameter shared by

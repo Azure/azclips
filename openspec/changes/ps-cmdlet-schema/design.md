@@ -245,6 +245,13 @@ end-to-end: a nested list operation (e.g. `ResourceGroups.listByResourceGroup`, 
 `GenericResourceExpanded`) can return a different resource's list result than its interface name
 implies, and real Az naming follows the returned resource, not the containing interface.
 
+**Other fields derived directly from IR, not just author-settable**: `httpPath` from the
+operation's own `pathTemplate`/`apiVersion`; `supportsPaging` from IR's own
+`semantics?.kind === "pageable"`; `summary`/`description` from the operation's own `summary`/`docs`
+(`@summary`/`@doc`); `hidden` from `access === "internal"` (`@access`) — found by auditing every
+field already declared in the schema against what `IROperation` itself already carries, the same
+method that found the noun-inference and `mandatory` gaps. An author-set value always wins.
+
 **Multi-operation merge + variant fan-out**: two distinct mechanisms, both in `ps-commands`'s
 `derivePsCommands()` (not inside `create-ps-commands` — see below):
 - **Multi-operation merge**: operations sharing a resolved verb+noun under the same
@@ -353,6 +360,13 @@ existing flat `mandatory`/`position`/`helpMessage` fields remain the default/fal
 parameter belongs to only one set (today's common case) or a specific set has no override entry.
 This is exactly the case multi-operation merge produces most often: a shared parameter name
 across several source operations, each with potentially different requirements for it.
+
+**`mandatory`/`helpMessage`, also derived directly from IR**: `mandatory` from the parameter's own
+`!optional` (the real TypeSpec-derived wire requiredness — already used elsewhere in this schema
+for the `defaultParameterSetName` heuristic, just not wired into `mandatory` until this was
+audited); `helpMessage` from the parameter's own `summary`, falling back to `docs`
+(`@summary`/`@doc`). Both found by the same field-by-field IR audit as the operation-level
+derivations above — an author-set value always wins over either.
 
 **Parameter-level directives**: the same directive mechanism as Command-level
 (`select: "parameter"`/`where`/`set`), for bulk parameter renames/hides/alias assignment across

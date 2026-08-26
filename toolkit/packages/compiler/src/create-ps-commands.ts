@@ -113,6 +113,9 @@ function resolveOperationHints(
   // "" means "not configured"; keep as undefined since the schema requires a non-empty string.
   const inferredSubjectPrefix = options.subjectPrefix || undefined;
   const inferredConfirmImpact = isMutatingMethod(operation.method) ? "Medium" : undefined;
+  // `@access(internal)` operations aren't meant to be part of the public surface.
+  const inferredHidden = operation.access === "internal" ? true : undefined;
+  const inferredSupportsPaging = operation.semantics?.kind === "pageable" ? true : undefined;
 
   // Directive matching uses this pre-directive identity, so parameter-level directives see
   // the same values regardless of what a command-level directive later overrides.
@@ -134,15 +137,33 @@ function resolveOperationHints(
   const parameterSetName = existing.parameterSetName ?? capitalize(operation.id.name);
   const confirmImpact = existing.confirmImpact ?? directiveSet.confirmImpact ?? inferredConfirmImpact;
   const alias = existing.alias ?? directiveSet.alias;
-  const hidden = existing.hidden ?? directiveSet.hidden;
+  const hidden = existing.hidden ?? directiveSet.hidden ?? inferredHidden;
+  const summary = existing.summary ?? operation.summary;
+  const description = existing.description ?? operation.docs;
+  const httpPath =
+    existing.httpPath ?? { path: operation.pathTemplate, apiVersion: operation.apiVersion.value };
+  const supportsPaging = existing.supportsPaging ?? inferredSupportsPaging;
 
   return {
-    hints: { ...existing, verb, noun, subjectPrefix, parameterSetName, confirmImpact, alias, hidden },
+    hints: {
+      ...existing,
+      verb,
+      noun,
+      subjectPrefix,
+      parameterSetName,
+      confirmImpact,
+      alias,
+      hidden,
+      summary,
+      description,
+      httpPath,
+      supportsPaging,
+    },
     identity,
   };
 }
 
-/** Resolve one parameter's `hints.powershell`, applying matching directives as a fallback default. */
+/** Resolve one parameter's `hints.powershell`: infers `mandatory`/`helpMessage` from wire optionality/docs, applies matching directives as a fallback default for the rest. */
 function resolveParameterHints(
   parameter: IRParameter,
   owningCommand: CommandIdentity,
@@ -155,16 +176,16 @@ function resolveParameterHints(
       resolveSelector(d) === "parameter" &&
       matchesParameter(d.where, { parameterName: parameter.name, owningCommand }),
   );
-  if (matching.length === 0) return parameter.rendering;
-
   const directiveSet = mergeDirectiveSets(matching.map((d) => d.set));
+
+  const mandatory = existing?.mandatory ?? !parameter.optional;
+  const helpMessage = existing?.helpMessage ?? parameter.summary ?? parameter.docs;
   const aliases = existing?.aliases ?? directiveSet.alias;
   const dontShow = existing?.dontShow ?? directiveSet.dontShow;
-  if (aliases === undefined && dontShow === undefined && existing === undefined) return parameter.rendering;
 
   return {
     ...parameter.rendering,
-    powershell: { ...existing, aliases, dontShow },
+    powershell: { ...existing, mandatory, helpMessage, aliases, dontShow },
   };
 }
 

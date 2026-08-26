@@ -107,6 +107,13 @@ is a generator-default note, not a schema field, and why `SupportsTransactions`/
       `Get-AzResourceGroup`.
 - [x] Implement `SupportsShouldProcess`/`ConfirmImpact` policy from HTTP method (PUT/POST/PATCH/
       DELETE ⇒ true; GET ⇒ false); write into `hints.powershell.confirmImpact`.
+- [x] Audit every already-declared `hints.powershell` field against what `IROperation` itself
+      already carries, the same method that found the noun-inference and `mandatory` gaps: found
+      `httpPath` (from `pathTemplate`/`apiVersion`), `supportsPaging` (from
+      `semantics?.kind === "pageable"`), `summary`/`description` (from the operation's own
+      `summary`/`docs`), and `hidden` (from `access === "internal"`) were all declared as schema
+      fields but never actually derived — only author-settable. Wired up all four in
+      `create-ps-commands.ts`, author-set values still win. Added unit tests for each.
 - [x] Implement `derivePsCommands(ir: IR): PsCommand[]` in `ps-commands` — a plain function, not a
       pipeline stage — that reads the enriched IR and groups operations under the same
       `id.namespace` sharing a resolved verb+noun into one `PsCommand`, with one `PsParameterSet`
@@ -173,9 +180,9 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
       shouldn't.
 - [x] Verify end-to-end against the real `Microsoft.Resources` fixture: an author-inline parameter
       hint (`mandatory`/`helpMessage`/`position`) set on the real `resourceGroupName` path
-      parameter survives `create-ps-commands` unclobbered (no parameter-level inference exists to
-      conflict with it); a parameter-alias directive applies across every real operation sharing
-      the `resourceGroupName` parameter.
+      parameter survives `create-ps-commands` unclobbered even though `mandatory`/`helpMessage`
+      are now also IR-derived (an author-set value always wins over inference); a parameter-alias
+      directive applies across every real operation sharing the `resourceGroupName` parameter.
 - [x] Add an optional `parameterSets` map to `PowershellParameterHint`
       (`toolkit/packages/ir/src/hints.ts`) — `Record<string, { mandatory?, position?,
       helpMessage? }>` keyed by parameter-set name. The existing flat `mandatory`/`position`/
@@ -191,6 +198,13 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
 - [x] Added a unit test (synthetic fixture, mirroring the real `SubscriptionId`-across-`Get`/
       `List`-sets case) proving a parameter's effective `mandatory` can differ across two merged
       parameter sets on the same command, plus fallback and no-hint-at-all cases.
+- [x] Audit found `mandatory`/`helpMessage` were declared as schema fields but never actually
+      derived — only author-settable, despite the exact wire facts already existing on
+      `IRParameter` (`!optional`; `summary`/`docs`, the same fields already used for
+      `mandatory`'s real precedent, `!optional` itself already read elsewhere for
+      `defaultParameterSetName`'s required-parameter count). Wired both up in
+      `create-ps-commands.ts`'s `resolveParameterHints`, author-set values still win. Added unit
+      tests for both, including the required/optional and summary/docs-fallback cases.
 
 ## Real-fixture verification & integration
 
