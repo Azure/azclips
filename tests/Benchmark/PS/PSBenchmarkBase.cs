@@ -116,11 +116,6 @@ public abstract class PSBenchmarkBase : BenchmarkBase
         _runspace = null!;
     }
 
-    /// <summary>
-    /// Samples this benchmark's measured traces into the run's deliverable and removes the raw
-    /// directories. No draining is needed: each iteration's TracerProvider was disposed in
-    /// [IterationCleanup], which flushed that iteration's spans to disk.
-    /// </summary>
     [GlobalCleanup]
     public void GlobalCleanup()
     {

@@ -11,16 +11,6 @@ namespace Benchmark.Telemetry;
 /// Writes one benchmark iteration's spans into either the warmup or the measured directory, chosen
 /// by the flag <see cref="StageLatch"/> sets while that iteration runs.
 /// </summary>
-/// <remarks>
-/// Benchmark-only.
-///
-/// <para><b>Does not run inside the measured region.</b> Export is called on the batch processor's
-/// drain, which happens when the TracerProvider is disposed in [IterationCleanup].</para>
-///
-/// <para>The inner FileExporter is created on first export, because the destination is not known
-/// until the iteration has run. Export is only ever called by the batch processor's single worker
-/// thread, so the lazy assignment needs no synchronisation.</para>
-/// </remarks>
 internal sealed class StageDirectedFileExporter : BaseExporter<Activity>
 {
     private readonly string _warmupDirectory;
