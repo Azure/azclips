@@ -749,7 +749,9 @@ Insert a new section after rendering:
 def render_summary(reports):
     """Markdown for $GITHUB_STEP_SUMMARY, truncated to stay under the 1 MiB cap."""
     blocks = ["## 🔬 Benchmark Trace Hierarchy", ""]
-    used = sum(len(block.encode("utf-8")) for block in blocks)
+    # "\n".join inserts one separator byte per element beyond the first, so charge
+    # each block for its own separator or the budget silently undercounts.
+    used = sum(len(block.encode("utf-8")) for block in blocks) + len(blocks) - 1
     truncated = 0
 
     for report in reports:
@@ -757,7 +759,7 @@ def render_summary(reports):
         if body is None:
             continue
         block = "```\n" + body + "\n```\n"
-        size = len(block.encode("utf-8"))
+        size = len(block.encode("utf-8")) + 1
         if used + size > SUMMARY_BUDGET_BYTES:
             truncated += 1
             continue
