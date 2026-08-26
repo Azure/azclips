@@ -34,10 +34,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
 
-        public CancellationToken Token => CancellationToken.None;
-
-        public Action Cancel => throw new NotImplementedException();
-
         public IProcessor Init(ProcessorContext context)
         {
             BeforeInit();

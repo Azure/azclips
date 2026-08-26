@@ -17,7 +17,7 @@
 #
 # Usage: pwsh -NoProfile -File .\tests\Scripts\PS\MsGraphGroup.ps1
 
-$ErrorActionPreference = 'Continue'
+$ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Login\Login.psd1') -Force
 Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\MsGraph\MsGraph.psd1') -Force
