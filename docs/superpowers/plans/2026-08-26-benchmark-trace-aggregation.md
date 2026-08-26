@@ -368,7 +368,7 @@ git commit -m "feat(bench): add trace telemetry discovery and parsing"
 
 **Interfaces:**
 - Consumes: `read_spans`, `parse_time`, `FAR_FUTURE` from Task 1.
-- Produces: `class Report` with attributes `stem`, `product`, `extension`, `trace_count`, `malformed`, `orphan_subtrees`, `rootless_traces`, `nodes`; methods `add(path, duration, offset)`, `average(path)`, `mean_offset(path)`, `coverage(path)`, property `root_path`. Functions `group_by_trace(spans)`, `child_sort_key(span)`, `link(spans) -> (children, roots)`, `flatten(root, children) -> list[(path, duration, offset)]`, `aggregate_file(path, stem, product, extension) -> Report`. A **path** is a tuple of `(operation_name, occurrence_index)` pairs from the root down.
+- Produces: `class Report` with attributes `stem`, `product`, `extension`, `trace_count`, `malformed`, `orphan_subtrees`, `rootless_traces`, `nodes`; methods `add(path, duration, offset)`, `average(path)`, `mean_offset(path)`, `occurrences(path)`, property `root_path`. Functions `group_by_trace(spans)`, `child_sort_key(span)`, `link(spans) -> (children, roots)`, `flatten(root, children) -> list[(path, duration, offset)]`, `aggregate_file(path, stem, product, extension) -> Report`. A **path** is a tuple of `(operation_name, occurrence_index)` pairs from the root down. Note `occurrences(path)` returns a **count**, not a ratio — compare it against `trace_count` to get coverage.
 
 - [ ] **Step 1: Add tree building**
 
@@ -479,7 +479,8 @@ class Report:
         node = self.nodes[path]
         return node["offset_total"] / node["count"] if node["count"] else 0.0
 
-    def coverage(self, path):
+    def occurrences(self, path):
+        """How many traces contained this node. Compare against trace_count for coverage."""
         return self.nodes[path]["count"]
 
     @property
@@ -545,7 +546,7 @@ def run(args):
             for path in sorted(report.nodes, key=lambda p: (len(p), report.mean_offset(p))):
                 trail = " > ".join(f"{name}[{index}]" for name, index in path)
                 print(f"   {report.average(path):9.3f} ms  "
-                      f"{report.coverage(path):3d}/{report.trace_count}  {trail}")
+                      f"{report.occurrences(path):3d}/{report.trace_count}  {trail}")
 
     return 0
 ```
@@ -604,7 +605,7 @@ def label(path, report):
     """Node name, an index suffix from the second occurrence on, and partial coverage."""
     name, index = path[-1]
     text = name if index == 0 else f"{name}[{index}]"
-    count = report.coverage(path)
+    count = report.occurrences(path)
     if count < report.trace_count:
         text += f"  ({count}/{report.trace_count})"
     return text
@@ -675,7 +676,7 @@ In `run`, replace the `if args.debug_paths:` block's trailing `return 0` region 
             for path in sorted(report.nodes, key=lambda p: (len(p), report.mean_offset(p))):
                 trail = " > ".join(f"{name}[{index}]" for name, index in path)
                 print(f"   {report.average(path):9.3f} ms  "
-                      f"{report.coverage(path):3d}/{report.trace_count}  {trail}")
+                      f"{report.occurrences(path):3d}/{report.trace_count}  {trail}")
         return 0
 
     for report in usable:

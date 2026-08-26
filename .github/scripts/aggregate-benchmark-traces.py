@@ -212,7 +212,8 @@ class Report:
         node = self.nodes[path]
         return node["offset_total"] / node["count"] if node["count"] else 0.0
 
-    def coverage(self, path):
+    def occurrences(self, path):
+        """How many traces contained this node. Compare against trace_count for coverage."""
         return self.nodes[path]["count"]
 
     @property
@@ -266,7 +267,7 @@ def run(args):
             for path in sorted(report.nodes, key=lambda p: (len(p), report.mean_offset(p))):
                 trail = " > ".join(f"{name}[{index}]" for name, index in path)
                 print(f"   {report.average(path):9.3f} ms  "
-                      f"{report.coverage(path):3d}/{report.trace_count}  {trail}")
+                      f"{report.occurrences(path):3d}/{report.trace_count}  {trail}")
 
     return 0
 
