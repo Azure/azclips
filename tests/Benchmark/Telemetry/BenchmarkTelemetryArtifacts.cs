@@ -29,7 +29,7 @@ internal sealed class BenchmarkTelemetryArtifacts
     {
         // One process per benchmark case, so this is constant for the whole run.
         _benchmarkName = BenchmarkName.FromCommandLine();
-        _stagingRoot = BenchmarkTelemetryPaths.StagingRoot(repoRoot);
+        _stagingRoot = Path.Combine(repoRoot, "artifacts", "BenchmarkTelemetry");
         _telemetryRoot = Path.Combine(_stagingRoot, _benchmarkName);
 
         DirectoryUtils.TryDeleteDirectory(_telemetryRoot);
