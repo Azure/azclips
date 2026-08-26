@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Resources
-ms.date: 06/18/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Invoke-AzRestMethod
 ---
@@ -27,9 +27,6 @@ Invoke-AzRestMethod [-Method <string>] [-Uri <string>] [-Payload <string>] [-Hea
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -309,9 +306,9 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse
 
-Returns the raw REST response object: the HTTP status code, the response headers, and the response content. When the response body is JSON, a parsed `Json` representation is included alongside the raw content.
+A `RestResponse` object containing the HTTP status code, response headers, parsed JSON body (when applicable), and raw body text.
 
 ## NOTES
 

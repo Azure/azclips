@@ -43,20 +43,20 @@ public class StorageAccountCreateScenarioTests
             // test, and the sanitisers scrub it before it reaches disk, so nothing about it is
             // asserted here.
             using var host = new ScenarioHost(
-                ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extension: ScenarioExtension.Storage);
+                ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: ExtensionUnderTest.Storage);
             AssertCreated(RunCli(host));
             recording.Save();
             return;
         }
 
         using (var cli = new ScenarioHost(
-            ClientType.CLI, recording.CreateInterceptor(), extension: ScenarioExtension.Storage))
+            ClientType.CLI, recording.CreateInterceptor(), extensions: ExtensionUnderTest.Storage))
         {
             AssertCreated(RunCli(cli), SubscriptionId);
         }
 
         using (var ps = new ScenarioHost(
-            ClientType.PowerShell, recording.CreateInterceptor(), extension: ScenarioExtension.Storage))
+            ClientType.PowerShell, recording.CreateInterceptor(), extensions: ExtensionUnderTest.Storage))
         {
             AssertCreated(RunPowerShell(ps), SubscriptionId);
         }

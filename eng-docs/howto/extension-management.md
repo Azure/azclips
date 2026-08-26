@@ -10,7 +10,7 @@ An extension is a NuGet package that contributes one or more top-level command *
 
 Installed extensions live under `~/.azclips/extensions/<packageId>/<version>/`. Azclips **discovers** them automatically at runtime by walking the extensions directory — no install manifest is required. User preferences (pinning, version selection) are stored in `~/.azclips/extensions/registry.json` as an optional overlay on top of discovered extensions.
 
-Built-in namespaces (`extension`, `login`, `config`) are part of the host and cannot be removed.
+Extensions can also ship in the **Bundled** tier under `<install>/Extensions/` as part of the azcli install artifact. `extension`, `login`, and `config` are shipped this way in every packaging profile, so they're always present. Bundled extensions are managed by the OS-level install/uninstall of azcli itself — `az extension add/remove/update` only touch the Installed tier under `~/.azclips/extensions/`. See [extension-framework.md §2.3](../spec/extension-framework.md#23-extension-tiers) for the full write boundary.
 
 ## Discovery-First Model
 
@@ -90,9 +90,8 @@ The probe walks up from cwd looking for the repo root, then globs `artifacts/Deb
 
 ### What `add` validates
 
-1. Built-in verb collision (`extension`, `login`, `config`) — rejected.
-2. Compatibility metadata (extension compatibility attribute) — hard fail if the candidate excludes the current `core` version.
-3. Per-leaf `(verb, path)` collisions against the registry — see [Conflicts](#conflicts-on-install).
+1. Compatibility metadata (extension compatibility attribute) — hard fail if the candidate excludes the current `core` version.
+2. Per-leaf `(verb, path)` collisions against the discovery-backed registry (Bundled + Installed) — see [Conflicts](#conflicts-on-install). Collisions against Bundled extensions fail on the same terms as collisions against another Installed extension.
 
 ## Listing — `extension list`
 
@@ -102,27 +101,47 @@ az extension list --by-verb        # regrouped by namespace
 az extension list --output json    # structured output
 ```
 
-`az extension list` runs a **discovery pass** to enumerate all installed extensions on disk, then overlays user preferences (pins, version selections) from the registry. Extensions appear in the output even if they have no registry entry — a fresh directory discovery at runtime is always authoritative.
+`az extension list` runs a **discovery pass** to enumerate every extension it can load across both tiers (Bundled + Installed), then overlays user preferences (pins, version selections) from the registry. Extensions appear in the output even if they have no registry entry — a fresh directory discovery at runtime is always authoritative.
 
-Default output:
+Each row surfaces every discovered candidate under a `candidates` array plus a `selectedVersion` field naming the one dispatch will route to:
 
+```jsonc
+{
+    "packageId": "Microsoft.Azure.Azclips.Extensions.Compute",
+    "version": "0.1.2",
+    "selectedVersion": "0.1.2",
+    "pinned": false,
+    "location": "<install>/Extensions/.../Compute.dll",
+    "candidates": [
+        {
+            "version": "0.1.2",
+            "tier": "Bundled",
+            "location": "<install>/Extensions/.../Compute.dll",
+        },
+        {
+            "version": "0.1.1",
+            "tier": "Installed",
+            "location": "~/.azclips/extensions/.../0.1.1/Compute.dll",
+        },
+    ],
+}
 ```
-PackageId                                       Version   Namespaces             Pinned  InstalledAt
-Microsoft.Azure.Azclips.Extensions.Compute      1.1.0     vm, disk               no      2026-04-12
-Microsoft.Azure.Azclips.Extensions.Resources    1.0.0     group                  no      2026-04-12
-```
 
-`--by-verb` is useful when multiple packages contribute to the same namespace:
+The `candidates` array is sorted by SemVer descending across both tiers. `tier` is `"Bundled"` (part of the install artifact — see [extension-framework.md §2.3](../spec/extension-framework.md#23-extension-tiers)) or `"Installed"` (under `~/.azclips/extensions/`). When both tiers ship the exact same version, discovery collapses them to a single candidate before rendering (no meaningful choice to expose).
+
+`--by-verb` is useful when multiple packages contribute to the same namespace — each contributor row under a verb carries the same `candidates` array as the default projection:
 
 ```
 vm
-  Microsoft.Azure.Azclips.Extensions.Compute      1.1.0
+  Microsoft.Azure.Azclips.Extensions.Compute      0.1.2
   Contoso.VmPreviewExt                            0.3.0-preview
 group
   Microsoft.Azure.Azclips.Extensions.Resources    1.0.0
 ```
 
 JSON output reflects the union of discovered extensions. **Note:** `installed-at` is metadata from the registry if available; if missing (for example, an extension copied to disk without an install record), runtime discovery defaults it to the current UTC timestamp for that invocation.
+
+> **Bundled version reporting.** Packaged installs strip the `.nupkg` at inject time, so Bundled entries used to report an empty `version`. The loader now falls back to reading `AssemblyInformationalVersion` off the DLL so packaged installs report a real version. Local builds keep the `.nupkg` — the primary path is unchanged.
 
 ## Inspecting — `extension show`
 
@@ -160,7 +179,7 @@ The pinned state is persisted in `registry.json` and consulted at runtime; unpin
 az extension remove <name>
 ```
 
-Deletes `~/.azclips/extensions/<packageId>/` and the registry entry. Built-in namespaces (`extension`, `login`, `config`) cannot be removed.
+Deletes `~/.azclips/extensions/<packageId>/` and the registry entry. Only affects extensions in the Installed tier — Bundled extensions (including `extension`, `login`, `config` in every install, plus anything the packaging profile shipped) return `ExtensionNotFound` because they live outside the extension API's write boundary. To change what's in the Bundled tier, reinstall azcli with a different packaging profile.
 
 ## Compatibility metadata
 

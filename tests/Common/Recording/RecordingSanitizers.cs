@@ -21,17 +21,14 @@ public sealed class RecordingSanitizers
             new RegexSanitizer("subscription-id", $"(?<=/subscriptions/){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("tenant-id", $"(?<=/tenants/){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("authority-tenant-id", $"(?<=login\\.microsoftonline\\.com/){GuidPattern}", PlaceholderGuid),
-            // Some resource providers report the calling tenant and principal as "tenantId=<guid>"
-            // and "objectId=<guid>" pairs rather than as URI segments.
-            new RegexSanitizer("qualified-tenant-id", $"(?<=tenantId=){GuidPattern}", PlaceholderGuid),
-            new RegexSanitizer("qualified-object-id", $"(?<=objectId=){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("bearer-token", "Bearer\\s+[^\\s\"']+", "Bearer [redacted]"),
+            // vm create carries the admin password in the request body
+            new RegexSanitizer("password", @"(""(?:adminPassword|password)""\s*:\s*"")[^""]+", "$1[redacted]"),
             // agent traffic is out of scope, but scrub OpenAI secrets if any is ever recorded
             new RegexSanitizer("openai-key", "sk-[A-Za-z0-9_\\-]{16,}", "[redacted-openai-key]"),
             new RegexSanitizer("openai-endpoint", "https://[a-z0-9][a-z0-9-]*\\.openai\\.azure\\.com", "https://[resource].openai.azure.com"),
         ],
-        // x-ms-operation-identifier carries the calling tenant and principal ids and is pure
-        // service-side telemetry, so it is dropped rather than rewritten.
+        // x-ms-operation-identifier is ARM telemetry carrying tenantId=...,objectId=... pairs.
         ["Authorization", "api-key", "x-ms-operation-identifier"]);
 
     public RecordingSanitizers(IReadOnlyList<IRecordingSanitizer> sanitizers, IReadOnlyList<string> removedHeaders)

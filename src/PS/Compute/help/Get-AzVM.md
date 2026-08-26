@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Compute
-ms.date: 06/16/2026
+ms.date: 08/06/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzVM
 ---
@@ -20,19 +20,18 @@ Show details for a virtual machine.
 ### List (Default)
 
 ```
-Get-AzVM -SubscriptionId <string> -ResourceGroupName <string> [<CommonParameters>]
+Get-AzVM -SubscriptionId <string> -ResourceGroupName <string> [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzVM -SubscriptionId <string> -ResourceGroupName <string> -Name <string> [<CommonParameters>]
+Get-AzVM -SubscriptionId <string> -ResourceGroupName <string> -Name <string> [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -71,6 +70,27 @@ ParameterSets:
     - Name: Get
       Position: Named
       IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
+```
+
+### -Profile
+
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
@@ -143,6 +163,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ## OUTPUTS
+
+### Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine
+
+One `VirtualMachine` object per matching VM — a single result when `-Name` is supplied (Get mode), an array of results otherwise (List mode). Each includes the ARM resource ID, provisioning state, VM size, and network configuration.
 
 ## NOTES
 

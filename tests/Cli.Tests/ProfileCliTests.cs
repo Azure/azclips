@@ -3,10 +3,12 @@ using Core.Abstractions.Runtime;
 using Core.AssemblyLoading;
 using Core.Cli.Parser;
 using Core.DependencyInjection;
+using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Login.Processors;
 using Moq;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Cli.Tests;
@@ -427,7 +429,7 @@ public sealed class ProfileCliTests
             _outputs.Clear();
             _rawOutputs.Clear();
 
-            var dispatcher = new ExtensionDispatcher();
+            var dispatcher = BuildDispatcher();
             var invocation = dispatcher.Parse(args);
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
@@ -451,5 +453,31 @@ public sealed class ProfileCliTests
         }
 
         public void Dispose() => AzclipsServiceProvider.Dispose();
+
+        private static ExtensionDispatcher BuildDispatcher()
+        {
+            var registry = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                    {
+                        Version = "0.0.0",
+                        Contributions =
+                        {
+                            new Contribution { Verb = "login", Path = "" },
+                            new Contribution { Verb = "logout", Path = "" },
+                            new Contribution { Verb = "profile", Path = "" },
+                            new Contribution { Verb = "profile", Path = "list" },
+                            new Contribution { Verb = "profile", Path = "show" },
+                            new Contribution { Verb = "profile", Path = "set" },
+                            new Contribution { Verb = "profile", Path = "remove" },
+                        },
+                    },
+                },
+            };
+            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+            return new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
+        }
     }
 }

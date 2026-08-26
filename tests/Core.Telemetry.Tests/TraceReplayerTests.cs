@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Diagnostics;
@@ -9,9 +9,9 @@ using OpenTelemetry.Trace;
 namespace Core.Telemetry.Tests;
 
 /// <summary>
-/// Tests for <see cref="FileTelemetrySender"/> replay helpers (ordering and context remapping).
+/// Tests for <see cref="TraceReplayer"/> (ordering and context remapping).
 /// </summary>
-public class FileTelemetrySenderTests
+public class TraceReplayerTests
 {
     private const string SampleTraceId = "0123456789abcdef0123456789abcdef";
     private const string ZeroSpanId = "0000000000000000";
@@ -21,7 +21,7 @@ public class FileTelemetrySenderTests
     {
         using var harness = new ReplayHarness();
 
-        FileTelemetrySender.ReplayEntries(harness.Source, Array.Empty<FileTelemetrySender.TraceEntry>());
+        TraceReplayer.ReplayEntries(harness.Source, Array.Empty<TraceEntry>());
 
         Assert.Empty(harness.Stopped);
     }
@@ -32,7 +32,7 @@ public class FileTelemetrySenderTests
         using var harness = new ReplayHarness();
         var entry = MakeEntry(traceId: null, spanId: "1111111111111111", parentSpanId: null, name: "op");
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         Assert.Empty(harness.Stopped);
     }
@@ -43,7 +43,7 @@ public class FileTelemetrySenderTests
         using var harness = new ReplayHarness();
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "root-op");
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal(SampleTraceId, activity.TraceId.ToString());
@@ -57,7 +57,7 @@ public class FileTelemetrySenderTests
         var parent = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "parent");
         var child = MakeEntry(SampleTraceId, "2222222222222222", parentSpanId: "1111111111111111", name: "child");
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { parent, child });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { parent, child });
 
         Assert.Equal(2, harness.Stopped.Count);
         var parentActivity = harness.Stopped.Single(a => a.OperationName == "parent");
@@ -73,7 +73,7 @@ public class FileTelemetrySenderTests
         var parent = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "parent");
         var child = MakeEntry(SampleTraceId, "2222222222222222", parentSpanId: "1111111111111111", name: "child");
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { child, parent });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { child, parent });
 
         Assert.Equal(2, harness.Stopped.Count);
         Assert.Equal("parent", harness.Stopped[0].OperationName);
@@ -87,7 +87,7 @@ public class FileTelemetrySenderTests
         using var harness = new ReplayHarness();
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: ZeroSpanId, name: "root");
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         // Root entries get a random parent SpanId so the W3C context stays valid;
@@ -101,7 +101,7 @@ public class FileTelemetrySenderTests
         using var harness = new ReplayHarness();
         var orphan = MakeEntry(SampleTraceId, "2222222222222222", parentSpanId: "9999999999999999", name: "orphan");
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { orphan });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { orphan });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal(SampleTraceId, activity.TraceId.ToString());
@@ -116,7 +116,7 @@ public class FileTelemetrySenderTests
         var a = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: "2222222222222222", name: "a");
         var b = MakeEntry(SampleTraceId, "2222222222222222", parentSpanId: "1111111111111111", name: "b");
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { a, b });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { a, b });
 
         Assert.Equal(2, harness.Stopped.Count);
     }
@@ -133,7 +133,7 @@ public class FileTelemetrySenderTests
             ]
             """);
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal("bar", activity.GetTagItem("foo"));
@@ -157,7 +157,7 @@ public class FileTelemetrySenderTests
             ]
             """);
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         var evt = Assert.Single(activity.Events);
@@ -175,7 +175,7 @@ public class FileTelemetrySenderTests
         entry.Status = "Error";
         entry.StatusDescription = "boom";
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
@@ -189,7 +189,7 @@ public class FileTelemetrySenderTests
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "op");
         entry.Duration = 250.0;
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal(TimeSpan.FromMilliseconds(250.0), activity.Duration);
@@ -202,7 +202,7 @@ public class FileTelemetrySenderTests
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: null);
         entry.OperationName = "fallback-op";
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal("fallback-op", activity.OperationName);
@@ -215,7 +215,7 @@ public class FileTelemetrySenderTests
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: null);
         entry.OperationName = null;
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal("unknown", activity.OperationName);
@@ -234,19 +234,19 @@ public class FileTelemetrySenderTests
         var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "op");
         entry.Kind = kindString;
 
-        FileTelemetrySender.ReplayEntries(harness.Source, new[] { entry });
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
 
         var activity = Assert.Single(harness.Stopped);
         Assert.Equal(expected, activity.Kind);
     }
 
-    private static FileTelemetrySender.TraceEntry MakeEntry(
+    private static TraceEntry MakeEntry(
         string? traceId,
         string spanId,
         string? parentSpanId,
         string? name)
     {
-        return new FileTelemetrySender.TraceEntry
+        return new TraceEntry
         {
             TraceId = traceId,
             SpanId = spanId,
@@ -305,4 +305,3 @@ public class FileTelemetrySenderTests
         }
     }
 }
-

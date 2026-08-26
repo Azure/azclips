@@ -8,6 +8,13 @@
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Cmdlets.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Cmdlets.Tests" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="System.Management.Automation" Version="7.6.1" PrivateAssets="all" />
         <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.8.0" />
@@ -25,6 +32,10 @@
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
         <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.Telemetry\Core.Telemetry.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>

@@ -9,23 +9,24 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.New, "AzResourceGroup", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.ResourceGroup")]
 public class NewResourceGroupCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public string? SubscriptionId { get; set; }
-
     [Parameter(Mandatory = true)]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = true)]
     public string Location { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string? SubscriptionId { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     protected override void BeginProcessing()
     {

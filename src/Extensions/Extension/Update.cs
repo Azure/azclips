@@ -59,7 +59,7 @@ public class UpdateExtensionProcessor : IProcessor
         var loggingService = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.StartActivity($"{nameof(UpdateExtensionProcessor)}.{nameof(Process)}");
 
-        var store = new FileExtensionRegistryStore();
+        var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
         var registry = store.Load();
 
         if (!RegistryLookup.TryFind(registry, Name, out var match))
@@ -147,26 +147,11 @@ public class UpdateExtensionProcessor : IProcessor
             // Refresh Contributions; self-update can add/remove sub-leaves across minor versions.
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
             activity?.SetTag("extension.contribution_count", leafKeys.Count);
-            var contributions = new List<Contribution>();
-            foreach (var leafKey in leafKeys)
-            {
-                var (leafVerb, leafPath) = LeafReader.SplitLeafKey(leafKey);
-                if (!newVerbSet.Contains(leafVerb))
-                {
-                    throw AzclipsErrorException.LeafConflict(
-                        $"Updated package '{packageId}' contributes leaf '{leafKey}' whose first token is '{leafVerb}', " +
-                        $"but only verbs [{string.Join(", ", verbs)}] are declared via [ExtensionVerb]. " +
-                        $"Every s_cliTable key must start with a declared verb.",
-                        new Dictionary<string, object?>
-                        {
-                            ["packageId"] = packageId,
-                            ["declaredVerbs"] = verbs,
-                            ["leafKey"] = leafKey,
-                            ["leafVerb"] = leafVerb,
-                        });
-                }
-                contributions.Add(new Contribution { Verb = leafVerb, Path = leafPath });
-            }
+            // File registry only carries preferences (contributions are stripped on Save); overlay
+            // live discovery so PlanContributions can see already-installed leaves and detect collisions.
+            var planningRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(registry);
+            var contributions = new List<Contribution>(
+                ExtensionAddPlanner.PlanContributions(packageId, verbs, leafKeys, planningRegistry));
 
             // Strict single-version: only the just-installed version stays on disk. Persist
             // before purge — if Save fails (e.g. concurrency conflict), the previous payload

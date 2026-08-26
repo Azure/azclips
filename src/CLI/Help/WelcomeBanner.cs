@@ -10,13 +10,13 @@ namespace Core.Cli.Help;
 /// </summary>
 internal static class WelcomeBanner
 {
-    // Figlet "small" font for "AzCLIPS". Do NOT trim trailing whitespace — glyphs rely on it.
+    // Figlet "small" font for "Azure CLI". Do NOT trim trailing whitespace — glyphs rely on it.
     private static readonly string[] s_bannerLines =
     [
-        @"     _        ___ _    ___ ___  ___ ",
-        @"    /_\   ___/ __| |  |_ _| _ \/ __|",
-        @"   / _ \ |_ / (__| |__ | ||  _/\__ \",
-        @"  /_/ \_\/__|\___|____|___|_|  |___/",
+        @"     _                       ___ _    ___ ",
+        @"    /_\   ____  _ _ _ ___   / __| |  |_ _|",
+        @"   / _ \ |_ / || | '_/ -_) | (__| |__ | | ",
+        @"  /_/ \_\/__|\_,_|_| \___|  \___|____|___|",
     ];
 
     public static void Write(TextWriter output)
@@ -27,7 +27,7 @@ internal static class WelcomeBanner
             output.WriteLine(line);
         }
         output.WriteLine();
-        output.WriteLine("  Welcome to AzCLIPS - Azure CLI, PowerShell & automation, in one host.");
+        output.WriteLine("  Welcome to the Azure CLI.");
         output.WriteLine("  Run 'az --help' for command groups, or 'az <verb> --help' for a specific verb.");
         output.WriteLine();
     }

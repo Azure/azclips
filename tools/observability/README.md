@@ -17,10 +17,12 @@ Open the UI at http://localhost:16686.
 
 Telemetry direction is chosen by a hidden, developer-only switch:
 
-- **Debug builds** default to **local** (traces go to Jaeger on `localhost:4317`).
-- **Release builds** default to **remote** (Azure Monitor / App Insights).
-- Override either build with the environment variable
-  `AZCLIPS_TELEMETRY_TARGET=local` or `AZCLIPS_TELEMETRY_TARGET=remote`.
+- **Debug builds** default to **both** Local and Remote (traces go to Jaeger on
+  `localhost:4317` **and** Azure Monitor simultaneously).
+- **Release builds** default to **Remote only** (Azure Monitor / App Insights).
+- Override a Debug build with the environment variable `AZCLIPS_TELEMETRY_TARGET`,
+  which accepts `local`, `remote`, or `both`. **Release builds ignore this variable
+  entirely** — the suppression is deliberate and cannot be overridden at runtime.
 
 This switch is intentionally **not** part of `az config` — it never appears in
 `config get/list/set` or tab-completion. `telemetry.enabled` still controls

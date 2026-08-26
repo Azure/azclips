@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Cli.Parser;
+
 namespace Core.Cli.Help;
 
 public interface IHelpRenderer
@@ -68,6 +70,8 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             }
         }
 
+        AppendGlobalArguments(lines);
+
         return [.. lines];
     }
 
@@ -78,24 +82,9 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             "Command",
             $"    az {command.CommandPath} : {command.Summary}",
             string.Empty,
-            "Arguments"
         };
 
-        if (command.Parameters.Count == 0)
-        {
-            lines.Add("    (none)");
-        }
-        else
-        {
-            foreach (var parameter in command.Parameters)
-            {
-                var aliases = parameter.Aliases.Length == 0
-                    ? string.Empty
-                    : $" -{string.Join(" -", parameter.Aliases)}";
-                var required = parameter.Required ? " [Required]" : string.Empty;
-                lines.Add($"    --{parameter.Name}{aliases}{required} : {parameter.Description}");
-            }
-        }
+        AppendParameterSections(lines, command.Parameters);
 
         if (command.Examples.Count > 0)
         {
@@ -108,6 +97,90 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             }
         }
 
+        AppendGlobalArguments(lines);
+
         return [.. lines];
+    }
+
+    private static void AppendGlobalArguments(List<string> lines)
+    {
+        lines.Add(string.Empty);
+        lines.Add("Global Arguments");
+        foreach (var flag in KnownGlobalFlags.All)
+        {
+            var aliases = flag.Aliases.Count == 0
+                ? string.Empty
+                : " " + string.Join(" ", flag.Aliases);
+            lines.Add($"    {flag.Name}{aliases} : {flag.Summary}");
+        }
+    }
+
+    // Emits an "Arguments" section for ungrouped params, then a section per named GroupName in
+    // alphabetical order. Sections with no params are skipped. When Parameters is empty, the
+    // single "Arguments" header + "(none)" placeholder is emitted (preserves prior behavior for
+    // no-param commands like `az logout`).
+    private static void AppendParameterSections(List<string> lines, IReadOnlyList<RuntimeHelpParameter> parameters)
+    {
+        if (parameters.Count == 0)
+        {
+            lines.Add("Arguments");
+            lines.Add("    (none)");
+            return;
+        }
+
+        var defaultBucket = new List<RuntimeHelpParameter>();
+        var groupedBuckets = new SortedDictionary<string, List<RuntimeHelpParameter>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var parameter in parameters)
+        {
+            if (string.IsNullOrEmpty(parameter.GroupName))
+            {
+                defaultBucket.Add(parameter);
+                continue;
+            }
+
+            if (!groupedBuckets.TryGetValue(parameter.GroupName, out var bucket))
+            {
+                bucket = [];
+                groupedBuckets[parameter.GroupName] = bucket;
+            }
+            bucket.Add(parameter);
+        }
+
+        var wroteSection = false;
+        if (defaultBucket.Count > 0)
+        {
+            AppendParameterBucket(lines, "Arguments", defaultBucket, leadingBlank: false);
+            wroteSection = true;
+        }
+
+        foreach (var (groupName, bucket) in groupedBuckets)
+        {
+            AppendParameterBucket(lines, groupName, bucket, leadingBlank: wroteSection);
+            wroteSection = true;
+        }
+    }
+
+    private static void AppendParameterBucket(List<string> lines, string header, IReadOnlyList<RuntimeHelpParameter> bucket, bool leadingBlank)
+    {
+        if (leadingBlank)
+        {
+            lines.Add(string.Empty);
+        }
+        lines.Add(header);
+        foreach (var parameter in bucket)
+        {
+            var aliases = parameter.Aliases.Length == 0
+                ? string.Empty
+                : $" -{string.Join(" -", parameter.Aliases)}";
+            var required = parameter.Required ? " [Required]" : string.Empty;
+            lines.Add($"    --{parameter.Name}{aliases}{required} : {parameter.Description}");
+
+            if (!string.IsNullOrEmpty(parameter.ValueSources))
+            {
+                var suffix = parameter.ValueSources.EndsWith('.') ? string.Empty : ".";
+                lines.Add($"        Values from: {parameter.ValueSources}{suffix}");
+            }
+        }
     }
 }
