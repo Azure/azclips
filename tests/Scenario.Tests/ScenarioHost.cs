@@ -1,3 +1,4 @@
+using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli;
@@ -13,6 +14,30 @@ using Tests.Common.Utilities;
 namespace Scenario.Tests;
 
 /// <summary>
+/// The extension a <see cref="ScenarioHost"/> serves: the assembly to load, the name the engine
+/// resolves it by, and the leaves it contributes. The host builds its in-memory registry from
+/// this, so a scenario only sees the verbs its own extension declares.
+/// </summary>
+internal sealed record ScenarioExtension(
+    string PackageId,
+    string Name,
+    Assembly Assembly,
+    IReadOnlyList<(string Verb, string Path)> Leaves)
+{
+    public static readonly ScenarioExtension Resources = new(
+        "Microsoft.Azure.Azclips.Extensions.Resources",
+        "Resources",
+        typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly,
+        [("group", ""), ("group", "create"), ("group", "show"), ("group", "list")]);
+
+    public static readonly ScenarioExtension Storage = new(
+        "Microsoft.Azure.Azclips.Extensions.Storage",
+        "Storage",
+        typeof(Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex).Assembly,
+        [("storage", ""), ("storage", "account create")]);
+}
+
+/// <summary>
 /// Boots the full Azclips host for one client surface and runs commands subcutaneously, through
 /// the real dispatcher/binder and engine, with the supplied interceptor filling the record/playback
 /// seam. <paramref name="backendHandler"/> stands in for the network in record-mode tests; leave it
@@ -24,8 +49,6 @@ namespace Scenario.Tests;
 /// </summary>
 internal sealed class ScenarioHost : IDisposable
 {
-    private const string ResourcesPackageId = "Microsoft.Azure.Azclips.Extensions.Resources";
-
     // Cleared for the host's lifetime so ambient developer settings can't leak into runs.
     // Mirrors the isolation list used by ConfigCliTests.
     private static readonly string[] s_environmentKeys =
@@ -39,6 +62,7 @@ internal sealed class ScenarioHost : IDisposable
     ];
 
     private readonly ClientType _clientType;
+    private readonly ScenarioExtension _extension;
     private readonly List<object> _outputs = [];
     private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
@@ -46,9 +70,16 @@ internal sealed class ScenarioHost : IDisposable
     /// Record mode needs a real token, so it keeps the host's real profile/auth/config and the
     /// signed-in profile. Playback stubs them and needs no credentials.
     /// </param>
-    public ScenarioHost(ClientType clientType, ITracingInterceptor interceptor, HttpMessageHandler? backendHandler = null, bool useLiveAuth = false)
+    /// <param name="extension">The extension under test; defaults to Resources.</param>
+    public ScenarioHost(
+        ClientType clientType,
+        ITracingInterceptor interceptor,
+        HttpMessageHandler? backendHandler = null,
+        bool useLiveAuth = false,
+        ScenarioExtension? extension = null)
     {
         _clientType = clientType;
+        _extension = extension ?? ScenarioExtension.Resources;
 
         foreach (var key in s_environmentKeys)
         {
@@ -60,7 +91,7 @@ internal sealed class ScenarioHost : IDisposable
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IAssemblyLoadingProvider>(
-                new StubExtensionLoader(typeof(Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex).Assembly, "Resources"));
+                new StubExtensionLoader(_extension.Assembly, _extension.Name));
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
             services.AddSingleton(interceptor);
 
@@ -93,8 +124,8 @@ internal sealed class ScenarioHost : IDisposable
 
     /// <summary>
     /// Parses <paramref name="args"/> with the real <see cref="ExtensionDispatcher"/> (against an
-    /// in-memory registry that maps the <c>group</c> verb to the Resources extension) and runs the
-    /// resulting invocation the way <c>Program.Main</c> does.
+    /// in-memory registry built from the host's extension) and runs the resulting invocation the
+    /// way <c>Program.Main</c> does.
     /// </summary>
     public IReadOnlyList<object> RunCli(params string[] args)
     {
@@ -103,7 +134,7 @@ internal sealed class ScenarioHost : IDisposable
             throw new InvalidOperationException($"This host was booted for {_clientType}; create a ClientType.CLI host to run CLI commands.");
         }
 
-        var registry = ResourcesRegistry();
+        var registry = ExtensionRegistryForHost();
         var dispatcher = new ExtensionDispatcher(
             new ExtensionResolver(new InMemoryRegistryStore(registry)),
             () => LeafIndex.Build(BuiltInExtensions.Map, registry));
@@ -123,7 +154,7 @@ internal sealed class ScenarioHost : IDisposable
             throw new InvalidOperationException($"This host was booted for {_clientType}; create a ClientType.PowerShell host to run cmdlet invocations.");
         }
 
-        var invocation = new CommandInvocation("Resources", commandName, parameters, IsTransient: false, ModuleName: "Resources");
+        var invocation = new CommandInvocation(_extension.Name, commandName, parameters, IsTransient: false, ModuleName: _extension.Name);
         return Execute(invocation, useAsyncSession: false);
     }
 
@@ -157,20 +188,14 @@ internal sealed class ScenarioHost : IDisposable
         return _outputs.ToArray();
     }
 
-    private static ExtensionRegistry ResourcesRegistry()
+    private ExtensionRegistry ExtensionRegistryForHost()
     {
         var registry = new ExtensionRegistry();
-        registry.Extensions[ResourcesPackageId] = new ExtensionRegistryEntry
+        registry.Extensions[_extension.PackageId] = new ExtensionRegistryEntry
         {
             Version = "1.0.0",
-            Contributions =
-            [
-                new Contribution { Verb = "group", Path = "" },
-                new Contribution { Verb = "group", Path = "create" },
-                new Contribution { Verb = "group", Path = "show" },
-                new Contribution { Verb = "group", Path = "list" },
-            ],
-            Namespaces = ["group"],
+            Contributions = [.. _extension.Leaves.Select(leaf => new Contribution { Verb = leaf.Verb, Path = leaf.Path })],
+            Namespaces = [.. _extension.Leaves.Select(leaf => leaf.Verb).Distinct(StringComparer.OrdinalIgnoreCase)],
         };
         return registry;
     }

@@ -1,0 +1,242 @@
+# Storage account create - CLI (az storage account create)
+# Equivalent of: az storage account create
+#
+# Shared test context:
+#   subscription: resolved from the active profile (no --subscription-id needed)
+#   resource group: storage-account-create-test-rg (region: australiaeast)
+#
+# Account names must be 3-24 lowercase alphanumerics and are GLOBALLY unique, so each
+# case below appends $RANDOM. Note the zone cases need a region with availability
+# zones; australiasoutheast has none and the service rejects zone pinning there.
+
+# Run unattended: on a command ERROR az normally hands off to the interactive
+# agent-mode TUI (which would block on input). Disable the agent via config so the
+# classic error and a non-zero exit surface instead, and the negative cases below
+# don't hang.
+az config set --key agent.enabled --value false
+
+# No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
+# continue past them. Each command's exit code surfaces its own error on stderr.
+
+RG=storage-account-create-test-rg
+LOC=australiaeast
+
+az group create --name $RG --location $LOC
+
+# Happy path: the minimum required set. The request body must carry only sku, kind and
+# location so every unspecified option keeps its service default.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsmin$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --debug
+
+# Scalar options and tags. Verify in the response that accessTier, minimumTlsVersion and
+# the tag map came back as sent.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsopt$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --access-tier Cool \
+    --min-tls-version TLS1_2 \
+    --https-only true \
+    --allow-blob-public-access false \
+    --allow-shared-key-access true \
+    --public-network-access Enabled \
+    --dns-endpoint-type Standard \
+    --tags env=dev owner=platform \
+    --debug
+
+# Managed identity plus SAS and key policies. The response should include an identity
+# with a principalId, and a sasPolicy whose expirationAction defaulted to Log.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsid$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --identity-type SystemAssigned \
+    --sas-expiration-period 90.00:00:00 \
+    --key-expiration-period-in-days 60 \
+    --debug
+
+# Network rules. Unlike azure-cli's create, IP rules are accepted here rather than
+# requiring a follow-up network-rule command. Bypass is sent as a comma-separated
+# string and each IP rule uses the "value" wire name.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsnet$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --default-action Deny \
+    --bypass Logging Metrics AzureServices \
+    --ip-address 13.64.0.0/16 40.90.0.0/16 \
+    --debug
+
+# Account-level immutability with a policy, plus a routing preference. Immutability can
+# only be enabled at creation time. Publishing Microsoft endpoints adds a
+# primaryEndpoints.microsoftEndpoints block to the response.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsalw$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --enable-alw true \
+    --immutability-period-since-creation-in-days 30 \
+    --immutability-policy-state Unlocked \
+    --allow-protected-append-writes true \
+    --routing-choice MicrosoftRouting \
+    --publish-microsoft-endpoints true \
+    --debug
+
+# Hierarchical namespace with SFTP. SFTP requires a hierarchical namespace, so the two
+# are set together.
+az storage account create \
+    --resource-group $RG \
+    --name azclipshns$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --enable-hierarchical-namespace true \
+    --enable-sftp true \
+    --debug
+
+# Service-scoped encryption keys. Requesting a key type for table and queue replaces the
+# default blob services entry in the request.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsenc$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --encryption-key-type-for-table Account \
+    --encryption-key-type-for-queue Account \
+    --require-infrastructure-encryption true \
+    --debug
+
+# Azure Files share permission without an authentication enabler. The service requires
+# directoryServiceOptions, so the request carries it as None.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsfiles$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --default-share-permission StorageFileDataSmbShareReader \
+    --debug
+
+# Zone pinning. Requires a region with availability zones; expect the service to reject
+# this in a region without them.
+az storage account create \
+    --resource-group $RG \
+    --name azclipszone$RANDOM \
+    --location $LOC \
+    --sku Standard_GRS \
+    --kind StorageV2 \
+    --zone-placement-policy Any \
+    --enable-blob-geo-priority-replication true \
+    --debug
+
+# Negative case: invalid --sku value. Expected result: the command fails fast listing the
+# allowed SKU names and does NOT create an account.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_BOGUS \
+    --kind StorageV2
+
+# Negative case: missing required options. Expected result: one message per missing
+# option (--location, --sku, --kind).
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM
+
+# Negative case: --sas-expiration-action without --sas-expiration-period. Both members are
+# required by the service, so this is rejected locally.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --sas-expiration-action Block
+
+# Negative case: a network rule without --default-action, which the service requires.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --bypass Logging Metrics
+
+# Negative case: a subnet NAME without --vnet-name. A name cannot be composed into a
+# resource id without the virtual network it belongs to.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --default-action Deny \
+    --subnet mysubnet
+
+# Negative case: immutability policy options without --enable-alw true.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --immutability-policy-state Locked
+
+# Negative case: two Azure Files authentication enablers. They map onto a single
+# directoryServiceOptions value, so at most one may be true.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --enable-files-aadds true \
+    --enable-files-adds true
+
+# Negative case: --enable-files-adds without the full Active Directory property set.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --enable-files-adds true \
+    --domain-name contoso.com
+
+# Negative case: a key vault URI without a key name. Both are required together.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --encryption-key-vault https://myvault.vault.azure.net/
+
+# Negative case: a malformed tag that is not in KEY=VALUE form.
+az storage account create \
+    --resource-group $RG \
+    --name azclipsbad$RANDOM \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2 \
+    --tags notavalidtag
+
+# Cleanup: there is no `az storage account delete` yet, so remove the accounts through
+# the generic REST command, or delete the resource group in the portal.
+# az rest --method DELETE \
+#     --uri "/subscriptions/{subscriptionId}/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/<name>?api-version=2026-04-01"
