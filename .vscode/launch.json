@@ -121,7 +121,7 @@
             "args": [
                 "compile",
                 "--tsp-location",
-                "${workspaceFolder}/toolkit/packages/typespec-emitter/test/fixtures/resource-group/main.tsp",
+                "${workspaceFolder}/toolkit/packages/typespec-emitter/test/fixtures/fleet/main.tsp",
                 "--config",
                 "${workspaceFolder}/toolkit/.debug/generate-ps-commands.config.json",
                 "--out-dir",
@@ -137,8 +137,8 @@
         {
             "id": "toolkitTestFile",
             "type": "promptString",
-            "description": "Test file to debug, relative to its package (e.g. test/create-ps-commands.e2e.test.ts)",
-            "default": "test/create-ps-commands.e2e.test.ts"
+            "description": "Test file to debug, relative to its package (e.g. test/fleet.e2e.test.ts)",
+            "default": "test/fleet.e2e.test.ts"
         },
         {
             "id": "toolkitPackageDir",
