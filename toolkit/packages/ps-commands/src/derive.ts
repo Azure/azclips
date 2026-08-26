@@ -179,10 +179,11 @@ export function derivePsCommands(ir: IR): PsCommand[] {
  * Groups `derivePsCommands`'s output by source into the final `PsModule[]`. Plain function,
  * not a pipeline stage (design.md Decision 8). `PsCommand` doesn't store a source reference
  * directly, so each command's source is recovered by looking up its first source operation's
- * own `IROperation.source` (already the source's id) via a pre-built index.
+ * own `IROperation.source` (already the source's id) via a pre-built index. Accepts an already-
+ * derived `commands` array to avoid re-deriving it when a caller (e.g. `generate-ps-commands`)
+ * already has one; computes it from `ir` when omitted.
  */
-export function deriveModules(ir: IR): PsModule[] {
-  const commands = derivePsCommands(ir);
+export function deriveModules(ir: IR, commands: PsCommand[] = derivePsCommands(ir)): PsModule[] {
   const operationsById = new Map(ir.operations.map((op) => [serializeId(op.id), op]));
   const groups = new Map<string, PsCommand[]>();
 

@@ -17,7 +17,7 @@ export function createGeneratePsCommandsFactory(_options: Record<string, unknown
     name: "generate-ps-commands",
     generate(ir: IR, _context: GeneratorContext): GeneratorOutput {
       const commands = derivePsCommands(ir);
-      const modules = deriveModules(ir);
+      const modules = deriveModules(ir, commands);
       return {
         files: new Map([
           ["ps-commands.json", JSON.stringify({ commands, modules }, null, 2) + "\n"],
