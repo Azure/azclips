@@ -248,6 +248,79 @@ def aggregate_file(path, stem, product, extension):
     return report
 
 
+# ----------------------------------------------------------------- rendering
+
+def bar(ratio):
+    """A proportional bar of BAR_WIDTH cells, resolved to eighths."""
+    ratio = max(0.0, min(1.0, ratio))
+    eighths = int(round(ratio * BAR_WIDTH * 8))
+    full, remainder = divmod(eighths, 8)
+    text = "█" * full
+    if remainder:
+        text += BLOCKS[remainder - 1]
+    return text
+
+
+def label(path, report):
+    """Node name, an index suffix from the second occurrence on, and partial coverage."""
+    name, index = path[-1]
+    text = name if index == 0 else f"{name}[{index}]"
+    count = report.occurrences(path)
+    if count < report.trace_count:
+        text += f"  ({count}/{report.trace_count})"
+    return text
+
+
+def render_report(report):
+    """Render one benchmark's averaged tree, or None when there is nothing to show."""
+    root = report.root_path
+    if root is None or report.trace_count == 0:
+        return None
+
+    children_of = defaultdict(list)
+    for path in report.nodes:
+        if len(path) > 1:
+            children_of[path[:-1]].append(path)
+    for paths in children_of.values():
+        paths.sort(key=report.mean_offset)
+
+    root_average = report.average(root)
+    show_bars = root_average > 0
+
+    heading = " · ".join(part for part in (
+        report.extension, report.product, f"{report.trace_count} traces") if part)
+    lines = [f" Benchmark.{report.stem}", f" {heading}", ""]
+    lines.append(f"{'AVG':>12}  {'%ROOT':>5}" if show_bars else f"{'AVG':>12}")
+
+    def emit(path, prefix, is_last, is_root):
+        average = report.average(path)
+        row = f"{average:>9.3f} ms"
+        if show_bars:
+            ratio = average / root_average
+            row += f"  {ratio * 100:>4.0f}%  {bar(ratio):<{BAR_WIDTH}}"
+        connector = "" if is_root else prefix + ("└─ " if is_last else "├─ ")
+        lines.append(f"{row}  {connector}{label(path, report)}")
+
+        kids = children_of.get(path, [])
+        child_prefix = prefix if is_root else prefix + ("   " if is_last else "│  ")
+        for position, kid in enumerate(kids):
+            emit(kid, child_prefix, position == len(kids) - 1, False)
+
+    emit(root, "", True, True)
+
+    notes = []
+    if report.orphan_subtrees:
+        notes.append(f"{report.orphan_subtrees} orphan subtree(s) dropped")
+    if report.rootless_traces:
+        notes.append(f"{report.rootless_traces} trace(s) had no resolvable root")
+    if report.malformed:
+        notes.append(f"{report.malformed} unreadable line(s) skipped")
+    if notes:
+        lines.extend(["", " " + "; ".join(notes)])
+
+    return "\n".join(lines)
+
+
 # --------------------------------------------------------------- entry point
 
 def run(args):
@@ -268,7 +341,12 @@ def run(args):
                 trail = " > ".join(f"{name}[{index}]" for name, index in path)
                 print(f"   {report.average(path):9.3f} ms  "
                       f"{report.occurrences(path):3d}/{report.trace_count}  {trail}")
+        return 0
 
+    for report in usable:
+        body = render_report(report)
+        if body:
+            print("\n" + body)
     return 0
 
 
