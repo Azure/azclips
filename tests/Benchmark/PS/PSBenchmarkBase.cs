@@ -97,11 +97,6 @@ public abstract class PSBenchmarkBase : BenchmarkBase
             import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
             import.Invoke();
             ThrowOnPowerShellErrors(import, "Import-Module");
-
-            // Build the telemetry stack — TracerProvider, processors, exporter — here, outside the
-            // measured region. Import-Module has just initialised the container, so this is the
-            // earliest point it can be resolved.
-            AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
         catch
         {
