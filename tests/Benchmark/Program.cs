@@ -61,7 +61,7 @@ public class Program
 
         // Benchmarks write telemetry to a stable staging path because their child processes cannot
         // know artifactsPath. Clear it first so post-run collection can only pick up this run.
-        var telemetryStagingRoot = BenchmarkTelemetryPaths.StagingRoot(RepoLocator.GetRepoRoot());
+        var telemetryStagingRoot = BenchmarkTelemetryArtifacts.StagingRoot(RepoLocator.GetRepoRoot());
         DirectoryUtils.TryDeleteDirectory(telemetryStagingRoot);
 
         var config = ManualConfig.CreateEmpty()

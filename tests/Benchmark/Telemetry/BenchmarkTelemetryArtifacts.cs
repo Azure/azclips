@@ -29,11 +29,23 @@ internal sealed class BenchmarkTelemetryArtifacts
     {
         // One process per benchmark case, so this is constant for the whole run.
         _benchmarkName = BenchmarkName.FromCommandLine();
-        _stagingRoot = Path.Combine(repoRoot, "artifacts", "BenchmarkTelemetry");
+        _stagingRoot = StagingRoot(repoRoot);
         _telemetryRoot = Path.Combine(_stagingRoot, _benchmarkName);
 
         DirectoryUtils.TryDeleteDirectory(_telemetryRoot);
     }
+
+    /// <summary>
+    /// Where every benchmark process stages its traces, and where the host collects them from.
+    /// </summary>
+    /// <remarks>
+    /// A sibling of <c>artifacts/Benchmark</c> rather than a child, and it must stay one. Creating
+    /// files inside that tree makes on-access scanners walk it, and a scanner holding
+    /// <c>artifacts/Benchmark/home/.azclips/profiles.json</c> open breaks the per-iteration profile
+    /// reseed on Windows, where a file with an open handle cannot be deleted.
+    /// </remarks>
+    internal static string StagingRoot(string repoRoot) =>
+        Path.Combine(repoRoot, "artifacts", "BenchmarkTelemetry");
 
     /// <summary>Where warmup-iteration traces are written. Deleted unread by <see cref="Prune"/>.</summary>
     internal string WarmupDirectory => Path.Combine(_telemetryRoot, "warmup");
