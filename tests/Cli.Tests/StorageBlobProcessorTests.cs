@@ -636,13 +636,45 @@ public class StorageBlobProcessorTests
     }
 
     [Fact]
+    public async Task Copy_StartsServerSideCopyAndWritesStatus()
+    {
+        HttpRequestMessage? sent = null;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sent = request;
+            var response = new HttpResponseMessage(HttpStatusCode.Accepted);
+            response.Headers.TryAddWithoutValidation("x-ms-copy-id", "copy-1");
+            response.Headers.TryAddWithoutValidation("x-ms-copy-status", "pending");
+            response.Headers.ETag = new EntityTagHeaderValue("\"etag\"");
+            return response;
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new StartStorageBlobCopyProcessor(), pipeline, output);
+        processor.AccountName = "account123";
+        processor.ContainerName = "destination";
+        processor.BlobName = "folder/blob.txt";
+        processor.SourceUri = "https://source.blob.core.windows.net/files/blob.txt?sig=value";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(HttpMethod.Put, sent!.Method);
+        Assert.Equal(
+            "https://account123.blob.core.windows.net/destination/folder/blob.txt?comp=copy",
+            sent.RequestUri!.AbsoluteUri);
+        Assert.Equal(processor.SourceUri, sent.Headers.GetValues("x-ms-copy-source").Single());
+        var result = Assert.IsType<StorageBlobCopyResult>(Assert.Single(output.WrittenValues));
+        Assert.Equal("copy-1", result.CopyId);
+        Assert.Equal("pending", result.CopyStatus);
+    }
+
+    [Fact]
     public void ExtensionIndex_ExposesBlobCommands()
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex();
 
         IReadOnlyDictionary<string, CommandMetadata> commands = index.GetCommandTable(ClientType.CLI);
 
-        Assert.Equal(8, commands.Count);
+        Assert.Equal(9, commands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
@@ -660,10 +692,15 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(commands["storage blob exists"].ProcessorType));
         Assert.IsType<DeleteStorageBlobProcessor>(
             Activator.CreateInstance(commands["storage blob delete"].ProcessorType));
+        Assert.IsType<StartStorageBlobCopyProcessor>(
+            Activator.CreateInstance(commands["storage blob copy start"].ProcessorType));
+        Assert.Equal(
+            "destination-container",
+            commands["storage blob copy start"].ParameterAliases["c"]);
 
         IReadOnlyDictionary<string, CommandMetadata> powerShellCommands =
             index.GetCommandTable(ClientType.PowerShell);
-        Assert.Equal(5, powerShellCommands.Count);
+        Assert.Equal(6, powerShellCommands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(powerShellCommands["Set-AzStorageBlobContent"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
@@ -674,6 +711,8 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(powerShellCommands["Get-AzStorageBlob_Get"].ProcessorType));
         Assert.IsType<DeleteStorageBlobProcessor>(
             Activator.CreateInstance(powerShellCommands["Remove-AzStorageBlob"].ProcessorType));
+        Assert.IsType<StartStorageBlobCopyProcessor>(
+            Activator.CreateInstance(powerShellCommands["Start-AzStorageBlobCopy"].ProcessorType));
     }
 
     [Fact]

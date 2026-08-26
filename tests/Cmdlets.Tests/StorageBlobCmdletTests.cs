@@ -80,4 +80,18 @@ public class StorageBlobCmdletTests
             typeof(SwitchParameter),
             typeof(RemoveStorageBlobCmdlet).GetProperty(nameof(RemoveStorageBlobCmdlet.PassThru))!.PropertyType);
     }
+
+    [Fact]
+    public void StartStorageBlobCopySupportsUriCopyAndConfirmation()
+    {
+        CmdletAttribute cmdlet = typeof(StartStorageBlobCopyCmdlet).GetCustomAttribute<CmdletAttribute>()!;
+        PropertyInfo source = typeof(StartStorageBlobCopyCmdlet).GetProperty(
+            nameof(StartStorageBlobCopyCmdlet.AbsoluteUri))!;
+
+        Assert.True(cmdlet.SupportsShouldProcess);
+        Assert.Contains(
+            source.GetCustomAttributes<ParameterAttribute>(),
+            parameter => parameter.Mandatory && parameter.ValueFromPipelineByPropertyName);
+        Assert.Contains("SourceUri", source.GetCustomAttribute<AliasAttribute>()!.AliasNames);
+    }
 }

@@ -108,6 +108,13 @@ public sealed class ExtensionIndex : IExtensionIndex
         typeof(Processors.DeleteStorageBlobProcessor),
         DeleteBlobParameters());
 
+    private static readonly CommandMetadata s_copyBlob = BlobCommand(
+        "storage blob copy start",
+        typeof(Processors.StartStorageBlobCopyProcessor),
+        CopyBlobParameters(),
+        "destination-container",
+        "destination-blob");
+
     private static readonly CommandMetadata s_listBlobPs = BlobCommand(
         "Get-AzStorageBlob_List",
         typeof(Processors.ListStorageBlobProcessor),
@@ -123,6 +130,11 @@ public sealed class ExtensionIndex : IExtensionIndex
         typeof(Processors.DeleteStorageBlobProcessor),
         DeleteBlobParametersPowerShell());
 
+    private static readonly CommandMetadata s_copyBlobPs = BlobCommand(
+        "Start-AzStorageBlobCopy",
+        typeof(Processors.StartStorageBlobCopyProcessor),
+        CopyBlobParametersPowerShell());
+
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new(StringComparer.OrdinalIgnoreCase)
     {
         ["storage blob upload"] = s_uploadBlob,
@@ -133,6 +145,7 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["storage blob show"] = s_showBlob,
         ["storage blob exists"] = s_existsBlob,
         ["storage blob delete"] = s_deleteBlob,
+        ["storage blob copy start"] = s_copyBlob,
     };
 
     private static readonly IReadOnlyDictionary<string, CommandMetadata> s_psTable =
@@ -143,6 +156,7 @@ public sealed class ExtensionIndex : IExtensionIndex
             ["Get-AzStorageBlob_List"] = s_listBlobPs,
             ["Get-AzStorageBlob_Get"] = s_showBlobPs,
             ["Remove-AzStorageBlob"] = s_deleteBlobPs,
+            ["Start-AzStorageBlobCopy"] = s_copyBlobPs,
         };
 
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -170,7 +184,9 @@ public sealed class ExtensionIndex : IExtensionIndex
     private static CommandMetadata BlobCommand(
         string invocationName,
         Type processorType,
-        Dictionary<string, ParameterMetadata> parameters) => new(
+        Dictionary<string, ParameterMetadata> parameters,
+        string containerParameter = "container-name",
+        string nameParameter = "name") => new(
             Name: processorType.Name,
             InvocationName: invocationName,
             Aliases: [],
@@ -180,8 +196,8 @@ public sealed class ExtensionIndex : IExtensionIndex
             Parameters: parameters,
             ParameterAliases: new Dictionary<string, string>
             {
-                ["c"] = "container-name",
-                ["n"] = "name",
+                ["c"] = containerParameter,
+                ["n"] = nameParameter,
             });
 
     private static Dictionary<string, ParameterMetadata> UploadBlobParameters() => new()
@@ -277,6 +293,15 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 
+    private static Dictionary<string, ParameterMetadata> CopyBlobParameters() => new()
+    {
+        ["account-name"] = new("AccountName", "account-name", typeof(string), "Destination storage account name.", true, [], []),
+        ["destination-container"] = new("ContainerName", "destination-container", typeof(string), "Destination blob container name.", true, ["c"], []),
+        ["destination-blob"] = new("BlobName", "destination-blob", typeof(string), "Destination blob name.", true, ["n"], []),
+        ["source-uri"] = new("SourceUri", "source-uri", typeof(string), "Source blob or file URL.", true, [], []),
+        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
     private static Dictionary<string, ParameterMetadata> UploadBlobParametersPowerShell() => new()
     {
         ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
@@ -345,6 +370,15 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["IfUnmodifiedSince"] = new("IfUnmodifiedSince", "IfUnmodifiedSince", typeof(string), "Delete only when unmodified since this date.", false, [], []),
         ["TagCondition"] = new("TagCondition", "TagCondition", typeof(string), "Delete only when blob tags match.", false, [], []),
         ["PassThru"] = new("PassThru", "PassThru", typeof(bool), "Return true after deletion.", false, [], []),
+        ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> CopyBlobParametersPowerShell() => new()
+    {
+        ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Destination storage account name.", true, [], []),
+        ["DestContainer"] = new("ContainerName", "DestContainer", typeof(string), "Destination blob container name.", true, [], []),
+        ["DestBlob"] = new("BlobName", "DestBlob", typeof(string), "Destination blob name.", true, [], []),
+        ["AbsoluteUri"] = new("SourceUri", "AbsoluteUri", typeof(string), "Source blob or file URL.", true, [], []),
         ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 }

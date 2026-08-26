@@ -13,3 +13,10 @@ public sealed record StorageBlob(
     string? AccessTier,
     IReadOnlyDictionary<string, string> Metadata,
     IReadOnlyDictionary<string, string> Tags);
+
+public sealed record StorageBlobCopyResult(
+    string DestinationUri,
+    string? CopyId,
+    string? CopyStatus,
+    string? ETag,
+    string? LastModified);
