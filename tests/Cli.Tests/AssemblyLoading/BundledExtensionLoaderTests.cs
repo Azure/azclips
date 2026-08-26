@@ -550,7 +550,7 @@ public class BundledExtensionLoaderTests
 
         // Non-fatal if it fails: leftover files at the bin/Debug dir are harmless, and the
         // extension ALC may still hold the DLL for the process lifetime.
-        TempFileCleanup.TryDeleteDirectory(packageDir);
+        DirectoryUtils.TryDeleteDirectory(packageDir);
     }
 
     private sealed class TestConfigurationService(bool bypassExtensionCache = false) : IConfigurationService

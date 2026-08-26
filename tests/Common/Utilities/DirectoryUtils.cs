@@ -6,20 +6,11 @@
 
 namespace Tests.Common.Utilities;
 
-/// <summary>
-/// Best-effort filesystem cleanup for test and benchmark scratch directories.
-/// </summary>
-public static class TempFileCleanup
+public static class DirectoryUtils
 {
     /// <summary>
-    /// Deletes <paramref name="path"/> and everything under it, ignoring a missing directory and
-    /// the transient lock and permission failures that cleanup routinely races against. Returns
-    /// <see langword="true"/> when the directory is gone afterwards.
+    /// Best-effort filesystem cleanup for test and benchmark scratch directories.
     /// </summary>
-    /// <remarks>
-    /// Callers use this where a leftover directory is harmless but a thrown exception is not —
-    /// teardown paths, and setup paths that reset stale state from an earlier run.
-    /// </remarks>
     public static bool TryDeleteDirectory(string path)
     {
         if (string.IsNullOrWhiteSpace(path))

@@ -32,7 +32,7 @@ internal sealed class BenchmarkTelemetryArtifacts
         _stagingRoot = BenchmarkTelemetryPaths.StagingRoot(repoRoot);
         _telemetryRoot = Path.Combine(_stagingRoot, _benchmarkName);
 
-        TempFileCleanup.TryDeleteDirectory(_telemetryRoot);
+        DirectoryUtils.TryDeleteDirectory(_telemetryRoot);
     }
 
     /// <summary>Where warmup-iteration traces are written. Deleted unread by <see cref="Prune"/>.</summary>
@@ -70,7 +70,7 @@ internal sealed class BenchmarkTelemetryArtifacts
         }
         finally
         {
-            TempFileCleanup.TryDeleteDirectory(_telemetryRoot);
+            DirectoryUtils.TryDeleteDirectory(_telemetryRoot);
         }
     }
 }

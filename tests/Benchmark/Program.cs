@@ -62,7 +62,7 @@ public class Program
         // Benchmarks write telemetry to a stable staging path because their child processes cannot
         // know artifactsPath. Clear it first so post-run collection can only pick up this run.
         var telemetryStagingRoot = BenchmarkTelemetryPaths.StagingRoot(RepoLocator.GetRepoRoot());
-        TempFileCleanup.TryDeleteDirectory(telemetryStagingRoot);
+        DirectoryUtils.TryDeleteDirectory(telemetryStagingRoot);
 
         var config = ManualConfig.CreateEmpty()
             .AddColumnProvider(DefaultColumnProviders.Instance)
@@ -314,7 +314,7 @@ public class Program
             }
 
             Console.WriteLine($"[Telemetry] Collected {files.Length} file(s) into {destination}");
-            TempFileCleanup.TryDeleteDirectory(stagingRoot);
+            DirectoryUtils.TryDeleteDirectory(stagingRoot);
         }
         catch (Exception ex)
         {

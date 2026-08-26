@@ -73,8 +73,8 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            TempFileCleanup.TryDeleteDirectory(bundledPackageDir);
-            TempFileCleanup.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(bundledPackageDir);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -116,7 +116,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            TempFileCleanup.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -167,8 +167,8 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            TempFileCleanup.TryDeleteDirectory(bundledPackageDir);
-            TempFileCleanup.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(bundledPackageDir);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -215,7 +215,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            TempFileCleanup.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -238,7 +238,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            TempFileCleanup.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
@@ -280,7 +280,7 @@ public sealed class ExtensionSelectionPathOverrideTests
         }
         finally
         {
-            TempFileCleanup.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
+            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
 
