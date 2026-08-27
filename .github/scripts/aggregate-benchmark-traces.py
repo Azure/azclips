@@ -23,6 +23,7 @@ PRODUCTS = ("CLI", "PS", "STARTUP")
 COMMENT_MARKER = "<!-- benchmark-traces -->"
 SUMMARY_BUDGET_BYTES = 900_000  # GitHub caps job summaries at 1 MiB; leave headroom.
 FAR_FUTURE = datetime.max.replace(tzinfo=timezone.utc)
+SIDECAR_SCHEMA = 1
 
 
 # ------------------------------------------------------------------ discovery
@@ -194,6 +195,7 @@ class Report:
         self.orphan_subtrees = 0
         self.rootless_traces = 0
         self.nodes = {}
+        self.source = {}
 
     def add(self, path, duration, offset):
         node = self.nodes.get(path)
@@ -223,6 +225,74 @@ class Report:
         if not roots:
             return None
         return max(roots, key=lambda path: self.nodes[path]["count"])
+
+    def to_dict(self, commit=None, ref=None, run_id=None, generated=None):
+        """Serialize to the sidecar shape. Averages are stored, not the running totals.
+
+        offset_ms is not cosmetic: sibling ordering is derived from it, so a sidecar
+        without it could not be rendered in execution order and the two sides of a
+        comparison would draw children in different sequences.
+        """
+        stamp = generated or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {
+            "schema": SIDECAR_SCHEMA,
+            "benchmark": self.stem,
+            "extension": self.extension,
+            "product": self.product,
+            "source": {
+                "commit": commit or "",
+                "ref": ref or "",
+                "run_id": run_id or "",
+                "generated": stamp,
+            },
+            "traces": self.trace_count,
+            "diagnostics": {
+                "malformed": self.malformed,
+                "orphan_subtrees": self.orphan_subtrees,
+                "rootless_traces": self.rootless_traces,
+            },
+            "nodes": [
+                {
+                    "path": [[name, index] for name, index in path],
+                    "avg_ms": self.average(path),
+                    "occurrences": self.occurrences(path),
+                    "offset_ms": self.mean_offset(path),
+                }
+                for path in sorted(self.nodes, key=lambda p: (len(p), self.mean_offset(p)))
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        """Rebuild a Report from a sidecar. Raises ValueError on an unusable document.
+
+        Totals are reconstructed as avg * count so average() and mean_offset() keep
+        working unchanged against a deserialised report.
+        """
+        if not isinstance(data, dict):
+            raise ValueError(f"sidecar is {type(data).__name__}, expected object")
+        if data.get("schema") != SIDECAR_SCHEMA:
+            raise ValueError(f"unsupported sidecar schema {data.get('schema')!r}")
+
+        report = cls(data.get("benchmark") or "", data.get("product"), data.get("extension"))
+        report.trace_count = int(data.get("traces") or 0)
+        diagnostics = data.get("diagnostics") or {}
+        report.malformed = int(diagnostics.get("malformed") or 0)
+        report.orphan_subtrees = int(diagnostics.get("orphan_subtrees") or 0)
+        report.rootless_traces = int(diagnostics.get("rootless_traces") or 0)
+        report.source = data.get("source") or {}
+
+        for node in data.get("nodes") or []:
+            path = tuple((str(name), int(index)) for name, index in node["path"])
+            count = int(node.get("occurrences") or 0)
+            average = float(node.get("avg_ms") or 0.0)
+            offset = float(node.get("offset_ms") or 0.0)
+            report.nodes[path] = {
+                "total": average * count,
+                "count": count,
+                "offset_total": offset * count,
+            }
+        return report
 
 
 def aggregate_file(path, stem, product, extension):
