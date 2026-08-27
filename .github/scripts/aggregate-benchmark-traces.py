@@ -567,6 +567,136 @@ def render_report(report):
     return "\n".join(lines)
 
 
+def relative_age(generated):
+    """Coarse age of a baseline, or None when the timestamp is unusable.
+
+    Days are enough: the point is to let a reader discount a stale baseline, not to
+    time it precisely.
+    """
+    stamp = parse_time(generated)
+    if stamp is None:
+        return None
+    days = (datetime.now(timezone.utc) - stamp).days
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "1 day ago"
+    return f"{days} days ago"
+
+
+def render_comparison(baseline, current):
+    """Render main and this run as two trees sharing one row order.
+
+    Each side keeps v1's semantics exactly: AVG, %ROOT against its own root, and a
+    bar scaled to its own root. Bars are therefore NOT comparable across the gutter
+    — an unchanged node draws differently on each side whenever the roots differ.
+    That is a deliberate trade for keeping each tree readable on its own; the AVG
+    and Δ% columns are the comparison.
+    """
+    rows, orphaned_count = compare_rows(baseline, current)
+    if not rows:
+        return None
+
+    baseline_root = baseline.root_path
+    current_root = current.root_path
+    baseline_scale = baseline.average(baseline_root) if baseline_root else 0.0
+    current_scale = current.average(current_root) if current_root else 0.0
+
+    def side_label(report, path, connector):
+        """v1's label, with coverage counted against this side's own trace count.
+
+        The two sides are never reconciled into one figure: a marker on one side
+        only is meaningful — it says the node is intermittent there and not here.
+        """
+        text = connector + node_text(path)
+        count = report.occurrences(path)
+        if count < report.trace_count:
+            text += f"  ({count}/{report.trace_count})"
+        return text
+
+    label_width = 0
+    for path, connector in rows:
+        for report in (baseline, current):
+            if path in report.nodes:
+                label_width = max(label_width, len(side_label(report, path, connector)))
+    side_width = 12 + 2 + 5 + 2 + BAR_WIDTH + 2 + label_width
+
+    def cell(report, path, connector, scale):
+        if path not in report.nodes:
+            return " " * side_width          # absent, not zero
+        average = report.average(path)
+        text = side_label(report, path, connector)
+        if scale > 0:
+            ratio = average / scale
+            body = (f"{average:>9.3f} ms  {ratio * 100:>4.0f}%  "
+                    f"{bar(ratio):<{BAR_WIDTH}}  {text}")
+        else:
+            body = f"{average:>9.3f} ms  {'':>5}  {'':<{BAR_WIDTH}}  {text}"
+        return body.ljust(side_width)
+
+    def heading(report, tag, with_age):
+        parts = []
+        commit = (report.source or {}).get("commit") or ""
+        parts.append(f"{tag} @ {commit[:7]}" if commit else tag)
+        if with_age:
+            age = relative_age((report.source or {}).get("generated"))
+            if age:
+                parts.append(age)
+        parts.append(f"{report.trace_count} traces")
+        return " · ".join(parts)
+
+    lines = [f" Benchmark.{current.stem}"]
+    subtitle = " · ".join(part for part in (current.extension, current.product) if part)
+    if subtitle:
+        lines.append(f" {subtitle}")
+    lines.append("")
+    lines.append((f"{heading(baseline, 'main', True):^{side_width}}"
+                  + " │         │ "
+                  + f"{heading(current, 'PR', False):^{side_width}}").rstrip())
+    lines.append(f"{'AVG':>12}  {'%ROOT':>5}".ljust(side_width)
+                 + " │    Δ%   │ " + f"{'AVG':>12}  {'%ROOT':>5}")
+
+    for path, connector in rows:
+        left = baseline.average(path) if path in baseline.nodes else None
+        right = current.average(path) if path in current.nodes else None
+        delta = delta_percent(left, right)
+        delta_text = "n/a" if delta is None else f"{delta:+.1f}%"
+        lines.append((cell(baseline, path, connector, baseline_scale)
+                      + " │ " + f"{delta_text:>7}" + " │ "
+                      + cell(current, path, connector, current_scale)).rstrip())
+
+    notes = []
+    for tag, report in (("main", baseline), ("PR", current)):
+        detail = []
+        if report.orphan_subtrees:
+            detail.append(f"{report.orphan_subtrees} orphan subtree(s) dropped")
+        if report.rootless_traces:
+            detail.append(f"{report.rootless_traces} trace(s) had no resolvable root")
+        if report.malformed:
+            detail.append(f"{report.malformed} unreadable line(s) skipped")
+        if detail:
+            notes.append(f"{tag}: " + "; ".join(detail))
+
+    only_baseline = sum(1 for path, _ in rows if path not in current.nodes)
+    only_current = sum(1 for path, _ in rows if path not in baseline.nodes)
+    shape = []
+    if only_baseline:
+        shape.append(f"{only_baseline} node(s) only in main")
+    if only_current:
+        shape.append(f"{only_current} node(s) only in PR")
+    if shape:
+        # State drift explicitly rather than leaving the reader to spot blank rows.
+        notes.append(", ".join(shape) + " — tree shape changed")
+
+    if orphaned_count:
+        notes.append(f"{orphaned_count} union node(s) could not be placed (orphaned)")
+
+    if notes:
+        lines.extend(["", " " + "   ".join(notes)])
+
+    return "\n".join(lines)
+
+
 # ------------------------------------------------------------------- outputs
 
 def render_summary(reports):
