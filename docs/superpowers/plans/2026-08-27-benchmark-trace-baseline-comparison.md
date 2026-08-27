@@ -591,7 +591,7 @@ git commit -m "feat(bench): load baseline trace sidecars for comparison"
 - Consumes: `Report.nodes`, `Report.mean_offset`, `Report.root_path`
 - Produces:
   - `node_text(path) -> str`
-  - `compare_rows(baseline, current) -> list[tuple[path, connector]]`
+  - `compare_rows(baseline, current) -> (list[tuple[path, connector]], int)` — returns rows and orphaned node count
   - `delta_percent(baseline_avg, current_avg) -> float | None`
 
 - [ ] **Step 1: Add the row builder**
@@ -620,10 +620,15 @@ def delta_percent(baseline_average, current_average):
 def compare_rows(baseline, current):
     """Rows over the union of both node sets, in one shared order.
 
-    Returns [(path, connector)]. Both sides render from this single list, which is
-    what makes "row n is the same node on the left and the right" a guarantee rather
-    than a coincidence: two independently ordered trees would drift apart the moment
-    one side gained or lost a node.
+    Returns (rows, orphaned_count) where rows is [(path, connector)]. Both sides
+    render from this single list, which is what makes "row n is the same node on
+    the left and the right" a guarantee rather than a coincidence: two independently
+    ordered trees would drift apart the moment one side gained or lost a node.
+
+    orphaned_count is the number of union nodes whose parent is absent from the
+    union (unreachable from any root). These nodes are silently dropped and not
+    emitted. Only from_dict can produce orphans; aggregate_file keeps every
+    ancestor of every node it collects via flatten()'s top-down walk.
 
     Ordering uses the current run's mean start offset where the node exists there and
     the baseline's otherwise, tie-broken on the path for determinism.
@@ -634,7 +639,7 @@ def compare_rows(baseline, current):
         if root is not None and root not in roots:
             roots.append(root)
     if not roots:
-        return []
+        return [], 0
 
     root_set = set(roots)
     paths = {path for path in set(current.nodes) | set(baseline.nodes)
@@ -646,12 +651,14 @@ def compare_rows(baseline, current):
         return baseline.mean_offset(path)
 
     children_of = defaultdict(list)
+    placed = set(roots)  # roots are always placed
     for path in paths:
         # flatten() emits every ancestor of every node it collects, so a node's
         # parent is always present on the side that produced it, and therefore in
         # the union. Depth-1 paths are the roots themselves.
         if len(path) > 1 and path[:-1] in paths:
             children_of[path[:-1]].append(path)
+            placed.add(path)
     for kids in children_of.values():
         kids.sort(key=lambda p: (offset(p), p))
     roots.sort(key=lambda p: (offset(p), p))
@@ -668,7 +675,10 @@ def compare_rows(baseline, current):
 
     for position, root in enumerate(roots):
         emit(root, "", position == len(roots) - 1, True)
-    return rows
+    
+    orphaned_count = len(paths) - len(placed)
+    return rows, orphaned_count
+```
 ```
 
 - [ ] **Step 2: Verify the union covers both sides and stays ordered**
@@ -683,19 +693,19 @@ stem = 'CLI.ResourceGroupBenchmarks.CreateResourceGroup'
 main = agg.aggregate_file('<tmp>/fixtures/main/RESOURCES/CLI/telemetry/' + stem + '.jsonl', stem, 'CLI', 'RESOURCES')
 pr   = agg.aggregate_file('<tmp>/fixtures/pr/RESOURCES/CLI/telemetry/' + stem + '.jsonl', stem, 'CLI', 'RESOURCES')
 
-rows = agg.compare_rows(main, pr)
-print('union rows:', len(rows), '| main nodes:', len(main.nodes), '| pr nodes:', len(pr.nodes))
+rows, orphaned = agg.compare_rows(main, pr)
+print('union rows:', len(rows), '| main nodes:', len(main.nodes), '| pr nodes:', len(pr.nodes), '| orphaned:', orphaned)
 for path, connector in rows:
     side = 'both'
     if path not in pr.nodes: side = 'MAIN-ONLY'
     elif path not in main.nodes: side = 'PR-ONLY'
     print(f'  {connector}{agg.node_text(path):<40} {side}')
-assert len(rows) == len(set(main.nodes) | set(pr.nodes)), 'union incomplete'
+assert len(rows) == len(set(main.nodes) | set(pr.nodes)) - orphaned, 'union incomplete'
 print('OK')
 "
 ```
 
-Expected: `union rows: 9 | main nodes: 9 | pr nodes: 8`, an indented tree in execution order (`AzureCLI.Startup` before `AzureCLI.ProcessCommand`, `Startup.Container` before `Startup.Services`), `AzureCLI.Startup.Services` tagged `MAIN-ONLY`, and a final `OK`.
+Expected: `union rows: 9 | main nodes: 9 | pr nodes: 8 | orphaned: 0`, an indented tree in execution order (`AzureCLI.Startup` before `AzureCLI.ProcessCommand`, `Startup.Container` before `Startup.Services`), `AzureCLI.Startup.Services` tagged `MAIN-ONLY`, and a final `OK`.
 
 - [ ] **Step 3: Verify `delta_percent` edge cases**
 
@@ -771,7 +781,7 @@ def render_comparison(baseline, current):
     That is a deliberate trade for keeping each tree readable on its own; the AVG
     and Δ% columns are the comparison.
     """
-    rows = compare_rows(baseline, current)
+    rows, orphaned_count = compare_rows(baseline, current)
     if not rows:
         return None
 
