@@ -115,6 +115,11 @@ public sealed class ExtensionIndex : IExtensionIndex
         "destination-container",
         "destination-blob");
 
+    private static readonly CommandMetadata s_setBlobTier = BlobCommand(
+        "storage blob set-tier",
+        typeof(Processors.SetStorageBlobTierProcessor),
+        SetBlobTierParameters());
+
     private static readonly CommandMetadata s_listBlobPs = BlobCommand(
         "Get-AzStorageBlob_List",
         typeof(Processors.ListStorageBlobProcessor),
@@ -146,6 +151,7 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["storage blob exists"] = s_existsBlob,
         ["storage blob delete"] = s_deleteBlob,
         ["storage blob copy start"] = s_copyBlob,
+        ["storage blob set-tier"] = s_setBlobTier,
     };
 
     private static readonly IReadOnlyDictionary<string, CommandMetadata> s_psTable =
@@ -299,6 +305,17 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["destination-container"] = new("ContainerName", "destination-container", typeof(string), "Destination blob container name.", true, ["c"], []),
         ["destination-blob"] = new("BlobName", "destination-blob", typeof(string), "Destination blob name.", true, ["n"], []),
         ["source-uri"] = new("SourceUri", "source-uri", typeof(string), "Source blob or file URL.", true, [], []),
+        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> SetBlobTierParameters() => new()
+    {
+        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
+        ["container-name"] = new("ContainerName", "container-name", typeof(string), "Blob container name.", true, ["c"], []),
+        ["name"] = new("BlobName", "name", typeof(string), "Blob name.", true, ["n"], []),
+        ["tier"] = new("Tier", "tier", typeof(string), "Access tier to assign.", true, [], []),
+        ["rehydrate-priority"] = new("RehydratePriority", "rehydrate-priority", typeof(string), "Rehydration priority.", false, [], ["Standard", "High"]),
+        ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "Lease ID for a leased blob.", false, [], []),
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 

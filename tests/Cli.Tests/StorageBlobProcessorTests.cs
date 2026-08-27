@@ -668,13 +668,65 @@ public class StorageBlobProcessorTests
     }
 
     [Fact]
+    public async Task SetTier_SendsTierHeaders()
+    {
+        HttpRequestMessage? sent = null;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sent = request;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var processor = CreateProcessor(
+            new SetStorageBlobTierProcessor(),
+            pipeline,
+            new FakeOutputHandler());
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "folder/blob.txt";
+        processor.Tier = "Hot";
+        processor.RehydratePriority = "High";
+        processor.LeaseId = "lease";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(HttpMethod.Put, sent!.Method);
+        Assert.Equal(
+            "https://account123.blob.core.windows.net/container/folder/blob.txt?comp=tier",
+            sent.RequestUri!.AbsoluteUri);
+        Assert.Equal("Hot", sent.Headers.GetValues("x-ms-access-tier").Single());
+        Assert.Equal("High", sent.Headers.GetValues("x-ms-rehydrate-priority").Single());
+        Assert.Equal("lease", sent.Headers.GetValues("x-ms-lease-id").Single());
+    }
+
+    [Theory]
+    [InlineData("", null)]
+    [InlineData("Hot", "Fast")]
+    public async Task SetTier_RejectsInvalidOptionsBeforeSending(string tier, string? priority)
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK));
+        var processor = CreateProcessor(
+            new SetStorageBlobTierProcessor(),
+            pipeline,
+            new FakeOutputHandler());
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "blob.txt";
+        processor.Tier = tier;
+        processor.RehydratePriority = priority;
+
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
     public void ExtensionIndex_ExposesBlobCommands()
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex();
 
         IReadOnlyDictionary<string, CommandMetadata> commands = index.GetCommandTable(ClientType.CLI);
 
-        Assert.Equal(9, commands.Count);
+        Assert.Equal(10, commands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
@@ -694,6 +746,8 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(commands["storage blob delete"].ProcessorType));
         Assert.IsType<StartStorageBlobCopyProcessor>(
             Activator.CreateInstance(commands["storage blob copy start"].ProcessorType));
+        Assert.IsType<SetStorageBlobTierProcessor>(
+            Activator.CreateInstance(commands["storage blob set-tier"].ProcessorType));
         Assert.Equal(
             "destination-container",
             commands["storage blob copy start"].ParameterAliases["c"]);
