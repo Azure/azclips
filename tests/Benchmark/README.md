@@ -59,7 +59,8 @@ Results are saved to `artifacts/Benchmark/<timestamp>/` (or `artifacts/Benchmark
 - `benchmark-summary-*.json` - JSON data for programmatic use
 - `results/` - BenchmarkDotNet's own exports (full JSON + GitHub-flavored Markdown)
 - `telemetry/<PRODUCT>.<Class>.<Method>.jsonl` - 100 sampled CLI traces per benchmark method (one span per line)
-- `sidecars/<EXT>/<PRODUCT>/<Benchmark>.json` - aggregated span tree per benchmark, written only when `--sidecar-out` is passed (CI does this; a plain local run does not)
+
+When `--sidecar-out` is passed (CI does this; a plain local run does not), aggregated span trees are written as `<sidecar-out>/<EXT|LOCAL>/<PRODUCT>/<Benchmark>.json` and uploaded as the `benchmark-trace-sidecars` workflow artifact.
 
 ---
 
@@ -206,17 +207,15 @@ To compare two local runs without CI:
 git switch main
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --extension Resources
 python3 .github/scripts/aggregate-benchmark-traces.py \
-  --input artifacts/Benchmark/<timestamp> --sidecar-out /tmp/main-traces
+  --input artifacts/Benchmark/<timestamp> --sidecar-out ./main-traces
 
 git switch my-branch
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --extension Resources
 python3 .github/scripts/aggregate-benchmark-traces.py \
-  --input artifacts/Benchmark/<timestamp> --baseline /tmp/main-traces
+  --input artifacts/Benchmark/<timestamp> --baseline ./main-traces
 ```
 
-Local runs write to `artifacts/Benchmark/<timestamp>/telemetry/` and so carry no extension
-segment; baseline lookup falls back to a recursive search for `<Benchmark>.json`, so the
-flat `/tmp/main-traces` layout matches.
+Local runs write telemetry under `artifacts/Benchmark/<timestamp>/telemetry/` with no extension segment (just `<PRODUCT>.<Class>.<Method>.jsonl`). When aggregating, both the `--sidecar-out` and `--baseline` paths use `LOCAL/<PRODUCT>/<Benchmark>.json`, so a `./main-traces` baseline from one local run matches the sidecar path computed from another. The product is extracted from the stem's first segment, so CLI and PS benchmarks land in separate directories.
 
 Omitting `--baseline` renders the single-tree view.
 
