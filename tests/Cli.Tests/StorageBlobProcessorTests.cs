@@ -462,11 +462,15 @@ public class StorageBlobProcessorTests
 
         IReadOnlyDictionary<string, CommandMetadata> commands = index.GetCommandTable(ClientType.CLI);
 
-        Assert.Equal(2, commands.Count);
+        Assert.Equal(4, commands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob download"].ProcessorType));
+        Assert.IsType<BlobUploadBatchProcessor_Orchestrator>(
+            Activator.CreateInstance(commands["storage blob upload-batch"].ProcessorType));
+        Assert.IsType<BlobDownloadBatchProcessor_Orchestrator>(
+            Activator.CreateInstance(commands["storage blob download-batch"].ProcessorType));
         Assert.True(commands["storage blob upload"].Parameters["overwrite"].IsRequired is false);
 
         IReadOnlyDictionary<string, CommandMetadata> powerShellCommands =
@@ -476,6 +480,79 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(powerShellCommands["Set-AzStorageBlobContent"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
             Activator.CreateInstance(powerShellCommands["Get-AzStorageBlobContent"].ProcessorType));
+    }
+
+    [Fact]
+    public async Task BatchTransfersProcessOnlyMatchingFiles()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string source = Path.Combine(directory, "source");
+            Directory.CreateDirectory(Path.Combine(source, "nested"));
+            await File.WriteAllTextAsync(Path.Combine(source, "nested", "report.csv"), "upload");
+            await File.WriteAllTextAsync(Path.Combine(source, "skip.txt"), "skip");
+            var uploadedUris = new List<string>();
+            var uploadPipeline = new FakeHttpPipeline((request, _) =>
+            {
+                uploadedUris.Add(request.RequestUri!.AbsoluteUri);
+                return new HttpResponseMessage(HttpStatusCode.Created);
+            });
+            var upload = CreateProcessor(
+                new BlobUploadBatchProcessor_Orchestrator(),
+                uploadPipeline,
+                new FakeOutputHandler());
+            upload.AccountName = "account123";
+            upload.ContainerName = "container";
+            upload.SourceDirectory = source;
+            upload.Pattern = "*.csv";
+            upload.DestinationPath = "archive";
+
+            await upload.ProcessAsync();
+
+            Assert.Single(uploadedUris);
+            Assert.EndsWith("/container/archive/nested/report.csv", uploadedUris[0]);
+
+            const string listing = """
+                <EnumerationResults>
+                  <Blobs>
+                    <Blob><Name>nested/report.csv</Name></Blob>
+                    <Blob><Name>skip.txt</Name></Blob>
+                  </Blobs>
+                  <NextMarker />
+                </EnumerationResults>
+                """;
+            var downloadPipeline = new FakeHttpPipeline((request, _) =>
+                request.RequestUri!.Query.Contains("comp=list", StringComparison.Ordinal)
+                    ? new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(listing, Encoding.UTF8, "application/xml")
+                    }
+                    : new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("download", Encoding.UTF8)
+                    });
+            string destination = Path.Combine(directory, "destination");
+            var download = CreateProcessor(
+                new BlobDownloadBatchProcessor_Orchestrator(),
+                downloadPipeline,
+                new FakeOutputHandler());
+            download.AccountName = "account123";
+            download.ContainerName = "container";
+            download.DestinationDirectory = destination;
+            download.Pattern = "*.csv";
+
+            await download.ProcessAsync();
+
+            Assert.Equal(
+                "download",
+                await File.ReadAllTextAsync(Path.Combine(destination, "nested", "report.csv")));
+            Assert.Equal(2, downloadPipeline.SendCount);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     private static T CreateProcessor<T>(
