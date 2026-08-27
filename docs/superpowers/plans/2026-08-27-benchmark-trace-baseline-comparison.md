@@ -1130,9 +1130,10 @@ git commit -m "feat(bench): emit side-by-side trace comparisons to the job summa
 In the `collect` job, after the "Download all benchmark results" step (ends line 422), insert:
 
 ```yaml
-      # Baselines are a public gh-pages read, so this works on fork PRs with the
-      # default token and needs no added permissions. continue-on-error covers the
-      # first ever run, before dev/bench/traces/ exists.
+      # On pull_request events actions/checkout defaults its repository input to
+      # github.repository (the base, not the fork), so the base repo's gh-pages
+      # branch is readable via the default token's contents: read scope.
+      # continue-on-error covers the first ever run, before dev/bench/traces/ exists.
       - name: Checkout gh-pages for trace baselines
         id: baselines
         continue-on-error: true
