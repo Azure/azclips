@@ -421,6 +421,19 @@ jobs:
           path: downloaded
           merge-multiple: true
 
+      # Baselines are a public gh-pages read, so this works on fork PRs with the
+      # default token and needs no added permissions. continue-on-error covers the
+      # first ever run, before dev/bench/traces/ exists.
+      - name: Checkout gh-pages for trace baselines
+        id: baselines
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+          sparse-checkout: |
+            dev/bench/traces
+
       # Upload benchmark result JSONs for the fork-PR comment workflow
       - name: Upload benchmark results for fork PR
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
@@ -447,6 +460,11 @@ jobs:
         run: |
           python3 .github/scripts/aggregate-benchmark-traces.py \
             --input downloaded \
+            --baseline gh-pages/dev/bench/traces \
+            --sidecar-out sidecars \
+            --commit "${{ github.sha }}" \
+            --ref "${{ github.ref }}" \
+            --run-id "${{ github.run_id }}" \
             --summary-out "$GITHUB_STEP_SUMMARY" \
             --comment-out "$RUNNER_TEMP/trace-comment.md" \
             --run-url "$RUN_URL"
@@ -457,5 +475,14 @@ jobs:
         with:
           name: benchmark-traces
           path: ${{ runner.temp }}/trace-comment.md
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Upload trace sidecars
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-trace-sidecars
+          path: sidecars
           retention-days: 1
           if-no-files-found: ignore
