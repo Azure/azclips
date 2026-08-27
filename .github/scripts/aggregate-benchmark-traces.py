@@ -704,8 +704,13 @@ def render_comparison(baseline, current):
 
 # ------------------------------------------------------------------- outputs
 
-def render_summary(reports):
-    """Markdown for $GITHUB_STEP_SUMMARY, truncated to stay under the 1 MiB cap."""
+def render_summary(reports, baselines=None):
+    """Markdown for $GITHUB_STEP_SUMMARY, truncated to stay under the 1 MiB cap.
+
+    A benchmark with a baseline renders side by side; one without falls back to the
+    v1 single tree, so a new benchmark or a first-ever run still reports something.
+    """
+    baselines = baselines or {}
     blocks = ["## 🔬 Benchmark Trace Hierarchy", ""]
     # "\n".join inserts one separator byte per element beyond the first, so charge
     # each block for its own separator or the budget silently undercounts.
@@ -713,7 +718,8 @@ def render_summary(reports):
     truncated = 0
 
     for report in reports:
-        body = render_report(report)
+        baseline = baselines.get(report.stem)
+        body = render_comparison(baseline, report) if baseline else render_report(report)
         if body is None:
             continue
         block = "```\n" + body + "\n```\n"
@@ -801,7 +807,7 @@ def run(args):
                       f"{report.occurrences(path):3d}/{report.trace_count}  {trail}")
         return 0
 
-    summary = render_summary(usable)
+    summary = render_summary(usable, baselines)
     if args.summary_out:
         # Append: the runner may already have written to $GITHUB_STEP_SUMMARY.
         with open(args.summary_out, "a", encoding="utf-8") as handle:
