@@ -421,9 +421,10 @@ jobs:
           path: downloaded
           merge-multiple: true
 
-      # Baselines are a public gh-pages read, so this works on fork PRs with the
-      # default token and needs no added permissions. continue-on-error covers the
-      # first ever run, before dev/bench/traces/ exists.
+      # On pull_request events actions/checkout defaults its repository input to
+      # github.repository (the base, not the fork), so the base repo's gh-pages
+      # branch is readable via the default token's contents: read scope.
+      # continue-on-error covers the first ever run, before dev/bench/traces/ exists.
       - name: Checkout gh-pages for trace baselines
         id: baselines
         continue-on-error: true

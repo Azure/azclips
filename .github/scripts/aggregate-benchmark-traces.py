@@ -287,8 +287,6 @@ class Report:
         if source is not None and not isinstance(source, dict):
             raise ValueError(f"'source' is {type(source).__name__}, expected object")
         source = source or {}
-        if not isinstance(source, dict):
-            raise ValueError(f"'source' is {type(source).__name__}, expected object")
         report.source = source
 
         for node_idx, node in enumerate(data.get("nodes") or []):
@@ -377,7 +375,7 @@ def write_sidecars(root, reports, commit, ref, run_id):
 
 def load_sidecar(path, source="baseline"):
     """Read one sidecar. Returns None for anything unusable, having warned.
-    
+
     source distinguishes reload failures from baseline failures in the warning.
     """
     try:
@@ -396,7 +394,7 @@ def find_baseline(root, report):
     The exact <EXT>/<PRODUCT>/<stem>.json is tried first. A local run's telemetry
     path carries no extension segment, so its reports have extension None and only
     the recursive fallback can match; the stem alone identifies the benchmark.
-    
+
     Multiple matches are resolved deterministically by sorting: the first path
     found (in sorted order) wins, making the selection platform-independent.
     """
@@ -463,9 +461,10 @@ def compare_rows(baseline, current):
     ordered trees would drift apart the moment one side gained or lost a node.
 
     orphaned_count is the number of union nodes whose parent is absent from the
-    union (unreachable from any root). These nodes are silently dropped and not
-    emitted. Only from_dict can produce orphans; aggregate_file keeps every
-    ancestor of every node it collects via flatten()'s top-down walk.
+    union (unreachable from any root). They are not rendered as rows but are
+    counted and surfaced by the caller as a note. Only from_dict can produce
+    orphans; aggregate_file keeps every ancestor of every node it collects via
+    flatten()'s top-down walk.
 
     Ordering uses the current run's mean start offset where the node exists there and
     the baseline's otherwise, tie-broken on the path for determinism.
@@ -512,7 +511,7 @@ def compare_rows(baseline, current):
 
     for position, root in enumerate(roots):
         emit(root, "", position == len(roots) - 1, True)
-    
+
     orphaned_count = len(paths) - len(placed)
     return rows, orphaned_count
 

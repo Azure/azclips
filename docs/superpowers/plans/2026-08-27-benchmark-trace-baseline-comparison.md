@@ -626,9 +626,10 @@ def compare_rows(baseline, current):
     ordered trees would drift apart the moment one side gained or lost a node.
 
     orphaned_count is the number of union nodes whose parent is absent from the
-    union (unreachable from any root). These nodes are silently dropped and not
-    emitted. Only from_dict can produce orphans; aggregate_file keeps every
-    ancestor of every node it collects via flatten()'s top-down walk.
+    union (unreachable from any root). They are not rendered as rows but are
+    counted and surfaced by the caller as a note. Only from_dict can produce
+    orphans; aggregate_file keeps every ancestor of every node it collects via
+    flatten()'s top-down walk.
 
     Ordering uses the current run's mean start offset where the node exists there and
     the baseline's otherwise, tie-broken on the path for determinism.

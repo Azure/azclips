@@ -168,8 +168,7 @@ benchmark.yml : publish-traces job                 (new, push-to-main only)
 benchmark-comment.yml                              (unchanged)
 ```
 
-Reading the baseline is a public gh-pages read, so fork pull requests work with the default
-token and no added permissions. `collect` keeps `contents: read`.
+On a `pull_request` event, `actions/checkout@v4` defaults its `repository` input to `github.repository`, which is the base repository rather than the fork. Combined with the `contents: read` scope already granted to `collect`, this makes the base repo's `gh-pages` branch readable with the default token — so fork pull requests work without any added permissions.
 
 ### Why `publish-traces` is a separate job
 
