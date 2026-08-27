@@ -276,13 +276,17 @@ class Report:
 
         report = cls(data.get("benchmark") or "", data.get("product"), data.get("extension"))
         report.trace_count = int(data.get("traces") or 0)
-        diagnostics = data.get("diagnostics") or {}
-        if not isinstance(diagnostics, dict):
+        diagnostics = data.get("diagnostics")
+        if diagnostics is not None and not isinstance(diagnostics, dict):
             raise ValueError(f"'diagnostics' is {type(diagnostics).__name__}, expected object")
+        diagnostics = diagnostics or {}
         report.malformed = int(diagnostics.get("malformed") or 0)
         report.orphan_subtrees = int(diagnostics.get("orphan_subtrees") or 0)
         report.rootless_traces = int(diagnostics.get("rootless_traces") or 0)
-        source = data.get("source") or {}
+        source = data.get("source")
+        if source is not None and not isinstance(source, dict):
+            raise ValueError(f"'source' is {type(source).__name__}, expected object")
+        source = source or {}
         if not isinstance(source, dict):
             raise ValueError(f"'source' is {type(source).__name__}, expected object")
         report.source = source
