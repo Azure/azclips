@@ -32,7 +32,7 @@ public class NewSqlDatabaseProcessor_Orchestrator : SqlProcessorBase<SqlDatabase
     public string? Collation { get; set; }
     public string? ElasticPoolName { get; set; }
 
-    // ponytail: the argument binder goes through Convert.ChangeType, which cannot target
+    // the argument binder goes through Convert.ChangeType, which cannot target
     // Nullable<T>, so value-typed parameters are non-nullable with a sentinel default meaning
     // "unset" (and therefore omitted from the PUT body) — same convention as NewVMProcessor.
     public int Capacity { get; set; }
@@ -116,7 +116,7 @@ public class NewSqlDatabaseProcessor_Orchestrator : SqlProcessorBase<SqlDatabase
         {
             Collation = Collation,
             MaxSizeBytes = MaxSizeBytes == 0 ? null : MaxSizeBytes,
-            // ponytail: ARM wants the full elastic pool resource id; the shipping clients take a
+            // ARM wants the full elastic pool resource id; the shipping clients take a
             // bare name, so compose it here rather than growing the parameter surface.
             ElasticPoolId = string.IsNullOrEmpty(ElasticPoolName)
                 ? null

@@ -6,7 +6,7 @@ using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Sql.Models;
 
-// ponytail: one type serves both the PUT body and the ARM response; null members are omitted on
+// one type serves both the PUT body and the ARM response; null members are omitted on
 // write so create-only fields (password) never leak into the request when unset.
 public class SqlServer
 {

@@ -6,7 +6,7 @@ using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Sql.Models;
 
-// ponytail: one type serves both the PUT body and the ARM response; null members are omitted on
+// one type serves both the PUT body and the ARM response; null members are omitted on
 // write so unset optional properties never reach the request.
 public class SqlDatabase
 {

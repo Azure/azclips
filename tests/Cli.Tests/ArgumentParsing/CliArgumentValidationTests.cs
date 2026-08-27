@@ -58,6 +58,26 @@ public class CliArgumentValidationTests
     }
 
     [Fact]
+    public void ParseArguments_Int64Flag_ParsesValueBeyondInt32Range()
+    {
+        // `--max-size-bytes` on `sql db create` is an Int64; values above int.MaxValue are normal.
+        var provider = CreateProvider();
+
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["max-size-bytes"] = new("MaxSizeBytes", "max-size-bytes", typeof(long), "desc", false, [], []),
+        };
+        var args = new Dictionary<string, object>
+        {
+            ["max-size-bytes"] = new List<List<string>> { new() { "268435456000" } },
+        };
+
+        var parsed = provider.ParseArguments(args, parameters, parameterAliases: null);
+
+        Assert.Equal(268435456000L, parsed["MaxSizeBytes"]);
+    }
+
+    [Fact]
     public void ParseArguments_ScalarConversionFailure_ErrorUsesInvocationName()
     {
         // Type-conversion failures inside PropertyParser must also surface the CLI flag name.

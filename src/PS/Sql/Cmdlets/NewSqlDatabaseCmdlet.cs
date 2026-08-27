@@ -79,7 +79,7 @@ public class NewSqlDatabaseCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(CollationName)))                 { parameters.Add("CollationName", CollationName!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(MaxSizeBytes)))                  { parameters.Add("MaxSizeBytes", MaxSizeBytes!.Value); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ElasticPoolName)))               { parameters.Add("ElasticPoolName", ElasticPoolName!); }
-        // ponytail: a SwitchParameter is not IConvertible, and the binder runs everything through
+        // a SwitchParameter is not IConvertible, and the binder runs everything through
         // Convert.ChangeType — hand the engine the plain bool.
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ZoneRedundant)))                 { parameters.Add("ZoneRedundant", ZoneRedundant.IsPresent); }
 
