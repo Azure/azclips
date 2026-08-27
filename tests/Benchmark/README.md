@@ -59,6 +59,7 @@ Results are saved to `artifacts/Benchmark/<timestamp>/` (or `artifacts/Benchmark
 - `benchmark-summary-*.json` - JSON data for programmatic use
 - `results/` - BenchmarkDotNet's own exports (full JSON + GitHub-flavored Markdown)
 - `telemetry/<PRODUCT>.<Class>.<Method>.jsonl` - 100 sampled CLI traces per benchmark method (one span per line)
+- `sidecars/<EXT>/<PRODUCT>/<Benchmark>.json` - aggregated span tree per benchmark, written only when `--sidecar-out` is passed (CI does this; a plain local run does not)
 
 ---
 
@@ -173,6 +174,51 @@ Unless `--local`/`--ci` is set, each run uploads aggregated benchmark metrics to
 2. **`BenchmarkResult`** custom event - duration (s/ms) plus `Product`, `Operation`, `Resource`, and `Timestamp` dimensions for Grafana filtering
 
 Aggregated benchmark results are what get exported to App Insights. Command-level telemetry is stubbed out for PS benchmarks (`StubTelemetryService`), but CLI benchmarks emit real spans to `artifacts/Benchmark/<timestamp>/telemetry/` so a slow benchmark can be broken down by phase locally. Those files are never uploaded. Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
+
+---
+
+## Comparing traces against main
+
+CI aggregates each benchmark's sampled spans into one averaged span tree and publishes
+`main`'s trees under `dev/bench/traces/<EXT>/<PRODUCT>/<Benchmark>.json`. A
+pull-request run reads them back and renders `main` and the PR as two trees side by side
+in the workflow **job summary**, with a per-span `Δ%` between them. The PR comment is
+unchanged — the comparison lives in the job summary because a block is wide enough to need
+horizontal scrolling in a PR comment.
+
+**Bars are not comparable across the gutter.** Each side's `%ROOT` and bar are scaled to
+that side's own root, exactly as a standalone tree is. When the roots differ, an
+unchanged span draws a different bar on each side. Compare using the `AVG` and `Δ%`
+columns; read each bar as a within-tree proportion only.
+
+A span present on only one side renders a blank row on the absent side and `n/a` in
+`Δ%` — it was added, removed, or renamed rather than made slower, and any real cost
+change still shows in its parent's `Δ%`.
+
+Baselines refresh only from the main pushes the path filter selects, so each extension's
+baseline sits at its own commit. The header states which: `main @ abc1234 · 13 days ago`.
+A shared change (`src/Core`, `tests/Common`, the benchmark base classes) re-runs every
+extension and realigns them all.
+
+To compare two local runs without CI:
+
+```bash
+git switch main
+dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --extension Resources
+python3 .github/scripts/aggregate-benchmark-traces.py \
+  --input artifacts/Benchmark/<timestamp> --sidecar-out /tmp/main-traces
+
+git switch my-branch
+dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --extension Resources
+python3 .github/scripts/aggregate-benchmark-traces.py \
+  --input artifacts/Benchmark/<timestamp> --baseline /tmp/main-traces
+```
+
+Local runs write to `artifacts/Benchmark/<timestamp>/telemetry/` and so carry no extension
+segment; baseline lookup falls back to a recursive search for `<Benchmark>.json`, so the
+flat `/tmp/main-traces` layout matches.
+
+Omitting `--baseline` renders the single-tree view.
 
 ---
 
