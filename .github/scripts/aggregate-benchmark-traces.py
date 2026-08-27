@@ -364,6 +364,34 @@ def write_sidecars(root, reports, commit, ref, run_id):
     return written
 
 
+def load_sidecar(path):
+    """Read one sidecar. Returns None for anything unusable, having warned."""
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return Report.from_dict(json.load(handle))
+    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+        # A bad baseline degrades to no baseline, which renders the v1 single tree.
+        print(f"::warning::ignoring baseline sidecar {path}: {exc}", file=sys.stderr)
+        return None
+
+
+def find_baseline(root, report):
+    """Locate this benchmark's baseline under root, or None.
+
+    The exact <EXT>/<PRODUCT>/<stem>.json is tried first. A local run's telemetry
+    path carries no extension segment, so its reports have extension None and only
+    the recursive fallback can match; the stem alone identifies the benchmark.
+    """
+    filename = report.stem + ".json"
+    exact = sidecar_path(root, report)
+    if os.path.isfile(exact):
+        return load_sidecar(exact)
+    for dirpath, _dirnames, filenames in os.walk(root):
+        if filename in filenames:
+            return load_sidecar(os.path.join(dirpath, filename))
+    return None
+
+
 # ----------------------------------------------------------------- rendering
 
 def bar(ratio):
@@ -506,6 +534,25 @@ def run(args):
         written = write_sidecars(args.sidecar_out, usable,
                                  args.commit, args.ref, args.run_id)
         print(f"[traces] wrote {written} sidecar(s) to {args.sidecar_out}")
+        # Render from what was just written. Both sides of a comparison then travel
+        # the same to_dict/from_dict path, so a field that fails to round-trip
+        # surfaces here rather than silently only on the baseline side. It is also
+        # what gives this run's tree its provenance header: an in-memory report has
+        # an empty source, so the heading would read "PR · 100 traces" with no commit.
+        usable = [load_sidecar(sidecar_path(args.sidecar_out, report)) or report
+                  for report in usable]
+
+    baselines = {}
+    if args.baseline and os.path.isdir(args.baseline):
+        for report in usable:
+            baseline = find_baseline(args.baseline, report)
+            if baseline is not None:
+                baselines[report.stem] = baseline
+        print(f"[traces] matched {len(baselines)}/{len(usable)} baseline(s) "
+              f"from {args.baseline}")
+    elif args.baseline:
+        print(f"[traces] baseline directory '{args.baseline}' not found; "
+              "rendering without comparison")
 
     if args.debug_paths:
         for report in usable:
@@ -543,6 +590,7 @@ def main():
     parser.add_argument("--commit", help="commit sha recorded in the sidecar")
     parser.add_argument("--ref", help="git ref recorded in the sidecar")
     parser.add_argument("--run-id", help="workflow run id recorded in the sidecar")
+    parser.add_argument("--baseline", help="directory of sidecars to compare against")
     parser.add_argument("--summary-out", help="append the ASCII report here; omit for stdout")
     parser.add_argument("--comment-out", help="write the PR comment body here")
     parser.add_argument("--run-url", help="link target embedded in the comment")
