@@ -305,7 +305,8 @@ def write_sidecars(root, reports, commit, ref, run_id):
     """Write one sidecar per report. Returns how many were written.
 
     One timestamp is shared across the whole run so every sidecar from a single
-    workflow run reports the same vintage.
+    workflow run reports the same vintage. A partial file left by a failed write
+    is cleaned up so publishing logic finds only valid sidecars.
     """
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     written = 0
@@ -316,8 +317,13 @@ def write_sidecars(root, reports, commit, ref, run_id):
             with open(path, "w", encoding="utf-8") as handle:
                 json.dump(report.to_dict(commit, ref, run_id, generated), handle, indent=2)
             written += 1
-        except OSError as exc:
+        except Exception as exc:
             # A sidecar is regenerable, so a write failure must not cost us the summary.
+            # Best-effort cleanup of any partial file left by an interrupted write.
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
             print(f"::warning::could not write sidecar {path}: {exc}", file=sys.stderr)
     return written
 ```

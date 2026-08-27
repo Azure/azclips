@@ -324,6 +324,46 @@ def aggregate_file(path, stem, product, extension):
     return report
 
 
+# ----------------------------------------------------------------- outputs
+
+def sidecar_path(root, report):
+    """<root>/<EXTENSION>/<PRODUCT>/<stem>.json.
+
+    Local runs have no extension segment in their telemetry path, so extension is
+    None; 'LOCAL' keeps those files addressable instead of collapsing them into the
+    root directory. Stems are dotted alphanumerics, so they need no escaping.
+    """
+    return os.path.join(root, report.extension or "LOCAL",
+                        report.product or "UNKNOWN", report.stem + ".json")
+
+
+def write_sidecars(root, reports, commit, ref, run_id):
+    """Write one sidecar per report. Returns how many were written.
+
+    One timestamp is shared across the whole run so every sidecar from a single
+    workflow run reports the same vintage. A partial file left by a failed write
+    is cleaned up so publishing logic finds only valid sidecars.
+    """
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    written = 0
+    for report in reports:
+        path = sidecar_path(root, report)
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(report.to_dict(commit, ref, run_id, generated), handle, indent=2)
+            written += 1
+        except Exception as exc:
+            # A sidecar is regenerable, so a write failure must not cost us the summary.
+            # Best-effort cleanup of any partial file left by an interrupted write.
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            print(f"::warning::could not write sidecar {path}: {exc}", file=sys.stderr)
+    return written
+
+
 # ----------------------------------------------------------------- rendering
 
 def bar(ratio):
@@ -462,6 +502,11 @@ def run(args):
     usable = [report for report in reports if report.trace_count > 0]
     print(f"[traces] aggregated {len(usable)} benchmark(s) from {len(files)} file(s)")
 
+    if args.sidecar_out:
+        written = write_sidecars(args.sidecar_out, usable,
+                                 args.commit, args.ref, args.run_id)
+        print(f"[traces] wrote {written} sidecar(s) to {args.sidecar_out}")
+
     if args.debug_paths:
         for report in usable:
             print(f"\n== {report.stem} ({report.trace_count} traces, "
@@ -494,6 +539,10 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description="Aggregate benchmark trace telemetry.")
     parser.add_argument("--input", required=True, help="directory to search recursively")
+    parser.add_argument("--sidecar-out", help="write this run's trees as JSON here")
+    parser.add_argument("--commit", help="commit sha recorded in the sidecar")
+    parser.add_argument("--ref", help="git ref recorded in the sidecar")
+    parser.add_argument("--run-id", help="workflow run id recorded in the sidecar")
     parser.add_argument("--summary-out", help="append the ASCII report here; omit for stdout")
     parser.add_argument("--comment-out", help="write the PR comment body here")
     parser.add_argument("--run-url", help="link target embedded in the comment")
