@@ -486,3 +486,80 @@ jobs:
           path: sidecars
           retention-days: 1
           if-no-files-found: ignore
+
+  # ─────────────── Publish trace sidecars to gh-pages (main only) ───────────────
+  # Separate from `collect` on purpose: `collect` only needs the run jobs, so it can
+  # execute alongside publish-extensions / publish-startup, which push to gh-pages and
+  # serialise among themselves. Pushing from `collect` would race them. Chaining here
+  # joins that existing serialisation instead of competing with it.
+  publish-traces:
+    name: Publish trace sidecars to gh-pages
+    needs: [collect, publish-extensions, publish-startup]
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Download trace sidecars
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-trace-sidecars
+          path: sidecars
+
+      - name: Checkout gh-pages
+        if: steps.download.outcome == 'success'
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Commit sidecars
+        if: steps.download.outcome == 'success'
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$(ls -A sidecars 2>/dev/null)" ]; then
+            echo "No sidecars were produced; nothing to publish."
+            exit 0
+          fi
+
+          mkdir -p gh-pages/dev/bench/traces
+          # cp -r merges rather than replaces: extensions the path filter skipped keep
+          # their existing baseline, so dev/bench/traces accumulates the union with
+          # each subtree frozen at its own vintage.
+          cp -r sidecars/. gh-pages/dev/bench/traces/
+
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dev/bench/traces
+
+          if git diff --cached --quiet; then
+            echo "Sidecars unchanged; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "bench: update trace sidecars for ${SHA}"
+
+          # publish-extensions and publish-startup also push to gh-pages. They are
+          # upstream in `needs`, but a retry keeps this green if one lands late.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "Published trace sidecars on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}); rebasing."
+            git pull --rebase --autostash || true
+            sleep 5
+          done
+
+          # Sidecars are regenerable, so a lost push self-heals on the next main run.
+          echo "::warning::Could not push trace sidecars after 3 attempts."
+          exit 0
