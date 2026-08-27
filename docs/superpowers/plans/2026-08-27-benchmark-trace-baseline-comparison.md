@@ -128,8 +128,14 @@ Add these methods to `Report`, after the `root_path` property (which ends on lin
         report.rootless_traces = int(diagnostics.get("rootless_traces") or 0)
         report.source = data.get("source") or {}
 
-        for node in data.get("nodes") or []:
-            path = tuple((str(name), int(index)) for name, index in node["path"])
+        for node_idx, node in enumerate(data.get("nodes") or []):
+            node_path = node.get("path")
+            if node_path is None:
+                raise ValueError(f"node {node_idx} has no 'path'")
+            try:
+                path = tuple((str(name), int(index)) for name, index in node_path)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"node {node_idx} has invalid 'path': {exc}") from exc
             count = int(node.get("occurrences") or 0)
             average = float(node.get("avg_ms") or 0.0)
             offset = float(node.get("offset_ms") or 0.0)
