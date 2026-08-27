@@ -679,7 +679,6 @@ def compare_rows(baseline, current):
     orphaned_count = len(paths) - len(placed)
     return rows, orphaned_count
 ```
-```
 
 - [ ] **Step 2: Verify the union covers both sides and stays ordered**
 
