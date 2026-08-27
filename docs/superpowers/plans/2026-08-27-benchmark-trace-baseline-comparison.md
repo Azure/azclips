@@ -1309,6 +1309,7 @@ Append to the end of `.github/workflows/benchmark.yml`:
               exit 0
             fi
             echo "Push rejected (attempt ${attempt}); rebasing."
+            git rebase --abort 2>/dev/null || true
             git pull --rebase --autostash || true
             sleep 5
           done
