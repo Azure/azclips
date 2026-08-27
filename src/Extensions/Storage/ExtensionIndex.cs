@@ -40,6 +40,34 @@ public sealed class ExtensionIndex : IExtensionIndex
             ["f"] = "file",
         });
 
+    private static readonly CommandMetadata s_uploadBlobBatch = new(
+        Name: nameof(Processors.BlobUploadBatchProcessor_Orchestrator),
+        InvocationName: "storage blob upload-batch",
+        Aliases: [],
+        FullName: $"{AssemblyName}.Processors.BlobUploadBatchProcessor_Orchestrator",
+        AssemblyName: AssemblyName,
+        ProcessorType: typeof(Processors.BlobUploadBatchProcessor_Orchestrator),
+        Parameters: UploadBlobBatchParameters(),
+        ParameterAliases: new Dictionary<string, string>
+        {
+            ["d"] = "destination",
+            ["s"] = "source",
+        });
+
+    private static readonly CommandMetadata s_downloadBlobBatch = new(
+        Name: nameof(Processors.BlobDownloadBatchProcessor_Orchestrator),
+        InvocationName: "storage blob download-batch",
+        Aliases: [],
+        FullName: $"{AssemblyName}.Processors.BlobDownloadBatchProcessor_Orchestrator",
+        AssemblyName: AssemblyName,
+        ProcessorType: typeof(Processors.BlobDownloadBatchProcessor_Orchestrator),
+        Parameters: DownloadBlobBatchParameters(),
+        ParameterAliases: new Dictionary<string, string>
+        {
+            ["d"] = "destination",
+            ["s"] = "source",
+        });
+
     private static readonly CommandMetadata s_uploadBlobPs = new(
         Name: nameof(Processors.BlockBlobUploadProcessor_Orchestrator),
         InvocationName: "Set-AzStorageBlobContent",
@@ -64,6 +92,8 @@ public sealed class ExtensionIndex : IExtensionIndex
     {
         ["storage blob upload"] = s_uploadBlob,
         ["storage blob download"] = s_downloadBlob,
+        ["storage blob upload-batch"] = s_uploadBlobBatch,
+        ["storage blob download-batch"] = s_downloadBlobBatch,
     };
 
     private static readonly IReadOnlyDictionary<string, CommandMetadata> s_psTable =
@@ -125,6 +155,27 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["version-id"] = new("VersionId", "version-id", typeof(string), "Blob version ID.", false, [], []),
         ["check-md5"] = new("CheckMd5", "check-md5", typeof(bool), "Validate the response MD5 checksum.", false, [], []),
         ["tag-condition"] = new("TagCondition", "tag-condition", typeof(string), "Tag condition for the read.", false, [], []),
+        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> UploadBlobBatchParameters() => new()
+    {
+        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
+        ["destination"] = new("ContainerName", "destination", typeof(string), "Destination blob container.", true, ["d"], []),
+        ["source"] = new("SourceDirectory", "source", typeof(string), "Local source directory.", true, ["s"], []),
+        ["destination-path"] = new("DestinationPath", "destination-path", typeof(string), "Blob path prefix.", false, [], []),
+        ["pattern"] = new("Pattern", "pattern", typeof(string), "Glob pattern for files to upload.", false, [], []),
+        ["overwrite"] = new("Overwrite", "overwrite", typeof(bool), "Overwrite existing blobs.", false, [], []),
+        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> DownloadBlobBatchParameters() => new()
+    {
+        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
+        ["source"] = new("ContainerName", "source", typeof(string), "Source blob container.", true, ["s"], []),
+        ["destination"] = new("DestinationDirectory", "destination", typeof(string), "Local destination directory.", true, ["d"], []),
+        ["pattern"] = new("Pattern", "pattern", typeof(string), "Glob pattern for blobs to download.", false, [], []),
+        ["overwrite"] = new("Overwrite", "overwrite", typeof(bool), "Overwrite existing files.", false, [], []),
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 

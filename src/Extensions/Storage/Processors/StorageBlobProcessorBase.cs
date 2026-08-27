@@ -99,7 +99,15 @@ public abstract class StorageBlobProcessorBase : IProcessor
             UriKind.Absolute);
     }
 
-    private void ValidateStorageTarget()
+    protected Uri BuildContainerUri()
+    {
+        ValidateStorageTarget(requireBlobName: false);
+        return new Uri(
+            $"https://{AccountName}.blob.core.windows.net/{Uri.EscapeDataString(ContainerName)}",
+            UriKind.Absolute);
+    }
+
+    private void ValidateStorageTarget(bool requireBlobName = true)
     {
         if (ResolvedProfile is null)
         {
@@ -121,9 +129,10 @@ public abstract class StorageBlobProcessorBase : IProcessor
             throw new ArgumentException("ContainerName is not a valid Azure Blob container name.", nameof(ContainerName));
         }
 
-        if (string.IsNullOrWhiteSpace(BlobName)
+        if (requireBlobName
+            && (string.IsNullOrWhiteSpace(BlobName)
             || BlobName.Length > 1024
-            || BlobName.Any(char.IsControl))
+            || BlobName.Any(char.IsControl)))
         {
             throw new ArgumentException("BlobName must contain 1-1024 non-control characters.", nameof(BlobName));
         }
