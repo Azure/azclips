@@ -492,16 +492,19 @@ public class StorageBlobProcessorTests
             Directory.CreateDirectory(Path.Combine(source, "nested"));
             await File.WriteAllTextAsync(Path.Combine(source, "nested", "report.csv"), "upload");
             await File.WriteAllTextAsync(Path.Combine(source, "skip.txt"), "skip");
-            var uploadedUris = new List<string>();
+            var uploads = new List<(string Uri, string Content)>();
             var uploadPipeline = new FakeHttpPipeline((request, _) =>
             {
-                uploadedUris.Add(request.RequestUri!.AbsoluteUri);
+                uploads.Add((
+                    request.RequestUri!.AbsoluteUri,
+                    request.Content!.ReadAsStringAsync().GetAwaiter().GetResult()));
                 return new HttpResponseMessage(HttpStatusCode.Created);
             });
+            var uploadOutput = new FakeOutputHandler();
             var upload = CreateProcessor(
                 new BlobUploadBatchProcessor_Orchestrator(),
                 uploadPipeline,
-                new FakeOutputHandler());
+                uploadOutput);
             upload.AccountName = "account123";
             upload.ContainerName = "container";
             upload.SourceDirectory = source;
@@ -510,8 +513,13 @@ public class StorageBlobProcessorTests
 
             await upload.ProcessAsync();
 
-            Assert.Single(uploadedUris);
-            Assert.EndsWith("/container/archive/nested/report.csv", uploadedUris[0]);
+            (string uploadedUri, string uploadedContent) = Assert.Single(uploads);
+            Assert.EndsWith("/container/archive/nested/report.csv", uploadedUri);
+            Assert.Equal("upload", uploadedContent);
+            BlobTransferResult uploadResult =
+                Assert.IsType<BlobTransferResult>(Assert.Single(uploadOutput.WrittenValues));
+            Assert.Equal("upload", uploadResult.Operation);
+            Assert.EndsWith("nested/report.csv", uploadResult.Destination);
 
             const string listing = """
                 <EnumerationResults>
@@ -533,10 +541,11 @@ public class StorageBlobProcessorTests
                         Content = new StringContent("download", Encoding.UTF8)
                     });
             string destination = Path.Combine(directory, "destination");
+            var downloadOutput = new FakeOutputHandler();
             var download = CreateProcessor(
                 new BlobDownloadBatchProcessor_Orchestrator(),
                 downloadPipeline,
-                new FakeOutputHandler());
+                downloadOutput);
             download.AccountName = "account123";
             download.ContainerName = "container";
             download.DestinationDirectory = destination;
@@ -547,7 +556,100 @@ public class StorageBlobProcessorTests
             Assert.Equal(
                 "download",
                 await File.ReadAllTextAsync(Path.Combine(destination, "nested", "report.csv")));
+            Assert.False(File.Exists(Path.Combine(destination, "skip.txt")));
             Assert.Equal(2, downloadPipeline.SendCount);
+            BlobTransferResult downloadResult =
+                Assert.IsType<BlobTransferResult>(Assert.Single(downloadOutput.WrittenValues));
+            Assert.Equal("download", downloadResult.Operation);
+            Assert.EndsWith(Path.Combine("nested", "report.csv"), downloadResult.Destination);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BatchDownloadFollowsMarkersAndOverwrites()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string destinationPath = Path.Combine(directory, "report.csv");
+            await File.WriteAllTextAsync(destinationPath, "old");
+            var listQueries = new List<string>();
+            var pipeline = new FakeHttpPipeline((request, _) =>
+            {
+                if (!request.RequestUri!.Query.Contains("comp=list", StringComparison.Ordinal))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("new", Encoding.UTF8)
+                    };
+                }
+
+                listQueries.Add(request.RequestUri.Query);
+                string listing = listQueries.Count == 1
+                    ? "<EnumerationResults><Blobs /><NextMarker>next marker</NextMarker></EnumerationResults>"
+                    : "<EnumerationResults><Blobs><Blob><Name>report.csv</Name></Blob></Blobs><NextMarker /></EnumerationResults>";
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(listing, Encoding.UTF8, "application/xml")
+                };
+            });
+            var processor = CreateProcessor(
+                new BlobDownloadBatchProcessor_Orchestrator(),
+                pipeline,
+                new FakeOutputHandler());
+            processor.AccountName = "account123";
+            processor.ContainerName = "container";
+            processor.DestinationDirectory = directory;
+            processor.Overwrite = true;
+
+            await processor.ProcessAsync();
+
+            Assert.Equal(2, listQueries.Count);
+            Assert.DoesNotContain("marker=", listQueries[0]);
+            Assert.Contains("marker=next%20marker", listQueries[1]);
+            Assert.Equal("new", await File.ReadAllTextAsync(destinationPath));
+            Assert.Equal(3, pipeline.SendCount);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("../evil.csv")]
+    [InlineData("../../evil.csv")]
+    [InlineData("sub/../../evil.csv")]
+    [InlineData("sub/sub2/../../../evil.csv")]
+    public async Task BatchDownloadRejectsPathTraversal(string blobName)
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string listing =
+                $"<EnumerationResults><Blobs><Blob><Name>{blobName}</Name></Blob></Blobs><NextMarker /></EnumerationResults>";
+            var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(listing, Encoding.UTF8, "application/xml")
+            });
+            var processor = CreateProcessor(
+                new BlobDownloadBatchProcessor_Orchestrator(),
+                pipeline,
+                new FakeOutputHandler());
+            processor.AccountName = "account123";
+            processor.ContainerName = "container";
+            processor.DestinationDirectory = Path.Combine(directory, "destination");
+
+            InvalidDataException exception =
+                await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
+
+            Assert.Contains("outside the destination directory", exception.Message);
+            Assert.Equal(1, pipeline.SendCount);
+            Assert.False(File.Exists(Path.Combine(directory, "evil.csv")));
         }
         finally
         {
