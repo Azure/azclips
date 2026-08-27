@@ -277,12 +277,19 @@ class Report:
         report = cls(data.get("benchmark") or "", data.get("product"), data.get("extension"))
         report.trace_count = int(data.get("traces") or 0)
         diagnostics = data.get("diagnostics") or {}
+        if not isinstance(diagnostics, dict):
+            raise ValueError(f"'diagnostics' is {type(diagnostics).__name__}, expected object")
         report.malformed = int(diagnostics.get("malformed") or 0)
         report.orphan_subtrees = int(diagnostics.get("orphan_subtrees") or 0)
         report.rootless_traces = int(diagnostics.get("rootless_traces") or 0)
-        report.source = data.get("source") or {}
+        source = data.get("source") or {}
+        if not isinstance(source, dict):
+            raise ValueError(f"'source' is {type(source).__name__}, expected object")
+        report.source = source
 
         for node_idx, node in enumerate(data.get("nodes") or []):
+            if not isinstance(node, dict):
+                raise ValueError(f"node {node_idx} is {type(node).__name__}, expected object")
             node_path = node.get("path")
             if node_path is None:
                 raise ValueError(f"node {node_idx} has no 'path'")
@@ -364,14 +371,18 @@ def write_sidecars(root, reports, commit, ref, run_id):
     return written
 
 
-def load_sidecar(path):
-    """Read one sidecar. Returns None for anything unusable, having warned."""
+def load_sidecar(path, source="baseline"):
+    """Read one sidecar. Returns None for anything unusable, having warned.
+    
+    source distinguishes reload failures from baseline failures in the warning.
+    """
     try:
         with open(path, "r", encoding="utf-8") as handle:
             return Report.from_dict(json.load(handle))
-    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+    except Exception as exc:
         # A bad baseline degrades to no baseline, which renders the v1 single tree.
-        print(f"::warning::ignoring baseline sidecar {path}: {exc}", file=sys.stderr)
+        # A reload failure downgrades to the in-memory report (asymmetric rendering).
+        print(f"::warning::ignoring {source} sidecar {path}: {exc}", file=sys.stderr)
         return None
 
 
@@ -381,14 +392,20 @@ def find_baseline(root, report):
     The exact <EXT>/<PRODUCT>/<stem>.json is tried first. A local run's telemetry
     path carries no extension segment, so its reports have extension None and only
     the recursive fallback can match; the stem alone identifies the benchmark.
+    
+    Multiple matches are resolved deterministically by sorting: the first path
+    found (in sorted order) wins, making the selection platform-independent.
     """
     filename = report.stem + ".json"
     exact = sidecar_path(root, report)
     if os.path.isfile(exact):
-        return load_sidecar(exact)
+        return load_sidecar(exact, source="baseline")
+    matches = []
     for dirpath, _dirnames, filenames in os.walk(root):
         if filename in filenames:
-            return load_sidecar(os.path.join(dirpath, filename))
+            matches.append(os.path.join(dirpath, filename))
+    if matches:
+        return load_sidecar(sorted(matches)[0], source="baseline")
     return None
 
 
@@ -539,7 +556,7 @@ def run(args):
         # surfaces here rather than silently only on the baseline side. It is also
         # what gives this run's tree its provenance header: an in-memory report has
         # an empty source, so the heading would read "PR · 100 traces" with no commit.
-        usable = [load_sidecar(sidecar_path(args.sidecar_out, report)) or report
+        usable = [load_sidecar(sidecar_path(args.sidecar_out, report), source="reload") or report
                   for report in usable]
 
     baselines = {}
