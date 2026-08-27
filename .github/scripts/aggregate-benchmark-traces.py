@@ -436,6 +436,78 @@ def label(path, report):
     return text
 
 
+def node_text(path):
+    """v1's node label without the coverage marker: name, plus [n] from the second
+    occurrence on."""
+    name, index = path[-1]
+    return name if index == 0 else f"{name}[{index}]"
+
+
+def delta_percent(baseline_average, current_average):
+    """None when the comparison is undefined: a one-sided node, or a zero baseline.
+
+    A one-sided node has not regressed — it was added, removed, or renamed — so
+    reporting +/-100% would misattribute a shape change as a timing change.
+    """
+    if baseline_average is None or current_average is None or baseline_average == 0:
+        return None
+    return (current_average - baseline_average) / baseline_average * 100.0
+
+
+def compare_rows(baseline, current):
+    """Rows over the union of both node sets, in one shared order.
+
+    Returns [(path, connector)]. Both sides render from this single list, which is
+    what makes "row n is the same node on the left and the right" a guarantee rather
+    than a coincidence: two independently ordered trees would drift apart the moment
+    one side gained or lost a node.
+
+    Ordering uses the current run's mean start offset where the node exists there and
+    the baseline's otherwise, tie-broken on the path for determinism.
+    """
+    roots = []
+    for report in (current, baseline):
+        root = report.root_path
+        if root is not None and root not in roots:
+            roots.append(root)
+    if not roots:
+        return []
+
+    root_set = set(roots)
+    paths = {path for path in set(current.nodes) | set(baseline.nodes)
+             if path[:1] in root_set}
+
+    def offset(path):
+        if path in current.nodes:
+            return current.mean_offset(path)
+        return baseline.mean_offset(path)
+
+    children_of = defaultdict(list)
+    for path in paths:
+        # flatten() emits every ancestor of every node it collects, so a node's
+        # parent is always present on the side that produced it, and therefore in
+        # the union. Depth-1 paths are the roots themselves.
+        if len(path) > 1 and path[:-1] in paths:
+            children_of[path[:-1]].append(path)
+    for kids in children_of.values():
+        kids.sort(key=lambda p: (offset(p), p))
+    roots.sort(key=lambda p: (offset(p), p))
+
+    rows = []
+
+    def emit(path, prefix, is_last, is_root):
+        connector = "" if is_root else prefix + ("└─ " if is_last else "├─ ")
+        rows.append((path, connector))
+        kids = children_of.get(path, [])
+        child_prefix = prefix if is_root else prefix + ("   " if is_last else "│  ")
+        for position, kid in enumerate(kids):
+            emit(kid, child_prefix, position == len(kids) - 1, False)
+
+    for position, root in enumerate(roots):
+        emit(root, "", position == len(roots) - 1, True)
+    return rows
+
+
 def render_report(report):
     """Render one benchmark's averaged tree, or None when there is nothing to show."""
     root = report.root_path
