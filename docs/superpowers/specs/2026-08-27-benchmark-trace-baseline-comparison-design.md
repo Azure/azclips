@@ -35,7 +35,9 @@ summary, with a per-span percentage difference between them.
 
 - **PR comment changes.** `benchmark-comment.yml` is untouched. The existing trace comment
   keeps posting v1's index table and link. The side-by-side view lives only in the job summary,
-  where 167 columns fit comfortably.
+  where wide output is acceptable. Rendered against real span names — `ActionStart.<Class>.<Method>`
+  and `MsalAuthService.AcquireTokenSilentlyAsync` are among the longest — a comparison block
+  runs to roughly 225 columns.
 - **Regression gating, thresholds, or alert markers.** The `Δ%` column prints a number and
   nothing else. See [Why no threshold](#why-no-threshold).
 - **Scheduled or full-matrix baseline refresh.** Baselines refresh only from the main pushes
@@ -394,7 +396,7 @@ print `::warning::` and exit `0`.
 | Baseline node `avg_ms == 0` | `Δ%` undefined ⇒ `n/a`. Follows v1's precedent of suppressing `%ROOT` when the root average is zero |
 | Sidecar write fails | Warn; the summary still renders and `publish-traces` finds nothing to commit |
 | `publish-traces` push rejected | `pull --rebase` and retry up to 3×; then warn and exit `0`. Sidecars are regenerable, so a lost push self-heals on the next main run |
-| Job summary exceeds 1 MiB | v1's byte budget already truncates with an explicit note. Side-by-side blocks are roughly twice as wide, so the cap binds sooner — the budget must be retained, not removed |
+| Job summary exceeds 1 MiB | v1's byte budget already truncates with an explicit note. A comparison block is roughly 2.5× the width of a v1 block (~225 columns against ~90), so the cap binds sooner — the budget must be retained, not removed |
 
 ## Testing
 
