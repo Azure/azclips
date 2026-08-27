@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787810122941,
+  "lastUpdate": 1787810127297,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -4646,6 +4646,42 @@ window.BENCHMARK_DATA = {
             "value": 348299557.05,
             "unit": "ns",
             "range": "± 6051013.218485613"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "55773468+notyashhh@users.noreply.github.com",
+            "name": "Yash",
+            "username": "notyashhh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8e0610acc531f93eb6e963667f52b0523f383bf",
+          "message": "[MsGraph] Module (#423)\n\nhttps://github.com/Azure/CLIPS/issues/356\n\n---------\n\nCo-authored-by: Maddison Das <maddisondas@microsoft.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-08-27T15:30:54+10:00",
+          "tree_id": "926f31614850231274f86ba2ff5817428a2a7220",
+          "url": "https://github.com/Azure/azclips/commit/e8e0610acc531f93eb6e963667f52b0523f383bf"
+        },
+        "date": 1787810127154,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 360689290.26,
+            "unit": "ns",
+            "range": "± 8511174.876554536"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 347616353.95,
+            "unit": "ns",
+            "range": "± 12605531.140731266"
           }
         ]
       }
