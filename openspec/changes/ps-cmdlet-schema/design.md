@@ -392,6 +392,24 @@ constraint decorators (`@minValue`/`@maxValue`, `@minLength`/`@maxLength`, `@pat
 `@minItems`/`@maxItems`) that IR may not yet expose. Not added to the schema now; revisit once IR
 exposes these constraints (tracked separately, outside this change).
 
+**`allowedValues` from enum-typed parameters, tracked but not implemented**: found auditing every
+already-declared field against what IR already carries (the same method that found `mandatory`/
+`httpPath`/etc.): when a parameter's type is an `IREnum` reference, `allowedValues` should be
+derivable directly from that enum's `members[].value` — IR already carries the full closed list.
+Not implemented, because it needs an IR-wide enum lookup (`ir.enums`), not just the single
+parameter node `resolveParameterHints` currently receives — a bigger plumbing change than the
+single-node derivations already made. Revisit alongside a broader pass on `create-ps-commands`'s
+signature if this becomes a real gap in practice.
+
+**`readOnly`/`create`/`update` mutability, tracked but not implemented**: these fields exist
+specifically to mirror `IRModelProperty.visibility: IRVisibility[]` (`@visibility(Lifecycle.*)`)
+— the real wire fact they're supposed to derive from. But `IRParameter` has no back-reference to
+the originating model property's `visibility` when a request body gets flattened into parameters,
+so there is currently no way to trace a flattened parameter back to its property's visibility at
+all. Unlike the other tracked-but-not-implemented gaps above, this one is blocked by IR itself,
+not just by `create-ps-commands`'s current signature — revisit once IR's flatten mechanism
+carries that link.
+
 ## Output-formatting level (`Format.ps1xml`) — out of scope for now
 
 A fourth level exists beyond Module/Command/Parameter: how a **model's instances** display in the

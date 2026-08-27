@@ -205,6 +205,12 @@ the framework verdicts, including the "properties vs. raw attributes" distinctio
       `defaultParameterSetName`'s required-parameter count). Wired both up in
       `create-ps-commands.ts`'s `resolveParameterHints`, author-set values still win. Added unit
       tests for both, including the required/optional and summary/docs-fallback cases.
+- [x] Same audit found two more IR-derivable fields, tracked but not implemented (see design.md's
+      Parameter-level section for the full reasoning): `allowedValues` could be derived from an
+      enum-typed parameter's `IREnum.members[].value`, but needs an IR-wide enum lookup
+      `resolveParameterHints` doesn't have today; `readOnly`/`create`/`update` could mirror
+      `IRModelProperty.visibility`, but `IRParameter` has no back-reference to the originating
+      property when a body is flattened, so IR itself has no link to trace yet.
 
 ## Real-fixture verification & integration
 
