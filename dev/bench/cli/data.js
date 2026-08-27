@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787672984332,
+  "lastUpdate": 1787809703880,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -7436,6 +7436,48 @@ window.BENCHMARK_DATA = {
             "value": 1367813.1425071459,
             "unit": "ns",
             "range": "± 29958.45338584089"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "55773468+notyashhh@users.noreply.github.com",
+            "name": "Yash",
+            "username": "notyashhh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8e0610acc531f93eb6e963667f52b0523f383bf",
+          "message": "[MsGraph] Module (#423)\n\nhttps://github.com/Azure/CLIPS/issues/356\n\n---------\n\nCo-authored-by: Maddison Das <maddisondas@microsoft.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-08-27T15:30:54+10:00",
+          "tree_id": "926f31614850231274f86ba2ff5817428a2a7220",
+          "url": "https://github.com/Azure/azclips/commit/e8e0610acc531f93eb6e963667f52b0523f383bf"
+        },
+        "date": 1787809701631,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 1346505.67587737,
+            "unit": "ns",
+            "range": "± 29405.883073395926"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 3185511.3294093767,
+            "unit": "ns",
+            "range": "± 50384.381652141106"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 1328575.184286007,
+            "unit": "ns",
+            "range": "± 28752.69729254666"
           }
         ]
       }
