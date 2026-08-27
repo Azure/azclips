@@ -619,6 +619,8 @@ def render_comparison(baseline, current):
         for report in (baseline, current):
             if path in report.nodes:
                 label_width = max(label_width, len(side_label(report, path, connector)))
+    # "9.3f ms" = 9 + 3 chars = 12, then "  " = 2, "%ROOT" = 5, "  " = 2,
+    # bar = BAR_WIDTH, "  " = 2, label.  Must agree with the format strings in cell().
     side_width = 12 + 2 + 5 + 2 + BAR_WIDTH + 2 + label_width
 
     def cell(report, path, connector, scale):
@@ -631,6 +633,9 @@ def render_comparison(baseline, current):
             body = (f"{average:>9.3f} ms  {ratio * 100:>4.0f}%  "
                     f"{bar(ratio):<{BAR_WIDTH}}  {text}")
         else:
+            # Keep the same column structure with the percentage and bar left blank,
+            # so a zero-root row aligns with normal rows. {'':>5} fills %ROOT width
+            # and {'':<{BAR_WIDTH}} fills the bar column; both must stay.
             body = f"{average:>9.3f} ms  {'':>5}  {'':<{BAR_WIDTH}}  {text}"
         return body.ljust(side_width)
 
