@@ -1,0 +1,36 @@
+{
+  "name": "@azure-client-engine/ps-schema",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "dependencies": {
+    "@azure-client-engine/ir": "*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "~20.14.0",
+    "rimraf": "^5.0.5",
+    "vitest": "3.2.4",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist",
+    "test": "vitest run --passWithNoTests",
+    "preschema": "npm run build",
+    "schema": "node scripts/emit-json-schema.mjs",
+    "preschema:check": "npm run build",
+    "schema:check": "node scripts/emit-json-schema.mjs --check"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "PowerShell command/parameter/module attribute schema for the Azure Client Engine (standalone, not IR hints)"
+}
