@@ -27,3 +27,11 @@ export {
   type PSSchemaRoot,
 } from "./attributes.js";
 
+export { resolveVerb } from "./verb-mapping.js";
+
+export {
+  deriveAttributes,
+  type DeriveAttributesOptions,
+  type DerivedAttributes,
+} from "./derive.js";
+
