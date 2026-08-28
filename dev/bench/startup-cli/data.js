@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787898232516,
+  "lastUpdate": 1787898236400,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -5504,6 +5504,48 @@ window.BENCHMARK_DATA = {
             "value": 294398668.14,
             "unit": "ns",
             "range": "± 6107692.457010969"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2787390220ad1df54f4aeef45b295aae16f82fc7",
+          "message": "{Misc} update min version of dotnet sdk (#767)\n\nUpdated Min version of .Net SDK for CVE mitigations",
+          "timestamp": "2026-08-28T14:09:04+08:00",
+          "tree_id": "640ed6d730606938671721f36bed21e1dcd842ea",
+          "url": "https://github.com/Azure/azclips/commit/2787390220ad1df54f4aeef45b295aae16f82fc7"
+        },
+        "date": 1787898236285,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 295761287.5,
+            "unit": "ns",
+            "range": "± 20436033.09830374"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 298883278.96,
+            "unit": "ns",
+            "range": "± 23026612.36796366"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 298343630.5,
+            "unit": "ns",
+            "range": "± 21897290.79589704"
           }
         ]
       }
