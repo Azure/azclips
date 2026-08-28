@@ -1,8 +1,7 @@
 /**
- * Verb inference table (ported from the `create-ps-commands` TransformStep design). An
- * action-word table match always wins over the HTTP-method fallback — required by real
- * precedent: `ResourceGroups.createOrUpdate` is a PUT, but the real cmdlet is
- * `New-AzResourceGroup`, not `Set-AzResourceGroup`.
+ * Verb inference table. An action-word table match always wins over the HTTP-method
+ * fallback — required by real precedent: `ResourceGroups.createOrUpdate` is a PUT, but the
+ * real cmdlet is `New-AzResourceGroup`, not `Set-AzResourceGroup`.
  */
 
 import type { HttpMethod } from "@azure-client-engine/ir";

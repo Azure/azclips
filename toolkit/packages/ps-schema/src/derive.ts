@@ -1,16 +1,14 @@
 /**
  * Derives `PSCommandAttribute[]`/`PSParameterAttribute[]`/`PSModuleAttribute[]` directly from a
- * plain `IR` document — no intermediate mutation of IR nodes (there's nothing to mutate; PS
- * vocabulary no longer lives on IR). Ported from the old `create-ps-commands` TransformStep +
- * `derivePsCommands`/`deriveModules` (verb/noun inference table, singularization, parameter-set
- * grouping), collapsed into one pass since there's no separate "enrich in place, then group"
- * step anymore.
+ * plain `IR` document — a single pass, with no intermediate mutation of IR nodes (PS vocabulary
+ * doesn't live on IR; there's nothing to mutate). Operations sharing a resolved verb+noun merge
+ * into one `PSCommandAttribute` with one parameter set per source operation (real precedent:
+ * `GetResourceGroupCmdlet`'s `Get`/`List` sets).
  *
- * Not yet ported: directive-based authoring overrides, and the `Expanded` (flattened-body)
- * parameter-set fan-out — both real gaps in the old design, deliberately deferred here too so
- * this stays a single, reviewable pass. `PSModuleAttribute.description` has no IR-derivable
- * source today (IRSource carries no rendering/hints in this design) and is always left
- * `undefined`; a future authoring mechanism would need to supply it.
+ * Not yet implemented: directive-based authoring overrides, and the `Expanded` (flattened-body)
+ * parameter-set fan-out. `PSModuleAttribute.description` has no IR-derivable source today
+ * (`IRSource` carries no rendering/hints) and is always left `undefined`; a future authoring
+ * mechanism would need to supply it.
  */
 
 import {
