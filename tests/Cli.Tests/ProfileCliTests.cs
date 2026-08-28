@@ -145,6 +145,59 @@ public sealed class ProfileCliTests
         Assert.Equal(miKey, prod.ManagedIdentityId);
     }
 
+    // ── login: description ──
+
+    [Fact]
+    public async Task Login_WithOutProfileAndDescription_ShouldPersistDescription()
+    {
+        using var fixture = new ProfileCliFixture();
+
+        fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod", "--description", "read-only prod"]);
+
+        var prod = await fixture.Profiles.GetProfileAsync("prod");
+        Assert.NotNull(prod);
+        Assert.Equal("read-only prod", prod!.Description);
+    }
+
+    [Fact]
+    public async Task Login_WithOutProfileWithoutDescription_ShouldHaveNullDescription()
+    {
+        using var fixture = new ProfileCliFixture();
+
+        fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "prod"]);
+
+        var prod = await fixture.Profiles.GetProfileAsync("prod");
+        Assert.NotNull(prod);
+        Assert.Null(prod!.Description);
+    }
+
+    [Fact]
+    public async Task Login_ReauthWithoutDescription_ShouldPreserveStoredDescription()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-original", description: "keep me");
+
+        fixture.ExecuteCli(["login", "--profile", "prod"]);
+
+        var prod = await fixture.Profiles.GetProfileAsync("prod");
+        Assert.NotNull(prod);
+        Assert.Equal("keep me", prod!.Description);
+    }
+
+    [Fact]
+    public async Task Login_ReauthWithDescription_ShouldFail_AndPreserveStoredDescription()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-original", description: "old note");
+
+        Assert.ThrowsAny<Exception>(() =>
+            fixture.ExecuteCli(["login", "--profile", "prod", "--description", "new note"]));
+
+        var prod = await fixture.Profiles.GetProfileAsync("prod");
+        Assert.NotNull(prod);
+        Assert.Equal("old note", prod!.Description);
+    }
+
     [Fact]
     public void Login_WithProfileAndAuthFlag_ShouldFail()
     {
@@ -255,6 +308,42 @@ public sealed class ProfileCliTests
         using var fixture = new ProfileCliFixture();
 
         Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["profile", "show"]));
+    }
+
+    [Fact]
+    public void ProfileList_ShouldSurfaceDescription()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-1", description: "read-only prod");
+
+        fixture.ExecuteCli(["profile", "list"]);
+
+        var emitted = Assert.Single(fixture.RawOutputs);
+        var summaries = Assert.IsAssignableFrom<IEnumerable<ProfileSummary>>(emitted).ToList();
+        var prod = Assert.Single(summaries, s => s.Name == "prod");
+        Assert.Equal("read-only prod", prod.Description);
+    }
+
+    [Fact]
+    public void ProfileShow_WithDescription_ShouldRenderDescriptionLine()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-1", description: "read-only prod");
+
+        var output = fixture.ExecuteCli(["profile", "show", "prod"]);
+
+        Assert.Contains(output, line => line.Contains("Description: read-only prod"));
+    }
+
+    [Fact]
+    public void ProfileShow_WithoutDescription_ShouldNotRenderDescriptionLine()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-1");
+
+        var output = fixture.ExecuteCli(["profile", "show", "prod"]);
+
+        Assert.DoesNotContain(output, line => line.Contains("Description:"));
     }
 
     // ── profile set ──
@@ -392,10 +481,11 @@ public sealed class ProfileCliTests
             AzclipsServiceProvider.Initialize(ClientType.CLI);
         }
 
-        public void SeedProfile(string name, string subscriptionId) =>
+        public void SeedProfile(string name, string subscriptionId, string? description = null) =>
             Profiles.SaveProfileAsync(new Profile
             {
                 Name = name,
+                Description = description,
                 TenantId = "tenant-1",
                 SubscriptionId = subscriptionId,
                 CloudName = "AzureCloud",

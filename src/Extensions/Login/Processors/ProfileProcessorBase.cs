@@ -43,5 +43,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         string SubscriptionId,
         string CloudName,
         AuthMethod AuthMethod,
-        string? UserPrincipalName);
+        string? UserPrincipalName,
+        string? Description);
 }

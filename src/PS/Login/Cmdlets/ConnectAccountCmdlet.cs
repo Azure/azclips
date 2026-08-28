@@ -31,6 +31,9 @@ public class ConnectAccountCmdlet : PSCmdlet
     public string? OutProfile { get; set; }
 
     [Parameter(Mandatory = false)]
+    public string? Description { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -72,6 +75,10 @@ public class ConnectAccountCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OutProfile)))
         {
             parameters.Add("OutProfile", OutProfile!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Description)))
+        {
+            parameters.Add("Description", Description!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

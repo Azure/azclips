@@ -25,6 +25,7 @@ When you sign in and save a profile, Azure CLI records the connection context fo
 including:
 
 - The profile name
+- An optional description
 - The Azure tenant (directory)
 - The Azure subscription
 - The cloud environment
@@ -51,6 +52,18 @@ az login --tenant-id <tenant-id> --subscription-id <subscription-id> --out-profi
 ```
 
 The profile that you sign in to most recently becomes the active profile.
+
+### Add a description
+
+Use the optional `--description` option to store extra human-readable context on the profile,
+such as what the account is for or which access level it has:
+
+```bash
+az login --subscription-id <subscription-id> --out-profile contoso-read --description "Read-only access; use PAW for write."
+```
+
+The description is set only when the profile is created and cannot be changed afterward.
+`az profile show` and `az profile list` display it but can't change it.
 
 > [!NOTE]
 > If you run `az login` without `--out-profile`, Azure CLI saves the sign-in context as the reserved `temp` profile (overwriting any existing `temp` profile) and sets it as active.

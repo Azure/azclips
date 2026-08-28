@@ -58,6 +58,34 @@ public class ConnectAccountCmdletTests
     }
 
     [Fact]
+    public void PSBinding_ShouldMapDescriptionOntoLoginProcessor()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider());
+        var processor = new LoginProcessor();
+
+        var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["OutProfile"] = "prod",
+            ["Description"] = "read-only prod",
+            ["SubscriptionId"] = "sub-1",
+        };
+
+        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases);
+
+        Assert.Equal("read-only prod", processor.Description);
+        Assert.Equal("prod", processor.OutProfile);
+    }
+
+    [Fact]
+    public void Cmdlet_ShouldExposeDescriptionParameter()
+    {
+        var property = typeof(ConnectAccountCmdlet).GetProperty("Description");
+        Assert.NotNull(property);
+        Assert.NotEmpty(property!.GetCustomAttributes(typeof(ParameterAttribute), inherit: true));
+    }
+
+    [Fact]
     public void Cmdlet_ShouldExposeManagedIdentityParameters()
     {
         var type = typeof(ConnectAccountCmdlet);

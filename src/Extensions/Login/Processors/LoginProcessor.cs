@@ -33,6 +33,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         SerializedName = @"OutProfile")]
         public string? OutProfile { get; set; }
 
+        [ArgumentInfo(
+        Required = false,
+        Description = @"Optional description to store on the profile for extra context. Set only when the profile is created; it cannot be changed by re-authenticating (cannot be combined with --profile).",
+        SerializedName = @"Description")]
+        public string? Description { get; set; }
+
         // Managed identity
 
         [ParameterGroup("Managed Identity Arguments")]
@@ -87,6 +93,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             string? miResourceId;
             string? resultClientId;
             string? resultManagedIdentityId;
+            string? resultDescription;
+            string? descriptionArg = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim();
 
             if (reAuthName is not null)
             {
@@ -101,6 +109,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 authMode = existing.AuthMethod;
                 resultClientId = existing.ClientId;
                 resultManagedIdentityId = existing.ManagedIdentityId;
+                // Re-auth reproduces the stored profile; the description is set only at creation and
+                // cannot be changed here (passing --description with --profile is rejected upfront).
+                resultDescription = existing.Description;
 
                 // Rebuild the managed-identity selector from the stored key so token refresh
                 // targets the same identity instead of silently falling back to system-assigned.
@@ -125,6 +136,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 miResourceId = string.IsNullOrEmpty(ResourceId) ? null : ResourceId;
                 resultClientId = string.IsNullOrEmpty(ClientId) ? null : ClientId;
                 resultManagedIdentityId = null;
+                resultDescription = descriptionArg;
             }
 
             LoginRequest loginRequest = new()
@@ -162,6 +174,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             Profile resultProfile = new()
             {
                 Name = targetName,
+                Description = resultDescription,
                 TenantId = string.IsNullOrEmpty(resolvedTenantId) ? authResult.TenantId : resolvedTenantId,
                 SubscriptionId = effectiveSubscriptionId,
                 CloudName = cloudName,
@@ -219,6 +232,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 throw new ArgumentException(
                     $"Authentication flags ('{Flag(nameof(Identity))}', '{Flag(nameof(UseDeviceCode))}', '{Flag(nameof(ClientId))}', '{Flag(nameof(ObjectId))}', '{Flag(nameof(ResourceId))}') cannot be combined with '{Flag(nameof(Profile))}'. "
                     + "Re-authentication reuses the profile's stored authentication method.");
+            }
+
+            // The description is set only when a profile is created. It cannot be changed by
+            // re-authenticating, so reject --description combined with --profile rather than
+            // silently ignoring it.
+            if (reAuthName is not null && !string.IsNullOrWhiteSpace(Description))
+            {
+                throw new ArgumentException(
+                    $"'{Flag(nameof(Description))}' cannot be combined with '{Flag(nameof(Profile))}'. "
+                    + "A profile's description is set only when the profile is created and cannot be changed by re-authenticating.");
             }
 
             // A subscription id is required for a fresh interactive/device-code login. It is not

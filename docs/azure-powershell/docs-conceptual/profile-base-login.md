@@ -25,6 +25,7 @@ When you sign in and save a profile, Azure PowerShell records the connection con
 profile, including:
 
 - The profile name
+- An optional description
 - The Azure tenant (directory)
 - The Azure subscription
 - The cloud environment
@@ -58,6 +59,18 @@ complete sign-in with the device code flow:
 ```powershell
 Connect-AzAccount -TenantId <tenant-id> -SubscriptionId <subscription-id> -OutProfile corp -UseDeviceCode
 ```
+
+### Add a description
+
+Use the optional `-Description` parameter to store extra human-readable context on the profile,
+such as what the account is for or which access level it has:
+
+```powershell
+Connect-AzAccount -SubscriptionId <subscription-id> -OutProfile contoso-read -Description "Read-only access; use PAW for write."
+```
+
+The description is set only when the profile is created and cannot be changed afterward.
+`Get-AzProfile` displays it but can't change it.
 
 > [!NOTE]
 > If you run `Connect-AzAccount` without `-OutProfile`, Azure PowerShell signs you in using the reserved `temp` profile (instead of creating a reusable named profile). This preserves compatibility with existing `Connect-AzAccount` behavior. To keep a reusable, named context, always pass `-OutProfile`.
