@@ -659,7 +659,7 @@ public class StorageBlobProcessorTests
 
         Assert.Equal(HttpMethod.Put, sent!.Method);
         Assert.Equal(
-            "https://account123.blob.core.windows.net/destination/folder/blob.txt?comp=copy",
+            "https://account123.blob.core.windows.net/destination/folder/blob.txt",
             sent.RequestUri!.AbsoluteUri);
         Assert.Equal(processor.SourceUri, sent.Headers.GetValues("x-ms-copy-source").Single());
         var result = Assert.IsType<StorageBlobCopyResult>(Assert.Single(output.WrittenValues));
