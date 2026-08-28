@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
+using Tests.Common.Utilities;
 
 namespace Core.Telemetry.Tests;
 
@@ -52,10 +53,7 @@ public class FileExporterBatchTests
         }
         finally
         {
-            if (Directory.Exists(directory))
-            {
-                Directory.Delete(directory, recursive: true);
-            }
+            DirectoryUtils.TryDeleteDirectory(directory);
         }
     }
 }

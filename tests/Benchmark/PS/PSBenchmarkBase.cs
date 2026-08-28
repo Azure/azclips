@@ -97,6 +97,9 @@ public abstract class PSBenchmarkBase : BenchmarkBase
             import.AddCommand("Import-Module").AddParameter("Name", _psModuleManifestPath).AddParameter("Force", true);
             import.Invoke();
             ThrowOnPowerShellErrors(import, "Import-Module");
+
+            // Build the telemetry stack eagerly to ensure all telemetry dependencies have been resolved and are not resolved in the measured region.
+            AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
         catch
         {
@@ -109,6 +112,9 @@ public abstract class PSBenchmarkBase : BenchmarkBase
     [IterationCleanup]
     public void IterationCleanup()
     {
+        // A blocking drain since the FileExporter caps it at 500ms
+        _sender?.DrainToDisk();
+
         CleanupCommon();
 
         _runspace?.Close();
