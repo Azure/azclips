@@ -145,4 +145,65 @@ describe("deriveAttributes", () => {
     expect(modules[0]!.sourceId).toBe("Microsoft.Resources");
     expect(modules[0]!.cmdletsToExport).toEqual(["New-ResourceGroup"]);
   });
+
+  it("uses a pageable operation's item type as the output type, not the page wrapper", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "list" },
+      method: "GET",
+      responses: [
+        {
+          statusCode: { kind: "exact", code: 200 },
+          isError: false,
+          type: { kind: "model", id: { module: "<root>", namespace: [], name: "ResourceGroupListResult" } },
+        },
+      ],
+      semantics: {
+        kind: "pageable",
+        itemType: { kind: "model", id: { module: "<root>", namespace: [], name: "ResourceGroup" } },
+        itemsPath: "value",
+        nextLinkPath: "nextLink",
+      },
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
+
+    expect(commands[0]!.supportsPaging).toBe(true);
+    expect(commands[0]!.noun).toBe("ResourceGroup");
+    // The page wrapper would be inconsistent with the inferred noun.
+    expect(commands[0]!.outputTypes).toEqual([
+      { module: "<root>", namespace: [], name: "ResourceGroup" },
+    ]);
+  });
+
+  it("counts a request body as a required parameter when picking the default parameter set", () => {
+    const withBody = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "create" },
+      method: "PUT",
+      requestBody: {
+        type: { kind: "model", id: { module: "<root>", namespace: [], name: "ResourceGroup" } },
+        contentType: "application/json",
+      },
+    });
+    const withoutBody = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [withBody, withoutBody] });
+
+    expect(commands).toHaveLength(1);
+    expect(commands[0]!.defaultParameterSetName).toBe("CreateOrUpdate");
+  });
+
+  it("keeps operations from different IR sources in separate commands", () => {
+    // Same IRId (module + namespace + name) on purpose: only `source` distinguishes these, so
+    // this fails if the grouping key relies on `id.module` alone.
+    const id = { module: "<root>", namespace: ["ResourceGroups"], name: "get" };
+    const first = makeOperation({ id, method: "GET", source: "Microsoft.Resources" });
+    const second = makeOperation({ id, method: "GET", source: "Microsoft.Storage" });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [first, second] });
+
+    expect(commands).toHaveLength(2);
+  });
 });

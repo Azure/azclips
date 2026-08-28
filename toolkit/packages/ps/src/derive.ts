@@ -128,9 +128,13 @@ function inferOperation(operation: IROperation): Inferred {
   };
 }
 
-/** Grouping key: same module + namespace + resolved verb + resolved (bare) noun. */
+/** Grouping key: same source + module + namespace + resolved verb + resolved (bare) noun. */
 function groupKey(operation: IROperation, inferred: Inferred): string {
-  return [operation.id.module, ...operation.id.namespace, inferred.verb, inferred.noun].join("\u0000");
+  // `source` is kept distinct from `id.module` even though the TypeSpec emitter sets both from
+  // the same option: merging across sources would misattribute the command in `deriveModules`.
+  return [operation.source, operation.id.module, ...operation.id.namespace, inferred.verb, inferred.noun].join(
+    "\u0000",
+  );
 }
 
 // ─── Output types / parameter sets ───────────────────────────────────────
@@ -150,13 +154,24 @@ function extractTypeRefId(type: IRTypeRef): IRId | undefined {
 
 function outputTypeIdsFor(operations: readonly IROperation[]): IRId[] {
   const ids: IRId[] = [];
+  const add = (id: IRId | undefined): void => {
+    if (id !== undefined && !ids.some((existing) => idEquals(existing, id))) ids.push(id);
+  };
+
   for (const operation of operations) {
+    // A pageable cmdlet emits items to the pipeline, so its output type is the item type rather
+    // than the page wrapper the response carries. Matches `responseModelNameCandidate`'s noun.
+    if (operation.semantics?.kind === "pageable") {
+      const itemId = extractTypeRefId(operation.semantics.itemType);
+      if (itemId !== undefined) {
+        add(itemId);
+        continue;
+      }
+    }
+
     for (const response of operation.responses) {
       if (response.isError || response.type === undefined) continue;
-      const id = extractTypeRefId(response.type);
-      if (id !== undefined && !ids.some((existing) => idEquals(existing, id))) {
-        ids.push(id);
-      }
+      add(extractTypeRefId(response.type));
     }
   }
   return ids;
@@ -173,7 +188,7 @@ function defaultParameterSetNameFor(
   const requiredCount = (operation: IROperation): number =>
     [...operation.pathParameters, ...operation.queryParameters, ...operation.headerParameters].filter(
       (p) => !p.optional,
-    ).length;
+    ).length + (operation.requestBody === undefined ? 0 : 1);
   const mostGeneral = operations.reduce((best, operation) =>
     requiredCount(operation) < requiredCount(best) ? operation : best,
   );
