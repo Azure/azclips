@@ -186,7 +186,7 @@ export const PSParameterAttributeSchema: z.ZodType<PSParameterAttribute> = z
     alias: z.array(z.string().min(1)).optional(),
     completer: PSCompleterAttributeSchema.optional(),
     defaultValue: PSDefaultValueAttributeSchema.optional(),
-    parameterSets: z.record(z.string(), PSParameterSetOverrideSchema).optional(),
+    parameterSets: z.record(z.string().min(1), PSParameterSetOverrideSchema).optional(),
     sourceParameterId: IRIdSchema,
   })
   .strict();
