@@ -3,7 +3,7 @@
   "files": [],
   "references": [
     { "path": "./packages/ir" },
-    { "path": "./packages/ps-schema" },
+    { "path": "./packages/ps" },
     { "path": "./packages/typespec-emitter" },
     { "path": "./packages/compiler" },
     { "path": "./packages/cli" }
