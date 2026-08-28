@@ -75,12 +75,6 @@ Same 7 fields as `CommandMetadata` (minus `PositionalBinding`) — same verdicts
 | `Examples` | `string[]` | Covered |
 | `Tags` (`HelpTag[]`) | enum array | Covered — `lifecycleTag` (singular) |
 
-## Summary
-Only regression fixed this pass: `PSModuleAttribute.cmdletsToExport` (done). Every other command-level
-property is either covered, confirmed a durable non-goal via full-corpus grep across all 190 modules
-/ 14,485 real generated cmdlet files, or structurally N/A (type refs, auto-generated strings, `.NET
-Attribute` plumbing). No further action items at the command level.
-
 # Parameter-level PS SDK types vs. `PSParameterAttribute`
 
 | Type | Property | Coverage |
@@ -109,10 +103,6 @@ Attribute` plumbing). No further action items at the command level.
 | `ValidateSetAttribute` | `ErrorMessage`, `IgnoreCase`, `ValidValues` | Confirmed absent full-corpus |
 | `ValidateRangeAttribute` | `MinRange`, `MaxRange` | Confirmed absent full-corpus |
 
-## Parameter-level summary
-No schema changes needed. `HelpMessageBaseName`/`HelpMessageResourceId` is the only unchecked item
-remaining across all three levels combined.
-
 # Module-level: `PSModuleInfo` (reflected via `Get-Module`) vs. `PSModuleAttribute`
 
 | Property | Coverage |
@@ -127,10 +117,5 @@ remaining across all three levels combined.
 | `PrivateData`/`Tags`/`ProjectUri`/`IconUri`/`LicenseUri`/`ReleaseNotes`/`RepositorySourceLocation` | Out of scope — PowerShell Gallery packaging metadata (`PSData` block) |
 | `Prefix` (module-level `DefaultCommandPrefix`) | Confirmed absent full-corpus — design note, not a gap: generated `Az` modules bake the prefix directly into each noun (`AzResourceGroup`) at generation time instead of using `Import-Module -Prefix` |
 | `Path`, `ModuleBase`, `ImplementingAssembly`, `Definition`, `ModuleType`, `AccessMode`, `SessionState`, `OnRemove`, `UseAppDomainLevelModuleCache`, `LogPipelineExecutionDetails`, `ProcessorArchitecture`, `PowerShellHostName`, `PowerShellHostVersion` | N/A — pure runtime/session/build plumbing |
-
-## Module-level summary
-No schema changes needed. This closes out module, command, and parameter levels at full-corpus scale
-(190 modules); the only unchecked item across the whole comparison is `HelpMessageBaseName`/
-`HelpMessageResourceId`.
 
 
