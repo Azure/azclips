@@ -74,6 +74,15 @@ describe("PSParameterAttribute", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("rejects a parameter-set override keyed by an empty string", () => {
+    const result = PSParameterAttributeSchema.safeParse({
+      name: "resourceGroupName",
+      sourceParameterId: opId,
+      parameterSets: { "": { mandatory: true } },
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("PSModuleAttribute", () => {
