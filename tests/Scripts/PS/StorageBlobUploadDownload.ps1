@@ -40,6 +40,13 @@ if ($upload.Operation -ne 'upload' -or
 }
 $upload
 
+# Negative case: uploading the same blob without -Force must fail.
+Set-AzStorageBlobContent `
+    -AccountName mytestsa52379 `
+    -ContainerName azclips-manual-test `
+    -BlobName $blob `
+    -FilePath $source
+
 # Happy path: download the blob. Assert returned metadata and the downloaded bytes.
 $download = Get-AzStorageBlobContent `
     -AccountName mytestsa52379 `
@@ -59,3 +66,10 @@ $download
 if ((Get-FileHash $source).Hash -ne (Get-FileHash $destination).Hash) {
     throw 'Downloaded bytes do not match uploaded bytes.'
 }
+
+# Negative case: downloading onto an existing file without -Force must fail.
+Get-AzStorageBlobContent `
+    -AccountName mytestsa52379 `
+    -ContainerName azclips-manual-test `
+    -BlobName $blob `
+    -FilePath $destination
