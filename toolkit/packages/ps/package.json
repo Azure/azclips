@@ -1,5 +1,5 @@
 {
-  "name": "@azure-client-engine/ps-schema",
+  "name": "@azure-client-engine/ps",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/src/index.js",
