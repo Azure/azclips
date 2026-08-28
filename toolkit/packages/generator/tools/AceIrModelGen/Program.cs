@@ -9,7 +9,13 @@
 //   dotnet run --project tools/AceIrModelGen -- \
 //       --schema  <path to ir.schema.json> \
 //       --out     <path to write the generated .cs> \
-//       --namespace <C# namespace>
+//       --namespace <C# namespace> \
+//       --root-type-name <name for the outer schema object; default "IRDocument"> \
+//       --extern-namespace <pkg>=<C# namespace>[,<pkg>=<ns>...]
+//
+// `--extern-namespace` maps an owning package declared by a definition's
+// `x-defined-by` annotation onto the namespace where that type is already
+// generated, so shared types are referenced rather than duplicated.
 //
 // Defaults are relative to the generator package root (this tool's working
 // directory when run from there), so a no-argument run works once the schema
@@ -20,6 +26,12 @@ using Ace.Ir.CodeGen;
 string schemaPath = GetArg("--schema") ?? "../ir/dist/ir.schema.json";
 string outPath = GetArg("--out") ?? "src/Model/Ir.Generated.cs";
 string ns = GetArg("--namespace") ?? "Ace.Ir.Model";
+string rootTypeName = GetArg("--root-type-name") ?? "IRDocument";
+
+Dictionary<string, string> externNamespaces = (GetArg("--extern-namespace") ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .Select(entry => entry.Split('=', 2))
+    .ToDictionary(parts => parts[0].Trim(), parts => parts[1].Trim(), StringComparer.Ordinal);
 
 if (!File.Exists(schemaPath))
 {
@@ -30,7 +42,7 @@ if (!File.Exists(schemaPath))
 }
 
 string schemaJson = await File.ReadAllTextAsync(schemaPath);
-string code = new IrModelGenerator(schemaJson, ns).Generate();
+string code = new IrModelGenerator(schemaJson, ns, rootTypeName, externNamespaces).Generate();
 
 string fullOut = Path.GetFullPath(outPath);
 Directory.CreateDirectory(Path.GetDirectoryName(fullOut)!);
