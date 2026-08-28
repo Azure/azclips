@@ -235,9 +235,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             }
 
             // The description is set only when a profile is created. It cannot be changed by
-            // re-authenticating, so reject --description combined with --profile rather than
-            // silently ignoring it.
-            if (reAuthName is not null && !string.IsNullOrWhiteSpace(Description))
+            // re-authenticating, so reject --description combined with --profile whenever the flag
+            // is supplied (including an empty or whitespace-only value) rather than silently ignoring it.
+            if (reAuthName is not null && Description is not null)
             {
                 throw new ArgumentException(
                     $"'{Flag(nameof(Description))}' cannot be combined with '{Flag(nameof(Profile))}'. "

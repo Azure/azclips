@@ -198,6 +198,24 @@ public sealed class ProfileCliTests
         Assert.Equal("old note", prod!.Description);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Login_ReauthWithEmptyDescription_ShouldStillFail(string description)
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-original", description: "old note");
+
+        // Supplying --description at all (even empty/whitespace) with --profile must fail fast,
+        // not be silently ignored.
+        Assert.ThrowsAny<Exception>(() =>
+            fixture.ExecuteCli(["login", "--profile", "prod", "--description", description]));
+
+        var prod = await fixture.Profiles.GetProfileAsync("prod");
+        Assert.NotNull(prod);
+        Assert.Equal("old note", prod!.Description);
+    }
+
     [Fact]
     public void Login_WithProfileAndAuthFlag_ShouldFail()
     {

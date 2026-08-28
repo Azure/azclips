@@ -44,7 +44,7 @@ public record Profile
 
     public override string ToString() =>
         $"Name: {Name}{Environment.NewLine}" +
-        (string.IsNullOrEmpty(Description) ? string.Empty : $"Description: {Description}{Environment.NewLine}") +
+        (string.IsNullOrWhiteSpace(Description) ? string.Empty : $"Description: {Description}{Environment.NewLine}") +
         $"Subscription: {SubscriptionId}{Environment.NewLine}" +
         $"Tenant: {TenantId}{Environment.NewLine}" +
         $"Cloud: {CloudName}{Environment.NewLine}" +
