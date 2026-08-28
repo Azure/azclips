@@ -27,6 +27,11 @@ public static class DirectoryUtils
 
             return true;
         }
+        catch (DirectoryNotFoundException)
+        {
+            // Raced with another cleanup; treat as success.
+            return true;
+        }
         catch (IOException)
         {
             // A file under the directory is still open, typically an assembly held by a load

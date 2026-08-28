@@ -15,7 +15,7 @@ namespace Benchmark.Telemetry;
 /// Benchmark-only, supplied by PSBenchmarkBase.
 ///
 /// <para>The processors run inside the measured region. That cost is accepted: they only latch a
-/// flag and enqueue the activity, and the batch processor drains the queue to disk on shutdown in
+/// flag and enqueue the activity. <see cref="DrainToDisk"/> writes the queue out afterwards, from
 /// [IterationCleanup].</para>
 /// </remarks>
 internal sealed class BenchmarkFileTelemetrySender : ITelemetrySender
@@ -23,6 +23,9 @@ internal sealed class BenchmarkFileTelemetrySender : ITelemetrySender
     private readonly BenchmarkStageListener _stage;
     private readonly string _warmupDirectory;
     private readonly string _actualDirectory;
+
+    // This iteration's processor, held so IterationCleanup can drain it.
+    private BatchActivityExportProcessor? _processor;
 
     internal BenchmarkFileTelemetrySender(
         BenchmarkStageListener stage,
@@ -42,6 +45,19 @@ internal sealed class BenchmarkFileTelemetrySender : ITelemetrySender
         // Order matters: the latch reads the stage while the measured region is open, and the
         // batch processor enqueues afterwards.
         builder.AddProcessor(new StageLatch(_stage, exporter));
-        builder.AddProcessor(new BatchActivityExportProcessor(exporter));
+        _processor = new BatchActivityExportProcessor(exporter,
+            scheduledDelayMilliseconds: int.MaxValue,   // timer never fires
+            maxExportBatchSize: 2048,                   // == maxQueueSize; only fires if queue is full
+            maxQueueSize: 2048);
+        builder.AddProcessor(_processor);
+    }
+
+    /// <summary>
+    /// Blocks until this iteration's spans are on disk. Call from [IterationCleanup].
+    /// </summary>
+    internal void DrainToDisk()
+    {
+        _processor?.Shutdown(Timeout.Infinite);
+        _processor = null;
     }
 }
