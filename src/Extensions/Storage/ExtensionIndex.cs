@@ -120,6 +120,11 @@ public sealed class ExtensionIndex : IExtensionIndex
         typeof(Processors.SetStorageBlobTierProcessor),
         SetBlobTierParameters());
 
+    private static readonly CommandMetadata s_generateBlobSas = BlobCommand(
+        "storage blob generate-sas",
+        typeof(Processors.GenerateStorageBlobSasProcessor),
+        GenerateBlobSasParameters());
+
     private static readonly CommandMetadata s_listBlobPs = BlobCommand(
         "Get-AzStorageBlob_List",
         typeof(Processors.ListStorageBlobProcessor),
@@ -140,6 +145,11 @@ public sealed class ExtensionIndex : IExtensionIndex
         typeof(Processors.StartStorageBlobCopyProcessor),
         CopyBlobParametersPowerShell());
 
+    private static readonly CommandMetadata s_generateBlobSasPs = BlobCommand(
+        "New-AzStorageBlobSASToken",
+        typeof(Processors.GenerateStorageBlobSasProcessor),
+        GenerateBlobSasParametersPowerShell());
+
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new(StringComparer.OrdinalIgnoreCase)
     {
         ["storage blob upload"] = s_uploadBlob,
@@ -152,6 +162,7 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["storage blob delete"] = s_deleteBlob,
         ["storage blob copy start"] = s_copyBlob,
         ["storage blob set-tier"] = s_setBlobTier,
+        ["storage blob generate-sas"] = s_generateBlobSas,
     };
 
     private static readonly IReadOnlyDictionary<string, CommandMetadata> s_psTable =
@@ -163,6 +174,7 @@ public sealed class ExtensionIndex : IExtensionIndex
             ["Get-AzStorageBlob_Get"] = s_showBlobPs,
             ["Remove-AzStorageBlob"] = s_deleteBlobPs,
             ["Start-AzStorageBlobCopy"] = s_copyBlobPs,
+            ["New-AzStorageBlobSASToken"] = s_generateBlobSasPs,
         };
 
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -319,6 +331,20 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 
+    private static Dictionary<string, ParameterMetadata> GenerateBlobSasParameters() => new()
+    {
+        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
+        ["container-name"] = new("ContainerName", "container-name", typeof(string), "Blob container name.", true, ["c"], []),
+        ["name"] = new("BlobName", "name", typeof(string), "Blob name.", true, ["n"], []),
+        ["permissions"] = new("Permissions", "permissions", typeof(string), "Blob permissions.", true, [], []),
+        ["expiry"] = new("Expiry", "expiry", typeof(string), "SAS expiration time in ISO 8601 format.", true, [], []),
+        ["start"] = new("Start", "start", typeof(string), "SAS start time in ISO 8601 format.", false, [], []),
+        ["ip"] = new("IpAddressOrRange", "ip", typeof(string), "Allowed IPv4 address or range.", false, [], []),
+        ["https-only"] = new("HttpsOnly", "https-only", typeof(bool), "Permit HTTPS requests only.", false, [], []),
+        ["full-uri"] = new("FullUri", "full-uri", typeof(bool), "Return the full blob URI.", false, [], []),
+        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
     private static Dictionary<string, ParameterMetadata> UploadBlobParametersPowerShell() => new()
     {
         ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
@@ -396,6 +422,20 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["DestContainer"] = new("ContainerName", "DestContainer", typeof(string), "Destination blob container name.", true, [], []),
         ["DestBlob"] = new("BlobName", "DestBlob", typeof(string), "Destination blob name.", true, [], []),
         ["AbsoluteUri"] = new("SourceUri", "AbsoluteUri", typeof(string), "Source blob or file URL.", true, [], []),
+        ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
+    };
+
+    private static Dictionary<string, ParameterMetadata> GenerateBlobSasParametersPowerShell() => new()
+    {
+        ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
+        ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "Blob container name.", true, [], []),
+        ["BlobName"] = new("BlobName", "BlobName", typeof(string), "Blob name.", true, [], []),
+        ["Permission"] = new("Permissions", "Permission", typeof(string), "Blob permissions.", true, [], []),
+        ["ExpiryTime"] = new("Expiry", "ExpiryTime", typeof(string), "SAS expiration time.", true, [], []),
+        ["StartTime"] = new("Start", "StartTime", typeof(string), "SAS start time.", false, [], []),
+        ["IPAddressOrRange"] = new("IpAddressOrRange", "IPAddressOrRange", typeof(string), "Allowed IPv4 address or range.", false, [], []),
+        ["HttpsOnly"] = new("HttpsOnly", "HttpsOnly", typeof(bool), "Permit HTTPS requests only.", false, [], []),
+        ["FullUri"] = new("FullUri", "FullUri", typeof(bool), "Return the full blob URI.", false, [], []),
         ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 }

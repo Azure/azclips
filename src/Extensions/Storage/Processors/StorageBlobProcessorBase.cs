@@ -109,7 +109,7 @@ public abstract class StorageBlobProcessorBase : IProcessor
         $"https://{AccountName}.blob.core.windows.net/{Uri.EscapeDataString(ContainerName)}",
         UriKind.Absolute);
 
-    private void ValidateStorageTarget(bool requireBlob)
+    protected void ValidateStorageTarget(bool requireBlob)
     {
         if (ResolvedProfile is null)
         {

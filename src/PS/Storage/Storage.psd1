@@ -25,7 +25,7 @@
 
     NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Storage.dll')
     FunctionsToExport = @()
-    CmdletsToExport = 'Set-AzStorageBlobContent', 'Get-AzStorageBlobContent', 'Get-AzStorageBlob', 'Remove-AzStorageBlob', 'Start-AzStorageBlobCopy'
+    CmdletsToExport = 'Set-AzStorageBlobContent', 'Get-AzStorageBlobContent', 'Get-AzStorageBlob', 'Remove-AzStorageBlob', 'Start-AzStorageBlobCopy', 'New-AzStorageBlobSASToken'
 
     PrivateData = @{
         PSData = @{

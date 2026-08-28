@@ -94,4 +94,20 @@ public class StorageBlobCmdletTests
             parameter => parameter.Mandatory && parameter.ValueFromPipelineByPropertyName);
         Assert.Contains("SourceUri", source.GetCustomAttribute<AliasAttribute>()!.AliasNames);
     }
+
+    [Fact]
+    public void NewStorageBlobSasTokenRequiresPermissionAndExpiry()
+    {
+        PropertyInfo permission = typeof(NewStorageBlobSasTokenCmdlet).GetProperty(
+            nameof(NewStorageBlobSasTokenCmdlet.Permission))!;
+        PropertyInfo expiry = typeof(NewStorageBlobSasTokenCmdlet).GetProperty(
+            nameof(NewStorageBlobSasTokenCmdlet.ExpiryTime))!;
+
+        Assert.True(permission.GetCustomAttribute<ParameterAttribute>()!.Mandatory);
+        Assert.True(expiry.GetCustomAttribute<ParameterAttribute>()!.Mandatory);
+        Assert.Equal(
+            typeof(SwitchParameter),
+            typeof(NewStorageBlobSasTokenCmdlet).GetProperty(
+                nameof(NewStorageBlobSasTokenCmdlet.FullUri))!.PropertyType);
+    }
 }

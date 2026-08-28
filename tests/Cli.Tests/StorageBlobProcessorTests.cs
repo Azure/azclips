@@ -3,7 +3,9 @@
 
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
+using System.Xml.Linq;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Models;
@@ -720,13 +722,112 @@ public class StorageBlobProcessorTests
     }
 
     [Fact]
+    public async Task GenerateSas_RequestsDelegationKeyAndSignsBlobToken()
+    {
+        DateTimeOffset start = DateTimeOffset.UtcNow.AddMinutes(-1);
+        DateTimeOffset expiry = DateTimeOffset.UtcNow.AddHours(1);
+        const string keyValue = "MDEyMzQ1Njc4OWFiY2RlZg==";
+        HttpMethod? sentMethod = null;
+        Uri? sentUri = null;
+        string? sentBody = null;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentMethod = request.Method;
+            sentUri = request.RequestUri;
+            sentBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    $"""
+                     <UserDelegationKey>
+                       <SignedOid>object-id</SignedOid>
+                       <SignedTid>tenant-id</SignedTid>
+                       <SignedStart>{start:yyyy-MM-ddTHH:mm:ssZ}</SignedStart>
+                       <SignedExpiry>{expiry:yyyy-MM-ddTHH:mm:ssZ}</SignedExpiry>
+                       <SignedService>b</SignedService>
+                       <SignedVersion>2023-11-03</SignedVersion>
+                       <Value>{keyValue}</Value>
+                     </UserDelegationKey>
+                     """)
+            };
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new GenerateStorageBlobSasProcessor(), pipeline, output);
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "folder/blob.txt";
+        processor.Permissions = "wr";
+        processor.Start = start.ToString("O");
+        processor.Expiry = expiry.ToString("O");
+        processor.HttpsOnly = true;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(HttpMethod.Post, sentMethod);
+        Assert.Equal(
+            "https://account123.blob.core.windows.net/?restype=service&comp=userdelegationkey",
+            sentUri!.AbsoluteUri);
+        XDocument keyRequest = XDocument.Parse(sentBody!);
+        Assert.Equal(start.ToString("yyyy-MM-ddTHH:mm:ssZ"), keyRequest.Root!.Element("Start")!.Value);
+        Assert.Equal(expiry.ToString("yyyy-MM-ddTHH:mm:ssZ"), keyRequest.Root.Element("Expiry")!.Value);
+
+        string token = Assert.IsType<string>(Assert.Single(output.WrittenValues));
+        Dictionary<string, string> values = token
+            .Split('&')
+            .Select(part => part.Split('=', 2))
+            .ToDictionary(part => part[0], part => Uri.UnescapeDataString(part[1]));
+        Assert.Equal("rw", values["sp"]);
+        Assert.Equal("b", values["sr"]);
+        Assert.Equal("https", values["spr"]);
+        Assert.Equal("object-id", values["skoid"]);
+        string expectedStringToSign = string.Join(
+            "\n",
+            "rw",
+            start.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            expiry.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            "/blob/account123/container/folder/blob.txt",
+            "object-id",
+            "tenant-id",
+            start.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            expiry.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            "b",
+            "2023-11-03",
+            "", "", "", "", "https", "2023-11-03", "b", "", "",
+            "", "", "", "", "");
+        using var hmac = new HMACSHA256(Convert.FromBase64String(keyValue));
+        Assert.Equal(
+            Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(expectedStringToSign))),
+            values["sig"]);
+    }
+
+    [Fact]
+    public async Task GenerateSas_RejectsInvalidValidityBeforeSending()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK));
+        var processor = CreateProcessor(
+            new GenerateStorageBlobSasProcessor(),
+            pipeline,
+            new FakeOutputHandler());
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.BlobName = "blob.txt";
+        processor.Permissions = "r";
+        processor.Start = DateTimeOffset.UtcNow.AddHours(2).ToString("O");
+        processor.Expiry = DateTimeOffset.UtcNow.AddHours(1).ToString("O");
+
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
     public void ExtensionIndex_ExposesBlobCommands()
     {
         var index = new Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex();
 
         IReadOnlyDictionary<string, CommandMetadata> commands = index.GetCommandTable(ClientType.CLI);
 
-        Assert.Equal(10, commands.Count);
+        Assert.Equal(11, commands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
@@ -748,13 +849,15 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(commands["storage blob copy start"].ProcessorType));
         Assert.IsType<SetStorageBlobTierProcessor>(
             Activator.CreateInstance(commands["storage blob set-tier"].ProcessorType));
+        Assert.IsType<GenerateStorageBlobSasProcessor>(
+            Activator.CreateInstance(commands["storage blob generate-sas"].ProcessorType));
         Assert.Equal(
             "destination-container",
             commands["storage blob copy start"].ParameterAliases["c"]);
 
         IReadOnlyDictionary<string, CommandMetadata> powerShellCommands =
             index.GetCommandTable(ClientType.PowerShell);
-        Assert.Equal(6, powerShellCommands.Count);
+        Assert.Equal(7, powerShellCommands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(powerShellCommands["Set-AzStorageBlobContent"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
@@ -767,6 +870,8 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(powerShellCommands["Remove-AzStorageBlob"].ProcessorType));
         Assert.IsType<StartStorageBlobCopyProcessor>(
             Activator.CreateInstance(powerShellCommands["Start-AzStorageBlobCopy"].ProcessorType));
+        Assert.IsType<GenerateStorageBlobSasProcessor>(
+            Activator.CreateInstance(powerShellCommands["New-AzStorageBlobSASToken"].ProcessorType));
     }
 
     [Fact]
