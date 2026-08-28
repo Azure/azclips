@@ -1,5 +1,5 @@
 /**
- * Public surface of @azure-client-engine/ps-schema.
+ * Public surface of @azure-client-engine/ps.
  */
 
 export { PS_SCHEMA_VERSION } from "./version.js";
