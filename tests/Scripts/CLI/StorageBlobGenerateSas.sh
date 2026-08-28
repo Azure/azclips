@@ -2,6 +2,7 @@
 # Prereq: build Debug, sign in, and create the test container.
 
 $source = 'tests/Scripts/CLI/StorageBlobGenerateSas.sh'
+$destination = 'artifacts/StorageBlobGenerateSas.downloaded.sh'
 $blob = "azclips-sas-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()).sh"
 $blobUri = "https://mytestsa52379.blob.core.windows.net/azclips-manual-test/$blob"
 
@@ -32,9 +33,11 @@ if ($uri -notlike "$blobUri?*" -or
     throw "Unexpected SAS result: $uri"
 }
 
-if ((Invoke-WebRequest -Uri $uri).Content -ne [System.IO.File]::ReadAllText($source)) {
-    throw 'Expected the SAS URI to return the uploaded blob content.'
+Invoke-WebRequest -Uri $uri -OutFile $destination
+if ((Get-FileHash $source).Hash -ne (Get-FileHash $destination).Hash) {
+    throw 'Downloaded bytes do not match uploaded bytes.'
 }
+Remove-Item $destination -Force
 
 storage blob delete `
     --account-name mytestsa52379 `

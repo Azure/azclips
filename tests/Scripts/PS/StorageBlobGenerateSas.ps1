@@ -9,6 +9,7 @@ Import-Module .\src\PS\Storage\Storage.psd1 -Force
 
 $sub = 'f758ac53-3e63-4317-a956-0997793808d7'
 $source = $PSCommandPath
+$destination = 'artifacts/StorageBlobGenerateSas.downloaded.ps1'
 $blob = "azclips-sas-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()).ps1"
 $blobUri = "https://mytestsa52379.blob.core.windows.net/azclips-manual-test/$blob"
 
@@ -41,9 +42,11 @@ if ($uri -notlike "$blobUri?*" -or
     throw "Unexpected SAS result: $uri"
 }
 
-if ((Invoke-WebRequest -Uri $uri).Content -ne [System.IO.File]::ReadAllText($source)) {
-    throw 'Expected the SAS URI to return the uploaded blob content.'
+Invoke-WebRequest -Uri $uri -OutFile $destination
+if ((Get-FileHash $source).Hash -ne (Get-FileHash $destination).Hash) {
+    throw 'Downloaded bytes do not match uploaded bytes.'
 }
+Remove-Item $destination -Force
 
 $deleted = Remove-AzStorageBlob `
     -AccountName mytestsa52379 `
