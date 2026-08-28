@@ -5,10 +5,11 @@
  * these are standalone declarations, not per-node IR rendering metadata. They reference
  * IR by id (`IRId`) rather than living on `IROperation.rendering`/`IRParameter.rendering`.
  *
- * `sourceOperationIds`/`sourceParameterIds` are arrays from the start (even though every
- * producer today resolves exactly one element) so a later fan-out (one operation -> New
- * *and* Set) or fan-in (GetPut-style merge of two operations into one command) is a
- * derivation-logic change, not a schema break.
+ * `sourceOperationIds` is an array from the start (even though every producer today resolves
+ * exactly one element) so a later fan-out (one operation -> New *and* Set) or fan-in
+ * (GetPut-style merge of two operations into one command) is a derivation-logic change, not
+ * a schema break. `sourceParameterId` stays singular — a `PSParameterAttribute` always binds
+ * to exactly one IR parameter.
  */
 
 import { z } from "zod";
@@ -127,7 +128,16 @@ export const PSCommandAttributeSchema: z.ZodType<PSCommandAttribute> = z
     defaultParameterSetName: z.string().min(1),
     sourceOperationIds: z.array(IRIdSchema).min(1),
   })
-  .strict();
+  .strict()
+  .superRefine((command, ctx) => {
+    if (!command.parameterSets.some((set) => set.name === command.defaultParameterSetName)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["defaultParameterSetName"],
+        message: "defaultParameterSetName must match the name of one of parameterSets.",
+      });
+    }
+  });
 
 // ─── PSParameterAttribute (mirrors [Parameter] + ArgumentInfoAttribute) ──
 
@@ -158,7 +168,7 @@ export type PSParameterAttribute = {
   alias?: string[] | undefined;
   completer?: PSCompleterAttribute | undefined;
   defaultValue?: PSDefaultValueAttribute | undefined;
-  /** Per-set overrides, keyed by `PsParameterSet` name, for fields that vary by set. */
+  /** Per-set overrides, keyed by the parameter set's name (`PSParameterSetAttribute.name`), for fields that vary by set. */
   parameterSets?: Record<string, PSParameterSetOverride> | undefined;
   /** The IR parameter/property this types from and binds to. */
   sourceParameterId: IRId;

@@ -35,6 +35,19 @@ describe("PSCommandAttribute", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects a defaultParameterSetName that doesn't match any parameterSets entry", () => {
+    const result = PSCommandAttributeSchema.safeParse({
+      verb: "Get",
+      noun: "Fleet",
+      supportsShouldProcess: false,
+      outputTypes: [],
+      parameterSets: [{ name: "Get", sourceOperationId: opId }],
+      defaultParameterSetName: "List",
+      sourceOperationIds: [opId],
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects an empty sourceOperationIds array", () => {
     const result = PSCommandAttributeSchema.safeParse({
       verb: "New",
