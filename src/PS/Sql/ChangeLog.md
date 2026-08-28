@@ -19,6 +19,8 @@
 
 * Added `New-AzSqlDatabase` to create an Azure SQL database
     - The database location is inherited from its server, matching `az sql db create`
+* Added `New-AzSqlServerFirewallRule` to create a firewall rule on an Azure SQL server
+    - `-AllowAllAzureIPs` creates the well-known `AllowAllWindowsAzureIps` rule (0.0.0.0-0.0.0.0)
 
 ## Version 0.1.0
 
