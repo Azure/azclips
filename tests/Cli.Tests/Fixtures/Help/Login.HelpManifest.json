@@ -23,6 +23,18 @@
           "groupName": "Managed Identity Arguments"
         },
         {
+          "name": "description",
+          "psName": "Description",
+          "type": "string",
+          "required": false,
+          "description": "Optional description to store on the profile for extra context. Set only when the profile is created; cannot be combined with --profile.",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
           "name": "identity",
           "psName": "Identity",
           "type": "bool",
