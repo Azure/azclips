@@ -23,6 +23,7 @@ PRODUCTS = ("CLI", "PS", "STARTUP")
 COMMENT_MARKER = "<!-- benchmark-traces -->"
 SUMMARY_BUDGET_BYTES = 900_000  # GitHub caps job summaries at 1 MiB; leave headroom.
 FAR_FUTURE = datetime.max.replace(tzinfo=timezone.utc)
+SIDECAR_SCHEMA = 1
 
 
 # ------------------------------------------------------------------ discovery
@@ -194,6 +195,7 @@ class Report:
         self.orphan_subtrees = 0
         self.rootless_traces = 0
         self.nodes = {}
+        self.source = {}
 
     def add(self, path, duration, offset):
         node = self.nodes.get(path)
@@ -224,6 +226,89 @@ class Report:
             return None
         return max(roots, key=lambda path: self.nodes[path]["count"])
 
+    def to_dict(self, commit=None, ref=None, run_id=None, generated=None):
+        """Serialize to the sidecar shape. Averages are stored, not the running totals.
+
+        offset_ms is not cosmetic: sibling ordering is derived from it, so a sidecar
+        without it could not be rendered in execution order and the two sides of a
+        comparison would draw children in different sequences.
+        """
+        stamp = generated or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {
+            "schema": SIDECAR_SCHEMA,
+            "benchmark": self.stem,
+            "extension": self.extension,
+            "product": self.product,
+            "source": {
+                "commit": commit or "",
+                "ref": ref or "",
+                "run_id": run_id or "",
+                "generated": stamp,
+            },
+            "traces": self.trace_count,
+            "diagnostics": {
+                "malformed": self.malformed,
+                "orphan_subtrees": self.orphan_subtrees,
+                "rootless_traces": self.rootless_traces,
+            },
+            "nodes": [
+                {
+                    "path": [[name, index] for name, index in path],
+                    "avg_ms": self.average(path),
+                    "occurrences": self.occurrences(path),
+                    "offset_ms": self.mean_offset(path),
+                }
+                for path in sorted(self.nodes, key=lambda p: (len(p), self.mean_offset(p)))
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        """Rebuild a Report from a sidecar. Raises ValueError on an unusable document.
+
+        Totals are reconstructed as avg * count so average() and mean_offset() keep
+        working unchanged against a deserialised report.
+        """
+        if not isinstance(data, dict):
+            raise ValueError(f"sidecar is {type(data).__name__}, expected object")
+        if data.get("schema") != SIDECAR_SCHEMA:
+            raise ValueError(f"unsupported sidecar schema {data.get('schema')!r}")
+
+        report = cls(data.get("benchmark") or "", data.get("product"), data.get("extension"))
+        report.trace_count = int(data.get("traces") or 0)
+        diagnostics = data.get("diagnostics")
+        if diagnostics is not None and not isinstance(diagnostics, dict):
+            raise ValueError(f"'diagnostics' is {type(diagnostics).__name__}, expected object")
+        diagnostics = diagnostics or {}
+        report.malformed = int(diagnostics.get("malformed") or 0)
+        report.orphan_subtrees = int(diagnostics.get("orphan_subtrees") or 0)
+        report.rootless_traces = int(diagnostics.get("rootless_traces") or 0)
+        source = data.get("source")
+        if source is not None and not isinstance(source, dict):
+            raise ValueError(f"'source' is {type(source).__name__}, expected object")
+        source = source or {}
+        report.source = source
+
+        for node_idx, node in enumerate(data.get("nodes") or []):
+            if not isinstance(node, dict):
+                raise ValueError(f"node {node_idx} is {type(node).__name__}, expected object")
+            node_path = node.get("path")
+            if node_path is None:
+                raise ValueError(f"node {node_idx} has no 'path'")
+            try:
+                path = tuple((str(name), int(index)) for name, index in node_path)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"node {node_idx} has invalid 'path': {exc}") from exc
+            count = int(node.get("occurrences") or 0)
+            average = float(node.get("avg_ms") or 0.0)
+            offset = float(node.get("offset_ms") or 0.0)
+            report.nodes[path] = {
+                "total": average * count,
+                "count": count,
+                "offset_total": offset * count,
+            }
+        return report
+
 
 def aggregate_file(path, stem, product, extension):
     spans, malformed = read_spans(path)
@@ -248,6 +333,84 @@ def aggregate_file(path, stem, product, extension):
     return report
 
 
+# ----------------------------------------------------------------- outputs
+
+def sidecar_path(root, report):
+    """<root>/<EXTENSION>/<PRODUCT>/<stem>.json.
+
+    Local runs have no extension segment in their telemetry path, so extension is
+    None; 'LOCAL' keeps those files addressable instead of collapsing them into the
+    root directory. Stems are dotted alphanumerics, so they need no escaping.
+    """
+    return os.path.join(root, report.extension or "LOCAL",
+                        report.product or "UNKNOWN", report.stem + ".json")
+
+
+def write_sidecars(root, reports, commit, ref, run_id):
+    """Write one sidecar per report. Returns how many were written.
+
+    One timestamp is shared across the whole run so every sidecar from a single
+    workflow run reports the same vintage. A partial file left by a failed write
+    is cleaned up so publishing logic finds only valid sidecars.
+    """
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    written = 0
+    for report in reports:
+        path = sidecar_path(root, report)
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(report.to_dict(commit, ref, run_id, generated), handle, indent=2)
+            written += 1
+        except Exception as exc:
+            # A sidecar is regenerable, so a write failure must not cost us the summary.
+            # Best-effort cleanup of any partial file left by an interrupted write.
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            print(f"::warning::could not write sidecar {path}: {exc}", file=sys.stderr)
+    return written
+
+
+def load_sidecar(path, source="baseline"):
+    """Read one sidecar. Returns None for anything unusable, having warned.
+
+    source distinguishes reload failures from baseline failures in the warning.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return Report.from_dict(json.load(handle))
+    except Exception as exc:
+        # A bad baseline degrades to no baseline, which renders the v1 single tree.
+        # A reload failure downgrades to the in-memory report (asymmetric rendering).
+        print(f"::warning::ignoring {source} sidecar {path}: {exc}", file=sys.stderr)
+        return None
+
+
+def find_baseline(root, report):
+    """Locate this benchmark's baseline under root, or None.
+
+    The exact <EXT>/<PRODUCT>/<stem>.json is tried first. A local run's telemetry
+    path carries no extension segment, so its reports have extension None and only
+    the recursive fallback can match; the stem alone identifies the benchmark.
+
+    Multiple matches are resolved deterministically by sorting: the first path
+    found (in sorted order) wins, making the selection platform-independent.
+    """
+    filename = report.stem + ".json"
+    exact = sidecar_path(root, report)
+    if os.path.isfile(exact):
+        return load_sidecar(exact, source="baseline")
+    matches = []
+    for dirpath, _dirnames, filenames in os.walk(root):
+        if filename in filenames:
+            matches.append(os.path.join(dirpath, filename))
+    if matches:
+        return load_sidecar(sorted(matches)[0], source="baseline")
+    return None
+
+
 # ----------------------------------------------------------------- rendering
 
 def bar(ratio):
@@ -269,6 +432,88 @@ def label(path, report):
     if count < report.trace_count:
         text += f"  ({count}/{report.trace_count})"
     return text
+
+
+def node_text(path):
+    """v1's node label without the coverage marker: name, plus [n] from the second
+    occurrence on."""
+    name, index = path[-1]
+    return name if index == 0 else f"{name}[{index}]"
+
+
+def delta_percent(baseline_average, current_average):
+    """None when the comparison is undefined: a one-sided node, or a zero baseline.
+
+    A one-sided node has not regressed — it was added, removed, or renamed — so
+    reporting +/-100% would misattribute a shape change as a timing change.
+    """
+    if baseline_average is None or current_average is None or baseline_average == 0:
+        return None
+    return (current_average - baseline_average) / baseline_average * 100.0
+
+
+def compare_rows(baseline, current):
+    """Rows over the union of both node sets, in one shared order.
+
+    Returns (rows, orphaned_count) where rows is [(path, connector)]. Both sides
+    render from this single list, which is what makes "row n is the same node on
+    the left and the right" a guarantee rather than a coincidence: two independently
+    ordered trees would drift apart the moment one side gained or lost a node.
+
+    orphaned_count is the number of union nodes whose parent is absent from the
+    union (unreachable from any root). They are not rendered as rows but are
+    counted and surfaced by the caller as a note. Only from_dict can produce
+    orphans; aggregate_file keeps every ancestor of every node it collects via
+    flatten()'s top-down walk.
+
+    Ordering uses the current run's mean start offset where the node exists there and
+    the baseline's otherwise, tie-broken on the path for determinism.
+    """
+    roots = []
+    for report in (current, baseline):
+        root = report.root_path
+        if root is not None and root not in roots:
+            roots.append(root)
+    if not roots:
+        return [], 0
+
+    root_set = set(roots)
+    paths = {path for path in set(current.nodes) | set(baseline.nodes)
+             if path[:1] in root_set}
+
+    def offset(path):
+        if path in current.nodes:
+            return current.mean_offset(path)
+        return baseline.mean_offset(path)
+
+    children_of = defaultdict(list)
+    placed = set(roots)  # roots are always placed
+    for path in paths:
+        # flatten() emits every ancestor of every node it collects, so a node's
+        # parent is always present on the side that produced it, and therefore in
+        # the union. Depth-1 paths are the roots themselves.
+        if len(path) > 1 and path[:-1] in paths:
+            children_of[path[:-1]].append(path)
+            placed.add(path)
+    for kids in children_of.values():
+        kids.sort(key=lambda p: (offset(p), p))
+    roots.sort(key=lambda p: (offset(p), p))
+
+    rows = []
+
+    def emit(path, prefix, is_last, is_root):
+        connector = "" if is_root else prefix + ("└─ " if is_last else "├─ ")
+        rows.append((path, connector))
+        kids = children_of.get(path, [])
+        child_prefix = prefix if is_root else prefix + ("   " if is_last else "│  ")
+        for position, kid in enumerate(kids):
+            emit(kid, child_prefix, position == len(kids) - 1, False)
+
+    for position, root in enumerate(roots):
+        emit(root, "", position == len(roots) - 1, True)
+
+    orphaned_count = len(paths) - len(placed)
+    return rows, orphaned_count
 
 
 def render_report(report):
@@ -321,10 +566,150 @@ def render_report(report):
     return "\n".join(lines)
 
 
+def relative_age(generated):
+    """Coarse age of a baseline, or None when the timestamp is unusable.
+
+    Days are enough: the point is to let a reader discount a stale baseline, not to
+    time it precisely.
+    """
+    stamp = parse_time(generated)
+    if stamp is None:
+        return None
+    days = (datetime.now(timezone.utc) - stamp).days
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "1 day ago"
+    return f"{days} days ago"
+
+
+def render_comparison(baseline, current):
+    """Render main and this run as two trees sharing one row order.
+
+    Each side keeps v1's semantics exactly: AVG, %ROOT against its own root, and a
+    bar scaled to its own root. Bars are therefore NOT comparable across the gutter
+    — an unchanged node draws differently on each side whenever the roots differ.
+    That is a deliberate trade for keeping each tree readable on its own; the AVG
+    and Δ% columns are the comparison.
+    """
+    rows, orphaned_count = compare_rows(baseline, current)
+    if not rows:
+        return None
+
+    baseline_root = baseline.root_path
+    current_root = current.root_path
+    baseline_scale = baseline.average(baseline_root) if baseline_root else 0.0
+    current_scale = current.average(current_root) if current_root else 0.0
+
+    def side_label(report, path, connector):
+        """v1's label, with coverage counted against this side's own trace count.
+
+        The two sides are never reconciled into one figure: a marker on one side
+        only is meaningful — it says the node is intermittent there and not here.
+        """
+        text = connector + node_text(path)
+        count = report.occurrences(path)
+        if count < report.trace_count:
+            text += f"  ({count}/{report.trace_count})"
+        return text
+
+    label_width = 0
+    for path, connector in rows:
+        for report in (baseline, current):
+            if path in report.nodes:
+                label_width = max(label_width, len(side_label(report, path, connector)))
+    # "9.3f ms" = 9 + 3 chars = 12, then "  " = 2, "%ROOT" = 5, "  " = 2,
+    # bar = BAR_WIDTH, "  " = 2, label.  Must agree with the format strings in cell().
+    side_width = 12 + 2 + 5 + 2 + BAR_WIDTH + 2 + label_width
+
+    def cell(report, path, connector, scale):
+        if path not in report.nodes:
+            return " " * side_width          # absent, not zero
+        average = report.average(path)
+        text = side_label(report, path, connector)
+        if scale > 0:
+            ratio = average / scale
+            body = (f"{average:>9.3f} ms  {ratio * 100:>4.0f}%  "
+                    f"{bar(ratio):<{BAR_WIDTH}}  {text}")
+        else:
+            # Keep the same column structure with the percentage and bar left blank,
+            # so a zero-root row aligns with normal rows. {'':>5} fills %ROOT width
+            # and {'':<{BAR_WIDTH}} fills the bar column; both must stay.
+            body = f"{average:>9.3f} ms  {'':>5}  {'':<{BAR_WIDTH}}  {text}"
+        return body.ljust(side_width)
+
+    def heading(report, tag, with_age):
+        parts = []
+        commit = (report.source or {}).get("commit") or ""
+        parts.append(f"{tag} @ {commit[:7]}" if commit else tag)
+        if with_age:
+            age = relative_age((report.source or {}).get("generated"))
+            if age:
+                parts.append(age)
+        parts.append(f"{report.trace_count} traces")
+        return " · ".join(parts)
+
+    lines = [f" Benchmark.{current.stem}"]
+    subtitle = " · ".join(part for part in (current.extension, current.product) if part)
+    if subtitle:
+        lines.append(f" {subtitle}")
+    lines.append("")
+    lines.append((f"{heading(baseline, 'main', True):^{side_width}}"
+                  + " │         │ "
+                  + f"{heading(current, 'PR', False):^{side_width}}").rstrip())
+    lines.append(f"{'AVG':>12}  {'%ROOT':>5}".ljust(side_width)
+                 + " │    Δ%   │ " + f"{'AVG':>12}  {'%ROOT':>5}")
+
+    for path, connector in rows:
+        left = baseline.average(path) if path in baseline.nodes else None
+        right = current.average(path) if path in current.nodes else None
+        delta = delta_percent(left, right)
+        delta_text = "n/a" if delta is None else f"{delta:+.1f}%"
+        lines.append((cell(baseline, path, connector, baseline_scale)
+                      + " │ " + f"{delta_text:>7}" + " │ "
+                      + cell(current, path, connector, current_scale)).rstrip())
+
+    notes = []
+    for tag, report in (("main", baseline), ("PR", current)):
+        detail = []
+        if report.orphan_subtrees:
+            detail.append(f"{report.orphan_subtrees} orphan subtree(s) dropped")
+        if report.rootless_traces:
+            detail.append(f"{report.rootless_traces} trace(s) had no resolvable root")
+        if report.malformed:
+            detail.append(f"{report.malformed} unreadable line(s) skipped")
+        if detail:
+            notes.append(f"{tag}: " + "; ".join(detail))
+
+    only_baseline = sum(1 for path, _ in rows if path not in current.nodes)
+    only_current = sum(1 for path, _ in rows if path not in baseline.nodes)
+    shape = []
+    if only_baseline:
+        shape.append(f"{only_baseline} node(s) only in main")
+    if only_current:
+        shape.append(f"{only_current} node(s) only in PR")
+    if shape:
+        # State drift explicitly rather than leaving the reader to spot blank rows.
+        notes.append(", ".join(shape) + " — tree shape changed")
+
+    if orphaned_count:
+        notes.append(f"{orphaned_count} union node(s) could not be placed (orphaned)")
+
+    if notes:
+        lines.extend(["", " " + "   ".join(notes)])
+
+    return "\n".join(lines)
+
+
 # ------------------------------------------------------------------- outputs
 
-def render_summary(reports):
-    """Markdown for $GITHUB_STEP_SUMMARY, truncated to stay under the 1 MiB cap."""
+def render_summary(reports, baselines=None):
+    """Markdown for $GITHUB_STEP_SUMMARY, truncated to stay under the 1 MiB cap.
+
+    A benchmark with a baseline renders side by side; one without falls back to the
+    v1 single tree, so a new benchmark or a first-ever run still reports something.
+    """
+    baselines = baselines or {}
     blocks = ["## 🔬 Benchmark Trace Hierarchy", ""]
     # "\n".join inserts one separator byte per element beyond the first, so charge
     # each block for its own separator or the budget silently undercounts.
@@ -332,7 +717,8 @@ def render_summary(reports):
     truncated = 0
 
     for report in reports:
-        body = render_report(report)
+        baseline = baselines.get(report.stem)
+        body = render_comparison(baseline, report) if baseline else render_report(report)
         if body is None:
             continue
         block = "```\n" + body + "\n```\n"
@@ -386,6 +772,30 @@ def run(args):
     usable = [report for report in reports if report.trace_count > 0]
     print(f"[traces] aggregated {len(usable)} benchmark(s) from {len(files)} file(s)")
 
+    if args.sidecar_out:
+        written = write_sidecars(args.sidecar_out, usable,
+                                 args.commit, args.ref, args.run_id)
+        print(f"[traces] wrote {written} sidecar(s) to {args.sidecar_out}")
+        # Render from what was just written. Both sides of a comparison then travel
+        # the same to_dict/from_dict path, so a field that fails to round-trip
+        # surfaces here rather than silently only on the baseline side. It is also
+        # what gives this run's tree its provenance header: an in-memory report has
+        # an empty source, so the heading would read "PR · 100 traces" with no commit.
+        usable = [load_sidecar(sidecar_path(args.sidecar_out, report), source="reload") or report
+                  for report in usable]
+
+    baselines = {}
+    if args.baseline and os.path.isdir(args.baseline):
+        for report in usable:
+            baseline = find_baseline(args.baseline, report)
+            if baseline is not None:
+                baselines[report.stem] = baseline
+        print(f"[traces] matched {len(baselines)}/{len(usable)} baseline(s) "
+              f"from {args.baseline}")
+    elif args.baseline:
+        print(f"[traces] baseline directory '{args.baseline}' not found; "
+              "rendering without comparison")
+
     if args.debug_paths:
         for report in usable:
             print(f"\n== {report.stem} ({report.trace_count} traces, "
@@ -396,7 +806,7 @@ def run(args):
                       f"{report.occurrences(path):3d}/{report.trace_count}  {trail}")
         return 0
 
-    summary = render_summary(usable)
+    summary = render_summary(usable, baselines)
     if args.summary_out:
         # Append: the runner may already have written to $GITHUB_STEP_SUMMARY.
         with open(args.summary_out, "a", encoding="utf-8") as handle:
@@ -418,6 +828,11 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description="Aggregate benchmark trace telemetry.")
     parser.add_argument("--input", required=True, help="directory to search recursively")
+    parser.add_argument("--sidecar-out", help="write this run's trees as JSON here")
+    parser.add_argument("--commit", help="commit sha recorded in the sidecar")
+    parser.add_argument("--ref", help="git ref recorded in the sidecar")
+    parser.add_argument("--run-id", help="workflow run id recorded in the sidecar")
+    parser.add_argument("--baseline", help="directory of sidecars to compare against")
     parser.add_argument("--summary-out", help="append the ASCII report here; omit for stdout")
     parser.add_argument("--comment-out", help="write the PR comment body here")
     parser.add_argument("--run-url", help="link target embedded in the comment")
