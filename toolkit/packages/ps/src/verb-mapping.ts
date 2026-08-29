@@ -6,20 +6,217 @@
 
 import type { HttpMethod } from "@azure-client-engine/ir";
 
-/** Seeded from AutoRest's default `verb-mapping:` table (autorest-configuration.md). */
+/**
+ * AutoRest's default `verb-mapping:` table (autorest-configuration.md), transcribed verbatim.
+ * `createorupdate` is the one addition: AutoRest reaches `New` for it by matching the leading
+ * `Create` word, which the whole-word lookup below would otherwise miss for an id that carries
+ * no camel hump.
+ */
 const ACTION_WORD_VERBS: ReadonlyMap<string, string> = new Map([
+  ["access", "Get"],
+  ["acquire", "Get"],
+  ["activate", "Initialize"],
+  ["add", "Add"],
+  ["allocate", "New"],
+  ["analyze", "Test"],
+  ["append", "Add"],
+  ["apply", "Add"],
+  ["approve", "Approve"],
+  ["assert", "Assert"],
+  ["assign", "Set"],
+  ["associate", "Join"],
+  ["attach", "Add"],
+  ["authorize", "Grant"],
+  ["backup", "Backup"],
+  ["block", "Block"],
+  ["build", "Build"],
+  ["bypass", "Skip"],
+  ["cancel", "Stop"],
+  ["capture", "Export"],
+  ["cat", "Get"],
+  ["change", "Rename"],
+  ["check", "Test"],
+  ["checkpoint", "Checkpoint"],
+  ["clear", "Clear"],
+  ["clone", "Copy"],
+  ["close", "Close"],
+  ["combine", "Join"],
+  ["compare", "Compare"],
+  ["compile", "Build"],
+  ["complete", "Complete"],
+  ["compress", "Compress"],
+  ["concatenate", "Add"],
+  ["configure", "Set"],
+  ["confirm", "Confirm"],
+  ["connect", "Connect"],
+  ["convert", "Convert"],
+  ["convertfrom", "ConvertFrom"],
+  ["convertto", "ConvertTo"],
+  ["copy", "Copy"],
   ["create", "New"],
-  ["createorupdate", "New"],
-  ["update", "Update"],
+  ["cut", "Remove"],
+  ["debug", "Debug"],
   ["delete", "Remove"],
+  ["deny", "Deny"],
+  ["deploy", "Deploy"],
+  ["dir", "Get"],
+  ["disable", "Disable"],
+  ["discard", "Remove"],
+  ["disconnect", "Disconnect"],
+  ["discover", "Find"],
+  ["dismount", "Dismount"],
+  ["display", "Show"],
+  ["dispose", "Remove"],
+  ["dump", "Get"],
+  ["duplicate", "Copy"],
+  ["edit", "Edit"],
+  ["enable", "Enable"],
+  ["end", "Stop"],
+  ["enter", "Enter"],
+  ["erase", "Clear"],
+  ["evaluate", "Test"],
+  ["examine", "Get"],
+  ["execute", "Invoke"],
+  ["exit", "Exit"],
+  ["expand", "Expand"],
+  ["export", "Export"],
+  ["failover", "Set"],
+  ["find", "Find"],
+  ["finish", "Complete"],
+  ["flush", "Clear"],
+  ["forcereboot", "Restart"],
+  ["format", "Format"],
+  ["generalize", "Reset"],
+  ["generate", "New"],
   ["get", "Get"],
+  ["grant", "Grant"],
+  ["group", "Group"],
+  ["hide", "Hide"],
+  ["import", "Import"],
+  ["initialize", "Initialize"],
+  ["insert", "Add"],
+  ["install", "Install"],
+  ["into", "Enter"],
+  ["invoke", "Invoke"],
+  ["is", "Test"],
+  ["join", "Join"],
+  ["jump", "Skip"],
+  ["limit", "Limit"],
   ["list", "Get"],
+  ["load", "Import"],
+  ["locate", "Find"],
+  ["lock", "Lock"],
+  ["make", "New"],
+  ["measure", "Measure"],
+  ["merge", "Merge"],
+  ["migrate", "Move"],
+  ["mount", "Mount"],
+  ["move", "Move"],
+  ["name", "Move"],
+  ["new", "New"],
+  ["notify", "Send"],
+  ["nullify", "Clear"],
+  ["obtain", "Get"],
+  ["open", "Open"],
+  ["optimize", "Optimize"],
+  ["out", "Out"],
+  ["patch", "Update"],
+  ["pause", "Suspend"],
+  ["perform", "Invoke"],
+  ["ping", "Ping"],
+  ["pop", "Pop"],
+  ["post", "Invoke"],
+  ["power", "Start"],
+  ["poweroff", "Stop"],
+  ["poweron", "Start"],
+  ["produce", "Show"],
+  ["protect", "Protect"],
+  ["provision", "New"],
+  ["publish", "Publish"],
+  ["purge", "Clear"],
+  ["push", "Push"],
+  ["put", "Set"],
+  ["read", "Read"],
+  ["reassociate", "Move"],
+  ["reboot", "Restart"],
+  ["receive", "Receive"],
+  ["recover", "Restore"],
+  ["redo", "Redo"],
+  ["refresh", "Update"],
+  ["regenerate", "New"],
+  ["register", "Register"],
+  ["reimage", "Update"],
+  ["release", "Publish"],
+  ["remove", "Remove"],
+  ["rename", "Rename"],
+  ["repair", "Repair"],
+  ["replace", "Update"],
+  ["replicate", "Copy"],
+  ["reprocess", "Update"],
+  ["request", "Request"],
+  ["reset", "Reset"],
+  ["resize", "Resize"],
+  ["resolve", "Resolve"],
+  ["restart", "Restart"],
+  ["restore", "Restore"],
+  ["restrict", "Lock"],
+  ["resubmit", "Submit"],
+  ["resume", "Resume"],
+  ["retarget", "Update"],
+  ["retrieve", "Get"],
+  ["revoke", "Revoke"],
+  ["run", "Start"],
+  ["save", "Save"],
+  ["search", "Search"],
+  ["secure", "Lock"],
+  ["select", "Select"],
+  ["send", "Send"],
+  ["separate", "Split"],
+  ["set", "Set"],
+  ["show", "Show"],
+  ["shutdown", "Stop"],
+  ["skip", "Skip"],
+  ["split", "Split"],
+  ["start", "Start"],
+  ["step", "Step"],
+  ["stop", "Stop"],
+  ["submit", "Submit"],
+  ["suggest", "Get"],
+  ["suspend", "Suspend"],
+  ["swap", "Switch"],
+  ["switch", "Switch"],
+  ["sync", "Sync"],
+  ["synch", "Sync"],
+  ["synchronize", "Sync"],
+  ["test", "Test"],
+  ["trace", "Trace"],
+  ["transfer", "Move"],
+  ["trigger", "Start"],
+  ["type", "Get"],
+  ["unblock", "Unblock"],
+  ["undelete", "Restore"],
+  ["undo", "Undo"],
+  ["uninstall", "Uninstall"],
+  ["unite", "Join"],
+  ["unlock", "Unlock"],
+  ["unmark", "Clear"],
+  ["unprotect", "Unprotect"],
+  ["unpublish", "Unpublish"],
+  ["unregister", "Unregister"],
+  ["unrestrict", "Unlock"],
+  ["unsecure", "Unlock"],
+  ["unset", "Clear"],
+  ["update", "Update"],
+  ["upgrade", "Update"],
+  ["use", "Use"],
+  ["validate", "Test"],
+  ["verify", "Test"],
+  ["wait", "Wait"],
+  ["watch", "Watch"],
+  ["wipe", "Clear"],
+  ["write", "Write"],
+  ["createorupdate", "New"],
 ]);
-
-/** Longest-key-first so compound action words (e.g. "listByResourceGroup") match correctly. */
-const ACTION_WORD_KEYS_BY_LENGTH: readonly string[] = [...ACTION_WORD_VERBS.keys()].sort(
-  (a, b) => b.length - a.length,
-);
 
 /** Fallback only when the action word has no table entry at all. */
 const HTTP_METHOD_VERB_FALLBACK: Record<HttpMethod, string> = {
@@ -32,20 +229,27 @@ const HTTP_METHOD_VERB_FALLBACK: Record<HttpMethod, string> = {
   OPTIONS: "Invoke",
 };
 
+/** Leading camelCase word: "listByResourceGroup" -> "list", "restoreVolume" -> "restore". */
+function leadingWord(actionWord: string): string {
+  const match = /^[a-z]+|^[A-Z][a-z]*/.exec(actionWord);
+  return match === null ? actionWord.toLowerCase() : match[0].toLowerCase();
+}
+
 /**
  * Resolve a PowerShell verb from an operation's action word (its IR id's terminal `name`,
  * e.g. "createOrUpdate", "listByResourceGroup") and HTTP method. Table match wins; HTTP
  * method is only a fallback for an unrecognized action word.
+ *
+ * Matching is whole-word, not prefix: the table contains keys as short as `is` -> `Test` and
+ * `end` -> `Stop`, so prefix matching would turn any `issue*`/`endpoint*` action word into
+ * the wrong verb.
  */
 export function resolveVerb(actionWord: string, method: HttpMethod): string {
-  const normalized = actionWord.toLowerCase();
+  const whole = ACTION_WORD_VERBS.get(actionWord.toLowerCase());
+  if (whole !== undefined) return whole;
 
-  const exact = ACTION_WORD_VERBS.get(normalized);
-  if (exact !== undefined) return exact;
-
-  for (const key of ACTION_WORD_KEYS_BY_LENGTH) {
-    if (normalized.startsWith(key)) return ACTION_WORD_VERBS.get(key)!;
-  }
+  const leading = ACTION_WORD_VERBS.get(leadingWord(actionWord));
+  if (leading !== undefined) return leading;
 
   return HTTP_METHOD_VERB_FALLBACK[method];
 }

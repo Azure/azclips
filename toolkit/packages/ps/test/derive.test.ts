@@ -1,7 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { emptyIR, type IROperation } from "@azure-client-engine/ir";
+import { emptyIR, type IRModel, type IROperation, type IRTypeRef } from "@azure-client-engine/ir";
 
 import { deriveAttributes } from "../src/derive.js";
+
+const modelRef = (name: string): IRTypeRef => ({
+  kind: "model",
+  id: { module: "<root>", namespace: [], name },
+});
+
+function makeProperty(
+  name: string,
+  type: IRTypeRef,
+  optional: boolean,
+): IRModel["properties"][number] {
+  const common = {
+    id: { module: "<root>", namespace: [], name: `prop#${name}` },
+    name,
+    wireName: name,
+    optional,
+    nullable: false,
+  };
+  if (type.kind === "array") return { ...common, typeKind: "collection", type };
+  if (type.kind === "model") return { ...common, typeKind: "object", type };
+  return { ...common, typeKind: "primitive", type: { kind: "primitive", name: "string" } };
+}
+
+/** ARM collection envelope: required `value` array + optional `nextLink`. */
+function makeEnvelope(name: string, itemName: string): IRModel {
+  return {
+    id: { module: "<root>", namespace: [], name },
+    name,
+    source: "<root>",
+    properties: [
+      makeProperty("value", { kind: "array", element: modelRef(itemName) }, false),
+      makeProperty("nextLink", { kind: "primitive", name: "string" }, true),
+    ],
+  };
+}
 
 function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" | "method">): IROperation {
   return {
@@ -205,5 +240,109 @@ describe("deriveAttributes", () => {
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [first, second] });
 
     expect(commands).toHaveLength(2);
+  });
+
+  it("unwraps a non-pageable collection envelope for both the noun and the output type", () => {
+    // Real ElasticSan case: PrivateLinkResources.listByElasticSan carries no pageable semantics,
+    // so only the envelope's shape distinguishes it from a single-resource read.
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["PrivateLinkResources"], name: "listByElasticSan" },
+      method: "GET",
+      responses: [
+        {
+          statusCode: { kind: "exact", code: 200 },
+          isError: false,
+          type: modelRef("PrivateLinkResourceListResult"),
+        },
+      ],
+    });
+    const ir = {
+      ...emptyIR(),
+      models: [makeEnvelope("PrivateLinkResourceListResult", "PrivateLinkResource")],
+      operations: [operation],
+    };
+
+    const { commands } = deriveAttributes(ir);
+
+    expect(commands[0]!.noun).toBe("PrivateLinkResource");
+    expect(commands[0]!.outputTypes).toEqual([
+      { module: "<root>", namespace: [], name: "PrivateLinkResource" },
+    ]);
+  });
+
+  it("does not unwrap an ordinary model that merely holds one array", () => {
+    const ruleSet: IRModel = {
+      id: { module: "<root>", namespace: [], name: "NetworkRuleSet" },
+      name: "NetworkRuleSet",
+      source: "<root>",
+      properties: [
+        makeProperty(
+          "virtualNetworkRules",
+          { kind: "array", element: modelRef("VirtualNetworkRule") },
+          false,
+        ),
+      ],
+    };
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["NetworkRuleSets"], name: "get" },
+      method: "GET",
+      responses: [
+        { statusCode: { kind: "exact", code: 200 }, isError: false, type: modelRef("NetworkRuleSet") },
+      ],
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), models: [ruleSet], operations: [operation] });
+
+    expect(commands[0]!.noun).toBe("NetworkRuleSet");
+  });
+
+  it("gives every operation on a resource the same noun, including bodiless DELETEs", () => {
+    // Real ElasticSan case: VolumeSnapshots.get returns `Snapshot` while VolumeSnapshots.delete
+    // has no response at all, which previously yielded Get-Snapshot next to Remove-VolumeSnapshot.
+    const get = makeOperation({
+      id: { module: "<root>", namespace: ["VolumeSnapshots"], name: "get" },
+      method: "GET",
+      responses: [
+        { statusCode: { kind: "exact", code: 200 }, isError: false, type: modelRef("Snapshot") },
+      ],
+    });
+    const remove = makeOperation({
+      id: { module: "<root>", namespace: ["VolumeSnapshots"], name: "delete" },
+      method: "DELETE",
+      responses: [],
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [get, remove] });
+
+    const nouns = new Set(commands.map((c) => c.noun));
+    expect(nouns).toEqual(new Set(["Snapshot"]));
+    expect(commands.map((c) => `${c.verb}-${c.noun}`).sort()).toEqual([
+      "Get-Snapshot",
+      "Remove-Snapshot",
+    ]);
+  });
+
+  it("resolves the verb from the leading action word, not a prefix of a short table key", () => {
+    // `is` -> Test and `end` -> Stop are real entries; prefix matching would hijack these.
+    const restore = makeOperation({
+      id: { module: "<root>", namespace: ["ElasticSanClient"], name: "restoreVolume" },
+      method: "POST",
+      responses: [
+        { statusCode: { kind: "exact", code: 200 }, isError: false, type: modelRef("Volume") },
+      ],
+    });
+    const issue = makeOperation({
+      id: { module: "<root>", namespace: ["Credentials"], name: "issueCredential" },
+      method: "POST",
+      responses: [
+        { statusCode: { kind: "exact", code: 200 }, isError: false, type: modelRef("Credential") },
+      ],
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [restore, issue] });
+
+    const verbs = Object.fromEntries(commands.map((c) => [c.noun, c.verb]));
+    expect(verbs["Volume"]).toBe("Restore");
+    expect(verbs["Credential"]).toBe("Invoke");
   });
 });

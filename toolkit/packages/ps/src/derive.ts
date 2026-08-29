@@ -15,6 +15,7 @@ import {
   idEquals,
   serializeId,
   type IR,
+  type IRModel,
   type IROperation,
   type IRId,
   type IRParameter,
@@ -82,19 +83,55 @@ function modelNameOfTypeRef(type: IRTypeRef): string | undefined {
  * declared under. Prefers IR's own `itemType` for pageable operations over guessing at the
  * page-wrapper model's name.
  */
-function responseModelNameCandidate(operation: IROperation): string | undefined {
-  if (operation.semantics?.kind === "pageable") {
-    const name = modelNameOfTypeRef(operation.semantics.itemType);
+function firstResponseName(operation: IROperation, models: ModelIndex): string | undefined {
+  for (const type of effectiveResponseTypes(operation, models)) {
+    const name = modelNameOfTypeRef(type);
     if (name !== undefined) return name;
   }
+  return undefined;
+}
 
+type ModelIndex = ReadonlyMap<string, IRModel>;
+
+function indexModels(ir: IR): ModelIndex {
+  return new Map(ir.models.map((model) => [serializeId(model.id), model]));
+}
+
+/**
+ * Element of an ARM collection envelope (a required `value` array plus optional envelope fields
+ * such as `nextLink`), else undefined. Keyed on the `value` name rather than "holds one array"
+ * because ordinary models carry a single array too (`NetworkRuleSet.virtualNetworkRules`).
+ */
+function collectionElementType(models: ModelIndex, type: IRTypeRef): IRTypeRef | undefined {
+  if (type.kind !== "model") return undefined;
+  const model = models.get(serializeId(type.id));
+  if (model === undefined) return undefined;
+
+  const value = model.properties.find((p) => p.name.toLowerCase() === "value");
+  if (value === undefined || value.typeKind !== "collection") return undefined;
+  if (model.properties.some((p) => p !== value && !p.optional)) return undefined;
+
+  return value.type.element;
+}
+
+/** Response types with pageable/collection envelopes unwrapped to the item they carry. */
+function effectiveResponseTypes(operation: IROperation, models: ModelIndex): IRTypeRef[] {
+  if (operation.semantics?.kind === "pageable") return [operation.semantics.itemType];
+
+  const types: IRTypeRef[] = [];
   for (const response of operation.responses) {
     if (response.isError || response.type === undefined) continue;
-    const name = modelNameOfTypeRef(response.type);
-    if (name === undefined) continue;
-    return name;
+    types.push(collectionElementType(models, response.type) ?? response.type);
   }
-  return undefined;
+  return types;
+}
+
+/** True when the operation yields a collection rather than a single resource. */
+function isCollectionOperation(operation: IROperation, models: ModelIndex): boolean {
+  if (operation.semantics?.kind === "pageable") return true;
+  return operation.responses.some(
+    (r) => !r.isError && r.type !== undefined && collectionElementType(models, r.type) !== undefined,
+  );
 }
 
 /**
@@ -118,23 +155,63 @@ type Inferred = {
   supportsPaging: boolean | undefined;
 };
 
-function inferOperation(operation: IROperation): Inferred {
+function inferOperation(operation: IROperation, noun: string): Inferred {
   return {
     verb: resolveVerb(operation.id.name, operation.method),
-    noun: responseModelNameCandidate(operation) ?? singularize(resourceNameCandidate(operation)),
+    noun,
     confirmImpact: isMutatingMethod(operation.method) ? "Medium" : undefined,
     hidden: operation.access === "internal" ? true : undefined,
     supportsPaging: operation.semantics?.kind === "pageable" ? true : undefined,
   };
 }
 
-/** Grouping key: same source + module + namespace + resolved verb + resolved (bare) noun. */
-function groupKey(operation: IROperation, inferred: Inferred): string {
+/** Resource identity: everything about an operation's id except the action word. */
+function resourceKey(operation: IROperation): string {
   // `source` is kept distinct from `id.module` even though the TypeSpec emitter sets both from
   // the same option: merging across sources would misattribute the command in `deriveModules`.
-  return [operation.source, operation.id.module, ...operation.id.namespace, inferred.verb, inferred.noun].join(
-    "\u0000",
-  );
+  return [operation.source, operation.id.module, ...operation.id.namespace].join("\u0000");
+}
+
+/**
+ * One noun per resource, so operations on the same resource can never disagree. A DELETE carries
+ * no response body and would otherwise fall back to the namespace segment while its sibling GET
+ * used the response model -- real ElasticSan case: `Remove-AzVolumeSnapshot` next to
+ * `Get-AzSnapshot` for the same `VolumeSnapshots` resource.
+ */
+function resourceNounsFor(ir: IR, models: ModelIndex): Map<string, string> {
+  const byResource = new Map<string, IROperation[]>();
+  for (const operation of ir.operations) {
+    const key = resourceKey(operation);
+    const bucket = byResource.get(key);
+    if (bucket) bucket.push(operation);
+    else byResource.set(key, [operation]);
+  }
+
+  const nouns = new Map<string, string>();
+  for (const [key, operations] of byResource) {
+    nouns.set(key, resourceNoun(operations, models));
+  }
+  return nouns;
+}
+
+function resourceNoun(operations: readonly IROperation[], models: ModelIndex): string {
+  // A single-resource read names the resource most directly; a collection read only names it
+  // once unwrapped; anything else is weaker evidence than the declaring namespace.
+  for (const operation of operations) {
+    if (operation.method !== "GET" || isCollectionOperation(operation, models)) continue;
+    const name = firstResponseName(operation, models);
+    if (name !== undefined) return name;
+  }
+  for (const operation of operations) {
+    const name = firstResponseName(operation, models);
+    if (name !== undefined) return name;
+  }
+  return singularize(resourceNameCandidate(operations[0]!));
+}
+
+/** Grouping key: same resource + resolved verb + resolved (bare) noun. */
+function groupKey(operation: IROperation, inferred: Inferred): string {
+  return [resourceKey(operation), inferred.verb, inferred.noun].join("\u0000");
 }
 
 // ─── Output types / parameter sets ───────────────────────────────────────
@@ -152,26 +229,12 @@ function extractTypeRefId(type: IRTypeRef): IRId | undefined {
   }
 }
 
-function outputTypeIdsFor(operations: readonly IROperation[]): IRId[] {
+function outputTypeIdsFor(operations: readonly IROperation[], models: ModelIndex): IRId[] {
   const ids: IRId[] = [];
-  const add = (id: IRId | undefined): void => {
-    if (id !== undefined && !ids.some((existing) => idEquals(existing, id))) ids.push(id);
-  };
-
   for (const operation of operations) {
-    // A pageable cmdlet emits items to the pipeline, so its output type is the item type rather
-    // than the page wrapper the response carries. Matches `responseModelNameCandidate`'s noun.
-    if (operation.semantics?.kind === "pageable") {
-      const itemId = extractTypeRefId(operation.semantics.itemType);
-      if (itemId !== undefined) {
-        add(itemId);
-        continue;
-      }
-    }
-
-    for (const response of operation.responses) {
-      if (response.isError || response.type === undefined) continue;
-      add(extractTypeRefId(response.type));
+    for (const type of effectiveResponseTypes(operation, models)) {
+      const id = extractTypeRefId(type);
+      if (id !== undefined && !ids.some((existing) => idEquals(existing, id))) ids.push(id);
     }
   }
   return ids;
@@ -199,10 +262,12 @@ function defaultParameterSetNameFor(
 // ─── Main entry point ────────────────────────────────────────────────────
 
 export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}): DerivedAttributes {
+  const models = indexModels(ir);
+  const resourceNouns = resourceNounsFor(ir, models);
   const groups = new Map<string, { operations: IROperation[]; inferred: Inferred }>();
 
   for (const operation of ir.operations) {
-    const inferred = inferOperation(operation);
+    const inferred = inferOperation(operation, resourceNouns.get(resourceKey(operation))!);
     const key = groupKey(operation, inferred);
     const group = groups.get(key);
     if (group) group.operations.push(operation);
@@ -229,7 +294,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
       description: operations[0]!.docs,
       httpPath: { path: operations[0]!.pathTemplate, apiVersion: operations[0]!.apiVersion.value },
       supportsPaging: inferred.supportsPaging,
-      outputTypes: outputTypeIdsFor(operations),
+      outputTypes: outputTypeIdsFor(operations, models),
       parameterSets,
       defaultParameterSetName: defaultParameterSetNameFor(operations, parameterSets),
       sourceOperationIds: operations.map((operation) => operation.id),
