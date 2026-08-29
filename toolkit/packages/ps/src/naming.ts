@@ -13,7 +13,6 @@
  * modules lean on them heavily, but they are a separate layer applied on top of inference.
  */
 
-import type { HttpMethod } from "@azure-client-engine/ir";
 import { resolveVerb, isKnownActionWord } from "./verb-mapping.js";
 
 /** Split an identifier into lower-cased words. */
@@ -104,13 +103,8 @@ export type InferredName = {
  * `createCommandVariant`: an action that resolves to no known verb keeps its own word in the
  * subject, so `preBackup`-style operations stay distinguishable instead of colliding on `Invoke`.
  */
-function buildName(
-  action: string,
-  subject: readonly string[],
-  variant: readonly string[],
-  method: HttpMethod,
-): InferredName {
-  const verb = resolveVerb(action, method);
+function buildName(action: string, subject: readonly string[], variant: readonly string[]): InferredName {
+  const verb = resolveVerb(action);
   const subjectWords =
     verb === "Invoke" && action.toLowerCase() !== "post" ? [action, ...subject] : [...subject];
 
@@ -124,46 +118,51 @@ function buildName(
 function inferFromWords(
   words: readonly string[],
   group: string,
-  method: HttpMethod,
   suffix: readonly string[] = [],
-): InferredName {
+): InferredName[] {
   const parts = words.filter((word) => word !== "all");
 
-  if (parts.length === 0) return buildName(group, [group], suffix, method);
-  if (parts.length === 1) return buildName(parts[0]!, [group], suffix, method);
+  if (parts.length === 0) return [buildName(group, [group], suffix)];
+  if (parts.length === 1) return [buildName(parts[0]!, [group], suffix)];
 
   if (parts.length === 2) {
-    if (isKnownActionWord(parts[0]!)) return buildName(parts[0]!, [group, parts[1]!], suffix, method);
-    if (isKnownActionWord(parts[1]!)) return buildName(parts[1]!, [group, parts[0]!], suffix, method);
-    return buildName(parts[0]!, [group, parts[1]!], suffix, method);
+    if (isKnownActionWord(parts[0]!)) return [buildName(parts[0]!, [group, parts[1]!], suffix)];
+    if (isKnownActionWord(parts[1]!)) return [buildName(parts[1]!, [group, parts[0]!], suffix)];
+    return [buildName(parts[0]!, [group, parts[1]!], suffix)];
   }
 
-  // "createOrUpdate" style: AutoRest fans this out into two commands; we keep the first, since
-  // the fan-out belongs to derivation (one operation -> multiple commands), not to naming.
+  // "createOrUpdate" fans out into both commands, as AutoRest does: New-* from the left branch
+  // and Update-* from the right.
   const either = splitOnPreposition("or", parts);
-  if (either !== undefined) return inferFromWords([...either[0], ...either[1].slice(1)], group, method, suffix);
+  if (either !== undefined) {
+    return [
+      ...inferFromWords([...either[0], ...either[1].slice(1)], group, suffix),
+      ...inferFromWords(either[1], group, suffix),
+    ];
+  }
 
   // "listByResourceGroup" -> action "list", variant "ResourceGroup".
   const prepositional = splitOnAnyPreposition(parts);
   if (prepositional !== undefined) {
-    return inferFromWords(prepositional[0], group, method, [...suffix, ...prepositional[1]]);
+    return inferFromWords(prepositional[0], group, [...suffix, ...prepositional[1]]);
   }
 
   for (let i = 0; i < parts.length; i++) {
     if (!isKnownActionWord(parts[i]!)) continue;
-    if (i === 0) return buildName(parts[i]!, [group, ...parts.slice(1)], suffix, method);
-    if (i === parts.length - 1) return buildName(parts[i]!, [group, ...parts.slice(0, i)], suffix, method);
-    return buildName(parts[i]!, [group], [...suffix, ...parts.slice(i + 1)], method);
+    if (i === 0) return [buildName(parts[i]!, [group, ...parts.slice(1)], suffix)];
+    if (i === parts.length - 1) return [buildName(parts[i]!, [group, ...parts.slice(0, i)], suffix)];
+    return [buildName(parts[i]!, [group], [...suffix, ...parts.slice(i + 1)])];
   }
 
-  return buildName(parts[0]!, [group, ...parts.slice(1)], suffix, method);
+  return [buildName(parts[0]!, [group, ...parts.slice(1)], suffix)];
 }
 
 /**
  * Infer verb/subject/variant from an operation's declaring group and action word --
- * AutoRest's `inferCommandNames`.
+ * AutoRest's `inferCommandNames`. Usually one name, but an `X`-or-`Y` action word fans out
+ * into one command per branch.
  */
-export function inferCommandName(group: string, actionWord: string, method: HttpMethod): InferredName {
+export function inferCommandNames(group: string, actionWord: string): InferredName[] {
   const groupWords = removeSequentialDuplicates(deconstruct(group));
   if (groupWords.length > 0) {
     groupWords[groupWords.length - 1] = singularize(groupWords[groupWords.length - 1]!);
@@ -171,9 +170,9 @@ export function inferCommandName(group: string, actionWord: string, method: Http
   const groupName = pascalCase(groupWords);
 
   // A whole-word verb match names the command after the group alone.
-  if (isKnownActionWord(actionWord)) return buildName(actionWord, [groupName], [], method);
+  if (isKnownActionWord(actionWord)) return [buildName(actionWord, [groupName], [])];
 
-  return inferFromWords(deconstruct(actionWord), groupName, method);
+  return inferFromWords(deconstruct(actionWord), groupName);
 }
 
 /**

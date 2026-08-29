@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { deconstruct, deduplicateNoun, inferCommandName, pascalCase, removeSequentialDuplicates } from "../src/naming.js";
+import { deconstruct, deduplicateNoun, inferCommandNames, pascalCase, removeSequentialDuplicates } from "../src/naming.js";
+
+/** Most action words yield exactly one name; assert that and unwrap it. */
+function inferOne(group: string, actionWord: string) {
+  const names = inferCommandNames(group, actionWord);
+  expect(names).toHaveLength(1);
+  return names[0]!;
+}
 
 describe("deconstruct", () => {
   it("splits camelCase, digits, and acronym boundaries into lower-cased words", () => {
@@ -35,37 +42,48 @@ describe("deduplicateNoun", () => {
   });
 });
 
-describe("inferCommandName", () => {
+describe("inferCommandNames", () => {
   // Every expectation below is a name autorest.powershell demonstrably produced for the real
   // ElasticSan spec, read off the `where:` clauses of that module's directive block.
   it.each([
-    ["ElasticSans", "get", "GET", "Get", "ElasticSan", ""],
-    ["ElasticSans", "create", "PUT", "New", "ElasticSan", ""],
-    ["ElasticSans", "update", "PATCH", "Update", "ElasticSan", ""],
-    ["ElasticSans", "delete", "DELETE", "Remove", "ElasticSan", ""],
-    ["VolumeSnapshots", "get", "GET", "Get", "VolumeSnapshot", ""],
-    ["VolumeGroups", "get", "GET", "Get", "VolumeGroup", ""],
-    ["Skus", "list", "GET", "Get", "Sku", ""],
-    ["PrivateLinkResources", "listByElasticSan", "GET", "Get", "PrivateLinkResource", "ElasticSan"],
-    ["Volumes", "preBackup", "POST", "Backup", "VolumePre", ""],
-    ["Volumes", "preRestore", "POST", "Restore", "VolumePre", ""],
-    ["ElasticSans", "listByResourceGroup", "GET", "Get", "ElasticSan", "ResourceGroup"],
-    ["ElasticSans", "listBySubscription", "GET", "Get", "ElasticSan", "Subscription"],
-  ] as const)(
-    "%s.%s -> %s / subject %s",
-    (group, actionWord, method, verb, subject, variant) => {
-      expect(inferCommandName(group, actionWord, method)).toEqual({ verb, subject, variant });
-    },
-  );
+    ["ElasticSans", "get", "Get", "ElasticSan", ""],
+    ["ElasticSans", "create", "New", "ElasticSan", ""],
+    ["ElasticSans", "update", "Update", "ElasticSan", ""],
+    ["ElasticSans", "delete", "Remove", "ElasticSan", ""],
+    ["VolumeSnapshots", "get", "Get", "VolumeSnapshot", ""],
+    ["VolumeGroups", "get", "Get", "VolumeGroup", ""],
+    ["Skus", "list", "Get", "Sku", ""],
+    ["PrivateLinkResources", "listByElasticSan", "Get", "PrivateLinkResource", "ElasticSan"],
+    ["Volumes", "preBackup", "Backup", "VolumePre", ""],
+    ["Volumes", "preRestore", "Restore", "VolumePre", ""],
+    ["ElasticSans", "listByResourceGroup", "Get", "ElasticSan", "ResourceGroup"],
+    ["ElasticSans", "listBySubscription", "Get", "ElasticSan", "Subscription"],
+    ["ElasticSan", "restoreVolume", "Restore", "ElasticSanVolume", ""],
+  ] as const)("%s.%s -> %s / subject %s", (group, actionWord, verb, subject, variant) => {
+    expect(inferOne(group, actionWord)).toEqual({ verb, subject, variant });
+  });
+
+  it("fans an X-or-Y action word out into one command per branch", () => {
+    expect(inferCommandNames("ResourceGroups", "createOrUpdate")).toEqual([
+      { verb: "New", subject: "ResourceGroup", variant: "" },
+      { verb: "Update", subject: "ResourceGroup", variant: "" },
+    ]);
+  });
+
+  it("falls back to Invoke, never to the HTTP method, and keeps the unmatched word", () => {
+    expect(inferOne("Credentials", "issueCredential")).toEqual({
+      verb: "Invoke",
+      subject: "IssueCredential",
+      variant: "",
+    });
+  });
 
   it("keeps an unrecognized action word in the subject so sibling actions stay distinct", () => {
-    const backup = inferCommandName("Volumes", "preBackup", "POST");
-    const restore = inferCommandName("Volumes", "preRestore", "POST");
-    expect(backup.verb).not.toBe(restore.verb);
+    expect(inferOne("Volumes", "preBackup").verb).not.toBe(inferOne("Volumes", "preRestore").verb);
   });
 
   it("singularizes only the last word of a multi-word group", () => {
-    expect(inferCommandName("VolumeGroups", "get", "GET").subject).toBe("VolumeGroup");
+    expect(inferOne("VolumeGroups", "get").subject).toBe("VolumeGroup");
     expect(pascalCase(deconstruct("VolumeGroups"))).toBe("VolumeGroups");
   });
 });

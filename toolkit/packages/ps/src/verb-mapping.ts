@@ -1,16 +1,14 @@
 /**
- * Verb inference table. An action-word table match always wins over the HTTP-method
- * fallback — required by real precedent: `ResourceGroups.createOrUpdate` is a PUT, but the
- * real cmdlet is `New-AzResourceGroup`, not `Set-AzResourceGroup`.
+ * Verb inference: an operation's action word selects the verb outright. The HTTP method is
+ * deliberately not consulted, matching autorest.powershell — `ResourceGroups.createOrUpdate` is
+ * a PUT, yet the real cmdlet is `New-AzResourceGroup`, not `Set-AzResourceGroup`.
  */
-
-import type { HttpMethod } from "@azure-client-engine/ir";
 
 /**
  * AutoRest's default `verb-mapping:` table (autorest-configuration.md), transcribed verbatim.
- * `createorupdate` is the one addition: AutoRest reaches `New` for it by matching the leading
- * `Create` word, which the whole-word lookup below would otherwise miss for an id that carries
- * no camel hump.
+ *
+ * Compound action words are deliberately absent: `createOrUpdate` has no entry here so that it
+ * falls through to the `or`-split, which fans it out into New-* and Update-*.
  */
 const ACTION_WORD_VERBS: ReadonlyMap<string, string> = new Map([
   ["access", "Get"],
@@ -215,19 +213,8 @@ const ACTION_WORD_VERBS: ReadonlyMap<string, string> = new Map([
   ["watch", "Watch"],
   ["wipe", "Clear"],
   ["write", "Write"],
-  ["createorupdate", "New"],
 ]);
 
-/** Fallback only when the action word has no table entry at all. */
-const HTTP_METHOD_VERB_FALLBACK: Record<HttpMethod, string> = {
-  GET: "Get",
-  PUT: "Set",
-  POST: "Invoke",
-  DELETE: "Remove",
-  PATCH: "Update",
-  HEAD: "Invoke",
-  OPTIONS: "Invoke",
-};
 
 /** Leading camelCase word: "listByResourceGroup" -> "list", "restoreVolume" -> "restore". */
 function leadingWord(actionWord: string): string {
@@ -242,19 +229,19 @@ export function isKnownActionWord(word: string): boolean {
 
 /**
  * Resolve a PowerShell verb from an operation's action word (its IR id's terminal `name`,
- * e.g. "createOrUpdate", "listByResourceGroup") and HTTP method. Table match wins; HTTP
- * method is only a fallback for an unrecognized action word.
+ * e.g. "createOrUpdate", "listByResourceGroup").
+ *
+ * An unrecognized action word yields `Invoke`, as in AutoRest's `getPowerShellVerb`. There is
+ * deliberately no HTTP-method fallback: the caller keeps the unmatched word in the subject
+ * instead, which is what keeps sibling actions such as `preBackup`/`preRestore` distinct.
  *
  * Matching is whole-word, not prefix: the table contains keys as short as `is` -> `Test` and
  * `end` -> `Stop`, so prefix matching would turn any `issue*`/`endpoint*` action word into
  * the wrong verb.
  */
-export function resolveVerb(actionWord: string, method: HttpMethod): string {
+export function resolveVerb(actionWord: string): string {
   const whole = ACTION_WORD_VERBS.get(actionWord.toLowerCase());
   if (whole !== undefined) return whole;
 
-  const leading = ACTION_WORD_VERBS.get(leadingWord(actionWord));
-  if (leading !== undefined) return leading;
-
-  return HTTP_METHOD_VERB_FALLBACK[method];
+  return ACTION_WORD_VERBS.get(leadingWord(actionWord)) ?? "Invoke";
 }

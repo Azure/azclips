@@ -21,7 +21,7 @@ import {
   type IRParameter,
   type IRTypeRef,
 } from "@azure-client-engine/ir";
-import { inferCommandName, deconstruct, pascalCase, deduplicateNoun } from "./naming.js";
+import { inferCommandNames, deconstruct, pascalCase, deduplicateNoun } from "./naming.js";
 import type {
   PSCommandAttribute,
   PSModuleAttribute,
@@ -49,10 +49,20 @@ function isMutatingMethod(method: IROperation["method"]): boolean {
   return method === "PUT" || method === "POST" || method === "PATCH" || method === "DELETE";
 }
 
-/** The operation's declaring group — AutoRest's operation group, i.e. the terminal namespace segment. */
+/**
+ * The operation's declaring group -- AutoRest's operation group, i.e. the terminal namespace
+ * segment. A root client contributes its own generated name there (`Microsoft.ElasticSan` ->
+ * `ElasticSanClient`), which names a client rather than a resource, so fall back to the
+ * namespace it sits in. Matching the exact `<parent>Client` shape keeps real resources whose
+ * name simply ends in "Client" (e.g. `VpnClients`) untouched.
+ */
 function groupOf(operation: IROperation): string {
   const segments = operation.id.namespace;
-  return segments.length > 0 ? segments[segments.length - 1]! : operation.id.name;
+  if (segments.length === 0) return operation.id.name;
+
+  const terminal = segments[segments.length - 1]!;
+  const parent = segments[segments.length - 2];
+  return parent !== undefined && terminal === `${parent}Client` ? parent : terminal;
 }
 
 type ModelIndex = ReadonlyMap<string, IRModel>;
@@ -107,16 +117,16 @@ type Inferred = {
   supportsPaging: boolean | undefined;
 };
 
-function inferOperation(operation: IROperation): Inferred {
-  const name = inferCommandName(groupOf(operation), operation.id.name, operation.method);
-  return {
+/** Usually one name; an `X`-or-`Y` action word yields one per branch (createOrUpdate -> New + Update). */
+function inferOperation(operation: IROperation): Inferred[] {
+  return inferCommandNames(groupOf(operation), operation.id.name).map((name) => ({
     verb: name.verb,
     subject: name.subject,
     variant: name.variant,
     confirmImpact: isMutatingMethod(operation.method) ? "Medium" : undefined,
     hidden: operation.access === "internal" ? true : undefined,
     supportsPaging: operation.semantics?.kind === "pageable" ? true : undefined,
-  };
+  }));
 }
 
 /** Resource identity: everything about an operation's id except the action word. */
@@ -181,41 +191,47 @@ function defaultParameterSetNameFor(
  * (`listByResourceGroup` -> `ResourceGroup`); the full action word is the fallback, and also the
  * tie-break when two operations in one command would otherwise collide.
  */
-function parameterSetNamesFor(operations: readonly IROperation[]): string[] {
-  const preferred = operations.map((operation) => {
-    const name = inferCommandName(groupOf(operation), operation.id.name, operation.method);
-    return name.variant === "" ? pascalCase(deconstruct(operation.id.name)) : name.variant;
-  });
+function parameterSetNamesFor(entries: readonly CommandEntry[]): string[] {
+  const preferred = entries.map((entry) =>
+    entry.inferred.variant === ""
+      ? pascalCase(deconstruct(entry.operation.id.name))
+      : entry.inferred.variant,
+  );
 
   return preferred.map((name, index) =>
     preferred.some((other, otherIndex) => other === name && otherIndex !== index)
-      ? pascalCase(deconstruct(operations[index]!.id.name))
+      ? pascalCase(deconstruct(entries[index]!.operation.id.name))
       : name,
   );
 }
+
+type CommandEntry = { operation: IROperation; inferred: Inferred };
 
 // ─── Main entry point ────────────────────────────────────────────────────
 
 export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}): DerivedAttributes {
   const models = indexModels(ir);
-  const groups = new Map<string, { operations: IROperation[]; inferred: Inferred }>();
+  const groups = new Map<string, CommandEntry[]>();
 
   for (const operation of ir.operations) {
-    const inferred = inferOperation(operation);
-    const key = groupKey(operation, inferred);
-    const group = groups.get(key);
-    if (group) group.operations.push(operation);
-    else groups.set(key, { operations: [operation], inferred });
+    for (const inferred of inferOperation(operation)) {
+      const key = groupKey(operation, inferred);
+      const group = groups.get(key);
+      if (group) group.push({ operation, inferred });
+      else groups.set(key, [{ operation, inferred }]);
+    }
   }
 
   const commands: PSCommandAttribute[] = [];
   const parameters: PSParameterAttribute[] = [];
 
-  for (const { operations, inferred } of groups.values()) {
-    const setNames = parameterSetNamesFor(operations);
-    const parameterSets: PSParameterSetAttribute[] = operations.map((operation, index) => ({
+  for (const entries of groups.values()) {
+    const operations = entries.map((entry) => entry.operation);
+    const inferred = entries[0]!.inferred;
+    const setNames = parameterSetNamesFor(entries);
+    const parameterSets: PSParameterSetAttribute[] = entries.map((entry, index) => ({
       name: setNames[index]!,
-      sourceOperationId: operation.id,
+      sourceOperationId: entry.operation.id,
     }));
 
     // The module prefix sits outside the dedup: AutoRest reconciles only subject-prefix against

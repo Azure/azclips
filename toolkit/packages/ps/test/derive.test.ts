@@ -62,7 +62,7 @@ function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" 
 describe("deriveAttributes", () => {
   it("derives one command from a single operation, inferring verb/noun from the action word and response type", () => {
     const operation = makeOperation({
-      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "create" },
       method: "PUT",
     });
 
@@ -74,7 +74,7 @@ describe("deriveAttributes", () => {
     expect(commands[0]!.supportsShouldProcess).toBe(true);
     expect(commands[0]!.parameterSets).toHaveLength(1);
     expect(commands[0]!.outputTypes).toHaveLength(1);
-    expect(commands[0]!.defaultParameterSetName).toBe("CreateOrUpdate");
+    expect(commands[0]!.defaultParameterSetName).toBe("Create");
     expect(commands[0]!.sourceOperationIds).toEqual([operation.id]);
     expect(parameters).toHaveLength(0);
   });
@@ -131,11 +131,11 @@ describe("deriveAttributes", () => {
 
   it("derives one PSParameterAttribute per operation parameter, tagged with its parameter set", () => {
     const operation = makeOperation({
-      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "create" },
       method: "PUT",
       pathParameters: [
         {
-          id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate#name" },
+          id: { module: "<root>", namespace: ["ResourceGroups"], name: "create#name" },
           name: "resourceGroupName",
           wireName: "resourceGroupName",
           type: { kind: "primitive", name: "string" },
@@ -150,13 +150,13 @@ describe("deriveAttributes", () => {
     expect(parameters).toHaveLength(1);
     expect(parameters[0]!.name).toBe("resourceGroupName");
     expect(parameters[0]!.mandatory).toBe(true);
-    expect(parameters[0]!.parameterSetName).toBe("CreateOrUpdate");
+    expect(parameters[0]!.parameterSetName).toBe("Create");
     expect(parameters[0]!.sourceParameterId).toEqual(operation.pathParameters[0]!.id);
   });
 
   it("derives one module per IR source", () => {
     const operation = makeOperation({
-      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "create" },
       method: "PUT",
       source: "Microsoft.Resources",
     });
@@ -220,14 +220,15 @@ describe("deriveAttributes", () => {
       },
     });
     const withoutBody = makeOperation({
-      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "provision" },
       method: "PUT",
     });
 
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [withBody, withoutBody] });
 
+    // Both action words map to New, so they merge into one command with two sets.
     expect(commands).toHaveLength(1);
-    expect(commands[0]!.defaultParameterSetName).toBe("CreateOrUpdate");
+    expect(commands[0]!.defaultParameterSetName).toBe("Provision");
   });
 
   it("keeps operations from different IR sources in separate commands", () => {
@@ -329,7 +330,7 @@ describe("deriveAttributes", () => {
   it("resolves the verb from the leading action word, not a prefix of a short table key", () => {
     // `is` -> Test and `end` -> Stop are real entries; prefix matching would hijack these.
     const restore = makeOperation({
-      id: { module: "<root>", namespace: ["ElasticSanClient"], name: "restoreVolume" },
+      id: { module: "<root>", namespace: ["Volumes"], name: "restoreVolume" },
       method: "POST",
       responses: [
         { statusCode: { kind: "exact", code: 200 }, isError: false, type: modelRef("Volume") },
@@ -346,7 +347,56 @@ describe("deriveAttributes", () => {
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [restore, issue] });
 
     const verbs = Object.fromEntries(commands.map((c) => [c.noun, c.verb]));
-    expect(verbs["ElasticSanClientVolume"]).toBe("Restore");
+    expect(verbs["Volume"]).toBe("Restore");
     expect(verbs["IssueCredential"]).toBe("Invoke");
+  });
+
+  it("names a root client's operations after its namespace, not its generated client name", () => {
+    // TCGC gives the root client a "<Service>Client" name; that is a client, not a resource.
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Microsoft", "ElasticSan", "ElasticSanClient"], name: "restoreVolume" },
+      method: "POST",
+      responses: [
+        { statusCode: { kind: "exact", code: 200 }, isError: false, type: modelRef("Volume") },
+      ],
+    });
+
+    const { commands } = deriveAttributes(
+      { ...emptyIR(), operations: [operation] },
+      { modulePrefix: "Az", subjectPrefix: "ElasticSan" },
+    );
+
+    expect(`${commands[0]!.verb}-${commands[0]!.noun}`).toBe("Restore-AzElasticSanVolume");
+  });
+
+  it("leaves a resource group that merely ends in 'Client' alone", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Microsoft", "Network", "VpnClients"], name: "get" },
+      method: "GET",
+      responses: [
+        { statusCode: { kind: "exact", code: 200 }, isError: false, type: modelRef("VpnClient") },
+      ],
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
+
+    expect(commands[0]!.noun).toBe("VpnClient");
+  });
+
+  it("fans createOrUpdate out into New and Update commands from one operation", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "createOrUpdate" },
+      method: "PUT",
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
+
+    expect(commands.map((c) => `${c.verb}-${c.noun}`).sort()).toEqual([
+      "New-ResourceGroup",
+      "Update-ResourceGroup",
+    ]);
+    for (const command of commands) {
+      expect(command.sourceOperationIds).toEqual([operation.id]);
+    }
   });
 });
