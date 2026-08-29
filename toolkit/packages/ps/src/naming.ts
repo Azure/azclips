@@ -1,0 +1,199 @@
+/**
+ * Cmdlet name inference, ported from autorest.powershell so generated names match what the
+ * existing PowerShell generator produces for the same API.
+ *
+ * The shape of a name is `verb + "-" + modulePrefix + subjectPrefix + subject`, where
+ * `subjectPrefix` is authored configuration rather than anything derived, and `subject` comes
+ * from the operation *group* (an operation's declaring namespace) -- never from its response
+ * model. Sources: `plugins/create-commands-v2.ts` (`inferCommand`, `createCommandVariant`),
+ * `plugins/ps-namer-v2.ts` (`getDeduplicatedNoun`), and `@azure-tools/codegen`'s
+ * `text-manipulation` helpers.
+ *
+ * Authoring overrides (AutoRest's `directive:` block) are deliberately not modelled here: real
+ * modules lean on them heavily, but they are a separate layer applied on top of inference.
+ */
+
+import type { HttpMethod } from "@azure-client-engine/ir";
+import { resolveVerb, isKnownActionWord } from "./verb-mapping.js";
+
+/** Split an identifier into lower-cased words. */
+export function deconstruct(identifier: string): string[] {
+  return identifier
+    .replace(/([a-z]+)([A-Z])/g, "$1 $2")
+    .replace(/(\d+)([a-z|A-Z]+)/g, "$1 $2")
+    .replace(/\b([A-Z]+)([A-Z])([a-z])/, "$1 $2$3")
+    .split(/[\W|_]+/)
+    .filter((word) => word.length > 0)
+    .map((word) => word.toLowerCase());
+}
+
+/** AutoRest's `isEqual`: case- and accent-insensitive, and false for empty/absent words. */
+function wordsEqual(a: string | undefined, b: string | undefined): boolean {
+  return b !== undefined && a !== undefined && a.length > 0 && a.localeCompare(b, undefined, { sensitivity: "base" }) === 0;
+}
+
+/** Drop adjacent repeats, and adjacent repeated *pairs* (`a b a b` -> `a b`). */
+export function removeSequentialDuplicates(words: readonly string[]): string[] {
+  const ids = [...words].filter((word) => word.length > 0);
+  for (let i = 0; i < ids.length; i++) {
+    while (wordsEqual(ids[i], ids[i - 1])) ids.splice(i, 1);
+    while (wordsEqual(ids[i], ids[i - 2]) && wordsEqual(ids[i + 1], ids[i - 1])) ids.splice(i, 2);
+  }
+  return ids;
+}
+
+function capitalize(word: string): string {
+  return word.length > 0 ? word[0]!.toUpperCase() + word.slice(1) : word;
+}
+
+export function pascalCase(words: readonly string[]): string {
+  return removeSequentialDuplicates(words).map(capitalize).join("");
+}
+
+/** Strip a trailing plural, handling the common English suffix patterns. */
+export function singularize(word: string): string {
+  if (/[^aeiou]ies$/i.test(word)) return word.slice(0, -3) + "y";
+  if (/(sses|xes|zes|ches|shes)$/i.test(word)) return word.slice(0, -2);
+  if (/s$/i.test(word) && !/ss$/i.test(word)) return word.slice(0, -1);
+  return word;
+}
+
+/** Words that are a preposition's object rather than a split point (`signIn`, not `sign | in`). */
+const SPECIAL_WORDS: Readonly<Record<string, readonly string[]>> = { in: ["sign"] };
+
+const PREPOSITIONS: readonly string[] = ["with", "at", "by", "for", "in", "of"];
+
+function indexOfPreposition(preposition: string, parts: readonly string[]): number {
+  const special = SPECIAL_WORDS[preposition];
+  if (special === undefined) return parts.indexOf(preposition);
+
+  let start = 0;
+  for (;;) {
+    const index = parts.indexOf(preposition, start);
+    if (index <= 0 || !special.includes(parts[index - 1]!)) return index;
+    start = index + 1;
+  }
+}
+
+function splitOnPreposition(
+  preposition: string,
+  parts: readonly string[],
+): [string[], string[]] | undefined {
+  const index = indexOfPreposition(preposition, parts);
+  return index > 0 ? [parts.slice(0, index), parts.slice(index + 1)] : undefined;
+}
+
+function splitOnAnyPreposition(parts: readonly string[]): [string[], string[]] | undefined {
+  for (const preposition of PREPOSITIONS) {
+    const result = splitOnPreposition(preposition, parts);
+    if (result !== undefined && result[0].length > 0) return result;
+  }
+  return undefined;
+}
+
+/** An inferred cmdlet name, before the subject prefix is applied. */
+export type InferredName = {
+  verb: string;
+  /** Bare subject, e.g. "VolumeSnapshot". */
+  subject: string;
+  /** Parameter-set discriminator taken from a trailing preposition ("ListByResourceGroup" -> "ResourceGroup"). */
+  variant: string;
+};
+
+/**
+ * `createCommandVariant`: an action that resolves to no known verb keeps its own word in the
+ * subject, so `preBackup`-style operations stay distinguishable instead of colliding on `Invoke`.
+ */
+function buildName(
+  action: string,
+  subject: readonly string[],
+  variant: readonly string[],
+  method: HttpMethod,
+): InferredName {
+  const verb = resolveVerb(action, method);
+  const subjectWords =
+    verb === "Invoke" && action.toLowerCase() !== "post" ? [action, ...subject] : [...subject];
+
+  return {
+    verb,
+    subject: pascalCase(removeSequentialDuplicates(subjectWords.map(singularize))),
+    variant: pascalCase(variant),
+  };
+}
+
+function inferFromWords(
+  words: readonly string[],
+  group: string,
+  method: HttpMethod,
+  suffix: readonly string[] = [],
+): InferredName {
+  const parts = words.filter((word) => word !== "all");
+
+  if (parts.length === 0) return buildName(group, [group], suffix, method);
+  if (parts.length === 1) return buildName(parts[0]!, [group], suffix, method);
+
+  if (parts.length === 2) {
+    if (isKnownActionWord(parts[0]!)) return buildName(parts[0]!, [group, parts[1]!], suffix, method);
+    if (isKnownActionWord(parts[1]!)) return buildName(parts[1]!, [group, parts[0]!], suffix, method);
+    return buildName(parts[0]!, [group, parts[1]!], suffix, method);
+  }
+
+  // "createOrUpdate" style: AutoRest fans this out into two commands; we keep the first, since
+  // the fan-out belongs to derivation (one operation -> multiple commands), not to naming.
+  const either = splitOnPreposition("or", parts);
+  if (either !== undefined) return inferFromWords([...either[0], ...either[1].slice(1)], group, method, suffix);
+
+  // "listByResourceGroup" -> action "list", variant "ResourceGroup".
+  const prepositional = splitOnAnyPreposition(parts);
+  if (prepositional !== undefined) {
+    return inferFromWords(prepositional[0], group, method, [...suffix, ...prepositional[1]]);
+  }
+
+  for (let i = 0; i < parts.length; i++) {
+    if (!isKnownActionWord(parts[i]!)) continue;
+    if (i === 0) return buildName(parts[i]!, [group, ...parts.slice(1)], suffix, method);
+    if (i === parts.length - 1) return buildName(parts[i]!, [group, ...parts.slice(0, i)], suffix, method);
+    return buildName(parts[i]!, [group], [...suffix, ...parts.slice(i + 1)], method);
+  }
+
+  return buildName(parts[0]!, [group, ...parts.slice(1)], suffix, method);
+}
+
+/**
+ * Infer verb/subject/variant from an operation's declaring group and action word --
+ * AutoRest's `inferCommandNames`.
+ */
+export function inferCommandName(group: string, actionWord: string, method: HttpMethod): InferredName {
+  const groupWords = removeSequentialDuplicates(deconstruct(group));
+  if (groupWords.length > 0) {
+    groupWords[groupWords.length - 1] = singularize(groupWords[groupWords.length - 1]!);
+  }
+  const groupName = pascalCase(groupWords);
+
+  // A whole-word verb match names the command after the group alone.
+  if (isKnownActionWord(actionWord)) return buildName(actionWord, [groupName], [], method);
+
+  return inferFromWords(deconstruct(actionWord), groupName, method);
+}
+
+/**
+ * Split a noun between prefix and subject so the shared words appear once --
+ * AutoRest's `getDeduplicatedNoun`. "ElasticSan" + "ElasticSan" -> subject "", giving
+ * `Get-AzElasticSan` rather than `Get-AzElasticSanElasticSan`.
+ */
+export function deduplicateNoun(
+  subjectPrefix: string,
+  subject: string,
+): { subjectPrefix: string; subject: string } {
+  const prefixWords = removeSequentialDuplicates(deconstruct(subjectPrefix));
+  const subjectWords = removeSequentialDuplicates(deconstruct(subject));
+  const merged = removeSequentialDuplicates([...prefixWords, ...subjectWords]);
+
+  const reversedSubject: string[] = [];
+  for (let m = merged.length - 1, s = subjectWords.length - 1; s >= 0 && m >= 0; m--, s--) {
+    if (merged[m] !== subjectWords[s]) break;
+    reversedSubject.push(merged.pop()!);
+  }
+
+  return { subjectPrefix: pascalCase(merged), subject: pascalCase(reversedSubject.reverse()) };
+}

@@ -265,6 +265,7 @@ describe("deriveAttributes", () => {
     const { commands } = deriveAttributes(ir);
 
     expect(commands[0]!.noun).toBe("PrivateLinkResource");
+    // The noun comes from the group either way; only the output type needs the envelope unwrapped.
     expect(commands[0]!.outputTypes).toEqual([
       { module: "<root>", namespace: [], name: "PrivateLinkResource" },
     ]);
@@ -293,7 +294,9 @@ describe("deriveAttributes", () => {
 
     const { commands } = deriveAttributes({ ...emptyIR(), models: [ruleSet], operations: [operation] });
 
-    expect(commands[0]!.noun).toBe("NetworkRuleSet");
+    expect(commands[0]!.outputTypes).toEqual([
+      { module: "<root>", namespace: [], name: "NetworkRuleSet" },
+    ]);
   });
 
   it("gives every operation on a resource the same noun, including bodiless DELETEs", () => {
@@ -314,11 +317,12 @@ describe("deriveAttributes", () => {
 
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [get, remove] });
 
+    // Group-derived, so the bodiless DELETE cannot disagree with its sibling GET.
     const nouns = new Set(commands.map((c) => c.noun));
-    expect(nouns).toEqual(new Set(["Snapshot"]));
+    expect(nouns).toEqual(new Set(["VolumeSnapshot"]));
     expect(commands.map((c) => `${c.verb}-${c.noun}`).sort()).toEqual([
-      "Get-Snapshot",
-      "Remove-Snapshot",
+      "Get-VolumeSnapshot",
+      "Remove-VolumeSnapshot",
     ]);
   });
 
@@ -342,7 +346,7 @@ describe("deriveAttributes", () => {
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [restore, issue] });
 
     const verbs = Object.fromEntries(commands.map((c) => [c.noun, c.verb]));
-    expect(verbs["Volume"]).toBe("Restore");
-    expect(verbs["Credential"]).toBe("Invoke");
+    expect(verbs["ElasticSanClientVolume"]).toBe("Restore");
+    expect(verbs["IssueCredential"]).toBe("Invoke");
   });
 });

@@ -21,7 +21,7 @@ import {
   type IRParameter,
   type IRTypeRef,
 } from "@azure-client-engine/ir";
-import { resolveVerb } from "./verb-mapping.js";
+import { inferCommandName, deconstruct, pascalCase, deduplicateNoun } from "./naming.js";
 import type {
   PSCommandAttribute,
   PSModuleAttribute,
@@ -30,7 +30,9 @@ import type {
 } from "./attributes.js";
 
 export type DeriveAttributesOptions = {
-  /** Applied to every inferred noun, e.g. "Az" -> "AzResourceGroup". Default: undefined (no prefix). */
+  /** Module-level prefix applied to every noun, e.g. "Az". Default: undefined (none). */
+  modulePrefix?: string | undefined;
+  /** Authored service prefix, e.g. "ElasticSan" -> "AzElasticSanVolume". Default: undefined (none). */
   subjectPrefix?: string | undefined;
 };
 
@@ -47,48 +49,10 @@ function isMutatingMethod(method: IROperation["method"]): boolean {
   return method === "PUT" || method === "POST" || method === "PATCH" || method === "DELETE";
 }
 
-/** Strip a trailing "s" plural, handling the common English suffix patterns. */
-function singularize(word: string): string {
-  if (/[^aeiou]ies$/i.test(word)) return word.slice(0, -3) + "y";
-  if (/(sses|xes|zes|ches|shes)$/i.test(word)) return word.slice(0, -2);
-  if (/s$/i.test(word) && !/ss$/i.test(word)) return word.slice(0, -1);
-  return word;
-}
-
-function capitalize(word: string): string {
-  return word.length > 0 ? word[0]!.toUpperCase() + word.slice(1) : word;
-}
-
-/** The operation's IR id's terminal namespace segment — the resource/model name candidate. */
-function resourceNameCandidate(operation: IROperation): string {
+/** The operation's declaring group — AutoRest's operation group, i.e. the terminal namespace segment. */
+function groupOf(operation: IROperation): string {
   const segments = operation.id.namespace;
   return segments.length > 0 ? segments[segments.length - 1]! : operation.id.name;
-}
-
-/** Model/enum refs carry a name directly; array refs recurse into their element. Others have none. */
-function modelNameOfTypeRef(type: IRTypeRef): string | undefined {
-  switch (type.kind) {
-    case "model":
-    case "enum":
-      return type.id.name;
-    case "array":
-      return modelNameOfTypeRef(type.element);
-    default:
-      return undefined;
-  }
-}
-
-/**
- * The resource name implied by what the operation actually returns, not by which interface it's
- * declared under. Prefers IR's own `itemType` for pageable operations over guessing at the
- * page-wrapper model's name.
- */
-function firstResponseName(operation: IROperation, models: ModelIndex): string | undefined {
-  for (const type of effectiveResponseTypes(operation, models)) {
-    const name = modelNameOfTypeRef(type);
-    if (name !== undefined) return name;
-  }
-  return undefined;
 }
 
 type ModelIndex = ReadonlyMap<string, IRModel>;
@@ -134,31 +98,21 @@ function isCollectionOperation(operation: IROperation, models: ModelIndex): bool
   );
 }
 
-/**
- * Combines subject prefix + bare noun, skipping the bare noun when it's already a suffix of the
- * prefix (case-insensitive) — real precedent: the real `ComputeFleet` module's own
- * `subject-prefix` config produces `Get-AzComputeFleet`, not `Get-AzComputeFleetFleet`, for its
- * own eponymous `Fleet` resource, while unrelated nouns (`VirtualMachine`) still get the prefix
- * appended in full.
- */
-function combineNoun(subjectPrefix: string | undefined, noun: string): string {
-  const prefix = subjectPrefix ?? "";
-  if (prefix !== "" && prefix.toLowerCase().endsWith(noun.toLowerCase())) return prefix;
-  return prefix + noun;
-}
-
 type Inferred = {
   verb: string;
-  noun: string;
+  subject: string;
+  variant: string;
   confirmImpact: "Medium" | undefined;
   hidden: boolean | undefined;
   supportsPaging: boolean | undefined;
 };
 
-function inferOperation(operation: IROperation, noun: string): Inferred {
+function inferOperation(operation: IROperation): Inferred {
+  const name = inferCommandName(groupOf(operation), operation.id.name, operation.method);
   return {
-    verb: resolveVerb(operation.id.name, operation.method),
-    noun,
+    verb: name.verb,
+    subject: name.subject,
+    variant: name.variant,
     confirmImpact: isMutatingMethod(operation.method) ? "Medium" : undefined,
     hidden: operation.access === "internal" ? true : undefined,
     supportsPaging: operation.semantics?.kind === "pageable" ? true : undefined,
@@ -172,46 +126,9 @@ function resourceKey(operation: IROperation): string {
   return [operation.source, operation.id.module, ...operation.id.namespace].join("\u0000");
 }
 
-/**
- * One noun per resource, so operations on the same resource can never disagree. A DELETE carries
- * no response body and would otherwise fall back to the namespace segment while its sibling GET
- * used the response model -- real ElasticSan case: `Remove-AzVolumeSnapshot` next to
- * `Get-AzSnapshot` for the same `VolumeSnapshots` resource.
- */
-function resourceNounsFor(ir: IR, models: ModelIndex): Map<string, string> {
-  const byResource = new Map<string, IROperation[]>();
-  for (const operation of ir.operations) {
-    const key = resourceKey(operation);
-    const bucket = byResource.get(key);
-    if (bucket) bucket.push(operation);
-    else byResource.set(key, [operation]);
-  }
-
-  const nouns = new Map<string, string>();
-  for (const [key, operations] of byResource) {
-    nouns.set(key, resourceNoun(operations, models));
-  }
-  return nouns;
-}
-
-function resourceNoun(operations: readonly IROperation[], models: ModelIndex): string {
-  // A single-resource read names the resource most directly; a collection read only names it
-  // once unwrapped; anything else is weaker evidence than the declaring namespace.
-  for (const operation of operations) {
-    if (operation.method !== "GET" || isCollectionOperation(operation, models)) continue;
-    const name = firstResponseName(operation, models);
-    if (name !== undefined) return name;
-  }
-  for (const operation of operations) {
-    const name = firstResponseName(operation, models);
-    if (name !== undefined) return name;
-  }
-  return singularize(resourceNameCandidate(operations[0]!));
-}
-
-/** Grouping key: same resource + resolved verb + resolved (bare) noun. */
+/** Grouping key: same resource + resolved verb + resolved (bare) subject. */
 function groupKey(operation: IROperation, inferred: Inferred): string {
-  return [resourceKey(operation), inferred.verb, inferred.noun].join("\u0000");
+  return [resourceKey(operation), inferred.verb, inferred.subject].join("\u0000");
 }
 
 // ─── Output types / parameter sets ───────────────────────────────────────
@@ -259,15 +176,32 @@ function defaultParameterSetNameFor(
   return set?.name ?? parameterSets[0]!.name;
 }
 
+/**
+ * Parameter-set name per operation. A trailing preposition already discriminates the set
+ * (`listByResourceGroup` -> `ResourceGroup`); the full action word is the fallback, and also the
+ * tie-break when two operations in one command would otherwise collide.
+ */
+function parameterSetNamesFor(operations: readonly IROperation[]): string[] {
+  const preferred = operations.map((operation) => {
+    const name = inferCommandName(groupOf(operation), operation.id.name, operation.method);
+    return name.variant === "" ? pascalCase(deconstruct(operation.id.name)) : name.variant;
+  });
+
+  return preferred.map((name, index) =>
+    preferred.some((other, otherIndex) => other === name && otherIndex !== index)
+      ? pascalCase(deconstruct(operations[index]!.id.name))
+      : name,
+  );
+}
+
 // ─── Main entry point ────────────────────────────────────────────────────
 
 export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}): DerivedAttributes {
   const models = indexModels(ir);
-  const resourceNouns = resourceNounsFor(ir, models);
   const groups = new Map<string, { operations: IROperation[]; inferred: Inferred }>();
 
   for (const operation of ir.operations) {
-    const inferred = inferOperation(operation, resourceNouns.get(resourceKey(operation))!);
+    const inferred = inferOperation(operation);
     const key = groupKey(operation, inferred);
     const group = groups.get(key);
     if (group) group.operations.push(operation);
@@ -278,15 +212,20 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
   const parameters: PSParameterAttribute[] = [];
 
   for (const { operations, inferred } of groups.values()) {
-    const parameterSets: PSParameterSetAttribute[] = operations.map((operation) => ({
-      name: capitalize(operation.id.name),
+    const setNames = parameterSetNamesFor(operations);
+    const parameterSets: PSParameterSetAttribute[] = operations.map((operation, index) => ({
+      name: setNames[index]!,
       sourceOperationId: operation.id,
     }));
 
+    // The module prefix sits outside the dedup: AutoRest reconciles only subject-prefix against
+    // subject, so "Az" + ("ElasticSan" + "ElasticSan") collapses to Get-AzElasticSan.
+    const deduped = deduplicateNoun(options.subjectPrefix ?? "", inferred.subject);
+
     commands.push({
       verb: inferred.verb,
-      noun: combineNoun(options.subjectPrefix, inferred.noun),
-      subjectPrefix: options.subjectPrefix,
+      noun: (options.modulePrefix ?? "") + deduped.subjectPrefix + deduped.subject,
+      subjectPrefix: deduped.subjectPrefix === "" ? undefined : deduped.subjectPrefix,
       supportsShouldProcess: inferred.confirmImpact !== undefined,
       confirmImpact: inferred.confirmImpact,
       hidden: inferred.hidden,

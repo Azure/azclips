@@ -235,6 +235,11 @@ function leadingWord(actionWord: string): string {
   return match === null ? actionWord.toLowerCase() : match[0].toLowerCase();
 }
 
+/** True when the whole word is a table entry, i.e. it names an action rather than a subject. */
+export function isKnownActionWord(word: string): boolean {
+  return ACTION_WORD_VERBS.has(word.toLowerCase());
+}
+
 /**
  * Resolve a PowerShell verb from an operation's action word (its IR id's terminal `name`,
  * e.g. "createOrUpdate", "listByResourceGroup") and HTTP method. Table match wins; HTTP
