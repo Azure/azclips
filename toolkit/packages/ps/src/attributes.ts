@@ -60,6 +60,58 @@ export const PSDefaultValueAttributeSchema: z.ZodType<PSDefaultValueAttribute> =
   })
   .strict();
 
+// ─── PSParameterAttribute (mirrors [Parameter] + ArgumentInfoAttribute) ──
+
+/** Per-parameter-set override of the fields that legitimately vary by set (real `ParameterAttribute` can stack one instance per set). */
+export type PSParameterSetOverride = {
+  mandatory?: boolean | undefined;
+  position?: number | undefined;
+  helpMessage?: string | undefined;
+};
+
+export const PSParameterSetOverrideSchema: z.ZodType<PSParameterSetOverride> = z
+  .object({
+    mandatory: z.boolean().optional(),
+    position: z.number().int().optional(),
+    helpMessage: z.string().min(1).optional(),
+  })
+  .strict();
+
+export type PSParameterAttribute = {
+  name: string;
+  mandatory?: boolean | undefined;
+  /** Set this parameter belongs to, when it belongs to exactly one; omitted when it spans sets. */
+  parameterSetName?: string | undefined;
+  helpMessage?: string | undefined;
+  position?: number | undefined;
+  valueFromPipeline?: boolean | undefined;
+  valueFromPipelineByPropertyName?: boolean | undefined;
+  alias?: string[] | undefined;
+  completer?: PSCompleterAttribute | undefined;
+  defaultValue?: PSDefaultValueAttribute | undefined;
+  /** Per-set overrides, keyed by the parameter set's name (`PSParameterSetAttribute.name`), for fields that vary by set. */
+  parameterSets?: Record<string, PSParameterSetOverride> | undefined;
+  /** The IR parameter/property this types from and binds to. */
+  sourceParameterId: IRId;
+};
+
+export const PSParameterAttributeSchema: z.ZodType<PSParameterAttribute> = z
+  .object({
+    name: z.string().min(1),
+    mandatory: z.boolean().optional(),
+    parameterSetName: z.string().min(1).optional(),
+    helpMessage: z.string().min(1).optional(),
+    position: z.number().int().optional(),
+    valueFromPipeline: z.boolean().optional(),
+    valueFromPipelineByPropertyName: z.boolean().optional(),
+    alias: z.array(z.string().min(1)).optional(),
+    completer: PSCompleterAttributeSchema.optional(),
+    defaultValue: PSDefaultValueAttributeSchema.optional(),
+    parameterSets: z.record(z.string().min(1), PSParameterSetOverrideSchema).optional(),
+    sourceParameterId: IRIdSchema,
+  })
+  .strict();
+
 // ─── PSCommandAttribute (mirrors [Cmdlet] + ProcessorInfoAttribute) ──────
 
 /** One source operation's contribution to a merged command; e.g. "Get"/"List", or "base"/"Expanded" for one fanned-out operation. */
@@ -97,6 +149,12 @@ export type PSCommandAttribute = {
   outputTypes: IRId[];
   /** One parameter set per merged source operation (mirrors `CmdletCommonMetadataAttribute`'s parameter-set model). */
   parameterSets: PSParameterSetAttribute[];
+  /**
+   * The command's own parameters. `[Parameter]` only ever decorates a property of a cmdlet class,
+   * so a parameter belongs to exactly one command; nesting is also what makes `parameterSetName`
+   * unambiguous, since set names are unique only within a command.
+   */
+  parameters: PSParameterAttribute[];
   /** Mirrors `CmdletCommonMetadataAttribute.DefaultParameterSetName`. */
   defaultParameterSetName: string;
   /** IR operation id(s) this command derives from. One today; more than one is a valid shape (GetPut-style merge). */
@@ -125,71 +183,40 @@ export const PSCommandAttributeSchema: z.ZodType<PSCommandAttribute> = z
     helpUri: z.string().min(1).optional(),
     outputTypes: z.array(IRIdSchema),
     parameterSets: z.array(PSParameterSetAttributeSchema).min(1),
+    parameters: z.array(PSParameterAttributeSchema),
     defaultParameterSetName: z.string().min(1),
     sourceOperationIds: z.array(IRIdSchema).min(1),
   })
   .strict()
   .superRefine((command, ctx) => {
-    if (!command.parameterSets.some((set) => set.name === command.defaultParameterSetName)) {
+    const setNames = new Set(command.parameterSets.map((set) => set.name));
+    if (!setNames.has(command.defaultParameterSetName)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["defaultParameterSetName"],
         message: "defaultParameterSetName must match the name of one of parameterSets.",
       });
     }
+
+    command.parameters.forEach((parameter, index) => {
+      if (parameter.parameterSetName !== undefined && !setNames.has(parameter.parameterSetName)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["parameters", index, "parameterSetName"],
+          message: `parameterSetName '${parameter.parameterSetName}' does not match any of the command's parameterSets.`,
+        });
+      }
+      for (const setName of Object.keys(parameter.parameterSets ?? {})) {
+        if (!setNames.has(setName)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["parameters", index, "parameterSets", setName],
+            message: `Per-set override keyed '${setName}' does not match any of the command's parameterSets.`,
+          });
+        }
+      }
+    });
   });
-
-// ─── PSParameterAttribute (mirrors [Parameter] + ArgumentInfoAttribute) ──
-
-/** Per-parameter-set override of the fields that legitimately vary by set (real `ParameterAttribute` can stack one instance per set). */
-export type PSParameterSetOverride = {
-  mandatory?: boolean | undefined;
-  position?: number | undefined;
-  helpMessage?: string | undefined;
-};
-
-export const PSParameterSetOverrideSchema: z.ZodType<PSParameterSetOverride> = z
-  .object({
-    mandatory: z.boolean().optional(),
-    position: z.number().int().optional(),
-    helpMessage: z.string().min(1).optional(),
-  })
-  .strict();
-
-export type PSParameterAttribute = {
-  name: string;
-  mandatory?: boolean | undefined;
-  /** Parameter-set name this parameter belongs to (defaults to the containing command's base set). */
-  parameterSetName?: string | undefined;
-  helpMessage?: string | undefined;
-  position?: number | undefined;
-  valueFromPipeline?: boolean | undefined;
-  valueFromPipelineByPropertyName?: boolean | undefined;
-  alias?: string[] | undefined;
-  completer?: PSCompleterAttribute | undefined;
-  defaultValue?: PSDefaultValueAttribute | undefined;
-  /** Per-set overrides, keyed by the parameter set's name (`PSParameterSetAttribute.name`), for fields that vary by set. */
-  parameterSets?: Record<string, PSParameterSetOverride> | undefined;
-  /** The IR parameter/property this types from and binds to. */
-  sourceParameterId: IRId;
-};
-
-export const PSParameterAttributeSchema: z.ZodType<PSParameterAttribute> = z
-  .object({
-    name: z.string().min(1),
-    mandatory: z.boolean().optional(),
-    parameterSetName: z.string().min(1).optional(),
-    helpMessage: z.string().min(1).optional(),
-    position: z.number().int().optional(),
-    valueFromPipeline: z.boolean().optional(),
-    valueFromPipelineByPropertyName: z.boolean().optional(),
-    alias: z.array(z.string().min(1)).optional(),
-    completer: PSCompleterAttributeSchema.optional(),
-    defaultValue: PSDefaultValueAttributeSchema.optional(),
-    parameterSets: z.record(z.string().min(1), PSParameterSetOverrideSchema).optional(),
-    sourceParameterId: IRIdSchema,
-  })
-  .strict();
 
 // ─── PSModuleAttribute (mirrors the generated .psd1's module-level facts) ─
 
