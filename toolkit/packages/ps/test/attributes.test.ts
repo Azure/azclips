@@ -14,6 +14,7 @@ const paramId = { module: "Test", name: "createOrUpdate#name", namespace: ["Flee
 const command = (overrides: Record<string, unknown> = {}) => ({
   verb: "New",
   noun: "Fleet",
+  subject: "Fleet",
   supportsShouldProcess: true,
   outputTypes: [],
   parameterSets: [{ name: "CreateOrUpdate", sourceOperationId: opId }],
