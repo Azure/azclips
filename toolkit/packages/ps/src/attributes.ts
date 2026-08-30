@@ -1,9 +1,8 @@
 /**
  * PowerShell-facing attribute schema: `PSCommandAttribute` / `PSParameterAttribute` /
- * `PSModuleAttribute`. Named after the real C# attribute each mirrors (`[Cmdlet]` +
- * `ProcessorInfoAttribute`, `[Parameter]` + `ArgumentInfoAttribute`), not "hints" —
- * these are standalone declarations, not per-node IR rendering metadata. They reference
- * IR by id (`IRId`) rather than living on `IROperation.rendering`/`IRParameter.rendering`.
+ * `PSModuleAttribute`. Each is named after the real C# attribute it mirrors (`[Cmdlet]` +
+ * `ProcessorInfoAttribute`, `[Parameter]` + `ArgumentInfoAttribute`) and references the IR
+ * node it was derived from by id (`IRId`).
  *
  * `sourceOperationIds` is an array from the start (even though every producer today resolves
  * exactly one element) so a later fan-out (one operation -> New *and* Set) or fan-in
