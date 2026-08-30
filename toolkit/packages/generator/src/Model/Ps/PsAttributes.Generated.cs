@@ -42,6 +42,9 @@ public partial class PSCommandAttribute
     [JsonPropertyName("noun")]
     public string Noun { get; set; } = default !;
 
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = default !;
+
     [JsonPropertyName("subjectPrefix")]
     public string? SubjectPrefix { get; set; }
 
@@ -86,6 +89,9 @@ public partial class PSCommandAttribute
 
     [JsonPropertyName("parameterSets")]
     public IReadOnlyList<PSParameterSetAttribute> ParameterSets { get; set; } = [];
+
+    [JsonPropertyName("parameters")]
+    public IReadOnlyList<PSParameterAttribute> Parameters { get; set; } = [];
 
     [JsonPropertyName("defaultParameterSetName")]
     public string DefaultParameterSetName { get; set; } = default !;
@@ -152,6 +158,9 @@ public partial class PSParameterAttribute
 
     [JsonPropertyName("parameterSetName")]
     public string? ParameterSetName { get; set; }
+
+    [JsonPropertyName("hidden")]
+    public bool? Hidden { get; set; }
 
     [JsonPropertyName("helpMessage")]
     public string? HelpMessage { get; set; }
