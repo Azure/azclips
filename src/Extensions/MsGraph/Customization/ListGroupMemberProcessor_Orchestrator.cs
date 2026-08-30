@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// <see cref="GroupDisplayName"/>, resolves that to a single object ID, then delegates to the
     /// atomic. The atomic itself only accepts an object ID.
     /// </summary>
-    public class ListGroupMemberProcessor_Orchestrator : GraphProcessorBase<DirectoryObjectList>
+    public class ListGroupMemberProcessor_Orchestrator : GraphProcessorBase<object, DirectoryObjectList>
     {
         [ArgumentInfo(
             Required = false,

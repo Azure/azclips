@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// and combines with the caller's <c>Filter</c> using OData <c>and</c>. The atomic itself
     /// accepts only native OData query params.
     /// </summary>
-    public class ListApplicationProcessor_Orchestrator : GraphProcessorBase<ApplicationList>
+    public class ListApplicationProcessor_Orchestrator : GraphProcessorBase<object, ApplicationList>
     {
         [ArgumentInfo(
             Required = false,

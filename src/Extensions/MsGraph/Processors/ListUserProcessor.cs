@@ -13,11 +13,11 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// <c>$orderby</c>, <c>$search</c>, and the <c>ConsistencyLevel</c> header. Convenience
     /// filter shortcuts (<c>DisplayName</c>, <c>Mail</c>, <c>DisplayNamePrefix</c>,
     /// <c>UserPrincipalName</c>) and <c>AppendSelected</c> live in
-    /// <c>Orchestrators/ListUserProcessor_Orchestrator</c>. Returns an OData envelope; this
+    /// <c>Customization/ListUserProcessor_Orchestrator</c>. Returns an OData envelope; this
     /// processor writes its <c>value</c> array. Pagination (<c>@odata.nextLink</c>) is not
     /// followed.
     /// </summary>
-    public class ListUserProcessor : GraphProcessorBase<UserList>
+    public class ListUserProcessor : GraphProcessorBase<object, UserList>
     {
         [ArgumentInfo(
             Required = false,
@@ -55,18 +55,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        protected override HttpMethod Method => HttpMethod.Get;
 
-            string uri = "https://graph.microsoft.com/v1.0/users"
+        protected override string CreateRequestUri() =>
+            "https://graph.microsoft.com/v1.0/users"
                 + ODataQueryBuilder.Build(filter: Filter, select: Select, expand: Expand, orderby: Orderby, search: Search);
 
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.SetConsistencyLevel(ConsistencyLevel);
-
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
+        protected override void CreateRequestHeaders(HttpRequestMessage request) => request.SetConsistencyLevel(ConsistencyLevel);
     }
 }

@@ -11,13 +11,13 @@ namespace Cli.Tests;
 /// </summary>
 public class ProfileSubscriptionResolutionTests
 {
-    private sealed class TestResourceProcessor : ResourcesProcessorBase<object>
+    private sealed class TestResourceProcessor : ResourcesProcessorBase<object, object>
     {
         public void SetProfile(Profile? profile) => ResolvedProfile = profile;
         public void Resolve() => ResolveSubscriptionId();
     }
 
-    private sealed class TestComputeProcessor : ComputeProcessorBase<object>
+    private sealed class TestComputeProcessor : ComputeProcessorBase<object, object>
     {
         public void SetProfile(Profile? profile) => ResolvedProfile = profile;
         public void Resolve() => ResolveSubscriptionId();

@@ -19,7 +19,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// and delegates here via <c>CreateExtendedProcessor</c>. What-if is read-only: it never
     /// creates or modifies resources.
     /// </summary>
-    public class NewResourceGroupDeploymentWhatIfProcessor : ResourcesProcessorBase<WhatIfOperationResult>
+    public class NewResourceGroupDeploymentWhatIfProcessor : ResourcesProcessorBase<DeploymentWhatIf, WhatIfOperationResult>
     {
         private const string ApiVersion = "2025-04-01";
 
@@ -47,18 +47,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             return SendAsyncLRO();
         }
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        protected override HttpMethod Method => HttpMethod.Post;
 
-            string uri = $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/whatIf?api-version={ApiVersion}";
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, uri)
-            {
-                Content = JsonContent.Create(WhatIf, options: JsonOptions)
-            };
+        protected override string CreateRequestUri() =>
+            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}/whatIf?api-version={ApiVersion}";
 
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
+        protected override DeploymentWhatIf? CreateRequestBody() => WhatIf;
     }
 }

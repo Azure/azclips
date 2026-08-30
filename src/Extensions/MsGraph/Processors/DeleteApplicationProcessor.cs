@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// no response body to project; <see cref="object"/> is used as the response type and the base
     /// pipeline simply completes once the request succeeds.
     /// </summary>
-    public class DeleteApplicationProcessor : GraphProcessorBase<object>
+    public class DeleteApplicationProcessor : GraphProcessorBase<object, object>
     {
         [ArgumentInfo(
             Required = true,
@@ -19,18 +19,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"Id")]
         public string Id { get; set; } = "";
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            if (string.IsNullOrWhiteSpace(Id))
-            {
-                throw new InvalidOperationException("Id is required to delete an application.");
-            }
+        protected override HttpMethod Method => HttpMethod.Delete;
 
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-            string uri = $"https://graph.microsoft.com/v1.0/applications/{Uri.EscapeDataString(Id)}";
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, uri);
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
+        protected override string CreateRequestUri() =>
+            $"https://graph.microsoft.com/v1.0/applications/{Uri.EscapeDataString(Id)}";
     }
 }
