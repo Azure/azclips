@@ -32,5 +32,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "PowerShell command/parameter/module attribute schema for the Azure Client Engine (standalone, not IR hints)"
+  "description": "PowerShell command, parameter, and module attribute schema for the Azure Client Engine"
 }
