@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   PSCommandAttributeSchema,
+  PSCompleterAttributeSchema,
+  PSDefaultValueAttributeSchema,
   PSParameterAttributeSchema,
   PSModuleAttributeSchema,
 } from "../src/attributes.js";
@@ -85,9 +87,36 @@ describe("PSParameterAttribute", () => {
   });
 });
 
+describe("PSCompleterAttribute", () => {
+  it.each([
+    ["script", { script: "Get-Thing" }],
+    ["name", { name: "LocationCompleter" }],
+    ["description", { description: "Completes locations." }],
+  ])("accepts a completer carrying only %s", (_field, value) => {
+    expect(PSCompleterAttributeSchema.safeParse(value).success).toBe(true);
+  });
+
+  it("rejects a completer with none of script/name/description", () => {
+    expect(PSCompleterAttributeSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("PSDefaultValueAttribute", () => {
+  it("accepts a default value carrying a script", () => {
+    const result = PSDefaultValueAttributeSchema.safeParse({
+      script: "(Get-AzContext).Subscription.Id",
+      setCondition: "$PSBoundParameters.ContainsKey('SubscriptionId')",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a default value with no script", () => {
+    expect(PSDefaultValueAttributeSchema.safeParse({ name: "Subscription" }).success).toBe(false);
+  });
+});
+
 describe("PSModuleAttribute", () => {
-  it("accepts a module description", () => {
-    const result = PSModuleAttributeSchema.safeParse({
+  it("accepts a module description", () => {    const result = PSModuleAttributeSchema.safeParse({
       description: "Fleet management cmdlets.",
       sourceId: "Microsoft.AzureFleet",
       cmdletsToExport: ["New-AzFleet", "Get-AzFleet"],
