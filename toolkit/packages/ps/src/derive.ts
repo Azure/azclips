@@ -313,6 +313,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
     commands.push({
       verb: inferred.verb,
       noun: (options.modulePrefix ?? "") + deduped.subjectPrefix + deduped.subject,
+      subject: deduped.subject,
       subjectPrefix: deduped.subjectPrefix === "" ? undefined : deduped.subjectPrefix,
       supportsShouldProcess: inferred.confirmImpact !== undefined,
       confirmImpact: inferred.confirmImpact,

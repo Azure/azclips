@@ -132,7 +132,14 @@ export const PSParameterSetAttributeSchema: z.ZodType<PSParameterSetAttribute> =
 
 export type PSCommandAttribute = {
   verb: string;
+  /** The composed cmdlet noun: module prefix + `subjectPrefix` + `subject`. */
   noun: string;
+  /**
+   * The bare subject, without either prefix. Kept alongside `noun` because authoring overrides
+   * address the subject rather than the composed noun, and a composed value alone cannot be
+   * rewritten back into its parts.
+   */
+  subject: string;
   /** Configurable subject prefix combined with `noun` at grouping time, e.g. "Az". */
   subjectPrefix?: string | undefined;
   supportsShouldProcess: boolean;
@@ -168,6 +175,7 @@ export const PSCommandAttributeSchema: z.ZodType<PSCommandAttribute> = z
   .object({
     verb: z.string().min(1),
     noun: z.string().min(1),
+    subject: z.string(),
     subjectPrefix: z.string().min(1).optional(),
     supportsShouldProcess: z.boolean(),
     confirmImpact: z.enum(ConfirmImpacts).optional(),
