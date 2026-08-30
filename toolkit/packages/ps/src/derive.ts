@@ -21,7 +21,7 @@ import {
   type IRParameter,
   type IRTypeRef,
 } from "@azure-client-engine/ir";
-import { inferCommandNames, deconstruct, pascalCase, deduplicateNoun } from "./naming.js";
+import { inferCommandNames, deconstruct, pascalCase, singularize, deduplicateNoun } from "./naming.js";
 import type {
   PSCommandAttribute,
   PSModuleAttribute,
@@ -223,6 +223,24 @@ type CommandEntry = { operation: IROperation; inferred: Inferred };
 
 const helpOf = (parameter: IRParameter): string | undefined => parameter.summary ?? parameter.docs;
 
+/** PowerShell parameters are PascalCase and singular; `tags` becomes `Tag`. */
+const normalizeParameterName = (name: string): string => singularize(pascalCase(deconstruct(name)));
+
+/**
+ * Drops a redundant subject prefix from a path parameter, as `ps-namer-v2.ts` does via
+ * `removeProhibitedPrefix`: `Get-AzElasticSan -ElasticSanName` reads better as `-Name`. Refuses
+ * a result under two characters, or one that would collide with another parameter.
+ */
+function withoutSubjectPrefix(name: string, subject: string, otherNames: readonly string[]): string {
+  if (subject === "" || !name.toLowerCase().startsWith(subject.toLowerCase())) return name;
+
+  const stripped = name.slice(subject.length);
+  if (stripped.length < 2) return name;
+
+  const candidate = stripped[0]!.toUpperCase() + stripped.slice(1);
+  return otherNames.includes(candidate) ? name : candidate;
+}
+
 /**
  * One `PSParameterAttribute` per distinct parameter name on the command, mirroring C# where a
  * cmdlet has one property however many sets use it. A parameter present in every set with the
@@ -233,23 +251,38 @@ const helpOf = (parameter: IRParameter): string | undefined => parameter.summary
 function parametersFor(
   entries: readonly CommandEntry[],
   parameterSets: readonly PSParameterSetAttribute[],
+  subject: string,
 ): PSParameterAttribute[] {
-  const occurrences = new Map<string, { setName: string; parameter: IRParameter }[]>();
+  const occurrences = new Map<string, { setName: string; parameter: IRParameter; isPath: boolean }[]>();
 
   entries.forEach((entry, index) => {
     const setName = parameterSets[index]!.name;
+    const pathNames = new Set(entry.operation.pathParameters.map((p) => p.name));
     for (const parameter of userFacingParameters(entry.operation)) {
-      const bucket = occurrences.get(parameter.name);
-      if (bucket) bucket.push({ setName, parameter });
-      else occurrences.set(parameter.name, [{ setName, parameter }]);
+      const name = normalizeParameterName(parameter.name);
+      const occurrence = { setName, parameter, isPath: pathNames.has(parameter.name) };
+      const bucket = occurrences.get(name);
+      if (bucket) bucket.push(occurrence);
+      else occurrences.set(name, [occurrence]);
     }
   });
 
+  const allNames = [...occurrences.keys()];
   const parameters: PSParameterAttribute[] = [];
   for (const [name, found] of occurrences) {
     const first = found[0]!.parameter;
+    // Only path parameters are shortened; a query or header name carries no such redundancy.
+    const shortened = found.some((o) => o.isPath)
+      ? withoutSubjectPrefix(
+          name,
+          subject,
+          allNames.filter((other) => other !== name),
+        )
+      : name;
+
     const base: PSParameterAttribute = {
-      name,
+      name: shortened,
+      ...(shortened === name ? {} : { alias: [name] }),
       mandatory: !first.optional,
       helpMessage: helpOf(first),
       sourceParameterId: first.id,
@@ -332,7 +365,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
       supportsPaging: undefined,
       outputTypes: outputTypeIdsFor(operations, models),
       parameterSets,
-      parameters: parametersFor(entries, parameterSets),
+      parameters: parametersFor(entries, parameterSets, deduped.subject),
       defaultParameterSetName: defaultParameterSetNameFor(operations, parameterSets),
       sourceOperationIds: operations.map((operation) => operation.id),
     });
