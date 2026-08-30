@@ -82,6 +82,8 @@ export type PSParameterAttribute = {
   mandatory?: boolean | undefined;
   /** Set this parameter belongs to, when it belongs to exactly one; omitted when it spans sets. */
   parameterSetName?: string | undefined;
+  /** When true, the parameter is not exported on the generated cmdlet (mirrors `DoNotExportAttribute`). */
+  hidden?: boolean | undefined;
   helpMessage?: string | undefined;
   position?: number | undefined;
   valueFromPipeline?: boolean | undefined;
@@ -100,6 +102,7 @@ export const PSParameterAttributeSchema: z.ZodType<PSParameterAttribute> = z
     name: z.string().min(1),
     mandatory: z.boolean().optional(),
     parameterSetName: z.string().min(1).optional(),
+    hidden: z.boolean().optional(),
     helpMessage: z.string().min(1).optional(),
     position: z.number().int().optional(),
     valueFromPipeline: z.boolean().optional(),

@@ -99,6 +99,15 @@ describe("PSParameterAttribute", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts a hidden parameter, which is kept but not exported", () => {
+    const result = PSParameterAttributeSchema.safeParse({
+      name: "managedByResourceId",
+      sourceParameterId: opId,
+      hidden: true,
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("PSCompleterAttribute", () => {
