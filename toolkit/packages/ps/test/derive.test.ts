@@ -129,6 +129,32 @@ describe("deriveAttributes", () => {
     expect(commands[0]!.noun).toBe("AzComputeFleet");
   });
 
+  it("drops content-negotiation headers but keeps service-defined ones", () => {
+    const header = (name: string, wireName: string, optional: boolean) => ({
+      id: { module: "<root>", namespace: ["Volumes"], name: `delete.${wireName}` },
+      name,
+      wireName,
+      type: { kind: "primitive" as const, name: "string" as const },
+      optional,
+      nullable: false,
+    });
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Volumes"], name: "delete" },
+      method: "DELETE",
+      responses: [],
+      headerParameters: [
+        header("accept", "Accept", false),
+        header("contentType", "Content-Type", false),
+        // Real ElasticSan ships this one as -ForceDelete.
+        header("x-ms-force-delete", "x-ms-force-delete", true),
+      ],
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
+
+    expect(commands[0]!.parameters.map((p) => p.name)).toEqual(["x-ms-force-delete"]);
+  });
+
   it("nests parameters under their command, omitting the set when a parameter spans all of them", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "create" },

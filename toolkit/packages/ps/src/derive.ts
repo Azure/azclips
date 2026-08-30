@@ -165,6 +165,24 @@ function outputTypeIdsFor(operations: readonly IROperation[], models: ModelIndex
 }
 
 /**
+ * Content-negotiation headers are protocol plumbing rather than user input: no generated Az cmdlet
+ * exposes them, and autorest.powershell drops them because modelerfour tags them
+ * `modelerfour:synthesized`. The IR carries no equivalent flag, so match on the wire name. Every
+ * other header stays -- `x-ms-force-delete` and friends really do ship as cmdlet parameters.
+ */
+const PROTOCOL_HEADER_WIRE_NAMES: ReadonlySet<string> = new Set(["accept", "content-type"]);
+
+function userFacingParameters(operation: IROperation): IRParameter[] {
+  return [
+    ...operation.pathParameters,
+    ...operation.queryParameters,
+    ...operation.headerParameters.filter(
+      (p) => !PROTOCOL_HEADER_WIRE_NAMES.has(p.wireName.toLowerCase()),
+    ),
+  ];
+}
+
+/**
  * Mirrors `CmdletCommonMetadataAttribute.DefaultParameterSetName`. Merged operations: fewest
  * required parameters wins (e.g. `List` over `Get`).
  */
@@ -173,9 +191,8 @@ function defaultParameterSetNameFor(
   parameterSets: readonly PSParameterSetAttribute[],
 ): string {
   const requiredCount = (operation: IROperation): number =>
-    [...operation.pathParameters, ...operation.queryParameters, ...operation.headerParameters].filter(
-      (p) => !p.optional,
-    ).length + (operation.requestBody === undefined ? 0 : 1);
+    userFacingParameters(operation).filter((p) => !p.optional).length +
+    (operation.requestBody === undefined ? 0 : 1);
   const mostGeneral = operations.reduce((best, operation) =>
     requiredCount(operation) < requiredCount(best) ? operation : best,
   );
@@ -221,12 +238,7 @@ function parametersFor(
 
   entries.forEach((entry, index) => {
     const setName = parameterSets[index]!.name;
-    const all: IRParameter[] = [
-      ...entry.operation.pathParameters,
-      ...entry.operation.queryParameters,
-      ...entry.operation.headerParameters,
-    ];
-    for (const parameter of all) {
+    for (const parameter of userFacingParameters(entry.operation)) {
       const bucket = occurrences.get(parameter.name);
       if (bucket) bucket.push({ setName, parameter });
       else occurrences.set(parameter.name, [{ setName, parameter }]);
