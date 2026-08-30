@@ -13,7 +13,7 @@ import type { PSDirective, PSDirectiveSelector, PSDirectiveSet } from "./directi
 
 export type PSDirectiveDiagnostic = {
   severity: "warning";
-  code: "unmatched-directive" | "unsupported-directive" | "ineffective-directive";
+  code: "unmatched-directive" | "unsupported-directive";
   message: string;
   /** Index into the directive list, so a report can point at the offending entry. */
   directiveIndex: number;
@@ -47,7 +47,11 @@ function modulePrefixOf(command: PSCommandAttribute): string {
   return command.noun.endsWith(tail) ? command.noun.slice(0, command.noun.length - tail.length) : "";
 }
 
-function applyCommandSet(command: PSCommandAttribute, set: PSDirectiveSet): PSCommandAttribute {
+function applyCommandSet(
+  command: PSCommandAttribute,
+  set: PSDirectiveSet,
+  matchedVariant: string | undefined,
+): PSCommandAttribute {
   const next = { ...command };
   if (set.verb !== undefined) next.verb = set.verb;
   if (set["command-description"] !== undefined) next.description = set["command-description"];
@@ -55,6 +59,8 @@ function applyCommandSet(command: PSCommandAttribute, set: PSDirectiveSet): PSCo
   if (set["suppress-should-process"] !== undefined) {
     next.supportsShouldProcess = !set["suppress-should-process"];
   }
+  // The capability half lives in IR (`IRPageableSemantics`); this is the opt-in half.
+  if (set["clientside-pagination"] !== undefined) next.supportsPaging = set["clientside-pagination"];
 
   if (set.subject !== undefined || set["subject-prefix"] !== undefined) {
     const modulePrefix = modulePrefixOf(command);
@@ -65,7 +71,33 @@ function applyCommandSet(command: PSCommandAttribute, set: PSDirectiveSet): PSCo
     next.noun = modulePrefix + (next.subjectPrefix ?? "") + next.subject;
   }
 
+  if (set.variant !== undefined && matchedVariant !== undefined) {
+    return renameParameterSet(next, matchedVariant, set.variant);
+  }
   return next;
+}
+
+/** Renames a set and every reference to it, so the schema's set-reference refinement still holds. */
+function renameParameterSet(
+  command: PSCommandAttribute,
+  from: string,
+  to: string,
+): PSCommandAttribute {
+  return {
+    ...command,
+    parameterSets: command.parameterSets.map((set) => (set.name === from ? { ...set, name: to } : set)),
+    defaultParameterSetName:
+      command.defaultParameterSetName === from ? to : command.defaultParameterSetName,
+    parameters: command.parameters.map((parameter) => {
+      const next = { ...parameter };
+      if (next.parameterSetName === from) next.parameterSetName = to;
+      if (next.parameterSets !== undefined && from in next.parameterSets) {
+        const { [from]: moved, ...rest } = next.parameterSets;
+        next.parameterSets = { ...rest, [to]: moved! };
+      }
+      return next;
+    }),
+  };
 }
 
 function applyParameterSet(
@@ -146,7 +178,13 @@ export function applyDirectives(
           const { alias: _dropped, ...rest } = next;
           next = rest;
         }
-        if (directive.set !== undefined) next = applyCommandSet(next, directive.set);
+        if (directive.set !== undefined) {
+          const matchedVariant =
+            where.variant === undefined
+              ? undefined
+              : command.parameterSets.find((s) => matches(where.variant, s.name))?.name;
+          next = applyCommandSet(next, directive.set, matchedVariant);
+        }
         if (directive.hide === true) next = { ...next, hidden: true };
         kept.push(next);
       }
@@ -177,8 +215,7 @@ export function applyDirectives(
 
 /** Parsed, but with nowhere to land yet -- reported so it cannot become a silent no-op. */
 function unsupportedKeys(directive: PSDirective): string[] {
-  const keys: string[] = [];
-  if (directive.set?.variant !== undefined) keys.push("set.variant");
-  if (directive.set?.["clientside-pagination"] !== undefined) keys.push("set.clientside-pagination");
-  return keys;
+  return directive.set?.variant !== undefined && directive.where.variant === undefined
+    ? ["set.variant without a variant selector"]
+    : [];
 }

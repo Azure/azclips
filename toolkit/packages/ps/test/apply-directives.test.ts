@@ -125,9 +125,33 @@ describe("applyDirectives", () => {
 
   it("reports a recognised setter this stage cannot yet apply", () => {
     const { diagnostics } = apply([
-      { where: { verb: "^Get$" }, set: { "clientside-pagination": true } },
+      { where: { verb: "^Get$" }, set: { variant: "Renamed" } },
     ]);
     expect(diagnostics.map((d) => d.code)).toContain("unsupported-directive");
+  });
+
+  it("opts a command into paging, which derivation never does on its own", () => {
+    const derived = fixture();
+    expect(derived.commands.every((c) => c.supportsPaging === undefined)).toBe(true);
+
+    const { attributes } = applyDirectives(derived, [
+      { where: { verb: "^Get$" }, set: { "clientside-pagination": true } },
+    ]);
+
+    expect(attributes.commands.find((c) => c.verb === "Get")?.supportsPaging).toBe(true);
+  });
+
+  it("renames a parameter set and every reference to it", () => {
+    const { attributes } = apply([
+      { where: { verb: "^Get$", variant: "^Get$" }, set: { variant: "Identity" } },
+    ]);
+
+    const command = attributes.commands.find((c) => c.verb === "Get")!;
+    expect(command.parameterSets.map((s) => s.name)).toContain("Identity");
+    expect(command.parameterSets.map((s) => s.name)).not.toContain("Get");
+    expect(command.defaultParameterSetName).toBe("Identity");
+    // A parameter bound to the old name must follow it, or the schema refinement would reject.
+    expect(command.parameters.every((p) => p.parameterSetName !== "Get")).toBe(true);
   });
 
   it("applies directives in order, so a later one sees the earlier one's result", () => {
