@@ -8,59 +8,73 @@ import {
 } from "../src/attributes.js";
 
 const opId = { module: "Test", name: "createOrUpdate", namespace: ["Fleets"] };
+const paramId = { module: "Test", name: "createOrUpdate#name", namespace: ["Fleets"] };
+
+/** A minimal valid command; individual tests override the fields they exercise. */
+const command = (overrides: Record<string, unknown> = {}) => ({
+  verb: "New",
+  noun: "Fleet",
+  supportsShouldProcess: true,
+  outputTypes: [],
+  parameterSets: [{ name: "CreateOrUpdate", sourceOperationId: opId }],
+  parameters: [],
+  defaultParameterSetName: "CreateOrUpdate",
+  sourceOperationIds: [opId],
+  ...overrides,
+});
 
 describe("PSCommandAttribute", () => {
   it("accepts a single-source command", () => {
-    const result = PSCommandAttributeSchema.safeParse({
-      verb: "New",
-      noun: "Fleet",
-      subjectPrefix: "Az",
-      supportsShouldProcess: true,
-      outputTypes: [],
-      parameterSets: [{ name: "CreateOrUpdate", sourceOperationId: opId }],
-      defaultParameterSetName: "CreateOrUpdate",
-      sourceOperationIds: [opId],
-    });
-    expect(result.success).toBe(true);
+    expect(PSCommandAttributeSchema.safeParse(command({ subjectPrefix: "Az" })).success).toBe(true);
   });
 
   it("accepts multiple source operations (GetPut-style merge)", () => {
-    const result = PSCommandAttributeSchema.safeParse({
-      verb: "New",
-      noun: "Fleet",
-      supportsShouldProcess: true,
-      outputTypes: [],
-      parameterSets: [{ name: "CreateOrUpdate", sourceOperationId: opId }],
-      defaultParameterSetName: "CreateOrUpdate",
-      sourceOperationIds: [opId, { ...opId, name: "get" }],
-    });
+    const result = PSCommandAttributeSchema.safeParse(
+      command({ sourceOperationIds: [opId, { ...opId, name: "get" }] }),
+    );
     expect(result.success).toBe(true);
   });
 
+  it("accepts nested parameters that reference a declared set", () => {
+    const result = PSCommandAttributeSchema.safeParse(
+      command({
+        parameters: [
+          { name: "Name", parameterSetName: "CreateOrUpdate", sourceParameterId: paramId },
+        ],
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a parameter whose parameterSetName is not one of the command's sets", () => {
+    const result = PSCommandAttributeSchema.safeParse(
+      command({
+        parameters: [{ name: "Name", parameterSetName: "List", sourceParameterId: paramId }],
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a per-set override keyed by an undeclared set", () => {
+    const result = PSCommandAttributeSchema.safeParse(
+      command({
+        parameters: [
+          { name: "Name", parameterSets: { List: { mandatory: true } }, sourceParameterId: paramId },
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
   it("rejects a defaultParameterSetName that doesn't match any parameterSets entry", () => {
-    const result = PSCommandAttributeSchema.safeParse({
-      verb: "Get",
-      noun: "Fleet",
-      supportsShouldProcess: false,
-      outputTypes: [],
-      parameterSets: [{ name: "Get", sourceOperationId: opId }],
-      defaultParameterSetName: "List",
-      sourceOperationIds: [opId],
-    });
+    const result = PSCommandAttributeSchema.safeParse(
+      command({ verb: "Get", supportsShouldProcess: false, defaultParameterSetName: "List" }),
+    );
     expect(result.success).toBe(false);
   });
 
   it("rejects an empty sourceOperationIds array", () => {
-    const result = PSCommandAttributeSchema.safeParse({
-      verb: "New",
-      noun: "Fleet",
-      supportsShouldProcess: true,
-      outputTypes: [],
-      parameterSets: [{ name: "CreateOrUpdate", sourceOperationId: opId }],
-      defaultParameterSetName: "CreateOrUpdate",
-      sourceOperationIds: [],
-    });
-    expect(result.success).toBe(false);
+    expect(PSCommandAttributeSchema.safeParse(command({ sourceOperationIds: [] })).success).toBe(false);
   });
 });
 
