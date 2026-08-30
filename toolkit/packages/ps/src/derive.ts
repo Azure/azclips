@@ -114,7 +114,6 @@ type Inferred = {
   variant: string;
   confirmImpact: "Medium" | undefined;
   hidden: boolean | undefined;
-  supportsPaging: boolean | undefined;
 };
 
 /** Usually one name; an `X`-or-`Y` action word yields one per branch (createOrUpdate -> New + Update). */
@@ -125,7 +124,6 @@ function inferOperation(operation: IROperation): Inferred[] {
     variant: name.variant,
     confirmImpact: isMutatingMethod(operation.method) ? "Medium" : undefined,
     hidden: operation.access === "internal" ? true : undefined,
-    supportsPaging: operation.semantics?.kind === "pageable" ? true : undefined,
   }));
 }
 
@@ -254,7 +252,10 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
         operations.length === 1
           ? { path: operations[0]!.pathTemplate, apiVersion: operations[0]!.apiVersion.value }
           : undefined,
-      supportsPaging: inferred.supportsPaging,
+      // `supportsPaging` mirrors the cmdlet's SupportsPaging attribute, which autorest.powershell
+      // only sets when a module opts in via the `clientside-pagination` directive. Pageability
+      // alone makes the cmdlet follow nextLink transparently; it does not surface -First/-Skip.
+      supportsPaging: undefined,
       outputTypes: outputTypeIdsFor(operations, models),
       parameterSets,
       defaultParameterSetName: defaultParameterSetNameFor(operations, parameterSets),

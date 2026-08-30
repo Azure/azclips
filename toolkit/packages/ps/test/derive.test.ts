@@ -202,7 +202,9 @@ describe("deriveAttributes", () => {
 
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
 
-    expect(commands[0]!.supportsPaging).toBe(true);
+    // Pageability drives the output type, but not SupportsPaging: that is opt-in per module via
+    // the `clientside-pagination` directive, so a derived command never claims it.
+    expect(commands[0]!.supportsPaging).toBeUndefined();
     expect(commands[0]!.noun).toBe("ResourceGroup");
     // The page wrapper would be inconsistent with the inferred noun.
     expect(commands[0]!.outputTypes).toEqual([
