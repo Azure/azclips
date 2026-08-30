@@ -30,6 +30,16 @@ export {
 export { resolveVerb } from "./verb-mapping.js";
 
 export {
+  PSDirectiveSchema,
+  PSDirectiveSelectorSchema,
+  PSDirectiveSetSchema,
+  PSDirectivesSchema,
+  type PSDirective,
+  type PSDirectiveSelector,
+  type PSDirectiveSet,
+} from "./directives.js";
+
+export {
   deriveAttributes,
   type DeriveAttributesOptions,
   type DerivedAttributes,
