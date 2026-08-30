@@ -152,7 +152,7 @@ describe("deriveAttributes", () => {
 
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
 
-    expect(commands[0]!.parameters.map((p) => p.name)).toEqual(["x-ms-force-delete"]);
+    expect(commands[0]!.parameters.map((p) => p.name)).toEqual(["XMsForceDelete"]);
   });
 
   it("nests parameters under their command, omitting the set when a parameter spans all of them", () => {
@@ -175,11 +175,33 @@ describe("deriveAttributes", () => {
     const parameters = commands[0]!.parameters;
 
     expect(parameters).toHaveLength(1);
-    expect(parameters[0]!.name).toBe("resourceGroupName");
+    // PascalCase, and the redundant subject prefix is dropped with the full name kept as an alias.
+    expect(parameters[0]!.name).toBe("Name");
+    expect(parameters[0]!.alias).toEqual(["ResourceGroupName"]);
     expect(parameters[0]!.mandatory).toBe(true);
     // The command has a single set, so naming it would be noise.
     expect(parameters[0]!.parameterSetName).toBeUndefined();
     expect(parameters[0]!.sourceParameterId).toEqual(operation.pathParameters[0]!.id);
+  });
+
+  it("keeps a path parameter's full name when shortening would collide", () => {
+    const param = (name: string) => ({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: `create#${name}` },
+      name,
+      wireName: name,
+      type: { kind: "primitive" as const, name: "string" as const },
+      optional: false,
+      nullable: false,
+    });
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "create" },
+      method: "PUT",
+      pathParameters: [param("resourceGroupName"), param("name")],
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
+
+    expect(commands[0]!.parameters.map((p) => p.name).sort()).toEqual(["Name", "ResourceGroupName"]);
   });
 
   it("emits one parameter per name across merged sets, recording which sets it belongs to", () => {
