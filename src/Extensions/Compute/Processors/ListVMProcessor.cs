@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
@@ -21,5 +21,12 @@ public class ListVMProcessor : ComputeProcessorBase<object, VirtualMachineListRe
     protected override string CreateRequestUri() =>
         $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01";
 
-    protected override object SelectOutput(VirtualMachineListResult body) => body.Value ?? [];
+    private string? nextLink(VirtualMachineListResult body) => body.NextLink;
+    private VirtualMachine[]? pageItems(VirtualMachineListResult body) => body.Value;
+
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachineListResult? body)
+    {
+        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        return true;
+    }
 }

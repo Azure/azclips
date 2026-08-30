@@ -4,8 +4,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
@@ -27,5 +27,12 @@ public class ListDiskProcessor : ComputeProcessorBase<object, DiskListResult>
     protected override string CreateRequestUri() =>
         $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/disks?api-version=2025-01-02";
 
-    protected override object SelectOutput(DiskListResult body) => body.Value ?? [];
+    private string? nextLink(DiskListResult body) => body.NextLink;
+    private Disk[]? pageItems(DiskListResult body) => body.Value;
+
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DiskListResult? body)
+    {
+        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        return true;
+    }
 }

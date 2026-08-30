@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
@@ -71,5 +71,14 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 + ODataQueryBuilder.Build(filter: Filter, select: Select, expand: Expand, orderby: Orderby, search: Search);
 
         protected override void CreateRequestHeaders(HttpRequestMessage request) => request.SetConsistencyLevel(ConsistencyLevel);
+
+        private string? nextLink(DirectoryObjectList body) => body.NextLink;
+        private DirectoryObject[]? pageItems(DirectoryObjectList body) => body.Value;
+
+        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DirectoryObjectList? body)
+        {
+            await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+            return true;
+        }
     }
 }
