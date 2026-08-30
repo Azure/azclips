@@ -78,7 +78,7 @@ describe("applyDirectives", () => {
 
   it("renames a parameter only within the commands the selector matches", () => {
     const { attributes } = apply([
-      { where: { subject: "^Volume$", "parameter-name": "^groupName$" }, set: { "parameter-name": "VolumeGroupName" } },
+      { where: { subject: "^Volume$", "parameter-name": "^GroupName$" }, set: { "parameter-name": "VolumeGroupName" } },
     ]);
 
     const get = attributes.commands.find((c) => c.verb === "Get")!;
@@ -87,29 +87,29 @@ describe("applyDirectives", () => {
 
   it("leaves parameters alone when the command selector does not match", () => {
     const { attributes, diagnostics } = apply([
-      { where: { subject: "^Snapshot$", "parameter-name": "^groupName$" }, set: { "parameter-name": "X" } },
+      { where: { subject: "^Snapshot$", "parameter-name": "^GroupName$" }, set: { "parameter-name": "X" } },
     ]);
 
     const names = attributes.commands.flatMap((c) => c.parameters.map((p) => p.name));
-    expect(names).toContain("groupName");
+    expect(names).toContain("GroupName");
     expect(names).not.toContain("X");
     expect(diagnostics.map((d) => d.code)).toEqual(["unmatched-directive"]);
   });
 
   it("hides a parameter rather than removing it", () => {
     const { attributes } = apply([
-      { where: { "parameter-name": "^groupName$" }, hide: true },
+      { where: { "parameter-name": "^GroupName$" }, hide: true },
     ]);
 
     const parameter = attributes.commands
       .flatMap((c) => c.parameters)
-      .find((p) => p.name === "groupName");
+      .find((p) => p.name === "GroupName");
     expect(parameter?.hidden).toBe(true);
   });
 
   it("acts on the containing command when select is command", () => {
     const { attributes } = apply([
-      { where: { "parameter-name": "^groupName$" }, select: "command", remove: true },
+      { where: { "parameter-name": "^GroupName$" }, select: "command", remove: true },
     ]);
 
     // Only the Get command carries that parameter.
