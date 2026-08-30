@@ -66,7 +66,7 @@ describe("deriveAttributes", () => {
       method: "PUT",
     });
 
-    const { commands, parameters } = deriveAttributes({ ...emptyIR(), operations: [operation] }, { subjectPrefix: "Az" });
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] }, { subjectPrefix: "Az" });
 
     expect(commands).toHaveLength(1);
     expect(commands[0]!.verb).toBe("New");
@@ -76,7 +76,7 @@ describe("deriveAttributes", () => {
     expect(commands[0]!.outputTypes).toHaveLength(1);
     expect(commands[0]!.defaultParameterSetName).toBe("Create");
     expect(commands[0]!.sourceOperationIds).toEqual([operation.id]);
-    expect(parameters).toHaveLength(0);
+    expect(commands[0]!.parameters).toHaveLength(0);
   });
 
   it("merges operations sharing verb+noun into one command with one parameter set per source operation", () => {
@@ -129,7 +129,7 @@ describe("deriveAttributes", () => {
     expect(commands[0]!.noun).toBe("AzComputeFleet");
   });
 
-  it("derives one PSParameterAttribute per operation parameter, tagged with its parameter set", () => {
+  it("nests parameters under their command, omitting the set when a parameter spans all of them", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "create" },
       method: "PUT",
@@ -145,13 +145,43 @@ describe("deriveAttributes", () => {
       ],
     });
 
-    const { parameters } = deriveAttributes({ ...emptyIR(), operations: [operation] });
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
+    const parameters = commands[0]!.parameters;
 
     expect(parameters).toHaveLength(1);
     expect(parameters[0]!.name).toBe("resourceGroupName");
     expect(parameters[0]!.mandatory).toBe(true);
-    expect(parameters[0]!.parameterSetName).toBe("Create");
+    // The command has a single set, so naming it would be noise.
+    expect(parameters[0]!.parameterSetName).toBeUndefined();
     expect(parameters[0]!.sourceParameterId).toEqual(operation.pathParameters[0]!.id);
+  });
+
+  it("emits one parameter per name across merged sets, recording which sets it belongs to", () => {
+    const named = (operationName: string) => ({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: `${operationName}#name` },
+      name: "resourceGroupName",
+      wireName: "resourceGroupName",
+      type: { kind: "primitive" as const, name: "string" as const },
+      optional: false,
+      nullable: false,
+    });
+    const get = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "get" },
+      method: "GET",
+      pathParameters: [named("get")],
+    });
+    const list = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "list" },
+      method: "GET",
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [get, list] });
+
+    expect(commands).toHaveLength(1);
+    const parameters = commands[0]!.parameters;
+    // One property, not one per set -- and it only exists on the Get set.
+    expect(parameters).toHaveLength(1);
+    expect(parameters[0]!.parameterSetName).toBe("Get");
   });
 
   it("derives one module per IR source", () => {

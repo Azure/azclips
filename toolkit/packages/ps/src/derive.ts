@@ -38,7 +38,6 @@ export type DeriveAttributesOptions = {
 
 export type DerivedAttributes = {
   commands: PSCommandAttribute[];
-  parameters: PSParameterAttribute[];
   modules: PSModuleAttribute[];
 };
 
@@ -205,6 +204,68 @@ function parameterSetNamesFor(entries: readonly CommandEntry[]): string[] {
 
 type CommandEntry = { operation: IROperation; inferred: Inferred };
 
+const helpOf = (parameter: IRParameter): string | undefined => parameter.summary ?? parameter.docs;
+
+/**
+ * One `PSParameterAttribute` per distinct parameter name on the command, mirroring C# where a
+ * cmdlet has one property however many sets use it. A parameter present in every set with the
+ * same facets states them directly; one that varies, or covers only some sets, carries per-set
+ * overrides instead. Where sets disagree on the IR parameter, `sourceParameterId` keeps the first
+ * -- the others stay reachable through the set's own `sourceOperationId`.
+ */
+function parametersFor(
+  entries: readonly CommandEntry[],
+  parameterSets: readonly PSParameterSetAttribute[],
+): PSParameterAttribute[] {
+  const occurrences = new Map<string, { setName: string; parameter: IRParameter }[]>();
+
+  entries.forEach((entry, index) => {
+    const setName = parameterSets[index]!.name;
+    const all: IRParameter[] = [
+      ...entry.operation.pathParameters,
+      ...entry.operation.queryParameters,
+      ...entry.operation.headerParameters,
+    ];
+    for (const parameter of all) {
+      const bucket = occurrences.get(parameter.name);
+      if (bucket) bucket.push({ setName, parameter });
+      else occurrences.set(parameter.name, [{ setName, parameter }]);
+    }
+  });
+
+  const parameters: PSParameterAttribute[] = [];
+  for (const [name, found] of occurrences) {
+    const first = found[0]!.parameter;
+    const base: PSParameterAttribute = {
+      name,
+      mandatory: !first.optional,
+      helpMessage: helpOf(first),
+      sourceParameterId: first.id,
+    };
+
+    const uniform = found.every(
+      (o) => o.parameter.optional === first.optional && helpOf(o.parameter) === helpOf(first),
+    );
+
+    if (found.length === parameterSets.length && uniform) {
+      parameters.push(base);
+    } else if (found.length === 1) {
+      parameters.push({ ...base, parameterSetName: found[0]!.setName });
+    } else {
+      parameters.push({
+        ...base,
+        parameterSets: Object.fromEntries(
+          found.map((o) => [
+            o.setName,
+            { mandatory: !o.parameter.optional, helpMessage: helpOf(o.parameter) },
+          ]),
+        ),
+      });
+    }
+  }
+  return parameters;
+}
+
 // ─── Main entry point ────────────────────────────────────────────────────
 
 export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}): DerivedAttributes {
@@ -258,33 +319,16 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
       supportsPaging: undefined,
       outputTypes: outputTypeIdsFor(operations, models),
       parameterSets,
+      parameters: parametersFor(entries, parameterSets),
       defaultParameterSetName: defaultParameterSetNameFor(operations, parameterSets),
       sourceOperationIds: operations.map((operation) => operation.id),
     });
     commandSources.push({ command: commands[commands.length - 1]!, source: operations[0]!.source });
-
-    for (const operation of operations) {
-      const setName = parameterSets.find((s) => idEquals(s.sourceOperationId, operation.id))!.name;
-      const allParameters: IRParameter[] = [
-        ...operation.pathParameters,
-        ...operation.queryParameters,
-        ...operation.headerParameters,
-      ];
-      for (const parameter of allParameters) {
-        parameters.push({
-          name: parameter.name,
-          mandatory: !parameter.optional,
-          parameterSetName: setName,
-          helpMessage: parameter.summary ?? parameter.docs,
-          sourceParameterId: parameter.id,
-        });
-      }
-    }
   }
 
   const modules = deriveModules(ir, commandSources);
 
-  return { commands, parameters, modules };
+  return { commands, modules };
 }
 
 /**
