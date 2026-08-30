@@ -175,7 +175,7 @@ public partial class PSParameterAttribute
     public PSDefaultValueAttribute? DefaultValue { get; set; }
 
     [JsonPropertyName("parameterSets")]
-    public object? ParameterSets { get; set; }
+    public IReadOnlyDictionary<string, PSParameterSetOverride>? ParameterSets { get; set; }
 
     [JsonPropertyName("sourceParameterId")]
     public Ace.Generator.Model.Ir.IRId SourceParameterId { get; set; } = default !;

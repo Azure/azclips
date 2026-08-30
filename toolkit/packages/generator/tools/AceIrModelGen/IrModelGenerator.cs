@@ -299,6 +299,12 @@ internal sealed class IrModelGenerator
                     }
 
                     return new TypeRef(nested, TypeKind.Ref);
+                // An open map (`additionalProperties` with no fixed `properties`) keeps its value
+                // shape instead of degrading to `object`.
+                case "object" when schema.TryGetProperty("additionalProperties", out JsonElement values)
+                                   && values.ValueKind == JsonValueKind.Object:
+                    TypeRef value = MapType(values, owner, prop);
+                    return new TypeRef($"IReadOnlyDictionary<string, {value.Name}>", TypeKind.Collection);
                 case "string":
                     return new TypeRef("string", TypeKind.Ref);
                 case "boolean":

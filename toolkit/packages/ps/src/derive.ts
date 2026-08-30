@@ -82,7 +82,7 @@ function collectionElementType(models: ModelIndex, type: IRTypeRef): IRTypeRef |
   if (model === undefined) return undefined;
 
   const value = model.properties.find((p) => p.name.toLowerCase() === "value");
-  if (value === undefined || value.typeKind !== "collection") return undefined;
+  if (value === undefined || value.typeKind !== "collection" || value.optional) return undefined;
   if (model.properties.some((p) => p !== value && !p.optional)) return undefined;
 
   return value.type.element;
@@ -223,6 +223,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
   }
 
   const commands: PSCommandAttribute[] = [];
+  const commandSources: { command: PSCommandAttribute; source: string }[] = [];
   const parameters: PSParameterAttribute[] = [];
 
   for (const entries of groups.values()) {
@@ -247,13 +248,19 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
       hidden: inferred.hidden,
       summary: operations[0]!.summary,
       description: operations[0]!.docs,
-      httpPath: { path: operations[0]!.pathTemplate, apiVersion: operations[0]!.apiVersion.value },
+      // Only meaningful for a single-operation command: a merged one spans several endpoints,
+      // which one path/apiVersion pair cannot represent. Per-set paths live on the operations.
+      httpPath:
+        operations.length === 1
+          ? { path: operations[0]!.pathTemplate, apiVersion: operations[0]!.apiVersion.value }
+          : undefined,
       supportsPaging: inferred.supportsPaging,
       outputTypes: outputTypeIdsFor(operations, models),
       parameterSets,
       defaultParameterSetName: defaultParameterSetNameFor(operations, parameterSets),
       sourceOperationIds: operations.map((operation) => operation.id),
     });
+    commandSources.push({ command: commands[commands.length - 1]!, source: operations[0]!.source });
 
     for (const operation of operations) {
       const setName = parameterSets.find((s) => idEquals(s.sourceOperationId, operation.id))!.name;
@@ -274,28 +281,23 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
     }
   }
 
-  const modules = deriveModules(ir, commands);
+  const modules = deriveModules(ir, commandSources);
 
   return { commands, parameters, modules };
 }
 
 /**
- * Groups derived commands by source into `PSModuleAttribute[]`. `PSCommandAttribute` doesn't
- * store a source reference directly, so each command's source is recovered via its first
- * source operation's own `IROperation.source`.
+ * Groups derived commands by the source of the operations they came from. The source is carried
+ * alongside each command rather than recovered by id lookup, because `IRId` is only unique within
+ * a source -- two sources can declare the same id and a lookup would attribute one to the other.
  */
-function deriveModules(ir: IR, commands: readonly PSCommandAttribute[]): PSModuleAttribute[] {
-  const operationsById = new Map(ir.operations.map((op) => [serializeId(op.id), op]));
+function deriveModules(ir: IR, commands: readonly { command: PSCommandAttribute; source: string }[]): PSModuleAttribute[] {
   const bySource = new Map<string, PSCommandAttribute[]>();
 
-  for (const command of commands) {
-    const firstOperationId = command.sourceOperationIds[0]!;
-    const operation = operationsById.get(serializeId(firstOperationId));
-    if (operation === undefined) continue; // shouldn't happen for real IR; defensive skip
-
-    const members = bySource.get(operation.source);
+  for (const { command, source } of commands) {
+    const members = bySource.get(source);
     if (members) members.push(command);
-    else bySource.set(operation.source, [command]);
+    else bySource.set(source, [command]);
   }
 
   const modules: PSModuleAttribute[] = [];

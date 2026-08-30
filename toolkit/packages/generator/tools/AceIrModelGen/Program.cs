@@ -28,10 +28,22 @@ string outPath = GetArg("--out") ?? "src/Model/Ir.Generated.cs";
 string ns = GetArg("--namespace") ?? "Ace.Ir.Model";
 string rootTypeName = GetArg("--root-type-name") ?? "IRDocument";
 
-Dictionary<string, string> externNamespaces = (GetArg("--extern-namespace") ?? "")
-    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-    .Select(entry => entry.Split('=', 2))
-    .ToDictionary(parts => parts[0].Trim(), parts => parts[1].Trim(), StringComparer.Ordinal);
+var externNamespaces = new Dictionary<string, string>(StringComparer.Ordinal);
+foreach (string entry in (GetArg("--extern-namespace") ?? "")
+             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+{
+    string[] parts = entry.Split('=', 2);
+    if (parts.Length != 2 || parts[0].Trim().Length == 0 || parts[1].Trim().Length == 0)
+    {
+        Console.Error.WriteLine(
+            $"Invalid --extern-namespace entry '{entry}'.\n" +
+            "Expected a comma-separated list of <package>=<C# namespace>, " +
+            "e.g. `@azure-client-engine/ir=Ace.Generator.Model.Ir`.");
+        return 1;
+    }
+
+    externNamespaces[parts[0].Trim()] = parts[1].Trim();
+}
 
 if (!File.Exists(schemaPath))
 {

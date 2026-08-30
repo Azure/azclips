@@ -15,13 +15,17 @@
 
 import { resolveVerb, isKnownActionWord } from "./verb-mapping.js";
 
-/** Split an identifier into lower-cased words. */
+/**
+ * Split an identifier into lower-cased words. Mirrors `@azure-tools/codegen`'s `deconstruct`,
+ * except that its `[a-z|A-Z]` class (which matches a literal `|`) is written `[a-zA-Z]` here --
+ * identifiers cannot contain `|`, so this is the same behaviour without the stray alternation.
+ */
 export function deconstruct(identifier: string): string[] {
   return identifier
     .replace(/([a-z]+)([A-Z])/g, "$1 $2")
-    .replace(/(\d+)([a-z|A-Z]+)/g, "$1 $2")
+    .replace(/(\d+)([a-zA-Z]+)/g, "$1 $2")
     .replace(/\b([A-Z]+)([A-Z])([a-z])/, "$1 $2$3")
-    .split(/[\W|_]+/)
+    .split(/[\W_]+/)
     .filter((word) => word.length > 0)
     .map((word) => word.toLowerCase());
 }

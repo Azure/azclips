@@ -60,7 +60,7 @@ function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" 
 }
 
 describe("deriveAttributes", () => {
-  it("derives one command from a single operation, inferring verb/noun from the action word and response type", () => {
+  it("derives one command from a single operation, inferring the verb and subject from its group and action word", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "create" },
       method: "PUT",
@@ -241,6 +241,82 @@ describe("deriveAttributes", () => {
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [first, second] });
 
     expect(commands).toHaveLength(2);
+  });
+
+  it("attributes each command to its own source even when ids collide across sources", () => {
+    // `IRId` is only unique within a source, so recovering the source by id lookup would put
+    // both commands under whichever source happened to win the index.
+    const id = { module: "<root>", namespace: ["ResourceGroups"], name: "get" };
+    const sources = ["Microsoft.Resources", "Microsoft.Storage"].map((sourceId) => ({
+      id: sourceId,
+      entrypoint: "main.tsp",
+      apiVersion: { value: "2025-04-01", location: "query" as const, parameterName: "api-version" },
+      server: { kind: "literal" as const, url: "https://management.azure.com" },
+      rootNamespace: [sourceId],
+    }));
+    const ir = {
+      ...emptyIR(),
+      sources,
+      operations: [
+        makeOperation({ id, method: "GET", source: "Microsoft.Resources" }),
+        makeOperation({ id, method: "GET", source: "Microsoft.Storage" }),
+      ],
+    };
+
+    const { modules } = deriveAttributes(ir);
+
+    expect(modules.map((m) => m.sourceId).sort()).toEqual(["Microsoft.Resources", "Microsoft.Storage"]);
+    for (const module of modules) {
+      expect(module.cmdletsToExport).toEqual(["Get-ResourceGroup"]);
+    }
+  });
+
+  it("omits httpPath on a merged command, which spans several endpoints", () => {
+    const get = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "get" },
+      method: "GET",
+      pathTemplate: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}",
+    });
+    const list = makeOperation({
+      id: { module: "<root>", namespace: ["ResourceGroups"], name: "list" },
+      method: "GET",
+      pathTemplate: "/subscriptions/{subscriptionId}/resourceGroups",
+    });
+
+    const merged = deriveAttributes({ ...emptyIR(), operations: [get, list] });
+    expect(merged.commands).toHaveLength(1);
+    expect(merged.commands[0]!.httpPath).toBeUndefined();
+
+    const single = deriveAttributes({ ...emptyIR(), operations: [get] });
+    expect(single.commands[0]!.httpPath?.path).toBe(
+      "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}",
+    );
+  });
+
+  it("does not unwrap a collection envelope whose value array is optional", () => {
+    const envelope = makeEnvelope("MaybeListResult", "Item");
+    envelope.properties[0] = makeProperty(
+      "value",
+      { kind: "array", element: modelRef("Item") },
+      true,
+    );
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Things"], name: "list" },
+      method: "GET",
+      responses: [
+        { statusCode: { kind: "exact", code: 200 }, isError: false, type: modelRef("MaybeListResult") },
+      ],
+    });
+
+    const { commands } = deriveAttributes({
+      ...emptyIR(),
+      models: [envelope],
+      operations: [operation],
+    });
+
+    expect(commands[0]!.outputTypes).toEqual([
+      { module: "<root>", namespace: [], name: "MaybeListResult" },
+    ]);
   });
 
   it("unwraps a non-pageable collection envelope for both the noun and the output type", () => {
