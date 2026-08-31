@@ -223,26 +223,27 @@ hijack the agent's parent. `Activity.Id` is already in W3C traceparent format
 
 ### `src/Core/Core.Abstractions/ITelemetryService.cs` and `TelemetryService.cs`
 
-Two additions:
+One addition:
 
 ```csharp
 Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null);
-
-Activity? StartActivity(
-    string name, ActivityKind kind, ActivityContext parentContext,
-    DateTimeOffset startTime = default);
 ```
 
 `name` defaults to the existing `$"{ClientType}.Activity.Root"`, so all fifteen
 existing call sites — fourteen PowerShell cmdlets plus `ImportTelemetry` — are
-unaffected. The `parentContext` overload is required because the current
-`StartActivity` hardcodes `parentContext: default`, which means "use ambient
-`Activity.Current`" — the agent cannot attach to T2 without it.
+unaffected.
 
-Five `ITelemetryService` stubs in tests need the new members:
+Five `ITelemetryService` stubs in tests need the updated signature:
 `tests/Common/Stubs/StubTelemetryService.cs` (one),
 `tests/Cmdlets.Tests/ImportTelemetryTests.cs` (two), and
 `tests/Core.Telemetry.Tests/PerformanceTimelineTests.cs` (two).
+
+No `parentContext` overload is added. `ITelemetryService.StartActivity` hardcodes
+`parentContext: default`, so it cannot attach to a trace from another process — but
+the agent does not need it to. `AgentTracing.Source` is a plain `ActivitySource` and
+its `StartActivity(name, kind, parentContext)` overload takes the context directly.
+That is already the agent's established pattern (`ToolInvocationLog.Scope`), and it
+keeps the shared interface unchanged.
 
 ### `src/Core/Core.Abstractions/TelemetryTags.cs`
 
@@ -299,12 +300,23 @@ TUI providers' shape):
 public sealed class AgentTelemetryProvider : DefaultTelemetryProvider
 {
     public AgentTelemetryProvider(
-        IEnumerable<BaseProcessor<Activity>> filterProcessors, ITelemetrySender sender)
-    { /* mirrors CLITelemetryProvider */ }
+        IEnumerable<BaseProcessor<Activity>> filterProcessors,
+        ITelemetrySender sender,
+        IConfigurationService configuration)
+    { /* mirrors CLITelemetryProvider, plus the gate below */ }
 }
 ```
 
 The duplication is intentional and is called out in the comment above.
+
+The provider carries one behaviour the CLI's does not: it consults
+`TelemetryOptions.Enabled` and leaves `TracerProvider = TracerProvider.Default` when
+telemetry is off. The CLI can rely on `TelemetryService`'s per-call gate because every
+CLI span goes through `ITelemetryService`. Agent spans do not — `AgentTracing.Source`
+is a plain `ActivitySource` — so without a listener-level gate, enabling the provider
+would start exporting `tool.*` spans regardless of the user's opt-out. Gating listener
+construction suppresses every agent span at once. A per-process decision is sound here
+because the agent is short-lived and single-shot.
 
 ### `Agent/AgentMode/AgentModeEntry.cs`
 
@@ -319,15 +331,19 @@ AzclipsServiceProvider.OverrideRegistration(s =>
 });
 AzclipsServiceProvider.Initialize(ClientType.CLI);
 
-var telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
-var parent = TryParseTraceparent(
-    Environment.GetEnvironmentVariable("AZCLIPS_RECOVERY_TRACEPARENT"));
+// Resolving ITelemetryService constructs AgentTelemetryProvider, which builds the
+// TracerProvider and starts listening. Without it the ActivitySource has no listener
+// and every StartActivity below returns null. The container disposes it on exit,
+// which flushes the exporter.
+_ = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
 
-using var session = telemetry.StartActivity("Agent.Session", ActivityKind.Server, parent);
+using var session = AgentTracing.Source.StartActivity(
+    "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
 ```
 
-When the variable is absent or malformed, `parent` is `default` and `Agent.Session`
-becomes its own root. The agent still functions; only the parent edge is lost.
+When the variable is absent or malformed, `RecoveryTraceContext.FromEnvironment`
+returns `default(ActivityContext)` and `Agent.Session` becomes its own root. The agent
+still functions; only the parent edge is lost.
 
 The agent must **not** call `TelemetryUpload.RunPending()` or spawn an uploader. It
 does not today, and that must hold: the CLI's `finally` spawns the uploader after the
@@ -367,7 +383,7 @@ that `telemetry.enabled=false` suppresses all of it.
 | Scenario | Behaviour |
 | --- | --- |
 | Agent hangs, is Ctrl+C'd, or crashes | T2 still closes — the CLI owns it via `using`. Agent spans may be lost; T2 retains the wall-clock duration and exit code. |
-| `telemetry.enabled=false` | No spans anywhere. `TelemetryService` re-reads config per span, so the toggle applies to the agent process too. The duration fix still applies — `activity?.Dispose()` is null-safe. |
+| `telemetry.enabled=false` | No spans anywhere. In the CLI, `TelemetryService` re-reads config per span. In the agent, `AgentTelemetryProvider` skips listener construction entirely, which also suppresses `AgentTracing.Source` spans that bypass `ITelemetryService`. The duration fix still applies — `activity?.Dispose()` is null-safe. |
 | `agent.enabled=false`, non-TTY interactive, recursion guard, agent exe missing | No T2. The guards return before it opens. |
 | `AZCLIPS_RECOVERY_TRACEPARENT` absent or malformed | `Agent.Session` becomes its own root. Agent works normally; only the parent edge is lost. |
 | Trace files claimed in different uploader runs | Agent spans keep `TraceId` T2 but get a random parent. The tree flattens; no span is lost. |
@@ -388,10 +404,12 @@ out of scope.
 | `Cli.Tests` | `BuildAgentStartInfo` omits the variable when telemetry is disabled and the recovery activity is `null`. |
 | `Cli.Tests` | No recovery span is emitted when a guard short-circuits the fallback. |
 | `Core.Telemetry.Tests` | `StartRootActivity(name:)` with `Activity.Current == null` yields a new `TraceId`, the supplied name, and the full invariant tag set. |
-| `Core.Telemetry.Tests` | The `parentContext` overload adopts the supplied trace, ignoring ambient `Activity.Current`. |
 | `Core.Telemetry.Tests` | The name filter admits the five new exact names and the `tool.` prefix. |
 | `Core.Telemetry.Tests` | `properties.*` tags survive `DefaultTelemetryPropertyFilter`. |
 | `Core.Telemetry.Tests` | `TraceReplayer` relinks a parent and child sourced from two different files within one service group. |
+| `Core.Agent.Tests` | `RecoveryTraceContext.Parse` extracts trace and span IDs from a well-formed traceparent, and returns `default` for absent or malformed input. |
+| `Core.Agent.Tests` | `AgentTelemetryProvider.ActivitySource.Name` equals `ClientType.CLI.ToString()` — the invariant the cross-process link depends on. |
+| `Core.Agent.Tests` | `AgentTelemetryProvider` leaves `TracerProvider.Default` in place when `telemetry.enabled=false`, so no agent span records. |
 
 The regression test is the one that pins #602. To make it possible without spawning a
 process, `TryAgentFallbackAsync` takes an injectable launcher delegate defaulting to
@@ -409,3 +427,5 @@ command activity is already stopped at invocation time.
 | Duplicate the provider in `Core.Agent` | `Core.Agent` does not reference `Core.Cli`. Promoting it to `Core.Telemetry` would drag the PowerShell and TUI providers into scope. |
 | Namespaced `AZCLIPS_RECOVERY_TRACEPARENT` | A bare `TRACEPARENT` could be set by the surrounding CI system and silently hijack the parent. |
 | CLI still waits for the agent | It owns terminal handoff and the exit code. Detaching would change user-visible behaviour. |
+| Agent spans use `AgentTracing.Source`, not `ITelemetryService` | Already the agent's pattern (`ToolInvocationLog`), takes a parent context directly, and leaves the shared interface unchanged. |
+| The `telemetry.enabled` gate moves into `AgentTelemetryProvider` | `AgentTracing.Source` bypasses `TelemetryService`'s per-call gate. Gating listener construction suppresses every agent span, including `tool.*`. |
