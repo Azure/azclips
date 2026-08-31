@@ -137,47 +137,26 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             return child;
         }
 
+        // Yabo: Pure data plane probably doesn't need LRO URIs, will defer when working on data plane base
+        protected virtual Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetOperationLocationUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetAsyncOperationUri => _ => null;
+        protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
+
         internal async virtual Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
-            using HttpRequestMessage _request = await CreateRequestMessage();
-            HttpResponseMessage _response = await HttpPipeline.SendAsync(_request, Publisher);
-            await Publisher.Publish(Events.TracingHttpResponseMessage, _response);
-            try
-            {
-                await _response.EnsureSuccessAsync(Publisher);
-            }
-            catch
-            {
-                _response.Dispose();
-                throw;
-            }
-            return _response;
+            return await HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
         }
 
         /// <summary>
-        /// Verifies the processor was initialized with the runtime context required to issue requests
-        /// and publish events. Throws a deterministic <see cref="InvalidOperationException"/> (rather
-        /// than letting a later access throw <see cref="NullReferenceException"/>) when it was not.
+        /// Long-running-operation transport: issues the request, then polls the ARM async-operation /
+        /// location / operation-location URIs until the resource reaches a terminal provisioningState
+        /// (Succeeded/Canceled) or the operation fails. Mirrors the proven Compute poller. Atomic LRO
+        /// processors override <see cref="SendAsync"/> to delegate here.
         /// </summary>
-        private protected void EnsureRuntimeContext()
+        internal async virtual Task<HttpResponseMessage> SendAsyncLRO()
         {
-            if (HttpPipeline is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-            }
-            if (Publisher is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-            }
-            if (WriteOutput is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(WriteOutput)}.");
-            }
-            if (JsonOptions is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(JsonOptions)}.");
-            }
+            return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);
         }
     }
 
@@ -202,13 +181,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         /// </summary>
         protected override TRequest? CreateRequestBody() => default;
 
-        /// <summary>
-        /// Projects the deserialized response into the value written to output. Default writes the
-        /// response as-is; list processors override this to unwrap the OData envelope and write its
-        /// <c>value</c> collection so PowerShell enumerates it and the CLI serializes a JSON array.
-        /// </summary>
-        protected virtual object SelectOutput(TResponse body) => body;
-
         // Yabo: C# does not allow partial with return type to be unimplemented
         // So partial Task is forbidden, have to make it synchronous.
         partial void OverrideBeforeProcessAsyncBase();
@@ -218,11 +190,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             return Task.CompletedTask;
         }
 
-        protected virtual Task BeforeWriteOutputAsync(TResponse? body, ref bool returnNow) => Task.CompletedTask;
+        protected virtual Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body) => Task.FromResult(false);
 
         public override async Task ProcessAsync()
         {
-            EnsureRuntimeContext();
             try
             {
                 await BeforeProcessAsync();
@@ -246,11 +217,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                     }
                 }
 
-                bool returnNow = false;
-                await BeforeWriteOutputAsync(body, ref returnNow);
-                if (!returnNow && body is not null)
+                if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
                 {
-                    await WriteOutput(SelectOutput(body));
+                    await WriteOutput(body);
                 }
             }
             finally
