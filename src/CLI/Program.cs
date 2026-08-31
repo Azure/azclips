@@ -457,7 +457,11 @@ public class Program
         using var recovery = _telemetryService?.StartRootActivity(name: RecoveryActivityName);
         recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
         recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
-        recovery?.SetTag(TelemetryTags.Command, JoinShellQuoted(args));
+        var telemetryCommandName = GetTelemetryCommandNameFromArgs(args);
+        if (!string.IsNullOrEmpty(telemetryCommandName))
+        {
+            recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
+        }
         recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
         recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
 
@@ -519,6 +523,35 @@ public class Program
             else
                 sb.Append(a);
         }
+        return sb.ToString();
+    }
+
+    // Recovery fallback can run before command parsing succeeds, so only raw argv is
+    // available here. Derive the command path from the leading non-flag tokens and
+    // never emit parameter values into telemetry.
+    internal static string GetTelemetryCommandNameFromArgs(string[] args)
+    {
+        if (args.Length == 0 || args[0].StartsWith('-'))
+        {
+            return string.Empty;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var arg in args)
+        {
+            if (arg.StartsWith('-'))
+            {
+                break;
+            }
+
+            if (sb.Length > 0)
+            {
+                sb.Append(' ');
+            }
+
+            sb.Append(arg);
+        }
+
         return sb.ToString();
     }
 

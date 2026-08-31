@@ -66,4 +66,20 @@ public class AgentStartInfoTests
 
         Assert.Equal(new[] { "--agent-mode", "--failed-command", "profile show" }, psi.ArgumentList);
     }
+
+    [Theory]
+    [InlineData(new[] { "vm", "create", "--name", "myvm", "--admin-password", "hunter2" }, "vm create")]
+    [InlineData(new[] { "--subscription", "secret" }, "")]
+    [InlineData(new string[0], "")]
+    public void GetTelemetryCommandNameFromArgs_StopsBeforeParameterValues(
+        string[] args,
+        string expectedCommandName)
+    {
+        var commandName = Core.Cli.Program.GetTelemetryCommandNameFromArgs(args);
+
+        Assert.Equal(expectedCommandName, commandName);
+        Assert.DoesNotContain("hunter2", commandName, StringComparison.Ordinal);
+        Assert.DoesNotContain("myvm", commandName, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", commandName, StringComparison.Ordinal);
+    }
 }
