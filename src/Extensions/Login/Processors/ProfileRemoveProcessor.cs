@@ -6,7 +6,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
 {
     /// <summary>
     /// Deletes a profile definition. If the deleted profile was active, the active pointer is cleared
-    /// (no fallback to "temp").
+    /// (no fallback to "default").
     /// </summary>
     public class ProfileRemoveProcessor : ProfileProcessorBase
     {
