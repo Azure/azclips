@@ -152,7 +152,9 @@ describe("deriveAttributes", () => {
 
     const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] });
 
-    expect(commands[0]!.parameters.map((p) => p.name)).toEqual(["XMsForceDelete"]);
+    // The name autorest.powershell produces for this header -- ElasticSan's README renames it
+    // with the selector `^XmsForceDelete$`.
+    expect(commands[0]!.parameters.map((p) => p.name)).toEqual(["XmsForceDelete"]);
   });
 
   it("nests parameters under their command, omitting the set when a parameter spans all of them", () => {
@@ -504,7 +506,7 @@ describe("deriveAttributes", () => {
 
     const verbs = Object.fromEntries(commands.map((c) => [c.noun, c.verb]));
     expect(verbs["Volume"]).toBe("Restore");
-    expect(verbs["IssueCredential"]).toBe("Invoke");
+    expect(verbs["IssueCredentialsCredential"]).toBe("Invoke");
   });
 
   it("names a root client's operations after its namespace, not its generated client name", () => {
