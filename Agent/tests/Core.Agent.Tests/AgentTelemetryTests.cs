@@ -37,6 +37,12 @@ public class RecoveryTraceContextTests
     }
 }
 
+// OpenTelemetry listeners are process-global and AgentTracing.Source is static, so the
+// enabled/disabled assertions must not overlap any other test that touches this source.
+[CollectionDefinition("AgentTelemetry", DisableParallelization = true)]
+public class AgentTelemetryCollection { }
+
+[Collection("AgentTelemetry")]
 public class AgentTelemetryProviderTests
 {
     [Fact]
@@ -49,7 +55,34 @@ public class AgentTelemetryProviderTests
         var provider = new AgentTelemetryProvider(
             [], new NoopSender(), new StubConfiguration(telemetryEnabled: true));
 
-        Assert.Equal(ClientType.CLI.ToString(), provider.ActivitySource.Name);
+        try
+        {
+            Assert.Equal(ClientType.CLI.ToString(), provider.ActivitySource.Name);
+            Assert.Equal(AgentTracing.SourceName, provider.ActivitySource.Name);
+        }
+        finally
+        {
+            // Prevent this test's process-global listener from leaking into later tests.
+            provider.TracerProvider.Dispose();
+        }
+    }
+
+    [Fact]
+    public void TracerProvider_ListensToAgentTracingSource_WhenTelemetryIsEnabled()
+    {
+        var provider = new AgentTelemetryProvider(
+            [], new NoopSender(), new StubConfiguration(telemetryEnabled: true));
+
+        try
+        {
+            using var activity = AgentTracing.Source.StartActivity("Agent.Session");
+            Assert.NotNull(activity);
+        }
+        finally
+        {
+            // Prevent this test's process-global listener from leaking into later tests.
+            provider.TracerProvider.Dispose();
+        }
     }
 
     [Fact]
@@ -60,7 +93,7 @@ public class AgentTelemetryProviderTests
 
         // AgentTracing.Source bypasses TelemetryService's per-call gate, so the opt-out has
         // to be enforced by not building a listener at all.
-        using var activity = provider.ActivitySource.StartActivity("Agent.Session");
+        using var activity = AgentTracing.Source.StartActivity("Agent.Session");
         Assert.Null(activity);
     }
 
