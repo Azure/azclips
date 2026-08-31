@@ -152,7 +152,7 @@ public class IdentityExtensionTests
         await processor.ProcessAsync();
 
         var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(output.WrittenValues));
-        Assert.Equal(["id1", "id2"], identities.Select(identity => identity.Name).ToArray());
+        Assert.Equal(["id1", "id2"], identities.Select(identity => identity.Name!).ToArray());
     }
 
     [Fact]
