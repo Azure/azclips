@@ -166,7 +166,8 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
 
-            return await TryAgentFallbackAsync(positional, ex.Message);
+            return await StopRootThenFallbackAsync(
+                activity, (_, _) => TryAgentFallbackAsync(positional, ex.Message));
         }
         catch (AzclipsErrorException ex)
         {
@@ -183,7 +184,8 @@ public class Program
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
 
-            return await TryAgentFallbackAsync(positional, ex.Message);
+            return await StopRootThenFallbackAsync(
+                activity, (_, _) => TryAgentFallbackAsync(positional, ex.Message));
         }
         finally
         {
@@ -309,6 +311,32 @@ public class Program
         {
             ConsoleSink.Error($"[{ex.Code}] {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Stops the command root span, then runs <paramref name="fallback"/> with the stopped
+    /// root's identifiers.
+    /// </summary>
+    /// <remarks>
+    /// The ordering is load-bearing. AI error recovery spawns azclips-agent.exe and blocks on
+    /// it for as long as the model takes. Anything still inside the root span is recorded as
+    /// command execution time, which is how a `profile show` that failed instantly reported a
+    /// 37.8 second duration (Azure/CLIPS#602). Disposing here is idempotent with the
+    /// <c>finally</c> in <see cref="Main"/> — Activity.Dispose only calls Stop when the
+    /// activity is not already stopped.
+    /// </remarks>
+    internal static async Task<int> StopRootThenFallbackAsync(
+        Activity? root,
+        Func<string?, string?, Task<int>> fallback)
+    {
+        // Read before disposing: the identifiers stay valid afterwards, but reading first
+        // keeps the dependency on Activity's post-stop behaviour out of the picture.
+        var traceId = root?.TraceId.ToString();
+        var spanId = root?.SpanId.ToString();
+
+        root?.Dispose();
+
+        return await fallback(traceId, spanId);
     }
 
     private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
