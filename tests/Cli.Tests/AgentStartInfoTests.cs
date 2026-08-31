@@ -6,9 +6,8 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// The agent runs in its own process, so the only way its spans can join the
-/// CLI.Activity.AiRecovery trace is a W3C traceparent handed down on the child
-/// environment block (Azure/CLIPS#602).
+/// The agent runs in its own process, so its spans join the CLI.Activity.AiRecovery
+/// trace through a W3C traceparent on the child environment block.
 /// </summary>
 public class AgentStartInfoTests
 {

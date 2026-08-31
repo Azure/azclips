@@ -364,9 +364,9 @@ public sealed class ChatAgent : IAsyncDisposable
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
         oldCts?.Dispose();
-        // The model round trip itself, tools included. Deliberately not wrapped around the
-        // caller in AgentModeEntry: SendAndPumpAsync races this against the approval pump,
-        // and wrapping there would fold user think time into model latency.
+        // Times the model round trip, tools included. Scoped to this call so the
+        // caller's approval pump, which races it, cannot count user think time as
+        // model latency.
         using var send = AgentTracing.Source.StartActivity("Agent.Send");
         send?.SetTag(TelemetryTags.AgentModel, _model);
         try

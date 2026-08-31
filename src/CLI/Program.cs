@@ -28,10 +28,9 @@ public class Program
     // the same literal name — rename both together.
     private const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
     /// <summary>
-    /// W3C traceparent of the CLI.Activity.AiRecovery span, read by the agent so its spans
-    /// join that trace. Namespaced rather than the bare TRACEPARENT so a value set by a
-    /// surrounding CI system cannot silently reparent the agent (Azure/CLIPS#602).
-    /// Read on the agent side by the same literal name — rename both together.
+    /// W3C traceparent of the recovery span, read by the agent so its spans join that
+    /// trace. Namespaced rather than the bare TRACEPARENT, which a surrounding CI system
+    /// may set. The agent reads the same literal name — rename both together.
     /// </summary>
     internal const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
 
@@ -328,19 +327,16 @@ public class Program
     /// root's identifiers.
     /// </summary>
     /// <remarks>
-    /// The ordering is load-bearing. AI error recovery spawns azclips-agent.exe and blocks on
-    /// it for as long as the model takes. Anything still inside the root span is recorded as
-    /// command execution time, which is how a `profile show` that failed instantly reported a
-    /// 37.8 second duration (Azure/CLIPS#602). Disposing here is idempotent with the
-    /// <c>finally</c> in <see cref="Main"/> — Activity.Dispose only calls Stop when the
-    /// activity is not already stopped.
+    /// The ordering is load-bearing: AI error recovery blocks on azclips-agent.exe for as
+    /// long as the model takes, and anything still inside the root span counts as command
+    /// execution time. Disposing here is idempotent with the <c>finally</c> in
+    /// <see cref="Main"/> — Activity.Dispose only stops an activity that is still running.
     /// </remarks>
     internal static async Task<int> StopRootThenFallbackAsync(
         Activity? root,
         Func<string?, string?, Task<int>> fallback)
     {
-        // Read before disposing: the identifiers stay valid afterwards, but reading first
-        // keeps the dependency on Activity's post-stop behaviour out of the picture.
+        // Read before disposing, so this does not depend on Activity's post-stop behaviour.
         var traceId = root?.TraceId.ToString();
         var spanId = root?.SpanId.ToString();
 
@@ -350,9 +346,8 @@ public class Program
     }
 
     /// <summary>
-    /// Builds the spawn shape for azclips-agent.exe. Split out from
-    /// <see cref="TryAgentFallbackAsync"/> so the environment block can be asserted without
-    /// starting a process — the same seam <c>BuildTelemetryUploaderStartInfo</c> uses.
+    /// Builds the spawn shape for azclips-agent.exe. Separate from the launch itself so
+    /// tests can assert the environment block without starting a process.
     /// </summary>
     internal static ProcessStartInfo BuildAgentStartInfo(
         string agentExe,
@@ -384,8 +379,8 @@ public class Program
         try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
         catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
 
-        // Null when telemetry is disabled and no recovery span was opened. Leave the
-        // variable absent in that case rather than setting an empty string.
+        // Null when telemetry is off and no recovery span exists. Leave the variable
+        // absent in that case rather than setting it to an empty string.
         if (!string.IsNullOrEmpty(recoveryTraceparent))
             psi.Environment[RecoveryTraceparentEnvVar] = recoveryTraceparent;
 
@@ -451,9 +446,8 @@ public class Program
             return 1;
         }
 
-        // Opened only now that a spawn is certain. The command root has already been
-        // stopped by StopRootThenFallbackAsync, so Activity.Current is null and this
-        // becomes a second, independent root with its own TraceId (Azure/CLIPS#602).
+        // Opened only once a spawn is certain. The command root is already stopped, so
+        // Activity.Current is null and this starts a second root with its own TraceId.
         using var recovery = _telemetryService?.StartRootActivity(name: RecoveryActivityName);
         recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
         recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
@@ -526,9 +520,8 @@ public class Program
         return sb.ToString();
     }
 
-    // Recovery fallback can run before command parsing succeeds, so only raw argv is
-    // available here. Derive the command path from the leading non-flag tokens and
-    // never emit parameter values into telemetry.
+    // The fallback can run before command parsing succeeds, so only raw argv is available.
+    // Takes the leading non-flag tokens so parameter values never reach telemetry.
     internal static string GetTelemetryCommandNameFromArgs(string[] args)
     {
         if (args.Length == 0 || args[0].StartsWith('-'))

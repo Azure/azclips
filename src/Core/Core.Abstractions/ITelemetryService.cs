@@ -26,9 +26,9 @@ public interface ITelemetryService : IDisposable
 
     /// <param name="startTime">See <see cref="StartActivity"/>.</param>
     /// <param name="name">
-    /// Overrides the default <c>{ClientType}.Activity.Root</c> span name. A process may open
-    /// more than one root — AI error recovery opens a second one after the command root has
-    /// closed — and two rows sharing a name are indistinguishable in the telemetry backend.
+    /// Overrides the default <c>{ClientType}.Activity.Root</c> span name. A process may
+    /// open more than one root, and two rows sharing a name are indistinguishable in the
+    /// telemetry backend.
     /// </param>
     Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null);
 

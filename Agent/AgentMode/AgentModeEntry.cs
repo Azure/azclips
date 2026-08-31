@@ -33,11 +33,10 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        // Agent runs as its own process (azclips-agent.exe), spawned by the CLI as its
-        // error-handling fallback — so it initializes as ClientType.CLI.
-        // Telemetry is registered explicitly: the default registration resolves
-        // DefaultTelemetryProvider, whose TracerProvider.Default has no listener, so every
-        // span in this process would silently return null (Azure/CLIPS#602).
+        // Runs as its own process (azclips-agent.exe), spawned by the CLI on command
+        // failure, so it initializes as ClientType.CLI. AgentTelemetryProvider replaces
+        // the default one because only it attaches a listener; without it every span
+        // in this process is null.
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
@@ -48,16 +47,16 @@ public static class AgentModeEntry
         TraceAgentRenderer? trace = null;
         try
         {
-            // Resolving ITelemetryService is what constructs AgentTelemetryProvider, builds
-            // the TracerProvider, and starts the listener; DI singletons are lazy, so without
-            // this every StartActivity below returns null. The container disposes it in the
-            // finally, which flushes the exporter.
-            _ = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+            // Constructing the provider builds the TracerProvider and attaches the
+            // listener every span here depends on. DI singletons are lazy, so this
+            // resolve is what triggers it. The container disposes it in the finally,
+            // which flushes the exporter.
+            var telemetry = AzclipsServiceProvider.GetRequiredService<ITelemetryProvider>();
 
-            // Parented to CLI.Activity.AiRecovery in the CLI process via the traceparent on
-            // our environment block. Declared inside the try so it is disposed before the
-            // finally tears down the TracerProvider — nothing exports after that.
-            using var session = AgentTracing.Source.StartActivity(
+            // Parents to the CLI's recovery span via the traceparent on our environment
+            // block. Inside the try so it disposes before the finally tears down the
+            // TracerProvider — nothing exports after that.
+            using var session = telemetry.ActivitySource.StartActivity(
                 "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
             session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
 
@@ -115,8 +114,7 @@ public static class AgentModeEntry
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
 
             ChatAgent agent;
-            // Bootstraps the Copilot SDK and its stdio daemon — historically a large share
-            // of total recovery latency, so it gets its own span.
+            // Times Copilot SDK and stdio daemon startup.
             using (AgentTracing.Source.StartActivity("Agent.Create"))
             {
                 agent = await ChatAgent.CreateAsync(

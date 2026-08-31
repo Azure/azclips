@@ -57,10 +57,9 @@ public class AgentTelemetryProviderTests
     [Fact]
     public void ActivitySource_IsNamedForTheCliClient()
     {
-        // Load-bearing. FileExporter writes service.name from ActivitySource.Name, and
-        // TraceUploader rebuilds parent/child edges only within a service-name group. If
-        // this drifts from CLITelemetryProvider, every agent span is reparented to a random
-        // span id on upload and the recovery trace silently flattens.
+        // FileExporter writes service.name from ActivitySource.Name, and TraceUploader
+        // rebuilds parent/child edges only within a service-name group. Drift from
+        // CLITelemetryProvider reparents every agent span to a random id on upload.
         var provider = new AgentTelemetryProvider(
             [], new NoopSender(), new StubConfiguration(telemetryEnabled: true));
 
@@ -147,9 +146,8 @@ public class AgentSpanNestingTests
     [Fact]
     public void ChildSpans_NestUnderTheSessionSpan()
     {
-        // Proves the ambient Activity.Current chain the agent relies on: spans started
-        // inside the session's scope become its children without explicit plumbing, and
-        // the whole subtree inherits the CLI's recovery trace id.
+        // Spans started inside the session's scope become its children through ambient
+        // Activity.Current, and the whole subtree inherits the CLI's recovery trace id.
         var stopped = new List<Activity>();
         using var listener = new ActivityListener
         {

@@ -70,9 +70,9 @@ public class TraceReplayerTests
     public void ReplayEntries_LinksChildToParent_WhenTheyCameFromDifferentFiles()
     {
         using var harness = new ReplayHarness();
-        // The CLI and agent write separate trace files. If the replayer fails to remap
-        // the child through spanIdMap, it silently falls back to ActivitySpanId.CreateRandom()
-        // and the agent subtree detaches from the recovery span with no error.
+        // The CLI and agent write separate trace files. Without the spanIdMap remap the
+        // replayer falls back to ActivitySpanId.CreateRandom() and the agent subtree
+        // detaches from the recovery span with no error.
         var recovery = MakeEntry(SampleTraceId, "00f067aa0ba902b7", parentSpanId: ZeroSpanId, name: "CLI.Activity.AiRecovery");
         var session = MakeEntry(SampleTraceId, "a1b2c3d4e5f60718", parentSpanId: "00f067aa0ba902b7", name: "Agent.Session");
 

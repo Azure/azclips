@@ -18,13 +18,12 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "PowerShell.Activity.Root",
         "TUI.Activity.Root",
 
-        // Second root opened by the CLI after the command root closes, wrapping the
-        // AI error-recovery subprocess. Its own trace, so the command's duration
-        // stays honest (Azure/CLIPS#602).
+        // Second root the CLI opens around the AI error-recovery subprocess, in its own
+        // trace so it does not count toward the command's duration.
         "CLI.Activity.AiRecovery",
 
-        // Spans emitted inside azclips-agent.exe, parented to CLI.Activity.AiRecovery
-        // through the traceparent handed down on the child environment block.
+        // Spans from azclips-agent.exe, parented to CLI.Activity.AiRecovery through the
+        // traceparent on its environment block.
         "Agent.Session",
         "Agent.Create",
         "Agent.Turn",

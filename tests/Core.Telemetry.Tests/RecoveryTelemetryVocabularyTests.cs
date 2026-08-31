@@ -7,10 +7,9 @@ using Core.Abstractions;
 namespace Core.Telemetry.Tests;
 
 /// <summary>
-/// The AI error-recovery spans (Azure/CLIPS#602) are dropped without a trace if their
-/// names are missing from the activity-name allowlist, and their tags are stripped if
-/// they fall outside the property allowlist. Both failures are silent, so they are
-/// pinned here rather than discovered in the portal.
+/// AI error-recovery spans are dropped if their names are missing from the activity-name
+/// allowlist, and their tags stripped if they fall outside the property allowlist. Both
+/// failures are silent, so both are pinned here.
 /// </summary>
 public class RecoveryTelemetryVocabularyTests
 {

@@ -36,10 +36,9 @@ public static class TelemetryTags
     // todo: reserved for later product level instrumentation.
     public const string PropertyTagPrefix = "properties.";
 
-    // AI error-recovery (Azure/CLIPS#602). All live under PropertyTagPrefix, which
-    // DefaultTelemetryPropertyFilter admits as the vetted product channel — no
-    // allowlist edit required. Names, counts, and outcomes only: never prompts,
-    // error text, or model output.
+    // AI error-recovery. All use PropertyTagPrefix, which DefaultTelemetryPropertyFilter
+    // admits as the vetted product channel. Names, counts, and outcomes only — never
+    // prompts, error text, or model output.
     public const string CommandTraceId = PropertyTagPrefix + "command.traceId";
     public const string CommandSpanId = PropertyTagPrefix + "command.spanId";
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";

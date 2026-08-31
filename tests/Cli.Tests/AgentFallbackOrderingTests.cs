@@ -7,10 +7,8 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Regression coverage for Azure/CLIPS#602. AI error recovery blocks on a subprocess
-/// for as long as the model takes. If the command root span is still open while that
-/// happens, the wait is billed to the command's duration — a `profile show` that failed
-/// instantly was reported at 37.8 seconds. The root must be stopped first.
+/// AI error recovery blocks on a subprocess for as long as the model takes. The command
+/// root span must be stopped first, or that wait is billed to the command's duration.
 /// </summary>
 public class AgentFallbackOrderingTests
 {
