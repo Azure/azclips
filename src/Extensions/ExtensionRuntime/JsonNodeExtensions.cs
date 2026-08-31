@@ -88,10 +88,7 @@ public static partial class JsonNodeExtensions
             JsonNode? destination = ResolvePath(target, path, create: true);
             if (destination is JsonArray array)
             {
-                while (i < add.Length && (!LooksLikePath(add[i]) || i == add.Length - 1))
-                {
-                    array.Add(ParseLooseCliValue(add[i++], forceString));
-                }
+                array.Add(ParseLooseCliValue(add[i++], forceString));
                 continue;
             }
 

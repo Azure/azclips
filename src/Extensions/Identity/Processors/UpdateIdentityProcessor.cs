@@ -85,8 +85,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
                 return;
             }
 
-            //TODO revisit this batch logic with resilliency and parrallelism in mind.
-            //For now, we will process the identities sequentially.
+            // TODO revisit this batch logic with resiliency and parallelism in mind.
+            // For now, we will process the identities sequentially.
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             try
             {
