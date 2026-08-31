@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788142317032,
+  "lastUpdate": 1788142380493,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -6132,6 +6132,48 @@ window.BENCHMARK_DATA = {
             "value": 1172677.9253929374,
             "unit": "ns",
             "range": "± 24098.24225878611"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c95435039be30271dee86a17416282b72ee92f61",
+          "message": "{Benchmark} Emit telemetry for CLI benchmarks (#744)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- Have CLI benchmarks emit a sampled set of telemetry traces to be used\nin further aggregation in benchmark pipelines to show potential\nregressions.\n- Sampled telemetry emitted as `benchmarkMethod.jsonl` in\n`artifacts/Benchmarks/telmetry`\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-08-31T11:54:37+10:00",
+          "tree_id": "4fc89f2c8363fcdb93cd2de48254ce0eef60cf3c",
+          "url": "https://github.com/Azure/azclips/commit/c95435039be30271dee86a17416282b72ee92f61"
+        },
+        "date": 1788142377172,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2331964.506566983,
+            "unit": "ns",
+            "range": "± 96020.73305676284"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2338561.0503220614,
+            "unit": "ns",
+            "range": "± 114504.52830567192"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2307643.9664591285,
+            "unit": "ns",
+            "range": "± 97613.70155190707"
           }
         ]
       }
