@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
+using Core.Agent.Telemetry;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Agent.AgentMode;
@@ -30,18 +33,40 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        // Agent runs as its own process (azclips-agent.exe), spawned by the CLI
-        // as its error-handling fallback — so it initializes as ClientType.CLI
-        // (was TUI back when this entry lived inside Core.Tui and borrowed its shell).
+        // Agent runs as its own process (azclips-agent.exe), spawned by the CLI as its
+        // error-handling fallback — so it initializes as ClientType.CLI.
+        // Telemetry is registered explicitly: the default registration resolves
+        // DefaultTelemetryProvider, whose TracerProvider.Default has no listener, so every
+        // span in this process would silently return null (Azure/CLIPS#602).
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton<ITelemetrySender, FileTelemetrySender>();
+            services.AddSingleton<ITelemetryProvider, AgentTelemetryProvider>();
+        });
         AzclipsServiceProvider.Initialize(ClientType.CLI);
 
         TraceAgentRenderer? trace = null;
         try
         {
+            // Resolving ITelemetryService is what constructs AgentTelemetryProvider, builds
+            // the TracerProvider, and starts the listener; DI singletons are lazy, so without
+            // this every StartActivity below returns null. The container disposes it in the
+            // finally, which flushes the exporter.
+            _ = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
+
+            // Parented to CLI.Activity.AiRecovery in the CLI process via the traceparent on
+            // our environment block. Declared inside the try so it is disposed before the
+            // finally tears down the TracerProvider — nothing exports after that.
+            using var session = AgentTracing.Source.StartActivity(
+                "Agent.Session", ActivityKind.Server, RecoveryTraceContext.FromEnvironment());
+            session?.SetTag(TelemetryTags.ProcessName, "azclips-agent");
+
             var auth        = AzclipsServiceProvider.GetRequiredService<IAuthService>();
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             var config      = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
+            session?.SetTag(TelemetryTags.RecoverySessionStyle, agentOpts.SessionStyle);
+            session?.SetTag(TelemetryTags.RecoveryProvider, agentOpts.Provider);
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
@@ -115,6 +140,7 @@ public static class AgentModeEntry
             var interactive = agentOpts.IsInteractive;
 
             await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+            session?.SetStatus(ActivityStatusCode.Ok);
             return 0;
         }
         catch (OperationCanceledException)
