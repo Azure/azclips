@@ -83,7 +83,7 @@ describe("PSParameterAttribute", () => {
   it("accepts per-parameter-set overrides", () => {
     const result = PSParameterAttributeSchema.safeParse({
       name: "resourceGroupName",
-      sourceParameterId: opId,
+      sourceParameterId: paramId,
       parameterSets: {
         Get: { mandatory: true },
         List: { mandatory: false },
@@ -95,7 +95,7 @@ describe("PSParameterAttribute", () => {
   it("rejects a parameter-set override keyed by an empty string", () => {
     const result = PSParameterAttributeSchema.safeParse({
       name: "resourceGroupName",
-      sourceParameterId: opId,
+      sourceParameterId: paramId,
       parameterSets: { "": { mandatory: true } },
     });
     expect(result.success).toBe(false);
@@ -104,7 +104,7 @@ describe("PSParameterAttribute", () => {
   it("accepts a hidden parameter, which is kept but not exported", () => {
     const result = PSParameterAttributeSchema.safeParse({
       name: "managedByResourceId",
-      sourceParameterId: opId,
+      sourceParameterId: paramId,
       hidden: true,
     });
     expect(result.success).toBe(true);
