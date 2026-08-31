@@ -14,6 +14,7 @@
  */
 
 import { resolveVerb, isKnownActionWord } from "./verb-mapping.js";
+import { isActionWord } from "./action-words.js";
 
 /**
  * Split an identifier into lower-cased words. Mirrors `@azure-tools/codegen`'s `deconstruct`,
@@ -131,8 +132,8 @@ function inferFromWords(
   if (parts.length === 1) return [buildName(parts[0]!, [group], suffix)];
 
   if (parts.length === 2) {
-    if (isKnownActionWord(parts[0]!)) return [buildName(parts[0]!, [group, parts[1]!], suffix)];
-    if (isKnownActionWord(parts[1]!)) return [buildName(parts[1]!, [group, parts[0]!], suffix)];
+    if (isActionWord(parts[0]!)) return [buildName(parts[0]!, [group, parts[1]!], suffix)];
+    if (isActionWord(parts[1]!)) return [buildName(parts[1]!, [group, parts[0]!], suffix)];
     return [buildName(parts[0]!, [group, parts[1]!], suffix)];
   }
 
@@ -153,7 +154,7 @@ function inferFromWords(
   }
 
   for (let i = 0; i < parts.length; i++) {
-    if (!isKnownActionWord(parts[i]!)) continue;
+    if (!isActionWord(parts[i]!)) continue;
     if (i === 0) return [buildName(parts[i]!, [group, ...parts.slice(1)], suffix)];
     if (i === parts.length - 1) return [buildName(parts[i]!, [group, ...parts.slice(0, i)], suffix)];
     return [buildName(parts[i]!, [group], [...suffix, ...parts.slice(i + 1)])];
@@ -174,7 +175,8 @@ export function inferCommandNames(group: string, actionWord: string): InferredNa
   }
   const groupName = pascalCase(groupWords);
 
-  // A whole-word verb match names the command after the group alone.
+  // A whole-word match against the *verb map* -- not the verb dictionary -- names the command
+  // after the group alone.
   if (isKnownActionWord(actionWord)) return [buildName(actionWord, [groupName], [])];
 
   return inferFromWords(deconstruct(actionWord), groupName);
