@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Login creates a profile
-The `login` command SHALL create or overwrite a profile upon successful authentication. If `--out-profile <name>` is provided, the profile SHALL be saved with that name. If neither `--out-profile` nor `--profile` is provided, the profile SHALL be saved as "temp". Upon success, the `login` command SHALL output the resulting `Profile`.
+The `login` command SHALL create or overwrite a profile upon successful authentication. If `--out-profile <name>` is provided, the profile SHALL be saved with that name. If neither `--out-profile` nor `--profile` is provided, the profile SHALL be saved as "default". Upon success, the `login` command SHALL output the resulting `Profile`.
 
 #### Scenario: Login with --out-profile
 - **WHEN** user runs `az login --tenant t1 --subscription s1 --out-profile prod`
@@ -10,11 +10,11 @@ The `login` command SHALL create or overwrite a profile upon successful authenti
 - **AND** "prod" SHALL be set as the active profile
 - **AND** the resulting "prod" `Profile` SHALL be returned as output
 
-#### Scenario: Login without --out-profile creates temp
+#### Scenario: Login without --out-profile creates default
 - **WHEN** user runs `az login --tenant t1 --subscription s1`
-- **THEN** a profile named "temp" SHALL be created with the login result
-- **AND** any existing "temp" profile SHALL be overwritten
-- **AND** "temp" SHALL be set as the active profile
+- **THEN** a profile named "default" SHALL be created with the login result
+- **AND** any existing "default" profile SHALL be overwritten
+- **AND** "default" SHALL be set as the active profile
 
 #### Scenario: Login with device code flow
 - **WHEN** user runs `az login --tenant t1 --subscription s1 --use-device-code --out-profile ci`
@@ -66,12 +66,12 @@ The `logout` command SHALL sign out the active profile. When an active profile e
 - **AND** the MSAL token cache SHALL NOT be modified
 - **AND** the active-profile pointer SHALL remain unset
 
-### Requirement: "temp" is a reserved profile name
-The name `"temp"` is reserved for bare login. The `--out-profile` flag SHALL reject `"temp"` as a value — bare login is the only path that creates/overwrites the temp profile.
+### Requirement: "default" is a reserved profile name
+The name `"default"` is reserved for bare login. The `--out-profile` flag SHALL reject `"default"` as a value — bare login is the only path that creates/overwrites the default profile.
 
-#### Scenario: --out-profile rejects "temp"
-- **WHEN** user runs `az login --out-profile temp`
-- **THEN** the system SHALL display an error indicating "temp" is reserved for bare login
+#### Scenario: --out-profile rejects "default"
+- **WHEN** user runs `az login --out-profile default`
+- **THEN** the system SHALL display an error indicating "default" is reserved for bare login
 
 ### Requirement: No legacy migration required
 The product is in preview and breaking changes are expected. The system SHALL NOT migrate `context.json` to profiles. Users SHALL re-login to create new profiles.

@@ -49,14 +49,14 @@ public sealed class ProfileCliTests
     }
 
     [Fact]
-    public async Task Login_WithoutOutProfile_ShouldCreateTempProfile()
+    public async Task Login_WithoutOutProfile_ShouldCreateDefaultProfile()
     {
         using var fixture = new ProfileCliFixture();
 
         fixture.ExecuteCli(["login", "--subscription-id", "sub-1"]);
 
-        Assert.Equal("temp", await fixture.Profiles.GetActiveProfileNameAsync());
-        Assert.NotNull(await fixture.Profiles.GetProfileAsync("temp"));
+        Assert.Equal("default", await fixture.Profiles.GetActiveProfileNameAsync());
+        Assert.NotNull(await fixture.Profiles.GetProfileAsync("default"));
     }
 
     [Fact]
@@ -94,12 +94,12 @@ public sealed class ProfileCliTests
     }
 
     [Fact]
-    public async Task Login_WithOutProfileTemp_ShouldFail_AsReserved()
+    public async Task Login_WithOutProfileDefault_ShouldFail_AsReserved()
     {
         using var fixture = new ProfileCliFixture();
 
-        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "temp"]));
-        Assert.Null(await fixture.Profiles.GetProfileAsync("temp"));
+        Assert.ThrowsAny<Exception>(() => fixture.ExecuteCli(["login", "--subscription-id", "sub-1", "--out-profile", "default"]));
+        Assert.Null(await fixture.Profiles.GetProfileAsync("default"));
     }
 
     [Fact]
