@@ -246,15 +246,15 @@ stateDiagram-v2
     direction LR
     [*] --> NoActive: fresh install<br>(no active-profile file)
 
-    NoActive --> TempActive: az login<br>(bare → reserved "temp")
+    NoActive --> DefaultActive: az login<br>(bare → reserved "default")
     NoActive --> NamedActive: az login --out-profile prod
 
     NamedActive --> NamedActive: az profile set staging<br>(SetActiveProfileNameAsync)
-    TempActive --> NamedActive: az login --out-profile prod
-    NamedActive --> TempActive: az login (bare)
+    DefaultActive --> NamedActive: az login --out-profile prod
+    NamedActive --> DefaultActive: az login (bare)
 
     NamedActive --> NoActive: az logout<br>(clears pointer, keeps definition)
-    TempActive --> NoActive: az logout
+    DefaultActive --> NoActive: az logout
     NamedActive --> NoActive: az profile remove <active><br>(pointer cleared, no fallback)
 
     NoActive --> [*]
@@ -278,7 +278,7 @@ require a resolved `Profile` on the context:
 | `az profile list`   | `ProfileListProcessor`   | Lists all profiles, flagging the active one via a `ProfileSummary` projection                |
 | `az profile show`   | `ProfileShowProcessor`   | Shows one profile by name **or** the active one (`--active`); the two are mutually exclusive |
 | `az profile set`    | `ProfileSetProcessor`    | Sets the active pointer; **validates existence, no re-auth**                                 |
-| `az profile remove` | `ProfileRemoveProcessor` | Deletes a definition; if it was active, clears the pointer (**no fallback to temp**)         |
+| `az profile remove` | `ProfileRemoveProcessor` | Deletes a definition; if it was active, clears the pointer (**no fallback to default**)      |
 
 `ProfileSetProcessor` is the switch primitive — it resolves the named profile and only writes
 the pointer, never re-authenticating (`src/Extensions/Login/Processors/ProfileSetProcessor.cs:16`):
@@ -292,7 +292,7 @@ await profileService.SetActiveProfileNameAsync(profile.Name);
 `profile create` is intentionally **not** offered — profiles are created only as a side effect
 of `login` (design Non-Goals). User-facing creation would go through
 `ProfileNameValidator.ValidateForCreation`, which additionally rejects the reserved name
-`"temp"` (`src/Core/Core.Abstractions/ProfileNameValidator.cs:44`).
+`"default"` (`src/Core/Core.Abstractions/ProfileNameValidator.cs:44`).
 
 ### Login semantics
 
@@ -300,9 +300,9 @@ of `login` (design Non-Goals). User-facing creation would go through
 two mutually-exclusive flags before any authentication runs
 (`src/Extensions/Login/Processors/LoginProcessor.cs:36`):
 
-- **Bare `az login`** → saves the connection to the reserved profile named `"temp"`,
-  overwriting any previous temp (`ReservedTempName`, `ProfileNameValidator.cs:14`).
-- **`az login --out-profile <name>`** → validates the name for creation (rejecting `"temp"`)
+- **Bare `az login`** → saves the connection to the reserved profile named `"default"`,
+  overwriting any previous default (`ReservedDefaultName`, `ProfileNameValidator.cs:14`).
+- **`az login --out-profile <name>`** → validates the name for creation (rejecting `"default"`)
   and writes a new named profile.
 - **`az login --profile <name>`** → **re-authenticates** an existing profile, sourcing tenant
   / subscription / cloud from that stored profile.
@@ -398,7 +398,7 @@ active pointer — even though `prod` happens to be active after the login.
 | Impl              | `ConfigurationService` (Core.Configuration) | `ProfileService` (Core.Runtime)                      |
 | Concurrency       | `{path}.lock` file (cross-process spin)     | `SemaphoreSlim _gate` + atomic temp+rename           |
 | Command home      | `Config` extension                          | `Login` extension                                    |
-| Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `temp`) |
+| Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `default`) |
 
 The one place they touch: `agent.enabled` / `agent.provider` (configuration) gate the AI agent,
 and the agent's environment prober reads the **active profile** to tell the model whether the
