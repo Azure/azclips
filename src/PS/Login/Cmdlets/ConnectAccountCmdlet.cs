@@ -78,7 +78,7 @@ public class ConnectAccountCmdlet : PSCmdlet
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Description)))
         {
-            parameters.Add("Description", Description!);
+            parameters.Add("Description", Description ?? string.Empty);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
