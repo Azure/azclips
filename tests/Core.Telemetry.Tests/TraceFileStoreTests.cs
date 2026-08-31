@@ -12,6 +12,25 @@ public class TraceFileStoreTests
     }
 
     [Fact]
+    public void PendingFilePattern_MatchesWhatFileNameForProduces()
+    {
+        // Writers name files through FileNameFor, readers enumerate with PendingFilePattern;
+        // this pins the two together.
+        using var temp = new TempDirectory();
+        var written = Path.Combine(temp.Path, TraceFileStore.FileNameFor("abc123"));
+        File.WriteAllText(written, "payload");
+
+        // Decoys isolating each half: a pattern missing the prefix matches the first, one missing
+        // the extension matches the second.
+        File.WriteAllText(Path.Combine(temp.Path, "other.log"), "data");
+        File.WriteAllText(Path.Combine(temp.Path, "traces-abc123.uploading"), "claimed");
+
+        var matched = Directory.GetFiles(temp.Path, TraceFileStore.PendingFilePattern);
+
+        Assert.Equal(new[] { written }, matched);
+    }
+
+    [Fact]
     public void ClaimPending_ReturnsEmpty_WhenDirectoryDoesNotExist()
     {
         var missing = Path.Combine(Path.GetTempPath(), "azclips-missing-" + Guid.NewGuid().ToString("N"));
