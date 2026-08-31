@@ -14,13 +14,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// Orchestrator (handwritten/customized) half of the deployment-create command: it owns the
     /// create-specific argument surface (rollback) on top of the shared template-source,
     /// parameters-source, mode, inline parameters, and validation-level options inherited from
-    /// <see cref="DeploymentOrchestratorBase{TResponse}"/>, together with the validation and the
+    /// <see cref="DeploymentOrchestratorBase{TRequest, TResponse}"/>, together with the validation and the
     /// template/parameters/bicep building. It builds the request body and delegates the actual
     /// PUT + long-running-operation transport to the atomic
     /// <see cref="NewResourceGroupDeploymentProcessor"/> via <c>CreateExtendedProcessor</c>.
     /// </para>
     /// </summary>
-    public class NewResourceGroupDeploymentProcessor_Orchestrator : DeploymentOrchestratorBase<DeploymentExtended>
+    public class NewResourceGroupDeploymentProcessor_Orchestrator : DeploymentOrchestratorBase<Deployment, DeploymentExtended>
     {
         public bool RollbackOnError { get; set; }
 

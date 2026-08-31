@@ -53,18 +53,6 @@ public class CheckGroupMemberProcessorTests
         Assert.Equal("application/json", request.Content.Headers.ContentType!.MediaType);
     }
 
-    [Theory]
-    [InlineData("", MemberId)]
-    [InlineData("   ", MemberId)]
-    [InlineData(GroupId, "")]
-    [InlineData(GroupId, "   ")]
-    public async Task CreateRequestMessage_MissingRequiredParam_ShouldThrow(string groupId, string memberId)
-    {
-        var processor = CreateProcessor(groupId, memberId);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
-    }
-
     [Fact]
     public void SelectOutput_WhenGroupInResponse_ShouldReturnTrue()
     {

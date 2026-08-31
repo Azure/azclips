@@ -17,7 +17,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// method/uri/payload/headers, sends it through the already-authenticated pipeline, and surfaces
     /// the raw status code, headers, and body as an untyped <see cref="Models.RestResponse"/>. This is
     /// a handwritten customization (it overrides <see cref="ProcessAsync"/> with bespoke logic rather
-    /// than being a generated atomic API operation), so it lives under <c>Orchestrators/</c>.
+    /// than being a generated atomic API operation), so it lives under <c>Customization/</c>.
     /// <para>
     /// Unlike the typed Resources base, this processor is a standalone <see cref="IProcessor"/> that
     /// does NOT deserialize the response into a fixed model. Its transport primitive

@@ -22,7 +22,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
     /// succeeds and a later child fails, earlier resources are orphaned. Document as a non-goal
     /// for now; revisit with an OnFailureAsync hook or a saga-style step list when needed.
     /// </remarks>
-    public abstract class ComputeProcessorBase : IProcessor
+    public abstract partial class ComputeProcessorBase : IProcessor
     {
         public IRuntimeHttpPipeline HttpPipeline = null!;
         public IEventPublisher Publisher = null!;
@@ -66,7 +66,42 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             return this;
         }
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        protected virtual Task<HttpRequestMessage> CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+
+        /// <summary>HTTP method for the request. Every processor must override this (GET/PUT/DELETE/etc.).</summary>
+        protected virtual HttpMethod Method => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(Method)}.");
+
+        /// <summary>Builds the request URI. Override this seam alone for most read/delete operations.</summary>
+        protected virtual string CreateRequestUri() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestUri)}.");
+
+        /// <summary>
+        /// Builds the request body, serialized with <see cref="JsonOptions"/> using its runtime type.
+        /// Returns null (no content) by default; override for create/update operations.
+        /// </summary>
+        protected virtual object? CreateRequestBody() => null;
+
+        /// <summary>
+        /// Adds request headers beyond what the pipeline supplies (e.g. Graph's <c>ConsistencyLevel</c>).
+        /// No-op by default; override to mutate <paramref name="request"/> for header-carrying operations.
+        /// </summary>
+        protected virtual void CreateRequestHeaders(HttpRequestMessage request) { }
+
+        /// <summary>
+        /// Assembles the request from <see cref="Method"/>, <see cref="CreateRequestUri"/>, <see cref="CreateRequestBody"/>
+        /// and <see cref="CreateRequestHeaders"/>, and publishes the before/after create events. Override the smaller
+        /// seams above so this event wiring stays centralized; override this method only when a request needs fully custom construction.
+        /// </summary>
+        protected virtual async Task<HttpRequestMessage> CreateRequestMessage()
+        {
+            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+            HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
+            if (CreateRequestBody() is { } body)
+            {
+                request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
+            }
+            CreateRequestHeaders(request);
+            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+            return request;
+        }
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
@@ -288,8 +323,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
     /// <see cref="ResolvedProfile"/>.
     /// </para>
     /// </summary>
-    public class ComputeProcessorBase<TResponse> : ComputeProcessorBase where TResponse : class
+    public partial class ComputeProcessorBase<TRequest, TResponse> : ComputeProcessorBase
+        where TRequest : class
+        where TResponse : class
     {
+        /// <summary>
+        /// Typed request-body seam. Returns null (no body) by default; write processors override to return
+        /// their <typeparamref name="TRequest"/> model. Covariantly overrides the non-generic
+        /// <see cref="ComputeProcessorBase.CreateRequestBody"/> that the request template consumes.
+        /// </summary>
+        protected override TRequest? CreateRequestBody() => default;
+
         public string SubscriptionId { get; set; } = string.Empty;
 
         /// <summary>
@@ -303,6 +347,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 ? SubscriptionId
                 : ResolvedProfile?.SubscriptionId
                   ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.");
+
+        // Yabo: C# does not allow partial with return type to be unimplemented
+        // So partial Task is forbidden, have to make it synchronous.
+        partial void OverrideBeforeProcessAsyncBase();
+        protected virtual Task BeforeProcessAsync() 
+        {
+            OverrideBeforeProcessAsyncBase();
+            return Task.CompletedTask;
+        }
+        
+        protected virtual Task BeforeWriteOutputAsync(TResponse? body, ref bool returnNow) => Task.CompletedTask;
 
         internal override Task<HttpResponseMessage> SendAsync()
         {
@@ -325,36 +380,34 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public override async Task ProcessAsync()
         {
-            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-            using HttpResponseMessage response = await SendAsync();
-
-            if (response.Content is null)
-            {
-                await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
-                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-                return;
-            }
-
-            string rawBody = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(rawBody))
-            {
-                await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
-                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-                return;
-            }
-
             try
             {
-                TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
-                if (body is not null)
+                await BeforeProcessAsync();
+                await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+                using HttpResponseMessage response = await SendAsync();
+                string? rawBody = null;
+                TResponse? body = default;
+
+                if (response.Content is null) await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+                else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync())) await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                else
+                {
+                    try
+                    {
+                        body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                    }
+                    catch (JsonException)
+                    {
+                        await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                        throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                    }
+                }          
+                bool returnNow = false;
+                await BeforeWriteOutputAsync(body, ref returnNow);
+                if (!returnNow && body is not null)
                 {
                     await WriteOutput(SelectOutput(body));
                 }
-            }
-            catch (JsonException)
-            {
-                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
             }
             finally
             {

@@ -8,7 +8,7 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
-    public class NewVMProcessor_Orchestrator : ComputeProcessorBase<VirtualMachine>
+    public class NewVMProcessor_Orchestrator : ComputeProcessorBase<VirtualMachine, VirtualMachine>
     {
         public string Name { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;

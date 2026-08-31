@@ -7,12 +7,18 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Convenience orchestrator wrapping the atomic <see cref="GetSignedInUserProcessor"/>. Adds
-    /// the <c>AppendSelected</c> switch which merges the caller's <c>Select</c> with a default
+    /// Convenience orchestrator wrapping the atomic <see cref="GetUserProcessor"/>. Adds the
+    /// <c>AppendSelected</c> switch which merges the caller's <c>Select</c> with a default
     /// user property set.
     /// </summary>
-    public class GetSignedInUserProcessor_Orchestrator : GraphProcessorBase<User>
+    public class GetUserProcessor_Orchestrator : GraphProcessorBase<object, User>
     {
+        [ArgumentInfo(
+            Required = true,
+            Description = @"The object ID or user principal name (UPN) of the user.",
+            SerializedName = @"Id")]
+        public string Id { get; set; } = "";
+
         [ArgumentInfo(
             Required = false,
             Description = @"Properties to return. Combine with AppendSelected to include the default properties as well.",
@@ -35,8 +41,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         {
             EnsureRuntimeContext();
             string[]? mergedSelect = SelectClauseHelpers.MergeUserSelect(Select, AppendSelected);
-            GetSignedInUserProcessor atomic = CreateExtendedProcessor<GetSignedInUserProcessor>(p =>
+            GetUserProcessor atomic = CreateExtendedProcessor<GetUserProcessor>(p =>
             {
+                p.Id = Id;
                 p.Select = mergedSelect;
                 p.Expand = Expand;
             });
