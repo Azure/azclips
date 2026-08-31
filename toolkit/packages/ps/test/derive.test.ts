@@ -676,6 +676,39 @@ describe("deriveAttributes: Expanded parameter sets", () => {
     expect(commands[0]!.parameters.find((p) => p.name === "Name")!.mandatory).toBe(true);
   });
 
+  it("suppresses a body property that collides with a shortened path parameter's alias", () => {
+    // `widgetName` shortens to `-Name` against subject `Widget`, keeping `WidgetName` as an alias.
+    // A body property of that name would resolve to the same parameter.
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Widgets"], name: "create" },
+      method: "PUT",
+      pathParameters: [
+        {
+          id: { module: "<root>", namespace: [], name: "create#widgetName" },
+          name: "widgetName",
+          wireName: "widgetName",
+          type: { kind: "primitive", name: "string" },
+          optional: false,
+          nullable: false,
+        },
+      ],
+      requestBody: { type: modelRef("Widget"), contentType: "application/json" },
+    });
+
+    const { commands } = deriveAttributes(
+      {
+        ...emptyIR(),
+        operations: [operation],
+        models: [model("Widget", [scalar("widgetName"), scalar("size")])],
+      },
+      {},
+    );
+
+    const name = commands[0]!.parameters.find((p) => p.name === "Name")!;
+    expect(name.alias).toEqual(["WidgetName"]);
+    expect(namesOf(commands[0]!)).toEqual(["Name", "Size"]);
+  });
+
   it("leaves a body the IR marks `flatten: never` unexpanded", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["Widgets"], name: "create" },

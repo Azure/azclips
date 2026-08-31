@@ -394,7 +394,10 @@ function parametersFor(
         )
       : name;
 
+    // Both names are occupied: a PowerShell alias resolves like the parameter's own name, so a
+    // body leaf matching the pre-shortening name would collide with it.
     taken.add(shortened);
+    taken.add(name);
     parameters.push(
       attributeFor(
         shortened,
