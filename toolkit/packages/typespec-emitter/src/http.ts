@@ -173,6 +173,8 @@ export function bodyFrom(
   const body: IRRequestBody = {
     type: irType,
     contentType,
+    ...(b.name !== undefined ? { name: b.name } : {}),
+    ...(b.isGeneratedName !== undefined ? { isGeneratedName: b.isGeneratedName } : {}),
     ...(b.doc !== undefined ? { docs: b.doc } : {}),
     ...(b.summary !== undefined ? { summary: b.summary } : {}),
   };

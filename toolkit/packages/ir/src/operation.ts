@@ -79,6 +79,20 @@ export const IRParameterSchema: z.ZodType<IRParameter> = z
 export type IRRequestBody = {
   type: IRTypeRef;
   contentType: string;
+  /**
+   * Client-facing name of the body parameter, when the spec supplies one
+   * (e.g. TypeSpec's `@body payload: Widget`, or a swagger `in: body`
+   * parameter's `name`). Undefined when TCGC had nothing to take the name
+   * from.
+   */
+  name?: string | undefined;
+  /**
+   * True when `name` was synthesized by TCGC (e.g. `<operation>Request`)
+   * rather than authored in the spec. Consumers that need a stable,
+   * author-intended name (e.g. to name a non-flattened parameter) should
+   * treat a generated name as unusable.
+   */
+  isGeneratedName?: boolean | undefined;
   docs?: string | undefined;
   /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
   summary?: string | undefined;
@@ -89,6 +103,8 @@ export const IRRequestBodySchema: z.ZodType<IRRequestBody> = z
   .object({
     type: IRTypeRefSchema,
     contentType: z.string().min(1),
+    name: z.string().min(1).optional(),
+    isGeneratedName: z.boolean().optional(),
     docs: z.string().optional(),
     summary: z.string().optional(),
     rendering: RequestBodyHintsSchema.optional(),
