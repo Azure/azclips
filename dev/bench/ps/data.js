@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788154414408,
+  "lastUpdate": 1788219440143,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -5924,6 +5924,48 @@ window.BENCHMARK_DATA = {
             "value": 1566803.4494041607,
             "unit": "ns",
             "range": "± 35203.53674322126"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+azure-client-tools-agent[bot]@users.noreply.github.com",
+            "name": "azure-client-tools-agent[bot]",
+            "username": "azure-client-tools-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b96536b5f2213b1e6e7c5c4a9be4d95e5c444e0",
+          "message": "{DevOps} Trigger stable release 0.1.2 (#781)\n\n**Description**\n\nPrepare stable release 0.1.2.\n\n- Updates src/CLI/Core.Cli.csproj\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.2.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-09-01T08:53:12+09:30",
+          "tree_id": "34bd9a46b4869d828e47a751f7d92860f53f4ab9",
+          "url": "https://github.com/Azure/azclips/commit/6b96536b5f2213b1e6e7c5c4a9be4d95e5c444e0"
+        },
+        "date": 1788219437298,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 1598587.468119451,
+            "unit": "ns",
+            "range": "± 34970.86683551665"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 4321636.271947734,
+            "unit": "ns",
+            "range": "± 65151.16760543349"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 1592596.8125506074,
+            "unit": "ns",
+            "range": "± 37953.774402297924"
           }
         ]
       }
