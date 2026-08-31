@@ -15,11 +15,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
         public string ResourceGroup { get; set; } = "";
 
         [ArgumentInfo(
-        Required = true,
+        Required = false,
         Description = @"Name of the user assigned identity.",
         SerializedName = @"ResourceName")]
         public string ResourceName { get; set; } = "";
-
         [ArgumentInfo(
         Required = false,
         Description = @"One or more complete identity resource IDs.",
