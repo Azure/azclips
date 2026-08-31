@@ -58,6 +58,7 @@ Results are saved to `artifacts/Benchmark/<timestamp>/` (or `artifacts/Benchmark
 - `benchmark-details-*.html` - Detailed breakdown
 - `benchmark-summary-*.json` - JSON data for programmatic use
 - `results/` - BenchmarkDotNet's own exports (full JSON + GitHub-flavored Markdown)
+- `telemetry/<PRODUCT>.<Class>.<Method>.jsonl` - 100 sampled CLI traces per benchmark method (one span per line)
 
 ---
 
@@ -83,9 +84,9 @@ Configured via BenchmarkDotNet attributes on `CLIBenchmarkBase` / `PSBenchmarkBa
 Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`); 5,000 warmup and 5,000 measurement iterations are collected per benchmark. The two products are configured to measure the same thing — the warm, in-process per-command pipeline — excluding the cost of standing up their respective execution environments (process launch is excluded by running in-process; extension/module loading is excluded from the measured region on both sides). Per-iteration setup keeps every run isolated:
 
 - `[GlobalSetup]` (once per class): discovers the repo root; for CLI it also stages the required extensions into a benchmark-scoped `artifacts/Benchmark/home/extensions` layout; for PS it stages the module manifest closure under `artifacts/Benchmark/PS`.
-- `[IterationSetup]` (before each run): re-registers stub HTTP/auth/telemetry services; for CLI it also re-registers the extension loaders + registry store pointed at the staged home; for PS it creates and opens a fresh runspace and imports the module (both excluded from the measurement, so only the cmdlet invocation is measured).
+- `[IterationSetup]` (before each run): re-registers stub HTTP/auth services; for CLI it also re-registers the extension loaders + registry store pointed at the staged home, and swaps telemetry back to the production `TelemetryService` with the exporter aimed at this iteration's warmup/measured directory; for PS it creates and opens a fresh runspace and imports the module (both excluded from the measurement, so only the cmdlet invocation is measured).
 - `[IterationCleanup]` (after each run): disposes the DI container (which clears all registrations); for PS it also closes and disposes the runspace created in setup.
-- `[GlobalCleanup]` (once per class): removes the staged extensions home (best-effort).
+- `[GlobalCleanup]` (once per class): removes the staged extensions home (best-effort); for CLI it also samples the measured traces down to 100 and deletes the raw trace files.
 
 ### Product Implementations
 
@@ -171,7 +172,7 @@ Unless `--local`/`--ci` is set, each run uploads aggregated benchmark metrics to
 1. **`BenchmarkDuration`** custom metric - mean duration per result
 2. **`BenchmarkResult`** custom event - duration (s/ms) plus `Product`, `Operation`, `Resource`, and `Timestamp` dimensions for Grafana filtering
 
-Command-level telemetry is stubbed out during benchmarks (`StubTelemetryService`) to keep measurements isolated, so only these aggregated results are exported. Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
+Aggregated benchmark results are what get exported to App Insights. Command-level telemetry is stubbed out for PS benchmarks (`StubTelemetryService`), but CLI benchmarks emit real spans to `artifacts/Benchmark/<timestamp>/telemetry/` so a slow benchmark can be broken down by phase locally. Those files are never uploaded. Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
 
 ---
 
