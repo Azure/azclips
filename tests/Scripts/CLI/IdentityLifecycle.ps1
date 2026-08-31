@@ -11,8 +11,8 @@
 
       az identity create
       az identity list
-      az identity show
-      az identity update
+      az identity show with multiple --ids
+      az identity update with multiple --ids
       az identity delete
 
     The script intentionally runs every azclips command from artifacts\Debug\Core.Cli because
@@ -67,6 +67,8 @@ if ([string]::IsNullOrWhiteSpace($IdentityName)) {
 }
 
 $identityId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$IdentityName"
+$secondaryIdentityName = "$IdentityName-2"
+$secondaryIdentityId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$secondaryIdentityName"
 
 function Invoke-AzClips {
     param(
@@ -141,6 +143,17 @@ try {
     )
 
     Invoke-AzClips @(
+        'identity', 'create',
+        '--subscription', $SubscriptionId,
+        '--resource-group', $ResourceGroup,
+        '--name', $secondaryIdentityName,
+        '--location', $Location,
+        '--tags', 'env=local-integration',
+        '--isolation-scope', 'Regional',
+        '--resource-restriction', '{"providers":["Microsoft.Compute"]}'
+    )
+
+    Invoke-AzClips @(
         'identity', 'list',
         '--subscription', $SubscriptionId,
         '--resource-group', $ResourceGroup
@@ -148,28 +161,28 @@ try {
 
     Invoke-AzClips @(
         'identity', 'show',
-        '--ids', $identityId
+        '--ids', $identityId, $secondaryIdentityId
     )
 
     Invoke-AzClips @(
         'identity', 'update',
-        '--ids', $identityId,
+        '--ids', $identityId, $secondaryIdentityId,
         '--isolation-scope', 'None',
         '--tags', 'env=local-integration-updated'
     )
 
     Invoke-AzClips @(
         'identity', 'show',
-        '--ids', $identityId
+        '--ids', $identityId, $secondaryIdentityId
     )
 
-    Write-Host "`nPASS: identity lifecycle completed for $identityId" -ForegroundColor Green
+    Write-Host "`nPASS: identity lifecycle completed for $identityId and $secondaryIdentityId" -ForegroundColor Green
 }
 finally {
     if (-not $KeepIdentity) {
         Invoke-AzClips @(
             'identity', 'delete',
-            '--ids', $identityId
+            '--ids', $identityId, $secondaryIdentityId
         ) -AllowFailure
     }
 

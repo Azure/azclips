@@ -4,7 +4,6 @@
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
-using Microsoft.Azure.Azclips.Extensions.Identity.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors;
 
@@ -12,16 +11,19 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
 {
     internal override async Task<HttpResponseMessage> SendAsync()
     {
-        ApplyIdentityResourceId(Ids);
+        if (!HasMultipleIdentityResourceIds(Ids))
+        {
+            ApplyIdentityResourceId(Ids);
+        }
         ResolveSubscriptionId();
         ValidateIdentityNameArguments(ResourceGroup, ResourceName, Ids);
 
         JsonObject patchBody = BuildPatchBody();
-        if (IdentityGenericUpdate.HasOperations(Set, Add, Remove))
+        if (Set.HasJsonUpdateOperations(Add, Remove))
         {
             patchBody = await GetCurrentIdentityAsync();
-            MergePatch(patchBody, BuildPatchBody());
-            IdentityGenericUpdate.Apply(patchBody, Set, Add, Remove, ParseForceString());
+            patchBody.MergePatch(BuildPatchBody());
+            patchBody.ApplyGenericUpdate(Set, Add, Remove, ParseForceString());
         }
 
         PatchBodyOverride = patchBody;
@@ -52,18 +54,4 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
         };
     }
 
-    private static void MergePatch(JsonObject target, JsonObject patch)
-    {
-        foreach (var property in patch)
-        {
-            if (property.Value is JsonObject patchObject
-                && target[property.Key] is JsonObject targetObject)
-            {
-                MergePatch(targetObject, patchObject);
-                continue;
-            }
-
-            target[property.Key] = property.Value?.DeepClone();
-        }
-    }
 }

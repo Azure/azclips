@@ -39,7 +39,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 
             string uri = BuildIdentityUri(ResourceGroup, ResourceName);
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, uri);
+            HttpRequestMessage request = new(HttpMethod.Delete, uri);
 
             await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
             return request;

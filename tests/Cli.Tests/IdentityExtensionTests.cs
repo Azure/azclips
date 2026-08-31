@@ -8,6 +8,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Identity;
 using Microsoft.Azure.Azclips.Extensions.Identity.Models;
 using Microsoft.Azure.Azclips.Extensions.Identity.Processors;
@@ -176,6 +177,36 @@ public class IdentityExtensionTests
     }
 
     [Fact]
+    public async Task ShowProcessAsync_AllowsMultipleIds_AndOutputsIdentityArray()
+    {
+        var sentUris = new List<string>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentUris.Add(request.RequestUri!.ToString());
+            string name = request.RequestUri!.ToString().Contains("/id1?", StringComparison.Ordinal)
+                ? "id1"
+                : "id2";
+            return Json($$"""{ "name": "{{name}}", "location": "eastus", "properties": { "isolationScope": "Regional" } }""");
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor<ShowIdentityProcessor>(pipeline, output, profile: null);
+        processor.Ids =
+        [
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id1",
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id2",
+        ];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, sentUris.Count);
+        Assert.Contains("/resourceGroups/rg1/", sentUris[0], StringComparison.Ordinal);
+        Assert.Contains("/resourceGroups/rg2/", sentUris[1], StringComparison.Ordinal);
+        var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(output.WrittenValues));
+        Assert.Equal(["id1", "id2"], identities.Select(identity => identity.Name!).ToArray());
+        Assert.All(identities, identity => Assert.Equal("Regional", identity.Properties!.IsolationScope));
+    }
+
+    [Fact]
     public async Task UpdateProcessAsync_SerializesResourceRestrictionAndIsolationScope()
     {
         HttpRequestMessage? sentRequest = null;
@@ -199,6 +230,110 @@ public class IdentityExtensionTests
         using var doc = JsonDocument.Parse(body);
         Assert.Equal("None", doc.RootElement.GetProperty("properties").GetProperty("isolationScope").GetString());
         Assert.Equal("Microsoft.Storage", doc.RootElement.GetProperty("properties").GetProperty("assignmentRestrictions").GetProperty("providers")[0].GetString());
+    }
+
+    [Fact]
+    public async Task UpdateOrchestrator_AppliesGenericUpdateOperations_ToCurrentIdentity()
+    {
+        var sentRequests = new List<HttpRequestMessage>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentRequests.Add(CloneRequest(request).GetAwaiter().GetResult());
+            if (request.Method == HttpMethod.Get)
+            {
+                return Json("""
+                    {
+                      "name": "id1",
+                      "location": "eastus",
+                      "tags": { "old": "remove-me", "env": "dev" },
+                      "properties": {
+                        "assignmentRestrictions": { "providers": ["Microsoft.Compute"] },
+                        "isolationScope": "None"
+                      }
+                    }
+                    """);
+            }
+
+            return Json("""{ "name": "id1", "location": "eastus" }""");
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(pipeline, output);
+        processor.ResourceGroup = "rg1";
+        processor.ResourceName = "id1";
+        processor.Tags = ["env=prod"];
+        processor.Set = ["properties.isolationScope=Regional"];
+        processor.Add = ["properties.assignmentRestrictions.providers", "Microsoft.KeyVault"];
+        processor.Remove = ["tags.old"];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal([HttpMethod.Get, HttpMethod.Patch], sentRequests.Select(request => request.Method).ToArray());
+        string body = await sentRequests[1].Content!.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(body);
+        Assert.False(doc.RootElement.GetProperty("tags").TryGetProperty("old", out _));
+        Assert.Equal("prod", doc.RootElement.GetProperty("tags").GetProperty("env").GetString());
+        Assert.Equal("Regional", doc.RootElement.GetProperty("properties").GetProperty("isolationScope").GetString());
+        Assert.Equal(
+            ["Microsoft.Compute", "Microsoft.KeyVault"],
+            doc.RootElement.GetProperty("properties").GetProperty("assignmentRestrictions").GetProperty("providers")
+                .EnumerateArray()
+                .Select(provider => provider.GetString()!)
+                .ToArray());
+    }
+
+    [Fact]
+    public async Task UpdateOrchestrator_AllowsMultipleIds_AndOutputsIdentityArray()
+    {
+        var sentRequests = new List<HttpRequestMessage>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sentRequests.Add(CloneRequest(request).GetAwaiter().GetResult());
+            string name = request.RequestUri!.ToString().Contains("/id1?", StringComparison.Ordinal)
+                ? "id1"
+                : "id2";
+
+            if (request.Method == HttpMethod.Get)
+            {
+                return Json($$"""
+                    {
+                      "name": "{{name}}",
+                      "location": "eastus",
+                      "tags": { "env": "dev" },
+                      "properties": { "isolationScope": "None" }
+                    }
+                    """);
+            }
+
+            return Json($$"""{ "name": "{{name}}", "location": "eastus", "properties": { "isolationScope": "Regional" } }""");
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(pipeline, output, profile: null);
+        processor.Ids =
+        [
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id1",
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id2",
+        ];
+        processor.Set = ["properties.isolationScope=Regional"];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal([HttpMethod.Get, HttpMethod.Patch, HttpMethod.Get, HttpMethod.Patch], sentRequests.Select(request => request.Method).ToArray());
+        Assert.Contains("/resourceGroups/rg1/", sentRequests[0].RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.Contains("/resourceGroups/rg1/", sentRequests[1].RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.Contains("/resourceGroups/rg2/", sentRequests[2].RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.Contains("/resourceGroups/rg2/", sentRequests[3].RequestUri!.ToString(), StringComparison.Ordinal);
+        var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(output.WrittenValues));
+        Assert.Equal(["id1", "id2"], identities.Select(identity => identity.Name!).ToArray());
+        Assert.All(identities, identity => Assert.Equal("Regional", identity.Properties!.IsolationScope));
+    }
+
+    [Fact]
+    public void JsonNodeExtensions_ParseJsonKeyValue_ParsesJsonFirstValues()
+    {
+        (string key, var value) = """enabled={"value":true}""".ParseJsonKeyValue();
+
+        Assert.Equal("enabled", key);
+        Assert.True(value!["value"]!.GetValue<bool>());
     }
 
     [Fact]

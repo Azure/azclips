@@ -55,7 +55,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
             if (string.IsNullOrWhiteSpace(ResourceName))
                 throw new InvalidOperationException("--name or --resource-name is required.");
             if (string.IsNullOrWhiteSpace(Location))
-                throw new InvalidOperationException("Location is required. The CLI orchestrator resolves it from the resource group when --location is omitted.");
+                throw new InvalidOperationException("Location is required. Specify --location, or ensure the resource group exists so its location can be resolved automatically.");
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
 

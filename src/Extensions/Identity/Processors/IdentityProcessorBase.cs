@@ -38,6 +38,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
         {
             BeforeInit();
 
+            // TODO: temporarily initialize arbitrary json options here, get from context in the future
             JsonOptions = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
@@ -97,6 +98,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
 
         protected string BuildIdentityListUri(string? resourceGroup, string? nextToken = null)
         {
+            //TODO: This should be config based for cloud env supportability.
+            //For now, we will hardcode the endpoint to Azure public cloud.
             if (!string.IsNullOrWhiteSpace(nextToken))
             {
                 if (Uri.TryCreate(nextToken, UriKind.Absolute, out var absolute))
@@ -139,6 +142,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
 
             return (segments[1], segments[3], segments[7]);
         }
+
+        protected static bool HasMultipleIdentityResourceIds(string[]? ids) => ids is { Length: > 1 };
 
         protected void ApplyIdentityResourceId(string[]? ids)
         {
@@ -251,6 +256,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
 
         public override async Task ProcessAsync()
         {
+            EnsureRuntimeContext();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             try
             {
@@ -280,7 +286,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
                 catch (JsonException ex)
                 {
                     await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                    throw new InvalidOperationException($"Failed to deserialize response: {ex.Message}", ex);
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
                 }
             }
             finally
