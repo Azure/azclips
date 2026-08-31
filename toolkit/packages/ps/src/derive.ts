@@ -104,14 +104,6 @@ function effectiveResponseTypes(operation: IROperation, models: ModelIndex): IRT
   return types;
 }
 
-/** True when the operation yields a collection rather than a single resource. */
-function isCollectionOperation(operation: IROperation, models: ModelIndex): boolean {
-  if (operation.semantics?.kind === "pageable") return true;
-  return operation.responses.some(
-    (r) => !r.isError && r.type !== undefined && collectionElementType(models, r.type) !== undefined,
-  );
-}
-
 type Inferred = {
   verb: string;
   subject: string;
@@ -461,7 +453,6 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
 
   const commands: PSCommandAttribute[] = [];
   const commandSources: { command: PSCommandAttribute; source: string }[] = [];
-  const parameters: PSParameterAttribute[] = [];
 
   for (const entries of groups.values()) {
     const operations = entries.map((entry) => entry.operation);

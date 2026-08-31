@@ -628,7 +628,12 @@ userDictionary.add("premise", "premises");
 
 const isCapitalized = (word: string): boolean => word !== "" && word.charAt(0) === word.charAt(0).toUpperCase();
 
-/** False for empty, padded, or non-alphabetic words -- those are left alone. */
+/**
+ * False for empty, padded, or non-alphabetic words -- those are left alone. The `\\s` is upstream's
+ * escaping slip, kept: it admits a literal backslash instead of whitespace, so a spaced phrase is
+ * "non-alphabetic" and returns unchanged. `singularize` splits on `deconstruct` first, so no word
+ * reaching here contains a space either way.
+ */
 const isAlphabetic = (word: string): boolean =>
   word !== "" && word === word.trim() && !/[^a-zA-Z\\s]/.test(word);
 
