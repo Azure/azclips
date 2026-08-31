@@ -558,3 +558,149 @@ describe("deriveAttributes", () => {
     }
   });
 });
+
+// ─── Expanded (flattened-body) parameter sets ────────────────────────────
+
+type TestProperty = IRModel["properties"][number];
+
+function scalar(name: string, options: Partial<TestProperty> = {}): TestProperty {
+  return {
+    id: { module: "<root>", namespace: [], name: `prop#${name}` },
+    name,
+    wireName: name,
+    optional: true,
+    nullable: false,
+    typeKind: "primitive",
+    type: { kind: "primitive", name: "string" },
+    ...options,
+  } as TestProperty;
+}
+
+function nested(name: string, target: string, flattenIntoSelf = false): TestProperty {
+  return {
+    id: { module: "<root>", namespace: [], name: `prop#${name}` },
+    name,
+    wireName: name,
+    optional: true,
+    nullable: false,
+    typeKind: "object",
+    type: modelRef(target),
+    ...(flattenIntoSelf ? { rendering: { flatten: { into: "self" as const } } } : {}),
+  } as TestProperty;
+}
+
+const model = (name: string, properties: TestProperty[]): IRModel => ({
+  id: { module: "<root>", namespace: [], name },
+  name,
+  source: "<root>",
+  properties,
+});
+
+/** PUT whose body is `Widget`, with whatever models the test supplies. */
+function bodyFixture(models: IRModel[], bodyModel = "Widget") {
+  const operation = makeOperation({
+    id: { module: "<root>", namespace: ["Widgets"], name: "create" },
+    method: "PUT",
+    requestBody: { type: modelRef(bodyModel), contentType: "application/json" },
+  });
+  return deriveAttributes({ ...emptyIR(), operations: [operation], models }, {});
+}
+
+const namesOf = (command: { parameters: { name: string }[] }) =>
+  command.parameters.map((p) => p.name).sort();
+
+describe("deriveAttributes: Expanded parameter sets", () => {
+  it("flattens the body into one parameter per settable leaf and names the set Expanded", () => {
+    const { commands } = bodyFixture([
+      model("Widget", [scalar("size", { optional: false }), scalar("colour")]),
+    ]);
+
+    expect(commands[0]!.parameterSets.map((s) => s.name)).toEqual(["CreateExpanded"]);
+    expect(commands[0]!.defaultParameterSetName).toBe("CreateExpanded");
+    expect(namesOf(commands[0]!)).toEqual(["Colour", "Size"]);
+    expect(commands[0]!.parameters.find((p) => p.name === "Size")!.mandatory).toBe(true);
+  });
+
+  it("drops the ARM properties envelope from flattened names", () => {
+    const { commands } = bodyFixture([
+      model("Widget", [nested("properties", "WidgetProperties", true)]),
+      model("WidgetProperties", [scalar("sizeGiB")]),
+    ]);
+
+    expect(namesOf(commands[0]!)).toEqual(["SizeGiB"]);
+  });
+
+  it("prefixes only the containing property, so a deep leaf does not accumulate every segment", () => {
+    const { commands } = bodyFixture([
+      model("Widget", [nested("properties", "WidgetProperties", true)]),
+      model("WidgetProperties", [nested("autoScaleProperties", "AutoScale")]),
+      model("AutoScale", [nested("scaleUpProperties", "ScaleUp")]),
+      model("ScaleUp", [scalar("unusedSizeTiB")]),
+    ]);
+
+    // autorest.powershell's own name for this leaf, per ElasticSan's rename directive.
+    expect(namesOf(commands[0]!)).toEqual(["ScaleUpPropertyUnusedSizeTiB"]);
+  });
+
+  it("omits server-assigned properties", () => {
+    const { commands } = bodyFixture([
+      model("Widget", [scalar("size"), scalar("widgetId", { visibility: ["read"] })]),
+    ]);
+
+    expect(namesOf(commands[0]!)).toEqual(["Size"]);
+  });
+
+  it("keeps a body property that a path parameter already covers from being duplicated", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Widgets"], name: "create" },
+      method: "PUT",
+      pathParameters: [
+        {
+          id: { module: "<root>", namespace: [], name: "create#name" },
+          name: "name",
+          wireName: "name",
+          type: { kind: "primitive", name: "string" },
+          optional: false,
+          nullable: false,
+        },
+      ],
+      requestBody: { type: modelRef("Widget"), contentType: "application/json" },
+    });
+
+    const { commands } = deriveAttributes(
+      { ...emptyIR(), operations: [operation], models: [model("Widget", [scalar("name"), scalar("size")])] },
+      {},
+    );
+
+    expect(namesOf(commands[0]!)).toEqual(["Name", "Size"]);
+    expect(commands[0]!.parameters.find((p) => p.name === "Name")!.mandatory).toBe(true);
+  });
+
+  it("leaves a body the IR marks `flatten: never` unexpanded", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Widgets"], name: "create" },
+      method: "PUT",
+      requestBody: {
+        type: modelRef("Widget"),
+        contentType: "application/json",
+        rendering: { flatten: { into: "never" } },
+      },
+    });
+
+    const { commands } = deriveAttributes(
+      { ...emptyIR(), operations: [operation], models: [model("Widget", [scalar("size")])] },
+      {},
+    );
+
+    expect(commands[0]!.parameterSets.map((s) => s.name)).toEqual(["Create"]);
+    expect(commands[0]!.parameters).toHaveLength(0);
+  });
+
+  it("stops at a cycle rather than recursing forever", () => {
+    const { commands } = bodyFixture([
+      model("Widget", [scalar("size"), nested("child", "Widget")]),
+    ]);
+
+    expect(namesOf(commands[0]!)).toEqual(["Size"]);
+  });
+});
