@@ -5,10 +5,14 @@
  * into one `PSCommandAttribute` with one parameter set per source operation (real precedent:
  * `GetResourceGroupCmdlet`'s `Get`/`List` sets).
  *
- * Not yet implemented: directive-based authoring overrides, and the `Expanded` (flattened-body)
- * parameter-set fan-out. `PSModuleAttribute.description` has no IR-derivable source today
- * (`IRSource` carries no rendering/hints) and is always left `undefined`; a future authoring
- * mechanism would need to supply it.
+ * Operations carrying a request body derive an `Expanded` parameter set, whose body is flattened
+ * into one parameter per settable leaf. The non-expanded companion set (the body as a single
+ * object parameter) is not derived: its parameter name comes from the spec's body parameter name,
+ * which IR does not carry, and shipped modules name it 15 different ways.
+ *
+ * Not yet implemented: the `ViaIdentity` parameter-set fan-out. `PSModuleAttribute.description`
+ * has no IR-derivable source today (`IRSource` carries no rendering/hints) and is always left
+ * `undefined`; a future authoring mechanism would need to supply it.
  */
 
 import {
@@ -19,6 +23,7 @@ import {
   type IROperation,
   type IRId,
   type IRParameter,
+  type IRProperty,
   type IRTypeRef,
 } from "@azure-client-engine/ir";
 import { inferCommandNames, deconstruct, pascalCase, singularize, deduplicateNoun } from "./naming.js";
@@ -205,18 +210,100 @@ function defaultParameterSetNameFor(
  * (`listByResourceGroup` -> `ResourceGroup`); the full action word is the fallback, and also the
  * tie-break when two operations in one command would otherwise collide.
  */
-function parameterSetNamesFor(entries: readonly CommandEntry[]): string[] {
+function parameterSetNamesFor(entries: readonly CommandEntry[], models: ModelIndex): string[] {
   const preferred = entries.map((entry) =>
     entry.inferred.variant === ""
       ? pascalCase(deconstruct(entry.operation.id.name))
       : entry.inferred.variant,
   );
 
-  return preferred.map((name, index) =>
-    preferred.some((other, otherIndex) => other === name && otherIndex !== index)
+  return preferred.map((name, index) => {
+    const resolved = preferred.some((other, otherIndex) => other === name && otherIndex !== index)
       ? pascalCase(deconstruct(entries[index]!.operation.id.name))
-      : name,
+      : name;
+    const expanded = expandableBody(models, entries[index]!.operation) !== undefined;
+    return expanded ? `${resolved}Expanded` : resolved;
+  });
+}
+
+// ─── Request-body flattening ─────────────────────────────────────────────
+
+/** The body model an `Expanded` set flattens, or undefined when the body cannot be expanded. */
+function expandableBody(models: ModelIndex, operation: IROperation): IRModel | undefined {
+  const body = operation.requestBody;
+  if (body === undefined || body.rendering?.flatten?.into === "never") return undefined;
+  if (body.type.kind !== "model") return undefined;
+  return models.get(serializeId(body.type.id));
+}
+
+/**
+ * Settable in a request: `visibility` absent means every lifecycle phase, so only an explicit
+ * list without `create`/`update` marks a property as server-assigned.
+ */
+function isSettable(property: IRProperty): boolean {
+  return (
+    property.visibility === undefined ||
+    property.visibility.includes("create") ||
+    property.visibility.includes("update")
   );
+}
+
+type BodyLeaf = { name: string; property: IRProperty; nested: boolean };
+
+/**
+ * What an object property contributes to the names of the members it hoists: its own name,
+ * singularized word by word (`scaleUpProperties` -> `ScaleUpProperty`). The ARM `properties`
+ * envelope contributes nothing, which is why the real cmdlet takes `-SizeGiB`.
+ */
+function inlinePrefix(property: IRProperty): string {
+  const flatten = property.typeKind === "object" ? property.rendering?.flatten : undefined;
+  if (flatten?.into === "self") return "";
+  const wireName = property.wireName.toLowerCase();
+  if (wireName === "properties" || wireName === "error") return "";
+  return pascalCase(deconstruct(property.name).map(singularize));
+}
+
+/**
+ * One leaf per settable scalar reachable through the body. Flattening is bottom-up and only the
+ * immediately containing property contributes a prefix: a leaf that has already been hoisted once
+ * travels up unchanged, so `properties.autoScaleProperties.scaleUpProperties.unusedSizeTiB`
+ * arrives as `ScaleUpPropertyUnusedSizeTiB` rather than accumulating every segment.
+ */
+function bodyLeaves(
+  models: ModelIndex,
+  model: IRModel,
+  seen: ReadonlySet<string> = new Set(),
+): BodyLeaf[] {
+  const modelKey = serializeId(model.id);
+  if (seen.has(modelKey)) return [];
+  const visited = new Set([...seen, modelKey]);
+
+  const leaves: BodyLeaf[] = [];
+  for (const property of model.properties) {
+    if (!isSettable(property)) continue;
+
+    const flatten = property.typeKind === "object" ? property.rendering?.flatten : undefined;
+    // A dictionary-typed property has no members to hoist, so it stays one parameter (`-Tag`).
+    const target =
+      property.typeKind === "object" && flatten?.into !== "never" && property.type.kind === "model"
+        ? models.get(serializeId(property.type.id))
+        : undefined;
+
+    if (target === undefined) {
+      leaves.push({ name: pascalCase(deconstruct(property.name)), property, nested: false });
+      continue;
+    }
+
+    const prefix = inlinePrefix(property);
+    for (const leaf of bodyLeaves(models, target, visited)) {
+      leaves.push({
+        name: leaf.nested ? leaf.name : prefix + leaf.name,
+        property: leaf.property,
+        nested: true,
+      });
+    }
+  }
+  return leaves;
 }
 
 type CommandEntry = { operation: IROperation; inferred: Inferred };
@@ -248,10 +335,40 @@ function withoutSubjectPrefix(name: string, subject: string, otherNames: readonl
  * overrides instead. Where sets disagree on the IR parameter, `sourceParameterId` keeps the first
  * -- the others stay reachable through the set's own `sourceOperationId`.
  */
+type Occurrence = { setName: string; optional: boolean; help: string | undefined; sourceId: IRId };
+
+/** Collapses one name's occurrences into the single attribute the cmdlet exposes. */
+function attributeFor(
+  name: string,
+  alias: string | undefined,
+  found: readonly Occurrence[],
+  setCount: number,
+): PSParameterAttribute {
+  const first = found[0]!;
+  const base: PSParameterAttribute = {
+    name,
+    ...(alias === undefined ? {} : { alias: [alias] }),
+    mandatory: !first.optional,
+    helpMessage: first.help,
+    sourceParameterId: first.sourceId,
+  };
+
+  const uniform = found.every((o) => o.optional === first.optional && o.help === first.help);
+  if (found.length === setCount && uniform) return base;
+  if (found.length === 1) return { ...base, parameterSetName: first.setName };
+  return {
+    ...base,
+    parameterSets: Object.fromEntries(
+      found.map((o) => [o.setName, { mandatory: !o.optional, helpMessage: o.help }]),
+    ),
+  };
+}
+
 function parametersFor(
   entries: readonly CommandEntry[],
   parameterSets: readonly PSParameterSetAttribute[],
   subject: string,
+  models: ModelIndex,
 ): PSParameterAttribute[] {
   const occurrences = new Map<string, { setName: string; parameter: IRParameter; isPath: boolean }[]>();
 
@@ -269,8 +386,9 @@ function parametersFor(
 
   const allNames = [...occurrences.keys()];
   const parameters: PSParameterAttribute[] = [];
+  const taken = new Set<string>();
+
   for (const [name, found] of occurrences) {
-    const first = found[0]!.parameter;
     // Only path parameters are shortened; a query or header name carries no such redundancy.
     const shortened = found.some((o) => o.isPath)
       ? withoutSubjectPrefix(
@@ -280,33 +398,44 @@ function parametersFor(
         )
       : name;
 
-    const base: PSParameterAttribute = {
-      name: shortened,
-      ...(shortened === name ? {} : { alias: [name] }),
-      mandatory: !first.optional,
-      helpMessage: helpOf(first),
-      sourceParameterId: first.id,
-    };
-
-    const uniform = found.every(
-      (o) => o.parameter.optional === first.optional && helpOf(o.parameter) === helpOf(first),
+    taken.add(shortened);
+    parameters.push(
+      attributeFor(
+        shortened,
+        shortened === name ? undefined : name,
+        found.map((o) => ({
+          setName: o.setName,
+          optional: o.parameter.optional,
+          help: helpOf(o.parameter),
+          sourceId: o.parameter.id,
+        })),
+        parameterSets.length,
+      ),
     );
+  }
 
-    if (found.length === parameterSets.length && uniform) {
-      parameters.push(base);
-    } else if (found.length === 1) {
-      parameters.push({ ...base, parameterSetName: found[0]!.setName });
-    } else {
-      parameters.push({
-        ...base,
-        parameterSets: Object.fromEntries(
-          found.map((o) => [
-            o.setName,
-            { mandatory: !o.parameter.optional, helpMessage: helpOf(o.parameter) },
-          ]),
-        ),
-      });
+  const bodyOccurrences = new Map<string, Occurrence[]>();
+  entries.forEach((entry, index) => {
+    const body = expandableBody(models, entry.operation);
+    if (body === undefined) return;
+    for (const leaf of bodyLeaves(models, body)) {
+      const name = singularize(leaf.name);
+      // A body property that restates a path parameter is already covered by it.
+      if (taken.has(name)) continue;
+      const occurrence: Occurrence = {
+        setName: parameterSets[index]!.name,
+        optional: leaf.property.optional,
+        help: leaf.property.summary ?? leaf.property.docs,
+        sourceId: leaf.property.id,
+      };
+      const bucket = bodyOccurrences.get(name);
+      if (bucket) bucket.push(occurrence);
+      else bodyOccurrences.set(name, [occurrence]);
     }
+  });
+
+  for (const [name, found] of bodyOccurrences) {
+    parameters.push(attributeFor(name, undefined, found, parameterSets.length));
   }
   return parameters;
 }
@@ -333,7 +462,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
   for (const entries of groups.values()) {
     const operations = entries.map((entry) => entry.operation);
     const inferred = entries[0]!.inferred;
-    const setNames = parameterSetNamesFor(entries);
+    const setNames = parameterSetNamesFor(entries, models);
     const parameterSets: PSParameterSetAttribute[] = entries.map((entry, index) => ({
       name: setNames[index]!,
       sourceOperationId: entry.operation.id,
@@ -365,7 +494,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
       supportsPaging: undefined,
       outputTypes: outputTypeIdsFor(operations, models),
       parameterSets,
-      parameters: parametersFor(entries, parameterSets, deduped.subject),
+      parameters: parametersFor(entries, parameterSets, deduped.subject, models),
       defaultParameterSetName: defaultParameterSetNameFor(operations, parameterSets),
       sourceOperationIds: operations.map((operation) => operation.id),
     });
