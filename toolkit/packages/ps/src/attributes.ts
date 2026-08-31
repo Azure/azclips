@@ -136,7 +136,9 @@ export type PSCommandAttribute = {
   /**
    * The bare subject, without either prefix. Kept alongside `noun` because authoring overrides
    * address the subject rather than the composed noun, and a composed value alone cannot be
-   * rewritten back into its parts.
+   * rewritten back into its parts. Empty when the prefix carries the whole noun, which real
+   * modules do deliberately: ApplicationInsights rewrites subject `Component` to nothing so the
+   * cmdlet becomes `Get-AzApplicationInsights`. `noun` is the field that must be non-empty.
    */
   subject: string;
   /** Configurable subject prefix combined with `noun` at grouping time, e.g. "Az". */
