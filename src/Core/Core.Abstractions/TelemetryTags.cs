@@ -45,7 +45,7 @@ public static class TelemetryTags
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
-    public const string RecoveryTurns = PropertyTagPrefix + "recovery.turns";
+    public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string ProcessName = PropertyTagPrefix + "process";
 }

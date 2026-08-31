@@ -169,7 +169,7 @@ git commit -m "feat(telemetry): allow StartRootActivity to override the span nam
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `TelemetryTags.CommandTraceId`, `.CommandSpanId`, `.RecoverySessionStyle`, `.RecoveryProvider`, `.RecoveryExitCode`, `.RecoveryTurns`, `.AgentModel`, `.ProcessName` — all `string` constants prefixed with `properties.`. Allowlist entries for `CLI.Activity.AiRecovery`, `Agent.Session`, `Agent.Create`, `Agent.Turn`, `Agent.Send`, and the `tool.` prefix. Tasks 4, 5, and 6 all depend on these; without them their spans are created and then silently dropped by `DefaultActivityNameFilterProcessor`.
+- Produces: `TelemetryTags.CommandTraceId`, `.CommandSpanId`, `.RecoverySessionStyle`, `.RecoveryProvider`, `.RecoveryExitCode`, `.RecoveryReprompts`, `.AgentModel`, `.ProcessName` — all `string` constants prefixed with `properties.`. Allowlist entries for `CLI.Activity.AiRecovery`, `Agent.Session`, `Agent.Create`, `Agent.Turn`, `Agent.Send`, and the `tool.` prefix. Tasks 4, 5, and 6 all depend on these; without them their spans are created and then silently dropped by `DefaultActivityNameFilterProcessor`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -217,7 +217,7 @@ public class RecoveryTelemetryVocabularyTests
     [InlineData(nameof(TelemetryTags.RecoverySessionStyle))]
     [InlineData(nameof(TelemetryTags.RecoveryProvider))]
     [InlineData(nameof(TelemetryTags.RecoveryExitCode))]
-    [InlineData(nameof(TelemetryTags.RecoveryTurns))]
+    [InlineData(nameof(TelemetryTags.RecoveryReprompts))]
     [InlineData(nameof(TelemetryTags.AgentModel))]
     [InlineData(nameof(TelemetryTags.ProcessName))]
     public void RecoveryTags_AreNamedForTheProductPropertyChannel(string constantName)
@@ -252,7 +252,7 @@ In `src/Core/Core.Abstractions/TelemetryTags.cs`, insert before the closing brac
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
-    public const string RecoveryTurns = PropertyTagPrefix + "recovery.turns";
+    public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string ProcessName = PropertyTagPrefix + "process";
 ```
@@ -691,7 +691,12 @@ Leave the four guard blocks exactly as they are — the recovery span must not b
         using var recovery = _telemetryService?.StartRootActivity(name: RecoveryActivityName);
         recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
         recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
-        recovery?.SetTag(TelemetryTags.Command, JoinShellQuoted(args));
+        var telemetryCommandName = GetTelemetryCommandNameFromArgs(args);
+        if (!string.IsNullOrEmpty(telemetryCommandName))
+        {
+            // Never tag JoinShellQuoted(args): raw argv carries parameter values.
+            recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
+        }
         recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
         recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
 
@@ -736,7 +741,7 @@ Leave the four guard blocks exactly as they are — the recovery span must not b
         catch (Exception ex)
         {
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
-            recovery?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            recovery?.SetStatus(ActivityStatusCode.Error); // StatusDescription is exported verbatim and bypasses DefaultTelemetryPropertyFilter.
             return 1;
         }
 ```
@@ -1132,7 +1137,7 @@ span to the traceparent the CLI hands down. Refs Azure/CLIPS#602."
 - Test: `Agent/tests/Core.Agent.Tests/AgentTelemetryTests.cs` (extend)
 
 **Interfaces:**
-- Consumes: `AgentTracing.Source` and `RecoveryTraceContext` (Task 5); the `Agent.Create` / `Agent.Turn` / `Agent.Send` allowlist entries and `TelemetryTags.RecoveryTurns` / `.AgentModel` (Task 2).
+- Consumes: `AgentTracing.Source` and `RecoveryTraceContext` (Task 5); the `Agent.Create` / `Agent.Turn` / `Agent.Send` allowlist entries and `TelemetryTags.RecoveryReprompts` / `.AgentModel` (Task 2).
 - Produces: no new public API. Adds three spans nested under `Agent.Session`.
 
 `Agent.Session` alone answers "how long did recovery take", which the CLI's recovery span already covers. These three answer "where did it go" — the reason for instrumenting the agent at all. `Agent.Send` sits inside `ChatAgent.SendAsync` rather than around the caller because `SendAndPumpAsync` races the send against the approval pump, and wrapping the caller would fold user think time into model latency.
@@ -1241,7 +1246,9 @@ In `SendWithToolEnforcementAsync`, add as the first statement of the method body
 and immediately before the closing `return redirect;`:
 
 ```csharp
-        turn?.SetTag(TelemetryTags.RecoveryTurns, 1);
+        var toolEnforcementRepromptCount = 0;
+        // ... increment immediately before each tool-enforcement correction send ...
+        turn?.SetTag(TelemetryTags.RecoveryReprompts, toolEnforcementRepromptCount);
 ```
 
 Add `using Core.Abstractions;` to the file's usings if `TelemetryTags` is not resolvable.
@@ -1443,7 +1450,7 @@ block.
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
 | `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
-| `properties.recovery.turns`        | `Agent.Turn`                | User↔agent exchanges                            |
+| `properties.recovery.reprompts`        | `Agent.Turn`                | Tool-enforcement re-prompts on that turn                            |
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g. `azclips-agent`          |
 

@@ -107,7 +107,7 @@ One-directional, recovery → command, carried as tags on T2:
 | --- | --- |
 | `properties.command.traceId` | T1's `TraceId` |
 | `properties.command.spanId` | T1's root `SpanId` |
-| `command` | the failed command |
+| `command` | the failed command name derived from leading non-flag argv, when present |
 | `properties.recovery.sessionStyle` | `oneshot` \| `interactive` |
 | `properties.recovery.provider` | `builtin` \| `github` |
 | `properties.recovery.exitCode` | agent process exit code |
@@ -189,7 +189,12 @@ recursion, agent exe missing), so no recovery span is emitted when no agent runs
 using var recovery = _telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
 recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
 recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
-recovery?.SetTag(TelemetryTags.Command, JoinShellQuoted(args));
+var telemetryCommandName = GetTelemetryCommandNameFromArgs(args);
+if (!string.IsNullOrEmpty(telemetryCommandName))
+{
+    // Never tag JoinShellQuoted(args): raw argv carries parameter values.
+    recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
+}
 recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
 recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
 // ... spawn + WaitForExitAsync inside this span ...
@@ -211,7 +216,7 @@ internal static ProcessStartInfo BuildAgentStartInfo(
     string agentExe, string[] args, string? errorText, string? recoveryTraceparent);
 ```
 
-It adds one entry to the environment block, alongside the two already there:
+It adds one entry to the environment block, alongside the two already there. The recovery span itself uses `GetTelemetryCommandNameFromArgs(string[] args)` rather than `JoinShellQuoted(args)` when tagging the command so raw parameter values never enter telemetry:
 
 ```csharp
 psi.Environment["AZCLIPS_RECOVERY_TRACEPARENT"] = recoveryTraceparent;
@@ -257,7 +262,7 @@ public const string RecoverySessionStyle  = "properties.recovery.sessionStyle";
 public const string RecoveryProvider      = "properties.recovery.provider";
 public const string RecoveryExitCode      = "properties.recovery.exitCode";
 public const string AgentModel            = "properties.agent.model";
-public const string AgentTurns            = "properties.agent.turns";
+public const string RecoveryReprompts     = "properties.recovery.reprompts";
 public const string ProcessName           = "properties.process";
 ```
 
@@ -363,8 +368,7 @@ agent has exited, so both trace files are pending and get claimed in a single ru
 which no provider listens to. It is repointed at the same `"CLI"` source so existing
 `tool.*` spans start recording and land in the correct upload group.
 
-Tags on `Agent.Session`: `properties.process`, `properties.agent.model`,
-`properties.agent.turns`, plus the invariants. No prompts, error text, or model output.
+Tags on `Agent.Session`: `properties.process`, plus the invariants. `Agent.Send` carries `properties.agent.model`, and `Agent.Turn` carries `properties.recovery.reprompts` for the tool-enforcement correction count on that turn. No prompts, error text, or model output.
 
 ### `docs/azure-cli/docs-conceptual/ai-based-error-recovery.md`
 

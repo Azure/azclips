@@ -16,6 +16,15 @@ public class AgentStartInfoTests
 
     private static string AgentExe => Path.Combine(AppContext.BaseDirectory, "azclips-agent.exe");
 
+
+    [Fact]
+    public void RecoveryTraceparentEnvVar_UsesTheSharedLiteral()
+    {
+        // Keep this literal pinned here; Core.Agent.Tests asserts the counterpart on the
+        // agent side because neither test project can see both internals.
+        Assert.Equal("AZCLIPS_RECOVERY_TRACEPARENT", Core.Cli.Program.RecoveryTraceparentEnvVar);
+    }
+
     [Fact]
     public void BuildAgentStartInfo_ForwardsTheRecoveryTraceparent()
     {

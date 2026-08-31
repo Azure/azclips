@@ -112,7 +112,7 @@ public class TelemetryServiceStartTimeTests : IDisposable
         using var activity = _telemetryService.StartRootActivity();
 
         Assert.NotNull(activity);
-        Assert.EndsWith(".Activity.Root", activity.OperationName);
+        Assert.Equal("CLI.Activity.Root", activity.OperationName);
     }
 
     /// <summary>Minimal ITelemetryProvider exposing a caller-supplied ActivitySource.</summary>

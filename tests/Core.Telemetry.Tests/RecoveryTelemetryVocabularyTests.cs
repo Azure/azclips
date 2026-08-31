@@ -44,7 +44,7 @@ public class RecoveryTelemetryVocabularyTests
     [InlineData(nameof(TelemetryTags.RecoverySessionStyle))]
     [InlineData(nameof(TelemetryTags.RecoveryProvider))]
     [InlineData(nameof(TelemetryTags.RecoveryExitCode))]
-    [InlineData(nameof(TelemetryTags.RecoveryTurns))]
+    [InlineData(nameof(TelemetryTags.RecoveryReprompts))]
     [InlineData(nameof(TelemetryTags.AgentModel))]
     [InlineData(nameof(TelemetryTags.ProcessName))]
     public void RecoveryTags_AreNamedForTheProductPropertyChannel(string constantName)

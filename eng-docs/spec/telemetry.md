@@ -98,7 +98,7 @@ block.
 | `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
 | `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
 | `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
-| `properties.recovery.turns`        | `Agent.Turn`                | User↔agent exchanges                            |
+| `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
 | `properties.agent.model`           | `Agent.Send`                | Model name                                      |
 | `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
 

@@ -26,6 +26,15 @@ public class RecoveryTraceContextTests
         Assert.Equal(default, RecoveryTraceContext.Parse(value));
     }
 
+
+    [Fact]
+    public void EnvVar_UsesTheSharedLiteral()
+    {
+        // Keep this literal pinned here; Cli.Tests asserts the counterpart on the CLI side
+        // because neither test project can see both internals.
+        Assert.Equal("AZCLIPS_RECOVERY_TRACEPARENT", RecoveryTraceContext.EnvVar);
+    }
+
     [Fact]
     public void Parse_ExtractsTraceAndSpan_WhenWellFormed()
     {
