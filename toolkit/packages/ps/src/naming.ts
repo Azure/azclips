@@ -45,7 +45,11 @@ export function removeSequentialDuplicates(words: readonly string[]): string[] {
   return ids;
 }
 
+/** The only acronyms `@azure-tools/codegen` upper-cases; `dns` and `sas` deliberately are not. */
+const ACRONYMS: ReadonlySet<string> = new Set(["ip", "os", "ms", "vm"]);
+
 function capitalize(word: string): string {
+  if (ACRONYMS.has(word)) return word.toUpperCase();
   return word.length > 0 ? word[0]!.toUpperCase() + word.slice(1) : word;
 }
 
@@ -54,12 +58,9 @@ export function pascalCase(words: readonly string[]): string {
 }
 
 /** Strip a trailing plural, handling the common English suffix patterns. */
-export function singularize(word: string): string {
-  if (/[^aeiou]ies$/i.test(word)) return word.slice(0, -3) + "y";
-  if (/(sses|xes|zes|ches|shes)$/i.test(word)) return word.slice(0, -2);
-  if (/s$/i.test(word) && !/ss$/i.test(word)) return word.slice(0, -1);
-  return word;
-}
+import { singularize } from "./pluralization.js";
+
+export { singularize };
 
 /** Words that are a preposition's object rather than a split point (`signIn`, not `sign | in`). */
 const SPECIAL_WORDS: Readonly<Record<string, readonly string[]>> = { in: ["sign"] };
