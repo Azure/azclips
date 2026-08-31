@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788142437620,
+  "lastUpdate": 1788154448365,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -2814,6 +2814,48 @@ window.BENCHMARK_DATA = {
             "value": 232798039.58,
             "unit": "ns",
             "range": "± 6216373.6686591245"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "347d9c301e6a90fbbe197d858513d966f6248a5f",
+          "message": "[Login] Rename reserved bare-login profile from temp to default (#776)\n\n**Related command**\n\n`az login` / `Connect-AzAccount` (bare sign-in without `--out-profile` /\n`-OutProfile`). Also surfaced by `az profile list` / `az profile show` /\n`Get-AzProfile`.\n\n**Description**\n\nRenames the reserved profile that bare login creates from `temp` to\n`default`, per private-preview feedback (#490) that \"temp\" was confusing\nabout the profile's purpose and lifecycle (maintainer suggestion:\n\"Default makes more sense\").\n\n- `az login` / `Connect-AzAccount` without `--out-profile` now saves and\nactivates a reserved profile named `default` (previously `temp`).\n- `default` is reserved: it is rejected as an `--out-profile` /\n`-OutProfile` value, exactly as `temp` was.\n- Centralized rename: `ProfileNameValidator.ReservedTempName` →\n`ReservedDefaultName` (`\"temp\"` → `\"default\"`); the reserved-name error\nmessage derives from the constant.\n- No migration: any pre-existing `temp` profile on disk remains as an\nordinary, no-longer-reserved profile. This is acceptable for private\npreview.\n- Docs, wiki, and the openspec change are updated; the openspec\n`design.md` Decision 3 keeps its original \"why temp\" rationale with a\ndated `#490` reversal note for audit trail.\n\nNote: `default` reintroduces the \"is this a specific profile or the\nactive/default one?\" mental-model tension the original design cited.\nVerified there is no code collision — `Engine.ResolveProfileAsync`\ntracks the active profile via the separate `active-profile` pointer file\nand never treats `\"default\"` as a sentinel. The naming is the\nmaintainer's call.\n\n**Testing Guide**\n\n- `dotnet build azclips.slnx`\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~Profile\"`\n- `dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj`\n- Manual: `az login --subscription-id <sub>` (no `--out-profile`) → `az\nprofile list` shows an active profile named `default`; `az login\n--out-profile default` fails as reserved.\n\n**History Notes**\n\n[Login] `az login` / `Connect-AzAccount`: Bare sign-in now saves the\nreserved profile as `default` instead of `temp` (#490)\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>",
+          "timestamp": "2026-08-31T15:19:20+10:00",
+          "tree_id": "95f1c33359c8bc47f1dc40a9f3a92e5f8f8e9414",
+          "url": "https://github.com/Azure/azclips/commit/347d9c301e6a90fbbe197d858513d966f6248a5f"
+        },
+        "date": 1788154445670,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 230361124.05,
+            "unit": "ns",
+            "range": "± 3702969.9870830807"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 231309389.61,
+            "unit": "ns",
+            "range": "± 3910720.492974078"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 230546341.3,
+            "unit": "ns",
+            "range": "± 2872085.500922231"
           }
         ]
       }
