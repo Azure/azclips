@@ -189,13 +189,23 @@ public class MsalClientOptionsTests
         Directory.CreateDirectory(Path.GetDirectoryName(fakeDirectory)!);
         File.WriteAllText(fakeDirectory, "this is a file, not a directory");
 
-        var logger = new RecordingLogger();
-        var options = new MsalClientOptions { CacheDirectory = fakeDirectory };
-        var service = CreateService(options, logger, new StubProfileService(userPrincipalName: Upn));
+        try
+        {
+            var logger = new RecordingLogger();
+            var options = new MsalClientOptions { CacheDirectory = fakeDirectory };
+            var service = CreateService(options, logger, new StubProfileService(userPrincipalName: Upn));
 
-        // Must complete without throwing despite the invalid cache location.
-        await service.LogoutAsync(Upn);
+            // Must complete without throwing despite the invalid cache location.
+            await service.LogoutAsync(Upn);
 
-        Assert.Contains(logger.Messages, m => m.Contains("Failed to remove account", StringComparison.Ordinal));
+            Assert.Contains(logger.Messages, m => m.Contains("Failed to remove account", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (File.Exists(fakeDirectory))
+            {
+                File.Delete(fakeDirectory);
+            }
+        }
     }
 }
