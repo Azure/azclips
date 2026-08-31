@@ -1,0 +1,69 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Xunit;
+
+namespace Cli.Tests;
+
+/// <summary>
+/// The agent runs in its own process, so the only way its spans can join the
+/// CLI.Activity.AiRecovery trace is a W3C traceparent handed down on the child
+/// environment block (Azure/CLIPS#602).
+/// </summary>
+public class AgentStartInfoTests
+{
+    private const string Traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+
+    private static string AgentExe => Path.Combine(AppContext.BaseDirectory, "azclips-agent.exe");
+
+    [Fact]
+    public void BuildAgentStartInfo_ForwardsTheRecoveryTraceparent()
+    {
+        var psi = Core.Cli.Program.BuildAgentStartInfo(
+            AgentExe, new[] { "profile", "show" }, "boom", Traceparent);
+
+        Assert.Equal(Traceparent, psi.Environment[Core.Cli.Program.RecoveryTraceparentEnvVar]);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void BuildAgentStartInfo_OmitsTheTraceparent_WhenTelemetryProducedNoSpan(string? traceparent)
+    {
+        // StartRootActivity returns null when telemetry.enabled=false, so Id is null.
+        // An empty value would be parsed by the agent and rejected; absent is cleaner.
+        var psi = Core.Cli.Program.BuildAgentStartInfo(
+            AgentExe, new[] { "profile", "show" }, "boom", traceparent);
+
+        Assert.False(psi.Environment.ContainsKey(Core.Cli.Program.RecoveryTraceparentEnvVar));
+    }
+
+    [Fact]
+    public void BuildAgentStartInfo_KeepsTheExistingSpawnShape()
+    {
+        var psi = Core.Cli.Program.BuildAgentStartInfo(
+            AgentExe, new[] { "profile", "show" }, "boom", Traceparent);
+
+        // Recursion guard: a failed `az` invoked from inside the agent must not spawn another.
+        Assert.Equal("1", psi.Environment["AZCLIPS_IN_AGENT_MODE"]);
+        // Environment overrides only apply when the process is not shell-executed.
+        Assert.False(psi.UseShellExecute);
+        // Stdio is inherited so streaming tokens and the y/n prompt reach the user's terminal.
+        Assert.False(psi.RedirectStandardOutput);
+        Assert.False(psi.RedirectStandardError);
+        Assert.False(psi.RedirectStandardInput);
+        Assert.Equal(AgentExe, psi.FileName);
+        Assert.Equal(
+            new[] { "--agent-mode", "--failed-command", "profile show", "--error", "boom" },
+            psi.ArgumentList);
+    }
+
+    [Fact]
+    public void BuildAgentStartInfo_OmitsTheErrorFlag_WhenThereIsNoErrorText()
+    {
+        var psi = Core.Cli.Program.BuildAgentStartInfo(
+            AgentExe, new[] { "profile", "show" }, null, Traceparent);
+
+        Assert.Equal(new[] { "--agent-mode", "--failed-command", "profile show" }, psi.ArgumentList);
+    }
+}

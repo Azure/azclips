@@ -27,6 +27,16 @@ public class Program
     // the install dir for probing). Read by EnvironmentProber on the agent side by
     // the same literal name — rename both together.
     private const string CallerCwdEnvVar = "AZCLIPS_CALLER_CWD";
+    /// <summary>
+    /// W3C traceparent of the CLI.Activity.AiRecovery span, read by the agent so its spans
+    /// join that trace. Namespaced rather than the bare TRACEPARENT so a value set by a
+    /// surrounding CI system cannot silently reparent the agent (Azure/CLIPS#602).
+    /// Read on the agent side by the same literal name — rename both together.
+    /// </summary>
+    internal const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
+
+    /// <summary>Span name of the second root, opened once the command root has closed.</summary>
+    private const string RecoveryActivityName = "CLI.Activity.AiRecovery";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
@@ -167,7 +177,7 @@ public class Program
             activity?.AddException(ex);
 
             return await StopRootThenFallbackAsync(
-                activity, (_, _) => TryAgentFallbackAsync(positional, ex.Message));
+                activity, (traceId, spanId) => TryAgentFallbackAsync(positional, ex.Message, traceId, spanId));
         }
         catch (AzclipsErrorException ex)
         {
@@ -185,7 +195,7 @@ public class Program
             activity?.AddException(ex);
 
             return await StopRootThenFallbackAsync(
-                activity, (_, _) => TryAgentFallbackAsync(positional, ex.Message));
+                activity, (traceId, spanId) => TryAgentFallbackAsync(positional, ex.Message, traceId, spanId));
         }
         finally
         {
@@ -339,7 +349,60 @@ public class Program
         return await fallback(traceId, spanId);
     }
 
-    private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
+    /// <summary>
+    /// Builds the spawn shape for azclips-agent.exe. Split out from
+    /// <see cref="TryAgentFallbackAsync"/> so the environment block can be asserted without
+    /// starting a process — the same seam <c>BuildTelemetryUploaderStartInfo</c> uses.
+    /// </summary>
+    internal static ProcessStartInfo BuildAgentStartInfo(
+        string agentExe,
+        string[] args,
+        string? errorText,
+        string? recoveryTraceparent)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = agentExe,
+            // Set the working directory to the agent exe's own directory so relative
+            // additionalProbingPaths in azclips-agent.runtimeconfig.json resolve correctly.
+            // .NET resolves those at CLR startup, before any managed code runs, relative to
+            // the working directory rather than the exe location — so it must be set here
+            // and cannot be corrected from inside the agent. The user's real cwd is
+            // forwarded via AZCLIPS_CALLER_CWD below.
+            WorkingDirectory = Path.GetDirectoryName(agentExe)!,
+            // Inherit stdio so streaming tokens, the y/n prompt, and device-code links all
+            // show live in the user's terminal.
+            UseShellExecute = false,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false,
+            RedirectStandardInput = false,
+        };
+
+        psi.Environment[AgentModeEnvVar] = "1";
+        // Best-effort: GetCurrentDirectory can throw (e.g. the cwd was deleted), and
+        // forwarding it is only a hint — skip it rather than fail the launch.
+        try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
+        catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
+
+        // Null when telemetry is disabled and no recovery span was opened. Leave the
+        // variable absent in that case rather than setting an empty string.
+        if (!string.IsNullOrEmpty(recoveryTraceparent))
+            psi.Environment[RecoveryTraceparentEnvVar] = recoveryTraceparent;
+
+        psi.ArgumentList.Add("--agent-mode");
+        psi.ArgumentList.Add("--failed-command");
+        psi.ArgumentList.Add(JoinShellQuoted(args));
+        if (!string.IsNullOrWhiteSpace(errorText))
+        {
+            psi.ArgumentList.Add("--error");
+            psi.ArgumentList.Add(errorText);
+        }
+
+        return psi;
+    }
+
+    private static async Task<int> TryAgentFallbackAsync(
+        string[] args, string? errorText, string? commandTraceId, string? commandSpanId)
     {
         // Global enable switch: config `agent.enabled` (off by default for PP).
         // The user opts in with `az config set --key agent.enabled --value true`.
@@ -388,43 +451,19 @@ public class Program
             return 1;
         }
 
+        // Opened only now that a spawn is certain. The command root has already been
+        // stopped by StopRootThenFallbackAsync, so Activity.Current is null and this
+        // becomes a second, independent root with its own TraceId (Azure/CLIPS#602).
+        using var recovery = _telemetryService?.StartRootActivity(name: RecoveryActivityName);
+        recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
+        recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
+        recovery?.SetTag(TelemetryTags.Command, JoinShellQuoted(args));
+        recovery?.SetTag(TelemetryTags.RecoverySessionStyle, agentOptions.SessionStyle);
+        recovery?.SetTag(TelemetryTags.RecoveryProvider, agentOptions.Provider);
+
         try
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = agentExe,
-                // Set the working directory to the agent exe's own directory so
-                // relative additionalProbingPaths in azclips-agent.runtimeconfig.json
-                // resolve correctly. .NET resolves those paths at CLR startup
-                // (before any managed code runs), relative to the working
-                // directory, not the exe location — so this must be set here and
-                // can't be corrected later from inside the agent. The user's real
-                // cwd is forwarded via AZCLIPS_CALLER_CWD below so environment
-                // probing still reports the directory `az` was invoked from.
-                WorkingDirectory = Path.GetDirectoryName(agentExe)!,
-                // Inherit stdio so streaming tokens, y/n prompt, device-code links
-                // all show live in the user's terminal.
-                UseShellExecute = false,
-                RedirectStandardOutput = false,
-                RedirectStandardError = false,
-                RedirectStandardInput = false,
-            };
-            psi.Environment[AgentModeEnvVar] = "1";
-            // Forward the directory the user actually ran `az` from. WorkingDirectory
-            // above is the agent install dir (needed for probing paths), which would
-            // otherwise make the agent's environment snapshot report the wrong cwd.
-            // Best-effort: GetCurrentDirectory can throw (e.g. the cwd was deleted),
-            // and forwarding it is only a hint — skip it rather than fail the launch.
-            try { psi.Environment[CallerCwdEnvVar] = Directory.GetCurrentDirectory(); }
-            catch { /* leave CallerCwdEnvVar unset; the agent falls back to its own cwd */ }
-            psi.ArgumentList.Add("--agent-mode");
-            psi.ArgumentList.Add("--failed-command");
-            psi.ArgumentList.Add(JoinShellQuoted(args));
-            if (!string.IsNullOrWhiteSpace(errorText))
-            {
-                psi.ArgumentList.Add("--error");
-                psi.ArgumentList.Add(errorText);
-            }
+            var psi = BuildAgentStartInfo(agentExe, args, errorText, recovery?.Id);
 
             // The child agent takes over Ctrl+C (it cancels the session). The parent
             // must also intercept it — otherwise Ctrl+C kills the parent first, the
@@ -439,15 +478,16 @@ public class Program
                     ?? throw new InvalidOperationException("Process.Start returned null");
                 await proc.WaitForExitAsync();
 
+                recovery?.SetTag(TelemetryTags.RecoveryExitCode, proc.ExitCode);
+                recovery?.SetStatus(
+                    proc.ExitCode == 0 ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+
                 // Exit code semantics:
-                //   one-shot — the agent only PROPOSED a fix; it never ran anything,
-                //     so the user's original command still failed. Report failure
-                //     (never let the agent's own 0 mask it), so `&&`, CI, and $?
-                //     see the command as failed. The agent normally exits 0 here,
-                //     so force a non-zero code.
-                //   interactive — the agent may have actually run commands and
-                //     resolved the task, so its real exit code is meaningful; pass
-                //     it through unchanged.
+                //   one-shot — the agent only PROPOSED a fix; it never ran anything, so the
+                //     user's original command still failed. Report failure (never let the
+                //     agent's own 0 mask it), so `&&`, CI, and $? see the command as failed.
+                //   interactive — the agent may have actually run commands and resolved the
+                //     task, so its real exit code is meaningful; pass it through unchanged.
                 if (agentOptions.IsInteractive)
                 {
                     return proc.ExitCode;
@@ -462,6 +502,7 @@ public class Program
         catch (Exception ex)
         {
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
+            recovery?.SetStatus(ActivityStatusCode.Error);
             return 1;
         }
     }
