@@ -18,6 +18,18 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "PowerShell.Activity.Root",
         "TUI.Activity.Root",
 
+        // Second root opened by the CLI after the command root closes, wrapping the
+        // AI error-recovery subprocess. Its own trace, so the command's duration
+        // stays honest (Azure/CLIPS#602).
+        "CLI.Activity.AiRecovery",
+
+        // Spans emitted inside azclips-agent.exe, parented to CLI.Activity.AiRecovery
+        // through the traceparent handed down on the child environment block.
+        "Agent.Session",
+        "Agent.Create",
+        "Agent.Turn",
+        "Agent.Send",
+
         // Startup phases, replayed by the CLI's PerformanceTimeline once telemetry
         // is available. Encloses the AzureCLI.Startup.* phase spans below.
         "AzureCLI.Startup",
@@ -77,6 +89,9 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
 
         // Individual startup phases: AzureCLI.Startup.Container, AzureCLI.Startup.Services.
         "AzureCLI.Startup.",
+
+        // Per-tool spans from ToolInvocationLog.Scope: $"tool.{name}".
+        "tool.",
 
         // Individual import phases: PowerShell.Startup.Container.
         "PowerShell.Startup.",
