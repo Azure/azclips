@@ -7,31 +7,43 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
-    /// Convenience orchestrator wrapping the atomic <see cref="ListGroupProcessor"/>. Exposes
-    /// filter shortcuts (<c>DisplayName</c>, <c>DisplayNamePrefix</c>) that translate into an
-    /// OData <c>$filter</c>, and the <c>AppendSelected</c> switch that merges the caller's
-    /// <c>Select</c> with a default group property set. The atomic itself accepts only native
-    /// OData query params.
+    /// Convenience orchestrator wrapping the atomic <see cref="ListUserProcessor"/>. Exposes
+    /// filter shortcuts (<c>DisplayName</c>, <c>Mail</c>, <c>DisplayNamePrefix</c>,
+    /// <c>UserPrincipalName</c>) that translate into an OData <c>$filter</c>, and the
+    /// <c>AppendSelected</c> switch that merges the caller's <c>Select</c> with a default user
+    /// property set. The atomic itself accepts only native OData query params.
     /// </summary>
-    public class ListGroupProcessor_Orchestrator : GraphProcessorBase<GroupList>
+    public class ListUserProcessor_Orchestrator : GraphProcessorBase<object, UserList>
     {
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $filter expression, for example ""securityEnabled eq true"". Combines with the convenience shortcuts (DisplayName, DisplayNamePrefix) using OData 'and'.",
+            Description = @"OData $filter expression, for example ""accountEnabled eq true"". Combines with the convenience shortcuts (DisplayName, Mail, DisplayNamePrefix, UserPrincipalName) using OData 'and'.",
             SerializedName = @"Filter")]
         public string? Filter { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"List groups with the specified display name.",
+            Description = @"List users with the specified display name.",
             SerializedName = @"DisplayName")]
         public string? DisplayName { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"List groups whose display name starts with the specified prefix.",
+            Description = @"List users with the specified mail address.",
+            SerializedName = @"Mail")]
+        public string? Mail { get; set; }
+
+        [ArgumentInfo(
+            Required = false,
+            Description = @"List users whose display name starts with the specified prefix.",
             SerializedName = @"DisplayNamePrefix")]
         public string? DisplayNamePrefix { get; set; }
+
+        [ArgumentInfo(
+            Required = false,
+            Description = @"List users with the specified user principal name.",
+            SerializedName = @"UserPrincipalName")]
+        public string? UserPrincipalName { get; set; }
 
         [ArgumentInfo(
             Required = false,
@@ -41,19 +53,19 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         [ArgumentInfo(
             Required = false,
-            Description = @"Related properties to include in the response, for example members.",
+            Description = @"Related properties to include in the response, for example memberOf.",
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $orderby values, for example 'displayName' or 'createdDateTime desc'.",
+            Description = @"OData $orderby values, for example 'displayName' or 'mail desc'.",
             SerializedName = @"Orderby")]
         public string[]? Orderby { get; set; }
 
         [ArgumentInfo(
             Required = false,
-            Description = @"OData $search expression, for example ""displayName:contoso"". Requires ConsistencyLevel eventual.",
+            Description = @"OData $search expression, for example ""displayName:ada"". Requires ConsistencyLevel eventual.",
             SerializedName = @"Search")]
         public string? Search { get; set; }
 
@@ -76,16 +88,22 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             string? displayNameClause = string.IsNullOrWhiteSpace(DisplayName)
                 ? null
                 : $"displayName eq '{SelectClauseHelpers.EscapeODataString(DisplayName)}'";
+            string? mailClause = string.IsNullOrWhiteSpace(Mail)
+                ? null
+                : $"mail eq '{SelectClauseHelpers.EscapeODataString(Mail)}'";
             string? prefixClause = string.IsNullOrWhiteSpace(DisplayNamePrefix)
                 ? null
                 : $"startswith(displayName,'{SelectClauseHelpers.EscapeODataString(DisplayNamePrefix)}')";
+            string? upnClause = string.IsNullOrWhiteSpace(UserPrincipalName)
+                ? null
+                : $"userPrincipalName eq '{SelectClauseHelpers.EscapeODataString(UserPrincipalName)}'";
 
             string? effectiveFilter = SelectClauseHelpers.CombineFilterClauses(
-                Filter, displayNameClause, prefixClause);
+                Filter, displayNameClause, mailClause, prefixClause, upnClause);
 
-            string[]? mergedSelect = SelectClauseHelpers.MergeGroupSelect(Select, AppendSelected);
+            string[]? mergedSelect = SelectClauseHelpers.MergeUserSelect(Select, AppendSelected);
 
-            ListGroupProcessor atomic = CreateExtendedProcessor<ListGroupProcessor>(p =>
+            ListUserProcessor atomic = CreateExtendedProcessor<ListUserProcessor>(p =>
             {
                 p.Filter = effectiveFilter;
                 p.Select = mergedSelect;
@@ -97,6 +115,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             return await atomic.SendAsync();
         }
 
-        protected override object SelectOutput(GroupList body) => body.Value ?? [];
+        protected override object SelectOutput(UserList body) => body.Value ?? [];
     }
 }

@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// Accepts a group object ID or a display-name prefix and resolves the prefix to a single
     /// object ID before delegating to the atomic. The atomic itself only accepts an object ID.
     /// </summary>
-    public class CheckGroupMemberProcessor_Orchestrator : GraphProcessorBase<CheckMemberGroupsResponse>
+    public class CheckGroupMemberProcessor_Orchestrator : GraphProcessorBase<CheckMemberGroupsRequest, CheckMemberGroupsResponse>
     {
         [ArgumentInfo(
             Required = true,

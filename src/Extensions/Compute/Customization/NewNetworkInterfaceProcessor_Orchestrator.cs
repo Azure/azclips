@@ -6,7 +6,7 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
-public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<NetworkInterface>
+public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<NetworkInterface, NetworkInterface>
 {
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
