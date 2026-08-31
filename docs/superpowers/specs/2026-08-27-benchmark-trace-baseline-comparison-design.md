@@ -54,17 +54,17 @@ summary, with a per-span percentage difference between them.
 
                   main @ abc1234 · 13 days ago · 100 traces                   │         │                           PR @ def5678 · 100 traces
          AVG  %ROOT                                                           │    Δ%   │          AVG  %ROOT
-   21.962 ms   100%  ████████████████████  CLI.Activity.Root                  │   +9.8% │    24.108 ms   100%  ████████████████████  CLI.Activity.Root
-    4.435 ms    20%  ████                  ├─ AzureCLI.Startup                │   -0.7% │     4.402 ms    18%  ███▋                  ├─ AzureCLI.Startup
+   21.962 ms   100%  ####################  CLI.Activity.Root                  │   +9.8% │    24.108 ms   100%  ####################  CLI.Activity.Root
+    4.435 ms    20%  ####                  ├─ AzureCLI.Startup                │   -0.7% │     4.402 ms    18%  ###                   ├─ AzureCLI.Startup
     0.050 ms     0%                        │  ├─ AzureCLI.Startup.Container   │   +2.0% │     0.051 ms     0%                        │  ├─ AzureCLI.Startup.Container
-    0.487 ms     2%  ▌                     │  ├─ AzureCLI.Startup.Services    │     n/a │
-                                                                              │     n/a │     0.402 ms     2%  ▍                     │  ├─ AzureCLI.Startup.Registry
-    3.483 ms    16%  ███▏                  │  └─ AzureCLI.Startup.Telemetry   │   -0.4% │     3.470 ms    14%  ██▉                   │  └─ AzureCLI.Startup.Telemetry
+    0.487 ms     2%                        │  ├─ AzureCLI.Startup.Services    │     n/a │
+                                                                              │     n/a │     0.402 ms     2%                        │  ├─ AzureCLI.Startup.Registry
+    3.483 ms    16%  ###                   │  └─ AzureCLI.Startup.Telemetry   │   -0.4% │     3.470 ms    14%  ##                    │  └─ AzureCLI.Startup.Telemetry
     0.009 ms     0%                        ├─ AzureCLI.ParseGlobalArgs        │   +0.0% │     0.009 ms     0%                        ├─ AzureCLI.ParseGlobalArgs
-    0.323 ms     1%  ▎                     ├─ AzureCLI.HandleGlobalArgs       │   +0.6% │     0.325 ms     1%  ▎                     ├─ AzureCLI.HandleGlobalArgs
-    2.587 ms    12%  ██▍                   ├─ AzureCLI.ParseCommandInvocation │   +0.5% │     2.601 ms    11%  ██▏                   ├─ AzureCLI.ParseCommandInvocation
-    1.027 ms     5%  ▉                     │  └─ SessionCreated               │   +0.4% │     1.031 ms     4%  ▉                     │  └─ SessionCreated
-   10.725 ms    49%  █████████▊            └─ AzureCLI.ProcessCommand         │  +20.3% │    12.900 ms    54%  ██████████▊           └─ AzureCLI.ProcessCommand
+    0.323 ms     1%                        ├─ AzureCLI.HandleGlobalArgs       │   +0.6% │     0.325 ms     1%                        ├─ AzureCLI.HandleGlobalArgs
+    2.587 ms    12%  ##                    ├─ AzureCLI.ParseCommandInvocation │   +0.5% │     2.601 ms    11%  ##                    ├─ AzureCLI.ParseCommandInvocation
+    1.027 ms     5%  #                     │  └─ SessionCreated               │   +0.4% │     1.031 ms     4%                        │  └─ SessionCreated
+   10.725 ms    49%  #########             └─ AzureCLI.ProcessCommand         │  +20.3% │    12.900 ms    54%  ##########            └─ AzureCLI.ProcessCommand
 ```
 
 Each side is exactly v1's tree, rendered unchanged. The gutter carries `Δ%`. Row `n` refers to
@@ -81,7 +81,7 @@ the regression is localised to one span.
 different bar on each side.
 
 `AzureCLI.Startup` in the example above is the case: 4.435 ms versus 4.402 ms — unchanged, as
-`Δ%` of `-0.7%` confirms — but it renders `████` at 20% on the left and `███▋` at 18% on the
+`Δ%` of `-0.7%` confirms — but it renders `####` at 20% on the left and `###` at 18% on the
 right, purely because the PR's root grew from 21.962 ms to 24.108 ms underneath it. The root
 row has the mirror-image problem: both sides read 100% and draw a full bar, so the +9.8% that
 actually happened is invisible in the bars.
@@ -93,6 +93,32 @@ its own total", diverging from v1 and from how a single tree is read everywhere 
 **Consequence for readers: compare using the `AVG` and `Δ%` columns. Treat each side's bar as
 a within-tree proportion only.** This is documented in the README rather than being silently
 surprising.
+
+### The bar is ASCII, one cell per whole 1/BAR_WIDTH share
+
+`#` characters, one per completed `1/BAR_WIDTH` of the root — at the default `BAR_WIDTH` of 20
+that is 5% per cell, **truncated** rather than rounded, so 24% draws four cells and 26% draws
+five. A span under 5% of its root draws no bar and is read from its `%ROOT` number instead.
+
+**The cell count is derived from the printed percentage, not from the raw ratio.** Deriving
+them independently let them contradict each other: a span measured at 14.83% printed as `15%`
+but drew only two cells (`14.83 × 20 ÷ 100` truncates to 2), and — worse — two spans both
+printed as `5%` drew one cell and none, because one was really 5.05% and the other 4.81%.
+`bar()` now rounds first, exactly as the `%ROOT` column does, so `cells == printed% × BAR_WIDTH
+÷ 100` holds for every possible ratio and the bar can always be read off the printed number.
+
+Block elements (`█`, `▏`…`▉`) were used originally and gave eight times the resolution, but
+they are Unicode East Asian Width **Ambiguous**: a browser that font-falls-back on them renders
+them at a width that is not the monospace cell. A row's block count varies from 0 to
+`BAR_WIDTH`, so that per-glyph error is multiplied by the difference between two rows and every
+column after the bar drifts — which made the two trees visibly stop lining up in the job
+summary. `#` is unambiguous in every font, so alignment becomes a property of the format rather
+than of whichever font the reader's browser happens to load.
+
+The tree connectors (`│ ├ └ ─`) are also Ambiguous and also vary per row, so they remain a
+smaller residual source of the same drift. They were kept because the ASCII substitutes (`|`,
+`+-`, `` `- ``) are markedly harder to read at this density. If drift is still visible in
+practice, converting them is the next step.
 
 ### One-sided nodes
 

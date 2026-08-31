@@ -1056,15 +1056,15 @@ Expected — this exact output was produced by a working prototype of Tasks 1–
 
                      main @ abc1234 · today · 100 traces                      │         │                           PR @ def5678 · 100 traces
          AVG  %ROOT                                                           │    Δ%   │          AVG  %ROOT
-   21.962 ms   100%  ████████████████████  CLI.Activity.Root                  │  +20.0% │    26.354 ms   100%  ████████████████████  CLI.Activity.Root
-    4.435 ms    20%  ████                  ├─ AzureCLI.Startup                │  +20.0% │     5.322 ms    20%  ████                  ├─ AzureCLI.Startup
+   21.962 ms   100%  ####################  CLI.Activity.Root                  │  +20.0% │    26.354 ms   100%  ####################  CLI.Activity.Root
+    4.435 ms    20%  ####                  ├─ AzureCLI.Startup                │  +20.0% │     5.322 ms    20%  ####                  ├─ AzureCLI.Startup
     0.050 ms     0%                        │  ├─ AzureCLI.Startup.Container   │  +20.0% │     0.060 ms     0%                        │  ├─ AzureCLI.Startup.Container
-    0.487 ms     2%  ▌                     │  ├─ AzureCLI.Startup.Services    │     n/a │
-    3.483 ms    16%  ███▏                  │  └─ AzureCLI.Startup.Telemetry   │  +20.0% │     4.180 ms    16%  ███▏                  │  └─ AzureCLI.Startup.Telemetry
-    2.587 ms    12%  ██▍                   ├─ AzureCLI.ParseCommandInvocation │  +20.0% │     3.104 ms    12%  ██▍                   ├─ AzureCLI.ParseCommandInvocation
-    1.027 ms     5%  ▉                     │  └─ SessionCreated               │  +20.0% │     1.232 ms     5%  ▉                     │  └─ SessionCreated
-   10.725 ms    49%  █████████▊            └─ AzureCLI.ProcessCommand         │  +20.0% │    12.870 ms    49%  █████████▊            └─ AzureCLI.ProcessCommand
-    9.640 ms    44%  ████████▊                └─ ProcessorProcessAsyncStart   │  +20.0% │    11.568 ms    44%  ████████▊                └─ ProcessorProcessAsyncStart
+    0.487 ms     2%                        │  ├─ AzureCLI.Startup.Services    │     n/a │
+    3.483 ms    16%  ###                   │  └─ AzureCLI.Startup.Telemetry   │  +20.0% │     4.180 ms    16%  ###                   │  └─ AzureCLI.Startup.Telemetry
+    2.587 ms    12%  ##                    ├─ AzureCLI.ParseCommandInvocation │  +20.0% │     3.104 ms    12%  ##                    ├─ AzureCLI.ParseCommandInvocation
+    1.027 ms     5%  #                     │  └─ SessionCreated               │  +20.0% │     1.232 ms     5%  #                     │  └─ SessionCreated
+   10.725 ms    49%  #########             └─ AzureCLI.ProcessCommand         │  +20.0% │    12.870 ms    49%  #########             └─ AzureCLI.ProcessCommand
+    9.640 ms    44%  ########                 └─ ProcessorProcessAsyncStart   │  +20.0% │    11.568 ms    44%  ########                 └─ ProcessorProcessAsyncStart
 
  1 node(s) only in main — tree shape changed
 ```

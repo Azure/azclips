@@ -18,9 +18,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 BAR_WIDTH = 20
-BLOCKS = "▏▎▍▌▋▊▉█"
 PRODUCTS = ("CLI", "PS", "STARTUP")
-COMMENT_MARKER = "<!-- benchmark-traces -->"
 SUMMARY_BUDGET_BYTES = 900_000  # GitHub caps job summaries at 1 MiB; leave headroom.
 FAR_FUTURE = datetime.max.replace(tzinfo=timezone.utc)
 SIDECAR_SCHEMA = 1
@@ -414,14 +412,27 @@ def find_baseline(root, report):
 # ----------------------------------------------------------------- rendering
 
 def bar(ratio):
-    """A proportional bar of BAR_WIDTH cells, resolved to eighths."""
+    """A proportional bar of BAR_WIDTH cells, drawn from the *displayed* percentage.
+
+    ASCII rather than block elements (U+2588..U+258F). Those are East Asian Width
+    "Ambiguous", so a browser that font-falls-back on them renders them at a width
+    that is not the monospace cell. Because a row's block count varies from 0 to
+    BAR_WIDTH, that error is multiplied by the difference and shifts every column
+    after the bar — which is what made the two trees drift apart in the job summary.
+    '#' is unambiguous in every font.
+
+    The cell count comes from `round(ratio * 100)` — the same value the caller prints
+    in the %ROOT column — rather than from the raw ratio. Deriving them separately let
+    them disagree: a span at 14.83% printed as "15%" but drew only two cells, and two
+    spans both printed as "5%" drew one cell and none, because one was really 5.05%
+    and the other 4.81%. Reading the bar off the printed number is now always correct.
+
+    Truncates the division, so a cell appears only once its share is fully earned:
+    at BAR_WIDTH 20 each cell is 5%, so 24% draws four cells and 26% draws five.
+    """
     ratio = max(0.0, min(1.0, ratio))
-    eighths = int(round(ratio * BAR_WIDTH * 8))
-    full, remainder = divmod(eighths, 8)
-    text = "█" * full
-    if remainder:
-        text += BLOCKS[remainder - 1]
-    return text
+    percent = round(ratio * 100)          # matches the caller's f"{ratio * 100:>4.0f}%"
+    return "#" * (percent * BAR_WIDTH // 100)
 
 
 def label(path, report):
@@ -737,29 +748,6 @@ def render_summary(reports, baselines=None):
     return "\n".join(blocks)
 
 
-def render_comment(reports, run_url):
-    """An index table linking to the job summary, or None when nothing was aggregated."""
-    rows = []
-    for report in reports:
-        root = report.root_path
-        if root is None or report.trace_count == 0:
-            continue
-        rows.append(f"| {report.extension or '—'} | {report.product or '—'} "
-                    f"| `{report.stem.rsplit('.', 1)[-1]}` | {report.trace_count} "
-                    f"| {report.average(root):.3f} ms |")
-
-    if not rows:
-        return None
-
-    lines = ["## 🔬 Benchmark Trace Hierarchy", "",
-             "| Extension | Product | Benchmark | Traces | Root avg |",
-             "|---|---|---|---|---|", *rows, ""]
-    if run_url:
-        lines.extend([f"[📊 View full trace hierarchies]({run_url})", ""])
-    lines.append(COMMENT_MARKER)
-    return "\n".join(lines)
-
-
 # --------------------------------------------------------------- entry point
 
 def run(args):
@@ -815,12 +803,6 @@ def run(args):
     else:
         print(summary)
 
-    if args.comment_out:
-        body = render_comment(usable, args.run_url)
-        if body:
-            with open(args.comment_out, "w", encoding="utf-8") as handle:
-                handle.write(body + "\n")
-            print(f"[traces] wrote comment body to {args.comment_out}")
     return 0
 
 
@@ -834,8 +816,6 @@ def main():
     parser.add_argument("--run-id", help="workflow run id recorded in the sidecar")
     parser.add_argument("--baseline", help="directory of sidecars to compare against")
     parser.add_argument("--summary-out", help="append the ASCII report here; omit for stdout")
-    parser.add_argument("--comment-out", help="write the PR comment body here")
-    parser.add_argument("--run-url", help="link target embedded in the comment")
     parser.add_argument("--debug-paths", action="store_true",
                         help="dump raw path keys with averages instead of rendering")
     args = parser.parse_args()
