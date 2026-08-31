@@ -228,7 +228,11 @@ function parameterSetNamesFor(entries: readonly CommandEntry[], models: ModelInd
 
 // ─── Request-body flattening ─────────────────────────────────────────────
 
-/** The body model an `Expanded` set flattens, or undefined when the body cannot be expanded. */
+/**
+ * The body model an `Expanded` set flattens, or undefined when the body cannot be expanded.
+ * autorest.powershell also expands dictionary-typed bodies; a dictionary has no declared members
+ * to hoist, and no operation in the corpus has one, so only models are handled here.
+ */
 function expandableBody(models: ModelIndex, operation: IROperation): IRModel | undefined {
   const body = operation.requestBody;
   if (body === undefined || body.rendering?.flatten?.into === "never") return undefined;
