@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788154452772,
+  "lastUpdate": 1788219549916,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -2856,6 +2856,48 @@ window.BENCHMARK_DATA = {
             "value": 230546341.3,
             "unit": "ns",
             "range": "± 2872085.500922231"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+azure-client-tools-agent[bot]@users.noreply.github.com",
+            "name": "azure-client-tools-agent[bot]",
+            "username": "azure-client-tools-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b96536b5f2213b1e6e7c5c4a9be4d95e5c444e0",
+          "message": "{DevOps} Trigger stable release 0.1.2 (#781)\n\n**Description**\n\nPrepare stable release 0.1.2.\n\n- Updates src/CLI/Core.Cli.csproj\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.2.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-09-01T08:53:12+09:30",
+          "tree_id": "34bd9a46b4869d828e47a751f7d92860f53f4ab9",
+          "url": "https://github.com/Azure/azclips/commit/6b96536b5f2213b1e6e7c5c4a9be4d95e5c444e0"
+        },
+        "date": 1788219547747,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 230202956.04,
+            "unit": "ns",
+            "range": "± 3024093.62221042"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 230359256.32,
+            "unit": "ns",
+            "range": "± 2738377.745718037"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 232146865.93,
+            "unit": "ns",
+            "range": "± 3454350.362434242"
           }
         ]
       }
