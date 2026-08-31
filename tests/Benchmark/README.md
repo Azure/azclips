@@ -183,14 +183,23 @@ Aggregated benchmark results are what get exported to App Insights. Command-leve
 CI aggregates each benchmark's sampled spans into one averaged span tree and publishes
 `main`'s trees under `dev/bench/traces/<EXT>/<PRODUCT>/<Benchmark>.json`. A
 pull-request run reads them back and renders `main` and the PR as two trees side by side
-in the workflow **job summary**, with a per-span `Δ%` between them. The PR comment is
-unchanged — the comparison lives in the job summary because a block is wide enough to need
-horizontal scrolling in a PR comment.
+in the workflow **job summary**, with a per-span `Δ%` between them. The comparison lives
+only in the job summary — a block is wide enough to need horizontal scrolling in a PR
+comment, so no trace comment is posted. Open the workflow run to read it.
 
 **Bars are not comparable across the gutter.** Each side's `%ROOT` and bar are scaled to
 that side's own root, exactly as a standalone tree is. When the roots differ, an
 unchanged span draws a different bar on each side. Compare using the `AVG` and `Δ%`
 columns; read each bar as a within-tree proportion only.
+
+The bar is `#` characters, one per completed 5% of the root (20 cells), truncated rather
+than rounded — so 24% draws four cells, 26% draws five, and anything under 5% draws none
+and is read from its `%ROOT` number. The cell count is derived from the *printed*
+percentage, so `cells = %ROOT × 20 ÷ 100` always holds and the bar can be read off the
+number beside it. It uses ASCII rather than block elements (`█`, `▏`…) because those are
+Unicode East Asian Width *Ambiguous*: a browser that font-falls-back on them renders them
+at a width that is not the monospace cell, and since a row's block count varies from 0 to
+20, the columns after the bar drift and the two trees stop lining up.
 
 A span present on only one side renders a blank row on the absent side and `n/a` in
 `Δ%` — it was added, removed, or renamed rather than made slower, and any real cost

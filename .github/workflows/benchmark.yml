@@ -456,8 +456,6 @@ jobs:
 
       - name: Aggregate trace hierarchies
         if: always()
-        env:
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python3 .github/scripts/aggregate-benchmark-traces.py \
             --input downloaded \
@@ -466,18 +464,7 @@ jobs:
             --commit "${{ github.sha }}" \
             --ref "${{ github.ref }}" \
             --run-id "${{ github.run_id }}" \
-            --summary-out "$GITHUB_STEP_SUMMARY" \
-            --comment-out "$RUNNER_TEMP/trace-comment.md" \
-            --run-url "$RUN_URL"
-
-      - name: Upload trace hierarchy comment
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-traces
-          path: ${{ runner.temp }}/trace-comment.md
-          retention-days: 1
-          if-no-files-found: ignore
+            --summary-out "$GITHUB_STEP_SUMMARY"
 
       - name: Upload trace sidecars
         if: always()
