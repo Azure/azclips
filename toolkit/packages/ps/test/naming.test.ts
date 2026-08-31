@@ -71,9 +71,11 @@ describe("inferCommandNames", () => {
   });
 
   it("falls back to Invoke, never to the HTTP method, and keeps the unmatched word", () => {
+    // `credentials` is in the pluralizer's uninflective list, so the group never collapses onto
+    // the action's own `credential` and both survive the sequential-duplicate pass.
     expect(inferOne("Credentials", "issueCredential")).toEqual({
       verb: "Invoke",
-      subject: "IssueCredential",
+      subject: "IssueCredentialsCredential",
       variant: "",
     });
   });
