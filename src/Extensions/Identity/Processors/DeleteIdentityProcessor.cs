@@ -58,15 +58,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
                         SubscriptionId = parsed.SubscriptionId;
                         ResourceGroup = parsed.ResourceGroup;
                         ResourceName = parsed.ResourceName;
-                        using HttpResponseMessage response = await SendAsync();
+                        using HttpResponseMessage deleteResponse = await SendAsync();
                     }
                     return;
                 }
 
                 ResolveSubscriptionId();
-                using (HttpResponseMessage response = await SendAsync())
-                {
-                }
+                using HttpResponseMessage response = await SendAsync();
             }
             finally
             {

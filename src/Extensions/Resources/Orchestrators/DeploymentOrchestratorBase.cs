@@ -4,7 +4,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
@@ -274,7 +273,39 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // numbers, booleans, arrays, and objects become typed; otherwise it is treated as a string.
         protected static (string Key, JsonNode? Value) ParseInlineParameter(string pair)
         {
-            return pair.ParseJsonKeyValue();
+            if (string.IsNullOrWhiteSpace(pair))
+            {
+                throw new ArgumentException("Invalid inline parameter: the token is empty; expected KEY=VALUE.");
+            }
+
+            int separator = pair.IndexOf('=');
+            if (separator <= 0)
+            {
+                throw new ArgumentException($"Invalid inline parameter '{pair}': expected KEY=VALUE with a non-empty key.");
+            }
+
+            string key = pair[..separator].Trim();
+            if (key.Length == 0)
+            {
+                throw new ArgumentException($"Invalid inline parameter '{pair}': the key is empty.");
+            }
+
+            string raw = pair[(separator + 1)..];
+            return (key, ParseTypedValue(raw));
+        }
+
+        private static JsonNode? ParseTypedValue(string raw)
+        {
+            try
+            {
+                // JSON-first: typed values such as 3, true, ["a","b"], {"k":"v"}.
+                return JsonNode.Parse(raw);
+            }
+            catch (JsonException)
+            {
+                // Not valid JSON: treat the raw text as a string literal.
+                return JsonValue.Create(raw);
+            }
         }
 
         private static object ReadJsonFile(string path)
