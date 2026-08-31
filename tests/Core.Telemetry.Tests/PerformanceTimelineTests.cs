@@ -249,8 +249,8 @@ public class PerformanceTimelineTests
         public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
             _source.StartActivity(name, kind, parentContext: default, tags: null, links: null, startTime: startTime);
 
-        public Activity? StartRootActivity(DateTimeOffset startTime = default) =>
-            StartActivity("Test.Activity.Root", ActivityKind.Server, startTime);
+        public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) =>
+            StartActivity(name ?? "Test.Activity.Root", ActivityKind.Server, startTime);
 
         public Activity? TagInvocation(CommandInvocation commandInvocation) => Activity.Current;
 
@@ -267,7 +267,7 @@ public class PerformanceTimelineTests
     private sealed class NullTelemetryService : ITelemetryService
     {
         public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => null;
-        public Activity? StartRootActivity(DateTimeOffset startTime = default) => null;
+        public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) => null;
         public Activity? TagInvocation(CommandInvocation commandInvocation) => null;
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => null;
         public void Dispose() { }
