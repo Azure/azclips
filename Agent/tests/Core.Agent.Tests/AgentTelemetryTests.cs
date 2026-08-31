@@ -131,3 +131,51 @@ public class AgentTelemetryProviderTests
         public IConfigurationSchema GetSchema() => throw new NotSupportedException();
     }
 }
+
+[Collection("AgentTelemetry")]
+public class AgentSpanNestingTests
+{
+    [Fact]
+    public void ChildSpans_NestUnderTheSessionSpan()
+    {
+        // Proves the ambient Activity.Current chain the agent relies on: spans started
+        // inside the session's scope become its children without explicit plumbing, and
+        // the whole subtree inherits the CLI's recovery trace id.
+        var stopped = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == AgentTracing.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = stopped.Add,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var parent = RecoveryTraceContext.Parse(
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
+
+        using (var sessionSpan = AgentTracing.Source.StartActivity(
+                   "Agent.Session", ActivityKind.Server, parent))
+        {
+            Assert.NotNull(sessionSpan);
+            using (AgentTracing.Source.StartActivity("Agent.Create")) { }
+            using (var turnSpan = AgentTracing.Source.StartActivity("Agent.Turn"))
+            {
+                Assert.NotNull(turnSpan);
+                using (AgentTracing.Source.StartActivity("Agent.Send")) { }
+            }
+        }
+
+        var session = stopped.Single(a => a.OperationName == "Agent.Session");
+        var create = stopped.Single(a => a.OperationName == "Agent.Create");
+        var turn = stopped.Single(a => a.OperationName == "Agent.Turn");
+        var send = stopped.Single(a => a.OperationName == "Agent.Send");
+
+        Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", session.TraceId.ToString());
+        Assert.Equal("00f067aa0ba902b7", session.ParentSpanId.ToString());
+        Assert.Equal(session.TraceId, send.TraceId);
+
+        Assert.Equal(session.SpanId, create.ParentSpanId);
+        Assert.Equal(session.SpanId, turn.ParentSpanId);
+        Assert.Equal(turn.SpanId, send.ParentSpanId);
+    }
+}

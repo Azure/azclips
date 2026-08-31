@@ -114,18 +114,25 @@ public static class AgentModeEntry
             // HostLogEmitted events the renderer draws under its lock.
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
 
-            await using var agent = await ChatAgent.CreateAsync(
-                flavor: flavor,
-                auth: auth,
-                profileService: profileService,
-                azExePath: az,
-                approvalSink: approval,
-                renderer: renderer,
-                options: agentOpts,
-                entrypoint: entrypoint,
-                spinner: spinner,
-                failedCommand: failedCommand,
-                ct: cts.Token);
+            ChatAgent agent;
+            // Bootstraps the Copilot SDK and its stdio daemon — historically a large share
+            // of total recovery latency, so it gets its own span.
+            using (AgentTracing.Source.StartActivity("Agent.Create"))
+            {
+                agent = await ChatAgent.CreateAsync(
+                    flavor: flavor,
+                    auth: auth,
+                    profileService: profileService,
+                    azExePath: az,
+                    approvalSink: approval,
+                    renderer: renderer,
+                    options: agentOpts,
+                    entrypoint: entrypoint,
+                    spinner: spinner,
+                    failedCommand: failedCommand,
+                    ct: cts.Token);
+            }
+            await using var agentScope = agent;
             agentRef = agent;
             // Always-on prose suppression: after submit_response renders its
             // outcome, ConsoleAgentRenderer drops any trailing prose the model
@@ -258,6 +265,8 @@ public static class AgentModeEntry
         CancellationToken ct,
         string initialVerb = "thinking")
     {
+        // One user<->agent exchange, including any tool-enforcement re-prompts below.
+        using var turn = AgentTracing.Source.StartActivity("Agent.Turn");
         var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct, initialVerb);
 
         for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
@@ -278,6 +287,7 @@ public static class AgentModeEntry
             redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, correction, ct);
         }
 
+        turn?.SetTag(TelemetryTags.RecoveryTurns, 1);
         return redirect;
     }
 

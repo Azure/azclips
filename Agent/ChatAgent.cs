@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Common;
@@ -5,6 +6,7 @@ using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
 using Core.Agent.Providers;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Help;
@@ -362,6 +364,11 @@ public sealed class ChatAgent : IAsyncDisposable
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
         oldCts?.Dispose();
+        // The model round trip itself, tools included. Deliberately not wrapped around the
+        // caller in AgentModeEntry: SendAndPumpAsync races this against the approval pump,
+        // and wrapping there would fold user think time into model latency.
+        using var send = AgentTracing.Source.StartActivity("Agent.Send");
+        send?.SetTag(TelemetryTags.AgentModel, _model);
         try
         {
             await _session.SendAndWaitAsync(
