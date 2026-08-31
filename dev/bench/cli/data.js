@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788154385988,
+  "lastUpdate": 1788219410674,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -7772,6 +7772,48 @@ window.BENCHMARK_DATA = {
             "value": 2468789.4378416683,
             "unit": "ns",
             "range": "± 100603.14242258077"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+azure-client-tools-agent[bot]@users.noreply.github.com",
+            "name": "azure-client-tools-agent[bot]",
+            "username": "azure-client-tools-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b96536b5f2213b1e6e7c5c4a9be4d95e5c444e0",
+          "message": "{DevOps} Trigger stable release 0.1.2 (#781)\n\n**Description**\n\nPrepare stable release 0.1.2.\n\n- Updates src/CLI/Core.Cli.csproj\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.2.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-09-01T08:53:12+09:30",
+          "tree_id": "34bd9a46b4869d828e47a751f7d92860f53f4ab9",
+          "url": "https://github.com/Azure/azclips/commit/6b96536b5f2213b1e6e7c5c4a9be4d95e5c444e0"
+        },
+        "date": 1788219408567,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2540115.7599838646,
+            "unit": "ns",
+            "range": "± 96131.31612270584"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 5006316.942862952,
+            "unit": "ns",
+            "range": "± 123420.42885739982"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2519389.047725882,
+            "unit": "ns",
+            "range": "± 94920.39122209602"
           }
         ]
       }
