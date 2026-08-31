@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Reflection;
 using Core.Abstractions;
 
 namespace Core.Telemetry.Tests;
@@ -27,6 +28,10 @@ public class RecoveryTelemetryVocabularyTests
     public void IsAllowed_AdmitsRecoverySpanNames(string name) =>
         Assert.True(_names.IsAllowed(name));
 
+    [Fact]
+    public void IsAllowed_AdmitsBareToolPrefix() =>
+        Assert.True(_names.IsAllowed("tool."));
+
     [Theory]
     [InlineData("Agent.NotARealSpan")]
     [InlineData("toolbox.something")]
@@ -48,5 +53,24 @@ public class RecoveryTelemetryVocabularyTests
 
         Assert.StartsWith(TelemetryTags.PropertyTagPrefix, value, StringComparison.Ordinal);
         Assert.True(_properties.IsAllowed(value));
+    }
+
+    [Fact]
+    public void TelemetryTags_AllPublicStringConstantsAreAdmittedByThePropertyFilter()
+    {
+        var disallowedConstants = typeof(TelemetryTags)
+            .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            .Where(field => field is { IsLiteral: true, IsInitOnly: false } && field.FieldType == typeof(string))
+            // PropertyTagPrefix is a prefix fragment, not an emitted tag key.
+            .Where(field => field.Name != nameof(TelemetryTags.PropertyTagPrefix))
+            .Select(field => new
+            {
+                field.Name,
+                Value = (string)field.GetRawConstantValue()!,
+            })
+            .Where(tag => !_properties.IsAllowed(tag.Value))
+            .ToArray();
+
+        Assert.Empty(disallowedConstants);
     }
 }
