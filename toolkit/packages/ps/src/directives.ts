@@ -29,7 +29,8 @@ import {
 
 /**
  * A regex source string. Invalid patterns are rejected rather than silently never matching.
- * Empty is allowed: modules use `subject: ""` / `subject-prefix: ""` to mean "clear this".
+ * Empty is allowed because real modules author it (13 selectors across the 217-module corpus,
+ * on `subject`, `subject-prefix` and `variant`); like AutoRest, it constrains nothing.
  */
 const PatternSchema = z.string().refine(
   (value) => {

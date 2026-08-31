@@ -24,11 +24,33 @@ export type ApplyDirectivesResult = {
   diagnostics: PSDirectiveDiagnostic[];
 };
 
-/** Anchored so `subject: Volume` does not also match `VolumeGroup`, matching AutoRest's behaviour. */
-function matches(pattern: string | undefined, value: string | undefined): boolean {
-  if (pattern === undefined) return true;
-  if (value === undefined) return pattern === "";
-  return new RegExp(pattern).test(value);
+/**
+ * Mirrors `getPatternToMatch` in modifiers-v2.ts: a selector of only letters and digits is
+ * anchored, so `subject: Volume` cannot also match `VolumeGroup`, while a selector carrying regex
+ * syntax is used as written. Matching is case-insensitive, and an empty selector is no constraint
+ * at all -- modules author `subject: ''` as a placeholder next to the selector they mean.
+ */
+const patterns = new Map<string, RegExp>();
+function patternFor(selector: string): RegExp {
+  let pattern = patterns.get(selector);
+  if (pattern === undefined) {
+    // `g` matches AutoRest, whose `set` replacement rewrites every match rather than the first.
+    pattern = /^[a-zA-Z0-9]+$/.test(selector)
+      ? new RegExp(`^${selector}$`, "gi")
+      : new RegExp(selector, "gi");
+    patterns.set(selector, pattern);
+  }
+  return pattern;
+}
+
+function matches(selector: string | undefined, value: string): boolean {
+  if (!selector) return true;
+  return value.match(patternFor(selector)) !== null;
+}
+
+/** Replacement runs through the selector, so a `set` value can carry `$1`-style capture groups. */
+function replaced(previous: string, selector: string | undefined, replacement: string): string {
+  return selector ? previous.replace(patternFor(selector), replacement) : replacement;
 }
 
 function commandMatches(where: PSDirectiveSelector, command: PSCommandAttribute): boolean {
@@ -49,13 +71,14 @@ function modulePrefixOf(command: PSCommandAttribute): string {
 
 function applyCommandSet(
   command: PSCommandAttribute,
+  where: PSDirectiveSelector,
   set: PSDirectiveSet,
   matchedVariant: string | undefined,
 ): PSCommandAttribute {
   const next = { ...command };
-  if (set.verb !== undefined) next.verb = set.verb;
+  if (set.verb !== undefined) next.verb = replaced(command.verb, where.verb, set.verb);
   if (set["command-description"] !== undefined) next.description = set["command-description"];
-  if (set.alias !== undefined) next.alias = typeof set.alias === "string" ? [set.alias] : [...set.alias];
+  if (set.alias !== undefined) next.alias = unionAlias(command.alias, set.alias);
   if (set["suppress-should-process"] !== undefined) {
     next.supportsShouldProcess = !set["suppress-should-process"];
   }
@@ -64,15 +87,26 @@ function applyCommandSet(
 
   if (set.subject !== undefined || set["subject-prefix"] !== undefined) {
     const modulePrefix = modulePrefixOf(command);
-    if (set.subject !== undefined) next.subject = set.subject;
+    if (set.subject !== undefined) {
+      next.subject = replaced(command.subject, where.subject, set.subject);
+    }
     if (set["subject-prefix"] !== undefined) {
-      next.subjectPrefix = set["subject-prefix"] === "" ? undefined : set["subject-prefix"];
+      const prefix = replaced(
+        command.subjectPrefix ?? "",
+        where["subject-prefix"],
+        set["subject-prefix"],
+      );
+      next.subjectPrefix = prefix === "" ? undefined : prefix;
     }
     next.noun = modulePrefix + (next.subjectPrefix ?? "") + next.subject;
   }
 
   if (set.variant !== undefined && matchedVariant !== undefined) {
-    return renameParameterSet(next, matchedVariant, set.variant);
+    return renameParameterSet(
+      next,
+      matchedVariant,
+      replaced(matchedVariant, where.variant, set.variant),
+    );
   }
   return next;
 }
@@ -100,14 +134,22 @@ function renameParameterSet(
   };
 }
 
+/** AutoRest adds to the aliases already on the attribute rather than replacing them. */
+function unionAlias(existing: readonly string[] | undefined, added: string | string[]): string[] {
+  return [...new Set([...(existing ?? []), ...(typeof added === "string" ? [added] : added)])];
+}
+
 function applyParameterSet(
   parameter: PSParameterAttribute,
+  where: PSDirectiveSelector,
   set: PSDirectiveSet,
 ): PSParameterAttribute {
   const next = { ...parameter };
-  if (set["parameter-name"] !== undefined) next.name = set["parameter-name"];
+  if (set["parameter-name"] !== undefined) {
+    next.name = replaced(parameter.name, where["parameter-name"], set["parameter-name"]);
+  }
   if (set["parameter-description"] !== undefined) next.helpMessage = set["parameter-description"];
-  if (set.alias !== undefined) next.alias = typeof set.alias === "string" ? [set.alias] : [...set.alias];
+  if (set.alias !== undefined) next.alias = unionAlias(parameter.alias, set.alias);
   if (set.completer !== undefined) next.completer = set.completer;
   if (set.default !== undefined) next.defaultValue = set.default;
   return next;
@@ -151,7 +193,7 @@ export function applyDirectives(
             const { alias: _dropped, ...rest } = next;
             next = rest;
           }
-          if (directive.set !== undefined) next = applyParameterSet(next, directive.set);
+          if (directive.set !== undefined) next = applyParameterSet(next, where, directive.set);
           if (directive.hide === true) next = { ...next, hidden: true };
           parameters.push(next);
         }
@@ -183,7 +225,7 @@ export function applyDirectives(
             where.variant === undefined
               ? undefined
               : command.parameterSets.find((s) => matches(where.variant, s.name))?.name;
-          next = applyCommandSet(next, directive.set, matchedVariant);
+          next = applyCommandSet(next, where, directive.set, matchedVariant);
         }
         if (directive.hide === true) next = { ...next, hidden: true };
         kept.push(next);
@@ -204,7 +246,7 @@ export function applyDirectives(
       diagnostics.push({
         severity: "warning",
         code: "unsupported-directive",
-        message: `\`${unsupported}\` is recognised but not yet applied by this stage.`,
+        message: `${unsupported}.`,
         directiveIndex,
       });
     }
@@ -213,9 +255,42 @@ export function applyDirectives(
   return { attributes: { ...attributes, commands }, diagnostics };
 }
 
-/** Parsed, but with nowhere to land yet -- reported so it cannot become a silent no-op. */
+const COMMAND_ONLY_SET_KEYS = [
+  "verb",
+  "subject",
+  "subject-prefix",
+  "variant",
+  "command-description",
+  "suppress-should-process",
+  "clientside-pagination",
+] as const satisfies readonly (keyof PSDirectiveSet)[];
+
+const PARAMETER_ONLY_SET_KEYS = [
+  "parameter-name",
+  "parameter-description",
+  "completer",
+  "default",
+] as const satisfies readonly (keyof PSDirectiveSet)[];
+
+/**
+ * A directive selects either commands or parameters, and AutoRest quietly ignores whichever
+ * setters do not belong to the side it picked. Reporting them keeps the failure visible instead.
+ */
 function unsupportedKeys(directive: PSDirective): string[] {
-  return directive.set?.variant !== undefined && directive.where.variant === undefined
-    ? ["set.variant without a variant selector"]
-    : [];
+  const set = directive.set;
+  if (set === undefined) return [];
+
+  const targetsParameters =
+    directive.where["parameter-name"] !== undefined && directive.select !== "command";
+  const target = targetsParameters ? "parameter" : "command";
+  const inapplicable = targetsParameters ? COMMAND_ONLY_SET_KEYS : PARAMETER_ONLY_SET_KEYS;
+
+  const reasons = inapplicable
+    .filter((key) => set[key] !== undefined)
+    .map((key) => `\`set.${key}\` does not apply to a ${target} directive`);
+
+  if (!targetsParameters && set.variant !== undefined && directive.where.variant === undefined) {
+    reasons.push("`set.variant` needs a `variant` selector to know which set to rename");
+  }
+  return reasons;
 }

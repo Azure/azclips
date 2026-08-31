@@ -52,6 +52,19 @@ function fixture() {
 
 const apply = (directives: PSDirective[]) => applyDirectives(fixture(), directives);
 
+/** Two resources whose subjects share a prefix, so anchoring is observable. */
+function siblingFixture() {
+  const volume = makeOperation({
+    id: { module: "<root>", namespace: ["Volumes"], name: "get" },
+    method: "GET",
+  });
+  const group = makeOperation({
+    id: { module: "<root>", namespace: ["VolumeGroups"], name: "get" },
+    method: "GET",
+  });
+  return deriveAttributes({ ...emptyIR(), operations: [volume, group] }, { modulePrefix: "Az" });
+}
+
 describe("applyDirectives", () => {
   it("renames a command's verb", () => {
     const { attributes, diagnostics } = apply([
@@ -181,6 +194,74 @@ describe("applyDirectives", () => {
     expect(command.subjectPrefix).toBe("ElasticSan");
     expect(command.subject).toBe("Volume");
     expect(command.noun).toBe("AzElasticSanVolume");
+  });
+
+  it("anchors a plain selector, so `Volume` does not also match `VolumeGroup`", () => {
+    const { attributes } = applyDirectives(siblingFixture(), [
+      { where: { subject: "Volume" }, set: { verb: "Find" } },
+    ]);
+
+    const verbByNoun = Object.fromEntries(attributes.commands.map((c) => [c.noun, c.verb]));
+    expect(verbByNoun["AzVolume"]).toBe("Find");
+    expect(verbByNoun["AzVolumeGroup"]).toBe("Get");
+  });
+
+  it("leaves a selector carrying regex syntax unanchored", () => {
+    const { attributes } = applyDirectives(siblingFixture(), [
+      { where: { subject: "Volume.*" }, set: { verb: "Find" } },
+    ]);
+    expect(attributes.commands.every((c) => c.verb === "Find")).toBe(true);
+  });
+
+  it("matches case-insensitively", () => {
+    const { attributes, diagnostics } = apply([{ where: { verb: "^get$" }, set: { verb: "Find" } }]);
+
+    expect(attributes.commands.map((c) => c.verb).sort()).toEqual(["Find", "Remove"]);
+    expect(diagnostics).toHaveLength(0);
+  });
+
+  it("treats an empty selector as no constraint, the way modules author it", () => {
+    const { attributes } = apply([{ where: { verb: "^Get$", subject: "" }, set: { verb: "Find" } }]);
+    expect(attributes.commands.map((c) => c.verb).sort()).toEqual(["Find", "Remove"]);
+  });
+
+  it("replaces through the selector, so a set value can carry capture groups", () => {
+    const { attributes } = applyDirectives(siblingFixture(), [
+      { where: { subject: "Volume(.*)" }, set: { subject: "Disk$1" } },
+    ]);
+    expect(attributes.commands.map((c) => c.noun).sort()).toEqual(["AzDisk", "AzDiskGroup"]);
+  });
+
+  it("adds aliases rather than replacing the ones already there", () => {
+    const { attributes } = apply([
+      { where: { verb: "^Get$" }, set: { alias: "Get-AzVol" } },
+      { where: { verb: "^Get$" }, set: { alias: ["Get-AzV"] } },
+    ]);
+
+    expect(attributes.commands.find((c) => c.verb === "Get")!.alias).toEqual([
+      "Get-AzVol",
+      "Get-AzV",
+    ]);
+  });
+
+  it("reports a command setter on a parameter directive instead of dropping it", () => {
+    const { diagnostics } = apply([
+      { where: { "parameter-name": "^GroupName$" }, set: { verb: "Find" } },
+    ]);
+
+    expect(diagnostics.map((d) => d.message)).toContain(
+      "`set.verb` does not apply to a parameter directive.",
+    );
+  });
+
+  it("reports a parameter setter on a command directive instead of dropping it", () => {
+    const { diagnostics } = apply([
+      { where: { verb: "^Get$" }, set: { "parameter-description": "Which group." } },
+    ]);
+
+    expect(diagnostics.map((d) => d.message)).toContain(
+      "`set.parameter-description` does not apply to a command directive.",
+    );
   });
 
   it("does not mutate the input attributes", () => {
