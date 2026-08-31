@@ -117,4 +117,14 @@ describe("emitter e2e: pets.tsp → IR", () => {
     expect(pet?.source).toBe("PetStore");
     expect(pet?.id.module).toBe("PetStore");
   });
+
+  it("carries the author-supplied request body name and isGeneratedName", () => {
+    const create = ir.operations.find((o) => o.name === "create");
+    expect(create?.requestBody?.name).toBe("pet");
+    expect(create?.requestBody?.isGeneratedName).toBe(false);
+
+    const rename = ir.operations.find((o) => o.name === "rename");
+    expect(rename?.requestBody?.name).toBe("body");
+    expect(rename?.requestBody?.isGeneratedName).toBe(false);
+  });
 });

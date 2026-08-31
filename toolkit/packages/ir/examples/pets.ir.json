@@ -863,7 +863,9 @@
             "name": "Pet"
           }
         },
-        "contentType": "application/json"
+        "contentType": "application/json",
+        "name": "pet",
+        "isGeneratedName": false
       },
       "responses": [
         {
@@ -1077,7 +1079,9 @@
             "name": "RenameRequest"
           }
         },
-        "contentType": "application/json"
+        "contentType": "application/json",
+        "name": "body",
+        "isGeneratedName": false
       },
       "responses": [
         {
