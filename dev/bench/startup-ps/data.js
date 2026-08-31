@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788219552108,
+  "lastUpdate": 1788219556664,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -4934,6 +4934,42 @@ window.BENCHMARK_DATA = {
             "value": 354687269.63,
             "unit": "ns",
             "range": "± 5542238.093728785"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "299377795+azure-client-tools-agent[bot]@users.noreply.github.com",
+            "name": "azure-client-tools-agent[bot]",
+            "username": "azure-client-tools-agent[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b96536b5f2213b1e6e7c5c4a9be4d95e5c444e0",
+          "message": "{DevOps} Trigger stable release 0.1.2 (#781)\n\n**Description**\n\nPrepare stable release 0.1.2.\n\n- Updates src/CLI/Core.Cli.csproj\n- Updates the root CHANGELOG.md\n- Updates src/PS/Az/Az.psd1\n- Updates PowerShell module changelogs and manifests\n\n**After merge**\n\nThe release trigger validates the version-only change on main, tags the\nmerged commit as v0.1.2.<UTC yyyyMMddTHHmmssZ>, and starts the stable\nbuild, signing, and publishing flow.\n\nCo-authored-by: Azclips Release Automation <azclips-release-automation@microsoft.com>",
+          "timestamp": "2026-09-01T08:53:12+09:30",
+          "tree_id": "34bd9a46b4869d828e47a751f7d92860f53f4ab9",
+          "url": "https://github.com/Azure/azclips/commit/6b96536b5f2213b1e6e7c5c4a9be4d95e5c444e0"
+        },
+        "date": 1788219556532,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 464179850.82,
+            "unit": "ns",
+            "range": "± 300185489.2438034"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 364961873.45,
+            "unit": "ns",
+            "range": "± 84822506.59926738"
           }
         ]
       }
