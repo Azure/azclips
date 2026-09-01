@@ -137,6 +137,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 var _asyncOperationUri = GetAsyncOperationUri(_response);
                 var _locationUri = GetLocationUri(_response);
                 var _operationLocationUri = GetOperationLocationUri(_response);
+                // Carries the ARM error detail captured during the status peek (while the body is
+                // still available) so the terminal-failure throw site below can surface it. Must be
+                // declared outside the loop to be in scope at both the peek and the throw.
+                string? failureDetail = null;
 
                 //polling
                 // Parenthesised for clarity; the semantics match ComputeProcessorBase. A 200 on the
@@ -186,7 +190,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                         var error = false;
                         try
                         {
-                            if (JsonNode.Parse(await _response.Content.ReadAsStringAsync()) is JsonObject json)
+                            string bodyText = await _response.Content.ReadAsStringAsync();
+                            if (JsonNode.Parse(bodyText) is JsonObject json)
                             {
                                 var state = json.Property("properties")?.PropertyT<JsonString>("provisioningState") ?? json.PropertyT<JsonString>("status");
                                 if (state is null)
@@ -200,6 +205,28 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                                 {
                                     case "failed":
                                         error = true;
+                                        // Capture the ARM error while the body is still readable; the
+                                        // response is disposed at the throw site below.
+                                        var errorObj = json.Property("error") as JsonObject
+                                            ?? json.Property("properties")?.Property("error") as JsonObject;
+                                        var code = errorObj?.PropertyT<JsonString>("code")?.ToString();
+                                        var detailMessage = errorObj?.PropertyT<JsonString>("message")?.ToString();
+                                        if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(detailMessage))
+                                        {
+                                            failureDetail = $"{code}: {detailMessage}";
+                                        }
+                                        else if (!string.IsNullOrWhiteSpace(code))
+                                        {
+                                            failureDetail = code;
+                                        }
+                                        else if (!string.IsNullOrWhiteSpace(detailMessage))
+                                        {
+                                            failureDetail = detailMessage;
+                                        }
+                                        else if (!string.IsNullOrWhiteSpace(bodyText))
+                                        {
+                                            failureDetail = bodyText.Length > 2000 ? bodyText[..2000] : bodyText;
+                                        }
                                         break;
                                     case "succeeded":
                                     case "canceled":
@@ -220,8 +247,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                         }
                         if (error)
                         {
-                            //TODO(Yabo): redesign exceptions for extension runtime
-                            throw new Exception($"Long running operation failed with response: {_response}");
+                            // Capture the message before disposing the response, then dispose the
+                            // current response (handle/socket) exactly once on this throw path.
+                            // The method exits here, so the surrounding finally only disposes _request.
+                            string message = string.IsNullOrWhiteSpace(failureDetail)
+                                ? $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}."
+                                : $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}. {failureDetail}";
+                            _response.Dispose();
+                            throw new InvalidOperationException(message);
                         }
                     }
 

@@ -618,6 +618,30 @@ public class NewStorageAccountProcessorTests
         Assert.Equal("Deny", account.Properties?.NetworkAcls?.DefaultAction);
     }
 
+    [Fact]
+    public async Task ProcessAsync_TerminalFailure_SurfacesTheArmErrorDetail()
+    {
+        // A generic message with only the response object gives users nothing to act on, so the
+        // ARM error is captured during the status peek while the body is still readable.
+        const string failed = """
+            {
+              "name": "mystorageaccount",
+              "location": "eastus",
+              "kind": "StorageV2",
+              "properties": { "provisioningState": "Failed" },
+              "error": { "code": "StorageAccountAlreadyTaken", "message": "The storage account named mystorageaccount is already taken." }
+            }
+            """;
+        var pipeline = new FakeHttpPipeline((_, _) => Json(failed));
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(processor.ProcessAsync);
+
+        Assert.Contains("StorageAccountAlreadyTaken", error.Message);
+        Assert.Contains("already taken", error.Message);
+        Assert.Contains("storageAccounts/mystorageaccount", error.Message);
+    }
+
     // ── Validation ──
 
     [Fact]

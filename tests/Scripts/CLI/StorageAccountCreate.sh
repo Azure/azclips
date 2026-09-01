@@ -13,6 +13,25 @@
 # agent-mode TUI (which would block on input). Disable the agent via config so the
 # classic error and a non-zero exit surface instead, and the negative cases below
 # don't hang.
+#
+# azclips reads config from ~/.azclips/config.json via HomePaths and has no
+# AZURE_CONFIG_DIR-style override, so the setting cannot be isolated to this run.
+# Save the previous value and restore it on exit instead, so running this script
+# leaves the developer's configuration as it found it. `az config get` prints
+# "agent.enabled = <value>[ [default]]"; the [default] marker means no explicit
+# value was stored, in which case the key is deleted rather than written back.
+PREV_AGENT_RAW="$(az config get --key agent.enabled 2>/dev/null || true)"
+restore_agent_config() {
+    case "$PREV_AGENT_RAW" in
+        ""|*"[default]"*)
+            az config delete --key agent.enabled >/dev/null 2>&1 || true
+            ;;
+        *)
+            az config set --key agent.enabled --value "${PREV_AGENT_RAW##*= }" >/dev/null 2>&1 || true
+            ;;
+    esac
+}
+trap restore_agent_config EXIT
 az config set --key agent.enabled --value false
 
 # No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
