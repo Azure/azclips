@@ -20,14 +20,15 @@ Create a virtual machine together with its network interface, virtual network, a
 ### \_\_AllParameterSets
 
 ```
-New-AzVM -SubscriptionId <string> -Name <string> -Location <string> -ResourceGroupName <string>
+New-AzVM -Name <string> -Location <string> -ResourceGroupName <string>
  -VmSize <string> -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
  -VirtualNetworkName <string> -NetworkSecurityGroupName <string> [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-RuleNames <string[]>]
  [-RuleDirections <string[]>] [-RuleProtocols <string[]>] [-RulePriorities <int[]>]
  [-RuleSourceAddressPrefixes <string[]>] [-RuleSourcePortRanges <string[]>]
  [-RuleDestinationPortRanges <string[]>] [-RuleDestinationAddressPrefixes <string[]>]
- [-RuleAccesses <string[]>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-RuleAccesses <string[]>] [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -496,7 +497,7 @@ HelpMessage: ""
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -506,7 +507,7 @@ Aliases: []
 ParameterSets:
     - Name: (All)
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false

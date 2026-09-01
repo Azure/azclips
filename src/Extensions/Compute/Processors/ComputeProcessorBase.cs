@@ -30,7 +30,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         protected OutputStreamDelegate WriteOutput = null!;
 
         /// <summary>The resolved connection profile from the processor context; null when none is available.</summary>
-        protected ProfileModel? ResolvedProfile;
+        protected ProfileModel? ResolvedProfile = null!;
 
         /// <summary>
         /// Bound <c>--profile</c>/<c>-Profile</c> parameter. The Engine resolves the named profile into
@@ -152,20 +152,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
     /// Generic compute processor base. The default <see cref="ProcessAsync"/> pipeline:
     /// 1) Publishs start, 2) calls <see cref="SendAsync"/>,
     /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishs end.
-    /// <para>
-    /// <see cref="SendAsync"/> is the internal "give me the final response" transport primitive.
-    /// Atomic LRO processors override it as a one-liner that delegates to <see cref="ComputeProcessorBase.SendAsyncLRO"/>.
-    /// Atomic non-LRO processors don't override at all (the inherited <see cref="SendAsync"/>
-    /// resolves <see cref="SubscriptionId"/> then dispatches a single HTTP request).
-    /// Orchestrators override <see cref="SendAsync"/> to compose children.
-    /// </para>
-    /// <para>
-    /// <see cref="SubscriptionId"/> is resolved lazily inside <see cref="SendAsync"/> /
-    /// <see cref="SendAsyncLRO"/>, so internal composition paths that call these helpers directly still get a
-    /// populated value via <see cref="ResolvedProfile"/> fallback. Orchestrators don't need to copy
-    /// <see cref="SubscriptionId"/> into children since each child resolves from the shared
-    /// <see cref="ResolvedProfile"/>.
-    /// </para>
     /// </summary>
     public partial class ComputeProcessorBase<TRequest, TResponse> : ComputeProcessorBase
         where TRequest : class
@@ -177,20 +163,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         /// <see cref="ComputeProcessorBase.CreateRequestBody"/> that the request template consumes.
         /// </summary>
         protected override TRequest? CreateRequestBody() => default;
-
-        public string SubscriptionId { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="ResolvedProfile"/>.
-        /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport;
-        /// custom <see cref="SendAsync"/>/<see cref="SendAsyncLRO"/> overrides that don't call <c>base</c>
-        /// are responsible for invoking this themselves if they build URIs from <see cref="SubscriptionId"/>.
-        /// </summary>
-        protected void ResolveSubscriptionId() =>
-            SubscriptionId = !string.IsNullOrEmpty(SubscriptionId)
-                ? SubscriptionId
-                : ResolvedProfile?.SubscriptionId
-                  ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.");
 
         // Yabo: C# does not allow partial with return type to be unimplemented
         // So partial Task is forbidden, have to make it synchronous.
@@ -205,18 +177,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         // this override likely needs to perform write output, thus likely to be async
         // return Task<bool> instead
         protected virtual Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body) => Task.FromResult(false);
-
-        internal override Task<HttpResponseMessage> SendAsync()
-        {
-            ResolveSubscriptionId();
-            return base.SendAsync();
-        }
-
-        internal override Task<HttpResponseMessage> SendAsyncLRO()
-        {
-            ResolveSubscriptionId();
-            return base.SendAsyncLRO();
-        }
 
         public override async Task ProcessAsync()
         {

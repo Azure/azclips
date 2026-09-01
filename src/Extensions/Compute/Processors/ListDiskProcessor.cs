@@ -20,6 +20,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 /// </summary>
 public class ListDiskProcessor : ComputeProcessorBase<object, DiskListResult>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
 
     protected override HttpMethod Method => HttpMethod.Get;

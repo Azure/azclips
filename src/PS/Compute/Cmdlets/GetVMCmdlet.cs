@@ -17,8 +17,8 @@ public class GetVMCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(ParameterSetName = "Get", Mandatory = true)]
-    [Parameter(ParameterSetName = "List", Mandatory = true)]
+    [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]

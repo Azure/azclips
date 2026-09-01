@@ -6,18 +6,12 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Bootstrap behavior: Resource and Compute processors must fail at point of use with a clear
-/// message when no profile is available, and resolve the subscription from the profile otherwise.
+/// Bootstrap behavior: Resource processors resolve subscriptions at point of use, while Compute
+/// commands declare SubscriptionId as optional so argument binding can default it from a profile.
 /// </summary>
 public class ProfileSubscriptionResolutionTests
 {
     private sealed class TestResourceProcessor : ResourcesProcessorBase<object, object>
-    {
-        public void SetProfile(Profile? profile) => ResolvedProfile = profile;
-        public void Resolve() => ResolveSubscriptionId();
-    }
-
-    private sealed class TestComputeProcessor : ComputeProcessorBase<object, object>
     {
         public void SetProfile(Profile? profile) => ResolvedProfile = profile;
         public void Resolve() => ResolveSubscriptionId();
@@ -77,23 +71,23 @@ public class ProfileSubscriptionResolutionTests
             $"SubscriptionId should be optional for '{command}' so it defaults to the current subscription.");
     }
 
-    [Fact]
-    public void Compute_NullProfile_ShouldThrowClearError()
+    [Theory]
+    [InlineData(ClientType.CLI, "vm create", "subscription-id")]
+    [InlineData(ClientType.CLI, "vm show", "subscription-id")]
+    [InlineData(ClientType.CLI, "vm list", "subscription-id")]
+    [InlineData(ClientType.CLI, "vm delete", "subscription-id")]
+    [InlineData(ClientType.CLI, "disk list", "subscription-id")]
+    [InlineData(ClientType.PowerShell, "New-AzVM", "SubscriptionId")]
+    [InlineData(ClientType.PowerShell, "Get-AzVM_Get", "SubscriptionId")]
+    [InlineData(ClientType.PowerShell, "Get-AzVM_List", "SubscriptionId")]
+    [InlineData(ClientType.PowerShell, "Remove-AzVM", "SubscriptionId")]
+    public void Compute_SubscriptionId_ShouldBeOptional(ClientType clientType, string command, string parameterKey)
     {
-        var processor = new TestComputeProcessor();
-        processor.SetProfile(null);
+        var metadata = new Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex()
+            .GetCommandMetadata(command, clientType);
 
-        Assert.Throws<InvalidOperationException>(processor.Resolve);
-    }
-
-    [Fact]
-    public void Compute_WithProfile_ShouldResolveSubscriptionFromProfile()
-    {
-        var processor = new TestComputeProcessor();
-        processor.SetProfile(ProfileWithSub("sub-456"));
-
-        processor.Resolve();
-
-        Assert.Equal("sub-456", processor.SubscriptionId);
+        Assert.False(
+            metadata.Parameters[parameterKey].IsRequired,
+            $"SubscriptionId should be optional for '{command}' so argument binding can default it from the active profile.");
     }
 }

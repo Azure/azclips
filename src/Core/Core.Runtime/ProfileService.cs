@@ -28,7 +28,10 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     }
 
     // default profile keys for other services to use as default, for now SubscriptionId only
-    public List<string> GetProfileKeysForDefault() => new List<string>{"SubscriptionId"};
+    public List<string> GetProfileKeysForDefault() =>
+    [
+        "SubscriptionId"
+    ];
 
     public string? GetProfileValueByKey(Profile? profile, string key)
     {

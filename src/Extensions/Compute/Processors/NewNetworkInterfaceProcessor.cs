@@ -10,6 +10,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterface, NetworkInterface>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;

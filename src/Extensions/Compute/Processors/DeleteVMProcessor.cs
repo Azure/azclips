@@ -9,6 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
 public class DeleteVMProcessor : ComputeProcessorBase<object, object>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
 
