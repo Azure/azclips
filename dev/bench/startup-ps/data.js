@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788234609717,
+  "lastUpdate": 1788234614090,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Startup (warm)": [
@@ -5078,6 +5078,42 @@ window.BENCHMARK_DATA = {
             "value": 360325308.18,
             "unit": "ns",
             "range": "± 5911494.475758365"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b82573f9e7a32a90e0fbc7307d636444b1efe12",
+          "message": "{Telemetry} Emit real telemetry from PowerShell benchmarks (#757)\n\nStacked on #744 — review that one first.\n\n## What\n\nPowerShell micro-benchmarks previously suppressed telemetry via\n`StubTelemetryService`, so a PS benchmark told you *how long*\n`Get-AzResourceGroup` took but not *where the time went*. This makes\nthem emit real spans through the production pipeline, split by\nBenchmarkDotNet stage and sampled into one `.jsonl` per benchmark method\n— matching what the CLI benchmarks already produce.\n\n## The constraint\n\nThe file write must not land inside the measured region. Production\nPowerShell batches its export off-thread, so benchmarks preserve that:\nthe timed region pays only a flag check and a queue enqueue, and\n`[IterationCleanup]`'s container disposal drains the queue to disk —\nuntimed.\n\n## Production changes\n\n**`ModuleInitializer`** — `ITelemetrySender` moves from the override\nphase to the prepend phase, so a host (the benchmark) can substitute\none. Production PowerShell still resolves `DirectTelemetrySender`; two\ntests lock that contract.\n\n**`FileExporter`** — fixes a latent bug found while validating this\nwork. It enumerated the batch twice: once to name the file, once to\nwrite. A circular-buffer-backed `Batch<T>` dequeues as it is enumerated,\nso the first span of the first batch was silently dropped. Now a single\npass. This affects the CLI and TUI file-buffered paths too; they escaped\nit only because `SimpleActivityExportProcessor` delivers one span per\nbatch.\n\n## Benchmark-side\n\nFour `internal sealed` types in `tests/Benchmark/Telemetry/`, none\nreachable from `src/`. `StageLatch` samples the stage at span end — the\nonly moment the answer is knowable, since the engine's flag reads false\nin both `[IterationSetup]` and `[IterationCleanup]`.\n\nShared helpers extracted along the way: `BenchmarkTelemetryArtifacts`,\nand `DirectoryUtils.TryDeleteDirectory` in `Tests.Common`, which\nreplaced four duplicate implementations.\n\n## Validation\n\n- `dotnet build azclips.slnx` — 0 errors\n- Core.Telemetry.Tests 226/226, Cmdlets.Tests 100/100\n- Live `--product ALL` run at 5 iterations: every `.jsonl` holds exactly\n5 traces, 0 module-import spans, 5 activity roots. Exactly 5 — not 0\n(stage read outside the measured region) and not 10 (stage listener\nnever fired) — is the load-bearing assertion.\n- CLI output unchanged, confirming the shared-helper extraction did not\nregress it.\n\n## Note for reviewers\n\nPS benchmark means and `[MemoryDiagnoser]` numbers step up once,\nuniformly, because every iteration now creates real spans where the stub\ndid nothing. The regression gate will likely need a baseline reset on\nthe run this lands — the same one-time discontinuity the CLI change\ndocumented.\n\nDesign doc:\n`docs/superpowers/specs/2026-08-20-ps-benchmark-telemetry-design.md`\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-01T13:30:34+10:00",
+          "tree_id": "daa95980df3896d7f183ebe0e6a8c802c1dbe670",
+          "url": "https://github.com/Azure/azclips/commit/8b82573f9e7a32a90e0fbc7307d636444b1efe12"
+        },
+        "date": 1788234613954,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Config",
+            "value": 359703785.49,
+            "unit": "ns",
+            "range": "± 5810872.403431928"
+          },
+          {
+            "name": "Benchmark.Startup.PsColdStartupBenchmarks.Login",
+            "value": 347599254.86,
+            "unit": "ns",
+            "range": "± 5930613.311012457"
           }
         ]
       }
