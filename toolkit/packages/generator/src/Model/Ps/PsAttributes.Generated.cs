@@ -186,8 +186,11 @@ public partial class PSParameterAttribute
     [JsonPropertyName("parameterSets")]
     public IReadOnlyDictionary<string, PSParameterSetOverride>? ParameterSets { get; set; }
 
+    [JsonPropertyName("identity")]
+    public bool? Identity { get; set; }
+
     [JsonPropertyName("sourceParameterId")]
-    public Ace.Generator.Model.Ir.IRId SourceParameterId { get; set; } = default !;
+    public Ace.Generator.Model.Ir.IRId? SourceParameterId { get; set; }
 }
 
 public partial class PSParameterSetAttribute

@@ -60,11 +60,16 @@ describe("inferCommandNames", () => {
     ["ElasticSans", "listBySubscription", "Get", "ElasticSan", "Subscription"],
     ["ElasticSan", "restoreVolume", "Restore", "ElasticSanVolume", ""],
   ] as const)("%s.%s -> %s / subject %s", (group, actionWord, verb, subject, variant) => {
-    expect(inferOne(group, actionWord)).toEqual({ verb, subject, variant });
+    expect(inferOne(group, actionWord)).toMatchObject({ verb, subject, variant });
+  });
+
+  it("reports the word the verb resolved from, which `list` and `get` share a verb but not", () => {
+    expect(inferOne("ElasticSans", "listBySubscription").action).toBe("list");
+    expect(inferOne("ElasticSans", "get").action).toBe("get");
   });
 
   it("fans an X-or-Y action word out into one command per branch", () => {
-    expect(inferCommandNames("ResourceGroups", "createOrUpdate")).toEqual([
+    expect(inferCommandNames("ResourceGroups", "createOrUpdate")).toMatchObject([
       { verb: "New", subject: "ResourceGroup", variant: "" },
       { verb: "Update", subject: "ResourceGroup", variant: "" },
     ]);
@@ -73,7 +78,7 @@ describe("inferCommandNames", () => {
   it("falls back to Invoke, never to the HTTP method, and keeps the unmatched word", () => {
     // `credentials` is in the pluralizer's uninflective list, so the group never collapses onto
     // the action's own `credential` and both survive the sequential-duplicate pass.
-    expect(inferOne("Credentials", "issueCredential")).toEqual({
+    expect(inferOne("Credentials", "issueCredential")).toMatchObject({
       verb: "Invoke",
       subject: "IssueCredentialsCredential",
       variant: "",

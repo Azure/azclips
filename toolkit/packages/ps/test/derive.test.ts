@@ -737,3 +737,133 @@ describe("deriveAttributes: Expanded parameter sets", () => {
     expect(namesOf(commands[0]!)).toEqual(["Size"]);
   });
 });
+
+// ─── ViaIdentity parameter sets ──────────────────────────────────────────
+
+const pathParameter = (name: string) => ({
+  id: { module: "<root>", namespace: [], name: `op#${name}` },
+  name,
+  wireName: name,
+  type: { kind: "primitive" as const, name: "string" as const },
+  optional: false,
+  nullable: false,
+});
+
+/** A three-level ARM path, the shape that produces one identity variant per ancestor. */
+function nestedFixture(actionWord = "get", method: IROperation["method"] = "GET") {
+  const operation = makeOperation({
+    id: { module: "<root>", namespace: ["Volumes"], name: actionWord },
+    method,
+    pathTemplate:
+      "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}" +
+      "/providers/Microsoft.Test/elasticSans/{elasticSanName}" +
+      "/volumegroups/{volumeGroupName}/volumes/{volumeName}",
+    pathParameters: [
+      pathParameter("subscriptionId"),
+      pathParameter("resourceGroupName"),
+      pathParameter("elasticSanName"),
+      pathParameter("volumeGroupName"),
+      pathParameter("volumeName"),
+    ],
+  });
+  return deriveAttributes({ ...emptyIR(), operations: [operation] }, {});
+}
+
+const setNames = (command: { parameterSets: { name: string }[] }) =>
+  command.parameterSets.map((s) => s.name);
+
+/** Parameters visible in one set: those scoped to it, plus those spanning every set. */
+const inSet = (command: { parameters: any[] }, set: string) =>
+  command.parameters
+    .filter((p) => p.parameterSetName === set || p.parameterSets?.[set] || (!p.parameterSetName && !p.parameterSets))
+    .map((p) => p.name)
+    .sort();
+
+describe("deriveAttributes: ViaIdentity parameter sets", () => {
+  it("adds one set per ancestor, walking outward from the resource itself", () => {
+    const { commands } = nestedFixture();
+
+    expect(setNames(commands[0]!)).toEqual([
+      "Get",
+      "GetViaIdentity",
+      "GetViaIdentityVolumegroup",
+      "GetViaIdentityElasticSan",
+    ]);
+  });
+
+  it("names the identity after the URL segment, not the parameter", () => {
+    const { commands } = nestedFixture();
+    const identities = commands[0]!.parameters.filter((p) => p.identity === true).map((p) => p.name);
+
+    // `{volumeGroupName}` sits under `/volumegroups/`, so the parameter is `Volumegroup...`.
+    expect(identities).toEqual([
+      "InputObject",
+      "VolumegroupInputObject",
+      "ElasticSanInputObject",
+    ]);
+  });
+
+  it("keeps only the names below the identity in each set", () => {
+    const { commands } = nestedFixture();
+    const command = commands[0]!;
+
+    expect(inSet(command, "Get")).toEqual([
+      "ElasticSanName",
+      "GroupName",
+      "Name",
+      "ResourceGroupName",
+      "SubscriptionId",
+    ]);
+    expect(inSet(command, "GetViaIdentity")).toEqual(["InputObject"]);
+    expect(inSet(command, "GetViaIdentityVolumegroup")).toEqual(["Name", "VolumegroupInputObject"]);
+    expect(inSet(command, "GetViaIdentityElasticSan")).toEqual([
+      "ElasticSanInputObject",
+      "GroupName",
+      "Name",
+    ]);
+  });
+
+  it("marks the identity parameter as pipeline-bound and sourced from no IR node", () => {
+    const { commands } = nestedFixture();
+    const identity = commands[0]!.parameters.find((p) => p.name === "InputObject")!;
+
+    expect(identity.identity).toBe(true);
+    expect(identity.sourceParameterId).toBeUndefined();
+    expect(identity.mandatory).toBe(true);
+    expect(identity.valueFromPipeline).toBe(true);
+  });
+
+  it("derives no identity set for a list, which has no single resource to pipe", () => {
+    const { commands } = nestedFixture("listByVolumeGroup");
+    expect(setNames(commands[0]!)).toEqual(["VolumeGroup"]);
+  });
+
+  it("multiplies with the Expanded axis rather than replacing it", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Widgets"], name: "create" },
+      method: "PUT",
+      pathTemplate: "/subscriptions/{subscriptionId}/providers/Microsoft.Test/widgets/{widgetName}",
+      pathParameters: [pathParameter("subscriptionId"), pathParameter("widgetName")],
+      requestBody: { type: modelRef("Widget"), contentType: "application/json" },
+    });
+
+    const { commands } = deriveAttributes(
+      { ...emptyIR(), operations: [operation], models: [model("Widget", [scalar("size")])] },
+      {},
+    );
+
+    expect(setNames(commands[0]!)).toEqual(["CreateExpanded", "CreateViaIdentityExpanded"]);
+  });
+
+  it("leaves an operation with no addressable resource alone", () => {
+    const operation = makeOperation({
+      id: { module: "<root>", namespace: ["Widgets"], name: "get" },
+      method: "GET",
+      pathTemplate: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}",
+      pathParameters: [pathParameter("subscriptionId"), pathParameter("resourceGroupName")],
+    });
+
+    const { commands } = deriveAttributes({ ...emptyIR(), operations: [operation] }, {});
+    expect(setNames(commands[0]!)).toEqual(["Get"]);
+  });
+});

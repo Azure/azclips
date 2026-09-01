@@ -28,13 +28,13 @@ describe("action words", () => {
   it("locates the action word by the dictionary, not the verb map", () => {
     // `begin` is a dictionary verb, so the words after it are the subject; consulting the verb
     // map instead would have found `migrate` and produced a different subject and variant.
-    expect(inferCommandNames("Volumes", "beginMigrateVolume")).toEqual([
+    expect(inferCommandNames("Volumes", "beginMigrateVolume")).toMatchObject([
       { verb: "Invoke", subject: "BeginVolumeMigrateVolume", variant: "" },
     ]);
   });
 
   it("still resolves the PowerShell verb from the verb map", () => {
-    expect(inferCommandNames("Volumes", "delete")).toEqual([
+    expect(inferCommandNames("Volumes", "delete")).toMatchObject([
       { verb: "Remove", subject: "Volume", variant: "" },
     ]);
   });

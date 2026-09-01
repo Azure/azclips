@@ -103,6 +103,8 @@ export type InferredName = {
   subject: string;
   /** Parameter-set discriminator taken from a trailing preposition ("ListByResourceGroup" -> "ResourceGroup"). */
   variant: string;
+  /** The word the verb resolved from, before mapping -- `list` and `get` both become `Get`. */
+  action: string;
 };
 
 /**
@@ -118,6 +120,7 @@ function buildName(action: string, subject: readonly string[], variant: readonly
     verb,
     subject: pascalCase(removeSequentialDuplicates(subjectWords.map(singularize))),
     variant: pascalCase(variant),
+    action,
   };
 }
 
