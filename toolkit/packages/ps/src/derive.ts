@@ -107,7 +107,6 @@ function effectiveResponseTypes(operation: IROperation, models: ModelIndex): IRT
 type Inferred = {
   verb: string;
   subject: string;
-  variant: string;
   action: string;
   confirmImpact: "Medium" | undefined;
   hidden: boolean | undefined;
@@ -118,7 +117,6 @@ function inferOperation(operation: IROperation): Inferred[] {
   return inferCommandNames(groupOf(operation), operation.id.name).map((name) => ({
     verb: name.verb,
     subject: name.subject,
-    variant: name.variant,
     action: name.action,
     confirmImpact: isMutatingMethod(operation.method) ? "Medium" : undefined,
     hidden: operation.access === "internal" ? true : undefined,
@@ -200,22 +198,13 @@ function defaultParameterSetNameFor(
 }
 
 /**
- * Parameter-set name per operation. A trailing preposition already discriminates the set
- * (`listByResourceGroup` -> `ResourceGroup`); the full action word is the fallback, and also the
- * tie-break when two operations in one command would otherwise collide.
+ * Parameter-set name per operation: `pascalCase([variant.action, vname])` from `addVariants`, whose
+ * `vname` is empty at every call site. The trailing preposition that `inferCommandNames` recovers
+ * (`listByResourceGroup` -> `ResourceGroup`) is deliberately not used -- AutoRest discards it too,
+ * and 574 shipped directives select sets by these names.
  */
-function baseSetNamesFor(entries: readonly CommandEntry[]): string[] {
-  const preferred = entries.map((entry) =>
-    entry.inferred.variant === ""
-      ? pascalCase(deconstruct(entry.operation.id.name))
-      : entry.inferred.variant,
-  );
-
-  return preferred.map((name, index) =>
-    preferred.some((other, otherIndex) => other === name && otherIndex !== index)
-      ? pascalCase(deconstruct(entries[index]!.operation.id.name))
-      : name,
-  );
+function baseSetNameFor(entry: CommandEntry): string {
+  return pascalCase(deconstruct(entry.inferred.action));
 }
 
 // ─── ViaIdentity fan-out ────────────────────────────────────────────────
@@ -546,8 +535,19 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
   for (const entries of groups.values()) {
     const operations = entries.map((entry) => entry.operation);
     const inferred = entries[0]!.inferred;
-    const baseNames = baseSetNamesFor(entries);
-    const variants = entries.flatMap((entry, index) => variantsFor(entry, baseNames[index]!, models));
+
+    // `addCommandOperation`: sets colliding within a command are told apart by an ordinal, so the
+    // second `listBy*` of a command becomes `List1`. Order-dependent, but it is what ships.
+    const taken = new Set<string>();
+    const variants = entries
+      .flatMap((entry) => variantsFor(entry, baseSetNameFor(entry), models))
+      .map((variant) => {
+        let name = variant.name;
+        for (let n = 1; taken.has(name); n++) name = `${variant.name}${n}`;
+        taken.add(name);
+        return { ...variant, name };
+      });
+
     const parameterSets: PSParameterSetAttribute[] = variants.map((variant) => ({
       name: variant.name,
       sourceOperationId: variant.entry.operation.id,

@@ -835,7 +835,25 @@ describe("deriveAttributes: ViaIdentity parameter sets", () => {
 
   it("derives no identity set for a list, which has no single resource to pipe", () => {
     const { commands } = nestedFixture("listByVolumeGroup");
-    expect(setNames(commands[0]!)).toEqual(["VolumeGroup"]);
+    expect(setNames(commands[0]!)).toEqual(["List"]);
+  });
+
+  it("names a set after the action, discarding the trailing preposition as AutoRest does", () => {
+    const list = (name: string) =>
+      makeOperation({
+        id: { module: "<root>", namespace: ["ElasticSans"], name },
+        method: "GET",
+        pathTemplate: "/subscriptions/{subscriptionId}/providers/Microsoft.Test/elasticSans",
+        pathParameters: [pathParameter("subscriptionId")],
+      });
+
+    const { commands } = deriveAttributes(
+      { ...emptyIR(), operations: [list("listBySubscription"), list("listByResourceGroup")] },
+      {},
+    );
+
+    // Both collapse onto `List`; the second is told apart by an ordinal, matching Get-AzElasticSan.
+    expect(setNames(commands[0]!)).toEqual(["List", "List1"]);
   });
 
   it("multiplies with the Expanded axis rather than replacing it", () => {
