@@ -23,6 +23,11 @@ public static class BenchmarkProfileStore
     private const string ProfilesFileName = "profiles.json";
     private const string ActiveProfileFileName = "active-profile";
 
+    /// <summary>Attempts to remove a store file before a transient lock is treated as a real failure.</summary>
+    private const int DeleteRetries = 5;
+
+    private const int DeleteRetryDelayMilliseconds = 20;
+
     /// <summary>
     /// Store location: a sibling of the existing benchmark extensions home
     /// (<c>artifacts/Benchmark/home/extensions</c>), so the whole benchmark home is one tree.
@@ -107,6 +112,32 @@ public static class BenchmarkProfileStore
 
     private static void DeleteIfExists(string path)
     {
+        for (var attempt = 0; attempt < DeleteRetries; attempt++)
+        {
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            try
+            {
+                File.Delete(path);
+                return;
+            }
+            catch (IOException)
+            {
+                // A scanner or indexer holding the file makes Delete fail on Windows, where a file
+                // with an open handle cannot be removed. Those handles are released in milliseconds,
+                // so back off briefly rather than failing the caller.
+                Thread.Sleep(DeleteRetryDelayMilliseconds);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Thread.Sleep(DeleteRetryDelayMilliseconds);
+            }
+        }
+
+        // Out of attempts: let a genuine, non-transient failure surface.
         if (File.Exists(path))
         {
             File.Delete(path);

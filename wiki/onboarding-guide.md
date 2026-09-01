@@ -581,9 +581,9 @@ The profile _lifecycle_ is a small state machine worth internalizing, because lo
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','clusterBkg':'#161b22','clusterBorder':'#30363d','fontFamily':'monospace'}}}%%
 stateDiagram-v2
     [*] --> NoProfile
-    NoProfile --> Temp: az login (bare) → reserved "temp", activated
+    NoProfile --> Default: az login (bare) → reserved "default", activated
     NoProfile --> Named: az login --out-profile prod → created + activated
-    Temp --> Named: az login --out-profile prod
+    Default --> Named: az login --out-profile prod
     Named --> Active: profile set prod
     Active --> Reauth: az login --profile prod (refresh tokens)
     Reauth --> Active: overwrite + reactivate
@@ -593,7 +593,7 @@ stateDiagram-v2
     Active --> [*]: profile remove prod (also clears pointer)
 ```
 
-Two invariants fall out of this diagram and are enforced in code: an explicit `--profile` naming a nonexistent profile is a hard error (`Engine.ResolveProfileAsync`, `Engine.cs:156`), while a stale _active_ pointer degrades to `null`; and logout clears the pointer but **keeps the definition** so the connection can be re-activated later (`design.md` Decision 6). The `"temp"` name is reserved — bare login always targets it, and users cannot create it directly (`design.md` Decision 3).
+Two invariants fall out of this diagram and are enforced in code: an explicit `--profile` naming a nonexistent profile is a hard error (`Engine.ResolveProfileAsync`, `Engine.cs:156`), while a stale _active_ pointer degrades to `null`; and logout clears the pointer but **keeps the definition** so the connection can be re-activated later (`design.md` Decision 6). The `"default"` name is reserved — bare login always targets it, and users cannot create it directly (`design.md` Decision 3).
 
 ### 7.4 `IExtensionIndex` / `IProcessor` — the extension contract
 
@@ -657,9 +657,9 @@ _Rejected:_ (a) build the full global-parameter framework first — out of scope
 _Chosen:_ delete `AuthContext`, `IAuthContextService`, `context.json`; the auth pipeline reads tenant/subscription straight off the resolved `Profile`.
 _Rejected:_ keep both — reintroduces "two ways to do the same thing" kept in sync. _Trade-off:_ `Profile?` is nullable on `ProcessorContext`; commands that need it (resource/compute) must guard and fail at point-of-use with a clear message.
 
-**D6 — Bare `az login` writes a reserved `"temp"` profile.** (`design.md` Decision 3)
-_Chosen:_ no `--out-profile` → overwrite the disposable `"temp"` profile and activate it.
-_Rejected:_ keep old non-profile login path (dual code paths); auto-generate a name from tenant/user (long, defeats the purpose). _Trade-off:_ bare login silently clobbers the previous temp — by design; named persistence needs `--out-profile`.
+**D6 — Bare `az login` writes a reserved `"default"` profile.** (`design.md` Decision 3)
+_Chosen:_ no `--out-profile` → overwrite the disposable `"default"` profile and activate it.
+_Rejected:_ keep old non-profile login path (dual code paths); auto-generate a name from tenant/user (long, defeats the purpose). _Trade-off:_ bare login silently clobbers the previous default — by design; named persistence needs `--out-profile`.
 
 **D7 — Logout targets one account by UPN, not a blanket cache clear.** (`design.md` Decision 6)
 _Chosen:_ `LogoutAsync(userPrincipalName)` removes only the matching MSAL account and clears the active pointer (`MsalAuthService.cs:29`).

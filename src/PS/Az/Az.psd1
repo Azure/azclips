@@ -1,6 +1,6 @@
 @{
 RootModule = ''
-ModuleVersion = '0.1.1'
+ModuleVersion = '0.1.2'
 CompatiblePSEditions = @('Core')
 GUID = '7c7b69d5-7b18-4e6c-9c1c-22d0a14e86c5'
 Author = 'Microsoft'

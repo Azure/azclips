@@ -23,6 +23,7 @@
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
     <Project Path="src/Extensions/Storage/Extensions.Storage.csproj" />
+    <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
@@ -42,6 +43,7 @@
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />
+    <Project Path="tests/Extensions.MsGraph.Tests/Extensions.MsGraph.Tests.csproj" />
     <Project Path="tests/Scenario.Tests/Scenario.Tests.csproj" />
     <Project Path="tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj" />
   </Folder>
@@ -49,6 +51,7 @@
     <Project Path="tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj" />
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
+  <Folder Name="/src/Extensions/MsGraph/" />
   <Folder Name="/tools/Help/">
       <Project Path="tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj" />
       <Project Path="tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" />
@@ -59,5 +62,6 @@
     <Project Path="src/PS/Login/Cmdlets.Login.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
     <Project Path="src/PS/Storage/Cmdlets.Storage.csproj" />
+    <Project Path="src/PS/MsGraph/Cmdlets.MsGraph.csproj" />
   </Folder>
 </Solution>

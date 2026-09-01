@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
@@ -9,8 +8,9 @@ namespace Core.Cli;
 
 /// <summary>
 /// Formats command output values for CLI console display.
-/// Strings and primitives are rendered via ToString(); complex objects
-/// (including collections and dictionaries) are serialized as JSON.
+/// Strings render as-is; primitives, decimals, complex objects, and collections are
+/// serialized as JSON so top-level output is always valid JSON (except bare strings,
+/// which stay unquoted for terminal readability).
 /// </summary>
 internal static class CliOutputFormatter
 {
@@ -40,13 +40,14 @@ internal static class CliOutputFormatter
         if (value is string s)
             return s;
 
-        // Use InvariantCulture for primitives/decimals so output is locale-independent
-        // (e.g., 3.14 not 3,14).
+        // Primitives and decimals go through JsonSerializer so bool renders as lowercase
+        // "true"/"false" (valid JSON literals consumable by scripts and tools like jq)
+        // rather than Boolean.ToString()'s "True"/"False". JSON also guarantees invariant
+        // formatting for numerics (period as decimal separator), so int/double/decimal
+        // render locale-independently (e.g., 3.14 not 3,14).
         var type = value.GetType();
         if (type.IsPrimitive || type == typeof(decimal))
-            return value is IFormattable fmt
-                ? fmt.ToString(null, CultureInfo.InvariantCulture)
-                : (value.ToString() ?? string.Empty);
+            return JsonSerializer.Serialize(value, type, s_jsonOptions);
 
         // TODO: Reconsider error handling before GA. Rethrowing surfaces serialization
         // bugs early. A fallback to ToString() is not useful here because it would most

@@ -102,14 +102,16 @@ number. `BenchmarkBase.VerifyAuthFixture()` asserts the cache hit once per run d
 
 `IProfileService` is deliberately **not** stubbed. Benchmarks resolve profiles through the real, file-backed `ProfileService`, pointed at an isolated store at `artifacts/Benchmark/home/.azclips` and seeded with a single active `default` profile before every iteration (`tests/Common/Utilities/BenchmarkProfileStore.cs`). Without this the measured timings would omit the two file reads and JSON deserialize that `Engine.ResolveProfileAsync` costs a real user on every invocation. The store is re-seeded in `[IterationSetup]`, outside the measured region, so each iteration starts from identical bytes.
 
+CLI benchmarks are the one exception to the telemetry stub. `CLIBenchmarkBase.RegisterTelemetryCapture()` runs after `RegisterBenchmarkStubs()` and swaps `ITelemetryService` back to the production `TelemetryService`, so every iteration emits real spans through the real `CLITelemetryProvider`, allowlist filters, and `FileExporter`. Only the destination differs: an injected `ITraceDirectoryProvider` points the exporter at `artifacts/BenchmarkTelemetry/<benchmark>/{warmup,actual}/` instead of the shared per-user trace directory. All 10,000 iterations pay the cost so the distribution does not become bimodal; `GlobalCleanup` then samples the measured traces down to 100 and deletes the raw files. See [the design spec](../../docs/superpowers/specs/2026-08-18-benchmark-telemetry-design.md). PowerShell and startup benchmarks keep `StubTelemetryService`.
+
 ### In-process benchmark hooks in the CLI
 
-Two hooks in the CLI entrypoint exist specifically so BenchmarkDotNet can drive `az` in-process without cache warmth or telemetry noise skewing timings:
+Two hooks in the CLI entrypoint exist specifically so BenchmarkDotNet can drive `az` in-process without cache warmth skewing timings or benchmark telemetry escaping to Azure:
 
 | Hook              | Location                                                                       | Purpose                                                                                                                                                                                                         |
 | ----------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--no-cache` flag | [`src/CLI/Parser/GlobalArgParser.cs`](../../src/CLI/Parser/GlobalArgParser.cs) | Parser classifies the flag into `GlobalArgs.NoCache`; `Program.Main` sets `AZCLIPS_NO_EXTENSION_CACHE=true`, which `AssemblyLoadingOptions.BypassExtensionCache` reads — forcing a cold extension load each run |
-| In-process guard  | `src/CLI/Program.cs` (`SpawnTelemetryUploader`)                                | Returns early unless the process is a real `az`/`az.exe`, so the benchmark host process never spawns a detached telemetry uploader                                                                              |
+| In-process guard  | `src/CLI/Program.cs` (`SpawnTelemetryUploader`)                                | Returns early unless the process is a real `az`/`az.exe`, so a benchmark process never spawns a detached telemetry uploader — benchmark traces stay a local artifact and are never uploaded                                                                              |
 
 ```mermaid
 flowchart LR
@@ -122,6 +124,13 @@ flowchart LR
         RUN["Command execution"]
         TEL["SpawnTelemetryUploader<br>early-return if not real az"]
     end
+    STUBS["Stub* handlers<br>(HTTP / auth)"]
+    CAP["CLIBenchmarkBase<br>RegisterTelemetryCapture()<br>real TelemetryService (CLI only)"]
+    BDN --> BASE --> STUBS
+    BASE --> CAP
+    BDN --> NC --> RUN --> TEL
+    RUN -.uses.-> STUBS
+    RUN -.emits spans.-> CAP
     STUBS["Stub* handlers<br>(HTTP / telemetry / profile)"]
     AUTH["Real MsalAuthService<br>seeded cache + throwing MSAL HTTP factory"]
     STUBS["Stub* handlers<br>(HTTP / telemetry / auth)"]
@@ -138,6 +147,7 @@ flowchart LR
     style TEL fill:#5a4a2e,stroke:#d4a84b,color:#e6edf3
     style RUN fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style STUBS fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
+    style CAP fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
     style AUTH fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
 ```
 
