@@ -5,7 +5,9 @@ import {
   PSDefaultValueAttributeSchema,
   PSParameterAttributeSchema,
   PSModuleAttributeSchema,
+  PSSchema,
 } from "../src/attributes.js";
+import { PS_SCHEMA_VERSION } from "../src/version.js";
 
 const opId = { module: "Test", name: "createOrUpdate", namespace: ["Fleets"] };
 const paramId = { module: "Test", name: "createOrUpdate#name", namespace: ["Fleets"] };
@@ -170,5 +172,32 @@ describe("PSModuleAttribute", () => {
       cmdletsToExport: ["New-AzFleet", "Get-AzFleet"],
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe("PS document", () => {
+  const document = (overrides: Record<string, unknown> = {}) => ({
+    schemaVersion: PS_SCHEMA_VERSION,
+    commands: [command()],
+    modules: [{ sourceId: "Microsoft.AzureFleet", cmdletsToExport: ["New-AzFleet"] }],
+    ...overrides,
+  });
+
+  it("accepts commands and modules under a version stamp", () => {
+    expect(PSSchema.safeParse(document()).success).toBe(true);
+  });
+
+  it("accepts an empty document", () => {
+    expect(PSSchema.safeParse(document({ commands: [], modules: [] })).success).toBe(true);
+  });
+
+  it("rejects a document with no version stamp", () => {
+    const { schemaVersion, ...rest } = document();
+    expect(PSSchema.safeParse(rest).success).toBe(false);
+  });
+
+  it("rejects a top-level parameter, which is only reachable through its command", () => {
+    const result = PSSchema.safeParse(document({ parameter: { name: "Name" } }));
+    expect(result.success).toBe(false);
   });
 });

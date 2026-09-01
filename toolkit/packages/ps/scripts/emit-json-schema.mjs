@@ -24,7 +24,7 @@ import { IRIdSchema, IR_SCHEMA_VERSION } from "@azure-client-engine/ir";
 
 import {
   PS_SCHEMA_VERSION,
-  PSSchemaRootSchema,
+  PSSchema,
   PSCommandAttributeSchema,
   PSParameterSetAttributeSchema,
   PSParameterAttributeSchema,
@@ -66,7 +66,7 @@ const definitions = {
   PSParameterSetOverride: PSParameterSetOverrideSchema,
 };
 
-const jsonSchema = zodToJsonSchema(PSSchemaRootSchema, {
+const jsonSchema = zodToJsonSchema(PSSchema, {
   target: "jsonSchema7",
   $refStrategy: "root",
   definitions,
