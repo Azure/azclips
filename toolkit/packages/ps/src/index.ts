@@ -14,7 +14,7 @@ export {
   PSParameterSetOverrideSchema,
   PSParameterAttributeSchema,
   PSModuleAttributeSchema,
-  PSSchemaRootSchema,
+  PSSchema,
   type ConfirmImpact,
   type LifecycleTag,
   type PSCompleterAttribute,
@@ -24,6 +24,6 @@ export {
   type PSParameterSetOverride,
   type PSParameterAttribute,
   type PSModuleAttribute,
-  type PSSchemaRoot,
+  type PS,
 } from "./attributes.js";
 
