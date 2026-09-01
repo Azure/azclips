@@ -1,11 +1,11 @@
 ---
-summary: Upload a file to a block, page, or append blob.
+summary: Upload a file to a block blob.
 status: preview
 schema: 1.0.0
 online version:
 ---
 
-Description: Upload a local file using Microsoft Entra authentication. Supports block, page, and append blobs, metadata, tags, properties, access tiers, and encryption scopes. Existing blobs are protected unless `--overwrite` is specified.
+Description: Upload a local file as a block blob using Microsoft Entra authentication. Supports metadata, tags, properties, access tiers, and encryption scopes. Existing blobs are protected unless `--overwrite` is specified.
 
 ### Upload a file
 
@@ -17,10 +17,4 @@ az storage blob upload --account-name mystorage --container-name files --name re
 
 ```bash
 az storage blob upload --account-name mystorage --container-name files --name report.bin --file ./report.bin --overwrite
-```
-
-### Upload a page blob with metadata
-
-```bash
-az storage blob upload --account-name mystorage --container-name disks --name disk.vhd --file ./disk.vhd --blob-type Page --metadata owner=team --premium-tier P10
 ```

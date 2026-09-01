@@ -1,61 +1,75 @@
-# Upload and download an Azure Storage blob - CLI
-# Equivalent of: az storage blob upload / az storage blob download
+#!/usr/bin/env bash
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 #
-# Prereq: build the solution in Debug, sign in, and create the test container.
-#   dotnet build azclips.slnx --tl:off
+# Live assertion checks for: az storage blob upload / az storage blob download
 #
-# Shared test context:
-#   storage account: mytestsa52379
-#   container: azclips-manual-test
+# Prereqs:
+#   1. dotnet build azclips.slnx
+#   2. Sign in and create the test container.
+#
+# Optional:
+#   AZCLIPS_STORAGE_ACCOUNT    - defaults to the shared test account
+#   AZCLIPS_STORAGE_CONTAINER  - defaults to the shared test container
+set -euo pipefail
 
-$source = 'tests/Scripts/CLI/StorageBlobUploadDownload.sh'
-$destination = 'artifacts/StorageBlobUploadDownload.downloaded.sh'
-$blob = "azclips-cli-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()).sh"
-$uri = "https://mytestsa52379.blob.core.windows.net/azclips-manual-test/$blob"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
+[[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
-# Happy path: upload this script. Assert the returned operation, destination, and byte count.
-$upload = storage blob upload `
-    --account-name mytestsa52379 `
-    --container-name azclips-manual-test `
-    --name $blob `
-    --file $source | ConvertFrom-Json
+ACCOUNT="${AZCLIPS_STORAGE_ACCOUNT:-mytestsa52379}"
+CONTAINER="${AZCLIPS_STORAGE_CONTAINER:-azclips-manual-test}"
+SOURCE="$REPO_ROOT/tests/Scripts/CLI/StorageBlobUploadDownload.sh"
+DESTINATION="$REPO_ROOT/artifacts/StorageBlobUploadDownload.downloaded.sh"
+BLOB="azclips-cli-$(date +%s)-$$.sh"
+URI="https://$ACCOUNT.blob.core.windows.net/$CONTAINER/$BLOB"
+SOURCE_LENGTH="$(wc -c < "$SOURCE" | tr -d '[:space:]')"
 
-if ($upload.operation -ne 'upload' -or
-    $upload.destination -ne $uri -or
-    $upload.contentLength -ne (Get-Item $source).Length) {
-    throw "Unexpected upload result: $($upload | ConvertTo-Json -Compress)"
-}
-$upload
+trap 'rm -f "$DESTINATION"' EXIT
+rm -f "$DESTINATION"
 
-# Negative case: uploading the same blob without --overwrite must fail.
-storage blob upload `
-    --account-name mytestsa52379 `
-    --container-name azclips-manual-test `
-    --name $blob `
-    --file $source
+# Prevent command errors from entering the interactive agent UI.
+"$AZ" config set --key agent.enabled --value false >/dev/null
 
-# Happy path: download the blob. Assert returned metadata and the downloaded bytes.
-$download = storage blob download `
-    --account-name mytestsa52379 `
-    --container-name azclips-manual-test `
-    --name $blob `
-    --file $destination `
-    --overwrite | ConvertFrom-Json
+upload="$("$AZ" storage blob upload \
+  --account-name "$ACCOUNT" \
+  --container-name "$CONTAINER" \
+  --name "$BLOB" \
+  --file "$SOURCE")"
 
-if ($download.operation -ne 'download' -or
-    $download.source -ne $uri -or
-    $download.contentLength -ne (Get-Item $source).Length) {
-    throw "Unexpected download result: $($download | ConvertTo-Json -Compress)"
-}
-$download
+grep -Eq '"operation"[[:space:]]*:[[:space:]]*"upload"' <<<"$upload"
+grep -Fq "$URI" <<<"$upload"
+grep -Eq "\"contentLength\"[[:space:]]*:[[:space:]]*$SOURCE_LENGTH([,}[:space:]]|$)" <<<"$upload"
 
-if ((Get-FileHash $source).Hash -ne (Get-FileHash $destination).Hash) {
-    throw 'Downloaded bytes do not match uploaded bytes.'
-}
+if duplicate_output="$("$AZ" storage blob upload \
+  --account-name "$ACCOUNT" \
+  --container-name "$CONTAINER" \
+  --name "$BLOB" \
+  --file "$SOURCE" 2>&1)"; then
+  echo "Expected duplicate upload without --overwrite to fail." >&2
+  exit 1
+fi
+grep -qi overwrite <<<"$duplicate_output"
 
-# Negative case: downloading onto an existing file without --overwrite must fail.
-storage blob download `
-    --account-name mytestsa52379 `
-    --container-name azclips-manual-test `
-    --name $blob `
-    --file $destination
+download="$("$AZ" storage blob download \
+  --account-name "$ACCOUNT" \
+  --container-name "$CONTAINER" \
+  --name "$BLOB" \
+  --file "$DESTINATION")"
+
+grep -Eq '"operation"[[:space:]]*:[[:space:]]*"download"' <<<"$download"
+grep -Fq "$URI" <<<"$download"
+grep -Eq "\"contentLength\"[[:space:]]*:[[:space:]]*$SOURCE_LENGTH([,}[:space:]]|$)" <<<"$download"
+cmp "$SOURCE" "$DESTINATION"
+
+if existing_output="$("$AZ" storage blob download \
+  --account-name "$ACCOUNT" \
+  --container-name "$CONTAINER" \
+  --name "$BLOB" \
+  --file "$DESTINATION" 2>&1)"; then
+  echo "Expected download onto an existing file without --overwrite to fail." >&2
+  exit 1
+fi
+grep -qi overwrite <<<"$existing_output"
+
+echo "Storage Blob CLI assertions passed."

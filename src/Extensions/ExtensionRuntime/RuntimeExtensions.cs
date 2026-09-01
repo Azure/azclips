@@ -322,7 +322,12 @@ public static class RuntimeExtensions
             return string.Empty;
         }
 
-        string body = response.Content == null ? string.Empty : await response.Content.ReadAsStringAsync();
+        bool disableBodyLogging = response.RequestMessage?.Options.TryGetValue(
+            RuntimeHttpRequestOptions.DisableBodyLogging,
+            out bool disabled) == true && disabled;
+        string body = response.Content == null || disableBodyLogging
+            ? string.Empty
+            : await response.Content.ReadAsStringAsync();
         body = string.IsNullOrEmpty(body) ? string.Empty
             : FormatString(body);
 
@@ -345,7 +350,9 @@ public static class RuntimeExtensions
             return string.Empty;
         }
 
-        string body = request.Content == null ? string.Empty
+        string body = request.Content == null
+            || request.Options.TryGetValue(RuntimeHttpRequestOptions.DisableBodyLogging, out bool disabled) && disabled
+            ? string.Empty
             : FormatString(await request.Content.ReadAsStringAsync());
 
         return GetHttpRequestLog(
@@ -477,7 +484,6 @@ public static class RuntimeExtensions
         throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
     }
 }
-
 
 
 

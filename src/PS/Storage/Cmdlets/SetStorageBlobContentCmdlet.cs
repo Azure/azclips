@@ -37,10 +37,6 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
     public SwitchParameter Force { get; set; }
 
     [Parameter]
-    [ValidateSet("Block", "Page", "Append", IgnoreCase = true)]
-    public string BlobType { get; set; } = "Block";
-
-    [Parameter]
     public Hashtable? Metadata { get; set; }
 
     [Parameter]
@@ -53,9 +49,6 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
     [Parameter]
     [ValidateSet("Hot", "Cool", "Cold", "Archive", IgnoreCase = true)]
     public string? StandardBlobTier { get; set; }
-
-    [Parameter]
-    public string? PremiumPageBlobTier { get; set; }
 
     [Parameter]
     public string? EncryptionScope { get; set; }
@@ -89,13 +82,11 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
             ["BlobName"] = BlobName,
             ["FilePath"] = FilePath,
             ["Overwrite"] = Force.IsPresent,
-            ["BlobType"] = BlobType,
             ["Metadata"] = ToPairs(Metadata),
             ["Tags"] = ToPairs(Tags),
             ["Properties"] = ToPairs(Properties),
         };
         AddOptional(parameters, nameof(StandardBlobTier), StandardBlobTier);
-        AddOptional(parameters, nameof(PremiumPageBlobTier), PremiumPageBlobTier);
         AddOptional(parameters, nameof(EncryptionScope), EncryptionScope);
         AddOptional(parameters, nameof(TagCondition), TagCondition);
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))

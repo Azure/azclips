@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using Core.Abstractions.Runtime;
 using System.Text;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using JsonNode = Microsoft.Azure.Azclips.ExtensionRuntime.Json.JsonNode;
@@ -107,5 +108,38 @@ public class RuntimeExtensionsTests
         string log = await response.GetLog();
 
         Assert.Contains(expectedBody, log);
+    }
+
+    [Fact]
+    public async Task GetLog_DoesNotReadDisabledRequestOrResponseBodies()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, "https://example.test")
+        {
+            Content = new ThrowingContent(),
+        };
+        request.Options.Set(RuntimeHttpRequestOptions.DisableBodyLogging, true);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            RequestMessage = request,
+            Content = new ThrowingContent(),
+        };
+
+        string requestLog = await request.GetLog();
+        string responseLog = await response.GetLog();
+
+        Assert.Contains("HTTP REQUEST", requestLog);
+        Assert.Contains("HTTP RESPONSE", responseLog);
+    }
+
+    private sealed class ThrowingContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            throw new InvalidOperationException("Body logging attempted to read binary content.");
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 1;
+            return true;
+        }
     }
 }

@@ -1,264 +1,178 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Globalization;
 using System.Net.Http.Headers;
-using System.Text;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class BlockBlobUploadProcessor : StorageBlobProcessorBase
+public sealed class BlockBlobUploadProcessor : StorageBlobProcessorBase<Stream, object>
 {
-    private const int ChunkSize = 4 * 1024 * 1024;
-
-    public Stream Content { get; set; } = Stream.Null;
+    public string Url { get; set; } = string.Empty;
+    public string Version { get; set; } = "2026-04-06";
+    public Guid? ClientRequestId { get; set; }
+    public Dictionary<string, string> Metadata { get; set; } = [];
+    public int? Timeout { get; set; }
+    public byte[]? TransactionalContentMd5 { get; set; }
     public long ContentLength { get; set; }
-    public bool Overwrite { get; set; }
-    public string BlobType { get; set; } = "Block";
-    public string[] Metadata { get; set; } = [];
-    public string[] Tags { get; set; } = [];
-    public string[] Properties { get; set; } = [];
-    public string? StandardBlobTier { get; set; }
-    public string? PremiumPageBlobTier { get; set; }
+    public string? BlobContentType { get; set; }
+    public string? BlobContentEncoding { get; set; }
+    public string? BlobContentLanguage { get; set; }
+    public byte[]? BlobContentMd5 { get; set; }
+    public string? BlobCacheControl { get; set; }
+    public string? LeaseId { get; set; }
+    public string? BlobContentDisposition { get; set; }
+    public string? EncryptionKey { get; set; }
+    public string? EncryptionKeySha256 { get; set; }
+    public string? EncryptionAlgorithm { get; set; }
     public string? EncryptionScope { get; set; }
-    public string? TagCondition { get; set; }
+    public string? Tier { get; set; }
+    public DateTimeOffset? IfModifiedSince { get; set; }
+    public DateTimeOffset? IfUnmodifiedSince { get; set; }
+    public string? IfNoneMatch { get; set; }
+    public string? IfMatch { get; set; }
+    public string? IfTags { get; set; }
+    public string? BlobTagsString { get; set; }
+    public DateTimeOffset? ImmutabilityPolicyExpiry { get; set; }
+    public string? ImmutabilityPolicyMode { get; set; }
+    public bool? LegalHold { get; set; }
+    public byte[]? TransactionalContentCrc64 { get; set; }
+    public string? StructuredBodyType { get; set; }
+    public long? StructuredContentLength { get; set; }
+    public string BlobType { get; set; } = "BlockBlob";
+    public Stream Body { get; set; } = Stream.Null;
 
-    public override async Task ProcessAsync()
+    protected override HttpMethod Method => HttpMethod.Put;
+
+    protected override string CreateRequestUri() =>
+        Timeout is null
+            ? Url
+            : $"{Url}{(Url.Contains('?', StringComparison.Ordinal) ? '&' : '?')}timeout={Timeout.Value}";
+
+    protected override Stream CreateRequestBody() => Body;
+
+    protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
-        using HttpResponseMessage response = await SendAsync();
-        await response.EnsureSuccessAsync(Publisher);
-    }
-
-    internal async Task<HttpResponseMessage> SendAsync()
-    {
-        if (!string.IsNullOrWhiteSpace(StandardBlobTier)
-            && !BlobType.Equals("Block", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException("StandardBlobTier can only be used with block blobs.", nameof(StandardBlobTier));
-        }
-        if (!string.IsNullOrWhiteSpace(PremiumPageBlobTier)
-            && !BlobType.Equals("Page", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException("PremiumPageBlobTier can only be used with page blobs.", nameof(PremiumPageBlobTier));
-        }
-
-        return BlobType.ToLowerInvariant() switch
-        {
-            "block" => await UploadBlockBlobAsync(),
-            "page" => await UploadPageBlobAsync(),
-            "append" => await UploadAppendBlobAsync(),
-            _ => throw new ArgumentException("BlobType must be Block, Page, or Append.", nameof(BlobType)),
-        };
-    }
-
-    private async Task<HttpResponseMessage> UploadBlockBlobAsync()
-    {
-        if (ContentLength <= 5000L * 1024 * 1024)
-        {
-            using HttpRequestMessage request = CreateUploadRequest(BuildBlobUri(), "BlockBlob");
-            request.Content = CreateStreamContent(Content, ContentLength);
-            return await SendAsync(request);
-        }
-
-        var blockIds = new List<string>();
-        long offset = 0;
-        while (offset < ContentLength)
-        {
-            byte[] chunk = await ReadChunkAsync();
-            string blockId = GenerateBlockId(offset);
-            blockIds.Add(blockId);
-            Uri uri = WithQuery(BuildBlobUri(), $"comp=block&blockid={Uri.EscapeDataString(blockId)}");
-            using HttpRequestMessage request = CreateRequest(HttpMethod.Put, uri);
-            AddRequestConditions(request);
-            request.Content = new ByteArrayContent(chunk);
-            using HttpResponseMessage response = await SendAsync(request);
-            await response.EnsureSuccessAsync(Publisher);
-            offset += chunk.Length;
-        }
-
-        string xml = $"<?xml version=\"1.0\" encoding=\"utf-8\"?><BlockList>{string.Concat(blockIds.Select(id => $"<Latest>{id}</Latest>"))}</BlockList>";
-        using HttpRequestMessage commit = CreateUploadRequest(WithQuery(BuildBlobUri(), "comp=blocklist"), null);
-        commit.Content = new StringContent(xml, Encoding.UTF8, "application/xml");
-        return await SendAsync(commit);
-    }
-
-    private async Task<HttpResponseMessage> UploadPageBlobAsync()
-    {
-        if (ContentLength % 512 != 0)
-        {
-            throw new ArgumentException("Page blob file size must be a multiple of 512 bytes.", nameof(ContentLength));
-        }
-
-        using (HttpRequestMessage create = CreateUploadRequest(BuildBlobUri(), "PageBlob"))
-        {
-            create.Headers.TryAddWithoutValidation("x-ms-blob-content-length", ContentLength.ToString(CultureInfo.InvariantCulture));
-            HttpResponseMessage response = await SendAsync(create);
-            if (!response.IsSuccessStatusCode)
-            {
-                return response;
-            }
-            response.Dispose();
-        }
-
-        long offset = 0;
-        while (offset < ContentLength)
-        {
-            byte[] chunk = await ReadChunkAsync();
-            using HttpRequestMessage request = CreateRequest(HttpMethod.Put, WithQuery(BuildBlobUri(), "comp=page"));
-            AddRequestConditions(request);
-            request.Headers.TryAddWithoutValidation("x-ms-page-write", "update");
-            request.Headers.TryAddWithoutValidation("x-ms-range", $"bytes={offset}-{offset + chunk.Length - 1}");
-            request.Content = new ByteArrayContent(chunk);
-            using HttpResponseMessage response = await SendAsync(request);
-            await response.EnsureSuccessAsync(Publisher);
-            offset += chunk.Length;
-        }
-
-        return new HttpResponseMessage(System.Net.HttpStatusCode.Created);
-    }
-
-    private async Task<HttpResponseMessage> UploadAppendBlobAsync()
-    {
-        using (HttpRequestMessage create = CreateUploadRequest(BuildBlobUri(), "AppendBlob"))
-        {
-            HttpResponseMessage response = await SendAsync(create);
-            if (!response.IsSuccessStatusCode)
-            {
-                return response;
-            }
-            response.Dispose();
-        }
-
-        while (Content.Position < ContentLength)
-        {
-            byte[] chunk = await ReadChunkAsync();
-            using HttpRequestMessage request = CreateRequest(HttpMethod.Put, WithQuery(BuildBlobUri(), "comp=appendblock"));
-            AddRequestConditions(request);
-            request.Content = new ByteArrayContent(chunk);
-            using HttpResponseMessage response = await SendAsync(request);
-            await response.EnsureSuccessAsync(Publisher);
-        }
-
-        return new HttpResponseMessage(System.Net.HttpStatusCode.Created);
-    }
-
-    private HttpRequestMessage CreateUploadRequest(Uri uri, string? blobType)
-    {
-        HttpRequestMessage request = CreateRequest(HttpMethod.Put, uri);
+        base.CreateRequestHeaders(request);
         request.Options.Set(RuntimeHttpRequestOptions.DisableRetry, true);
-        if (blobType is not null)
+        request.Options.Set(RuntimeHttpRequestOptions.DisableBodyLogging, true);
+        request.Headers.TryAddWithoutValidation("x-ms-version", Version);
+        if (ClientRequestId is not null)
         {
-            request.Headers.TryAddWithoutValidation("x-ms-blob-type", blobType);
+            request.Headers.TryAddWithoutValidation("x-ms-client-request-id", ClientRequestId.Value.ToString());
         }
-        if (!Overwrite)
+        foreach ((string name, string value) in Metadata)
         {
-            request.Headers.TryAddWithoutValidation("If-None-Match", "*");
+            request.Headers.TryAddWithoutValidation($"x-ms-meta-{name}", value);
         }
-        AddBlobHeaders(request);
-        return request;
-    }
-
-    private void AddBlobHeaders(HttpRequestMessage request)
-    {
-        AddPairs(request, Metadata, "x-ms-meta-");
-        if (Tags.Length > 0)
+        if (TransactionalContentMd5 is not null)
         {
-            request.Headers.TryAddWithoutValidation("x-ms-tags", string.Join("&", ParsePairs(Tags).Select(pair =>
-                $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}")));
+            request.Content!.Headers.ContentMD5 = TransactionalContentMd5;
         }
-        foreach ((string key, string value) in ParsePairs(Properties))
+        request.Content!.Headers.ContentLength = ContentLength;
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        if (!string.IsNullOrWhiteSpace(BlobContentType))
         {
-            string header = key.ToLowerInvariant() switch
-            {
-                "contenttype" => "x-ms-blob-content-type",
-                "contentencoding" => "x-ms-blob-content-encoding",
-                "contentlanguage" => "x-ms-blob-content-language",
-                "cachecontrol" => "x-ms-blob-cache-control",
-                "contentdisposition" => "x-ms-blob-content-disposition",
-                "contentmd5" => "x-ms-blob-content-md5",
-                _ => throw new ArgumentException($"Unsupported blob property '{key}'.", nameof(Properties)),
-            };
-            request.Headers.TryAddWithoutValidation(header, value);
+            request.Headers.TryAddWithoutValidation("x-ms-blob-content-type", BlobContentType);
         }
-        string? tier = BlobType.Equals("Page", StringComparison.OrdinalIgnoreCase)
-            ? PremiumPageBlobTier
-            : StandardBlobTier;
-        if (!string.IsNullOrWhiteSpace(tier))
+        if (!string.IsNullOrWhiteSpace(BlobContentEncoding))
         {
-            request.Headers.TryAddWithoutValidation("x-ms-access-tier", tier);
+            request.Headers.TryAddWithoutValidation("x-ms-blob-content-encoding", BlobContentEncoding);
         }
-        AddRequestConditions(request);
-    }
-
-    private void AddRequestConditions(HttpRequestMessage request)
-    {
+        if (!string.IsNullOrWhiteSpace(BlobContentLanguage))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-blob-content-language", BlobContentLanguage);
+        }
+        if (BlobContentMd5 is not null)
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-blob-content-md5", Convert.ToBase64String(BlobContentMd5));
+        }
+        if (!string.IsNullOrWhiteSpace(BlobCacheControl))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-blob-cache-control", BlobCacheControl);
+        }
+        if (!string.IsNullOrWhiteSpace(LeaseId))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-lease-id", LeaseId);
+        }
+        if (!string.IsNullOrWhiteSpace(BlobContentDisposition))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-blob-content-disposition", BlobContentDisposition);
+        }
+        if (!string.IsNullOrWhiteSpace(EncryptionKey))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-encryption-key", EncryptionKey);
+        }
+        if (!string.IsNullOrWhiteSpace(EncryptionKeySha256))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-encryption-key-sha256", EncryptionKeySha256);
+        }
+        if (!string.IsNullOrWhiteSpace(EncryptionAlgorithm))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-encryption-algorithm", EncryptionAlgorithm);
+        }
         if (!string.IsNullOrWhiteSpace(EncryptionScope))
         {
             request.Headers.TryAddWithoutValidation("x-ms-encryption-scope", EncryptionScope);
         }
-        if (!string.IsNullOrWhiteSpace(TagCondition))
+        if (!string.IsNullOrWhiteSpace(Tier))
         {
-            request.Headers.TryAddWithoutValidation("x-ms-if-tags", TagCondition);
+            request.Headers.TryAddWithoutValidation("x-ms-access-tier", Tier);
         }
-    }
-
-    private static void AddPairs(HttpRequestMessage request, string[] values, string prefix)
-    {
-        foreach ((string key, string value) in ParsePairs(values))
+        if (IfModifiedSince is not null)
         {
-            if (!request.Headers.TryAddWithoutValidation(prefix + key, value))
-            {
-                throw new ArgumentException($"Invalid metadata name '{key}'.", nameof(values));
-            }
+            request.Headers.TryAddWithoutValidation("If-Modified-Since", IfModifiedSince.Value.ToString("R"));
         }
-    }
-
-    private static IEnumerable<KeyValuePair<string, string>> ParsePairs(string[] values)
-    {
-        foreach (string value in values)
+        if (IfUnmodifiedSince is not null)
         {
-            int separator = value.IndexOf('=');
-            if (separator <= 0)
-            {
-                throw new ArgumentException($"Expected KEY=VALUE but received '{value}'.");
-            }
-            yield return new KeyValuePair<string, string>(value[..separator], value[(separator + 1)..]);
+            request.Headers.TryAddWithoutValidation("If-Unmodified-Since", IfUnmodifiedSince.Value.ToString("R"));
         }
-    }
-
-    private async Task<byte[]> ReadChunkAsync()
-    {
-        int expected = (int)Math.Min(ChunkSize, ContentLength - Content.Position);
-        byte[] buffer = new byte[expected];
-        int read = 0;
-        while (read < expected)
+        if (!string.IsNullOrWhiteSpace(IfNoneMatch))
         {
-            int count = await Content.ReadAsync(buffer.AsMemory(read, expected - read), Publisher.Token);
-            if (count == 0)
-            {
-                throw new EndOfStreamException("The upload file ended before the expected content length.");
-            }
-            read += count;
+            request.Headers.TryAddWithoutValidation("If-None-Match", IfNoneMatch);
         }
-        return buffer;
+        if (!string.IsNullOrWhiteSpace(IfMatch))
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", IfMatch);
+        }
+        if (!string.IsNullOrWhiteSpace(IfTags))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-if-tags", IfTags);
+        }
+        if (!string.IsNullOrWhiteSpace(BlobTagsString))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-tags", BlobTagsString);
+        }
+        if (ImmutabilityPolicyExpiry is not null)
+        {
+            request.Headers.TryAddWithoutValidation(
+                "x-ms-immutability-policy-until-date",
+                ImmutabilityPolicyExpiry.Value.ToString("R"));
+        }
+        if (!string.IsNullOrWhiteSpace(ImmutabilityPolicyMode))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-immutability-policy-mode", ImmutabilityPolicyMode);
+        }
+        if (LegalHold is not null)
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-legal-hold", LegalHold.Value ? "true" : "false");
+        }
+        if (TransactionalContentCrc64 is not null)
+        {
+            request.Headers.TryAddWithoutValidation(
+                "x-ms-content-crc64",
+                Convert.ToBase64String(TransactionalContentCrc64));
+        }
+        if (!string.IsNullOrWhiteSpace(StructuredBodyType))
+        {
+            request.Headers.TryAddWithoutValidation("x-ms-structured-body", StructuredBodyType);
+        }
+        if (StructuredContentLength is not null)
+        {
+            request.Headers.TryAddWithoutValidation(
+                "x-ms-structured-content-length",
+                StructuredContentLength.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        request.Headers.TryAddWithoutValidation("x-ms-blob-type", BlobType);
     }
-
-    private static StreamContent CreateStreamContent(Stream stream, long length)
-    {
-        var content = new StreamContent(stream);
-        content.Headers.ContentLength = length;
-        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        return content;
-    }
-
-    private static string GenerateBlockId(long offset)
-    {
-        byte[] id = new byte[48];
-        BitConverter.GetBytes(offset).CopyTo(id, 0);
-        return Convert.ToBase64String(id);
-    }
-
-    private static Uri WithQuery(Uri uri, string query) => new UriBuilder(uri) { Query = query }.Uri;
 }

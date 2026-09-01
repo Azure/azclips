@@ -11,17 +11,31 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 public abstract class StorageBlobProcessorBase : IProcessor
 {
     private static readonly string[] s_storageScopes = ["https://storage.azure.com/.default"];
-    private const string StorageApiVersion = "2023-11-03";
-
     protected IRuntimeHttpPipeline HttpPipeline { get; private set; } = null!;
     protected IEventPublisher Publisher { get; private set; } = null!;
     protected OutputStreamDelegate WriteOutput { get; private set; } = null!;
     protected Profile? ResolvedProfile { get; private set; }
 
-    public string AccountName { get; set; } = string.Empty;
-    public string ContainerName { get; set; } = string.Empty;
-    public string BlobName { get; set; } = string.Empty;
     public string? Profile { get; set; }
+
+    protected virtual HttpMethod Method =>
+        throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(Method)}.");
+
+    protected virtual string CreateRequestUri() =>
+        throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestUri)}.");
+
+    protected virtual object? CreateRequestBody() => null;
+
+    protected virtual void CreateRequestHeaders(HttpRequestMessage request)
+    {
+        if (ResolvedProfile is not null)
+        {
+            request.Options.Set(RuntimeHttpRequestOptions.Scopes, s_storageScopes);
+        }
+        request.Headers.TryAddWithoutValidation(
+            "x-ms-date",
+            DateTimeOffset.UtcNow.ToString("R", CultureInfo.InvariantCulture));
+    }
 
     public IProcessor Init(ProcessorContext context)
     {
@@ -48,38 +62,75 @@ public abstract class StorageBlobProcessorBase : IProcessor
         return child;
     }
 
-    protected HttpRequestMessage CreateRequest(HttpMethod method)
+    protected virtual async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        ValidateStorageTarget();
-        return CreateRequest(method, BuildBlobUri());
-    }
-
-    protected HttpRequestMessage CreateRequest(HttpMethod method, Uri requestUri, bool requireProfile = true)
-    {
-        if (requireProfile && ResolvedProfile is null)
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        var request = new HttpRequestMessage(
+            Method,
+            new Uri(
+                CreateRequestUri(),
+                new UriCreationOptions { DangerousDisablePathAndQueryCanonicalization = true }));
+        request.Content = CreateRequestBody() switch
         {
-            throw new InvalidOperationException("An active profile is required. Run 'az login' or pass --profile.");
-        }
-
-        var request = new HttpRequestMessage(method, requestUri);
-        request.Options.Set(RuntimeHttpRequestOptions.Scopes, s_storageScopes);
-        request.Headers.TryAddWithoutValidation("x-ms-version", StorageApiVersion);
-        request.Headers.TryAddWithoutValidation(
-            "x-ms-date",
-            DateTimeOffset.UtcNow.ToString("R", CultureInfo.InvariantCulture));
+            null => null,
+            Stream stream => new StreamContent(stream),
+            HttpContent content => content,
+            object body => System.Net.Http.Json.JsonContent.Create(body, body.GetType()),
+        };
+        CreateRequestHeaders(request);
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 
-    protected async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, bool requireProfile = true)
+    internal virtual async Task<HttpResponseMessage> SendAsync()
     {
-        if (requireProfile && ResolvedProfile is null)
-        {
-            throw new InvalidOperationException("An active profile is required. Run 'az login' or pass --profile.");
-        }
-
+        using HttpRequestMessage request = await CreateRequestMessage();
         HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
         await Publisher.Publish(Events.TracingHttpResponseMessage, response);
-        return response;
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+            && Method == HttpMethod.Get
+            && ResolvedProfile is not null
+            && request.RequestUri!.Host.StartsWith("md-", StringComparison.OrdinalIgnoreCase)
+            && response.Headers.TryGetValues("WWW-Authenticate", out IEnumerable<string>? challenges))
+        {
+            string? audience = null;
+            foreach (string challenge in challenges)
+            {
+                int start = challenge.IndexOf("resource_id=", StringComparison.OrdinalIgnoreCase);
+                if (start < 0)
+                {
+                    continue;
+                }
+                string candidate = challenge[(start + "resource_id=".Length)..].TrimStart('"');
+                int end = candidate.IndexOfAny(['"', ' ', ',']);
+                candidate = end < 0 ? candidate : candidate[..end];
+                if (Uri.TryCreate(candidate, UriKind.Absolute, out Uri? uri)
+                    && uri.Scheme == Uri.UriSchemeHttps
+                    && string.IsNullOrEmpty(uri.UserInfo))
+                {
+                    audience = uri.AbsoluteUri.TrimEnd('/');
+                    break;
+                }
+            }
+            if (audience is not null)
+            {
+                response.Dispose();
+                using HttpRequestMessage retry = await CreateRequestMessage();
+                retry.Options.Set(RuntimeHttpRequestOptions.Scopes, [$"{audience}/.default"]);
+                response = await HttpPipeline.SendAsync(retry, Publisher);
+                await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+            }
+        }
+        try
+        {
+            await response.EnsureSuccessAsync(Publisher);
+            return response;
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
     }
 
     protected static string? Header(HttpResponseMessage response, string name) =>
@@ -89,52 +140,86 @@ public abstract class StorageBlobProcessorBase : IProcessor
                 ? values.FirstOrDefault()
                 : null;
 
-    protected Uri BuildBlobUri()
+}
+
+public abstract partial class StorageBlobProcessorBase<TRequest, TResponse> : StorageBlobProcessorBase
+    where TRequest : class
+    where TResponse : class
+{
+    protected override TRequest? CreateRequestBody() => default;
+
+    partial void OverrideBeforeProcessAsyncBase();
+
+    protected virtual Task BeforeProcessAsync()
     {
-        string escapedBlobName = string.Join(
-            "/",
-            BlobName.Split('/', StringSplitOptions.None).Select(Uri.EscapeDataString));
-        return new Uri(
-            $"https://{AccountName}.blob.core.windows.net/{Uri.EscapeDataString(ContainerName)}/{escapedBlobName}",
-            UriKind.Absolute);
+        OverrideBeforeProcessAsyncBase();
+        return Task.CompletedTask;
     }
 
-    protected Uri BuildContainerUri()
+    protected virtual Task BeforeWriteOutputAsync(TResponse? body, ref bool returnNow) =>
+        Task.CompletedTask;
+
+    public override async Task ProcessAsync()
     {
-        ValidateStorageTarget(requireBlobName: false);
-        return new Uri(
-            $"https://{AccountName}.blob.core.windows.net/{Uri.EscapeDataString(ContainerName)}",
-            UriKind.Absolute);
-    }
-
-    private void ValidateStorageTarget(bool requireBlobName = true)
-    {
-        if (ResolvedProfile is null)
+        HttpResponseMessage? response = null;
+        bool disposeResponse = true;
+        try
         {
-            throw new InvalidOperationException("An active profile is required. Run 'az login' or pass --profile.");
+            await BeforeProcessAsync();
+            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+            response = await SendAsync();
+            TResponse? body = default;
+            if (response.Content is null)
+            {
+                await Publisher.Publish(
+                    Events.ResponseNoContent,
+                    $"response has no content for {response.RequestMessage?.RequestUri}");
+            }
+            else if (typeof(TResponse) == typeof(Stream))
+            {
+                body = (TResponse)(object)await response.Content.ReadAsStreamAsync(Publisher.Token);
+            }
+            else
+            {
+                string rawBody = await response.Content.ReadAsStringAsync(Publisher.Token);
+                if (string.IsNullOrWhiteSpace(rawBody))
+                {
+                    await Publisher.Publish(
+                        Events.ResponseEmptyBody,
+                        $"response has empty body for {response.RequestMessage?.RequestUri}");
+                }
+                else
+                {
+                    try
+                    {
+                        body = System.Text.Json.JsonSerializer.Deserialize<TResponse>(rawBody);
+                    }
+                    catch (System.Text.Json.JsonException)
+                    {
+                        await Publisher.Publish(
+                            Events.ResponseInvalidJson,
+                            $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                        throw new InvalidOperationException(
+                            $"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                    }
+                }
+            }
+
+            bool returnNow = false;
+            await BeforeWriteOutputAsync(body, ref returnNow);
+            if (!returnNow && body is not null)
+            {
+                await WriteOutput(body, Publisher.Token);
+                disposeResponse = body is not Stream;
+            }
         }
-
-        if (AccountName.Length is < 3 or > 24
-            || AccountName.Any(c => !(char.IsAsciiLetterLower(c) || c is >= '0' and <= '9')))
+        finally
         {
-            throw new ArgumentException("AccountName must contain 3-24 lowercase letters or digits.", nameof(AccountName));
-        }
-
-        if (ContainerName.Length is < 3 or > 63
-            || !char.IsLetterOrDigit(ContainerName[0])
-            || !char.IsLetterOrDigit(ContainerName[^1])
-            || ContainerName.Contains("--", StringComparison.Ordinal)
-            || ContainerName.Any(c => !(char.IsAsciiLetterLower(c) || c is >= '0' and <= '9' || c == '-')))
-        {
-            throw new ArgumentException("ContainerName is not a valid Azure Blob container name.", nameof(ContainerName));
-        }
-
-        if (requireBlobName
-            && (string.IsNullOrWhiteSpace(BlobName)
-            || BlobName.Length > 1024
-            || BlobName.Any(char.IsControl)))
-        {
-            throw new ArgumentException("BlobName must contain 1-1024 non-control characters.", nameof(BlobName));
+            if (disposeResponse)
+            {
+                response?.Dispose();
+            }
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }
 }

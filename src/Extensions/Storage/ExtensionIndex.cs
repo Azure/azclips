@@ -40,34 +40,6 @@ public sealed class ExtensionIndex : IExtensionIndex
             ["f"] = "file",
         });
 
-    private static readonly CommandMetadata s_uploadBlobBatch = new(
-        Name: nameof(Processors.BlobUploadBatchProcessor_Orchestrator),
-        InvocationName: "storage blob upload-batch",
-        Aliases: [],
-        FullName: $"{AssemblyName}.Processors.BlobUploadBatchProcessor_Orchestrator",
-        AssemblyName: AssemblyName,
-        ProcessorType: typeof(Processors.BlobUploadBatchProcessor_Orchestrator),
-        Parameters: UploadBlobBatchParameters(),
-        ParameterAliases: new Dictionary<string, string>
-        {
-            ["d"] = "destination",
-            ["s"] = "source",
-        });
-
-    private static readonly CommandMetadata s_downloadBlobBatch = new(
-        Name: nameof(Processors.BlobDownloadBatchProcessor_Orchestrator),
-        InvocationName: "storage blob download-batch",
-        Aliases: [],
-        FullName: $"{AssemblyName}.Processors.BlobDownloadBatchProcessor_Orchestrator",
-        AssemblyName: AssemblyName,
-        ProcessorType: typeof(Processors.BlobDownloadBatchProcessor_Orchestrator),
-        Parameters: DownloadBlobBatchParameters(),
-        ParameterAliases: new Dictionary<string, string>
-        {
-            ["d"] = "destination",
-            ["s"] = "source",
-        });
-
     private static readonly CommandMetadata s_uploadBlobPs = new(
         Name: nameof(Processors.BlockBlobUploadProcessor_Orchestrator),
         InvocationName: "Set-AzStorageBlobContent",
@@ -92,8 +64,6 @@ public sealed class ExtensionIndex : IExtensionIndex
     {
         ["storage blob upload"] = s_uploadBlob,
         ["storage blob download"] = s_downloadBlob,
-        ["storage blob upload-batch"] = s_uploadBlobBatch,
-        ["storage blob download-batch"] = s_downloadBlobBatch,
     };
 
     private static readonly IReadOnlyDictionary<string, CommandMetadata> s_psTable =
@@ -132,12 +102,10 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["name"] = new("BlobName", "name", typeof(string), "Blob name. Defaults to the file name.", false, ["n"], []),
         ["file"] = new("FilePath", "file", typeof(string), "Local file path.", true, ["f"], []),
         ["overwrite"] = new("Overwrite", "overwrite", typeof(bool), "Overwrite an existing destination.", false, [], []),
-        ["blob-type"] = new("BlobType", "blob-type", typeof(string), "Blob type.", false, [], ["Block", "Page", "Append"]),
         ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in KEY=VALUE form.", false, [], []),
         ["tags"] = new("Tags", "tags", typeof(string[]), "Blob tags in KEY=VALUE form.", false, [], []),
         ["properties"] = new("Properties", "properties", typeof(string[]), "Blob properties in KEY=VALUE form.", false, [], []),
         ["tier"] = new("StandardBlobTier", "tier", typeof(string), "Block blob access tier.", false, [], ["Hot", "Cool", "Cold", "Archive"]),
-        ["premium-tier"] = new("PremiumPageBlobTier", "premium-tier", typeof(string), "Page blob premium tier.", false, [], []),
         ["encryption-scope"] = new("EncryptionScope", "encryption-scope", typeof(string), "Encryption scope.", false, [], []),
         ["tag-condition"] = new("TagCondition", "tag-condition", typeof(string), "Tag condition for the write.", false, [], []),
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
@@ -158,27 +126,6 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
     };
 
-    private static Dictionary<string, ParameterMetadata> UploadBlobBatchParameters() => new()
-    {
-        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
-        ["destination"] = new("ContainerName", "destination", typeof(string), "Destination blob container.", true, ["d"], []),
-        ["source"] = new("SourceDirectory", "source", typeof(string), "Local source directory.", true, ["s"], []),
-        ["destination-path"] = new("DestinationPath", "destination-path", typeof(string), "Blob path prefix.", false, [], []),
-        ["pattern"] = new("Pattern", "pattern", typeof(string), "Glob pattern for files to upload.", false, [], []),
-        ["overwrite"] = new("Overwrite", "overwrite", typeof(bool), "Overwrite existing blobs.", false, [], []),
-        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
-    };
-
-    private static Dictionary<string, ParameterMetadata> DownloadBlobBatchParameters() => new()
-    {
-        ["account-name"] = new("AccountName", "account-name", typeof(string), "Storage account name.", true, [], []),
-        ["source"] = new("ContainerName", "source", typeof(string), "Source blob container.", true, ["s"], []),
-        ["destination"] = new("DestinationDirectory", "destination", typeof(string), "Local destination directory.", true, ["d"], []),
-        ["pattern"] = new("Pattern", "pattern", typeof(string), "Glob pattern for blobs to download.", false, [], []),
-        ["overwrite"] = new("Overwrite", "overwrite", typeof(bool), "Overwrite existing files.", false, [], []),
-        ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile for this command.", false, [], []),
-    };
-
     private static Dictionary<string, ParameterMetadata> UploadBlobParametersPowerShell() => new()
     {
         ["AccountName"] = new("AccountName", "AccountName", typeof(string), "Storage account name.", true, [], []),
@@ -186,12 +133,10 @@ public sealed class ExtensionIndex : IExtensionIndex
         ["BlobName"] = new("BlobName", "BlobName", typeof(string), "Blob name. Defaults to the file name.", false, [], []),
         ["FilePath"] = new("FilePath", "FilePath", typeof(string), "Local file path.", true, [], []),
         ["Overwrite"] = new("Overwrite", "Overwrite", typeof(bool), "Overwrite an existing destination.", false, [], []),
-        ["BlobType"] = new("BlobType", "BlobType", typeof(string), "Blob type.", false, [], ["Block", "Page", "Append"]),
         ["Metadata"] = new("Metadata", "Metadata", typeof(string[]), "Metadata in KEY=VALUE form.", false, [], []),
         ["Tags"] = new("Tags", "Tags", typeof(string[]), "Blob tags in KEY=VALUE form.", false, [], []),
         ["Properties"] = new("Properties", "Properties", typeof(string[]), "Blob properties in KEY=VALUE form.", false, [], []),
         ["StandardBlobTier"] = new("StandardBlobTier", "StandardBlobTier", typeof(string), "Block blob access tier.", false, [], ["Hot", "Cool", "Cold", "Archive"]),
-        ["PremiumPageBlobTier"] = new("PremiumPageBlobTier", "PremiumPageBlobTier", typeof(string), "Page blob premium tier.", false, [], []),
         ["EncryptionScope"] = new("EncryptionScope", "EncryptionScope", typeof(string), "Encryption scope.", false, [], []),
         ["TagCondition"] = new("TagCondition", "TagCondition", typeof(string), "Tag condition for the write.", false, [], []),
         ["Profile"] = new("Profile", "Profile", typeof(string), "Use the named profile for this command.", false, [], []),

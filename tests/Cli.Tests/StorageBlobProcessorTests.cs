@@ -32,6 +32,7 @@ public class StorageBlobProcessorTests
             string? storageDate = null;
             string[]? scopes = null;
             bool disableRetry = false;
+            bool disableBodyLogging = false;
             var pipeline = new FakeHttpPipeline((request, _) =>
             {
                 requestUri = request.RequestUri;
@@ -43,6 +44,7 @@ public class StorageBlobProcessorTests
                 storageDate = request.Headers.GetValues("x-ms-date").Single();
                 request.Options.TryGetValue(RuntimeHttpRequestOptions.Scopes, out scopes);
                 request.Options.TryGetValue(RuntimeHttpRequestOptions.DisableRetry, out disableRetry);
+                request.Options.TryGetValue(RuntimeHttpRequestOptions.DisableBodyLogging, out disableBodyLogging);
                 return new HttpResponseMessage(HttpStatusCode.Created)
                 {
                     Headers =
@@ -64,17 +66,53 @@ public class StorageBlobProcessorTests
             Assert.Equal(HttpMethod.Put, requestMethod);
             Assert.Equal("BlockBlob", blobType);
             Assert.Equal("*", ifNoneMatch);
-            Assert.Equal("2023-11-03", storageVersion);
+            Assert.Equal("2026-04-06", storageVersion);
             Assert.True(DateTimeOffset.TryParse(storageDate, out _));
             Assert.NotNull(scopes);
             Assert.Equal(["https://storage.azure.com/.default"], scopes);
             Assert.True(disableRetry);
+            Assert.True(disableBodyLogging);
             Assert.Equal(
                 "https://account123.blob.core.windows.net/container/folder/blob%20name.bin",
                 requestUri!.AbsoluteUri);
             var result = Assert.IsType<BlobTransferResult>(Assert.Single(output.WrittenValues));
             Assert.Equal("upload", result.Operation);
             Assert.Equal(sourcePath, result.Source);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Upload_PreservesDotSegmentsInBlobName()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string sourcePath = Path.Combine(directory, "source.bin");
+            await File.WriteAllBytesAsync(sourcePath, [1]);
+            Uri? requestUri = null;
+            var pipeline = new FakeHttpPipeline((request, _) =>
+            {
+                requestUri = request.RequestUri;
+                return new HttpResponseMessage(HttpStatusCode.Created);
+            });
+            var processor = CreateProcessor(
+                new BlockBlobUploadProcessor_Orchestrator(),
+                pipeline,
+                new FakeOutputHandler());
+            processor.AccountName = "account123";
+            processor.ContainerName = "container";
+            processor.BlobName = "folder/../blob.bin";
+            processor.FilePath = sourcePath;
+
+            await processor.ProcessAsync();
+
+            Assert.Equal(
+                "https://account123.blob.core.windows.net/container/folder/../blob.bin",
+                requestUri!.AbsoluteUri);
         }
         finally
         {
@@ -153,57 +191,48 @@ public class StorageBlobProcessorTests
     }
 
     [Fact]
-    public async Task Upload_PageAndAppendBlobsUseTheirRequiredRequests()
+    public async Task UploadProcessor_MapsSwaggerRequestFields()
     {
-        string directory = CreateTempDirectory();
-        try
+        Guid requestId = Guid.NewGuid();
+        DateTimeOffset modifiedSince = DateTimeOffset.Parse("2026-08-01T00:00:00Z");
+        var pipeline = new FakeHttpPipeline((request, _) =>
         {
-            string pagePath = Path.Combine(directory, "page.bin");
-            await File.WriteAllBytesAsync(pagePath, new byte[512]);
-            var pageRequests = new List<(string? Type, string Query, string? Range)>();
-            var pagePipeline = new FakeHttpPipeline((request, _) =>
-            {
-                pageRequests.Add((
-                    request.Headers.TryGetValues("x-ms-blob-type", out var types) ? types.Single() : null,
-                    request.RequestUri!.Query,
-                    request.Headers.TryGetValues("x-ms-range", out var ranges) ? ranges.Single() : null));
-                return new HttpResponseMessage(HttpStatusCode.Created);
-            });
-            var page = CreateProcessor(new BlockBlobUploadProcessor_Orchestrator(), pagePipeline, new FakeOutputHandler());
-            page.AccountName = "account123";
-            page.ContainerName = "container";
-            page.BlobName = "page.bin";
-            page.FilePath = pagePath;
-            page.BlobType = "Page";
+            Assert.Equal(HttpMethod.Put, request.Method);
+            Assert.Equal(
+                "https://account.blob.core.windows.net/container/blob?timeout=30",
+                request.RequestUri!.AbsoluteUri);
+            Assert.Equal("2026-04-06", request.Headers.GetValues("x-ms-version").Single());
+            Assert.Equal(requestId.ToString(), request.Headers.GetValues("x-ms-client-request-id").Single());
+            Assert.Equal("owner", request.Headers.GetValues("x-ms-meta-team").Single());
+            Assert.Equal("lease", request.Headers.GetValues("x-ms-lease-id").Single());
+            Assert.Equal("Cool", request.Headers.GetValues("x-ms-access-tier").Single());
+            Assert.Equal("*", request.Headers.GetValues("If-None-Match").Single());
+            Assert.Equal(modifiedSince.ToString("R"), request.Headers.GetValues("If-Modified-Since").Single());
+            Assert.Equal("kind=report", request.Headers.GetValues("x-ms-tags").Single());
+            Assert.Equal("BlockBlob", request.Headers.GetValues("x-ms-blob-type").Single());
+            Assert.Equal(3, request.Content!.Headers.ContentLength);
+            Assert.Equal("application/octet-stream", request.Content.Headers.ContentType!.MediaType);
+            return new HttpResponseMessage(HttpStatusCode.Created);
+        });
+        var processor = CreateProcessor(
+            new BlockBlobUploadProcessor(),
+            pipeline,
+            new FakeOutputHandler());
+        processor.Url = "https://account.blob.core.windows.net/container/blob";
+        processor.ClientRequestId = requestId;
+        processor.Metadata = new Dictionary<string, string> { ["team"] = "owner" };
+        processor.Timeout = 30;
+        processor.ContentLength = 3;
+        processor.LeaseId = "lease";
+        processor.Tier = "Cool";
+        processor.IfNoneMatch = "*";
+        processor.IfModifiedSince = modifiedSince;
+        processor.BlobTagsString = "kind=report";
+        processor.Body = new MemoryStream([1, 2, 3]);
 
-            await page.ProcessAsync();
+        await processor.ProcessAsync();
 
-            Assert.Equal(("PageBlob", "", (string?)null), pageRequests[0]);
-            Assert.Equal((null, "?comp=page", "bytes=0-511"), pageRequests[1]);
-
-            string appendPath = Path.Combine(directory, "append.bin");
-            await File.WriteAllBytesAsync(appendPath, [1, 2, 3]);
-            var appendQueries = new List<string>();
-            var appendPipeline = new FakeHttpPipeline((request, _) =>
-            {
-                appendQueries.Add(request.RequestUri!.Query);
-                return new HttpResponseMessage(HttpStatusCode.Created);
-            });
-            var append = CreateProcessor(new BlockBlobUploadProcessor_Orchestrator(), appendPipeline, new FakeOutputHandler());
-            append.AccountName = "account123";
-            append.ContainerName = "container";
-            append.BlobName = "append.bin";
-            append.FilePath = appendPath;
-            append.BlobType = "Append";
-
-            await append.ProcessAsync();
-
-            Assert.Equal(["", "?comp=appendblock"], appendQueries);
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
+        Assert.Equal(1, pipeline.SendCount);
     }
 
     [Theory]
@@ -226,7 +255,7 @@ public class StorageBlobProcessorTests
             HttpRequestException exception =
                 await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
 
-            Assert.Contains("--overwrite", exception.Message);
+            Assert.Contains("overwrite", exception.Message);
             Assert.Equal(statusCode, exception.StatusCode);
         }
         finally
@@ -247,12 +276,14 @@ public class StorageBlobProcessorTests
             string? storageVersion = null;
             string? storageDate = null;
             string[]? scopes = null;
+            bool disableBodyLogging = false;
             var pipeline = new FakeHttpPipeline((request, _) =>
             {
                 requestMethod = request.Method;
                 storageVersion = request.Headers.GetValues("x-ms-version").Single();
                 storageDate = request.Headers.GetValues("x-ms-date").Single();
                 request.Options.TryGetValue(RuntimeHttpRequestOptions.Scopes, out scopes);
+                request.Options.TryGetValue(RuntimeHttpRequestOptions.DisableBodyLogging, out disableBodyLogging);
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new ByteArrayContent(expected)
@@ -269,10 +300,11 @@ public class StorageBlobProcessorTests
 
             Assert.Equal(expected, await File.ReadAllBytesAsync(destinationPath));
             Assert.Equal(HttpMethod.Get, requestMethod);
-            Assert.Equal("2023-11-03", storageVersion);
+            Assert.Equal("2026-04-06", storageVersion);
             Assert.True(DateTimeOffset.TryParse(storageDate, out _));
             Assert.NotNull(scopes);
             Assert.Equal(["https://storage.azure.com/.default"], scopes);
+            Assert.True(disableBodyLogging);
             var result = Assert.IsType<BlobTransferResult>(Assert.Single(output.WrittenValues));
             Assert.Equal("download", result.Operation);
             Assert.Equal(destinationPath, result.Destination);
@@ -282,6 +314,56 @@ public class StorageBlobProcessorTests
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task DownloadProcessor_MapsSwaggerRequestFields()
+    {
+        Guid requestId = Guid.NewGuid();
+        DateTimeOffset unmodifiedSince = DateTimeOffset.Parse("2026-08-01T00:00:00Z");
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal(
+                "https://account.blob.core.windows.net/container/blob?snapshot=snapshot&versionid=version&timeout=30",
+                request.RequestUri!.AbsoluteUri);
+            Assert.Equal("2026-04-06", request.Headers.GetValues("x-ms-version").Single());
+            Assert.Equal(requestId.ToString(), request.Headers.GetValues("x-ms-client-request-id").Single());
+            Assert.Equal("bytes=0-2", request.Headers.GetValues("Range").Single());
+            Assert.Equal("lease", request.Headers.GetValues("x-ms-lease-id").Single());
+            Assert.Equal("true", request.Headers.GetValues("x-ms-range-get-content-md5").Single());
+            Assert.Equal("false", request.Headers.GetValues("x-ms-range-get-content-crc64").Single());
+            Assert.Equal("\"etag\"", request.Headers.GetValues("If-Match").Single());
+            Assert.Equal(unmodifiedSince.ToString("R"), request.Headers.GetValues("If-Unmodified-Since").Single());
+            return new HttpResponseMessage(HttpStatusCode.PartialContent)
+            {
+                Content = new ByteArrayContent([1, 2, 3])
+            };
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(
+            new BlobDownloadProcessor(),
+            pipeline,
+            output);
+        processor.Url = "https://account.blob.core.windows.net/container/blob";
+        processor.ClientRequestId = requestId;
+        processor.Snapshot = "snapshot";
+        processor.VersionId = "version";
+        processor.Timeout = 30;
+        processor.Range = "bytes=0-2";
+        processor.LeaseId = "lease";
+        processor.RangeGetContentMd5 = true;
+        processor.RangeGetContentCrc64 = false;
+        processor.IfMatch = "\"etag\"";
+        processor.IfUnmodifiedSince = unmodifiedSince;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        using Stream body = Assert.IsAssignableFrom<Stream>(Assert.Single(output.WrittenValues));
+        var bytes = new byte[3];
+        Assert.Equal(3, await body.ReadAsync(bytes));
+        Assert.Equal([1, 2, 3], bytes);
     }
 
     [Fact]
@@ -295,7 +377,12 @@ public class StorageBlobProcessorTests
             {
                 Content = new ThrowingDownloadContent()
             });
-            var processor = CreateProcessor(new BlobDownloadProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
+            var publisher = new FakeEventPublisher();
+            var processor = CreateProcessor(
+                new BlobDownloadProcessor_Orchestrator(),
+                pipeline,
+                new FakeOutputHandler(),
+                publisher: publisher);
             processor.AccountName = "account123";
             processor.ContainerName = "container";
             processor.BlobName = "blob.bin";
@@ -307,6 +394,7 @@ public class StorageBlobProcessorTests
             Assert.IsType<IOException>(exception.InnerException);
             Assert.False(File.Exists(destinationPath));
             Assert.Empty(Directory.GetFiles(directory, "*.azclips-download-*"));
+            Assert.Equal(Events.ProcessorProcessAsyncEnd, publisher.PublishedIds[^1]);
         }
         finally
         {
@@ -326,7 +414,12 @@ public class StorageBlobProcessorTests
             {
                 Content = new StringContent("replacement", Encoding.UTF8)
             });
-            var processor = CreateProcessor(new BlobDownloadProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
+            var publisher = new FakeEventPublisher();
+            var processor = CreateProcessor(
+                new BlobDownloadProcessor_Orchestrator(),
+                pipeline,
+                new FakeOutputHandler(),
+                publisher: publisher);
             processor.AccountName = "account123";
             processor.ContainerName = "container";
             processor.BlobName = "blob.bin";
@@ -334,9 +427,10 @@ public class StorageBlobProcessorTests
 
             IOException exception = await Assert.ThrowsAsync<IOException>(() => processor.ProcessAsync());
 
-            Assert.Contains("--overwrite", exception.Message);
+            Assert.Contains("overwrite", exception.Message);
             Assert.Equal("original", await File.ReadAllTextAsync(destinationPath));
             Assert.Equal(0, pipeline.SendCount);
+            Assert.Equal(Events.ProcessorProcessAsyncEnd, publisher.PublishedIds[^1]);
         }
         finally
         {
@@ -462,15 +556,11 @@ public class StorageBlobProcessorTests
 
         IReadOnlyDictionary<string, CommandMetadata> commands = index.GetCommandTable(ClientType.CLI);
 
-        Assert.Equal(4, commands.Count);
+        Assert.Equal(2, commands.Count);
         Assert.IsType<BlockBlobUploadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob upload"].ProcessorType));
         Assert.IsType<BlobDownloadProcessor_Orchestrator>(
             Activator.CreateInstance(commands["storage blob download"].ProcessorType));
-        Assert.IsType<BlobUploadBatchProcessor_Orchestrator>(
-            Activator.CreateInstance(commands["storage blob upload-batch"].ProcessorType));
-        Assert.IsType<BlobDownloadBatchProcessor_Orchestrator>(
-            Activator.CreateInstance(commands["storage blob download-batch"].ProcessorType));
         Assert.True(commands["storage blob upload"].Parameters["overwrite"].IsRequired is false);
 
         IReadOnlyDictionary<string, CommandMetadata> powerShellCommands =
@@ -482,186 +572,12 @@ public class StorageBlobProcessorTests
             Activator.CreateInstance(powerShellCommands["Get-AzStorageBlobContent"].ProcessorType));
     }
 
-    [Fact]
-    public async Task BatchTransfersProcessOnlyMatchingFiles()
-    {
-        string directory = CreateTempDirectory();
-        try
-        {
-            string source = Path.Combine(directory, "source");
-            Directory.CreateDirectory(Path.Combine(source, "nested"));
-            await File.WriteAllTextAsync(Path.Combine(source, "nested", "report.csv"), "upload");
-            await File.WriteAllTextAsync(Path.Combine(source, "skip.txt"), "skip");
-            var uploads = new List<(string Uri, string Content)>();
-            var uploadPipeline = new FakeHttpPipeline((request, _) =>
-            {
-                uploads.Add((
-                    request.RequestUri!.AbsoluteUri,
-                    request.Content!.ReadAsStringAsync().GetAwaiter().GetResult()));
-                return new HttpResponseMessage(HttpStatusCode.Created);
-            });
-            var uploadOutput = new FakeOutputHandler();
-            var upload = CreateProcessor(
-                new BlobUploadBatchProcessor_Orchestrator(),
-                uploadPipeline,
-                uploadOutput);
-            upload.AccountName = "account123";
-            upload.ContainerName = "container";
-            upload.SourceDirectory = source;
-            upload.Pattern = "*.csv";
-            upload.DestinationPath = "archive";
-
-            await upload.ProcessAsync();
-
-            (string uploadedUri, string uploadedContent) = Assert.Single(uploads);
-            Assert.EndsWith("/container/archive/nested/report.csv", uploadedUri);
-            Assert.Equal("upload", uploadedContent);
-            BlobTransferResult uploadResult =
-                Assert.IsType<BlobTransferResult>(Assert.Single(uploadOutput.WrittenValues));
-            Assert.Equal("upload", uploadResult.Operation);
-            Assert.EndsWith("nested/report.csv", uploadResult.Destination);
-
-            const string listing = """
-                <EnumerationResults>
-                  <Blobs>
-                    <Blob><Name>nested/report.csv</Name></Blob>
-                    <Blob><Name>skip.txt</Name></Blob>
-                  </Blobs>
-                  <NextMarker />
-                </EnumerationResults>
-                """;
-            var downloadPipeline = new FakeHttpPipeline((request, _) =>
-                request.RequestUri!.Query.Contains("comp=list", StringComparison.Ordinal)
-                    ? new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent(listing, Encoding.UTF8, "application/xml")
-                    }
-                    : new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent("download", Encoding.UTF8)
-                    });
-            string destination = Path.Combine(directory, "destination");
-            var downloadOutput = new FakeOutputHandler();
-            var download = CreateProcessor(
-                new BlobDownloadBatchProcessor_Orchestrator(),
-                downloadPipeline,
-                downloadOutput);
-            download.AccountName = "account123";
-            download.ContainerName = "container";
-            download.DestinationDirectory = destination;
-            download.Pattern = "*.csv";
-
-            await download.ProcessAsync();
-
-            Assert.Equal(
-                "download",
-                await File.ReadAllTextAsync(Path.Combine(destination, "nested", "report.csv")));
-            Assert.False(File.Exists(Path.Combine(destination, "skip.txt")));
-            Assert.Equal(2, downloadPipeline.SendCount);
-            BlobTransferResult downloadResult =
-                Assert.IsType<BlobTransferResult>(Assert.Single(downloadOutput.WrittenValues));
-            Assert.Equal("download", downloadResult.Operation);
-            Assert.EndsWith(Path.Combine("nested", "report.csv"), downloadResult.Destination);
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task BatchDownloadFollowsMarkersAndOverwrites()
-    {
-        string directory = CreateTempDirectory();
-        try
-        {
-            string destinationPath = Path.Combine(directory, "report.csv");
-            await File.WriteAllTextAsync(destinationPath, "old");
-            var listQueries = new List<string>();
-            var pipeline = new FakeHttpPipeline((request, _) =>
-            {
-                if (!request.RequestUri!.Query.Contains("comp=list", StringComparison.Ordinal))
-                {
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent("new", Encoding.UTF8)
-                    };
-                }
-
-                listQueries.Add(request.RequestUri.Query);
-                string listing = listQueries.Count == 1
-                    ? "<EnumerationResults><Blobs /><NextMarker>next marker</NextMarker></EnumerationResults>"
-                    : "<EnumerationResults><Blobs><Blob><Name>report.csv</Name></Blob></Blobs><NextMarker /></EnumerationResults>";
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent(listing, Encoding.UTF8, "application/xml")
-                };
-            });
-            var processor = CreateProcessor(
-                new BlobDownloadBatchProcessor_Orchestrator(),
-                pipeline,
-                new FakeOutputHandler());
-            processor.AccountName = "account123";
-            processor.ContainerName = "container";
-            processor.DestinationDirectory = directory;
-            processor.Overwrite = true;
-
-            await processor.ProcessAsync();
-
-            Assert.Equal(2, listQueries.Count);
-            Assert.DoesNotContain("marker=", listQueries[0]);
-            Assert.Contains("marker=next%20marker", listQueries[1]);
-            Assert.Equal("new", await File.ReadAllTextAsync(destinationPath));
-            Assert.Equal(3, pipeline.SendCount);
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    [Theory]
-    [InlineData("../evil.csv")]
-    [InlineData("../../evil.csv")]
-    [InlineData("sub/../../evil.csv")]
-    [InlineData("sub/sub2/../../../evil.csv")]
-    public async Task BatchDownloadRejectsPathTraversal(string blobName)
-    {
-        string directory = CreateTempDirectory();
-        try
-        {
-            string listing =
-                $"<EnumerationResults><Blobs><Blob><Name>{blobName}</Name></Blob></Blobs><NextMarker /></EnumerationResults>";
-            var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(listing, Encoding.UTF8, "application/xml")
-            });
-            var processor = CreateProcessor(
-                new BlobDownloadBatchProcessor_Orchestrator(),
-                pipeline,
-                new FakeOutputHandler());
-            processor.AccountName = "account123";
-            processor.ContainerName = "container";
-            processor.DestinationDirectory = Path.Combine(directory, "destination");
-
-            InvalidDataException exception =
-                await Assert.ThrowsAsync<InvalidDataException>(() => processor.ProcessAsync());
-
-            Assert.Contains("outside the destination directory", exception.Message);
-            Assert.Equal(1, pipeline.SendCount);
-            Assert.False(File.Exists(Path.Combine(directory, "evil.csv")));
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
     private static T CreateProcessor<T>(
         T processor,
         FakeHttpPipeline pipeline,
         FakeOutputHandler output,
-        bool authenticated = true)
+        bool authenticated = true,
+        FakeEventPublisher? publisher = null)
         where T : StorageBlobProcessorBase
     {
         var profile = new Profile
@@ -673,7 +589,7 @@ public class StorageBlobProcessorTests
         Profile? resolvedProfile = authenticated ? profile : null;
         processor.Init(new ProcessorContext(
             pipeline,
-            new FakeEventPublisher(),
+            publisher ?? new FakeEventPublisher(),
             new FakeAuthHandler(resolvedProfile),
             output,
             resolvedProfile));

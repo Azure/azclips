@@ -21,8 +21,8 @@ Upload a local file to an Azure Storage blob.
 
 ```
 Set-AzStorageBlobContent -AccountName <string> -ContainerName <string> -FilePath <string>
- [-BlobName <string>] [-Force] [-BlobType <string>] [-Metadata <hashtable>] [-Tags <hashtable>]
- [-Properties <hashtable>] [-StandardBlobTier <string>] [-PremiumPageBlobTier <string>]
+ [-BlobName <string>] [-Force] [-Metadata <hashtable>] [-Tags <hashtable>]
+ [-Properties <hashtable>] [-StandardBlobTier <string>]
  [-EncryptionScope <string>] [-TagCondition <string>] [-AsJob] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
@@ -31,7 +31,7 @@ Set-AzStorageBlobContent -AccountName <string> -ContainerName <string> -FilePath
 
 ## DESCRIPTION
 
-Uploads a local file as a block, page, or append blob. Blob names default to the local file name. Metadata, tags, properties, access tiers, encryption scopes, and tag conditions are supported. By default, the command asks before replacing an existing blob; use `-Force` to replace it without prompting.
+Uploads a local file as a block blob. Blob names default to the local file name. Metadata, tags, properties, access tiers, encryption scopes, and tag conditions are supported. By default, the command asks before replacing an existing blob; use `-Force` to replace it without prompting.
 
 ## EXAMPLES
 
@@ -97,27 +97,6 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - Blob
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -BlobType
-
-The blob type to create: Block, Page, or Append. The default is Block.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -244,27 +223,6 @@ Metadata key-value pairs to assign to the blob.
 
 ```yaml
 Type: System.Collections.Hashtable
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -PremiumPageBlobTier
-
-The access tier to assign to a premium page blob.
-
-```yaml
-Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -425,6 +383,6 @@ The completed blob transfer, including source, destination, ETag, last-modified 
 
 ## NOTES
 
-Block blobs larger than 5000 MiB use staged block upload. Page blob files must be a multiple of 512 bytes.
+This preview supports the single-operation block blob upload contract.
 
 ## RELATED LINKS
