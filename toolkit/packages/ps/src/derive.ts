@@ -31,6 +31,8 @@ import { PS_SCHEMA_VERSION } from "./version.js";
 import type {
   PS,
   PSCommandAttribute,
+  PSIdentityAttribute,
+  PSIdentityPropertyAttribute,
   PSModuleAttribute,
   PSParameterAttribute,
   PSParameterSetAttribute,
@@ -606,10 +608,53 @@ function deriveModules(ir: IR, commands: readonly { command: PSCommandAttribute;
   for (const [sourceId, groupCommands] of bySource) {
     const source = ir.sources.find((s) => s.id === sourceId);
     if (source === undefined) continue;
+
+    // `IRSource.id` names the provider ("Microsoft"); the namespace's last segment names the
+    // service, which is what autorest.powershell's `service-name` carries.
+    const name = source.rootNamespace[source.rootNamespace.length - 1] ?? source.id;
+    const identity = identityFor(ir, name, sourceId);
+
     modules.push({
+      name,
       sourceId: source.id,
       cmdletsToExport: groupCommands.map((command) => `${command.verb}-${command.noun}`),
+      ...(identity === undefined ? {} : { identity }),
     });
   }
   return modules;
+}
+
+/**
+ * `tweakModelV2`'s universal identity: every path parameter any operation in the module declares,
+ * deduplicated by name, plus the ARM resource id. Properties are shared across resources -- a
+ * volume and its parent take the same type and leave what they don't use unset -- so a property
+ * can stand for several IR parameters at once.
+ */
+function identityFor(ir: IR, moduleName: string, sourceId: string): PSIdentityAttribute | undefined {
+  const byName = new Map<string, PSIdentityPropertyAttribute>();
+
+  for (const operation of ir.operations) {
+    if (operation.source !== sourceId) continue;
+    for (const parameter of operation.pathParameters) {
+      const name = pascalCase(deconstruct(parameter.name));
+      const existing = byName.get(name);
+      if (existing) existing.sourceParameterIds.push(parameter.id);
+      else
+        byName.set(name, {
+          name,
+          ...(parameter.docs === undefined ? {} : { helpMessage: parameter.docs }),
+          sourceParameterIds: [parameter.id],
+        });
+    }
+  }
+
+  if (byName.size === 0) return undefined;
+
+  return {
+    name: `${moduleName}Identity`,
+    properties: [
+      ...byName.values(),
+      { name: "Id", helpMessage: "Resource identity path", sourceParameterIds: [] },
+    ],
+  };
 }
