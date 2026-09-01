@@ -10,11 +10,6 @@ using OpenTelemetry.Trace;
 
 namespace Core.Agent.Telemetry;
 
-/// <summary>
-/// Telemetry pipeline for azclips-agent.exe. Mirrors
-/// <c>Core.Cli.Telemetry.CLITelemetryProvider</c> rather than sharing it, because
-/// Core.Agent does not reference Core.Cli.
-/// </summary>
 public sealed class AgentTelemetryProvider : DefaultTelemetryProvider
 {
     public AgentTelemetryProvider(
@@ -28,12 +23,11 @@ public sealed class AgentTelemetryProvider : DefaultTelemetryProvider
         var sourceName = ClientType.CLI.ToString();
         ActivitySource = new ActivitySource(sourceName);
 
-        // Agent spans come from AgentTracing.Source, a plain ActivitySource that does not
-        // consult telemetry.enabled. Skipping listener construction is what makes the
-        // opt-out cover them all, tool.* included. Once per process is enough — the agent
-        // is short-lived and single-shot.
         if (!configuration.GetConfiguration<TelemetryOptions>().Enabled)
         {
+            // Build a default TracerProvider which skips listening to any sources.
+            // This is functional because there is an implicit dependency that the entire DI container will be rebuilt
+            // on every command invocation
             TracerProvider = TracerProvider.Default;
             return;
         }

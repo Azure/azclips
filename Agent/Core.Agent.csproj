@@ -56,10 +56,6 @@
     <!-- AgentModeEntry (moved from TUI) needs the DI container + scoped logging.
          These follow the code: they were on Core.Tui when the entry lived there. -->
     <ProjectReference Include="..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
-    <!-- AgentTelemetryProvider derives from DefaultTelemetryProvider and reuses
-         FileTelemetrySender. This flows transitively through Core.DependencyInjection,
-         but the dependency is direct, so declare it. -->
-    <ProjectReference Include="..\src\Core\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\src\Core\Core.Runtime\Core.Runtime.csproj" />
     <!-- Agent tool implementations (EnvironmentProber / HelpTools /
          CachedResourceTools / AvailableLocationsTool) live in their own class

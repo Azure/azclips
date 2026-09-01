@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
@@ -10,8 +9,6 @@ using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
 using Core.Cli.Version;
-using Core.Configuration.Options;
-using Core.Engine;
 using Core.Extensions;
 using Core.Runtime;
 using Core.Telemetry;
@@ -34,8 +31,6 @@ public class Program
     /// </summary>
     internal const string RecoveryTraceparentEnvVar = "AZCLIPS_RECOVERY_TRACEPARENT";
 
-    /// <summary>Span name of the second root, opened once the command root has closed.</summary>
-    private const string RecoveryActivityName = "CLI.Activity.AiRecovery";
     private static readonly ClientType _clientType = ClientType.CLI;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
@@ -329,8 +324,7 @@ public class Program
     /// <remarks>
     /// The ordering is load-bearing: AI error recovery blocks on azclips-agent.exe for as
     /// long as the model takes, and anything still inside the root span counts as command
-    /// execution time. Disposing here is idempotent with the <c>finally</c> in
-    /// <see cref="Main"/> — Activity.Dispose only stops an activity that is still running.
+    /// execution time.
     /// </remarks>
     internal static async Task<int> StopRootThenFallbackAsync(
         Activity? root,
@@ -448,7 +442,7 @@ public class Program
 
         // Opened only once a spawn is certain. The command root is already stopped, so
         // Activity.Current is null and this starts a second root with its own TraceId.
-        using var recovery = _telemetryService?.StartRootActivity(name: RecoveryActivityName);
+        using var recovery = _telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
         recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
         recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
         var telemetryCommandName = GetTelemetryCommandNameFromArgs(args);

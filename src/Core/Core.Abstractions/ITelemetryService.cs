@@ -25,11 +25,6 @@ public interface ITelemetryService : IDisposable
     Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default);
 
     /// <param name="startTime">See <see cref="StartActivity"/>.</param>
-    /// <param name="name">
-    /// Overrides the default <c>{ClientType}.Activity.Root</c> span name. A process may
-    /// open more than one root, and two rows sharing a name are indistinguishable in the
-    /// telemetry backend.
-    /// </param>
     Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null);
 
     Activity? TagInvocation(CommandInvocation commandInvocation);

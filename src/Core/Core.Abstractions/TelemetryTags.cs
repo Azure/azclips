@@ -13,7 +13,7 @@ public static class TelemetryTags
 {
     public const int Version = 1;
     // Per-process invariants.
-    public const string InstallationId = "InstallationId";    
+    public const string InstallationId = "InstallationId";
     public const string ProductName = "productName";
     public const string ProductVersion = "productVersion";
     public const string SchemaVersion = "schemaVersion";
@@ -44,7 +44,6 @@ public static class TelemetryTags
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
-    public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
     public const string ProcessName = PropertyTagPrefix + "process";
 }

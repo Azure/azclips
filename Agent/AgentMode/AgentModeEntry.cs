@@ -263,13 +263,12 @@ public static class AgentModeEntry
         CancellationToken ct,
         string initialVerb = "thinking")
     {
-        // One user<->agent exchange, including any tool-enforcement re-prompts below.
         using var turn = AgentTracing.Source.StartActivity("Agent.Turn");
         var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct, initialVerb);
-        var toolEnforcementRepromptCount = 0;
 
         for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
         {
+            using var turnN = AgentTracing.Source.StartActivity($"Agent.Turn.[{attempt + 1}]");
             // A redirect means the user steered the turn — respect it, don't enforce.
             if (redirect is not null) break;
             // Compliant turn: it closed with propose_plan or submit_response.
@@ -278,7 +277,6 @@ public static class AgentModeEntry
             // Errored turn: don't pile a correction on top of a failure.
             if (agent.LastError is not null) break;
 
-            toolEnforcementRepromptCount++;
             WriteColor(ConsoleColor.DarkGray, "  ↯ agent replied without acting — asking it to use a tool");
             const string correction =
                 "You replied with prose instead of calling a tool. That is not allowed. " +
@@ -287,7 +285,6 @@ public static class AgentModeEntry
             redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, correction, ct);
         }
 
-        turn?.SetTag(TelemetryTags.RecoveryReprompts, toolEnforcementRepromptCount);
         return redirect;
     }
 
