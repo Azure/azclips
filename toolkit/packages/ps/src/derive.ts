@@ -108,6 +108,7 @@ type Inferred = {
   verb: string;
   subject: string;
   variant: string;
+  action: string;
   confirmImpact: "Medium" | undefined;
   hidden: boolean | undefined;
 };
@@ -118,6 +119,7 @@ function inferOperation(operation: IROperation): Inferred[] {
     verb: name.verb,
     subject: name.subject,
     variant: name.variant,
+    action: name.action,
     confirmImpact: isMutatingMethod(operation.method) ? "Medium" : undefined,
     hidden: operation.access === "internal" ? true : undefined,
   }));
@@ -202,20 +204,81 @@ function defaultParameterSetNameFor(
  * (`listByResourceGroup` -> `ResourceGroup`); the full action word is the fallback, and also the
  * tie-break when two operations in one command would otherwise collide.
  */
-function parameterSetNamesFor(entries: readonly CommandEntry[], models: ModelIndex): string[] {
+function baseSetNamesFor(entries: readonly CommandEntry[]): string[] {
   const preferred = entries.map((entry) =>
     entry.inferred.variant === ""
       ? pascalCase(deconstruct(entry.operation.id.name))
       : entry.inferred.variant,
   );
 
-  return preferred.map((name, index) => {
-    const resolved = preferred.some((other, otherIndex) => other === name && otherIndex !== index)
+  return preferred.map((name, index) =>
+    preferred.some((other, otherIndex) => other === name && otherIndex !== index)
       ? pascalCase(deconstruct(entries[index]!.operation.id.name))
-      : name;
-    const expanded = expandableBody(models, entries[index]!.operation) !== undefined;
-    return expanded ? `${resolved}Expanded` : resolved;
-  });
+      : name,
+  );
+}
+
+// ─── ViaIdentity fan-out ────────────────────────────────────────────────
+
+/** Subscription and resource group are ambient context, never the resource being identified. */
+const RESERVED_PATH_PARAMETERS: ReadonlySet<string> = new Set(["subscriptionid", "resourcegroupname"]);
+
+/** The URL segment a path parameter names: `/volumegroups/{volumeGroupName}` -> `volumegroups`. */
+function segmentFor(pathTemplate: string, parameterName: string): string | undefined {
+  const at = pathTemplate.search(new RegExp(`/[^/]*/\\{${parameterName}\\}`));
+  if (at < 0) return undefined;
+  const segment = pathTemplate.slice(at).split("/")[1];
+  return segment === undefined || segment === "" || /^\{.*\}$/.test(segment) ? undefined : segment;
+}
+
+/**
+ * One parameter set of a command: which operation it calls, which path parameters it still asks
+ * for by name, and the identity parameter supplying the rest.
+ */
+type Variant = {
+  entry: CommandEntry;
+  name: string;
+  /** e.g. `ElasticSanInputObject`; undefined on the set that takes every path parameter by name. */
+  identityParameter: string | undefined;
+  /** IR names of the path parameters this set declares. */
+  pathParameters: ReadonlySet<string>;
+};
+
+/**
+ * The base set plus one per ancestor in the resource path, walking from the leaf outward: the leaf
+ * takes a bare `InputObject`, each ancestor takes `<Ancestor>InputObject` plus the names below it.
+ * Mirrors `addVariants` in create-commands-v2.ts, including its `break` -- a segment that cannot be
+ * named stops the walk rather than skipping a level.
+ */
+function variantsFor(entry: CommandEntry, baseName: string, models: ModelIndex): Variant[] {
+  const operation = entry.operation;
+  const suffix = expandableBody(models, operation) !== undefined ? "Expanded" : "";
+  const declared = operation.pathParameters.map((p) => p.name);
+  const base: Variant = {
+    entry,
+    name: baseName + suffix,
+    identityParameter: undefined,
+    pathParameters: new Set(declared),
+  };
+
+  // Enumerating siblings has no single resource to pipe in.
+  if (entry.inferred.action.toLowerCase() === "list") return [base];
+
+  const chain = declared.filter((name) => !RESERVED_PATH_PARAMETERS.has(name.toLowerCase()));
+  const variants = [base];
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const segment = segmentFor(operation.pathTemplate, chain[i]!);
+    if (segment === undefined) break;
+    // The resource being addressed needs no qualifier; its ancestors are named after their segment.
+    const ancestor = i === chain.length - 1 ? "" : singularize(segment);
+    variants.push({
+      entry,
+      name: pascalCase(deconstruct(`${baseName}ViaIdentity${ancestor}`)) + suffix,
+      identityParameter: `${ancestor}InputObject`,
+      pathParameters: new Set(chain.slice(i + 1)),
+    });
+  }
+  return variants;
 }
 
 // ─── Request-body flattening ─────────────────────────────────────────────
@@ -361,24 +424,26 @@ function attributeFor(
 }
 
 function parametersFor(
-  entries: readonly CommandEntry[],
-  parameterSets: readonly PSParameterSetAttribute[],
+  variants: readonly Variant[],
   subject: string,
   models: ModelIndex,
 ): PSParameterAttribute[] {
+  const setCount = variants.length;
   const occurrences = new Map<string, { setName: string; parameter: IRParameter; isPath: boolean }[]>();
 
-  entries.forEach((entry, index) => {
-    const setName = parameterSets[index]!.name;
-    const pathNames = new Set(entry.operation.pathParameters.map((p) => p.name));
-    for (const parameter of userFacingParameters(entry.operation)) {
+  for (const variant of variants) {
+    const operation = variant.entry.operation;
+    const pathNames = new Set(operation.pathParameters.map((p) => p.name));
+    for (const parameter of userFacingParameters(operation)) {
+      // A path parameter the identity supplies is not asked for by name in this set.
+      if (pathNames.has(parameter.name) && !variant.pathParameters.has(parameter.name)) continue;
       const name = normalizeParameterName(parameter.name);
-      const occurrence = { setName, parameter, isPath: pathNames.has(parameter.name) };
+      const occurrence = { setName: variant.name, parameter, isPath: pathNames.has(parameter.name) };
       const bucket = occurrences.get(name);
       if (bucket) bucket.push(occurrence);
       else occurrences.set(name, [occurrence]);
     }
-  });
+  }
 
   const allNames = [...occurrences.keys()];
   const parameters: PSParameterAttribute[] = [];
@@ -408,21 +473,21 @@ function parametersFor(
           help: helpOf(o.parameter),
           sourceId: o.parameter.id,
         })),
-        parameterSets.length,
+        setCount,
       ),
     );
   }
 
   const bodyOccurrences = new Map<string, Occurrence[]>();
-  entries.forEach((entry, index) => {
-    const body = expandableBody(models, entry.operation);
-    if (body === undefined) return;
+  for (const variant of variants) {
+    const body = expandableBody(models, variant.entry.operation);
+    if (body === undefined) continue;
     for (const leaf of bodyLeaves(models, body)) {
       const name = singularize(leaf.name);
       // A body property that restates a path parameter is already covered by it.
       if (taken.has(name)) continue;
       const occurrence: Occurrence = {
-        setName: parameterSets[index]!.name,
+        setName: variant.name,
         optional: leaf.property.optional,
         help: leaf.property.summary ?? leaf.property.docs,
         sourceId: leaf.property.id,
@@ -431,10 +496,31 @@ function parametersFor(
       if (bucket) bucket.push(occurrence);
       else bodyOccurrences.set(name, [occurrence]);
     }
-  });
+  }
 
   for (const [name, found] of bodyOccurrences) {
-    parameters.push(attributeFor(name, undefined, found, parameterSets.length));
+    parameters.push(attributeFor(name, undefined, found, setCount));
+  }
+
+  // One attribute per distinct identity parameter; several sets can share `-InputObject`.
+  const identitySets = new Map<string, string[]>();
+  for (const variant of variants) {
+    if (variant.identityParameter === undefined) continue;
+    const sets = identitySets.get(variant.identityParameter);
+    if (sets) sets.push(variant.name);
+    else identitySets.set(variant.identityParameter, [variant.name]);
+  }
+  for (const [name, sets] of identitySets) {
+    parameters.push({
+      name,
+      identity: true,
+      mandatory: true,
+      valueFromPipeline: true,
+      helpMessage: "Identity Parameter",
+      ...(sets.length === 1
+        ? { parameterSetName: sets[0]! }
+        : { parameterSets: Object.fromEntries(sets.map((s) => [s, { mandatory: true }])) }),
+    });
   }
   return parameters;
 }
@@ -460,10 +546,11 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
   for (const entries of groups.values()) {
     const operations = entries.map((entry) => entry.operation);
     const inferred = entries[0]!.inferred;
-    const setNames = parameterSetNamesFor(entries, models);
-    const parameterSets: PSParameterSetAttribute[] = entries.map((entry, index) => ({
-      name: setNames[index]!,
-      sourceOperationId: entry.operation.id,
+    const baseNames = baseSetNamesFor(entries);
+    const variants = entries.flatMap((entry, index) => variantsFor(entry, baseNames[index]!, models));
+    const parameterSets: PSParameterSetAttribute[] = variants.map((variant) => ({
+      name: variant.name,
+      sourceOperationId: variant.entry.operation.id,
     }));
 
     // The module prefix sits outside the dedup: AutoRest reconciles only subject-prefix against
@@ -492,7 +579,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
       supportsPaging: undefined,
       outputTypes: outputTypeIdsFor(operations, models),
       parameterSets,
-      parameters: parametersFor(entries, parameterSets, deduped.subject, models),
+      parameters: parametersFor(variants, deduped.subject, models),
       defaultParameterSetName: defaultParameterSetNameFor(operations, parameterSets),
       sourceOperationIds: operations.map((operation) => operation.id),
     });

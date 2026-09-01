@@ -109,6 +109,30 @@ describe("PSParameterAttribute", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("accepts an identity parameter, which has no IR node to point at", () => {
+    const result = PSParameterAttributeSchema.safeParse({
+      name: "InputObject",
+      identity: true,
+      mandatory: true,
+      valueFromPipeline: true,
+      parameterSetName: "GetViaIdentity",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a parameter that is neither identity-bound nor sourced from IR", () => {
+    expect(PSParameterAttributeSchema.safeParse({ name: "Orphan" }).success).toBe(false);
+  });
+
+  it("rejects a parameter claiming both an IR source and identity binding", () => {
+    const result = PSParameterAttributeSchema.safeParse({
+      name: "InputObject",
+      identity: true,
+      sourceParameterId: paramId,
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("PSCompleterAttribute", () => {
