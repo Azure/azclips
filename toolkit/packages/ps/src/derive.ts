@@ -6,13 +6,13 @@
  * `GetResourceGroupCmdlet`'s `Get`/`List` sets).
  *
  * Operations carrying a request body derive an `Expanded` parameter set, whose body is flattened
- * into one parameter per settable leaf. The non-expanded companion set (the body as a single
- * object parameter) is not derived: its parameter name comes from the spec's body parameter name,
- * which IR does not carry, and shipped modules name it 15 different ways.
+ * into one parameter per settable leaf, and a `ViaIdentity` fan-out that accepts the resource (or
+ * any ancestor of it) as a piped identity instead of by name.
  *
- * Not yet implemented: the `ViaIdentity` parameter-set fan-out. `PSModuleAttribute.description`
- * has no IR-derivable source today (`IRSource` carries no rendering/hints) and is always left
- * `undefined`; a future authoring mechanism would need to supply it.
+ * The non-expanded companion set (the body as a single object parameter) is not derived: its
+ * parameter name comes from the spec's body parameter name, which IR does not carry yet (#778).
+ * `PSModuleAttribute.description` likewise has no IR-derivable source today (`IRSource` carries no
+ * rendering/hints) and is always left `undefined`; a future authoring mechanism would supply it.
  */
 
 import {
