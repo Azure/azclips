@@ -92,8 +92,14 @@ export type PSParameterAttribute = {
   defaultValue?: PSDefaultValueAttribute | undefined;
   /** Per-set overrides, keyed by the parameter set's name (`PSParameterSetAttribute.name`), for fields that vary by set. */
   parameterSets?: Record<string, PSParameterSetOverride> | undefined;
+  /**
+   * Typed as the module's identity model rather than from IR, and supplies the path parameters its
+   * set leaves out. The one parameter kind with no IR node behind it, so it carries no
+   * `sourceParameterId`; exactly one of the two is always present.
+   */
+  identity?: true | undefined;
   /** The IR parameter/property this types from and binds to. */
-  sourceParameterId: IRId;
+  sourceParameterId?: IRId | undefined;
 };
 
 export const PSParameterAttributeSchema: z.ZodType<PSParameterAttribute> = z
@@ -110,9 +116,19 @@ export const PSParameterAttributeSchema: z.ZodType<PSParameterAttribute> = z
     completer: PSCompleterAttributeSchema.optional(),
     defaultValue: PSDefaultValueAttributeSchema.optional(),
     parameterSets: z.record(z.string().min(1), PSParameterSetOverrideSchema).optional(),
-    sourceParameterId: IRIdSchema,
+    identity: z.literal(true).optional(),
+    sourceParameterId: IRIdSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((parameter, ctx) => {
+    if ((parameter.identity === true) === (parameter.sourceParameterId !== undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "A parameter must either carry `sourceParameterId` or be marked `identity`, not both and not neither.",
+      });
+    }
+  });
 
 // ─── PSCommandAttribute (mirrors [Cmdlet] + ProcessorInfoAttribute) ──────
 
