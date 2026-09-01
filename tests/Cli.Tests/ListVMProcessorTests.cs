@@ -58,8 +58,8 @@ public class ListVMProcessorTests
 
         Assert.Equal(1, pipeline.SendCount);
         var written = Assert.Single(output.WrittenValues);
-        var vms = Assert.IsType<VirtualMachine[]>(written);
-        Assert.Equal(2, vms.Length);
+        var vms = Assert.IsType<List<VirtualMachine>>(written);
+        Assert.Equal(2, vms.Count);
         Assert.Equal("vm1", vms[0].Name);
         Assert.Equal("vm2", vms[1].Name);
     }
@@ -74,29 +74,7 @@ public class ListVMProcessorTests
         await processor.ProcessAsync();
 
         var written = Assert.Single(output.WrittenValues);
-        var vms = Assert.IsType<VirtualMachine[]>(written);
+        var vms = Assert.IsType<List<VirtualMachine>>(written);
         Assert.Empty(vms);
-    }
-
-    [Fact]
-    public async Task ProcessAsync_DoesNotFollowNextLink_ReturnsFirstPageOnly()
-    {
-        // Pagination is intentionally not implemented yet: a nextLink is ignored and only the
-        // first page's items are returned.
-        const string page1 = """
-            {
-              "value": [ { "name": "vm1", "location": "eastus" } ],
-              "nextLink": "https://management.azure.com/next?%24skiptoken=page2"
-            }
-            """;
-        var pipeline = new FakeHttpPipeline((_, _) => Json(page1));
-        var output = new FakeOutputHandler();
-        var processor = CreateProcessor(pipeline, output);
-
-        await processor.ProcessAsync();
-
-        Assert.Equal(1, pipeline.SendCount);
-        var vms = Assert.IsType<VirtualMachine[]>(Assert.Single(output.WrittenValues));
-        Assert.Equal(new[] { "vm1" }, vms.Select(v => v.Name));
     }
 }

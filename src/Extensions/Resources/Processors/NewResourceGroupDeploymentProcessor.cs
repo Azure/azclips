@@ -17,9 +17,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// in <see cref="NewResourceGroupDeploymentProcessor_Orchestrator"/>, which builds the
     /// properties and delegates here via <c>CreateExtendedProcessor</c>.
     /// </summary>
-    public class NewResourceGroupDeploymentProcessor : ResourcesProcessorBase<DeploymentExtended>
+    public class NewResourceGroupDeploymentProcessor : ResourcesProcessorBase<Deployment, DeploymentExtended>
     {
         private const string ApiVersion = "2025-04-01";
+
+        public string SubscriptionId { get; set; } = string.Empty;
 
         public string ResourceGroupName { get; set; } = string.Empty;
 
@@ -35,28 +37,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
         // Always waits for the deployment to reach a terminal provisioningState by polling
-        // (matches `az deployment group create`). SubscriptionId is resolved here so the
-        // deployment URI is built correctly.
-        internal override Task<HttpResponseMessage> SendAsync()
-        {
-            ResolveSubscriptionId();
-            return SendAsyncLRO();
-        }
+        // (matches `az deployment group create`).
+        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        protected override HttpMethod Method => HttpMethod.Put;
 
-            Deployment body = new Deployment { Properties = Properties };
+        protected override string CreateRequestUri() =>
+            $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}?api-version={ApiVersion}";
 
-            string uri = $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}?api-version={ApiVersion}";
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
-            {
-                Content = JsonContent.Create(body, options: JsonOptions)
-            };
-
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
+        protected override Deployment? CreateRequestBody() => new Deployment { Properties = Properties };
     }
 }

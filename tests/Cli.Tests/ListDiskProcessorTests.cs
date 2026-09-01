@@ -57,7 +57,7 @@ public class ListDiskProcessorTests
         await processor.ProcessAsync();
 
         Assert.Equal(1, pipeline.SendCount);
-        var disks = Assert.IsType<Disk[]>(Assert.Single(output.WrittenValues));
+        var disks = Assert.IsType<List<Disk>>(Assert.Single(output.WrittenValues));
         Assert.Equal(new[] { "disk1", "disk2" }, disks.Select(d => d.Name));
     }
 
@@ -70,29 +70,7 @@ public class ListDiskProcessorTests
 
         await processor.ProcessAsync();
 
-        var disks = Assert.IsType<Disk[]>(Assert.Single(output.WrittenValues));
+        var disks = Assert.IsType<List<Disk>>(Assert.Single(output.WrittenValues));
         Assert.Empty(disks);
-    }
-
-    [Fact]
-    public async Task ProcessAsync_DoesNotFollowNextLink_ReturnsFirstPageOnly()
-    {
-        // Pagination is intentionally not implemented yet: a nextLink is ignored and only the
-        // first page's items are returned.
-        const string page1 = """
-            {
-              "value": [ { "name": "disk1", "location": "eastus" } ],
-              "nextLink": "https://management.azure.com/next?%24skiptoken=page2"
-            }
-            """;
-        var pipeline = new FakeHttpPipeline((_, _) => Json(page1));
-        var output = new FakeOutputHandler();
-        var processor = CreateProcessor(pipeline, output);
-
-        await processor.ProcessAsync();
-
-        Assert.Equal(1, pipeline.SendCount);
-        var disks = Assert.IsType<Disk[]>(Assert.Single(output.WrittenValues));
-        Assert.Equal(new[] { "disk1" }, disks.Select(d => d.Name));
     }
 }

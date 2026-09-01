@@ -155,6 +155,12 @@ namespace Core.Engine
                 loggingService.Error(evt.Message);
             });
 
+            subscriber.Subscribe(Events.PaginationNextPage, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Info(evt.Message);
+            });
+
             return subscriber;
         }
 

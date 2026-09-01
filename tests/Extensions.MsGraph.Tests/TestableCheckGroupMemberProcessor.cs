@@ -24,9 +24,6 @@ internal sealed class TestableCheckGroupMemberProcessor : CheckGroupMemberProces
 
     public Task<HttpRequestMessage> BuildRequestAsync() => CreateRequestMessage();
 
-    public bool ProjectOutput(CheckMemberGroupsResponse body) =>
-        (bool)SelectOutput(body);
-
     public TestableCheckGroupMemberProcessor WithPublisher(Core.Abstractions.Runtime.IEventPublisher publisher)
     {
         Publisher = publisher;

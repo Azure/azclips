@@ -16,7 +16,7 @@ public class NewVMCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = true)]
@@ -97,7 +97,6 @@ public class NewVMCmdlet : PSCmdlet
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
-            { "SubscriptionId", SubscriptionId },
             { "Name", Name },
             { "Location", Location },
             { "ResourceGroupName", ResourceGroupName },
@@ -108,6 +107,7 @@ public class NewVMCmdlet : PSCmdlet
             { "VirtualNetworkName", VirtualNetworkName },
             { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }

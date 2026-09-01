@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 New-AzVM `
-    -SubscriptionId 0c302431-1ad0-4187-87c9-d4cebcf7edc2 `
+    -SubscriptionId f758ac53-3e63-4317-a956-0997793808d7 `
     -ResourceGroupName yabo-test-group-1 `
     -Name yabo-test-vm-1 `
     -Location eastus `
@@ -27,17 +27,17 @@ New-AzVM `
     -debug
 
 Get-AzVM `
-    -SubscriptionId 0c302431-1ad0-4187-87c9-d4cebcf7edc2 `
+    -SubscriptionId f758ac53-3e63-4317-a956-0997793808d7 `
     -ResourceGroupName yabo-test-group-1 `
     -Name yabo-test-vm-1
 
 Remove-AzVM `
-    -SubscriptionId 0c302431-1ad0-4187-87c9-d4cebcf7edc2 `
+    -SubscriptionId f758ac53-3e63-4317-a956-0997793808d7 `
     -ResourceGroupName yabo-test-group-1 `
     -Name yabo-test-vm-1 `
     -Force
 
 Get-AzVM `
-    -SubscriptionId 0c302431-1ad0-4187-87c9-d4cebcf7edc2 `
+    -SubscriptionId f758ac53-3e63-4317-a956-0997793808d7 `
     -ResourceGroupName yabo-test-group-1 `
     -Name yabo-test-vm-1

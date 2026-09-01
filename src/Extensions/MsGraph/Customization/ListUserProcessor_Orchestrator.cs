@@ -13,7 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// <c>AppendSelected</c> switch that merges the caller's <c>Select</c> with a default user
     /// property set. The atomic itself accepts only native OData query params.
     /// </summary>
-    public class ListUserProcessor_Orchestrator : GraphProcessorBase<UserList>
+    public class ListUserProcessor_Orchestrator : GraphProcessorBase<object, UserList>
     {
         [ArgumentInfo(
             Required = false,
@@ -83,8 +83,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
-
             string? displayNameClause = string.IsNullOrWhiteSpace(DisplayName)
                 ? null
                 : $"displayName eq '{SelectClauseHelpers.EscapeODataString(DisplayName)}'";
@@ -114,7 +112,5 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             });
             return await atomic.SendAsync();
         }
-
-        protected override object SelectOutput(UserList body) => body.Value ?? [];
     }
 }

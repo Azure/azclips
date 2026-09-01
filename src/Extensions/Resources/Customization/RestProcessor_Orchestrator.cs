@@ -17,7 +17,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// method/uri/payload/headers, sends it through the already-authenticated pipeline, and surfaces
     /// the raw status code, headers, and body as an untyped <see cref="Models.RestResponse"/>. This is
     /// a handwritten customization (it overrides <see cref="ProcessAsync"/> with bespoke logic rather
-    /// than being a generated atomic API operation), so it lives under <c>Orchestrators/</c>.
+    /// than being a generated atomic API operation), so it lives under <c>Customization/</c>.
     /// <para>
     /// Unlike the typed Resources base, this processor is a standalone <see cref="IProcessor"/> that
     /// does NOT deserialize the response into a fixed model. Its transport primitive
@@ -118,7 +118,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public async Task ProcessAsync()
         {
-            EnsureRuntimeContext();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             try
             {
@@ -154,7 +153,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// </summary>
         internal async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request)
         {
-            EnsureRuntimeContext();
             HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
             await Publisher.Publish(Events.TracingHttpResponseMessage, response);
             return response;
@@ -192,31 +190,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             return [value.ToString() ?? string.Empty];
-        }
-
-        /// <summary>
-        /// Verifies the processor was initialized with the runtime context required to issue requests
-        /// and publish events. Throws a deterministic <see cref="InvalidOperationException"/> (rather
-        /// than letting a later access throw <see cref="NullReferenceException"/>) when it was not.
-        /// </summary>
-        private protected void EnsureRuntimeContext()
-        {
-            if (HttpPipeline is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-            }
-            if (Publisher is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-            }
-            if (WriteOutput is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(WriteOutput)}.");
-            }
-            if (JsonOptions is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(JsonOptions)}.");
-            }
         }
 
         private async Task<HttpRequestMessage> CreateRequestMessage()
@@ -302,11 +275,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// </summary>
         private bool HasByParametersInput()
         {
-            return !string.IsNullOrWhiteSpace(SubscriptionId)
-                || !string.IsNullOrWhiteSpace(ResourceGroupName)
+            return !string.IsNullOrWhiteSpace(ResourceGroupName)
                 || !string.IsNullOrWhiteSpace(ResourceProviderName)
                 || ResourceType.Count > 0
                 || Name.Count > 0
+                // Yabo: comment this line out because
+                // 1. susbscription now applied from profile by default
+                // 2. will implement real parameter set in argument parsing service in the future
+                // || !string.IsNullOrWhiteSpace(SubscriptionId)
                 || !string.IsNullOrWhiteSpace(ApiVersion);
         }
 

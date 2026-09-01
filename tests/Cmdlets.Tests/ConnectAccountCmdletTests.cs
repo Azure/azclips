@@ -1,9 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.ComponentModel;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
+using Core.Runtime;
 using Microsoft.Azure.Azclips.Cmdlets.Login;
 using Microsoft.Azure.Azclips.Extensions.Login;
 using Microsoft.Azure.Azclips.Extensions.Login.Processors;
@@ -18,7 +20,7 @@ public class ConnectAccountCmdletTests
     public void PSBinding_ShouldMapManagedIdentityArgsOntoLoginProcessor()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider());
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
         var processor = new LoginProcessor();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -28,7 +30,7 @@ public class ConnectAccountCmdletTests
             ["SubscriptionId"] = "sub-1",
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases);
+        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile());
 
         Assert.True(processor.Identity);
         Assert.Equal("11111111-1111-1111-1111-111111111111", processor.ClientId);
@@ -41,7 +43,7 @@ public class ConnectAccountCmdletTests
     public void PSBinding_ShouldMapUserAssignedSelectors(string key, string value)
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider());
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
         var processor = new LoginProcessor();
 
         var args = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
@@ -50,7 +52,7 @@ public class ConnectAccountCmdletTests
             [key] = value,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases);
+        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile(){SubscriptionId = "sub-1"});
 
         var actual = (string?)typeof(LoginProcessor).GetProperty(key)!.GetValue(processor);
         Assert.Equal(value, actual);

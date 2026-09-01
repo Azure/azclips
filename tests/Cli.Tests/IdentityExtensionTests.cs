@@ -49,7 +49,7 @@ public class IdentityExtensionTests
         var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
         var processor = (CreateIdentityProcessor_Orchestrator)metadata.GetInstance();
         var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging));
+        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService()));
 
         binder.BindArgumentsToProcessor(
             processor,
@@ -60,7 +60,8 @@ public class IdentityExtensionTests
                 ["location"] = new List<List<string>> { new() { "eastus" } },
             },
             metadata.Parameters,
-            metadata.ParameterAliases);
+            metadata.ParameterAliases,
+            new Profile(){SubscriptionId = "sub-1"});
 
         Assert.Equal("rg1", processor.ResourceGroup);
         Assert.Equal("id1", processor.ResourceName);

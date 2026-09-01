@@ -153,6 +153,8 @@ public class ArmCacheRefresherTests
         public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) => Task.FromResult<string?>(null);
         public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) => Task.FromResult<Profile?>(null);
         public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
+        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
+        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
     }
 
     private sealed class SignedInProfile : IProfileService
@@ -170,6 +172,8 @@ public class ArmCacheRefresherTests
         public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) => Task.FromResult<string?>(_profile.Name);
         public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) => Task.FromResult<Profile?>(_profile);
         public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
+        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
+        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
     }
 
     private sealed class SequenceHandler : HttpMessageHandler

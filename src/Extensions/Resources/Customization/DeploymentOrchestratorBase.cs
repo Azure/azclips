@@ -17,7 +17,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// that logic. Command-specific options (rollback for create, result-format for what-if) and
     /// the request dispatch live in the derived orchestrators.
     /// </summary>
-    public abstract class DeploymentOrchestratorBase<TResponse> : ResourcesProcessorBase<TResponse> where TResponse : class
+    public abstract class DeploymentOrchestratorBase<TRequest, TResponse> : ResourcesProcessorBase<TRequest, TResponse>
+        where TRequest : class
+        where TResponse : class
     {
         protected static readonly Regex DeploymentNamePattern = new("^[-\\w\\._\\(\\)]+$", RegexOptions.Compiled);
 

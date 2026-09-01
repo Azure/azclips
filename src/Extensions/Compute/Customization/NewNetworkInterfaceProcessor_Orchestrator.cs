@@ -6,8 +6,9 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
-public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<NetworkInterface>
+public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<NetworkInterface, NetworkInterface>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
@@ -30,6 +31,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     {
          NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
+            p.SubscriptionId = SubscriptionId;
             p.Name = VirtualNetworkName;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
@@ -40,6 +42,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
         NewNetworkSecurityGroupProcessor nsgProcessor = CreateExtendedProcessor<NewNetworkSecurityGroupProcessor>(p =>
         {
+            p.SubscriptionId = SubscriptionId;
             p.Name = NetworkSecurityGroupName;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
@@ -63,6 +66,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
 
         NewNetworkInterfaceProcessor nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor>(p =>
         {
+            p.SubscriptionId = SubscriptionId;
             p.Name = Name;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;

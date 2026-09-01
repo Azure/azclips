@@ -7,17 +7,14 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
-public class GetVMProcessor : ComputeProcessorBase<VirtualMachine>
+public class GetVMProcessor : ComputeProcessorBase<object, VirtualMachine>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
 
-    protected override async Task<HttpRequestMessage> CreateRequestMessage()
-    {
-        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-        return request;
-    }
+    protected override HttpMethod Method => HttpMethod.Get;
+
+    protected override string CreateRequestUri() =>
+        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
 }

@@ -107,9 +107,9 @@
 * Create processors for APIs, see [develop processors](#develop-processors)
 
 ## Orchestrators with Multi-API
-* Create `Azclips/src/Extensions/{ExtensionName}/Orchestrators/(APIName)Processor_Orchestrator.cs`
+* Create `Azclips/src/Extensions/{ExtensionName}/Customization/(APIName)Processor_Orchestrator.cs`
 * Generic type is the model class of the final API
-* Recurse [Multi-API Orchestrator](#orchestrators-with-multi-api) for required orchestrators if needed `Azclips/src/Extensions/{ExtensionName}/Orchestrators/(RequiredOrchestratorName)Processor_Orchestrator.cs`, for example nic creation is multi-API orchestrator
+* Recurse [Multi-API Orchestrator](#orchestrators-with-multi-api) for required orchestrators if needed `Azclips/src/Extensions/{ExtensionName}/Customization/(RequiredOrchestratorName)Processor_Orchestrator.cs`, for example nic creation is multi-API orchestrator
 * Ask LLM to compose public properties, should be union of all APIs (processors) in this orchestrator
 * Override [SendAsync()](#sendasync)
     * Use `CreateExtendedProcessor<T>` to create orchestrated processors
@@ -120,7 +120,7 @@
     * You can ask LLM to do it but I suggest try with bare hands.
 
 ## Orchestrators with no API calls
-* Create `Azclips/src/Extensions/{ExtensionName}/Orchestrators/(ArbitraryName)Processor_Orchestrator.cs`
+* Create `Azclips/src/Extensions/{ExtensionName}/Customization/(ArbitraryName)Processor_Orchestrator.cs`
 * Generic type is `object`
 * Arbitrarily compose public properties
 * Override [ProcessAsync()](#processasync), orchestrate arbitrarily
@@ -131,7 +131,7 @@
 ## Orchestrators with computation
 * Imagine API `A` requires property `P`, value of `P` can only be retrieved at runtime from DB by string `k`
 * Let's define a computation `P = Func(K)`
-* Create `Azclips/src/Extensions/{ExtensionName}/Orchestrators/(A)Processor_Orchestrator.cs`
+* Create `Azclips/src/Extensions/{ExtensionName}/Customization/(A)Processor_Orchestrator.cs`
 * Generic type is the model class of `A`
 * Copy entire content from processor A to orchestrator A
 * replace public property `P` with `K`
@@ -164,3 +164,47 @@ Persist manual verification scripts in
 * `Azclips/tests/Scripts/CLI`
 * `Azclips/tests/Scripts/PS`
 * No need to guarantee the script files runnable, guarantee content of scripts are runnable
+
+# TODO
+1. **Update the [Processors](#processors) and [Orchestrators](#orchestrators) sections for the new request-construction seams.**
+    * **Why:** `ComputeProcessorBase` no longer expects child processors to override `CreateRequestMessage()`. That method is now a sealed-in-practice template on the base that owns event publishing (`ProcessorBeforeHttpRequestCreate` / `ProcessorAfterHttpRequestCreate`) and JSON body serialization. It was split into three smaller override seams so developers don't re-wire the event publisher for every processor:
+        * `protected virtual HttpMethod Method` — the HTTP verb. **No default** (throws `NotImplementedException`); every processor must override it (e.g. `=> HttpMethod.Get` / `HttpMethod.Put` / `HttpMethod.Delete`).
+        * `protected virtual string CreateRequestUri()` — builds the request URI. **No default** (throws); override in every processor.
+        * `protected virtual object? CreateRequestBody()` — builds the request body object, serialized by the base with `JsonOptions` using the object's runtime type. **Defaults to `null`** (no content); override only for PUT/PATCH/POST create/update operations.
+    * **What to change in this doc:**
+        * In [Develop Processors](#develop-processors), replace guidance that says "implement `CreateRequestMessage()`" with the three seams above. Show a GET example (override `Method` + `CreateRequestUri`) and a PUT example (override `Method` + `CreateRequestUri` + `CreateRequestBody`). Note that `CreateRequestBody` must return the model instance directly — do **not** build an `HttpRequestMessage` or set `HttpContent` by hand.
+        * In [Orchestrators with computation](#orchestrators-with-computation), the "assign `P = Func(k)` in `CreateRequestMessage()`" step should point at `CreateRequestUri()` / `CreateRequestBody()` instead (whichever consumes `P`).
+        * In [Miscellaneous](#miscellaneous), keep `CreateRequestMessage()` listed as the full-control escape hatch: overriding it directly is still supported and bypasses the three seams (and the event wiring), so existing/handwritten processors that override `CreateRequestMessage()` are unaffected.
+    * **Reference implementation:** `src/Extensions/Compute/Processors` — `GetVMProcessor` (GET), `DeleteVMProcessor` (DELETE), `NewVMProcessor` (PUT with body). All Compute processors were migrated to the new seams; use them as the canonical pattern.
+    * **Scope note:** only Compute's `ComputeProcessorBase` was refactored. Other extensions (MsGraph, Resources, Login) still use their own `CreateRequestMessage()`-based bases; update those bases and their docs separately if/when this pattern is adopted repo-wide.
+2. **Update the [Processors](#processors) section for the new `ProcessAsync()` lifecycle seams.**
+    * **Why:** `ComputeProcessorBase<TRequest, TResponse>.ProcessAsync()` is still the base-owned pipeline (publish start → `SendAsync()` → read/deserialize body → write output → publish end, all inside one `try/finally` that publishes `ProcessorProcessAsyncEnd` exactly once). It was split to add two override seams so developers can inject cross-cutting behavior and control output writing without re-implementing the whole pipeline or re-wiring events:
+        * `protected virtual Task BeforeProcessAsync()` — runs first, before the `ProcessorProcessAsyncStart` event (inside the `try`, so its exceptions still publish end). Two tiers behind it:
+            * `partial void OverrideBeforeProcessAsyncBase()` — **base-wide** injection point. It is a classic (erasable) partial method, so it must be `void`/synchronous and needs no body until you want one; implement it once in a companion `partial` file of `ComputeProcessorBase<TRequest, TResponse>` to apply logic to **every** processor. (Non-void `partial Task` is not allowed to be unimplemented, hence the sync signature.)
+            * `BeforeProcessAsync()` itself is `virtual` — the **per-processor** override point. Overriding it replaces the default; call `base.BeforeProcessAsync()` if you want the base-wide injection to still run. This "drop base by not calling it / keep base by calling it" is by design.
+        * `protected virtual Task BeforeWriteOutputAsync(TResponse? body, ref bool returnNow)` — runs after deserialization, immediately before the default write. `body` may be `null` (no content / empty body / null deserialize). Set `returnNow = true` to **omit** the default write; to **customize** output, call the inherited `WriteOutput(...)` yourself and set `returnNow = true`. Default is a no-op, so the base writes `SelectOutput(body)` when `body` is non-null.
+    * **Preserved pipeline contracts (do not regress):** empty/whitespace body publishes `ResponseEmptyBody` and skips deserialization; invalid JSON publishes `ResponseInvalidJson` then throws `InvalidOperationException`; `ProcessorProcessAsyncEnd` fires once on every path (including early/no-content and error paths).
+    * **What to change in this doc:** in [Develop Processors](#develop-processors) / [Miscellaneous](#miscellaneous), document these two hooks alongside `SelectOutput()` (which still answers "*what* to write"), and make clear the base-wide (`partial`) vs per-processor (`virtual`) distinction. Overriding `ProcessAsync()` wholesale remains the full-control escape hatch and bypasses both hooks.
+    * **Reference implementation:** `src/Extensions/Compute/Processors/ComputeProcessorBase.cs` (`ProcessAsync`, `BeforeProcessAsync`, `OverrideBeforeProcessAsyncBase`, `BeforeWriteOutputAsync`). No Compute processor overrides these yet — they are dormant no-op defaults, so existing processors are unaffected.
+    * **Scope note:** Compute-only, same as item 1.
+3. **Add a `CreateRequestHeaders(HttpRequestMessage)` seam to the request-construction template.**
+    * **Why:** the item-1 seams (`Method` / `CreateRequestUri` / `CreateRequestBody`) cannot express **custom request headers**, which some processors need (e.g. Microsoft Graph advanced queries set the `ConsistencyLevel` header — see `src/Extensions/MsGraph/Processors/ListUserProcessor.cs` and the test `ListUserProcessorTests.CreateRequestMessage_ConsistencyLevel_ShouldBeHeaderNotQuery`). Without a header seam, such processors are forced back onto the full `CreateRequestMessage()` escape hatch, defeating the split.
+    * **Shape:**
+        * `protected virtual void CreateRequestHeaders(HttpRequestMessage request) { }` — no-op default; override to mutate the request (`request.Headers.Add(...)`, `request.SetConsistencyLevel(...)`). Void + mutate (the request is mutable); synchronous (header values are bound properties/constants — auth tokens remain the pipeline's concern). Lives on the non-generic base next to `Method`/`CreateRequestUri`/`CreateRequestBody`.
+        * The base `CreateRequestMessage()` template calls it after the body is attached and before the `ProcessorAfterHttpRequestCreate` event:
+            ```csharp
+            var request = new HttpRequestMessage(Method, CreateRequestUri());
+            if (CreateRequestBody() is { } body) request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
+            CreateRequestHeaders(request);
+            ```
+    * **What to change in this doc:** in [Develop Processors](#develop-processors), list `CreateRequestHeaders` as the fourth request seam (override only when the operation needs headers beyond what the pipeline adds).
+    * **Scope note:** add wherever the request-construction template is adopted (Compute today; MsGraph/Resources as they migrate).
+4. **Split the processor base generic into `Base<TRequest, TResponse>` (request and response are independent schemas).**
+    * **Why:** the current single-generic base (`Base<TResponse>`) with `CreateRequestBody()` returning `object?` bakes in the assumption that the request body shares the response schema. That is only coincidentally true (e.g. VM PUT) and wrong in general (POST actions, LRO). The request body should be a first-class typed schema, symmetric to the response.
+    * **Shape:**
+        * The base is two-arity: `Base<TRequest, TResponse>`, where the two-arity generic covariantly overrides the non-generic template's `object? CreateRequestBody()` with a typed `protected override TRequest? CreateRequestBody() => default;` (no body → `null`). Write processors override it to return their `TRequest` model.
+        * `object` is the "no schema" marker on **both** sides, exactly as `object` already means "no response schema" for deletes. So a read is `Base<object, TResponse>` and a delete is `Base<object, object>`.
+        * **No 1-arity shim.** Every processor and orchestrator spells out both type arguments explicitly. Carrying the request/response types is a codegen concern — the generated schema names both naturally — so the extension layer must not paper over it with a convenience base.
+    * **Note on anonymous bodies:** processors that currently post anonymous objects (e.g. `new { groupIds = … }`) get real, named request schemas from codegen; naming them is codegen's concern, not the base's. Until then they can stay on `object`/the escape hatch.
+    * **Contract impact:** the two-arity base changes the class-declaration line of every subclass — reads become `<object, TResponse>`, deletes `<object, object>`, create processors/orchestrators `<Model, TResponse>`. Update every subclass (including orchestrators and tests) and verify they compile and behave.
+    * **Status:** implemented in Compute (base, all processors, orchestrators, and the subscription-resolution test). Apply the same to MsGraph/Resources during their migration.

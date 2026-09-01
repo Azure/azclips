@@ -16,7 +16,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// The atomic <see cref="GetGroupProcessor"/> stays a pure projection of
     /// <c>GET /groups/{id}</c> and knows nothing about resolution or default merging.
     /// </summary>
-    public class GetGroupProcessor_Orchestrator : GraphProcessorBase<Group>
+    public class GetGroupProcessor_Orchestrator : GraphProcessorBase<object, Group>
     {
         [ArgumentInfo(
             Required = true,
@@ -44,7 +44,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
             if (string.IsNullOrWhiteSpace(Group))
             {
                 throw new InvalidOperationException("Group is required.");

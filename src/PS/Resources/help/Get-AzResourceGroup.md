@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
-HelpUri: ""
+HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 08/06/2026
+ms.date: 09/01/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzResourceGroup
 ---
@@ -20,13 +20,14 @@ Show details of a specific resource group.
 ### List (Default)
 
 ```
-Get-AzResourceGroup -SubscriptionId <string> [-Profile <string>] [<CommonParameters>]
+Get-AzResourceGroup [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzResourceGroup -SubscriptionId <string> -Name <string> [-Profile <string>] [<CommonParameters>]
+Get-AzResourceGroup -Name <string> [-SubscriptionId <string>] [-Profile <string>]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -62,19 +63,19 @@ The name of the resource group.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: Get
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: Get
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -Profile
@@ -83,46 +84,46 @@ Name of a saved profile to use for this call instead of the currently-active one
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: Get
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
-    - Name: List
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: Get
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### CommonParameters
@@ -145,5 +146,6 @@ One `ResourceGroup` object per matching group — a single result when `-Name` i
 Generated help for resources.
 
 ## RELATED LINKS
+
 
 - [Online Version]()
