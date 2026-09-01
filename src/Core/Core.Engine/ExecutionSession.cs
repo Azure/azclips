@@ -21,11 +21,13 @@ internal class ExecutionSession : ISession
     internal Channel<object> OutputChannel = null!;
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
-    internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, IProcessor> BindProcessor { get; set; } = null!;
-    internal Func<ExecutionSession, string?, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
+    internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, Profile?, IProcessor> BindProcessor { get; set; } = null!;
+    internal Func<ExecutionSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
+    internal Func<string?, Task<Profile?>> ResolveProfileAsync { get; set; } = null!;
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
+    internal Profile? Profile { get; set; } = null!;
 
     public string Id { get; }
     public IEventBus EventBus { get; private set; }
@@ -223,14 +225,15 @@ internal class ExecutionSession : ISession
         // the context (which carries the resolved Profile?) is injected via Init() ahead of the
         // command-specific argument binding below.
         string? profileName = ExtractGlobalProfileParameter(commandMetadata);
+        Profile = await ResolveProfileAsync(profileName);
 
         // Create context with channel-based output handler
-        ProcessorContext processorContext = await CreateProcessorContext(this, profileName);
+        ProcessorContext processorContext = await CreateProcessorContext(this);
 
         IProcessor processor = commandMetadata.GetInstance().Init(processorContext);
         try
         {
-            processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
+            processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases, Profile);
         }
         catch (Exception ex)
         {

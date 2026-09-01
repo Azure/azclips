@@ -5,9 +5,9 @@ using Core.Abstractions;
 
 namespace Core.ArgumentParsing
 {
-    public class ArgumentParsingService(IArgumentParsingProvider provider) : IArgumentParsingService
+    public class ArgumentParsingService(IArgumentParsingProvider provider, IProfileService profileService) : IArgumentParsingService
     {
-        public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+        public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Profile? profile)
         {
             IDictionary<string, object> parsedArgs = provider.ParseArguments(args, parameters, parameterAliases);
             IList<string>? validationErrors = provider.ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
@@ -15,6 +15,15 @@ namespace Core.ArgumentParsing
             {
                 throw new ArgumentException($"Invalid arguments: {string.Join(", ", validationErrors)}");
             }
+
+            profileService.GetProfileKeysForDefault().ForEach(key =>
+            {
+                if ((!parsedArgs.ContainsKey(key) || parsedArgs[key] is null) && profileService.GetProfileValueByKey(profile, key) is {} value )
+                {
+                    parsedArgs[key] = value;
+                }
+            });
+
             parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value));
             return processor;
         }
