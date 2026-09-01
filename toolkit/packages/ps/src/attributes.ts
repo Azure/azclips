@@ -248,19 +248,60 @@ export const PSCommandAttributeSchema: z.ZodType<PSCommandAttribute> = z
 
 // ─── PSModuleAttribute (mirrors the generated .psd1's module-level facts) ─
 
+/** One property of the module identity. */
+export type PSIdentityPropertyAttribute = {
+  name: string;
+  helpMessage?: string | undefined;
+  /** The path parameters this property stands for; empty for the synthesized ARM resource id. */
+  sourceParameterIds: IRId[];
+};
+
+export const PSIdentityPropertyAttributeSchema: z.ZodType<PSIdentityPropertyAttribute> = z
+  .object({
+    name: z.string().min(1),
+    helpMessage: z.string().min(1).optional(),
+    sourceParameterIds: z.array(IRIdSchema),
+  })
+  .strict();
+
+/**
+ * The object an `identity` parameter binds. Synthesized rather than taken from the spec: one per
+ * module, holding every path parameter any of its operations declares, all optional -- so a volume
+ * and its parent share a type and each leaves the properties it doesn't use null. Mirrors
+ * `tweakModelV2`, which builds it before naming and directives so both can still reach it.
+ */
+export type PSIdentityAttribute = {
+  /** Type name without a language-specific prefix, e.g. "ElasticSanIdentity". */
+  name: string;
+  properties: PSIdentityPropertyAttribute[];
+};
+
+export const PSIdentityAttributeSchema: z.ZodType<PSIdentityAttribute> = z
+  .object({
+    name: z.string().min(1),
+    properties: z.array(PSIdentityPropertyAttributeSchema),
+  })
+  .strict();
+
 export type PSModuleAttribute = {
+  /** Module name, e.g. "ElasticSan" -- names the `.psd1` and the identity type. */
+  name: string;
   description?: string | undefined;
   /** IR source id this module derives from (`IRSource.id`, e.g. "Microsoft.Storage" — a plain string, not an `IRId`). */
   sourceId: string;
   /** `${verb}-${noun}` for every command grouped under this source; mirrors `.psd1`'s `CmdletsToExport`. */
   cmdletsToExport: string[];
+  /** Absent when no operation in the module declares a path parameter, so nothing can be identified. */
+  identity?: PSIdentityAttribute | undefined;
 };
 
 export const PSModuleAttributeSchema: z.ZodType<PSModuleAttribute> = z
   .object({
+    name: z.string().min(1),
     description: z.string().min(1).optional(),
     sourceId: z.string().min(1),
     cmdletsToExport: z.array(z.string().min(1)),
+    identity: PSIdentityAttributeSchema.optional(),
   })
   .strict();
 
