@@ -61,8 +61,8 @@ public class Program
 
         // Benchmarks write telemetry to a stable staging path because their child processes cannot
         // know artifactsPath. Clear it first so post-run collection can only pick up this run.
-        var telemetryStagingRoot = BenchmarkTelemetryPaths.StagingRoot(RepoLocator.GetRepoRoot());
-        TryDeleteDirectory(telemetryStagingRoot);
+        var telemetryStagingRoot = BenchmarkTelemetryArtifacts.StagingRoot(RepoLocator.GetRepoRoot());
+        DirectoryUtils.TryDeleteDirectory(telemetryStagingRoot);
 
         var config = ManualConfig.CreateEmpty()
             .AddColumnProvider(DefaultColumnProviders.Instance)
@@ -314,25 +314,12 @@ public class Program
             }
 
             Console.WriteLine($"[Telemetry] Collected {files.Length} file(s) into {destination}");
-            TryDeleteDirectory(stagingRoot);
+            DirectoryUtils.TryDeleteDirectory(stagingRoot);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[Telemetry] Collection failed, benchmarks unaffected: {ex.Message}");
         }
-    }
-
-    private static void TryDeleteDirectory(string path)
-    {
-        try
-        {
-            if (Directory.Exists(path))
-            {
-                Directory.Delete(path, recursive: true);
-            }
-        }
-        catch (IOException) { /* best-effort */ }
-        catch (UnauthorizedAccessException) { /* best-effort */ }
     }
 
     private static string? ParseProductFilter(string[] args)

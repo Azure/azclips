@@ -19,8 +19,11 @@ public sealed class RecordingSanitizers
         [
             // subscription and tenant ids in URIs, bodies, and AAD authority URLs
             new RegexSanitizer("subscription-id", $"(?<=/subscriptions/){GuidPattern}", PlaceholderGuid),
-            new RegexSanitizer("tenant-id", $"(?<=/tenants/){GuidPattern}", PlaceholderGuid),
+            new RegexSanitizer("tenant-path-id", $"(?<=/tenants/){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("authority-tenant-id", $"(?<=login\\.microsoftonline\\.com/){GuidPattern}", PlaceholderGuid),
+            new RegexSanitizer("tenant-id", $"(?<=\"tenantId\"\\s*:\\s*\"){GuidPattern}", PlaceholderGuid),
+            new RegexSanitizer("principal-id", $"(?<=\"principalId\"\\s*:\\s*\"){GuidPattern}", PlaceholderGuid),
+            new RegexSanitizer("client-id", $"(?<=\"clientId\"\\s*:\\s*\"){GuidPattern}", PlaceholderGuid),
             new RegexSanitizer("bearer-token", "Bearer\\s+[^\\s\"']+", "Bearer [redacted]"),
             // vm create carries the admin password in the request body
             new RegexSanitizer("password", @"(""(?:adminPassword|password)""\s*:\s*"")[^""]+", "$1[redacted]"),

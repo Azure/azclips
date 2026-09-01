@@ -41,11 +41,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     private IReadOnlyList<string> RequiredExtensions => new[] { ExtensionName };
 
     private string _extensionsRoot = null!;
-    private BenchmarkStageListener _stage = null!;
     private StageTraceDirectoryProvider _traceDirectory = null!;
-    private string _stagingRoot = null!;    // artifacts/BenchmarkTelemetry
-    private string _telemetryRoot = null!;  // <_stagingRoot>/<benchmark>
-    private string _benchmarkName = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -55,7 +51,7 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         // Benchmark-scoped extensions home: a copy of the real ~/.azclips/extensions layout that the
         // resolver, reconciler, and InstalledExtensionLoader all agree on.
         _extensionsRoot = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "extensions");
-        TryDeleteDirectory(_extensionsRoot);
+        DirectoryUtils.TryDeleteDirectory(_extensionsRoot);
         Directory.CreateDirectory(_extensionsRoot);
 
         // Fallback path for source build output.
@@ -77,19 +73,12 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         Console.WriteLine(
             $"[Setup] CLI benchmarks ready (stub HTTP, real MSAL cache IO); staged {stagedCount} extension(s)");
 
-        // One process per benchmark case, so these are constant for the whole run.
-        _benchmarkName = BenchmarkName.FromCommandLine();
-        _stagingRoot = BenchmarkTelemetryPaths.StagingRoot(RepoRoot);
-        _telemetryRoot = Path.Combine(_stagingRoot, _benchmarkName);
+        InitializeTelemetryCommon();
 
-        // The staging path is stable across runs; this is what stops them bleeding together.
-        TryDeleteDirectory(_telemetryRoot);
-
-        _stage = new BenchmarkStageListener();
         _traceDirectory = new StageTraceDirectoryProvider(
-            Path.Combine(_telemetryRoot, "warmup"),
-            Path.Combine(_telemetryRoot, "actual"),
-            _stage);
+            TelemetryArtifacts.WarmupDirectory,
+            TelemetryArtifacts.ActualDirectory,
+            Stage);
     }
 
     [IterationSetup]
@@ -128,46 +117,13 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
     [GlobalCleanup]
     public void GlobalCleanup()
     {
-        _stage?.Dispose();
-        PruneTelemetry();
+        CleanupTelemetryCommon();
         CleanupGlobal();
 
         // Best-effort: InstalledExtensionLoader caches the extension ALC for the process
         // lifetime, so the staged DLL may still be locked here. A leftover home is harmless.
-        TryDeleteDirectory(Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
-    }
-
-    /// <summary>
-    /// Samples the measured traces into the run's output file and removes the raw ones. Never
-    /// throws: a telemetry failure must not change the benchmark's exit code.
-    /// </summary>
-    private void PruneTelemetry()
-    {
-        try
-        {
-            var kept = TraceSampler.Prune(
-                Path.Combine(_telemetryRoot, "actual"),
-                Path.Combine(_stagingRoot, _benchmarkName + ".jsonl"));
-
-            if (kept == 0)
-            {
-                Console.WriteLine(
-                    $"[Telemetry] {_benchmarkName}: no traces captured. Either telemetry is " +
-                    "disabled in ~/.azclips/config.json, or no measured iteration ran.");
-            }
-            else
-            {
-                Console.WriteLine($"[Telemetry] {_benchmarkName}: kept {kept} sampled trace(s)");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Telemetry] {_benchmarkName}: prune failed ({ex.Message})");
-        }
-        finally
-        {
-            TryDeleteDirectory(_telemetryRoot);
-        }
+        DirectoryUtils.TryDeleteDirectory(
+            Path.Combine(RepoRoot, "artifacts", "Benchmark", "home"));
     }
 
     /// <summary>
@@ -226,16 +182,4 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
             $"No '{packageId}.*.nupkg' found in '{sourceBuildDir}'. Run `dotnet build azclips.slnx -c Release`.");
     }
 
-    private static void TryDeleteDirectory(string path)
-    {
-        try
-        {
-            if (Directory.Exists(path))
-            {
-                Directory.Delete(path, recursive: true);
-            }
-        }
-        catch (IOException) { /* best-effort */ }
-        catch (UnauthorizedAccessException) { /* best-effort */ }
-    }
 }

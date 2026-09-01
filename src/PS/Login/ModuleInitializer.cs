@@ -20,10 +20,12 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
+            AzclipsServiceProvider.PrependRegistration(services =>
+                services.AddSingleton<ITelemetrySender, DirectTelemetrySender>());
+
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
-                services.AddSingleton<ITelemetrySender, DirectTelemetrySender>();
                 services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
             });

@@ -24,6 +24,7 @@
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
     <Project Path="src/Extensions/Storage/Extensions.Storage.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
+    <Project Path="src/Extensions/Identity/Extensions.Identity.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
