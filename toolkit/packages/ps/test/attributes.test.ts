@@ -127,6 +127,16 @@ describe("PSParameterAttribute", () => {
     expect(PSParameterAttributeSchema.safeParse({ name: "Orphan" }).success).toBe(false);
   });
 
+  it("rejects a parameter that both names one set and spans several", () => {
+    const result = PSParameterAttributeSchema.safeParse({
+      name: "Name",
+      sourceParameterId: paramId,
+      parameterSetName: "Get",
+      parameterSets: { List: { mandatory: false } },
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects a parameter claiming both an IR source and identity binding", () => {
     const result = PSParameterAttributeSchema.safeParse({
       name: "InputObject",
@@ -166,7 +176,8 @@ describe("PSDefaultValueAttribute", () => {
 });
 
 describe("PSModuleAttribute", () => {
-  it("accepts a module description", () => {    const result = PSModuleAttributeSchema.safeParse({
+  it("accepts a module description", () => {
+    const result = PSModuleAttributeSchema.safeParse({
       name: "AzureFleet",
       description: "Fleet management cmdlets.",
       sourceId: "Microsoft.AzureFleet",

@@ -128,6 +128,15 @@ export const PSParameterAttributeSchema: z.ZodType<PSParameterAttribute> = z
           "A parameter must either carry `sourceParameterId` or be marked `identity`, not both and not neither.",
       });
     }
+
+    if (parameter.parameterSetName !== undefined && parameter.parameterSets !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parameterSetName"],
+        message:
+          "A parameter belongs to one set (`parameterSetName`) or spans several (`parameterSets`), not both.",
+      });
+    }
   });
 
 // ─── PSCommandAttribute (mirrors [Cmdlet] + ProcessorInfoAttribute) ──────
