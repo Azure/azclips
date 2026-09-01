@@ -280,7 +280,7 @@ HelpMessage: ""
 
 ### -SubscriptionId
 
-The Azure subscription ID that owns the target resource group. Defaults to the current account context when omitted.
+The Azure subscription ID that owns the target resource group. Defaults to the active profile's subscription when omitted.
 
 ```yaml
 Type: System.String

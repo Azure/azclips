@@ -23,6 +23,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         private const string ApiVersion = "2025-04-01";
 
+        public string SubscriptionId { get; set; } = string.Empty;
+
         public string ResourceGroupName { get; set; } = string.Empty;
 
         public string Name { get; set; } = string.Empty;
@@ -39,13 +41,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
         protected override bool FetchFinalState => false;
 
-        // What-if always waits for the LRO to complete (there is no -NoWait). SubscriptionId is
-        // resolved here so the what-if URI is built correctly.
-        internal override Task<HttpResponseMessage> SendAsync()
-        {
-            ResolveSubscriptionId();
-            return SendAsyncLRO();
-        }
+        // What-if always waits for the LRO to complete (there is no -NoWait).
+        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 
         protected override HttpMethod Method => HttpMethod.Post;
 

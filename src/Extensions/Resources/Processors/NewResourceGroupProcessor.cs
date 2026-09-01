@@ -10,6 +10,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     public class NewResourceGroupProcessor : ResourcesProcessorBase<ResourceGroup, ResourceGroup>
     {
+        public string SubscriptionId { get; set; } = string.Empty;
+
         [ArgumentInfo(
         Required = true,
         Description = @"The name of the resource group.",

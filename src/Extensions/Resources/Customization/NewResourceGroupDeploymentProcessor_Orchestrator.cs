@@ -22,6 +22,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// </summary>
     public class NewResourceGroupDeploymentProcessor_Orchestrator : DeploymentOrchestratorBase<Deployment, DeploymentExtended>
     {
+        public string SubscriptionId { get; set; } = string.Empty;
+
         public bool RollbackOnError { get; set; }
 
         public string? RollbackToDeploymentName { get; set; }
@@ -32,7 +34,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // create`); there is no no-wait branch.
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            ResolveSubscriptionId();
             ValidateInputs();
 
             DeploymentProperties properties = new DeploymentProperties

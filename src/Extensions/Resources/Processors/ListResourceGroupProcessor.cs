@@ -13,6 +13,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// </summary>
     public class ListResourceGroupProcessor : ResourcesProcessorBase<object, ResourceGroupListResult>
     {
+        public string SubscriptionId { get; set; } = string.Empty;
+
         protected override HttpMethod Method => HttpMethod.Get;
 
         protected override string CreateRequestUri() =>

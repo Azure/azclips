@@ -20,13 +20,13 @@ Show details of a specific resource group.
 ### List (Default)
 
 ```
-Get-AzResourceGroup -SubscriptionId <string> [-Profile <string>] [<CommonParameters>]
+Get-AzResourceGroup [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzResourceGroup -SubscriptionId <string> -Name <string> [-Profile <string>] [<CommonParameters>]
+Get-AzResourceGroup -Name <string> [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -100,7 +100,7 @@ HelpMessage: ""
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -110,13 +110,13 @@ Aliases: []
 ParameterSets:
     - Name: Get
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
     - Name: List
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false

@@ -140,7 +140,7 @@ HelpMessage: ""
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String

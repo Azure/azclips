@@ -21,6 +21,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         private const string ApiVersion = "2025-04-01";
 
+        public string SubscriptionId { get; set; } = string.Empty;
+
         public string ResourceGroupName { get; set; } = string.Empty;
 
         public string Name { get; set; } = string.Empty;
@@ -35,13 +37,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
         // Always waits for the deployment to reach a terminal provisioningState by polling
-        // (matches `az deployment group create`). SubscriptionId is resolved here so the
-        // deployment URI is built correctly.
-        internal override Task<HttpResponseMessage> SendAsync()
-        {
-            ResolveSubscriptionId();
-            return SendAsyncLRO();
-        }
+        // (matches `az deployment group create`).
+        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 
         protected override HttpMethod Method => HttpMethod.Put;
 

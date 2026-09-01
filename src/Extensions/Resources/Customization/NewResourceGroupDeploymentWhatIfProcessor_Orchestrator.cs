@@ -27,6 +27,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// </summary>
     public class NewResourceGroupDeploymentWhatIfProcessor_Orchestrator : DeploymentOrchestratorBase<DeploymentWhatIf, WhatIfOperationResult>
     {
+        public string SubscriptionId { get; set; } = string.Empty;
+
         public string? ResultFormat { get; set; }
 
         // Builds the what-if request body (after validating the inputs) and delegates the POST +
@@ -34,7 +36,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // What-if always waits for the LRO to complete; there is no no-wait branch.
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            ResolveSubscriptionId();
             ValidateInputs();
 
             DeploymentWhatIf body = new DeploymentWhatIf
