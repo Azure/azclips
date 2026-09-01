@@ -44,7 +44,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
             if (string.IsNullOrWhiteSpace(Group))
             {
                 throw new InvalidOperationException("Group is required.");

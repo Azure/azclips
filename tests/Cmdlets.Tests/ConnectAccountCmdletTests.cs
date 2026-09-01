@@ -52,7 +52,7 @@ public class ConnectAccountCmdletTests
             [key] = value,
         };
 
-        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile());
+        service.BindArgumentsToProcessor(processor, args, metadata.Parameters, metadata.ParameterAliases, new Profile(){SubscriptionId = "sub-1"});
 
         var actual = (string?)typeof(LoginProcessor).GetProperty(key)!.GetValue(processor);
         Assert.Equal(value, actual);

@@ -44,9 +44,5 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             $"https://graph.microsoft.com/v1.0/directoryObjects/{Uri.EscapeDataString(MemberId)}/checkMemberGroups";
 
         protected override CheckMemberGroupsRequest? CreateRequestBody() => new CheckMemberGroupsRequest { GroupIds = [GroupId] };
-
-        protected override object SelectOutput(CheckMemberGroupsResponse body) =>
-            body.Value is not null
-                && body.Value.Any(id => string.Equals(id, GroupId, StringComparison.OrdinalIgnoreCase));
     }
 }

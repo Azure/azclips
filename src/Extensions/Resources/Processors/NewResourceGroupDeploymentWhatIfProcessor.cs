@@ -39,7 +39,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // original POST /whatIf URI is POST-only, so the final GET is skipped (FetchFinalState=false)
         // and the last Location poll (the 200 carrying the result body) is returned and deserialized.
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
-        protected override bool FetchFinalState => false;
 
         // What-if always waits for the LRO to complete (there is no -NoWait).
         internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();

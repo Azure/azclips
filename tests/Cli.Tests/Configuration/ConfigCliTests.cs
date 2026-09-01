@@ -26,7 +26,7 @@ public class ConfigCliTests
     {
         var loggingService = new ConsoleLoggingService();
         var provider = new Core.Cli.CLIArgumentParsingProvider(new Core.Cli.PropertyParser(loggingService), loggingService);
-        var parser = new Core.ArgumentParsing.ArgumentParsingService(provider);
+        var parser = new Core.ArgumentParsing.ArgumentParsingService(provider, new ProfileService(new ScopedLoggingService()));
         var processor = new BoolFlagProcessor();
 
         parser.BindArgumentsToProcessor(
@@ -36,7 +36,8 @@ public class ConfigCliTests
             {
                 ["all"] = new("All", "all", typeof(bool), "Include defaults.", false, [], [])
             },
-            parameterAliases: null);
+            parameterAliases: null,
+            profile: null);
 
         Assert.True(processor.All);
     }

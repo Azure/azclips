@@ -33,7 +33,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
             string[]? mergedSelect = SelectClauseHelpers.MergeUserSelect(Select, AppendSelected);
             GetSignedInUserProcessor atomic = CreateExtendedProcessor<GetSignedInUserProcessor>(p =>
             {

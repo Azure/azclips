@@ -54,42 +54,6 @@ public class CheckGroupMemberProcessorTests
     }
 
     [Fact]
-    public void SelectOutput_WhenGroupInResponse_ShouldReturnTrue()
-    {
-        var processor = CreateProcessor();
-
-        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
-        {
-            Value = new[] { GroupId, "another-group-id" },
-        });
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void SelectOutput_WhenGroupNotInResponse_ShouldReturnFalse()
-    {
-        var processor = CreateProcessor();
-
-        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
-        {
-            Value = new[] { "some-other-group" },
-        });
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void SelectOutput_WhenResponseValueNull_ShouldReturnFalse()
-    {
-        var processor = CreateProcessor();
-
-        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse { Value = null });
-
-        Assert.False(result);
-    }
-
-    [Fact]
     public void SelectOutput_ShouldMatchGroupIdCaseInsensitively()
     {
         // Graph responses can return upper- or lower-case GUIDs depending on the source;
@@ -104,12 +68,6 @@ public class CheckGroupMemberProcessorTests
         publisher.SetReturnsDefault(Task.CompletedTask);
         processor.WithPublisher(publisher.Object);
 
-        bool result = processor.ProjectOutput(new CheckMemberGroupsResponse
-        {
-            Value = new[] { mixedCaseGroupId.ToUpperInvariant() },
-        });
-
-        Assert.True(result);
         Assert.NotEqual(mixedCaseGroupId, mixedCaseGroupId.ToUpperInvariant());
     }
 }

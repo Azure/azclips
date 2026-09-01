@@ -71,8 +71,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
-
             string? displayNameClause = string.IsNullOrWhiteSpace(DisplayName)
                 ? null
                 : $"displayName eq '{SelectClauseHelpers.EscapeODataString(DisplayName)}'";
@@ -96,7 +94,5 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             });
             return await atomic.SendAsync();
         }
-
-        protected override object SelectOutput(GroupList body) => body.Value ?? [];
     }
 }

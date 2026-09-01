@@ -11,15 +11,16 @@ using System.Text.Json;
 
 public static class Pagination
 {
-    public static async Task WriteOutputWithPaginationAsync<TBody, TItems>(this TBody? body, Func<TBody, TItems> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
+    public static async Task WriteOutputWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
     {
         HttpRequestMessage request = await getRequest();
         int page = 1;
+        List<TItem> batchedItems = new List<TItem>();
         try
         {
             while ( body is not null && pageItems(body) is {} items)
             {
-                await writeOutput(items);
+                batchedItems.AddRange(items);
                 if (nextLink(body) is not {} next || string.IsNullOrWhiteSpace(next))
                 {
                     break;
@@ -53,6 +54,7 @@ public static class Pagination
                     }
                 }
             }
+            await writeOutput(batchedItems);
         }
         finally
         {

@@ -64,7 +64,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
             string groupId = await ResolveGroupAsync();
 
             ListGroupMemberProcessor atomic = CreateExtendedProcessor<ListGroupMemberProcessor>(p =>
@@ -117,7 +116,5 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             });
             return await GroupResolver.PickSingleGroupIdAsync(list, JsonOptions, displayName);
         }
-
-        protected override object SelectOutput(DirectoryObjectList body) => body.Value ?? [];
     }
 }
