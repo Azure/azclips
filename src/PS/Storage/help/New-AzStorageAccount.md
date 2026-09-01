@@ -49,9 +49,6 @@ New-AzStorageAccount -ResourceGroupName <string> -AccountName <string> -Location
 
 ## ALIASES
 
-This cmdlet has the following aliases,
-This cmdlet has no aliases.
-
 ## DESCRIPTION
 
 Creates an Azure Storage account in the specified resource group.

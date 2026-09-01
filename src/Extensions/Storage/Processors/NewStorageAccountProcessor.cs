@@ -151,7 +151,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 SasExpirationPeriod, SasExpirationAction,
                 EnableAlw, ImmutabilityPeriodSinceCreationInDays,
                 ImmutabilityPolicyState, AllowProtectedAppendWrites,
-                DefaultAction, Subnet, VnetName,
+                DefaultAction, Subnet, VnetName, Action,
                 EnableFilesAadds, EnableFilesAadkerb, EnableFilesAdds,
                 DomainName, NetBiosDomainName, ForestName, DomainGuid, DomainSid,
                 AzureStorageSid, SamAccountName, AccountType,
@@ -322,11 +322,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
         // accepted here so they do not require a follow-up network-rule command.
         private NetworkRuleSet? BuildNetworkRuleSet()
         {
-            // VnetName only qualifies a subnet name, so on its own it would be dropped silently and
-            // still mark the properties bag as supplied, sending an otherwise empty object.
+            // VnetName and Action only qualify other network rules, so on their own they would be
+            // dropped silently while still marking the properties bag as supplied, which sends an
+            // otherwise empty object.
             if (!string.IsNullOrEmpty(VnetName) && string.IsNullOrEmpty(Subnet))
             {
                 throw new ArgumentException("VnetName can only be specified together with Subnet.");
+            }
+
+            bool anyRule = !string.IsNullOrEmpty(Subnet) || IpAddress.Count > 0 || Ipv6Address.Count > 0;
+            if (!string.IsNullOrEmpty(Action) && !anyRule)
+            {
+                throw new ArgumentException("Action can only be specified together with Subnet, IpAddress or Ipv6Address.");
             }
 
             bool any = Bypass.Count > 0

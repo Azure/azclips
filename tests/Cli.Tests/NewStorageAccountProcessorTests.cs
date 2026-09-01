@@ -686,6 +686,14 @@ public class NewStorageAccountProcessorTests
     }
 
     [Fact]
+    public async Task CreateRequest_ActionWithoutARule_Throws()
+    {
+        // Action qualifies a subnet or IP rule; alone it would be dropped silently.
+        var error = await CaptureValidationErrorAsync(p => p.Action = "Allow");
+        Assert.Contains("Action", error.Message);
+    }
+
+    [Fact]
     public async Task CreateRequest_MoreThanOneFilesAuthenticationEnabler_Throws()
     {
         // All three map onto a single directoryServiceOptions value, so the later one would

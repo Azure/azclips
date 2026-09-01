@@ -147,7 +147,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                     || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
-                    int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
+                    // Floor the delay at 1 second: a fractional Retry-After (<1s) truncates to 0, which
+                    // would otherwise busy-poll ARM with no wait between calls.
+                    int delay = Math.Max(1, (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval));
                     await _publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
                     Task delayTask = Task.Delay(delay*1000, _publisher.Token);
 
