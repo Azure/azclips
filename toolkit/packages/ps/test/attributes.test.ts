@@ -167,11 +167,37 @@ describe("PSDefaultValueAttribute", () => {
 
 describe("PSModuleAttribute", () => {
   it("accepts a module description", () => {    const result = PSModuleAttributeSchema.safeParse({
+      name: "AzureFleet",
       description: "Fleet management cmdlets.",
       sourceId: "Microsoft.AzureFleet",
       cmdletsToExport: ["New-AzFleet", "Get-AzFleet"],
     });
     expect(result.success).toBe(true);
+  });
+
+  it("accepts a synthesized identity whose properties span several operations", () => {
+    const result = PSModuleAttributeSchema.safeParse({
+      name: "AzureFleet",
+      sourceId: "Microsoft.AzureFleet",
+      cmdletsToExport: ["Get-AzFleet"],
+      identity: {
+        name: "AzureFleetIdentity",
+        properties: [
+          { name: "FleetName", helpMessage: "The name of the Fleet.", sourceParameterIds: [paramId] },
+          // The ARM resource id stands for the whole path, so no single parameter backs it.
+          { name: "Id", helpMessage: "Resource identity path", sourceParameterIds: [] },
+        ],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a module with no name, which could not name a .psd1", () => {
+    const result = PSModuleAttributeSchema.safeParse({
+      sourceId: "Microsoft.AzureFleet",
+      cmdletsToExport: ["Get-AzFleet"],
+    });
+    expect(result.success).toBe(false);
   });
 });
 
@@ -179,7 +205,7 @@ describe("PS document", () => {
   const document = (overrides: Record<string, unknown> = {}) => ({
     schemaVersion: PS_SCHEMA_VERSION,
     commands: [command()],
-    modules: [{ sourceId: "Microsoft.AzureFleet", cmdletsToExport: ["New-AzFleet"] }],
+    modules: [{ name: "AzureFleet", sourceId: "Microsoft.AzureFleet", cmdletsToExport: ["New-AzFleet"] }],
     ...overrides,
   });
 
@@ -201,3 +227,4 @@ describe("PS document", () => {
     expect(result.success).toBe(false);
   });
 });
+
