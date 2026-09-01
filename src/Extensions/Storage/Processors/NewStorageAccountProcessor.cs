@@ -322,6 +322,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
         // accepted here so they do not require a follow-up network-rule command.
         private NetworkRuleSet? BuildNetworkRuleSet()
         {
+            // VnetName only qualifies a subnet name, so on its own it would be dropped silently and
+            // still mark the properties bag as supplied, sending an otherwise empty object.
+            if (!string.IsNullOrEmpty(VnetName) && string.IsNullOrEmpty(Subnet))
+            {
+                throw new ArgumentException("VnetName can only be specified together with Subnet.");
+            }
+
             bool any = Bypass.Count > 0
                 || !string.IsNullOrEmpty(DefaultAction)
                 || !string.IsNullOrEmpty(Subnet)

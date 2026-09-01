@@ -677,6 +677,15 @@ public class NewStorageAccountProcessorTests
     }
 
     [Fact]
+    public async Task CreateRequest_VnetNameWithoutSubnet_Throws()
+    {
+        // On its own VnetName has nothing to qualify, and it would still mark the properties bag as
+        // supplied, sending an otherwise empty object.
+        var error = await CaptureValidationErrorAsync(p => p.VnetName = "myvnet");
+        Assert.Contains("Subnet", error.Message);
+    }
+
+    [Fact]
     public async Task CreateRequest_MoreThanOneFilesAuthenticationEnabler_Throws()
     {
         // All three map onto a single directoryServiceOptions value, so the later one would

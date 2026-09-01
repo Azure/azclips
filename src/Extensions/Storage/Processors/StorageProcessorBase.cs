@@ -139,7 +139,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 var _operationLocationUri = GetOperationLocationUri(_response);
 
                 //polling
-                while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
+                // Parenthesised for clarity; the semantics match ComputeProcessorBase. A 200 on the
+                // initial PUT still needs polling because ARM reports the operation as accepted,
+                // whereas a 200 on a subsequent poll is terminal and ends the loop.
+                while ((_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK)
+                    || _response.StatusCode == HttpStatusCode.Created
+                    || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
                     int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);

@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Azclips.Cmdlets.Storage.dll-Help.xml
-HelpUri: ""
+HelpUri: ''
 Locale: en-US
 Module Name: Storage
-ms.date: 08/18/2026
+ms.date: 08/27/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzStorageAccount
 ---
@@ -17,38 +17,39 @@ Create an Azure Storage account.
 
 ## SYNTAX
 
-### \_\_AllParameterSets
+### __AllParameterSets
 
 ```
 New-AzStorageAccount -ResourceGroupName <string> -AccountName <string> -Location <string>
- -SkuName <string> -Kind <string> [-SubscriptionId <string>] [-Tags <string[]>] [-AccessTier
- <string>] [-MinimumTlsVersion <string>] [-PublicNetworkAccess <string>] [-AllowedCopyScope
- <string>] [-LargeFileSharesState <string>] [-DnsEndpointType <string>]
- [-SupportsHttpsTrafficOnly <bool>] [-AllowBlobPublicAccess <bool>] [-AllowSharedKeyAccess
- <bool>] [-IsHnsEnabled <bool>] [-IsSftpEnabled <bool>] [-IsLocalUserEnabled <bool>]
+ -SkuName <string> -Kind <string> [-Profile <string>] [-SubscriptionId <string>] [-Tags <string[]>]
+ [-AccessTier <string>] [-MinimumTlsVersion <string>] [-PublicNetworkAccess <string>]
+ [-AllowedCopyScope <string>] [-LargeFileSharesState <string>] [-DnsEndpointType <string>]
+ [-SupportsHttpsTrafficOnly <bool>] [-AllowBlobPublicAccess <bool>] [-AllowSharedKeyAccess <bool>]
+ [-IsHnsEnabled <bool>] [-IsSftpEnabled <bool>] [-IsLocalUserEnabled <bool>]
  [-EnableExtendedGroups <bool>] [-IsNfsV3Enabled <bool>] [-AllowCrossTenantReplication <bool>]
  [-DefaultToOAuthAuthentication <bool>] [-EdgeZone <string>] [-IdentityType <string>]
- [-UserIdentityId <string>] [-Zones <string[]>] [-ZonePlacementPolicy <string>] [-RoutingChoice
- <string>] [-PublishMicrosoftEndpoints <bool>] [-PublishInternetEndpoints <bool>]
+ [-UserIdentityId <string>] [-Zones <string[]>] [-ZonePlacementPolicy <string>]
+ [-RoutingChoice <string>] [-PublishMicrosoftEndpoints <bool>] [-PublishInternetEndpoints <bool>]
  [-PublishIpv6Endpoint <bool>] [-EnableBlobGeoPriorityReplication <bool>]
- [-KeyExpirationPeriodInDays <int>] [-SasExpirationPeriod <string>] [-SasExpirationAction
- <string>] [-EnableAlw <bool>] [-ImmutabilityPeriodSinceCreationInDays <int>]
+ [-KeyExpirationPeriodInDays <int>] [-SasExpirationPeriod <string>] [-SasExpirationAction <string>]
+ [-EnableAlw <bool>] [-ImmutabilityPeriodSinceCreationInDays <int>]
  [-ImmutabilityPolicyState <string>] [-AllowProtectedAppendWrites <bool>] [-Bypass <string[]>]
  [-DefaultAction <string>] [-Subnet <string>] [-VnetName <string>] [-Action <string>]
  [-IpAddress <string[]>] [-Ipv6Address <string[]>] [-EnableFilesAadds <bool>]
  [-EnableFilesAadkerb <bool>] [-EnableFilesAdds <bool>] [-DomainName <string>]
- [-NetBiosDomainName <string>] [-ForestName <string>] [-DomainGuid <string>] [-DomainSid
- <string>] [-AzureStorageSid <string>] [-SamAccountName <string>] [-AccountType <string>]
+ [-NetBiosDomainName <string>] [-ForestName <string>] [-DomainGuid <string>] [-DomainSid <string>]
+ [-AzureStorageSid <string>] [-SamAccountName <string>] [-AccountType <string>]
  [-DefaultSharePermission <string>] [-EnableSmbOauth <bool>] [-EncryptionKeySource <string>]
  [-EncryptionKeyVault <string>] [-EncryptionKeyName <string>] [-EncryptionKeyVersion <string>]
  [-RequireInfrastructureEncryption <bool>] [-KeyVaultUserIdentityId <string>]
  [-KeyVaultFederatedClientId <string>] [-EncryptionKeyTypeForTable <string>]
- [-EncryptionKeyTypeForQueue <string>] [-CustomDomainName <string>] [-Profile <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-EncryptionKeyTypeForQueue <string>] [-CustomDomainName <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has the following aliases,
 This cmdlet has no aliases.
 
 ## DESCRIPTION
@@ -107,24 +108,19 @@ The access tier used for billing. Required when kind is BlobStorage.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Hot
-        - Cool
-        - Premium
-        - Cold
-        - Smart
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -AccountName
@@ -133,19 +129,19 @@ The name of the storage account. Must be between 3 and 24 characters in length a
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -AccountType
@@ -154,21 +150,19 @@ The Active Directory account type for Azure Storage.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - User
-        - Computer
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Action
@@ -177,20 +171,19 @@ The action applied to the subnet and IP rules. Defaults to Allow.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Allow
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -AllowBlobPublicAccess
@@ -199,21 +192,19 @@ Allow or disallow public access to all blobs or containers. The service default 
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -AllowCrossTenantReplication
@@ -222,21 +213,19 @@ Allow or disallow cross AAD tenant object replication. The service default is fa
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -AllowedCopyScope
@@ -245,22 +234,19 @@ Restrict copy to and from storage accounts within an AAD tenant or with private 
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - PrivateLink
-        - AAD
-        - All
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -AllowProtectedAppendWrites
@@ -269,21 +255,19 @@ Allow new blocks to be written to an append blob while maintaining immutability 
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -AllowSharedKeyAccess
@@ -292,21 +276,19 @@ Whether the account permits requests authorized with the account access key. The
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -AzureStorageSid
@@ -315,19 +297,19 @@ The security identifier (SID) for Azure Storage.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Bypass
@@ -336,19 +318,19 @@ Traffic to bypass the network rules (space-separated): None, Logging, Metrics, A
 
 ```yaml
 Type: System.String[]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Confirm
@@ -357,20 +339,20 @@ Prompts you for confirmation before running the cmdlet.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases:
-        - cf
+Aliases:
+- cf
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -CustomDomainName
@@ -379,19 +361,19 @@ The custom domain name assigned to the account. Name is the CNAME source.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -DefaultAction
@@ -400,21 +382,19 @@ The action to apply when no network rule matches. Required when any other networ
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Allow
-        - Deny
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -DefaultSharePermission
@@ -423,23 +403,19 @@ The default share permission for users using Kerberos authentication when no RBA
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - None
-        - StorageFileDataSmbShareReader
-        - StorageFileDataSmbShareContributor
-        - StorageFileDataSmbShareElevatedContributor
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -DefaultToOAuthAuthentication
@@ -448,21 +424,19 @@ Whether the default authentication is OAuth. The service default is false.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -DnsEndpointType
@@ -471,21 +445,19 @@ The type of endpoint. AzureDnsZone allows creating a large number of accounts in
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Standard
-        - AzureDnsZone
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -DomainGuid
@@ -494,19 +466,19 @@ The domain GUID.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -DomainName
@@ -515,19 +487,19 @@ The primary domain the AD DNS server is authoritative for.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -DomainSid
@@ -536,19 +508,19 @@ The security identifier (SID) of the AD domain.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EdgeZone
@@ -557,19 +529,19 @@ The name of the edge zone to create the account in.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EnableAlw
@@ -578,21 +550,19 @@ Enable account-level immutability. Can only be set at creation time.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EnableBlobGeoPriorityReplication
@@ -601,21 +571,19 @@ Whether Blob Geo Priority Replication is enabled for the account.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EnableExtendedGroups
@@ -624,21 +592,19 @@ Enable extended group support with the local users feature.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EnableFilesAadds
@@ -647,21 +613,19 @@ Enable Microsoft Entra Domain Services authentication for Azure Files.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EnableFilesAadkerb
@@ -670,21 +634,19 @@ Enable Microsoft Entra Kerberos authentication for Azure Files.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EnableFilesAdds
@@ -693,21 +655,19 @@ Enable Active Directory Domain Services authentication for Azure Files. Requires
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EnableSmbOauth
@@ -716,21 +676,19 @@ Whether managed identities can access SMB shares using OAuth.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EncryptionKeyName
@@ -739,19 +697,19 @@ The name of the key vault key. Must be given together with --encryption-key-vaul
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EncryptionKeySource
@@ -760,21 +718,19 @@ The encryption key source. Inferred as Microsoft.Keyvault when key vault options
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Microsoft.Storage
-        - Microsoft.Keyvault
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EncryptionKeyTypeForQueue
@@ -783,21 +739,19 @@ The encryption key type for the Queue service.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Account
-        - Service
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EncryptionKeyTypeForTable
@@ -806,21 +760,19 @@ The encryption key type for the Table service.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Account
-        - Service
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EncryptionKeyVault
@@ -829,19 +781,19 @@ The URI of the key vault. Must be given together with --encryption-key-name.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -EncryptionKeyVersion
@@ -850,19 +802,19 @@ The version of the key vault key. Opts out of implicit key rotation.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -ForestName
@@ -871,19 +823,19 @@ The Active Directory forest to get.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -IdentityType
@@ -892,24 +844,19 @@ The managed identity type for the account.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - None
-        - SystemAssigned
-        - UserAssigned
-        - SystemAssigned
-        - UserAssigned
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -ImmutabilityPeriodSinceCreationInDays
@@ -918,19 +865,19 @@ The immutability period for blobs since policy creation, in days (1-146000). Req
 
 ```yaml
 Type: System.Nullable`1[System.Int32]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -ImmutabilityPolicyState
@@ -939,22 +886,19 @@ The mode of the account-level immutability policy. Requires --enable-alw true.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Unlocked
-        - Locked
-        - Disabled
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -IpAddress
@@ -963,19 +907,19 @@ IPv4 addresses or CIDR ranges to allow (space-separated). Requires --default-act
 
 ```yaml
 Type: System.String[]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Ipv6Address
@@ -984,19 +928,19 @@ IPv6 addresses or CIDR ranges to allow (space-separated). Requires --default-act
 
 ```yaml
 Type: System.String[]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -IsHnsEnabled
@@ -1005,21 +949,19 @@ Enable a hierarchical namespace (Azure Data Lake Storage Gen2).
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -IsLocalUserEnabled
@@ -1028,21 +970,19 @@ Enable the local users feature.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -IsNfsV3Enabled
@@ -1051,21 +991,19 @@ Enable NFS 3.0 protocol support.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -IsSftpEnabled
@@ -1074,21 +1012,19 @@ Enable Secure File Transfer Protocol.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -KeyExpirationPeriodInDays
@@ -1097,19 +1033,19 @@ Expiration period in days of the key policy assigned to the account.
 
 ```yaml
 Type: System.Nullable`1[System.Int32]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -KeyVaultFederatedClientId
@@ -1118,19 +1054,19 @@ Client id of the multi-tenant application used for cross-tenant customer-managed
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -KeyVaultUserIdentityId
@@ -1139,19 +1075,19 @@ Resource id of the user-assigned identity used for server-side encryption.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Kind
@@ -1160,24 +1096,19 @@ The type of storage account.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Storage
-        - StorageV2
-        - BlobStorage
-        - FileStorage
-        - BlockBlobStorage
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -LargeFileSharesState
@@ -1186,21 +1117,19 @@ Allow large file shares. Cannot be disabled once enabled.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Disabled
-        - Enabled
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Location
@@ -1209,19 +1138,19 @@ The Azure region in which to create the storage account.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -MinimumTlsVersion
@@ -1230,23 +1159,19 @@ The minimum TLS version permitted on requests to storage. The service default is
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - TLS1_0
-        - TLS1_1
-        - TLS1_2
-        - TLS1_3
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -NetBiosDomainName
@@ -1255,19 +1180,19 @@ The NetBIOS domain name.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Profile
@@ -1276,19 +1201,19 @@ Use the named profile for this command (overrides the active profile).
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -PublicNetworkAccess
@@ -1297,22 +1222,19 @@ Allow, disallow, or let Network Security Perimeter configuration evaluate public
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Enabled
-        - Disabled
-        - SecuredByPerimeter
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -PublishInternetEndpoints
@@ -1321,21 +1243,19 @@ Whether internet routing storage endpoints are published.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -PublishIpv6Endpoint
@@ -1344,21 +1264,19 @@ Whether IPv6 storage endpoints are published.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -PublishMicrosoftEndpoints
@@ -1367,21 +1285,19 @@ Whether Microsoft routing storage endpoints are published.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -RequireInfrastructureEncryption
@@ -1390,21 +1306,19 @@ Whether the service applies a secondary layer of encryption with platform manage
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -ResourceGroupName
@@ -1413,19 +1327,19 @@ The resource group name.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -RoutingChoice
@@ -1434,21 +1348,19 @@ The kind of network routing used to deliver user data.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - MicrosoftRouting
-        - InternetRouting
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -SamAccountName
@@ -1457,19 +1369,19 @@ The Active Directory SAMAccountName for Azure Storage.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -SasExpirationAction
@@ -1478,21 +1390,19 @@ The action performed when the SAS expiration period is violated. Requires --sas-
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Log
-        - Block
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -SasExpirationPeriod
@@ -1501,19 +1411,19 @@ Expiration period of the SAS policy assigned to the account, in DD.HH:MM:SS form
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -SkuName
@@ -1522,33 +1432,19 @@ The SKU name of the storage account.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Standard_LRS
-        - Standard_GRS
-        - Standard_RAGRS
-        - Standard_ZRS
-        - Premium_LRS
-        - Premium_ZRS
-        - Standard_GZRS
-        - Standard_RAGZRS
-        - StandardV2_LRS
-        - StandardV2_GRS
-        - StandardV2_ZRS
-        - StandardV2_GZRS
-        - PremiumV2_LRS
-        - PremiumV2_ZRS
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Subnet
@@ -1557,19 +1453,19 @@ Name or resource id of a subnet. If a name is given, --vnet-name is required.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -SubscriptionId
@@ -1578,19 +1474,19 @@ Azure Subscription Id. Defaults to the subscription of the active profile.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -SupportsHttpsTrafficOnly
@@ -1599,21 +1495,19 @@ Allow https traffic only to the storage service. The service default is true.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - true
-        - false
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Tags
@@ -1622,19 +1516,19 @@ Resource tags in KEY=VALUE form (space-separated).
 
 ```yaml
 Type: System.String[]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -UserIdentityId
@@ -1643,19 +1537,19 @@ The ARM resource identifier of the user-assigned identity. Only one is permitted
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -VnetName
@@ -1664,42 +1558,41 @@ Name of the virtual network containing --subnet.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -WhatIf
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases:
-        - wi
+Aliases:
+- wi
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -ZonePlacementPolicy
@@ -1708,21 +1601,19 @@ The availability zone pinning policy for the account.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues:
-        - Any
-        - None
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Zones
@@ -1731,19 +1622,19 @@ The availability zones to pin the account to (space-separated).
 
 ```yaml
 Type: System.String[]
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
-    Aliases: []
+Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-    AcceptedValues: []
-HelpMessage: ""
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### CommonParameters
@@ -1757,6 +1648,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
+### System.Object
+
+The newly-created `StorageAccount` object, including its assigned ARM resource ID, provisioning state, SKU, kind, and service endpoints.
+
 ## NOTES
 
 Generated help for storage.
@@ -1764,3 +1659,4 @@ Generated help for storage.
 ## RELATED LINKS
 
 - [Online Version]()
+

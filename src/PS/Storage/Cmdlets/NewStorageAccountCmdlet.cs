@@ -15,217 +15,217 @@ public class NewStorageAccountCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = false, HelpMessage = "Use the named profile for this command (overrides the active profile).")]
-    public string? Profile { get; set; }
-
-    [Parameter(Mandatory = false, HelpMessage = "Azure Subscription Id. Defaults to the subscription of the active profile.")]
-    public string? SubscriptionId { get; set; }
-
-    [Parameter(Mandatory = true, HelpMessage = "The resource group name.")]
+    [Parameter(Mandatory = true)]
     public string? ResourceGroupName { get; set; }
 
-    [Parameter(Mandatory = true, HelpMessage = "The name of the storage account. Must be between 3 and 24 characters in length and use numbers and lower-case letters only.")]
+    [Parameter(Mandatory = true)]
     public string? AccountName { get; set; }
 
-    [Parameter(Mandatory = true, HelpMessage = "The Azure region in which to create the storage account.")]
+    [Parameter(Mandatory = true)]
     public string? Location { get; set; }
 
-    [Parameter(Mandatory = true, HelpMessage = "The SKU name of the storage account.")]
+    [Parameter(Mandatory = true)]
     public string? SkuName { get; set; }
 
-    [Parameter(Mandatory = true, HelpMessage = "The type of storage account.")]
+    [Parameter(Mandatory = true)]
     public string? Kind { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Resource tags in KEY=VALUE form (space-separated).")]
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? SubscriptionId { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string[]? Tags { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The access tier used for billing. Required when kind is BlobStorage.")]
+    [Parameter(Mandatory = false)]
     public string? AccessTier { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The minimum TLS version permitted on requests to storage. The service default is TLS1_0.")]
+    [Parameter(Mandatory = false)]
     public string? MinimumTlsVersion { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Allow, disallow, or let Network Security Perimeter configuration evaluate public network access.")]
+    [Parameter(Mandatory = false)]
     public string? PublicNetworkAccess { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Restrict copy to and from storage accounts within an AAD tenant or with private links to the same VNet.")]
+    [Parameter(Mandatory = false)]
     public string? AllowedCopyScope { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Allow large file shares. Cannot be disabled once enabled.")]
+    [Parameter(Mandatory = false)]
     public string? LargeFileSharesState { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The type of endpoint. AzureDnsZone allows creating a large number of accounts in a single subscription.")]
+    [Parameter(Mandatory = false)]
     public string? DnsEndpointType { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Allow https traffic only to the storage service. The service default is true.")]
+    [Parameter(Mandatory = false)]
     public bool? SupportsHttpsTrafficOnly { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Allow or disallow public access to all blobs or containers. The service default is false.")]
+    [Parameter(Mandatory = false)]
     public bool? AllowBlobPublicAccess { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Whether the account permits requests authorized with the account access key. The service default is true.")]
+    [Parameter(Mandatory = false)]
     public bool? AllowSharedKeyAccess { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable a hierarchical namespace (Azure Data Lake Storage Gen2).")]
+    [Parameter(Mandatory = false)]
     public bool? IsHnsEnabled { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable Secure File Transfer Protocol.")]
+    [Parameter(Mandatory = false)]
     public bool? IsSftpEnabled { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable the local users feature.")]
+    [Parameter(Mandatory = false)]
     public bool? IsLocalUserEnabled { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable extended group support with the local users feature.")]
+    [Parameter(Mandatory = false)]
     public bool? EnableExtendedGroups { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable NFS 3.0 protocol support.")]
+    [Parameter(Mandatory = false)]
     public bool? IsNfsV3Enabled { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Allow or disallow cross AAD tenant object replication. The service default is false.")]
+    [Parameter(Mandatory = false)]
     public bool? AllowCrossTenantReplication { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Whether the default authentication is OAuth. The service default is false.")]
+    [Parameter(Mandatory = false)]
     public bool? DefaultToOAuthAuthentication { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The name of the edge zone to create the account in.")]
+    [Parameter(Mandatory = false)]
     public string? EdgeZone { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The managed identity type for the account.")]
+    [Parameter(Mandatory = false)]
     public string? IdentityType { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The ARM resource identifier of the user-assigned identity. Only one is permitted.")]
+    [Parameter(Mandatory = false)]
     public string? UserIdentityId { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The availability zones to pin the account to (space-separated).")]
+    [Parameter(Mandatory = false)]
     public string[]? Zones { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The availability zone pinning policy for the account.")]
+    [Parameter(Mandatory = false)]
     public string? ZonePlacementPolicy { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The kind of network routing used to deliver user data.")]
+    [Parameter(Mandatory = false)]
     public string? RoutingChoice { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Whether Microsoft routing storage endpoints are published.")]
+    [Parameter(Mandatory = false)]
     public bool? PublishMicrosoftEndpoints { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Whether internet routing storage endpoints are published.")]
+    [Parameter(Mandatory = false)]
     public bool? PublishInternetEndpoints { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Whether IPv6 storage endpoints are published.")]
+    [Parameter(Mandatory = false)]
     public bool? PublishIpv6Endpoint { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Whether Blob Geo Priority Replication is enabled for the account.")]
+    [Parameter(Mandatory = false)]
     public bool? EnableBlobGeoPriorityReplication { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Expiration period in days of the key policy assigned to the account.")]
+    [Parameter(Mandatory = false)]
     public int? KeyExpirationPeriodInDays { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Expiration period of the SAS policy assigned to the account, in DD.HH:MM:SS form.")]
+    [Parameter(Mandatory = false)]
     public string? SasExpirationPeriod { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The action performed when the SAS expiration period is violated. Requires --sas-expiration-period. Defaults to Log.")]
+    [Parameter(Mandatory = false)]
     public string? SasExpirationAction { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable account-level immutability. Can only be set at creation time.")]
+    [Parameter(Mandatory = false)]
     public bool? EnableAlw { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The immutability period for blobs since policy creation, in days (1-146000). Requires --enable-alw true.")]
+    [Parameter(Mandatory = false)]
     public int? ImmutabilityPeriodSinceCreationInDays { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The mode of the account-level immutability policy. Requires --enable-alw true.")]
+    [Parameter(Mandatory = false)]
     public string? ImmutabilityPolicyState { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Allow new blocks to be written to an append blob while maintaining immutability protection. Requires --enable-alw true.")]
+    [Parameter(Mandatory = false)]
     public bool? AllowProtectedAppendWrites { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Traffic to bypass the network rules (space-separated): None, Logging, Metrics, AzureServices. Requires --default-action.")]
+    [Parameter(Mandatory = false)]
     public string[]? Bypass { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The action to apply when no network rule matches. Required when any other network rule flag is used.")]
+    [Parameter(Mandatory = false)]
     public string? DefaultAction { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Name or resource id of a subnet. If a name is given, --vnet-name is required.")]
+    [Parameter(Mandatory = false)]
     public string? Subnet { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Name of the virtual network containing --subnet.")]
+    [Parameter(Mandatory = false)]
     public string? VnetName { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The action applied to the subnet and IP rules. Defaults to Allow.")]
+    [Parameter(Mandatory = false)]
     public string? Action { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "IPv4 addresses or CIDR ranges to allow (space-separated). Requires --default-action.")]
+    [Parameter(Mandatory = false)]
     public string[]? IpAddress { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "IPv6 addresses or CIDR ranges to allow (space-separated). Requires --default-action.")]
+    [Parameter(Mandatory = false)]
     public string[]? Ipv6Address { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable Microsoft Entra Domain Services authentication for Azure Files.")]
+    [Parameter(Mandatory = false)]
     public bool? EnableFilesAadds { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable Microsoft Entra Kerberos authentication for Azure Files.")]
+    [Parameter(Mandatory = false)]
     public bool? EnableFilesAadkerb { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Enable Active Directory Domain Services authentication for Azure Files. Requires all Active Directory properties.")]
+    [Parameter(Mandatory = false)]
     public bool? EnableFilesAdds { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The primary domain the AD DNS server is authoritative for.")]
+    [Parameter(Mandatory = false)]
     public string? DomainName { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The NetBIOS domain name.")]
+    [Parameter(Mandatory = false)]
     public string? NetBiosDomainName { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The Active Directory forest to get.")]
+    [Parameter(Mandatory = false)]
     public string? ForestName { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The domain GUID.")]
+    [Parameter(Mandatory = false)]
     public string? DomainGuid { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The security identifier (SID) of the AD domain.")]
+    [Parameter(Mandatory = false)]
     public string? DomainSid { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The security identifier (SID) for Azure Storage.")]
+    [Parameter(Mandatory = false)]
     public string? AzureStorageSid { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The Active Directory SAMAccountName for Azure Storage.")]
+    [Parameter(Mandatory = false)]
     public string? SamAccountName { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The Active Directory account type for Azure Storage.")]
+    [Parameter(Mandatory = false)]
     public string? AccountType { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The default share permission for users using Kerberos authentication when no RBAC role is assigned.")]
+    [Parameter(Mandatory = false)]
     public string? DefaultSharePermission { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Whether managed identities can access SMB shares using OAuth.")]
+    [Parameter(Mandatory = false)]
     public bool? EnableSmbOauth { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The encryption key source. Inferred as Microsoft.Keyvault when key vault options are supplied.")]
+    [Parameter(Mandatory = false)]
     public string? EncryptionKeySource { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The URI of the key vault. Must be given together with --encryption-key-name.")]
+    [Parameter(Mandatory = false)]
     public string? EncryptionKeyVault { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The name of the key vault key. Must be given together with --encryption-key-vault.")]
+    [Parameter(Mandatory = false)]
     public string? EncryptionKeyName { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The version of the key vault key. Opts out of implicit key rotation.")]
+    [Parameter(Mandatory = false)]
     public string? EncryptionKeyVersion { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Whether the service applies a secondary layer of encryption with platform managed keys.")]
+    [Parameter(Mandatory = false)]
     public bool? RequireInfrastructureEncryption { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Resource id of the user-assigned identity used for server-side encryption.")]
+    [Parameter(Mandatory = false)]
     public string? KeyVaultUserIdentityId { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "Client id of the multi-tenant application used for cross-tenant customer-managed-key encryption.")]
+    [Parameter(Mandatory = false)]
     public string? KeyVaultFederatedClientId { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The encryption key type for the Table service.")]
+    [Parameter(Mandatory = false)]
     public string? EncryptionKeyTypeForTable { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The encryption key type for the Queue service.")]
+    [Parameter(Mandatory = false)]
     public string? EncryptionKeyTypeForQueue { get; set; }
 
-    [Parameter(Mandatory = false, HelpMessage = "The custom domain name assigned to the account. Name is the CNAME source.")]
+    [Parameter(Mandatory = false)]
     public string? CustomDomainName { get; set; }
 
     protected override void BeginProcessing()
