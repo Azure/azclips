@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788228693204,
+  "lastUpdate": 1788228750023,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -6258,6 +6258,48 @@ window.BENCHMARK_DATA = {
             "value": 2317379.4146243474,
             "unit": "ns",
             "range": "± 92431.46027077301"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8acf5923ad492eb7e2771ad3f2801ca5f8e8f5a8",
+          "message": "[Identity] `az identity`: Add cli support for create, list, show, update, delete (#780)\n\nImplements https://github.com/Azure/CLIPS/issues/840\n\n## Summary\n\n- Added CLI support for `az identity` - \"create\", \"list\", \"show\",\n\"update\", \"delete\"\n- Added recording sanitizer coverage for identity-related values in\nsession recordings, including tenant ID, client ID, and subscription ID.\n- Added CLI help documentation for `az identity`.\n- Added unit and scenario coverage for the new identity command surface.\n- **Note: PowerShell cmdlet support and PowerShell help documentation\nwill be added in a follow-up PR.**\n\n## Validation\n\nUnit/scenario tests added, and live E2E validation passed using:\n\n```bash\n./tests/Scripts/CLI/IdentityLifecycle.sh\n```\n\n---\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-01T09:58:34+08:00",
+          "tree_id": "65ec62cdea73fc2fd40ab7d1115805d504ce8287",
+          "url": "https://github.com/Azure/azclips/commit/8acf5923ad492eb7e2771ad3f2801ca5f8e8f5a8"
+        },
+        "date": 1788228747375,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2336047.5945293643,
+            "unit": "ns",
+            "range": "± 83940.5422841817"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2333682.993553586,
+            "unit": "ns",
+            "range": "± 102017.06166920289"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2328334.405866988,
+            "unit": "ns",
+            "range": "± 103663.77707936245"
           }
         ]
       }
