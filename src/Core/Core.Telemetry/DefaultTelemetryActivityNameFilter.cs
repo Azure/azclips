@@ -28,6 +28,7 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "Agent.Create",
         "Agent.Turn",
         "Agent.Send",
+        "Agent.Reprompt",
 
         // Startup phases, replayed by the CLI's PerformanceTimeline once telemetry
         // is available. Encloses the AzureCLI.Startup.* phase spans below.

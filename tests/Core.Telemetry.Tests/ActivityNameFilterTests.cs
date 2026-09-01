@@ -29,6 +29,7 @@ public class ActivityNameFilterTests
     [InlineData("Agent.Create")]
     [InlineData("Agent.Turn")]
     [InlineData("Agent.Send")]
+    [InlineData("Agent.Reprompt")]
     public void IsAllowed_ExactNameInAllowlist_IsAllowed(string name)
     {
         Assert.True(_filter.IsAllowed(name));

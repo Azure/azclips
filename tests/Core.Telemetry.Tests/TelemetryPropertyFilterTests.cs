@@ -38,6 +38,7 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.RecoverySessionStyle,
         TelemetryTags.RecoveryProvider,
         TelemetryTags.RecoveryExitCode,
+        TelemetryTags.RecoveryReprompts,
         TelemetryTags.AgentModel,
         TelemetryTags.ProcessName,
     };
