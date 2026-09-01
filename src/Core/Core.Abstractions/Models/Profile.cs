@@ -39,6 +39,13 @@ public record Profile
     /// <summary>Persisted managed identity key used for token refresh.</summary>
     public string? ManagedIdentityId { get; init; }
 
+    /// <summary>
+    /// ARM data boundary for the tenant (e.g. "EU", "Global").
+    /// Fetched during login from the ARM dataBoundaries API and used to route
+    /// telemetry to the correct regional Aria ingestion endpoint.
+    /// </summary>
+    public string? DataBoundary { get; init; }
+
     public override string ToString() =>
         $"Name: {Name}{Environment.NewLine}" +
         $"Subscription: {SubscriptionId}{Environment.NewLine}" +

@@ -36,10 +36,10 @@ public class AriaActivityExporterTests
         using (var activity = source.StartActivity("TestCommand", ActivityKind.Server))
         {
             Assert.NotNull(activity);
-            activity.SetTag("command.name", "aria-integration-test");
+            activity.SetTag("command", "aria-integration-test");
             activity.SetTag("command.exit_code", 0);
-            activity.SetTag("installation_id", "test-install-id");
-            activity.SetTag("product.version", "0.1.0-test");
+            activity.SetTag("InstallationId", "test-install-id");
+            activity.SetTag("productVersion", "0.1.0-test");
             Thread.Sleep(50);
         }
 

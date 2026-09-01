@@ -38,13 +38,14 @@ internal static class TelemetryExporters
                 options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
             });
 
-            // Export to Aria via OneCollector (trace→log bridge).
-            // Global collector → US storage (portal.aria.ms)
+            // Route Aria telemetry to the EU or Global collector based on the active
+            // profile's ARM data boundary. EU tenants → EU-compliant endpoint; all
+            // others (including unknown/missing) → Global endpoint.
+            var ariaConnectionString = DataBoundaryResolver.IsEuDataBoundary()
+                ? WellKnownEndpoints.AriaEuConnectionString
+                : WellKnownEndpoints.AriaConnectionString;
             builder.AddProcessor(new SimpleActivityExportProcessor(
-                new AriaActivityExporter(WellKnownEndpoints.AriaConnectionString)));
-            // EU collector → EU storage (eu.portal.aria.ms), EUDB-compliant
-            builder.AddProcessor(new SimpleActivityExportProcessor(
-                new AriaActivityExporter(WellKnownEndpoints.AriaEuConnectionString)));
+                new AriaActivityExporter(ariaConnectionString)));
         }
         else
         {
