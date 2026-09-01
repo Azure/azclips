@@ -27,7 +27,9 @@ import {
   type IRTypeRef,
 } from "@azure-client-engine/ir";
 import { inferCommandNames, deconstruct, pascalCase, singularize, deduplicateNoun } from "./naming.js";
+import { PS_SCHEMA_VERSION } from "./version.js";
 import type {
+  PS,
   PSCommandAttribute,
   PSModuleAttribute,
   PSParameterAttribute,
@@ -39,11 +41,6 @@ export type DeriveAttributesOptions = {
   modulePrefix?: string | undefined;
   /** Authored service prefix, e.g. "ElasticSan" -> "AzElasticSanVolume". Default: undefined (none). */
   subjectPrefix?: string | undefined;
-};
-
-export type DerivedAttributes = {
-  commands: PSCommandAttribute[];
-  modules: PSModuleAttribute[];
 };
 
 // ─── Verb/noun inference helpers ─────────────────────────────────────────
@@ -516,7 +513,7 @@ function parametersFor(
 
 // ─── Main entry point ────────────────────────────────────────────────────
 
-export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}): DerivedAttributes {
+export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}): PS {
   const models = indexModels(ir);
   const groups = new Map<string, CommandEntry[]>();
 
@@ -588,7 +585,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
 
   const modules = deriveModules(ir, commandSources);
 
-  return { commands, modules };
+  return { schemaVersion: PS_SCHEMA_VERSION, commands, modules };
 }
 
 /**

@@ -136,6 +136,18 @@ public partial class PSDefaultValueAttribute
     public string? SetCondition { get; set; }
 }
 
+public partial class PSDocument
+{
+    [JsonPropertyName("schemaVersion")]
+    public string SchemaVersion { get; set; } = default !;
+
+    [JsonPropertyName("commands")]
+    public IReadOnlyList<PSCommandAttribute> Commands { get; set; } = [];
+
+    [JsonPropertyName("modules")]
+    public IReadOnlyList<PSModuleAttribute> Modules { get; set; } = [];
+}
+
 public partial class PSModuleAttribute
 {
     [JsonPropertyName("description")]
@@ -212,16 +224,4 @@ public partial class PSParameterSetOverride
 
     [JsonPropertyName("helpMessage")]
     public string? HelpMessage { get; set; }
-}
-
-public partial class PSSchemaRoot
-{
-    [JsonPropertyName("command")]
-    public PSCommandAttribute Command { get; set; } = default !;
-
-    [JsonPropertyName("parameter")]
-    public PSParameterAttribute Parameter { get; set; } = default !;
-
-    [JsonPropertyName("module")]
-    public PSModuleAttribute Module { get; set; } = default !;
 }
