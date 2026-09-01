@@ -962,6 +962,12 @@ public partial class IRRequestBody
     [JsonPropertyName("contentType")]
     public string ContentType { get; set; } = default !;
 
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("isGeneratedName")]
+    public bool? IsGeneratedName { get; set; }
+
     [JsonPropertyName("docs")]
     public string? Docs { get; set; }
 
