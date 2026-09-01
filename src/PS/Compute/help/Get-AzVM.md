@@ -20,14 +20,14 @@ Show details for a virtual machine.
 ### List (Default)
 
 ```
-Get-AzVM -SubscriptionId <string> -ResourceGroupName <string> [-Profile <string>]
+Get-AzVM -ResourceGroupName <string> [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzVM -SubscriptionId <string> -ResourceGroupName <string> -Name <string> [-Profile <string>]
+Get-AzVM -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
@@ -128,7 +128,7 @@ HelpMessage: ""
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -138,13 +138,13 @@ Aliases: []
 ParameterSets:
     - Name: Get
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
     - Name: List
       Position: Named
-      IsRequired: true
+      IsRequired: false
       ValueFromPipeline: false
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false

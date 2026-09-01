@@ -20,7 +20,7 @@ Delete a virtual machine.
 ### __AllParameterSets
 
 ```
-Remove-AzVM -SubscriptionId <string> -Name <string> -ResourceGroupName <string> [-Profile <string>]
+Remove-AzVM -Name <string> -ResourceGroupName <string> [-SubscriptionId <string>] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -130,7 +130,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -140,7 +140,7 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false

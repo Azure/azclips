@@ -224,5 +224,7 @@ public class AvailableLocationsToolTests
         public Task<string?> GetActiveProfileNameAsync(CancellationToken cancellationToken = default) => Task.FromResult(_profile?.Name);
         public Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) => Task.FromResult(_profile);
         public Task SetActiveProfileNameAsync(string? name, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
+        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
     }
 }

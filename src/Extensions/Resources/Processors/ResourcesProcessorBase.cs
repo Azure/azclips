@@ -153,11 +153,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// Generic resources processor base. The default <see cref="ProcessAsync"/> pipeline:
     /// 1) Publishes start, 2) calls <see cref="SendAsync"/>,
     /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishes end.
-    /// <para>
-    /// <see cref="SendAsync"/> is the internal "give me the final response" transport primitive.
-    /// Atomic processors don't override it (the inherited <see cref="SendAsync"/>
-    /// resolves <see cref="SubscriptionId"/> then dispatches a single HTTP request).
-    /// </para>
     /// </summary>
     public abstract partial class ResourcesProcessorBase<TRequest, TResponse> : ResourcesProcessorBase
         where TRequest : class
@@ -169,38 +164,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// <see cref="ResourcesProcessorBase.CreateRequestBody"/> that the request template consumes.
         /// </summary>
         protected override TRequest? CreateRequestBody() => default;
-
-        public string SubscriptionId { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="ResolvedProfile"/>.
-        /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport.
-        /// </summary>
-        protected void ResolveSubscriptionId()
-        {
-            if (!string.IsNullOrWhiteSpace(SubscriptionId))
-            {
-                return;
-            }
-
-            if (ResolvedProfile is null)
-            {
-                throw new InvalidOperationException($"Processor {GetType().Name} has no profile, so SubscriptionId cannot be resolved. Sign in with 'login' or pass --subscription-id / --profile.");
-            }
-
-            if (string.IsNullOrWhiteSpace(ResolvedProfile.SubscriptionId))
-            {
-                throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.");
-            }
-
-            SubscriptionId = ResolvedProfile.SubscriptionId;
-        }
-
-        internal override Task<HttpResponseMessage> SendAsync()
-        {
-            ResolveSubscriptionId();
-            return base.SendAsync();
-        }
 
         // Yabo: C# does not allow partial with return type to be unimplemented
         // So partial Task is forbidden, have to make it synchronous.

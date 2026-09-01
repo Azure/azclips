@@ -14,6 +14,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 /// </summary>
 public class ListVMProcessor : ComputeProcessorBase<object, VirtualMachineListResult>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
 
     protected override HttpMethod Method => HttpMethod.Get;
