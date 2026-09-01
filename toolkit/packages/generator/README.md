@@ -117,7 +117,7 @@ dotnet run --project tools/AceIrModelGen -- \
     --schema ../ps/dist/ps.schema.json \
     --out src/Model/Ps/PsAttributes.Generated.cs \
     --namespace Ace.Generator.Model.Ps \
-    --root-type-name PSSchemaRoot \
+    --root-type-name PSDocument \
     --extern-namespace "@azure-client-engine/ir=Ace.Generator.Model.Ir"
 ```
 

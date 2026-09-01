@@ -14,7 +14,7 @@ export {
   PSParameterSetOverrideSchema,
   PSParameterAttributeSchema,
   PSModuleAttributeSchema,
-  PSSchemaRootSchema,
+  PSSchema,
   type ConfirmImpact,
   type LifecycleTag,
   type PSCompleterAttribute,
@@ -24,7 +24,7 @@ export {
   type PSParameterSetOverride,
   type PSParameterAttribute,
   type PSModuleAttribute,
-  type PSSchemaRoot,
+  type PS,
 } from "./attributes.js";
 
 export { resolveVerb } from "./verb-mapping.js";
@@ -42,6 +42,5 @@ export {
 export {
   deriveAttributes,
   type DeriveAttributesOptions,
-  type DerivedAttributes,
 } from "./derive.js";
 

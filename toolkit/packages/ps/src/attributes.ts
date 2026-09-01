@@ -264,19 +264,24 @@ export const PSModuleAttributeSchema: z.ZodType<PSModuleAttribute> = z
   })
   .strict();
 
-// ─── Root (schema-emission entry point only; no aggregate document exists yet) ─
+// ─── Root document ───────────────────────────────────────────────────────────
 
-/** Envelope of the three top-level attribute kinds, solely so `emit-json-schema.mjs` has one root to derive JSON Schema from. */
-export type PSSchemaRoot = {
-  command: PSCommandAttribute;
-  parameter: PSParameterAttribute;
-  module: PSModuleAttribute;
+/**
+ * A derived PS attribute document -- the unit a generator stage reads. Commands and modules are
+ * the only top-level kinds: a parameter belongs to exactly one command and is reached through it.
+ * Mirrors `IR` in @azure-client-engine/ir, including the version stamp, so an artifact on disk
+ * says which schema produced it.
+ */
+export type PS = {
+  schemaVersion: string;
+  commands: PSCommandAttribute[];
+  modules: PSModuleAttribute[];
 };
 
-export const PSSchemaRootSchema: z.ZodType<PSSchemaRoot> = z
+export const PSSchema: z.ZodType<PS> = z
   .object({
-    command: PSCommandAttributeSchema,
-    parameter: PSParameterAttributeSchema,
-    module: PSModuleAttributeSchema,
+    schemaVersion: z.string().min(1),
+    commands: z.array(PSCommandAttributeSchema),
+    modules: z.array(PSModuleAttributeSchema),
   })
   .strict();
