@@ -6,6 +6,7 @@
 
 using System.Reflection;
 using Benchmark.Auth;
+using Benchmark.Telemetry;
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Authentication;
@@ -28,6 +29,15 @@ public abstract class BenchmarkBase
 
     /// <summary>Scratch directory holding the seeded MSAL token cache for this run.</summary>
     protected string MsalCacheDirectory { get; private set; } = null!;
+
+    /// <summary>
+    /// Tracks whether the BenchmarkDotNet engine is inside the measured stage, so traces can be
+    /// separated from the warmup ones.
+    /// </summary>
+    private protected BenchmarkStageListener Stage { get; private set; } = null!;
+
+    /// <summary>This benchmark method's telemetry staging directories and post-run pruning.</summary>
+    private protected BenchmarkTelemetryArtifacts TelemetryArtifacts { get; private set; } = null!;
 
     /// <summary>
     /// The extension this benchmark class targets, read from its
@@ -92,6 +102,26 @@ public abstract class BenchmarkBase
         BenchmarkProfileStore.SeedAsync(ProfileStoreRoot, MsalCacheFixture.UserPrincipalName)
             .GetAwaiter()
             .GetResult();
+
+    /// <summary>
+    /// Resolves this benchmark method's telemetry directories and starts tracking the engine's
+    /// stage. Both live for the whole run, so this belongs in <c>[GlobalSetup]</c>.
+    /// </summary>
+    private protected void InitializeTelemetryCommon()
+    {
+        TelemetryArtifacts = new BenchmarkTelemetryArtifacts(RepoRoot);
+        Stage = new BenchmarkStageListener();
+    }
+
+    /// <summary>
+    /// Stops stage tracking and turns the measured traces into the run's deliverable. Belongs in
+    /// <c>[GlobalCleanup]</c>. Null-safe, so a benchmark that failed during setup still cleans up.
+    /// </summary>
+    private protected void CleanupTelemetryCommon()
+    {
+        Stage?.Dispose();
+        TelemetryArtifacts?.Prune();
+    }
 
     /// <summary>
     /// Registers stub DI overrides for benchmark isolation.
