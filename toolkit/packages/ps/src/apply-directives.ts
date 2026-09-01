@@ -7,8 +7,7 @@
  * authors believe are working.
  */
 
-import type { PSCommandAttribute, PSParameterAttribute } from "./attributes.js";
-import type { DerivedAttributes } from "./derive.js";
+import type { PS, PSCommandAttribute, PSParameterAttribute } from "./attributes.js";
 import type { PSDirective, PSDirectiveSelector, PSDirectiveSet } from "./directives.js";
 
 export type PSDirectiveDiagnostic = {
@@ -20,7 +19,7 @@ export type PSDirectiveDiagnostic = {
 };
 
 export type ApplyDirectivesResult = {
-  attributes: DerivedAttributes;
+  attributes: PS;
   diagnostics: PSDirectiveDiagnostic[];
 };
 
@@ -156,7 +155,7 @@ function applyParameterSet(
 }
 
 export function applyDirectives(
-  attributes: DerivedAttributes,
+  attributes: PS,
   directives: readonly PSDirective[],
 ): ApplyDirectivesResult {
   let commands = attributes.commands.map((command) => ({
