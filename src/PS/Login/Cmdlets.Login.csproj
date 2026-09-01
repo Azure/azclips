@@ -35,6 +35,10 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.Recording\Core.Recording.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
         <ProjectReference Include="..\..\Core\Core.Telemetry\Core.Telemetry.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
