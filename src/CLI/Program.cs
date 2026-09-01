@@ -171,7 +171,9 @@ public class Program
             activity?.AddException(ex);
 
             return await StopRootThenFallbackAsync(
-                activity, (traceId, spanId) => TryAgentFallbackAsync(positional, ex.Message, traceId, spanId));
+                activity,
+                (traceId, spanId, commandName) =>
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
         }
         catch (AzclipsErrorException ex)
         {
@@ -189,7 +191,9 @@ public class Program
             activity?.AddException(ex);
 
             return await StopRootThenFallbackAsync(
-                activity, (traceId, spanId) => TryAgentFallbackAsync(positional, ex.Message, traceId, spanId));
+                activity,
+                (traceId, spanId, commandName) =>
+                    TryAgentFallbackAsync(positional, ex.Message, traceId, spanId, commandName));
         }
         finally
         {
@@ -319,7 +323,7 @@ public class Program
 
     /// <summary>
     /// Stops the command root span, then runs <paramref name="fallback"/> with the stopped
-    /// root's identifiers.
+    /// root's identifiers and resolved command name.
     /// </summary>
     /// <remarks>
     /// The ordering is load-bearing: AI error recovery blocks on azclips-agent.exe for as
@@ -328,15 +332,20 @@ public class Program
     /// </remarks>
     internal static async Task<int> StopRootThenFallbackAsync(
         Activity? root,
-        Func<string?, string?, Task<int>> fallback)
+        Func<string?, string?, string?, Task<int>> fallback)
     {
         // Read before disposing, so this does not depend on Activity's post-stop behaviour.
         var traceId = root?.TraceId.ToString();
         var spanId = root?.SpanId.ToString();
+        // TagInvocation stamps the dispatcher-resolved command path here once parsing
+        // succeeds. Reusing it keeps positional parameter values out of telemetry: raw argv
+        // cannot distinguish a command-path token from a value bound to the positional slot.
+        // Null when the failure happened during parsing, before a command was resolved.
+        var commandName = root?.GetTagItem(TelemetryTags.Command) as string;
 
         root?.Dispose();
 
-        return await fallback(traceId, spanId);
+        return await fallback(traceId, spanId, commandName);
     }
 
     /// <summary>
@@ -391,7 +400,7 @@ public class Program
     }
 
     private static async Task<int> TryAgentFallbackAsync(
-        string[] args, string? errorText, string? commandTraceId, string? commandSpanId)
+        string[] args, string? errorText, string? commandTraceId, string? commandSpanId, string? commandName)
     {
         // Global enable switch: config `agent.enabled` (off by default for PP).
         // The user opts in with `az config set --key agent.enabled --value true`.
@@ -445,7 +454,7 @@ public class Program
         using var recovery = _telemetryService?.StartRootActivity(name: "CLI.Activity.AiRecovery");
         recovery?.SetTag(TelemetryTags.CommandTraceId, commandTraceId);
         recovery?.SetTag(TelemetryTags.CommandSpanId, commandSpanId);
-        var telemetryCommandName = GetTelemetryCommandNameFromArgs(args);
+        var telemetryCommandName = commandName ?? GetCommandGroupFromArgs(args);
         if (!string.IsNullOrEmpty(telemetryCommandName))
         {
             recovery?.SetTag(TelemetryTags.Command, telemetryCommandName);
@@ -514,33 +523,12 @@ public class Program
         return sb.ToString();
     }
 
-    // The fallback can run before command parsing succeeds, so only raw argv is available.
-    // Takes the leading non-flag tokens so parameter values never reach telemetry.
-    internal static string GetTelemetryCommandNameFromArgs(string[] args)
-    {
-        if (args.Length == 0 || args[0].StartsWith('-'))
-        {
-            return string.Empty;
-        }
-
-        var sb = new System.Text.StringBuilder();
-        foreach (var arg in args)
-        {
-            if (arg.StartsWith('-'))
-            {
-                break;
-            }
-
-            if (sb.Length > 0)
-            {
-                sb.Append(' ');
-            }
-
-            sb.Append(arg);
-        }
-
-        return sb.ToString();
-    }
+    // Fallback for when the failure happened during parsing, so no command was resolved.
+    // Emits the command group only: positional values bind after the matched command path
+    // (ExtensionDispatcher skips the verb plus matched tokens before collecting them), so
+    // args[0] is always a command group and never a parameter value.
+    internal static string GetCommandGroupFromArgs(string[] args) =>
+        args.Length == 0 || args[0].StartsWith('-') ? string.Empty : args[0];
 
     private static string? FindAgentExe()
     {

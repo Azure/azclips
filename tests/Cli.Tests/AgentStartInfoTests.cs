@@ -76,18 +76,19 @@ public class AgentStartInfoTests
     }
 
     [Theory]
-    [InlineData(new[] { "vm", "create", "--name", "myvm", "--admin-password", "hunter2" }, "vm create")]
+    [InlineData(new[] { "profile", "show", "my-customer-prod" }, "profile")]
+    [InlineData(new[] { "extension", "show", "Compute" }, "extension")]
+    [InlineData(new[] { "vm", "create", "--name", "myvm", "--admin-password", "hunter2" }, "vm")]
     [InlineData(new[] { "--subscription", "secret" }, "")]
     [InlineData(new string[0], "")]
-    public void GetTelemetryCommandNameFromArgs_StopsBeforeParameterValues(
-        string[] args,
-        string expectedCommandName)
+    public void GetCommandGroupFromArgs_EmitsTheGroupOnly(string[] args, string expected)
     {
-        var commandName = Core.Cli.Program.GetTelemetryCommandNameFromArgs(args);
+        var commandGroup = Core.Cli.Program.GetCommandGroupFromArgs(args);
 
-        Assert.Equal(expectedCommandName, commandName);
-        Assert.DoesNotContain("hunter2", commandName, StringComparison.Ordinal);
-        Assert.DoesNotContain("myvm", commandName, StringComparison.Ordinal);
-        Assert.DoesNotContain("secret", commandName, StringComparison.Ordinal);
+        Assert.Equal(expected, commandGroup);
+        foreach (var value in new[] { "my-customer-prod", "Compute", "myvm", "hunter2", "secret" })
+        {
+            Assert.DoesNotContain(value, commandGroup, StringComparison.Ordinal);
+        }
     }
 }
