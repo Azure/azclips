@@ -148,8 +148,32 @@ public partial class PSDocument
     public IReadOnlyList<PSModuleAttribute> Modules { get; set; } = [];
 }
 
+public partial class PSIdentityAttribute
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("properties")]
+    public IReadOnlyList<PSIdentityPropertyAttribute> Properties { get; set; } = [];
+}
+
+public partial class PSIdentityPropertyAttribute
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("helpMessage")]
+    public string? HelpMessage { get; set; }
+
+    [JsonPropertyName("sourceParameterIds")]
+    public IReadOnlyList<Ace.Generator.Model.Ir.IRId> SourceParameterIds { get; set; } = [];
+}
+
 public partial class PSModuleAttribute
 {
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
@@ -158,6 +182,9 @@ public partial class PSModuleAttribute
 
     [JsonPropertyName("cmdletsToExport")]
     public IReadOnlyList<string> CmdletsToExport { get; set; } = [];
+
+    [JsonPropertyName("identity")]
+    public PSIdentityAttribute? Identity { get; set; }
 }
 
 public partial class PSParameterAttribute

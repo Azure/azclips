@@ -261,6 +261,76 @@ describe("deriveAttributes", () => {
     expect(modules[0]!.cmdletsToExport).toEqual(["New-ResourceGroup"]);
   });
 
+  it("synthesizes one identity from every path parameter in the module", () => {
+    const pathParam = (owner: string, name: string) => ({
+      id: { module: "Microsoft.Test", namespace: ["Sans"], name: `${owner}.${name}` },
+      name,
+      wireName: name,
+      type: { kind: "primitive" as const, name: "string" as const },
+      optional: false,
+      nullable: false,
+    });
+    const op = (name: string, params: string[]) =>
+      makeOperation({
+        id: { module: "Microsoft.Test", namespace: ["Sans"], name },
+        source: "Microsoft.Test",
+        pathTemplate: "/subscriptions/{subscriptionId}/sans/{sanName}/volumes/{volumeName}",
+        pathParameters: params.map((p) => pathParam(name, p)),
+      });
+
+    const ir = {
+      ...emptyIR(),
+      sources: [
+        {
+          id: "Microsoft.Test",
+          entrypoint: "main.tsp",
+          apiVersion: { value: "2025-04-01", location: "query", parameterName: "api-version" },
+          server: { kind: "literal" as const, url: "https://management.azure.com" },
+          rootNamespace: ["Microsoft", "ElasticSan"],
+        },
+      ],
+      // No single operation declares every parameter; the identity is their union.
+      operations: [op("get", ["subscriptionId", "sanName"]), op("list", ["subscriptionId", "volumeName"])],
+    };
+
+    const identity = deriveAttributes(ir).modules[0]!.identity!;
+
+    expect(identity.name).toBe("ElasticSanIdentity");
+    expect(identity.properties.map((p) => p.name)).toEqual([
+      "SubscriptionId",
+      "SanName",
+      "VolumeName",
+      "Id",
+    ]);
+    // A property shared by two operations stands for both of their parameters.
+    expect(identity.properties[0]!.sourceParameterIds).toHaveLength(2);
+    expect(identity.properties.at(-1)!.sourceParameterIds).toEqual([]);
+  });
+
+  it("derives no identity when nothing in the module is addressable by path", () => {
+    const ir = {
+      ...emptyIR(),
+      sources: [
+        {
+          id: "Microsoft.Test",
+          entrypoint: "main.tsp",
+          apiVersion: { value: "2025-04-01", location: "query", parameterName: "api-version" },
+          server: { kind: "literal" as const, url: "https://management.azure.com" },
+          rootNamespace: ["Microsoft", "Test"],
+        },
+      ],
+      operations: [
+        makeOperation({
+          id: { module: "Microsoft.Test", namespace: ["Things"], name: "list" },
+          source: "Microsoft.Test",
+          pathTemplate: "/things",
+        }),
+      ],
+    };
+
+    expect(deriveAttributes(ir).modules[0]!.identity).toBeUndefined();
+  });
+
   it("uses a pageable operation's item type as the output type, not the page wrapper", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "list" },
