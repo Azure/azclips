@@ -113,7 +113,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             }
             else
             {
-                targetName = outName ?? ProfileNameValidator.ReservedTempName;
+                targetName = outName ?? ProfileNameValidator.ReservedDefaultName;
                 tenantId = TenantId;
                 subscriptionId = SubscriptionId;
                 cloudName = DefaultCloudName;
