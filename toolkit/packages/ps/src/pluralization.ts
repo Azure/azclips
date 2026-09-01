@@ -52,7 +52,7 @@ const knownConflictingPluralList: readonly string[] = [
   "they", "them", "their", "have", "were", "yourself", "are",
 ];
 
-const knownSingluarWords: readonly string[] = [
+const knownSingularWords: readonly string[] = [
   "brother", "child", "cow", "ephemeris", "genie", "money", "mongoose", "mythos", "octopus",
   "ox", "soliloquy", "trilby", "crisis", "synopsis", "rose", "gas", "bus", "axis", "memo",
   "casino", "silo", "stereo", "studio", "lens", "alias", "pie", "corpus", "viscus",
@@ -664,7 +664,7 @@ function singularizeWord(word: string): string {
   const { prefix, suffix } = splitSuffix(word);
   if (isNoOpWord(suffix)) return prefix + suffix;
   if (isUninflective(suffix)) return prefix + suffix;
-  if (knownSingluarWords.includes(suffix.toLowerCase())) return prefix + suffix;
+  if (knownSingularWords.includes(suffix.toLowerCase())) return prefix + suffix;
 
   if (irregularVerbs.hasPlural(suffix)) return prefix + irregularVerbs.toSingular(suffix);
   if (irregularPlurals.hasPlural(suffix)) return prefix + irregularPlurals.toSingular(suffix);
