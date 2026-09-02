@@ -78,6 +78,7 @@ public sealed class BlobDownloadProcessor_Orchestrator : StorageBlobProcessorBas
         BlobDownloadProcessor processor = CreateExtendedProcessor<BlobDownloadProcessor>(p =>
         {
             p.Url = _sourceUrl;
+            p.UseProfileAuthentication = string.IsNullOrWhiteSpace(AbsoluteUri);
             p.Snapshot = SnapshotTime;
             p.VersionId = VersionId;
             p.IfTags = TagCondition;
@@ -140,7 +141,7 @@ public sealed class BlobDownloadProcessor_Orchestrator : StorageBlobProcessorBas
         await WriteOutput(
             new BlobTransferResult(
                 "download",
-                _requestUrl,
+                new Uri(_requestUrl).GetLeftPart(UriPartial.Path),
                 _destinationPath,
                 _etag,
                 _lastModified,

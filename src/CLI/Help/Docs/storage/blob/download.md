@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Download blob content using Microsoft Entra authentication. The destination may be a file or directory; when omitted, the blob name is used in the current directory. Snapshot, version, Azure Blob URL, tag-condition, and MD5-check options are supported.
+Description: Download blob content by account name or Azure Blob URL. Account-name downloads use Microsoft Entra authentication. URL downloads start with anonymous or SAS access and use a challenge token only for managed-disk URLs. The destination may be a file or directory; when omitted, the blob name is used in the current directory. Snapshot, version, tag-condition, and MD5-check options are supported.
 
 ### Download a blob
 

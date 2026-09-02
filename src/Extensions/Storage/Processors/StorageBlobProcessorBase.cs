@@ -15,6 +15,7 @@ public abstract class StorageBlobProcessorBase : IProcessor
     protected IEventPublisher Publisher { get; private set; } = null!;
     protected OutputStreamDelegate WriteOutput { get; private set; } = null!;
     protected Profile? ResolvedProfile { get; private set; }
+    internal bool UseProfileAuthentication { get; set; } = true;
 
     public string? Profile { get; set; }
 
@@ -28,7 +29,12 @@ public abstract class StorageBlobProcessorBase : IProcessor
 
     protected virtual void CreateRequestHeaders(HttpRequestMessage request)
     {
-        if (ResolvedProfile is not null)
+        if (!UseProfileAuthentication)
+        {
+            request.Options.Set(RuntimeHttpRequestOptions.DisableProfileAuthentication, true);
+            request.Options.Set(RuntimeHttpRequestOptions.DisableQueryLogging, true);
+        }
+        else if (ResolvedProfile is not null)
         {
             request.Options.Set(RuntimeHttpRequestOptions.Scopes, s_storageScopes);
         }
@@ -116,6 +122,7 @@ public abstract class StorageBlobProcessorBase : IProcessor
             {
                 response.Dispose();
                 using HttpRequestMessage retry = await CreateRequestMessage();
+                retry.Options.Set(RuntimeHttpRequestOptions.DisableProfileAuthentication, false);
                 retry.Options.Set(RuntimeHttpRequestOptions.Scopes, [$"{audience}/.default"]);
                 response = await HttpPipeline.SendAsync(retry, Publisher);
                 await Publisher.Publish(Events.TracingHttpResponseMessage, response);

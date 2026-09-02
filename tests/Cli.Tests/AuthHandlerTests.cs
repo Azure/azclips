@@ -104,4 +104,35 @@ public class AuthHandlerTests
         Assert.Same(expectedScopes, capturedScopes);
         Assert.Equal("storage-token", request.Headers.Authorization!.Parameter);
     }
+
+    [Fact]
+    public async Task SendAsync_ShouldSkipTokenAcquisitionWhenAuthenticationIsDisabled()
+    {
+        int acquisitionCount = 0;
+        var handler = new AuthHandler
+        {
+            Profile = new Profile { TenantId = "tenant", SubscriptionId = "subscription" },
+            AcquireTokenAsyncDefault = (scopes, tenantId, promptOnError, cancellationToken, resolvedProfile) =>
+            {
+                acquisitionCount++;
+                throw new InvalidOperationException("Token acquisition should not run.");
+            },
+        };
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "https://account.blob.core.windows.net/container/blob?sig=secret");
+        request.Options.Set(RuntimeHttpRequestOptions.DisableProfileAuthentication, true);
+        var next = new Mock<ISendAsync>();
+        next.Setup(n => n.SendAsync(request, It.IsAny<IEventPublisher>()))
+            .ReturnsAsync(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetupGet(p => p.Token).Returns(CancellationToken.None);
+        publisher.SetReturnsDefault(Task.CompletedTask);
+
+        using HttpResponseMessage response = await handler.SendAsync(request, publisher.Object, next.Object);
+
+        Assert.Equal(0, acquisitionCount);
+        Assert.Null(request.Headers.Authorization);
+        next.Verify(n => n.SendAsync(request, publisher.Object), Times.Once);
+    }
 }

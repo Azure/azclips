@@ -36,7 +36,7 @@ Get-AzStorageBlobContent -AbsoluteUri <string> [-FilePath <string>] [-Force] [-C
 
 ## DESCRIPTION
 
-Downloads a blob by storage name or Azure Blob URL. The destination may be a file or directory; when omitted, the blob name is used in the current directory. Snapshots, versions, tag conditions, and MD5 checking are supported. Existing files require confirmation unless `-Force` is supplied.
+Downloads a blob by storage name or Azure Blob URL. Name-based downloads use Microsoft Entra authentication. URL downloads start with anonymous or SAS access and use a challenge token only for managed-disk URLs. The destination may be a file or directory; when omitted, the blob name is used in the current directory. Snapshots, versions, tag conditions, and MD5 checking are supported. Existing files require confirmation unless `-Force` is supplied.
 
 ## EXAMPLES
 
@@ -52,7 +52,7 @@ Get-AzStorageBlobContent -AccountName mystorageaccount -ContainerName backups -B
 
 ### -AbsoluteUri
 
-The absolute URI of the blob to download.
+The absolute URI of the blob to download. It may include a SAS query. Query values are not written to command output or debug HTTP logs.
 
 ```yaml
 Type: System.String

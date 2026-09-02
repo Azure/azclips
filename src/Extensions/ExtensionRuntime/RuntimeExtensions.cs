@@ -355,9 +355,17 @@ public static class RuntimeExtensions
             ? string.Empty
             : FormatString(await request.Content.ReadAsStringAsync());
 
+        string requestUri = request.RequestUri?.ToString() ?? string.Empty;
+        if (request.RequestUri is not null
+            && request.Options.TryGetValue(RuntimeHttpRequestOptions.DisableQueryLogging, out bool disableQueryLogging)
+            && disableQueryLogging)
+        {
+            requestUri = request.RequestUri.GetLeftPart(UriPartial.Path);
+        }
+
         return GetHttpRequestLog(
             request.Method.ToString(),
-            request.RequestUri == null ? string.Empty : request.RequestUri.ToString(),
+            requestUri,
             request.Headers,
             body,
             matchers);
@@ -478,13 +486,19 @@ public static class RuntimeExtensions
     {
         if (response.IsSuccessStatusCode) return;
         string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
-        string uri = response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)";
+        Uri? requestUri = response.RequestMessage?.RequestUri;
+        string uri = requestUri is null
+            ? "(unknown)"
+            : response.RequestMessage!.Options.TryGetValue(
+                RuntimeHttpRequestOptions.DisableQueryLogging,
+                out bool disableQueryLogging)
+                && disableQueryLogging
+                    ? requestUri.GetLeftPart(UriPartial.Path)
+                    : requestUri.ToString();
         string message = $"{(int)response.StatusCode} {response.ReasonPhrase} from {uri}{(string.IsNullOrWhiteSpace(body) ? string.Empty : ": " + body)}";
         await publisher.Publish(Events.ResourceOperationFailed, message);
         throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
     }
 }
-
-
 
 

@@ -131,6 +131,39 @@ public class RuntimeExtensionsTests
         Assert.Contains("HTTP RESPONSE", responseLog);
     }
 
+    [Fact]
+    public async Task GetLog_HidesDisabledRequestQuery()
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "https://account.blob.core.windows.net/container/blob?sig=secret");
+        request.Options.Set(RuntimeHttpRequestOptions.DisableQueryLogging, true);
+
+        string log = await request.GetLog();
+
+        Assert.Contains("https://account.blob.core.windows.net/container/blob", log);
+        Assert.DoesNotContain("sig=secret", log);
+    }
+
+    [Fact]
+    public async Task EnsureSuccessAsync_HidesDisabledRequestQuery()
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "https://account.blob.core.windows.net/container/blob?sig=secret");
+        request.Options.Set(RuntimeHttpRequestOptions.DisableQueryLogging, true);
+        using var response = new HttpResponseMessage(HttpStatusCode.Forbidden)
+        {
+            RequestMessage = request,
+        };
+
+        HttpRequestException exception = await Assert.ThrowsAsync<HttpRequestException>(
+            () => response.EnsureSuccessAsync(new FakeEventPublisher()));
+
+        Assert.Contains("https://account.blob.core.windows.net/container/blob", exception.Message);
+        Assert.DoesNotContain("sig=secret", exception.Message);
+    }
+
     private sealed class ThrowingContent : HttpContent
     {
         protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>

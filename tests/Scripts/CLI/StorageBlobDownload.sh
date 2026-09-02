@@ -3,27 +3,55 @@
 # Licensed under the MIT License.
 #
 # Live assertion checks for: az storage blob download
-# Prereqs: build, sign in, and create the test container.
+# Prereqs: build, sign in to azclips and Azure CLI, and create the test container.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
+AZURE_CLI="${AZURE_CLI:-az}"
 
 ACCOUNT="${AZCLIPS_STORAGE_ACCOUNT:-mytestsa52379}"
 CONTAINER="${AZCLIPS_STORAGE_CONTAINER:-azclips-manual-test}"
-SOURCE="$REPO_ROOT/tests/Scripts/CLI/StorageBlobDownload.sh"
-DESTINATION="$REPO_ROOT/artifacts/StorageBlobDownload.downloaded.sh"
-BLOB="azclips-cli-download-$(date +%s)-$$.sh"
+BLOB="azclips-cli-download-$(date +%s)-$$.bin"
+SOURCE="$REPO_ROOT/artifacts/$BLOB"
+DESTINATION="$SOURCE.downloaded"
 URI="https://$ACCOUNT.blob.core.windows.net/$CONTAINER/$BLOB"
-SOURCE_LENGTH="$(wc -c < "$SOURCE" | tr -d '[:space:]')"
 
-trap 'rm -f "$DESTINATION"' EXIT
-rm -f "$DESTINATION"
+cleanup() {
+  local exit_code=$?
+  local remaining
+  set +e
+  rm -f "$SOURCE" "$DESTINATION"
+  "$AZURE_CLI" storage blob delete \
+    --account-name "$ACCOUNT" \
+    --container-name "$CONTAINER" \
+    --name "$BLOB" \
+    --auth-mode login \
+    --only-show-errors >/dev/null
+  local delete_code=$?
+  remaining="$("$AZURE_CLI" storage blob exists \
+    --account-name "$ACCOUNT" \
+    --container-name "$CONTAINER" \
+    --name "$BLOB" \
+    --auth-mode login \
+    --query exists \
+    --output tsv \
+    --only-show-errors 2>/dev/null)"
+  local verify_code=$?
+  if (( delete_code != 0 || verify_code != 0 )) || [[ "${remaining,,}" != "false" ]]; then
+    echo "Failed to delete test blob '$BLOB'." >&2
+    (( exit_code != 0 )) || exit_code=1
+  fi
+  exit "$exit_code"
+}
+trap cleanup EXIT
+
+printf '\x00\x01\x02\x7f\x80\xffAzclips\r\n' > "$SOURCE"
+SOURCE_LENGTH="$(wc -c < "$SOURCE" | tr -d '[:space:]')"
 
 "$AZ" config set --key agent.enabled --value false >/dev/null
 
-# Arrange an independently downloadable blob.
 "$AZ" storage blob upload \
   --account-name "$ACCOUNT" \
   --container-name "$CONTAINER" \
@@ -50,5 +78,14 @@ if existing_output="$("$AZ" storage blob download \
   exit 1
 fi
 grep -qi overwrite <<<"$existing_output"
+
+printf 'wrong content' > "$DESTINATION"
+"$AZ" storage blob download \
+  --account-name "$ACCOUNT" \
+  --container-name "$CONTAINER" \
+  --name "$BLOB" \
+  --file "$DESTINATION" \
+  --overwrite >/dev/null
+cmp "$SOURCE" "$DESTINATION"
 
 echo "Storage Blob CLI download assertions passed."

@@ -119,7 +119,7 @@ public sealed class BlockBlobUploadProcessor_Orchestrator : StorageBlobProcessor
         }
         catch (HttpRequestException exception) when (
             !Overwrite
-            && exception.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
+            && exception.StatusCode == HttpStatusCode.PreconditionFailed)
         {
             throw new HttpRequestException(
                 "The blob already exists. Enable overwrite to replace it.",

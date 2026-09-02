@@ -29,7 +29,11 @@ namespace Core.Runtime.Handler
         {
             // When no profile is resolved, acquire no token. Commands that require a profile
             // (and therefore an authenticated call) fail at point of use with a clear error.
-            if (this.Profile is not null)
+            if (this.Profile is not null
+                && !(request.Options.TryGetValue(
+                    RuntimeHttpRequestOptions.DisableProfileAuthentication,
+                    out bool disableProfileAuthentication)
+                    && disableProfileAuthentication))
             {
                 await callback.Publish(Events.AuthBeforeTokenAcquisition);
                 AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null

@@ -119,7 +119,7 @@ public sealed class SetStorageBlobContentCmdlet : PSCmdlet
         }
         catch (HttpRequestException exception) when (
             !Force.IsPresent
-            && exception.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed)
+            && exception.StatusCode == HttpStatusCode.PreconditionFailed)
         {
             if (!ShouldContinue(
                 $"Blob '{AccountName}/{ContainerName}/{BlobName}' already exists. Overwrite it?",

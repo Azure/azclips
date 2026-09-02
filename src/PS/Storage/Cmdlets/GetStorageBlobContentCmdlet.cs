@@ -67,7 +67,11 @@ public sealed class GetStorageBlobContentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        string source = AbsoluteUri ?? $"{AccountName}/{ContainerName}/{BlobName}";
+        string source = AbsoluteUri is null
+            ? $"{AccountName}/{ContainerName}/{BlobName}"
+            : Uri.TryCreate(AbsoluteUri, UriKind.Absolute, out Uri? sourceUri)
+                ? sourceUri.GetLeftPart(UriPartial.Path)
+                : "blob URI";
         string target = string.IsNullOrWhiteSpace(FilePath) ? Directory.GetCurrentDirectory() : FilePath;
         if (!ShouldProcess(target, $"Download {source}"))
         {
@@ -122,8 +126,27 @@ public sealed class GetStorageBlobContentCmdlet : PSCmdlet
             return;
         }
 
-        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
-        session.Run();
+        try
+        {
+            Run(invocation);
+        }
+        catch (IOException exception) when (
+            !Force.IsPresent
+            && exception.Message.Contains("already exists. Enable overwrite", StringComparison.Ordinal))
+        {
+            if (!ShouldContinue(exception.Message, null))
+            {
+                return;
+            }
+            parameters["Overwrite"] = true;
+            Run(invocation);
+        }
+
+        void Run(CommandInvocation commandInvocation)
+        {
+            using ISession session = engine.OpenExecutionSession(commandInvocation, streams, _cts.Token);
+            session.Run();
+        }
     }
 
     private static void AddOptional(IDictionary<string, object> parameters, string name, string? value)

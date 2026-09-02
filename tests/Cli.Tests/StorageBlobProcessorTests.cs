@@ -235,17 +235,16 @@ public class StorageBlobProcessorTests
         Assert.Equal(1, pipeline.SendCount);
     }
 
-    [Theory]
-    [InlineData(HttpStatusCode.Conflict)]
-    [InlineData(HttpStatusCode.PreconditionFailed)]
-    public async Task Upload_ExistingBlob_ExplainsOverwrite(HttpStatusCode statusCode)
+    [Fact]
+    public async Task Upload_ExistingBlob_ExplainsOverwrite()
     {
         string directory = CreateTempDirectory();
         try
         {
             string sourcePath = Path.Combine(directory, "source.bin");
             await File.WriteAllBytesAsync(sourcePath, [1, 2, 3]);
-            var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(statusCode));
+            var pipeline = new FakeHttpPipeline(
+                (_, _) => new HttpResponseMessage(HttpStatusCode.PreconditionFailed));
             var processor = CreateProcessor(new BlockBlobUploadProcessor_Orchestrator(), pipeline, new FakeOutputHandler());
             processor.AccountName = "account123";
             processor.ContainerName = "container";
@@ -256,7 +255,38 @@ public class StorageBlobProcessorTests
                 await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
 
             Assert.Contains("overwrite", exception.Message);
-            Assert.Equal(statusCode, exception.StatusCode);
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Upload_UnrelatedConflictPreservesOriginalError()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string sourcePath = Path.Combine(directory, "source.bin");
+            await File.WriteAllBytesAsync(sourcePath, [1, 2, 3]);
+            var pipeline = new FakeHttpPipeline(
+                (_, _) => new HttpResponseMessage(HttpStatusCode.Conflict));
+            var processor = CreateProcessor(
+                new BlockBlobUploadProcessor_Orchestrator(),
+                pipeline,
+                new FakeOutputHandler());
+            processor.AccountName = "account123";
+            processor.ContainerName = "container";
+            processor.BlobName = "blob.bin";
+            processor.FilePath = sourcePath;
+
+            HttpRequestException exception =
+                await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+
+            Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+            Assert.DoesNotContain("overwrite", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -500,21 +530,48 @@ public class StorageBlobProcessorTests
         string directory = CreateTempDirectory();
         try
         {
-            var anonymousPipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+            bool initialRequestHadScopes = false;
+            bool initialRequestDisabledAuthentication = false;
+            bool initialRequestDisabledQueryLogging = false;
+            Uri? initialRequestUri = null;
+            var anonymousPipeline = new FakeHttpPipeline((request, _) =>
             {
-                Content = new ByteArrayContent([1])
+                initialRequestHadScopes = request.Options.TryGetValue(
+                    RuntimeHttpRequestOptions.Scopes,
+                    out string[]? _);
+                request.Options.TryGetValue(
+                    RuntimeHttpRequestOptions.DisableProfileAuthentication,
+                    out initialRequestDisabledAuthentication);
+                request.Options.TryGetValue(
+                    RuntimeHttpRequestOptions.DisableQueryLogging,
+                    out initialRequestDisabledQueryLogging);
+                initialRequestUri = request.RequestUri;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent([1])
+                };
             });
+            var anonymousOutput = new FakeOutputHandler();
             var anonymous = CreateProcessor(
                 new BlobDownloadProcessor_Orchestrator(),
                 anonymousPipeline,
-                new FakeOutputHandler(),
-                authenticated: false);
-            anonymous.AbsoluteUri = "https://account123.blob.core.windows.net/container/blob";
+                anonymousOutput);
+            anonymous.AbsoluteUri =
+                "https://account123.blob.core.windows.net/container/blob?sv=2026-04-06&sig=secret";
             anonymous.FilePath = Path.Combine(directory, "anonymous.bin");
 
             await anonymous.ProcessAsync();
 
             Assert.Equal([1], await File.ReadAllBytesAsync(anonymous.FilePath));
+            Assert.False(initialRequestHadScopes);
+            Assert.True(initialRequestDisabledAuthentication);
+            Assert.True(initialRequestDisabledQueryLogging);
+            Assert.Contains("sig=secret", initialRequestUri!.Query);
+            BlobTransferResult result =
+                Assert.IsType<BlobTransferResult>(Assert.Single(anonymousOutput.WrittenValues));
+            Assert.Equal(
+                "https://account123.blob.core.windows.net/container/blob",
+                result.Source);
 
             string[]? retryScopes = null;
             var managedDiskPipeline = new FakeHttpPipeline((request, _) =>
