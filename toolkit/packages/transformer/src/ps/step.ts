@@ -7,7 +7,7 @@
  */
 
 import type { IR } from "@azure-client-engine/ir";
-import type { TransformStep } from "@azure-client-engine/compiler";
+import type { TransformContext, TransformStep } from "@azure-client-engine/compiler";
 import { deriveAttributes, type DeriveAttributesOptions } from "./derive.js";
 
 /** Registry id for the PowerShell derivation step. */
@@ -16,14 +16,16 @@ export const PS_DERIVE_STEP_ID = "ps.derive";
 const KNOWN_OPTIONS = new Set(["modulePrefix", "subjectPrefix"]);
 
 /**
- * Build the `ps.derive` step. Options are validated inside `run` rather than
- * here so a bad config surfaces as a transform-stage diagnostic instead of an
- * exception escaping pipeline resolution.
+ * Build the `ps.derive` step.
+ *
+ * Options are read in `run`, not here: the backbone catches a throw from `run`
+ * and reports it as a transform-stage diagnostic, whereas a throw from this
+ * factory would escape pipeline resolution as an unhandled error.
  */
 export function createPSDeriveStep(options: Record<string, unknown> = {}): TransformStep {
   return {
     name: PS_DERIVE_STEP_ID,
-    run(ir: IR): IR {
+    run(ir: IR, _context: TransformContext): IR {
       return { ...ir, ps: deriveAttributes(ir, readOptions(options)) };
     },
   };
