@@ -27,7 +27,11 @@ export {
   type PSDirectiveDiagnostic,
 } from "./ps/apply-directives.js";
 
-export { createPSDeriveStep, PS_DERIVE_STEP_ID } from "./ps/step.js";
-
+export {
+  createPSDeriveStep,
+  createPSDirectivesStep,
+  PS_DERIVE_STEP_ID,
+  PS_DIRECTIVES_STEP_ID,
+} from "./ps/step.js";
 export { transformSteps } from "./registry.js";
 
