@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Process host for the generator: JSON request on stdin, JSON response on stdout.
+    The TypeScript backbone is host-agnostic and never loads .NET, so the `ace` CLI
+    reaches the Roslyn generator by spawning this. See the package README.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Ace.Generator.Host</RootNamespace>
+    <AssemblyName>Ace.Generator.Host</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Ace.Generator.csproj" />
+  </ItemGroup>
+
+</Project>

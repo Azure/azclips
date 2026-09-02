@@ -30,6 +30,20 @@ const PETS_TSP = resolve(
   "pets.tsp",
 );
 
+/** The generator host is a .NET build output, so this only runs where it has been built. */
+const GENERATOR_HOST = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "generator",
+  "tools",
+  "AceGeneratorHost",
+  "bin",
+  "Debug",
+  "net10.0",
+  "Ace.Generator.Host.dll",
+);
+
 /** Run the CLI with stdout/stderr captured instead of printed. */
 async function captureRun(argv: string[]): Promise<{ code: number; out: string; err: string }> {
   const out: string[] = [];
@@ -366,5 +380,62 @@ describe("ace compile: configured pipeline", () => {
     ]);
     expect(code).toBe(1);
     expect(err).toContain("ps-surface-missing");
+  });
+});
+
+describe("ace compile: configured generator", () => {
+  it.skipIf(!existsSync(GENERATOR_HOST))(
+    "runs the whole pipeline end to end: emit, transform, then the C# generator",
+    async () => {
+      const outDir = join(dir, "generated");
+      writeFileSync(
+        join(dir, "generate.json"),
+        JSON.stringify({
+          pipeline: [{ use: "ps.derive" }],
+          generator: {
+            use: "csharp",
+            options: { hostPath: GENERATOR_HOST, rootNamespace: "Azure.Pets" },
+          },
+        }),
+      );
+
+      const { code } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--config",
+        join(dir, "generate.json"),
+        "--out-dir",
+        outDir,
+      ]);
+      expect(code).toBe(0);
+
+      // The index only exists because the transform ran first, so its presence proves the chain.
+      const index = join(outDir, "ExtensionIndex.g.cs");
+      expect(existsSync(index)).toBe(true);
+      const source = readFileSync(index, "utf8");
+      expect(source).toContain("public class ExtensionIndex : IExtensionIndex");
+      expect(source).toContain("InvocationName: \"Get-Pet");
+      expect(existsSync(join(outDir, "Models", "Pet.g.cs"))).toBe(true);
+    },
+  );
+
+  it("fails with a diagnostic when config names an unregistered generator", async () => {
+    writeFileSync(
+      join(dir, "bad-generator.json"),
+      JSON.stringify({ generator: { use: "rust" } }),
+    );
+
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--config",
+      join(dir, "bad-generator.json"),
+      "--out-dir",
+      join(dir, "bad-generator"),
+    ]);
+    expect(code).toBe(1);
+    expect(err).toContain("unknown-generator");
   });
 });

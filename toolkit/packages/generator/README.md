@@ -6,8 +6,13 @@ returns generated C# source files.
 
 This package is a **plain .NET class library**: it exposes the generation API and
 the IR POCOs. It is **not** an npm-workspace member — the `ace` CLI integrates
-with it by spawning a `dotnet` process. Hosting/integration with the CLI is
-intentionally **out of scope** here and is wired up separately.
+with it by spawning `tools/AceGeneratorHost` (`Ace.Generator.Host`), which reads a
+`{ ir, rootNamespace }` request on stdin and writes `{ files, diagnostics, success }`
+to stdout. Build it, then name it from a compile config:
+
+```json
+{ "generator": { "use": "csharp", "options": { "hostPath": "<path>/Ace.Generator.Host.dll" } } }
+```
 
 ## Layout
 
@@ -49,6 +54,8 @@ packages/generator/
     Program.cs                          Entry point (arg parsing, file I/O)
     IrModelGenerator.cs                 JSON Schema -> C# mapping + Roslyn emission
     SchemaModel.cs                      Internal model (enum/class/property build records)
+  tools/AceGeneratorHost/             Process host: JSON request on stdin -> JSON response on stdout
+    Program.cs                          Entry point the `ace` CLI spawns
 ```
 
 There is no solution file: the library is the single project at the package root,

@@ -29,12 +29,16 @@ import { transformSteps } from "@azure-client-engine/transformer";
 import { resolveToolchain, type ResolvedToolchain } from "./toolchain.js";
 import { stageLocalProject, type StagedProject } from "./staging.js";
 import { createSubprocessEmitProducer } from "./tsp-compile.js";
+import { createDotnetGenerator, CSHARP_GENERATOR_ID } from "./dotnet-generate.js";
 
 /**
- * Steps this host makes available to `CompileConfig.pipeline`. Registration is
- * just availability — a step runs only when config names it.
+ * Steps and generators this host makes available to `CompileConfig`. Registration is
+ * just availability — one runs only when config names it.
  */
-const registry = createRegistry({ transforms: transformSteps });
+const registry = createRegistry({
+  transforms: transformSteps,
+  generators: { [CSHARP_GENERATOR_ID]: createDotnetGenerator },
+});
 
 /** Render a diagnostic for the terminal. */
 function formatDiagnostic(d: CompilerDiagnostic): string {
@@ -79,6 +83,10 @@ function usage(): string {
     "                         Its `pipeline` array selects transform steps by id:",
     '                           { "pipeline": [{ "use": "ps.derive" }] }',
     `                         Registered steps: ${[...registry.transforms.keys()].join(", ")}`,
+    "                         Its `generator` selects the back end by id:",
+    '                           { "generator": { "use": "csharp",',
+    '                               "options": { "hostPath": "<Ace.Generator.Host.dll>" } } }',
+    `                         Registered generators: ${[...registry.generators.keys()].join(", ")}`,
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
