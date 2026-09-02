@@ -1,35 +1,7 @@
 /**
- * Public surface of @azure-client-engine/ps.
+ * Public surface of @azure-client-engine/ps: the transform that derives the PowerShell surface
+ * (`IR.ps`) from an IR document. The attribute schema itself lives in @azure-client-engine/ir.
  */
-
-export { PS_SCHEMA_VERSION } from "./version.js";
-
-export {
-  ConfirmImpacts,
-  LifecycleTags,
-  PSCompleterAttributeSchema,
-  PSDefaultValueAttributeSchema,
-  PSCommandAttributeSchema,
-  PSParameterSetAttributeSchema,
-  PSParameterSetOverrideSchema,
-  PSParameterAttributeSchema,
-  PSModuleAttributeSchema,
-  PSIdentityAttributeSchema,
-  PSIdentityPropertyAttributeSchema,
-  PSSchema,
-  type ConfirmImpact,
-  type LifecycleTag,
-  type PSCompleterAttribute,
-  type PSDefaultValueAttribute,
-  type PSCommandAttribute,
-  type PSParameterSetAttribute,
-  type PSParameterSetOverride,
-  type PSParameterAttribute,
-  type PSModuleAttribute,
-  type PSIdentityAttribute,
-  type PSIdentityPropertyAttribute,
-  type PS,
-} from "./attributes.js";
 
 export { resolveVerb } from "./verb-mapping.js";
 

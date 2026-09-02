@@ -11,26 +11,20 @@
     }
   },
   "dependencies": {
-    "@azure-client-engine/ir": "*",
-    "zod": "^3.23.8"
+    "@azure-client-engine/ir": "*"
   },
   "devDependencies": {
     "@types/node": "~20.14.0",
     "rimraf": "^5.0.5",
-    "vitest": "3.2.4",
-    "zod-to-json-schema": "^3.25.2"
+    "vitest": "3.2.4"
   },
   "scripts": {
     "build": "tsc -b",
     "clean": "rimraf dist",
-    "test": "vitest run --passWithNoTests",
-    "preschema": "npm run build",
-    "schema": "node scripts/emit-json-schema.mjs",
-    "preschema:check": "npm run build",
-    "schema:check": "node scripts/emit-json-schema.mjs --check"
+    "test": "vitest run --passWithNoTests"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "PowerShell command, parameter, and module attribute schema for the Azure Client Engine"
+  "description": "Derives the PowerShell surface of an IR document for the Azure Client Engine"
 }

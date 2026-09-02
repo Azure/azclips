@@ -25,18 +25,15 @@ import {
   type IRParameter,
   type IRProperty,
   type IRTypeRef,
+  type PS,
+  type PSCommandAttribute,
+  type PSIdentityAttribute,
+  type PSIdentityPropertyAttribute,
+  type PSModuleAttribute,
+  type PSParameterAttribute,
+  type PSParameterSetAttribute,
 } from "@azure-client-engine/ir";
 import { inferCommandNames, deconstruct, pascalCase, singularize, deduplicateNoun } from "./naming.js";
-import { PS_SCHEMA_VERSION } from "./version.js";
-import type {
-  PS,
-  PSCommandAttribute,
-  PSIdentityAttribute,
-  PSIdentityPropertyAttribute,
-  PSModuleAttribute,
-  PSParameterAttribute,
-  PSParameterSetAttribute,
-} from "./attributes.js";
 
 export type DeriveAttributesOptions = {
   /** Module-level prefix applied to every noun, e.g. "Az". Default: undefined (none). */
@@ -587,7 +584,7 @@ export function deriveAttributes(ir: IR, options: DeriveAttributesOptions = {}):
 
   const modules = deriveModules(ir, commandSources);
 
-  return { schemaVersion: PS_SCHEMA_VERSION, commands, modules };
+  return { commands, modules };
 }
 
 /**
