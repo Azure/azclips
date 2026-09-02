@@ -62,6 +62,28 @@ function commandMatches(where: PSDirectiveSelector, command: PSCommandAttribute)
   );
 }
 
+/** The sets a parameter takes part in; one that names neither takes part in all of them. */
+function setsOf(command: PSCommandAttribute, parameter: PSParameterAttribute): string[] {
+  if (parameter.parameterSets !== undefined) return Object.keys(parameter.parameterSets);
+  if (parameter.parameterSetName !== undefined) return [parameter.parameterSetName];
+  return command.parameterSets.map((set) => set.name);
+}
+
+/**
+ * A `variant` selector narrows which parameters a directive reaches, not just which commands.
+ * `modifiers-v2.ts` gets this for free -- its unit is one cmdlet *per variant*, each with its own
+ * parameter list -- whereas a command here holds every set at once, so the scoping is explicit.
+ */
+function parameterMatches(
+  where: PSDirectiveSelector,
+  command: PSCommandAttribute,
+  parameter: PSParameterAttribute,
+): boolean {
+  if (!matches(where["parameter-name"], parameter.name)) return false;
+  if (where.variant === undefined) return true;
+  return setsOf(command, parameter).some((set) => matches(where.variant, set));
+}
+
 /** The module prefix is not stored; it is whatever `noun` carries ahead of the known parts. */
 function modulePrefixOf(command: PSCommandAttribute): string {
   const tail = (command.subjectPrefix ?? "") + command.subject;
@@ -179,10 +201,31 @@ export function applyDirectives(
 
         const parameters: PSParameterAttribute[] = [];
         for (const parameter of command.parameters) {
-          if (!matches(where["parameter-name"], parameter.name)) {
+          if (!parameterMatches(where, command, parameter)) {
             parameters.push(parameter);
             continue;
           }
+
+          // One attribute carries one name, so a set-scoped rename cannot reach a parameter that
+          // also lives outside those sets -- autorest.powershell splits it in two (`-Name` in Get,
+          // `-SearchName` in List on Get-AzMLWorkspaceDatastore). Report rather than rename both.
+          if (
+            where.variant !== undefined &&
+            directive.set?.["parameter-name"] !== undefined &&
+            setsOf(command, parameter).some((set) => !matches(where.variant, set))
+          ) {
+            diagnostics.push({
+              severity: "warning",
+              code: "unsupported-directive",
+              message:
+                `Cannot rename '${parameter.name}' on ${command.verb}-${command.noun} for variant ` +
+                `'${where.variant}' alone: the parameter also belongs to sets the variant does not match.`,
+              directiveIndex,
+            });
+            parameters.push(parameter);
+            continue;
+          }
+
           matched++;
 
           if (directive.remove === true) continue;
@@ -205,7 +248,7 @@ export function applyDirectives(
         const hit =
           commandMatches(where, command) &&
           (where["parameter-name"] === undefined ||
-            command.parameters.some((p) => matches(where["parameter-name"], p.name)));
+            command.parameters.some((p) => parameterMatches(where, command, p)));
         if (!hit) {
           kept.push(command);
           continue;

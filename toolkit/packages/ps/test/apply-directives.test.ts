@@ -271,3 +271,63 @@ describe("applyDirectives", () => {
     expect(JSON.stringify(derived)).toBe(before);
   });
 });
+
+/** One command whose Get set carries a parameter the List set does not. */
+function twoSetFixture() {
+  const get = makeOperation({
+    id: { module: "<root>", namespace: ["Volumes"], name: "get" },
+    method: "GET",
+    pathTemplate: "/subscriptions/{subscriptionId}/volumes/{volumeName}",
+    pathParameters: [pathParam("get", "subscriptionId"), pathParam("get", "volumeName")],
+  });
+  const list = makeOperation({
+    id: { module: "<root>", namespace: ["Volumes"], name: "listByResourceGroup" },
+    method: "GET",
+    pathTemplate: "/subscriptions/{subscriptionId}/volumes",
+    pathParameters: [pathParam("list", "subscriptionId")],
+  });
+  return deriveAttributes({ ...emptyIR(), operations: [get, list] }, { modulePrefix: "Az" });
+}
+
+describe("applyDirectives: variant scoping", () => {
+  it("leaves a parameter alone when the variant names sets it does not belong to", () => {
+    const attributes = twoSetFixture();
+    expect(attributes.commands[0]!.parameterSets.map((s) => s.name)).toEqual([
+      "Get",
+      "GetViaIdentity",
+      "List",
+    ]);
+
+    // `Name` exists only in the Get set, so a List-scoped directive must not reach it.
+    const result = applyDirectives(attributes, [
+      { where: { subject: "Volume", variant: "^List$", "parameter-name": "^Name$" }, hide: true },
+    ]);
+
+    expect(result.attributes.commands[0]!.parameters.find((p) => p.name === "Name")?.hidden).toBeUndefined();
+    expect(result.diagnostics.map((d) => d.code)).toContain("unmatched-directive");
+  });
+
+  it("applies to a parameter that does belong to the named set", () => {
+    const result = applyDirectives(twoSetFixture(), [
+      { where: { subject: "Volume", variant: "^Get$", "parameter-name": "^Name$" }, hide: true },
+    ]);
+
+    expect(result.attributes.commands[0]!.parameters.find((p) => p.name === "Name")?.hidden).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("reports a rename it cannot scope rather than renaming every set", () => {
+    // `SubscriptionId` spans Get and List, so renaming it for List alone would need two attributes.
+    const result = applyDirectives(twoSetFixture(), [
+      {
+        where: { subject: "Volume", variant: "^List$", "parameter-name": "^SubscriptionId$" },
+        set: { "parameter-name": "Subscription" },
+      },
+    ]);
+
+    const names = result.attributes.commands[0]!.parameters.map((p) => p.name);
+    expect(names).toContain("SubscriptionId");
+    expect(names).not.toContain("Subscription");
+    expect(result.diagnostics.map((d) => d.code)).toContain("unsupported-directive");
+  });
+});
