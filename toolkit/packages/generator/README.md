@@ -21,11 +21,13 @@ packages/generator/
       CSharpClientGenerator.cs          Orchestrator: drives the artifact generators, streams + validates output
       EmitterExtensions.cs              Shared emit helpers: Identifier/Pascal, relative-path normalization, XML-doc trivia
       IrTypeMapper.cs                   IRTypeRef -> C# type expression
+      ProcessorNaming.cs                Processor class name for an operation (shared with the extension index)
       Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
         ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
         ProcessorGenerator.cs             IR operations -> processor classes (ProcessorBase<T>; real emission)
         ProcessorBaseGenerator.cs         Processor runtime base: marker + generic ProcessorBase<T> (real emission)
+        ExtensionIndexGenerator.cs        IR.ps -> ExtensionIndex command table (one entry per parameter set)
         ProjectStubGenerator.cs           extension .csproj (System.Xml.Linq; per-artifact …Emit)
     Model/                            Run-facing types + generated IR POCOs
       GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
@@ -41,6 +43,7 @@ packages/generator/
     ArtifactWriter.cs                   Test handler: writes each run's output under artifacts/<test>/
     GeneratedFileCollector.cs           In-memory handler (buffers for assertions)
     TestData/elasticsan.ir.json         Real ElasticSan IR used as a generation test case
+    TestData/elasticsan.ps.json         Its PowerShell surface (`ps.derive` output), attached to the IR at test time
     artifacts/                          Generated output from test runs (gitignored; for eyeballing)
   tools/AceIrModelGen/                Codegen tool (JSON Schema -> C# POCOs, via Roslyn)
     Program.cs                          Entry point (arg parsing, file I/O)
