@@ -33,6 +33,7 @@ public sealed class CSharpClientGenerator : IClientGenerator
         IRDocument ir,
         GeneratorOptions options,
         GeneratedFileHandler writeFile,
+        RemoveHandler? removeScope = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(ir);
@@ -41,6 +42,31 @@ public sealed class CSharpClientGenerator : IClientGenerator
 
         var diagnostics = new List<GeneratorDiagnostic>();
         var context = new GenerationContext(ir, options, diagnostics, cancellationToken);
+
+        // Cleanup pass (before any produce): each stage names the output scopes it
+        // owns; the host wipes them so every regeneration starts clean. Running
+        // first guarantees a later produce never removes freshly written output.
+        if (removeScope is not null)
+        {
+            foreach (IArtifactGenerator stage in _stages)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                foreach (string scope in stage.Clean(context))
+                {
+                    if (!scope.TryNormalize(out string normalized, out string error))
+                    {
+                        context.Report(
+                            DiagnosticSeverity.Error,
+                            "ace-generator/invalid-clean-scope",
+                            $"A generator named an invalid clean scope: {error}.");
+                        continue;
+                    }
+
+                    await removeScope(normalized, cancellationToken);
+                }
+            }
+        }
+
         var emitted = new HashSet<string>(StringComparer.Ordinal);
         var generatedClasses = new Dictionary<string, string>(StringComparer.Ordinal);
 

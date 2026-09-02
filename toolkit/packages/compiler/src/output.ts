@@ -28,6 +28,7 @@ export interface IRSnapshot {
 /** An artifact the backbone emits during a compile run. */
 export type EmitArtifact =
   | { kind: "generated-file"; path: string; contents: string }
+  | { kind: "remove"; path: string }
   | ({ kind: "ir-snapshot" } & IRSnapshot);
 
 /**
@@ -53,9 +54,11 @@ export function createCollectorSink(): CollectorSink {
   const write: OutputDelegate = (artifact) => {
     if (artifact.kind === "generated-file") {
       files.set(artifact.path, artifact.contents);
-    } else {
+    } else if (artifact.kind === "ir-snapshot") {
       snapshots.push({ index: artifact.index, step: artifact.step, ir: artifact.ir });
     }
+    // "remove" artifacts are host filesystem effects; the in-memory collector has
+    // nothing to remove (removes precede writes within a run), so it ignores them.
   };
   return { write, files, snapshots };
 }

@@ -7,6 +7,10 @@
   "bin": {
     "ace": "dist/src/cli.js"
   },
+  "files": [
+    "dist",
+    "generator-host"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

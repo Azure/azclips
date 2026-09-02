@@ -46,64 +46,84 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
-    public async Task Generate_EmitsAModelFilePerModel()
+    public async Task Generate_EmitsATypePerModel()
     {
-        (GenerationResult result, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget", "Gadget"]));
+        (GenerationResult result, _) = await RunAsync(Ir(models: ["Widget", "Gadget"]));
 
         Assert.True(result.Success);
-        Assert.Contains("Models/Widget.g.cs", writer.Files.Keys);
-        Assert.Contains("Models/Gadget.g.cs", writer.Files.Keys);
+        // Contract: one generated type per model, named after the model.
+        Assert.Contains("Widget", result.GeneratedClasses.Keys);
+        Assert.Contains("Gadget", result.GeneratedClasses.Keys);
     }
 
     [Fact]
-    public async Task Generate_EmitsAProcessorFilePerOperation()
+    public async Task Generate_EmitsAProcessorTypePerOperation()
     {
-        // Operation names are camelCase in the IR; processors are PascalCased.
-        (GenerationResult result, ArtifactWriter writer) = await RunAsync(Ir(operations: ["restoreVolume"]));
+        // Operation names are camelCase in the IR; processor types are PascalCased + "Processor".
+        (GenerationResult result, _) = await RunAsync(Ir(operations: ["restoreVolume"]));
 
         Assert.True(result.Success);
-        Assert.Contains("Processors/RestoreVolumeProcessor.g.cs", writer.Files.Keys);
+        Assert.Contains("RestoreVolumeProcessor", result.GeneratedClasses.Keys);
     }
 
     [Fact]
     public async Task Generate_AlwaysEmitsProcessorBaseAndProjectFile()
     {
-        (_, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"]));
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"]));
 
-        Assert.Contains("Processors/ProcessorBase.g.cs", writer.Files.Keys);
+        Assert.Contains("ProcessorBase", result.GeneratedClasses.Keys);
+        // A .csproj is a platform requirement, not a volatile naming decision.
         Assert.Contains(writer.Files.Keys, k => k.EndsWith(".csproj", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task Generate_MapsGeneratedClassesToTheirPaths()
+    public async Task Generate_MapsEachClassToAWrittenFile()
     {
         (GenerationResult result, ArtifactWriter writer) =
             await RunAsync(Ir(models: ["Widget"], operations: ["restoreVolume"]));
 
-        Assert.Equal("Models/Widget.g.cs", result.GeneratedClasses["Widget"]);
-        Assert.Equal("Processors/RestoreVolumeProcessor.g.cs", result.GeneratedClasses["RestoreVolumeProcessor"]);
-        Assert.Equal("Processors/ProcessorBase.g.cs", result.GeneratedClasses["ProcessorBase"]);
-
-        // Non-type artifacts (the project file) are not classes.
-        Assert.DoesNotContain(result.GeneratedClasses.Values, v => v.EndsWith(".csproj", StringComparison.Ordinal));
-        // Every mapped class points at a file that was actually written.
+        // Every mapped class points at a file that was actually written...
         foreach (string path in result.GeneratedClasses.Values)
         {
             Assert.Contains(path, writer.Files.Keys);
         }
+        // ...the project file is not a class...
+        Assert.DoesNotContain(result.GeneratedClasses.Values, v => v.EndsWith(".csproj", StringComparison.Ordinal));
+        // ...and coverage is exactly model + operation + the always-on base.
+        Assert.Equal(
+            new[] { "ProcessorBase", "RestoreVolumeProcessor", "Widget" },
+            result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
+    public async Task Output_paths_follow_the_convention()
+    {
+        // THE single place that pins the *incidental* output path scheme. A rename
+        // of the layout/suffix should touch only this test; everything else asserts
+        // the stable contract (class coverage, parseability, content).
+        (GenerationResult result, ArtifactWriter writer) =
+            await RunAsync(Ir(models: ["Widget"], operations: ["restoreVolume"]));
+
+        Assert.Equal("Models/Widget.cs", result.GeneratedClasses["Widget"]);
+        Assert.Equal("Processors/RestoreVolumeProcessor.cs", result.GeneratedClasses["RestoreVolumeProcessor"]);
+        Assert.Equal("Processors/ProcessorBase.cs", result.GeneratedClasses["ProcessorBase"]);
+        Assert.Contains("Contoso.Clients.csproj", writer.Files.Keys);
     }
 
     [Fact]
     public async Task Generate_ProducesParseableCSharp()
     {
-        (_, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"], operations: ["get"]));
+        (GenerationResult result, ArtifactWriter writer) =
+            await RunAsync(Ir(models: ["Widget"], operations: ["get"]));
 
-        string model = writer.Files["Models/Widget.g.cs"];
+        // Content contract: the model type exists in its API namespace (looked up
+        // by class name, not by a hardcoded path).
+        string model = writer.Files.Source(result, "Widget");
         Assert.Contains("namespace Contoso.Clients.Models", model);
         Assert.Contains("class Widget", model);
 
-        // Every emitted .cs file must be valid C# (no syntax-error diagnostics).
-        foreach ((string path, string source) in writer.Files.Where(f => f.Key.EndsWith(".cs", StringComparison.Ordinal)))
+        // Every generated C# source must be valid C# (no syntax-error diagnostics).
+        foreach ((string _, string source) in writer.Files.CSharpSources())
         {
             var tree = CSharpSyntaxTree.ParseText(source);
             Assert.DoesNotContain(
@@ -115,11 +135,11 @@ public sealed class CSharpClientGeneratorTests
     [Fact]
     public async Task Generate_ReportsWarningForEmptyModelName()
     {
-        (GenerationResult result, ArtifactWriter writer) =
-            await RunAsync(Ir(models: [""]), new GeneratorOptions());
+        (GenerationResult result, _) = await RunAsync(Ir(models: [""]), new GeneratorOptions());
 
         Assert.Contains(result.Diagnostics, d => d.Code == "ace-generator/empty-model-name");
-        Assert.DoesNotContain(writer.Files.Keys, k => k.StartsWith("Models/", StringComparison.Ordinal));
+        // The empty-named model is skipped, not emitted — only the always-on base remains.
+        Assert.Equal("ProcessorBase", Assert.Single(result.GeneratedClasses.Keys));
     }
 
     [Fact]

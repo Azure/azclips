@@ -23,6 +23,16 @@ internal static class EmitterExtensions
     }
 
     /// <summary>
+    /// Append verbatim comment trivia (parsed from <paramref name="commentText"/> — line <c>//</c>,
+    /// block <c>/* */</c>, or doc <c>///</c>) after the node's existing leading trivia, so it lands
+    /// directly above the declaration (below any XML doc already attached). Used to carry
+    /// hand-authored comments from a reference source into generated output.
+    /// </summary>
+    internal static T WithLeadingComment<T>(this T node, string commentText)
+        where T : SyntaxNode =>
+        node.WithLeadingTrivia(node.GetLeadingTrivia().AddRange(ParseLeadingTrivia(commentText)));
+
+    /// <summary>
     /// Attach a single-line XML <c>&lt;summary&gt;</c> doc comment as leading trivia,
     /// if <paramref name="doc"/> is non-empty. Applied last in each builder so it lands
     /// on the declaration's first token (above any attribute list).

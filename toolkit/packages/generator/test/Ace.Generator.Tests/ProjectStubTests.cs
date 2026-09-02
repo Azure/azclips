@@ -20,7 +20,7 @@ public sealed class ProjectStubTests
             new IRDocument { SchemaVersion = "0.6.0", Models = [], Operations = [] },
             new GeneratorOptions { RootNamespace = RootNamespace },
             writer.WriteAsync);
-        return writer.Files[$"{RootNamespace}.csproj"];
+        return writer.Files.ProjectFile();
     }
 
     [Fact]

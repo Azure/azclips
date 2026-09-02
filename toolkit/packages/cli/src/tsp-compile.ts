@@ -1,25 +1,25 @@
 /**
- * Subprocess-backed emit producer.
+ * `tsp-emit` tool host: run TypeSpec compile + emit out of process.
  *
- * Wraps the `tsp-compile` worker as an `EmitProducer` the orchestrator can inject
- * via `CompileOptions.emit`. Given a `ResolvedToolchain` (from `resolveToolchain`),
- * it forks the worker, sends a `TspCompileRequest`, and turns the reply back into
- * an `EmitProduct` (reporting diagnostics through the emit context). All TypeSpec
- * work happens in the child, so ace's process never loads `@typespec/compiler`.
+ * Backs the compiler's built-in emit stage. The compiler owns *that* emit is an
+ * external subprocess speaking the `tsp-emit` protocol and drives it through
+ * `runtime.spawn`; everything host/spec-specific lives here:
+ *   - resolving which `@typespec/compiler` + emitter to load — the hybrid,
+ *     project-local-preferred toolchain (see `resolveToolchain`), the documented
+ *     exception to "tools live under the host realm"; and
+ *   - forking the worker that actually loads them.
+ *
+ * The boundary stays data-only (an `EmitToolRequest` in, an `EmitToolResponse`
+ * out), so ace's own process never loads `@typespec/compiler`.
  */
 
 import { fork } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type {
-  CompileInput,
-  EmitContext,
-  EmitProducer,
-  EmitProduct,
-} from "@azure-client-engine/compiler";
+import type { EmitToolRequest, EmitToolResponse } from "@azure-client-engine/compiler";
 
-import type { ResolvedToolchain } from "./toolchain.js";
+import { resolveToolchain } from "./toolchain.js";
 import type { TspCompileRequest, TspCompileResponse } from "./tsp-compile-protocol.js";
 
 /**
@@ -40,34 +40,45 @@ function resolveWorkerPath(): string {
 const WORKER_PATH = resolveWorkerPath();
 
 /**
- * Build an `EmitProducer` that runs tsp compile out of process against
- * `toolchain`. Inject the result as `CompileOptions.emit`.
+ * Hang guard for the emit worker. A wedged TypeSpec compile would otherwise
+ * hang the whole CLI *and* keep handles on the staged spec (blocking cleanup),
+ * so we kill it past this bound. Generous by default (emit of large specs is
+ * legitimately slow); override with `ACE_EMIT_TIMEOUT_MS` for pathological specs.
  */
-export function createSubprocessEmitProducer(toolchain: ResolvedToolchain): EmitProducer {
-  return {
-    name: `tsp-compile(${toolchain.source})`,
-    async produce(input: CompileInput, context: EmitContext): Promise<EmitProduct> {
-      const config = input.config ?? {};
-      const request: TspCompileRequest = {
-        compilerPath: toolchain.compilerPath,
-        emitterPath: toolchain.emitterPath,
-        entrypoint: input.entrypoint,
-        ...(config.emitter !== undefined ? { emitterOptions: config.emitter } : {}),
-        ...(config.apiVersion !== undefined ? { apiVersion: config.apiVersion } : {}),
-        ...(config.additionalImports !== undefined
-          ? { additionalImports: config.additionalImports }
-          : {}),
-        ...(config.warnAsError !== undefined ? { warnAsError: config.warnAsError } : {}),
-        ...(config.trace !== undefined ? { trace: config.trace } : {}),
-        ...(config.nostdlib !== undefined ? { nostdlib: config.nostdlib } : {}),
-      };
+const DEFAULT_EMIT_TIMEOUT_MS = 10 * 60_000;
 
-      const response = await invokeWorker(request, context.signal);
-      for (const diagnostic of response.diagnostics) context.reportDiagnostic(diagnostic);
-      if (response.ir === undefined) return {};
-      return { ir: response.ir as NonNullable<EmitProduct["ir"]> };
-    },
+function emitTimeoutMs(): number {
+  const raw = process.env.ACE_EMIT_TIMEOUT_MS;
+  const parsed = raw !== undefined ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_EMIT_TIMEOUT_MS;
+}
+
+/**
+ * Run the built-in `tsp-emit` tool: resolve the toolchain for the request's
+ * entrypoint (hybrid — the spec's own install preferred, ace's bundled toolchain
+ * as fallback), then compile + emit out of process and return the IR + structured
+ * diagnostics. The compiler's built-in emit stage frames this over
+ * `runtime.spawn`; resolution + the worker fork are the host's responsibility.
+ */
+export async function runTspEmit(
+  request: EmitToolRequest,
+  signal?: AbortSignal,
+): Promise<EmitToolResponse> {
+  const toolchain = resolveToolchain(request.entrypoint);
+  const workerRequest: TspCompileRequest = {
+    compilerPath: toolchain.compilerPath,
+    emitterPath: toolchain.emitterPath,
+    entrypoint: request.entrypoint,
+    ...(request.emitterOptions !== undefined ? { emitterOptions: request.emitterOptions } : {}),
+    ...(request.apiVersion !== undefined ? { apiVersion: request.apiVersion } : {}),
+    ...(request.additionalImports !== undefined
+      ? { additionalImports: request.additionalImports }
+      : {}),
+    ...(request.warnAsError !== undefined ? { warnAsError: request.warnAsError } : {}),
+    ...(request.trace !== undefined ? { trace: request.trace } : {}),
+    ...(request.nostdlib !== undefined ? { nostdlib: request.nostdlib } : {}),
   };
+  return invokeWorker(workerRequest, signal);
 }
 
 /** Fork the worker, send the request over IPC, and resolve with its reply. */
@@ -89,6 +100,7 @@ function invokeWorker(
     const finish = (fn: () => void): void => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       if (signal !== undefined) signal.removeEventListener("abort", onAbort);
       fn();
     };
@@ -97,6 +109,16 @@ function invokeWorker(
       finish(() => reject(new Error("aborted")));
     };
     signal?.addEventListener("abort", onAbort, { once: true });
+
+    // Hang guard: kill a wedged worker so it can't hang the CLI or hold the
+    // staged spec open forever.
+    const timeoutMs = emitTimeoutMs();
+    const timer = setTimeout(() => {
+      child.kill();
+      finish(() =>
+        reject(new Error(`tsp-compile worker timed out after ${timeoutMs}ms and was terminated.`)),
+      );
+    }, timeoutMs);
 
     child.on("message", (message: TspCompileResponse) => finish(() => resolve(message)));
     child.on("error", (err) => finish(() => reject(err)));

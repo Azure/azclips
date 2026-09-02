@@ -19,6 +19,7 @@ import {
   compile,
   createRegistry,
   createTransformPipeline,
+  noopGenerator,
   type EmitProducer,
   type Generator,
   type OutputDelegate,
@@ -82,7 +83,7 @@ describe("compiler backbone: emit seam", () => {
       produce: () => ({ ir: stubIR("Stub") }),
     };
 
-    const result = await compile({ entrypoint: "does-not-exist.tsp" }, { emit: stub });
+    const result = await compile({ entrypoint: "does-not-exist.tsp" }, { emit: stub, generator: noopGenerator });
 
     expect(result.success).toBe(true);
     expect(result.ir?.sources[0]?.id).toBe("Stub");
@@ -119,7 +120,7 @@ describe("compiler backbone: emit seam", () => {
 
     const result = await compile(
       { entrypoint: "x.tsp" },
-      { emit: stub, transform: rename, captureIR: true },
+      { emit: stub, transform: rename, captureIR: true, generator: noopGenerator },
     );
 
     expect(result.success).toBe(true);
@@ -143,7 +144,7 @@ describe("compiler backbone: extension seams", () => {
 
     const result = await compile(
       { entrypoint: ENTRYPOINT },
-      { emit: petsEmit, transform: renamePet },
+      { emit: petsEmit, transform: renamePet, generator: noopGenerator },
     );
 
     expect(result.success).toBe(true);
@@ -154,11 +155,13 @@ describe("compiler backbone: extension seams", () => {
   it("routes transformed IR to an injected Generator and returns its files", async () => {
     const generator: Generator = {
       name: "test-generator",
-      generate: (ir) => ({
-        files: new Map([
-          ["summary.txt", `models=${ir.models.length};operations=${ir.operations.length}`],
-        ]),
-      }),
+      generate: async (ir, ctx) => {
+        await ctx.emit({
+          kind: "file",
+          path: "summary.txt",
+          contents: `models=${ir.models.length};operations=${ir.operations.length}`,
+        });
+      },
     };
 
     const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, generator });
@@ -180,7 +183,9 @@ describe("compiler backbone: extension seams", () => {
     ]);
     const generator: Generator = {
       name: "capture-config-generator",
-      generate: (ir, ctx) => ({ files: new Map([["cfg.txt", String(ctx.config.apiVersion)]]) }),
+      generate: async (ir, ctx) => {
+        await ctx.emit({ kind: "file", path: "cfg.txt", contents: String(ctx.config.apiVersion) });
+      },
     };
 
     const result = await compile(
@@ -196,7 +201,7 @@ describe("compiler backbone: extension seams", () => {
 
 describe("compiler backbone: IR capture", () => {
   it("captures emit as snapshot 0 (default collector)", async () => {
-    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, captureIR: true });
+    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, captureIR: true, generator: noopGenerator });
     expect(result.success).toBe(true);
     expect(result.snapshots?.[0]?.index).toBe(0);
     expect(result.snapshots?.[0]?.step).toBe("emit");
@@ -215,7 +220,7 @@ describe("compiler backbone: IR capture", () => {
     ]);
     const result = await compile(
       { entrypoint: ENTRYPOINT },
-      { emit: petsEmit, captureIR: true, transform: renamePet },
+      { emit: petsEmit, captureIR: true, transform: renamePet, generator: noopGenerator },
     );
     expect(result.success).toBe(true);
     expect(result.snapshots?.map((s) => s.step)).toEqual(["emit", "rename-pet"]);
@@ -225,7 +230,7 @@ describe("compiler backbone: IR capture", () => {
   });
 
   it("omits snapshots when captureIR is not set", async () => {
-    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit });
+    const result = await compile({ entrypoint: ENTRYPOINT }, { emit: petsEmit, generator: noopGenerator });
     expect(result.snapshots).toBeUndefined();
   });
 
@@ -236,7 +241,7 @@ describe("compiler backbone: IR capture", () => {
     };
     const result = await compile(
       { entrypoint: ENTRYPOINT },
-      { emit: petsEmit, captureIR: true, output },
+      { emit: petsEmit, captureIR: true, output, generator: noopGenerator },
     );
     expect(result.success).toBe(true);
     expect(seen).toContain("ir:0-emit");
@@ -265,7 +270,7 @@ describe("compiler backbone: configurable pipeline (registry + config)", () => {
         entrypoint: ENTRYPOINT,
         config: { pipeline: [{ use: "rename", options: { from: "Pet", to: "Animal" } }] },
       },
-      { emit: petsEmit, registry, captureIR: true },
+      { emit: petsEmit, registry, captureIR: true, generator: noopGenerator },
     );
     expect(result.success).toBe(true);
     expect(result.ir?.models.some((m) => m.name === "Animal")).toBe(true);
@@ -284,7 +289,7 @@ describe("compiler backbone: configurable pipeline (registry + config)", () => {
           ],
         },
       },
-      { emit: petsEmit, registry, captureIR: true },
+      { emit: petsEmit, registry, captureIR: true, generator: noopGenerator },
     );
     expect(result.success).toBe(true);
     expect(result.ir?.models.some((m) => m.name === "Creature")).toBe(true);

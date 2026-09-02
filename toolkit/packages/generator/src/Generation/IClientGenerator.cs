@@ -29,6 +29,20 @@ public delegate ValueTask GeneratedFileHandler(
     CancellationToken cancellationToken);
 
 /// <summary>
+/// Removes one output scope — a directory or file, relative to the caller's output
+/// base — before generation writes fresh files. The "remove" counterpart to
+/// <see cref="GeneratedFileHandler"/>: the generator names <em>what</em> to wipe;
+/// the handler (host) owns the filesystem and decides <em>how</em>, so the
+/// generator never touches disk. Same relative-path contract as the write handler
+/// (using <c>/</c> separators, never absolute, never escaping via <c>..</c>).
+/// </summary>
+/// <param name="relativePath">Scope to remove, relative to the output base directory.</param>
+/// <param name="cancellationToken">Cancellation for the removal.</param>
+public delegate ValueTask RemoveHandler(
+    string relativePath,
+    CancellationToken cancellationToken);
+
+/// <summary>
 /// A C# client generator: consumes a validated IR document and <em>streams</em>
 /// generated source files to a caller-supplied handler. Implementations must be
 /// pure — no disk writes, no console output, no process side effects — so a CLI
@@ -50,14 +64,22 @@ public interface IClientGenerator
     /// <paramref name="writeFile"/> and awaiting it before producing the next (so a
     /// slow sink applies backpressure and nothing is buffered).
     /// </summary>
+    /// <remarks>
+    /// When <paramref name="removeScope"/> is supplied, a <em>cleanup pass</em> runs
+    /// first: each stage names the output scopes it owns and they are wiped via the
+    /// handler before any file is written, so every regeneration starts clean
+    /// (full-refresh codegen semantics). With no handler, nothing is removed.
+    /// </remarks>
     /// <param name="ir">The IR document to generate from.</param>
     /// <param name="options">Host-resolved generation options.</param>
     /// <param name="writeFile">Handler invoked once per generated file (relative path + contents).</param>
+    /// <param name="removeScope">Optional handler invoked once per owned scope to wipe, before writing.</param>
     /// <param name="cancellationToken">Cooperative cancellation.</param>
     /// <returns>The run's diagnostics and emitted-file count (files themselves are streamed).</returns>
     Task<GenerationResult> GenerateAsync(
         IRDocument ir,
         GeneratorOptions options,
         GeneratedFileHandler writeFile,
+        RemoveHandler? removeScope = null,
         CancellationToken cancellationToken = default);
 }

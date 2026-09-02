@@ -19,33 +19,32 @@ public sealed class ElasticSanProcessorTests
 
     private static IRDocument LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
 
-    private static async Task<ArtifactWriter> EmitAsync(string scenario)
+    private static async Task<(GenerationResult Result, ArtifactWriter Writer)> EmitAsync(string scenario)
     {
         var writer = new ArtifactWriter(scenario);
-        await new CSharpClientGenerator().GenerateAsync(
+        GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             LoadIr(),
             new GeneratorOptions { RootNamespace = "Azure.ElasticSan" },
             writer.WriteAsync);
-        return writer;
+        return (result, writer);
     }
 
     [Fact]
     public async Task Emits_A_Processor_File_Per_Ir_Operation()
     {
         IRDocument ir = LoadIr();
-        ArtifactWriter writer = await EmitAsync("ElasticSan_Processors");
+        (_, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors");
 
-        int processorFiles = writer.Files.Keys.Count(k => k.StartsWith("Processors/", StringComparison.Ordinal)
-            && k.EndsWith("Processor.g.cs", StringComparison.Ordinal));
-        Assert.Equal(ir.Operations.Count, processorFiles);
+        // One processor per operation, plus the shared ProcessorBase.
+        Assert.Equal(ir.Operations.Count + 1, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]
     public async Task Emitted_Processors_Are_Parseable()
     {
-        ArtifactWriter writer = await EmitAsync("ElasticSan_Processors_Parse");
+        (_, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Parse");
 
-        foreach ((string _, string source) in writer.Files.Where(f => f.Key.StartsWith("Processors/", StringComparison.Ordinal)))
+        foreach ((string _, string source) in writer.Files.ProcessorSources())
         {
             var tree = CSharpSyntaxTree.ParseText(source);
             Assert.DoesNotContain(
@@ -57,35 +56,54 @@ public sealed class ElasticSanProcessorTests
     [Fact]
     public async Task Create_Processor_Has_Body_Uri_And_Lro_Send()
     {
-        ArtifactWriter writer = await EmitAsync("ElasticSan_Processors_Create");
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Create");
 
-        string create = writer.Files["Processors/CreateElasticSansProcessor.g.cs"];
+        string create = writer.Files.Source(result, "CreateElasticSansProcessor");
 
-        Assert.Contains("public partial class CreateElasticSansProcessor : ProcessorBase<ElasticSan>", create);
+        Assert.Contains("public partial class CreateElasticSansProcessor : ProcessorBase<ElasticSan, ElasticSan>", create);
         // Members mirror the API path parameters, subscriptionId inline (not special-cased).
         Assert.Contains("public string SubscriptionId { get; set; }", create);
         Assert.Contains("public string ResourceGroupName { get; set; }", create);
         Assert.Contains("public string ElasticSanName { get; set; }", create);
-        // Single request-body member serialized as JSON content.
-        Assert.Contains("public ElasticSan Body { get; set; }", create);
-        Assert.Contains("Content = JsonContent.Create(Body, options: JsonOptions)", create);
-        // PUT with the resolved host, interpolated path members, and api-version.
-        Assert.Contains("new HttpRequestMessage(HttpMethod.Put, uri)", create);
+        // Single request-body member handed back by the CreateRequestBody seam.
+        Assert.Contains("public ElasticSan? Body { get; set; }", create);
+        Assert.Contains("CreateRequestBody() => Body;", create);
+        // Request seams: PUT method + interpolated URI (host, path members, api-version).
+        Assert.Contains("Method => HttpMethod.Put;", create);
         Assert.Contains("https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ElasticSan/elasticSans/{ElasticSanName}?api-version=", create);
-        // Long-running -> send override.
+        // Long-running -> final-state hook (strict from IR finalStateVia=location) + send override.
+        Assert.Contains("GetFinalUri => response => response.GetFirstHeader(\"Location\");", create);
         Assert.Contains("SendAsync() => SendAsyncLRO();", create);
     }
 
     [Fact]
     public async Task Get_Processor_Has_No_Body_And_No_Lro_Send()
     {
-        ArtifactWriter writer = await EmitAsync("ElasticSan_Processors_Get");
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Get");
 
-        string get = writer.Files["Processors/GetElasticSansProcessor.g.cs"];
+        string get = writer.Files.Source(result, "GetElasticSansProcessor");
 
-        Assert.Contains("public partial class GetElasticSansProcessor : ProcessorBase<ElasticSan>", get);
-        Assert.Contains("new HttpRequestMessage(HttpMethod.Get, uri)", get);
-        Assert.DoesNotContain("JsonContent.Create", get);
+        Assert.Contains("public partial class GetElasticSansProcessor : ProcessorBase<object, ElasticSan>", get);
+        Assert.Contains("Method => HttpMethod.Get;", get);
+        Assert.DoesNotContain("CreateRequestBody", get);
         Assert.DoesNotContain("SendAsyncLRO", get);
+    }
+
+    [Fact]
+    public async Task List_Processor_Has_Pagination_Wiring()
+    {
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_List");
+
+        string list = writer.Files.Source(result, "ListByResourceGroupElasticSansProcessor");
+
+        // Pageable -> a plain GET (no LRO) that wires the runtime pagination helper.
+        Assert.Contains("public partial class ListByResourceGroupElasticSansProcessor : ProcessorBase<object, ElasticSanList>", list);
+        Assert.Contains("Method => HttpMethod.Get;", list);
+        Assert.DoesNotContain("SendAsyncLRO", list);
+        // Selectors from IR itemsPath/nextLinkPath (PascalCased) + the override calling the helper.
+        Assert.Contains("IEnumerable<ElasticSan>? pageItems(ElasticSanList body) => body.Value;", list);
+        Assert.Contains("string? nextLink(ElasticSanList body) => body.NextLink;", list);
+        Assert.Contains("BeforeWriteOutputAsyncAndReturn(ElasticSanList? body)", list);
+        Assert.Contains("body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions)", list);
     }
 }

@@ -10,25 +10,31 @@ namespace Ace.Generator.Generators;
 
 /// <summary>
 /// Emits one C# processor class per <see cref="IRDocument.Operations"/> entry. Faithful
-/// ("garbage in, garbage out") for now: the processor's public surface mirrors the API's
+/// ("garbage in, garbage out"): the processor derives from
+/// <c>ProcessorBase&lt;TRequest, TResponse&gt;</c> and its public surface mirrors the API's
 /// parameter surface exactly (one property per path/query parameter — <c>subscriptionId</c>
-/// inline, not special-cased), plus a single request-body member, and a
-/// <c>CreateRequestMessage</c> that builds the HTTP request to match the spec. Long-running
-/// operations additionally emit <c>SendAsync() =&gt; SendAsyncLRO()</c>.
+/// inline, not special-cased). It overrides the base's fine-grained request seams —
+/// <c>Method</c>, <c>CreateRequestUri</c>, and (for body operations) <c>CreateRequestBody</c> —
+/// rather than assembling the request itself. Long-running operations additionally emit the
+/// final-state/polling hook overrides and <c>SendAsync() =&gt; SendAsyncLRO()</c>.
 /// </summary>
 /// <remarks>
-/// The class shell (declaration, properties, method signatures, XML docs) is built with Roslyn
-/// <see cref="SyntaxFactory"/>; only the method <em>bodies</em> — template-like statements with an
-/// interpolated URI — are produced via <see cref="SyntaxFactory.ParseStatement(string,int,ParseOptions,bool)"/>
-/// and reformatted by <c>NormalizeWhitespace()</c>. Everything is null-tolerant so a bare
-/// operation (no server/api-version/responses) still yields valid C#.
+/// The class shell (declaration, properties, method signatures) is built structurally with Roslyn
+/// <see cref="SyntaxFactory"/>; the seam bodies are single expressions (the URI is a parsed
+/// interpolated string). <c>NormalizeWhitespace()</c> owns layout. Everything is null-tolerant so a
+/// bare operation still yields valid C#.
 /// <para>
-/// TODO — not yet emitted (deferred by design): parameter <em>flattening</em> (today the
-/// request body is a single model member; the flattened scalar surface arrives once the model
-/// side supports nested+flattened), the LRO <em>option</em> overrides (final-state-via /
-/// polling-strategy wiring — pending the finalized processor base contract), header parameters,
-/// <c>[ArgumentInfo]</c> metadata + parameter defaults, pagination (runtime concern), and
-/// validation/error handling (runtime concern).
+/// Strict-IR mapping: <c>Method</c>/<c>CreateRequestUri</c>/generics come straight from the IR, and
+/// the LRO hooks map deterministically from <see cref="IROperationSemanticsLongRunning.FinalStateVia"/>
+/// (e.g. <c>location</c> → the <c>Location</c> header; <c>azureAsyncOperation</c>/<c>originalUri</c> →
+/// no final-URI override, so the base re-GETs the original request URI). Spec-vs-reality deviations
+/// are handled by customization on top of the generated processor, never by the generator.
+/// </para>
+/// <para>
+/// TODO — deferred by design: parameter <em>flattening</em> (today the request body is a single
+/// model member; the flattened scalar surface arrives once the model side supports nested+flattened),
+/// header parameters, <c>[ArgumentInfo]</c> metadata + parameter defaults, and pagination
+/// (a runtime concern).
 /// </para>
 /// </remarks>
 internal sealed class ProcessorGenerator : IArtifactGenerator
@@ -37,9 +43,14 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
     public string Name => "processor";
 
+    /// <summary>Owns the whole Processors directory (the shared base lives here too, so ProcessorBaseGenerator need not clean).</summary>
+    public IEnumerable<string> Clean(GenerationContext context) => ["Processors"];
+
     public IEnumerable<GeneratedFile> Produce(GenerationContext context)
     {
-        string ns = context.Options.RootNamespace + ".Processors";
+        string root = context.Options.RootNamespace;
+        string ns = root + ".Processors";
+        string modelsNamespace = root + ".Models";
 
         foreach (IROperation operation in context.Ir.Operations)
         {
@@ -55,7 +66,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             }
 
             string typeName = ProcessorTypeName(operation);
-            yield return new GeneratedFile($"Processors/{typeName}.g.cs", Emit(ns, typeName, operation), typeName);
+            yield return new GeneratedFile($"Processors/{typeName}.cs", Emit(ns, modelsNamespace, typeName, operation), typeName);
         }
     }
 
@@ -71,9 +82,10 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return (operation.Name + group).Identifier() + "Processor";
     }
 
-    private static string Emit(string @namespace, string className, IROperation operation)
+    private static string Emit(string @namespace, string modelsNamespace, string className, IROperation operation)
     {
         string responseType = ResponseType(operation);
+        string requestType = RequestType(operation) ?? "object";
 
         var members = new List<MemberDeclarationSyntax>();
 
@@ -88,34 +100,48 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             members.Add(ParameterProperty(parameter));
         }
 
-        // The request body is a single model member for now (flattening is deferred to the model side).
+        // A single request-body member for now (flattening — flat scalars mapped into the nested
+        // model — is deferred to the model side; today CreateRequestBody just returns this member).
         if (operation.RequestBody is not null)
         {
             members.Add(BodyProperty(operation.RequestBody));
         }
 
-        members.Add(CreateRequestMessageMethod(operation));
-
-        // LRO: emit the send override. The final-state/polling option overrides are intentionally
-        // deferred until the processor base contract is finalized (see class remarks).
-        if (operation.Semantics is IROperationSemanticsLongRunning)
+        // Fine-grained request seams the base assembles into CreateRequestMessage.
+        members.Add(MethodProperty(operation));
+        members.Add(CreateRequestUriMethod(operation));
+        if (operation.RequestBody is not null)
         {
-            members.Add(SendAsyncMethod());
+            members.Add(CreateRequestBodyMethod(requestType));
+        }
+
+        // LRO: the final-state/polling hooks (strict from IR finalStateVia) + the send override.
+        // Pageable: the pagination wiring (selectors + BeforeWriteOutputAsyncAndReturn) that drives
+        // the runtime helper. Semantics is a discriminated union, so these are mutually exclusive.
+        if (operation.Semantics is IROperationSemanticsLongRunning lro)
+        {
+            members.AddRange(LroMembers(lro));
+        }
+        else if (operation.Semantics is IROperationSemanticsPageable pageable)
+        {
+            members.AddRange(PageableMembers(pageable, responseType));
         }
 
         ClassDeclarationSyntax cls = ClassDeclaration(className)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
             .WithBaseList(BaseList(SingletonSeparatedList<BaseTypeSyntax>(
-                SimpleBaseType(ParseTypeName($"ProcessorBase<{responseType}>")))))
+                SimpleBaseType(ParseTypeName($"ProcessorBase<{requestType}, {responseType}>")))))
             .AddMembers([.. members])
             .WithLeadingXmlDoc(operation.Docs ?? operation.Summary);
 
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
+                UsingDirective(ParseName("System")),
+                UsingDirective(ParseName("System.Collections.Generic")),
                 UsingDirective(ParseName("System.Net.Http")),
-                UsingDirective(ParseName("System.Net.Http.Json")),
-                UsingDirective(ParseName("System.Threading")),
-                UsingDirective(ParseName("System.Threading.Tasks")))
+                UsingDirective(ParseName("System.Threading.Tasks")),
+                UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
+                UsingDirective(ParseName(modelsNamespace)))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls))
             .NormalizeWhitespace();
 
@@ -134,6 +160,10 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         IRTypeRef? type = operation.Responses.FirstOrDefault(r => !r.IsError && r.Type is not null)?.Type;
         return type is not null ? IrTypeMapper.ToCSharp(type) : "object";
     }
+
+    /// <summary>The request-body model type (<c>TRequest</c>), or <c>null</c> when the operation has no body.</summary>
+    private static string? RequestType(IROperation operation) =>
+        operation.RequestBody is { } body ? IrTypeMapper.ToCSharp(body.Type) : null;
 
     private static PropertyDeclarationSyntax ParameterProperty(IRParameter parameter)
     {
@@ -160,7 +190,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
     private static PropertyDeclarationSyntax BodyProperty(IRRequestBody body)
     {
-        string type = IrTypeMapper.ToCSharp(body.Type);
+        // Nullable so CreateRequestBody() (which returns TRequest?) can hand it back directly.
+        string type = IrTypeMapper.ToCSharp(body.Type) + "?";
         return PropertyDeclaration(ParseTypeName(type), Identifier("Body"))
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
             .WithAccessorList(AutoAccessors())
@@ -173,36 +204,65 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         AccessorDeclaration(SyntaxKind.SetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
     ]));
 
+    /// <summary>The HTTP-method seam: <c>protected override HttpMethod Method => HttpMethod.X;</c>.</summary>
+    private static PropertyDeclarationSyntax MethodProperty(IROperation operation) =>
+        PropertyDeclaration(ParseTypeName("HttpMethod"), Identifier("Method"))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(HttpMethodExpression(operation.Method))))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
     /// <summary>
-    /// Build the <c>CreateRequestMessage</c> override with a structural signature (name, return
-    /// type, modifiers) and a single raw-interpolated block for the body (option #3). In a
-    /// <c>$$"""…"""</c> string <c>{{x}}</c> injects a generator value while single braces pass
-    /// through literally — so the generated <c>$"…{Member}…"</c> URI interpolation and the object
-    /// initializer <c>{ … }</c> survive verbatim, with no escaping of the generated braces.
-    /// <c>NormalizeWhitespace()</c> owns the final layout.
+    /// The URI seam: <c>protected override string CreateRequestUri() =&gt; $"…";</c>. The URI is a
+    /// parsed interpolated string (resolved host + path with <c>{wireName}</c> rewritten to the C#
+    /// member + api-version/query), so member interpolations bind naturally.
     /// </summary>
-    private static MethodDeclarationSyntax CreateRequestMessageMethod(IROperation operation)
+    private static MethodDeclarationSyntax CreateRequestUriMethod(IROperation operation)
     {
-        string uri = EscapeInterpolated(BuildUri(operation));
-        string method = HttpMethodExpression(operation.Method);
-        string content = operation.RequestBody is not null
-            ? " { Content = JsonContent.Create(Body, options: JsonOptions) }"
-            : string.Empty;
-
-        string body = $$"""
-            {
-                await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-                string uri = $"{{uri}}";
-                HttpRequestMessage request = new HttpRequestMessage({{method}}, uri){{content}};
-                await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-                return request;
-            }
-            """;
-
-        return MethodDeclaration(ParseTypeName("Task<HttpRequestMessage>"), Identifier("CreateRequestMessage"))
-            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword), Token(SyntaxKind.AsyncKeyword))
-            .WithBody((BlockSyntax)ParseStatement(body));
+        string uriExpression = $"$\"{EscapeInterpolated(BuildUri(operation))}\"";
+        return MethodDeclaration(ParseTypeName("string"), Identifier("CreateRequestUri"))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(uriExpression)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
     }
+
+    /// <summary>The body seam: <c>protected override TRequest? CreateRequestBody() =&gt; Body;</c>.</summary>
+    private static MethodDeclarationSyntax CreateRequestBodyMethod(string requestType) =>
+        MethodDeclaration(ParseTypeName(requestType + "?"), Identifier("CreateRequestBody"))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression("Body")))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+    /// <summary>
+    /// The long-running-operation members: the four header-selector hook overrides plus
+    /// <c>SendAsync() =&gt; SendAsyncLRO()</c>. The three pollers are the standard ARM headers
+    /// (the base picks among them by presence); <c>GetFinalUri</c> is strict from IR
+    /// <see cref="IROperationSemanticsLongRunning.FinalStateVia"/>.
+    /// </summary>
+    private static IEnumerable<MemberDeclarationSyntax> LroMembers(IROperationSemanticsLongRunning lro)
+    {
+        yield return LroHook("GetFinalUri", FinalUriExpression(lro.FinalStateVia));
+        yield return LroHook("GetOperationLocationUri", "response => response.GetFirstHeader(\"Operation-Location\")");
+        yield return LroHook("GetAsyncOperationUri", "response => response.GetFirstHeader(\"Azure-AsyncOperation\")");
+        yield return LroHook("GetLocationUri", "response => response.GetFirstHeader(\"Location\")");
+        yield return SendAsyncMethod();
+    }
+
+    /// <summary>
+    /// Map IR <c>finalStateVia</c> to the <c>GetFinalUri</c> selector, strictly and deterministically.
+    /// <c>location</c> takes the final resource from the <c>Location</c> header; everything else
+    /// (<c>azureAsyncOperation</c>, <c>originalUri</c>, or unset) returns null, so the base performs the
+    /// final GET against the original request URI.
+    /// </summary>
+    private static string FinalUriExpression(IROperationSemanticsLongRunningFinalStateVia? finalStateVia) =>
+        finalStateVia == IROperationSemanticsLongRunningFinalStateVia.Location
+            ? "response => response.GetFirstHeader(\"Location\")"
+            : "_ => null";
+
+    private static PropertyDeclarationSyntax LroHook(string name, string expression) =>
+        PropertyDeclaration(ParseTypeName("Func<HttpResponseMessage, string?>"), Identifier(name))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(expression)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
     /// <summary>
     /// Build the long-running <c>SendAsync</c> override, fully structural (expression-bodied):
@@ -213,6 +273,45 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
             .WithExpressionBody(ArrowExpressionClause(ParseExpression("SendAsyncLRO()")))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+    /// <summary>
+    /// The pageable members: <c>pageItems</c>/<c>nextLink</c> selectors plus a
+    /// <c>BeforeWriteOutputAsyncAndReturn</c> override that hands them to the runtime
+    /// <c>WriteOutputWithPaginationAsync</c> helper (which unwraps the envelope, follows
+    /// <c>nextLink</c>, and writes the flattened items). This is thin per-operation wiring — the
+    /// pagination logic itself lives in the runtime library — parallel to the LRO hooks.
+    /// </summary>
+    private static IEnumerable<MemberDeclarationSyntax> PageableMembers(IROperationSemanticsPageable pageable, string listResultType)
+    {
+        string itemType = IrTypeMapper.ToCSharp(pageable.ItemType);
+        string itemsExpression = $"body.{MemberPath(pageable.ItemsPath)}";
+        string nextLinkExpression = pageable.NextLinkPath is { Length: > 0 } path ? $"body.{MemberPath(path)}" : "null";
+
+        yield return MethodDeclaration(ParseTypeName($"IEnumerable<{itemType}>?"), Identifier("pageItems"))
+            .AddModifiers(Token(SyntaxKind.PrivateKeyword))
+            .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType)))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(itemsExpression)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+        yield return MethodDeclaration(ParseTypeName("string?"), Identifier("nextLink"))
+            .AddModifiers(Token(SyntaxKind.PrivateKeyword))
+            .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType)))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(nextLinkExpression)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+        yield return MethodDeclaration(ParseTypeName("Task<bool>"), Identifier("BeforeWriteOutputAsyncAndReturn"))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword), Token(SyntaxKind.AsyncKeyword))
+            .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType + "?")))
+            .WithRawBody("await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions); return true;");
+    }
+
+    /// <summary>
+    /// Map an IR wire path (e.g. <c>value</c>, <c>properties.nextLink</c>) to a C# member-access
+    /// path (<c>Value</c>, <c>Properties.NextLink</c>) by PascalCasing each segment. A heuristic
+    /// (the emitted model PascalCases property names the same way), not a resolved lookup.
+    /// </summary>
+    private static string MemberPath(string wirePath) =>
+        string.Join(".", wirePath.Split('.', StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Pascal()));
 
     /// <summary>Compose the request URI text: <c>{host}{path}?{query}</c>, with member interpolations.</summary>
     private static string BuildUri(IROperation operation)

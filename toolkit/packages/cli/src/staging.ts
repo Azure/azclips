@@ -46,8 +46,10 @@ export async function stageLocalProject(
 ): Promise<StagedProject> {
   const stagedRoot = resolve(outDir, "source");
 
-  // Fresh staging each run so a prior compile never leaks into this one.
-  await rm(stagedRoot, { recursive: true, force: true });
+  // Fresh staging each run so a prior compile never leaks into this one. Retry
+  // on transient locks (a prior run's worker that hasn't fully released the
+  // tree yet) so a leftover staged copy is reclaimed self-healingly.
+  await rm(stagedRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   await mkdir(stagedRoot, { recursive: true });
 
   const isDir = statSync(tspLocation).isDirectory();
@@ -62,6 +64,31 @@ export async function stageLocalProject(
 
   const entrypoint = isDir ? stagedRoot : join(stagedRoot, basename(tspLocation));
   return { entrypoint, root: stagedRoot };
+}
+
+/**
+ * Recursive directory removal for the transient compile artifacts
+ * (`<out>/source`, `<out>/ir`). Non-fatal by design:
+ *
+ *   - Retries on transient locks. `fs.rm`'s built-in retry (on
+ *     EBUSY/EPERM/ENOTEMPTY/...) rides out the brief window where a subprocess
+ *     that just finished hasn't fully released its handles yet. (Only the emit
+ *     worker touches `source/`, and it self-exits on parent disconnect / is
+ *     killed past a timeout, so it never lingers to hold the tree open.)
+ *   - `force: true` makes a missing directory a no-op (no throw), so callers can
+ *     invoke it unconditionally to clear a possibly-absent stale artifact.
+ *   - A Windows `node_modules` junction (as under `source/`) is unlinked, not
+ *     recursed into — ace's real install is never touched (verified behavior).
+ *   - Returns the outcome instead of throwing: a leftover artifact must never
+ *     fail an otherwise-successful compile, and the next run reclaims it.
+ */
+export async function removeDir(dir: string): Promise<{ removed: boolean; error?: Error }> {
+  try {
+    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    return { removed: true };
+  } catch (error) {
+    return { removed: false, error: error instanceof Error ? error : new Error(String(error)) };
+  }
 }
 
 /**

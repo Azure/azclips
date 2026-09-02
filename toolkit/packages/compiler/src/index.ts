@@ -60,8 +60,35 @@ export type {
 } from "./emit-producer.js";
 
 export {
+  TSP_EMIT_TOOL,
+  CSHARP_GENERATE_TOOL,
+  type Runtime,
+  type ToolInvocation,
+  type ToolResult,
+  type ToolStreamResult,
+  type RuntimeContext,
+} from "./runtime.js";
+
+export {
+  createBuiltinEmit,
+} from "./builtins/emit.js";
+
+export {
+  createCsharpGenerator,
+  CSHARP_GENERATOR_ID,
+} from "./builtins/generate-csharp.js";
+
+export type {
+  EmitToolRequest,
+  EmitToolResponse,
+  GenerateToolOptions,
+  GenerateToolRequest,
+  GenerateToolFrame,
+} from "./builtins/protocol.js";
+
+export {
   noopGenerator,
   type Generator,
   type GeneratorContext,
-  type GeneratorOutput,
+  type GeneratedArtifact,
 } from "./generate.js";

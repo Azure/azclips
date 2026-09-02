@@ -21,13 +21,15 @@
   </ItemGroup>
 
   <!--
-    The test and codegen-tool projects live in subfolders of this package. The
-    SDK's default source glob is recursive, so exclude them here to keep them out
-    of the library's compilation (each is built as its own project).
+    The test, codegen-tool, and subprocess-host projects live in subfolders of
+    this package. The SDK's default source glob is recursive, so exclude them
+    here to keep them out of the library's compilation (each is built as its own
+    project).
   -->
   <ItemGroup>
     <Compile Remove="test/**/*.cs" />
     <Compile Remove="tools/**/*.cs" />
+    <Compile Remove="host/**/*.cs" />
   </ItemGroup>
 
 </Project>

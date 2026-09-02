@@ -9,10 +9,11 @@ namespace Ace.Generator.Generators;
 
 /// <summary>
 /// Emits the shared processor base every generated processor derives from — a non-generic
-/// marker (<c>ProcessorBase</c>) plus the generic <c>ProcessorBase&lt;TResponse&gt;</c>. This
-/// stage is "template-like": almost no IR input (only the package namespace), mostly fixed
-/// runtime wiring (HTTP pipeline, event publishing, (de)serialization, the long-running-operation
-/// polling loop).
+/// marker (<c>ProcessorBase</c>) plus the generic <c>ProcessorBase&lt;TRequest, TResponse&gt;</c>.
+/// This stage is "template-like": almost no IR input (only the package namespace), mostly fixed
+/// runtime wiring (dependency init, request assembly, the standard <c>ProcessAsync</c> pipeline).
+/// The long-running-operation machinery lives in the runtime library (<c>HttpRuntime</c>); the base
+/// only delegates to it.
 /// </summary>
 /// <remarks>
 /// House style, applied deliberately here: <em>signatures</em> — class declaration, base list,
@@ -22,10 +23,11 @@ namespace Ace.Generator.Generators;
 /// (via <see cref="EmitterExtensions.WithRawBody{TMethod}(TMethod,string)"/>). The bodies here
 /// carry no gen-time variables, so they are plain (non-interpolated) raw strings.
 /// <para>
-/// Both classes are <c>partial</c> so hand-crafted detail can be added in a companion file without
-/// editing generated code. The <c>SubscriptionId</c> property + <c>ResolveSubscriptionId</c> in the
-/// generic class are a deliberate <c>SEAM</c>: how they reconcile with the per-operation
-/// <c>subscriptionId</c> path-parameter members emitted on each processor is left to be crafted.
+/// The request is assembled from fine-grained seams — <c>Method</c>, <c>CreateRequestUri</c>,
+/// <c>CreateRequestBody</c>, <c>CreateRequestHeaders</c> — so a processor overrides the smallest
+/// unit it needs while the base keeps the event wiring centralized. Both classes are
+/// <c>partial</c> so hand-crafted detail can be added in a companion file without editing generated
+/// code.
 /// </para>
 /// </remarks>
 internal sealed class ProcessorBaseGenerator : IArtifactGenerator
@@ -42,7 +44,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         context.CancellationToken.ThrowIfCancellationRequested();
 
         string ns = context.Options.RootNamespace + ".Processors";
-        yield return new GeneratedFile($"Processors/{BaseTypeName}.g.cs", Emit(ns), BaseTypeName);
+        yield return new GeneratedFile($"Processors/{BaseTypeName}.cs", Emit(ns), BaseTypeName);
     }
 
     private static string Emit(string @namespace)
@@ -50,15 +52,14 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
                 UsingDirective(ParseName("System")),
-                UsingDirective(ParseName("System.Net")),
                 UsingDirective(ParseName("System.Net.Http")),
+                UsingDirective(ParseName("System.Net.Http.Json")),
                 UsingDirective(ParseName("System.Text.Json")),
                 UsingDirective(ParseName("System.Threading")),
                 UsingDirective(ParseName("System.Threading.Tasks")),
                 UsingDirective(ParseName("Core.Abstractions")),
                 UsingDirective(ParseName("Core.Abstractions.Runtime")),
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
-                UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime.Json")),
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
                 .AddMembers(MarkerBaseClass(), GenericBaseClass()))
@@ -73,19 +74,19 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         return sb.ToString();
     }
 
-    // ── The non-generic marker base: runtime wiring + transport primitives ──────────────────
+    // ── The non-generic marker base: runtime wiring, request assembly, transport primitives ──
 
     private static ClassDeclarationSyntax MarkerBaseClass() =>
         ClassDeclaration(BaseTypeName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.AbstractKeyword), Token(SyntaxKind.PartialKeyword))
             .WithBaseList(BaseOf("IProcessor"))
-            .WithLeadingXmlDoc("Non-generic marker base so \"any processor\" stays type-safe. Real processors derive from ProcessorBase<TResponse>.")
+            .WithLeadingComment(MarkerDoc)
             .AddMembers(
                 DepProp("IRuntimeHttpPipeline", "HttpPipeline", "null!"),
                 DepProp("IEventPublisher", "Publisher", "null!"),
                 DepProp("JsonSerializerOptions", "JsonOptions", "null!"),
                 DepProp("OutputStreamDelegate", "WriteOutput", "null!"),
-                DepProp("ProfileModel?", "ResolvedProfile", null),
+                DepProp("ProfileModel?", "ResolvedProfile", "null!"),
                 AutoProp("string?", "Profile", null, SyntaxKind.PublicKeyword),
                 MethodDeclaration(ParseTypeName("void"), Identifier("BeforeInit"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
@@ -103,47 +104,72 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.VirtualKeyword))
                     .WithExpressionBody(ArrowExpressionClause(ParseExpression("Task.CompletedTask")))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
-                MethodDeclaration(ParseTypeName("Task<HttpRequestMessage>"), Identifier("CreateRequestMessage"))
+                // Request seams: override the smallest unit needed; the base keeps event wiring centralized.
+                ArrowProp("HttpMethod", "Method", ThrowNotImplemented("Method"), SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+                    .WithLeadingXmlDoc("HTTP method for the request. Every processor must override this."),
+                ArrowMethod("string", "CreateRequestUri", ThrowNotImplemented("CreateRequestUri"), SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+                    .WithLeadingXmlDoc("Builds the request URI. Override this seam alone for most read/delete operations."),
+                ArrowMethod("object?", "CreateRequestBody", "null", SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+                    .WithLeadingXmlDoc("Builds the request body (serialized with JsonOptions by its runtime type). Null (no content) by default; override for create/update."),
+                MethodDeclaration(ParseTypeName("void"), Identifier("CreateRequestHeaders"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
-                    .WithExpressionBody(ArrowExpressionClause(ParseExpression(
-                        "throw new NotImplementedException($\"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}\")")))
-                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                    .AddParameterListParameters(Parameter(Identifier("request")).WithType(ParseTypeName("HttpRequestMessage")))
+                    .WithBody(Block())
+                    .WithLeadingXmlDoc("Adds request headers beyond what the pipeline supplies. No-op by default."),
+                MethodDeclaration(ParseTypeName("Task<HttpRequestMessage>"), Identifier("CreateRequestMessage"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
+                    .WithRawBody(CreateRequestMessageBody)
+                    .WithLeadingXmlDoc("Assembles the request from the seams above and publishes the before/after create events. Override the smaller seams; override this only for fully custom construction."),
                 CreateExtendedProcessorMethod(),
+                // Maintainer note (from the reference base) — how ARM LRO options map to the header
+                // selectors below. A processor's `x-ms-long-running-operation-options.final-state-via`
+                // (location/azure-async-operation) drives which of these it overrides:
+                //   "finaluri"            <- response.headers["Location"]
+                //   "operationLocationUri"<- response.headers["Operation-Location"]
+                // otherwise both null. These hooks default to `_ => null`; processors override as needed.
                 LroHook("GetFinalUri"),
                 LroHook("GetOperationLocationUri"),
                 LroHook("GetAsyncOperationUri"),
                 LroHook("GetLocationUri"),
                 MethodDeclaration(ParseTypeName("Task<HttpResponseMessage>"), Identifier("SendAsync"))
                     .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
-                    .WithRawBody(SendAsyncBody),
+                    .WithRawBody("return await HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);"),
                 MethodDeclaration(ParseTypeName("Task<HttpResponseMessage>"), Identifier("SendAsyncLRO"))
                     .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
-                    .WithRawBody(SendAsyncLroBody));
+                    .WithRawBody("return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);"));
 
-    // ── The generic base: subscription resolution + the standard ProcessAsync pipeline ──────
+    // ── The generic base: typed body seam + the standard ProcessAsync pipeline ──────────────
 
     private static ClassDeclarationSyntax GenericBaseClass() =>
         ClassDeclaration(BaseTypeName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
-            .AddTypeParameterListParameters(TypeParameter("TResponse"))
+            .AddTypeParameterListParameters(TypeParameter("TRequest"), TypeParameter("TResponse"))
             .WithBaseList(BaseOf(BaseTypeName))
-            .AddConstraintClauses(TypeParameterConstraintClause(IdentifierName("TResponse"))
-                .AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)))
-            .WithLeadingXmlDoc("Generic processor base: default ProcessAsync pipeline (SendAsync -> deserialize TResponse -> WriteOutput).")
+            .AddConstraintClauses(
+                TypeParameterConstraintClause(IdentifierName("TRequest")).AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)),
+                TypeParameterConstraintClause(IdentifierName("TResponse")).AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)))
+            .WithLeadingXmlDoc("Generic processor base: default ProcessAsync pipeline (SendAsync -> deserialize TResponse -> WriteOutput), with a typed TRequest body seam.")
             .AddMembers(
-                AutoProp("string", "SubscriptionId", "string.Empty", SyntaxKind.PublicKeyword)
-                    .WithLeadingXmlDoc("SEAM(subscriptionId): reconcile with the per-operation subscriptionId path-parameter members emitted on each processor. Detail pending."),
-                MethodDeclaration(ParseTypeName("void"), Identifier("ResolveSubscriptionId"))
-                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword))
-                    .WithExpressionBody(ArrowExpressionClause(ParseExpression(ResolveSubscriptionIdExpr)))
+                ArrowMethod("TRequest?", "CreateRequestBody", "default", SyntaxKind.ProtectedKeyword, SyntaxKind.OverrideKeyword)
+                    .WithLeadingXmlDoc("Typed request-body seam. Null (no body) by default; write processors override to return their TRequest model. Covariantly overrides the non-generic CreateRequestBody."),
+                // Maintainer note (from the reference base): C# does not allow a partial method with a
+                // return type to be left unimplemented, so a `partial Task` is forbidden — the hook is a
+                // synchronous `partial void` that BeforeProcessAsync invokes.
+                MethodDeclaration(ParseTypeName("void"), Identifier("OverrideBeforeProcessAsyncBase"))
+                    .AddModifiers(Token(SyntaxKind.PartialKeyword))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                MethodDeclaration(ParseTypeName("Task"), Identifier("BeforeProcessAsync"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
+                    .WithRawBody("OverrideBeforeProcessAsyncBase(); return Task.CompletedTask;"),
+                // Maintainer note (from the reference base): an async method can't take a `ref` parameter,
+                // and this override typically needs to WriteOutput (so it's async) — hence it returns
+                // Task<bool> (true = suppress the default WriteOutput) rather than mutating a ref.
+                MethodDeclaration(ParseTypeName("Task<bool>"), Identifier("BeforeWriteOutputAsyncAndReturn"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
+                    .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName("TResponse?")))
+                    .WithExpressionBody(ArrowExpressionClause(ParseExpression("Task.FromResult(false)")))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
-                    .WithLeadingXmlDoc("SEAM(subscriptionId): resolves from property or active profile. Reconciliation with processor-level members is pending."),
-                MethodDeclaration(ParseTypeName("Task<HttpResponseMessage>"), Identifier("SendAsync"))
-                    .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
-                    .WithRawBody("ResolveSubscriptionId(); return base.SendAsync();"),
-                MethodDeclaration(ParseTypeName("Task<HttpResponseMessage>"), Identifier("SendAsyncLRO"))
-                    .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
-                    .WithRawBody("ResolveSubscriptionId(); return base.SendAsyncLRO();"),
+                    .WithLeadingXmlDoc("Hook before writing output. Return true to suppress the default WriteOutput (e.g. a processor that writes its own paginated output)."),
                 MethodDeclaration(ParseTypeName("Task"), Identifier("ProcessAsync"))
                     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.OverrideKeyword), Token(SyntaxKind.AsyncKeyword))
                     .WithRawBody(GenericProcessAsyncBody));
@@ -220,16 +246,40 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
             .WithExpressionBody(ArrowExpressionClause(ParseExpression(expression)))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
+    /// <summary>A parameterless expression-bodied method: <c>{mods} {returnType} {name}() =&gt; {expression};</c>.</summary>
+    private static MethodDeclarationSyntax ArrowMethod(string returnType, string name, string expression, params SyntaxKind[] modifiers) =>
+        MethodDeclaration(ParseTypeName(returnType), Identifier(name))
+            .AddModifiers([.. modifiers.Select(k => Token(k))])
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(expression)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
     /// <summary>A long-running-operation header selector hook: <c>protected virtual Func&lt;…&gt; Name => _ =&gt; null;</c>.</summary>
     private static PropertyDeclarationSyntax LroHook(string name) =>
         ArrowProp("Func<HttpResponseMessage, string?>", name, "_ => null", SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword);
+
+    private static string ThrowNotImplemented(string member) =>
+        $"throw new NotImplementedException($\"Processor {{GetType().Name}} does not implement {{nameof({member})}}.\")";
+
+    // ── Verbatim comments carried over from the hand-written reference base ───────────────────
+
+    private const string MarkerDoc = """
+        /// <summary>
+        /// Non-generic marker base so "any processor" stays type-safe. Real processors derive from ProcessorBase&lt;TRequest, TResponse&gt;.
+        /// </summary>
+        /// <remarks>
+        /// TODO(Yabo): no rollback / compensation story yet. If an orchestrator's first child
+        /// succeeds and a later child fails, earlier resources are orphaned. Document as a non-goal
+        /// for now; revisit with an OnFailureAsync hook or a saga-style step list when needed.
+        /// </remarks>
+
+        """;
 
     // ── Implementations (opaque code blocks; no gen-time variables) ──────────────────────────
 
     private const string InitBody = """
         BeforeInit();
 
-        // TODO: temporarily initialize arbitrary json options here, get from context in the future.
+        // TODO(Yabo): temporarily initialize arbitrary json options here, get from context in the future
         JsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
@@ -245,6 +295,23 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         return this;
         """;
 
+    // NOTE(cosmetic): NormalizeWhitespace renders `CreateRequestBody() is { }` as
+    // `CreateRequestBody()is { }` (it drops the space before `is` when it follows `)`).
+    // This is valid C# and parses/compiles correctly — only the emitted spacing is off.
+    // If pristine output is wanted, rewrite as `object? body = CreateRequestBody(); if (body is not null)`
+    // to avoid the `)`-then-`is` adjacency.
+    private const string CreateRequestMessageBody = """
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
+        if (CreateRequestBody() is { } body)
+        {
+            request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
+        }
+        CreateRequestHeaders(request);
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+        return request;
+        """;
+
     private const string CreateExtendedProcessorBody = """
         T child = new T
         {
@@ -258,168 +325,39 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         return child;
         """;
 
-    private const string SendAsyncBody = """
-        IRuntimeHttpPipeline _httpPipeline = HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-        IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-        using HttpRequestMessage _request = await CreateRequestMessage();
-        HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
-        await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
-        return _response;
-        """;
-
-    private const string SendAsyncLroBody = """
-        HttpRequestMessage _request = await CreateRequestMessage();
-        try
-        {
-            IRuntimeHttpPipeline _httpPipeline = HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-            IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-            string _originalUri = _request.RequestUri!.AbsoluteUri;
-            HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
-            await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
-            var _finalUri = string.IsNullOrEmpty(GetFinalUri(_response)) ? _originalUri : GetFinalUri(_response);
-            var _asyncOperationUri = GetAsyncOperationUri(_response);
-            var _locationUri = GetLocationUri(_response);
-            var _operationLocationUri = GetOperationLocationUri(_response);
-
-            while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
-            {
-                // TODO: get default value from config service and pass to processor via ProcessorContext.
-                int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
-                await _publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
-                Task delayTask = Task.Delay(delay * 1000, _publisher.Token);
-
-                if (!string.IsNullOrEmpty(GetAsyncOperationUri(_response)))
-                {
-                    _asyncOperationUri = GetAsyncOperationUri(_response);
-                }
-                if (!string.IsNullOrEmpty(GetLocationUri(_response)))
-                {
-                    _locationUri = GetLocationUri(_response);
-                }
-                if (!string.IsNullOrEmpty(GetOperationLocationUri(_response)))
-                {
-                    _operationLocationUri = GetOperationLocationUri(_response);
-                }
-                var _uri = string.IsNullOrEmpty(_asyncOperationUri) ? string.IsNullOrEmpty(_locationUri) ? string.IsNullOrEmpty(_operationLocationUri) ? _originalUri : _operationLocationUri : _locationUri : _asyncOperationUri;
-
-                _response?.Dispose();
-
-                await delayTask;
-
-                _request = _request.CloneAndDispose(new Uri(_uri), HttpMethod.Get);
-                await _publisher.Publish(Events.BeforePollingCall, $"Polling {_uri}");
-                _response = await _httpPipeline.SendAsync(_request, _publisher);
-                await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
-                await _publisher.Publish(Events.AfterPollingCall);
-
-                if (_response.StatusCode == HttpStatusCode.OK)
-                {
-                    var error = false;
-                    try
-                    {
-                        if (JsonNode.Parse(await _response.Content.ReadAsStringAsync()) is JsonObject json)
-                        {
-                            var state = json.Property("properties")?.PropertyT<JsonString>("provisioningState") ?? json.PropertyT<JsonString>("status");
-                            if (state is null)
-                            {
-                                break;
-                            }
-
-                            switch (state?.ToString()?.ToLower())
-                            {
-                                case "failed":
-                                    error = true;
-                                    break;
-                                case "succeeded":
-                                case "canceled":
-                                    break;
-                                default:
-                                    _response.StatusCode = HttpStatusCode.Created;
-                                    continue;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // Peeking at the polling body is best-effort; ignore parse failures.
-                    }
-                    if (error)
-                    {
-                        throw new Exception($"Long running operation failed with response: {_response}");
-                    }
-                }
-
-                if (_response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
-                {
-                    continue;
-                }
-                if (!string.IsNullOrEmpty(_finalUri))
-                {
-                    _response?.Dispose();
-                    _request = _request.CloneAndDispose(new Uri(_finalUri), HttpMethod.Get);
-                    await _publisher.Publish(Events.BeforeFinalPollingCall, $"Final poll {_finalUri}");
-                    _response = await _httpPipeline.SendAsync(_request, _publisher);
-                    await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
-                    await _publisher.Publish(Events.AfterFinalPollingCall);
-                    break;
-                }
-            }
-            switch (_response.StatusCode)
-            {
-                case HttpStatusCode.OK:
-                case HttpStatusCode.NoContent:
-                    await _publisher.Publish(Events.PollingFinished);
-                    break;
-                default:
-                    await _publisher.Publish(Events.PollingFailed);
-                    break;
-            }
-            return _response;
-        }
-        finally
-        {
-            _request?.Dispose();
-        }
-        """;
-
-    private const string ResolveSubscriptionIdExpr = """
-        SubscriptionId = !string.IsNullOrEmpty(SubscriptionId)
-            ? SubscriptionId
-            : ResolvedProfile?.SubscriptionId
-              ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.")
-        """;
-
     private const string GenericProcessAsyncBody = """
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-        using HttpResponseMessage response = await SendAsync();
-
-        if (response.Content is null)
-        {
-            await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-            return;
-        }
-
-        string rawBody = await response.Content.ReadAsStringAsync();
-        if (string.IsNullOrWhiteSpace(rawBody))
-        {
-            await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-            return;
-        }
-
         try
         {
-            TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
-            if (body is not null)
+            await BeforeProcessAsync();
+            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+            using HttpResponseMessage response = await SendAsync();
+            string? rawBody = null;
+            TResponse? body = default;
+
+            if (response.Content is null)
+            {
+                await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+            }
+            else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync()))
+            {
+                await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+            }
+            else
+            {
+                try
+                {
+                    body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                }
+                catch (JsonException)
+                {
+                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                }
+            }
+            if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
             {
                 await WriteOutput(body);
             }
-        }
-        catch (JsonException)
-        {
-            await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-            throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
         }
         finally
         {

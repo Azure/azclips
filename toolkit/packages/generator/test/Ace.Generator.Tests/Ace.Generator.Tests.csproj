@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Ace.Generator.csproj" />
+    <ProjectReference Include="..\..\host\Ace.Generator.Host.csproj" />
   </ItemGroup>
 
   <ItemGroup>

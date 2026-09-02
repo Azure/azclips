@@ -33,8 +33,7 @@ public sealed class ElasticSanModelTests
         Assert.True(result.Success);
 
         // One model file per IR model (ignore processor/base/project artifacts).
-        int modelFiles = writer.Files.Keys.Count(k => k.StartsWith("Models/", StringComparison.Ordinal));
-        Assert.Equal(ir.Models.Count, modelFiles);
+        Assert.Equal(ir.Models.Count, writer.Files.ModelSources().Count());
     }
 
     [Fact]
@@ -43,13 +42,13 @@ public sealed class ElasticSanModelTests
         IRDocument ir = LoadIr();
         var writer = new ArtifactWriter("ElasticSan_Models_Parse");
 
-        await new CSharpClientGenerator().GenerateAsync(
+        GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             ir,
             new GeneratorOptions { RootNamespace = "Azure.ElasticSan" },
             writer.WriteAsync);
 
         // Every generated model must be valid C# (syntactically).
-        foreach ((string path, string source) in writer.Files.Where(f => f.Key.StartsWith("Models/", StringComparison.Ordinal)))
+        foreach ((string _, string source) in writer.Files.ModelSources())
         {
             var tree = CSharpSyntaxTree.ParseText(source);
             Assert.DoesNotContain(
@@ -57,8 +56,9 @@ public sealed class ElasticSanModelTests
                 d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
         }
 
-        // Spot-check a known model carries its properties + wire names.
-        string volume = writer.Files["Models/VolumeProperties.g.cs"];
+        // Spot-check a known model carries its properties + wire names (looked up
+        // by class name, not a hardcoded path).
+        string volume = writer.Files.Source(result, "VolumeProperties");
         Assert.Contains("namespace Azure.ElasticSan.Models", volume);
         Assert.Contains("public partial class VolumeProperties", volume);
         Assert.Contains("[JsonPropertyName(", volume);

@@ -4,10 +4,12 @@ Roslyn-based **C# client generator** — stage 3 of the Azure Client Engine
 pipeline (`emit → transform → generate`). It consumes a validated IR document and
 returns generated C# source files.
 
-This package is a **plain .NET class library**: it exposes the generation API and
-the IR POCOs. It is **not** an npm-workspace member — the `ace` CLI integrates
-with it by spawning a `dotnet` process. Hosting/integration with the CLI is
-intentionally **out of scope** here and is wired up separately.
+This package is a **plain .NET class library** (`Ace.Generator.csproj`): it exposes
+the generation API and the IR POCOs. It is **not** an npm-workspace member. A thin
+executable, `host/Ace.Generator.Host.csproj`, adapts the library to the compiler's
+out-of-process **`csharp-generate` tool** contract (JSON IR on stdin → NDJSON
+files on stdout); the `ace` CLI's host runtime spawns it via `dotnet`. See
+[Out-of-process host](#out-of-process-host).
 
 ## Layout
 
@@ -24,8 +26,8 @@ packages/generator/
       Generators/                       The artifact generators (pull-based)
         IArtifactGenerator.cs             Stage contract (`Produce` yields files lazily)
         ModelGenerator.cs                 IR models  -> model classes (real emission; owns the Roslyn model builder)
-        ProcessorGenerator.cs             IR operations -> processor classes (ProcessorBase<T>; real emission)
-        ProcessorBaseGenerator.cs         Processor runtime base: marker + generic ProcessorBase<T> (real emission)
+        ProcessorGenerator.cs             IR operations -> processor classes (ProcessorBase<TRequest,TResponse>; seam overrides)
+        ProcessorBaseGenerator.cs         Processor runtime base: marker + generic ProcessorBase<TRequest,TResponse> (real emission)
         ProjectStubGenerator.cs           extension .csproj (System.Xml.Linq; per-artifact …Emit)
     Model/                            Run-facing types + generated IR POCOs
       GeneratedFile.cs                  A produced artifact (relative path + contents + class name)
@@ -37,9 +39,14 @@ packages/generator/
       Ir/
         Ir.Generated.cs                   IR POCOs, generated from ir.schema.json
         IrJson.cs                         Canonical System.Text.Json options for IR (de)serialization
+  host/                               Out-of-process host (the `csharp-generate` tool)
+    Ace.Generator.Host.csproj           Executable that adapts the library to the compiler tool protocol
+    Program.cs                          Entry point: wires HostRunner to the process std streams
+    HostRunner.cs                       stdin JSON GenerateToolRequest -> NDJSON file/result frames on stdout
   test/Ace.Generator.Tests/           xUnit tests (incl. polymorphic round-trip, ElasticSan models)
     ArtifactWriter.cs                   Test handler: writes each run's output under artifacts/<test>/
     GeneratedFileCollector.cs           In-memory handler (buffers for assertions)
+    HostRunnerTests.cs                  Contract tests for the host's NDJSON wire framing
     TestData/elasticsan.ir.json         Real ElasticSan IR used as a generation test case
     artifacts/                          Generated output from test runs (gitignored; for eyeballing)
   tools/AceIrModelGen/                Codegen tool (JSON Schema -> C# POCOs, via Roslyn)
@@ -49,15 +56,15 @@ packages/generator/
 ```
 
 There is no solution file: the library is the single project at the package root,
-with the test and codegen-tool projects in subfolders (built individually). The
-library csproj excludes `test/**` and `tools/**` from its source glob so those
-nested projects are not compiled into it.
+with the host, test, and codegen-tool projects in subfolders (built individually).
+The library csproj excludes `host/**`, `test/**`, and `tools/**` from its source
+glob so those nested projects are not compiled into it.
 
 ### Inspecting generated output
 
 Running the tests writes every generated file to disk under
 `test/Ace.Generator.Tests/artifacts/<TestName>/`, mirroring the relative paths
-the generator produces (e.g. `Models/Widget.g.cs`, `Processors/…Processor.g.cs`,
+the generator produces (e.g. `Models/Widget.cs`, `Processors/…Processor.cs`,
 the `.csproj`). Each test clears its own subfolder first, so the tree always
 reflects the latest run. It's the easiest way to eyeball what the scaffold (and,
 later, the real emission) produces — just run `dotnet test` and open the folder.
@@ -76,6 +83,45 @@ dotnet build Ace.Generator.csproj
 
 # run the tests (also builds the library via its project reference)
 dotnet test test/Ace.Generator.Tests/Ace.Generator.Tests.csproj
+```
+
+To build this package *and* the TypeScript packages together, run the toolkit's
+`../../build.ps1` (see the toolkit README, "Building the whole toolkit").
+
+## Out-of-process host
+
+`CSharpClientGenerator` is a pure in-process library; the compiler runs it as an
+external tool so the backbone stays free of any generator specifics. `host/`
+provides that adapter — `Ace.Generator.Host`, a small `dotnet` executable that
+implements the compiler's **`csharp-generate`** tool contract:
+
+```
+stdin  : one JSON GenerateToolRequest  { ir, options: { rootNamespace?, config? } }
+stdout : NDJSON — one {"kind":"file","path","contents"} per generated file
+         (streamed as produced), then a terminal
+         {"kind":"result","success","diagnostics":[{severity,code,message}]}
+```
+
+The IR is read with `IrJson.Options` (the polymorphic unions place their
+discriminator out of order). `HostRunner` holds all the framing and is unit-tested
+in `HostRunnerTests`; `Program.cs` just wires it to the process std streams.
+
+The `ace` CLI spawns the host via `dotnet`, resolving it at a **fixed location
+relative to the CLI** — `packages/cli/generator-host/` — which the toolkit build
+script populates by *publishing* the host (its dll + dependency dlls + runtime
+config) there:
+
+```bash
+# from the toolkit root: builds the TS packages and publishes the host into the CLI
+./build.ps1
+```
+
+Runtime code is deliberately build-config-agnostic (no Debug/Release probing):
+choosing the configuration and gathering dependency dlls are the build script's
+job. `ACE_GENERATOR_HOST_DLL` overrides the location for bespoke setups. Then:
+
+```bash
+ace compile --tsp-location <spec> --generator csharp --root-namespace <ns> --out-dir <dir>
 ```
 
 ## IR POCOs (single source of truth)
@@ -179,31 +225,41 @@ The stages are at different maturity levels. **`ModelGenerator`,
 literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
 `optional`/`nullable` → nullable type, `docs`/`summary` → XML doc).
 
-**`ProcessorGenerator`** emits one `{Verb}{Group}Processor : ProcessorBase<TResponse>`
+**`ProcessorGenerator`** emits one `{Verb}{Group}Processor : ProcessorBase<TRequest, TResponse>`
 per operation: the public surface mirrors the API parameter surface exactly (one
 property per path/query parameter — `subscriptionId` inline, not special-cased),
-plus a single request-body member, and a `CreateRequestMessage` that builds the
-request (resolved host + path template with `{wireName}` rewritten to the C#
-member + `api-version`/query string; JSON body via `JsonContent.Create`).
-Long-running operations also emit `SendAsync() => SendAsyncLRO()`.
+plus a single request-body member. It overrides the base's fine-grained request
+seams — `Method`, `CreateRequestUri()` (resolved host + path template with
+`{wireName}` rewritten to the C# member + `api-version`/query string), and (body
+ops) `CreateRequestBody() => Body` — rather than assembling the request itself.
+`TRequest` is the body model (or `object` for no-body ops); `TResponse` the
+success response (or `object`). Long-running operations also emit the four
+final-state/polling hook overrides — mapped **strictly** from IR `finalStateVia`
+(`location` → the `Location` header; otherwise the base re-GETs the original URI) —
+and `SendAsync() => SendAsyncLRO()`. Pageable operations emit the pagination wiring
+(`pageItems`/`nextLink` selectors from IR `itemsPath`/`nextLinkPath` + a
+`BeforeWriteOutputAsyncAndReturn` override handing them to the runtime
+`WriteOutputWithPaginationAsync` helper). Spec-vs-reality deviations are handled by
+customization on top of the generated (`partial`) processor, never by the generator.
 
 **`ProcessorBaseGenerator`** emits the runtime base processors derive from — a
-non-generic marker `ProcessorBase : IProcessor` plus `ProcessorBase<TResponse>`
-(subscription resolution, the standard `ProcessAsync` pipeline, and the
-long-running-operation polling loop). It's "template-like" (only the package
-namespace varies), but built in the **house style**: signatures — class/base
-list, generic params/constraints, fields, properties, method signatures — are
+non-generic marker `ProcessorBase : IProcessor` plus
+`ProcessorBase<TRequest, TResponse>` (fine-grained request seams — `Method`,
+`CreateRequestUri`, `CreateRequestBody`, `CreateRequestHeaders` — assembled by
+`CreateRequestMessage`, and the standard `ProcessAsync` pipeline with
+`BeforeProcessAsync` / `BeforeWriteOutputAsyncAndReturn` hooks). The
+long-running-operation machinery lives in the runtime library; the base only
+delegates (`SendAsync`/`SendAsyncLRO` → `HttpRuntime`). It's "template-like" (only
+the package namespace varies), but built in the **house style**: signatures —
+class/base list, generic params/constraints, properties, method signatures — are
 composed structurally with Roslyn `SyntaxFactory` as a safeguard; only method
-*implementations* are authored as raw code blocks via `WithRawBody`. The
-`SubscriptionId` property + `ResolveSubscriptionId` carry a `SEAM` marker for the
-pending reconciliation with the processors' own `subscriptionId` members.
+*implementations* are authored as raw code blocks via `WithRawBody`.
 
 The IR-driven stages are deliberately faithful ("garbage in, garbage out") and
 null-tolerant. Deferred by design: model inheritance dedup / flattening /
 polymorphism / enum emission; and on the processor side, parameter **flattening**
-(the body is one model member for now), the LRO final-state/polling **option**
-overrides, header parameters, `[ArgumentInfo]` + defaults, pagination and
-validation (runtime concerns). See each stage's `TODO`. **`ProjectStubGenerator`**
+(the body is one model member for now), header parameters, and `[ArgumentInfo]` +
+defaults. See each stage's `TODO`. **`ProjectStubGenerator`**
 emits the extension `.csproj` (identity, `Shared.props` import, compile-only
 `ProjectReference`s) composed structurally with `System.Xml.Linq` — one `…Emit`
 method per artifact, so assembly metadata / resources slot in later. This split

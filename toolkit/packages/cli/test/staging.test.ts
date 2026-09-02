@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { stageLocalProject } from "../src/staging.js";
+import { stageLocalProject, removeDir } from "../src/staging.js";
 import { resolveToolchain } from "../src/toolchain.js";
 
 let sourceDir: string;
@@ -87,5 +87,24 @@ describe("stageLocalProject", () => {
 
     // The source keeps its own (stale) node_modules; staging copied, not moved.
     expect(existsSync(join(sourceDir, "node_modules", "junk.txt"))).toBe(true);
+  });
+});
+
+describe("removeDir", () => {
+  it("removes the staged tree and unlinks the junction without touching ace's install", async () => {
+    const staged = await stageLocalProject(join(sourceDir, "main.tsp"), outRoot);
+    expect(existsSync(join(staged.root, "main.tsp"))).toBe(true);
+    expect(existsSync(join(staged.root, "node_modules", "@typespec", "compiler"))).toBe(true);
+
+    const { removed, error } = await removeDir(staged.root);
+
+    expect(error).toBeUndefined();
+    expect(removed).toBe(true);
+    expect(existsSync(staged.root)).toBe(false);
+
+    // The junction was unlinked, not recursed into: ace's real toolchain (the
+    // junction's target) is untouched and still resolvable.
+    const tc = resolveToolchain(join(sourceDir, "main.tsp"));
+    expect(existsSync(tc.compilerPath)).toBe(true);
   });
 });

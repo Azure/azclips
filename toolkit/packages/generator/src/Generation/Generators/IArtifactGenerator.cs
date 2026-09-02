@@ -20,4 +20,16 @@ internal interface IArtifactGenerator
 
     /// <summary>Lazily produce this stage's files, reading state from <paramref name="context"/>.</summary>
     IEnumerable<GeneratedFile> Produce(GenerationContext context);
+
+    /// <summary>
+    /// Names the output scopes this stage <em>owns</em> and wants wiped before
+    /// producing, so every regeneration starts clean (full-refresh codegen
+    /// semantics). Each is a relative path — a directory (e.g. <c>Models</c>) or a
+    /// file — removed by the host; the stage stays filesystem-agnostic and never
+    /// deletes anything itself. Default: nothing. The orchestrator runs a cleanup
+    /// pass (all stages' <see cref="Clean"/>) before any <see cref="Produce"/>, so
+    /// a stage sharing a directory with a peer need not clean it if the peer owns
+    /// that scope.
+    /// </summary>
+    IEnumerable<string> Clean(GenerationContext context) => [];
 }

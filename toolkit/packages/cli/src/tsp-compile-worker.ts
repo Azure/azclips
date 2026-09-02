@@ -122,6 +122,11 @@ async function run(request: TspCompileRequest): Promise<TspCompileResponse> {
   return ir !== undefined ? { ir, diagnostics } : { diagnostics };
 }
 
+// If the parent goes away, don't linger as an orphan holding handles on the
+// staged spec. A parent exit (even a hard kill) closes the IPC channel, which
+// fires 'disconnect' here — self-terminate so the staged source can be cleaned.
+process.on("disconnect", () => process.exit(1));
+
 process.on("message", (request: TspCompileRequest) => {
   run(request)
     .then((response) => process.send!(response, () => process.exit(0)))

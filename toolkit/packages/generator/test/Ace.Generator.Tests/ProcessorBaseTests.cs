@@ -15,11 +15,11 @@ public sealed class ProcessorBaseTests
     private static async Task<string> EmitBaseAsync(string scenario)
     {
         var writer = new ArtifactWriter(scenario);
-        await new CSharpClientGenerator().GenerateAsync(
+        GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             new IRDocument { SchemaVersion = "0.6.0", Models = [], Operations = [] },
             new GeneratorOptions { RootNamespace = "Azure.ElasticSan" },
             writer.WriteAsync);
-        return writer.Files["Processors/ProcessorBase.g.cs"];
+        return writer.Files.Source(result, "ProcessorBase");
     }
 
     [Fact]
@@ -28,23 +28,35 @@ public sealed class ProcessorBaseTests
         string src = await EmitBaseAsync(nameof(Emits_Both_Marker_And_Generic_Base));
 
         Assert.Contains("public abstract partial class ProcessorBase : IProcessor", src);
-        Assert.Contains("public partial class ProcessorBase<TResponse> : ProcessorBase where TResponse : class", src);
+        Assert.Contains("public partial class ProcessorBase<TRequest, TResponse> : ProcessorBase where TRequest : class where TResponse : class", src);
     }
 
     [Fact]
-    public async Task Base_Has_Lro_Machinery_Hooks_And_Seam()
+    public async Task Base_Has_Request_Seams_Lro_Hooks_And_Runtime_Delegation()
     {
-        string src = await EmitBaseAsync(nameof(Base_Has_Lro_Machinery_Hooks_And_Seam));
+        string src = await EmitBaseAsync(nameof(Base_Has_Request_Seams_Lro_Hooks_And_Runtime_Delegation));
 
         foreach (string hook in new[] { "GetFinalUri", "GetOperationLocationUri", "GetAsyncOperationUri", "GetLocationUri" })
         {
             Assert.Contains($"Func<HttpResponseMessage, string?> {hook} => _ => null;", src);
         }
 
-        Assert.Contains("async Task<HttpResponseMessage> SendAsyncLRO()", src);
+        // Fine-grained request seams the processors override.
+        Assert.Contains("HttpMethod Method =>", src);
+        Assert.Contains("string CreateRequestUri()", src);
+        Assert.Contains("CreateRequestHeaders(HttpRequestMessage request)", src);
+        // Typed body seam on the generic base (covariant override).
+        Assert.Contains("TRequest? CreateRequestBody() => default;", src);
+        // Transport delegates to the runtime library; the LRO loop is not inlined in the base.
+        Assert.Contains("HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline)", src);
+        Assert.Contains("HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri)", src);
         Assert.Contains("CreateExtendedProcessor<T>(Action<T>? configure = null)", src);
-        // The subscriptionId reconciliation is left as a marked seam.
-        Assert.Contains("SEAM(subscriptionId)", src);
+        // ProcessAsync pipeline hooks.
+        Assert.Contains("BeforeProcessAsync()", src);
+        Assert.Contains("BeforeWriteOutputAsyncAndReturn(TResponse? body)", src);
+        // The subscriptionId base-resolution seam is gone (subscriptionId is now a per-processor member).
+        Assert.DoesNotContain("ResolveSubscriptionId", src);
+        Assert.DoesNotContain("SEAM(subscriptionId)", src);
     }
 
     [Fact]

@@ -33,6 +33,24 @@ npm run lint:deps   # verify both lists agree; non-zero exit fails CI
 | `npm run schema`    | Emit the IR JSON Schema artifact from the Zod IR schema.      |
 | `npm run schema:check` | Fail if the emitted IR JSON Schema is stale vs. the Zod schema (CI). |
 
+## Building the whole toolkit
+
+`npm run build` (`tsc -b`) builds only the **TypeScript** packages (`ir`,
+`typespec-emitter`, `compiler`, `cli`). The **C# generator** under
+`packages/generator` is a standalone .NET package and is *not* part of that build.
+
+For the full cross-toolchain build — TypeScript **and** the .NET generator +
+its out-of-process host — run the toolkit build script from the toolkit root:
+
+```powershell
+./build.ps1                       # Debug
+./build.ps1 -Configuration Release
+```
+
+This is the single entry point CI/pipelines should call; it wraps `npm run build`
+and `dotnet build` so callers need not know the per-package commands. `npm run
+build` stays the fast inner loop for TypeScript-only work.
+
 ## IR JSON Schema (cross-language contract)
 
 The IR is defined once, in TypeScript, as [Zod](https://zod.dev) schemas under
