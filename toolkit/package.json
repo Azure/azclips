@@ -5,7 +5,6 @@
   "type": "module",
   "workspaces": [
     "packages/ir",
-    "packages/ps",
     "packages/typespec-emitter",
     "packages/compiler",
     "packages/cli"
@@ -21,8 +20,6 @@
     "fix:deps": "syncpack fix-mismatches",
     "schema": "npm run schema -w @azure-client-engine/ir --",
     "schema:check": "npm run schema:check -w @azure-client-engine/ir --",
-    "schema:ps": "npm run schema -w @azure-client-engine/ps --",
-    "schema:ps:check": "npm run schema:check -w @azure-client-engine/ps --",
     "login": "npm install @microsoft/artifacts-npm-credprovider -g --registry https://pkgs.dev.azure.com/artifacts-public/PublicTools/_packaging/AzureArtifacts/npm/registry/ && artifacts-npm-credprovider -c ./.npmrc"
   },
   "keywords": [],

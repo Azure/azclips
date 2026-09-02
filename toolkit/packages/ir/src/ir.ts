@@ -14,6 +14,7 @@ import { IRModelSchema, type IRModel } from "./model.js";
 import { IREnumSchema, type IREnum } from "./enum.js";
 import { IROperationSchema, type IROperation } from "./operation.js";
 import { IRSourceSchema, type IRSource } from "./source.js";
+import { PSSchema, type PS } from "./ps.js";
 
 export type IR = {
   schemaVersion: string;
@@ -21,6 +22,8 @@ export type IR = {
   models: IRModel[];
   enums: IREnum[];
   operations: IROperation[];
+  /** PowerShell surface, populated by a transform; absent until one runs. */
+  ps?: PS | undefined;
 };
 
 export const IRSchema: z.ZodType<IR> = z
@@ -30,6 +33,7 @@ export const IRSchema: z.ZodType<IR> = z
     models: z.array(IRModelSchema),
     enums: z.array(IREnumSchema),
     operations: z.array(IROperationSchema),
+    ps: PSSchema.optional(),
   })
   .strict();
 

@@ -6,7 +6,7 @@ import {
   PSParameterAttributeSchema,
   PSModuleAttributeSchema,
   PSSchema,
-} from "../src/attributes.js";
+} from "../src/ps.js";
 import { PS_SCHEMA_VERSION } from "../src/version.js";
 
 const opId = { module: "Test", name: "createOrUpdate", namespace: ["Fleets"] };

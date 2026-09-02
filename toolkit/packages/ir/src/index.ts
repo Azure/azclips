@@ -6,7 +6,7 @@
  * is considered package-internal.
  */
 
-export { IR_SCHEMA_VERSION } from "./version.js";
+export { IR_SCHEMA_VERSION, PS_SCHEMA_VERSION } from "./version.js";
 
 export {
   IRIdSchema,
@@ -157,3 +157,30 @@ export {
   emptyIR,
   type IR,
 } from "./ir.js";
+
+export {
+  ConfirmImpacts,
+  LifecycleTags,
+  PSCompleterAttributeSchema,
+  PSDefaultValueAttributeSchema,
+  PSCommandAttributeSchema,
+  PSParameterSetAttributeSchema,
+  PSParameterSetOverrideSchema,
+  PSParameterAttributeSchema,
+  PSModuleAttributeSchema,
+  PSIdentityAttributeSchema,
+  PSIdentityPropertyAttributeSchema,
+  PSSchema,
+  type ConfirmImpact,
+  type LifecycleTag,
+  type PSCompleterAttribute,
+  type PSDefaultValueAttribute,
+  type PSCommandAttribute,
+  type PSParameterSetAttribute,
+  type PSParameterSetOverride,
+  type PSParameterAttribute,
+  type PSModuleAttribute,
+  type PSIdentityAttribute,
+  type PSIdentityPropertyAttribute,
+  type PS,
+} from "./ps.js";
