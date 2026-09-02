@@ -80,17 +80,13 @@ export type IRRequestBody = {
   type: IRTypeRef;
   contentType: string;
   /**
-   * Client-facing name of the body parameter, when the spec supplies one
-   * (e.g. TypeSpec's `@body payload: Widget`, or a swagger `in: body`
-   * parameter's `name`). Undefined when TCGC had nothing to take the name
-   * from.
+   * Client-facing name of the body parameter -- `payload` for `@body payload: Widget`.
+   * Undefined when TCGC had nothing to take a name from.
    */
   name?: string | undefined;
   /**
-   * True when `name` was synthesized by TCGC (e.g. `<operation>Request`)
-   * rather than authored in the spec. Consumers that need a stable,
-   * author-intended name (e.g. to name a non-flattened parameter) should
-   * treat a generated name as unusable.
+   * True when TCGC synthesized `name` (e.g. `<operation>Request`) rather than the author
+   * writing it. A consumer needing an author-intended name should treat it as unusable.
    */
   isGeneratedName?: boolean | undefined;
   docs?: string | undefined;
