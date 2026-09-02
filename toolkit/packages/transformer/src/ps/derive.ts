@@ -636,12 +636,14 @@ function identityFor(ir: IR, moduleName: string, sourceId: string): PSIdentityAt
       const name = pascalCase(deconstruct(parameter.name));
       const existing = byName.get(name);
       if (existing) existing.sourceParameterIds.push(parameter.id);
-      else
+      else {
+        const help = helpOf(parameter);
         byName.set(name, {
           name,
-          ...(parameter.docs === undefined ? {} : { helpMessage: parameter.docs }),
+          ...(help === undefined ? {} : { helpMessage: help }),
           sourceParameterIds: [parameter.id],
         });
+      }
     }
   }
 
