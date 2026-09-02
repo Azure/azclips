@@ -103,6 +103,23 @@ describe("PSParameterAttribute", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects an empty override map, which would name no set at all", () => {
+    const result = PSParameterAttributeSchema.safeParse({
+      name: "resourceGroupName",
+      sourceParameterId: paramId,
+      parameterSets: {},
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a parameter in every set, which names neither field", () => {
+    const result = PSParameterAttributeSchema.safeParse({
+      name: "SubscriptionId",
+      sourceParameterId: paramId,
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("accepts a hidden parameter, which is kept but not exported", () => {
     const result = PSParameterAttributeSchema.safeParse({
       name: "managedByResourceId",

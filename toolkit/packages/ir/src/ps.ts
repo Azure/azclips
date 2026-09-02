@@ -137,6 +137,15 @@ export const PSParameterAttributeSchema: z.ZodType<PSParameterAttribute> = z
           "A parameter belongs to one set (`parameterSetName`) or spans several (`parameterSets`), not both.",
       });
     }
+
+    // Omitting the map means "every set"; an empty one would mean "no set", which is nothing.
+    if (parameter.parameterSets !== undefined && Object.keys(parameter.parameterSets).length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parameterSets"],
+        message: "`parameterSets` must name at least one set; omit it for a parameter in every set.",
+      });
+    }
   });
 
 // ─── PSCommandAttribute (mirrors [Cmdlet] + ProcessorInfoAttribute) ──────
