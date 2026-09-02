@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Storage.Models;
@@ -589,9 +590,31 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
         private static List<string>? NullIfEmpty(List<string> values) => values.Count == 0 ? null : values;
 
-        private static int? ParseInt(string value) => string.IsNullOrEmpty(value) ? null : int.Parse(value);
+        // The option name is captured from the caller's expression so a malformed value reports
+        // which option was wrong, rather than surfacing a bare FormatException from the parser.
+        private static int? ParseInt(string value, [CallerArgumentExpression(nameof(value))] string? name = null)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return null;
+            }
 
-        private static bool? ParseBool(string value) => string.IsNullOrEmpty(value) ? null : bool.Parse(value);
+            return int.TryParse(value, out int parsed)
+                ? parsed
+                : throw new ArgumentException($"{name} must be a whole number, but was '{value}'.");
+        }
+
+        private static bool? ParseBool(string value, [CallerArgumentExpression(nameof(value))] string? name = null)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return null;
+            }
+
+            return bool.TryParse(value, out bool parsed)
+                ? parsed
+                : throw new ArgumentException($"{name} must be true or false, but was '{value}'.");
+        }
 
         // Generic
         

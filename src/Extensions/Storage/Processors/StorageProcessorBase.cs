@@ -312,8 +312,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
     /// <summary>
     /// Generic storage processor base. The default <see cref="ProcessAsync"/> pipeline:
-    /// 1) Publishs start, 2) calls <see cref="SendAsync"/>,
-    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishs end.
+    /// 1) Publishes start, 2) calls <see cref="SendAsync"/>,
+    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishes end.
     /// <para>
     /// <see cref="SendAsync"/> is the internal "give me the final response" transport primitive.
     /// Atomic LRO processors override it as a one-liner that delegates to <see cref="StorageProcessorBase.SendAsyncLRO"/>.

@@ -782,6 +782,25 @@ public class NewStorageAccountProcessorTests
     }
 
     [Fact]
+    public async Task CreateRequest_NonNumericIntegerOption_Throws()
+    {
+        // int.Parse would surface a bare FormatException naming neither the option nor the value.
+        var error = await CaptureValidationErrorAsync(p => p.KeyExpirationPeriodInDays = "foo");
+        Assert.Contains("KeyExpirationPeriodInDays", error.Message);
+        Assert.Contains("whole number", error.Message);
+        Assert.Contains("foo", error.Message);
+    }
+
+    [Fact]
+    public async Task CreateRequest_NonBooleanOption_Throws()
+    {
+        // Reachable only if a command table entry omits AllowedValues; the parser rejects it first.
+        var error = await CaptureValidationErrorAsync(p => p.IsHnsEnabled = "yes");
+        Assert.Contains("IsHnsEnabled", error.Message);
+        Assert.Contains("true or false", error.Message);
+    }
+
+    [Fact]
     public async Task CreateRequest_KeyVaultSourceWithoutKey_Throws()
     {
         var error = await CaptureValidationErrorAsync(p => p.EncryptionKeySource = "Microsoft.Keyvault");
