@@ -331,3 +331,60 @@ describe("applyDirectives: variant scoping", () => {
     expect(result.diagnostics.map((d) => d.code)).toContain("unsupported-directive");
   });
 });
+
+describe("applyDirectives: module exports", () => {
+  /** `fixture()` declares no IR source, so it derives no module to export from. */
+  function moduleFixture() {
+    const get = makeOperation({
+      id: { module: "<root>", namespace: ["Volumes"], name: "get" },
+      method: "GET",
+    });
+    const remove = makeOperation({
+      id: { module: "<root>", namespace: ["Volumes"], name: "delete" },
+      method: "DELETE",
+      responses: [],
+    });
+    return deriveAttributes(
+      {
+        ...emptyIR(),
+        sources: [
+          {
+            id: "<root>",
+            entrypoint: "main.tsp",
+            apiVersion: { value: "2025-04-01", location: "query", parameterName: "api-version" },
+            server: { kind: "literal" as const, url: "https://management.azure.com" },
+            rootNamespace: ["Test"],
+          },
+        ],
+        operations: [get, remove],
+      },
+      { modulePrefix: "Az" },
+    );
+  }
+
+  const applyToModule = (directives: PSDirective[]) => applyDirectives(moduleFixture(), directives);
+
+  it("follows a renamed command into cmdletsToExport", () => {
+    const { attributes } = applyToModule([{ where: { verb: "^Get$" }, set: { verb: "Find" } }]);
+
+    expect(attributes.modules[0]!.cmdletsToExport).toContain("Find-AzVolume");
+    expect(attributes.modules[0]!.cmdletsToExport).not.toContain("Get-AzVolume");
+  });
+
+  it("drops a removed command from cmdletsToExport", () => {
+    const { attributes } = applyToModule([{ where: { verb: "^Get$" }, remove: true }]);
+
+    expect(attributes.modules[0]!.cmdletsToExport).not.toContain("Get-AzVolume");
+    expect(attributes.commands.map((c) => `${c.verb}-${c.noun}`)).not.toContain("Get-AzVolume");
+  });
+
+  it("keeps cmdletsToExport agreeing with the commands it ships", () => {
+    const { attributes } = applyToModule([
+      { where: { verb: "^Get$" }, set: { verb: "Find" } },
+      { where: { verb: "^Remove$" }, remove: true },
+    ]);
+
+    const actual = attributes.commands.map((c) => `${c.verb}-${c.noun}`).sort();
+    expect([...attributes.modules[0]!.cmdletsToExport].sort()).toEqual(actual);
+  });
+});

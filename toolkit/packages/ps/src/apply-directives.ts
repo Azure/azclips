@@ -181,8 +181,13 @@ export function applyDirectives(
   directives: readonly PSDirective[],
 ): ApplyDirectivesResult {
   let commands = attributes.commands.map((command) => ({
-    ...command,
-    parameters: command.parameters.map((parameter) => ({ ...parameter })),
+    // Kept alongside so `cmdletsToExport` can follow a rename; directives may rename the same
+    // command more than once, so the starting name is what the module list is keyed by.
+    origin: `${command.verb}-${command.noun}`,
+    command: {
+      ...command,
+      parameters: command.parameters.map((parameter) => ({ ...parameter })),
+    },
   }));
   const diagnostics: PSDirectiveDiagnostic[] = [];
 
@@ -193,9 +198,9 @@ export function applyDirectives(
 
     if (targetsParameters) {
       const kept: typeof commands = [];
-      for (const command of commands) {
+      for (const { origin, command } of commands) {
         if (!commandMatches(where, command)) {
-          kept.push(command);
+          kept.push({ origin, command });
           continue;
         }
 
@@ -239,18 +244,18 @@ export function applyDirectives(
           if (directive.hide === true) next = { ...next, hidden: true };
           parameters.push(next);
         }
-        kept.push({ ...command, parameters });
+        kept.push({ origin, command: { ...command, parameters } });
       }
       commands = kept;
     } else {
       const kept: typeof commands = [];
-      for (const command of commands) {
+      for (const { origin, command } of commands) {
         const hit =
           commandMatches(where, command) &&
           (where["parameter-name"] === undefined ||
             command.parameters.some((p) => parameterMatches(where, command, p)));
         if (!hit) {
-          kept.push(command);
+          kept.push({ origin, command });
           continue;
         }
         matched++;
@@ -270,7 +275,7 @@ export function applyDirectives(
           next = applyCommandSet(next, where, directive.set, matchedVariant);
         }
         if (directive.hide === true) next = { ...next, hidden: true };
-        kept.push(next);
+        kept.push({ origin, command: next });
       }
       commands = kept;
     }
@@ -294,7 +299,22 @@ export function applyDirectives(
     }
   });
 
-  return { attributes: { ...attributes, commands }, diagnostics };
+  // A directive can rename or remove a command, which `cmdletsToExport` has to follow or the
+  // document contradicts itself.
+  const renamed = new Map(
+    commands.map(({ origin, command }) => [origin, `${command.verb}-${command.noun}`]),
+  );
+  const modules = attributes.modules.map((module) => ({
+    ...module,
+    cmdletsToExport: module.cmdletsToExport
+      .map((name) => renamed.get(name))
+      .filter((name): name is string => name !== undefined),
+  }));
+
+  return {
+    attributes: { ...attributes, commands: commands.map(({ command }) => command), modules },
+    diagnostics,
+  };
 }
 
 const COMMAND_ONLY_SET_KEYS = [
