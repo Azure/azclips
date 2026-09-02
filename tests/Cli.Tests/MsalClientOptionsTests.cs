@@ -198,7 +198,7 @@ public class MsalClientOptionsTests
             // Must complete without throwing despite the invalid cache location.
             await service.LogoutAsync(Upn);
 
-            Assert.Contains(logger.Messages, m => m.Contains("Failed to remove account", StringComparison.Ordinal));
+            Assert.Contains(logger.Messages, m => m.Contains("Non-fatal", StringComparison.Ordinal) && m.Contains("failed to remove account", StringComparison.Ordinal));
         }
         finally
         {

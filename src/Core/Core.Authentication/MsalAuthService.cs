@@ -64,7 +64,7 @@ public class MsalAuthService(
                 {
                     // Removing one account is best-effort: a failure here must not abort removal of the
                     // remaining matching accounts, nor block the caller from signing out locally.
-                    Logger.Warn($"[{nameof(MsalAuthService)}] Failed to remove account '{account.Username}' from the MSAL token cache: {ex.GetType().Name}: {ex.Message}");
+                    Logger.Warn($"[{nameof(MsalAuthService)}] Non-fatal: failed to remove account '{account.Username}' from the MSAL token cache; local sign-out continues. {ex.GetType().Name}: {ex.Message}");
                 }
             }
         }
@@ -74,7 +74,7 @@ public class MsalAuthService(
             // Microsoft.Identity.Client/broker assembly already loaded by another module in the same host
             // process, or a locked/corrupt cache file) must not prevent the user from signing out locally.
             // Cancellation is allowed to propagate so a cancelled logout is not silently swallowed.
-            Logger.Warn($"[{nameof(MsalAuthService)}] Failed to remove account '{userPrincipalName}' from the MSAL token cache: {ex.GetType().Name}: {ex.Message}");
+            Logger.Warn($"[{nameof(MsalAuthService)}] Non-fatal: failed to remove account '{userPrincipalName}' from the MSAL token cache; local sign-out continues. {ex.GetType().Name}: {ex.Message}");
         }
     }
 
