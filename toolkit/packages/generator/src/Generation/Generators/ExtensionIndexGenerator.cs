@@ -73,7 +73,7 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
                             : $"{command.Verb}-{command.Noun}",
                         ProcessorType: ProcessorNaming.TypeName(operation),
                         Aliases: command.Alias ?? [],
-                        Parameters: ParametersFor(command, set.Name, TypeIndex(context.Ir))));
+                        Parameters: ParametersFor(command, set.Name, TypeIndex(context.Ir), EnumIndex(context.Ir))));
             }
         }
 
@@ -100,10 +100,10 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         yield return new GeneratedFile("ExtensionIndex.g.cs", source, "ExtensionIndex");
     }
 
-    /// <summary>Every id a PS parameter can name, mapped to the C# type it binds as.</summary>
-    private static Dictionary<string, string> TypeIndex(IRDocument ir)
+    /// <summary>Every id a PS parameter can name, mapped to the IR type it binds.</summary>
+    private static Dictionary<string, IRTypeRef> TypeIndex(IRDocument ir)
     {
-        var index = new Dictionary<string, string>(StringComparer.Ordinal);
+        var index = new Dictionary<string, IRTypeRef>(StringComparer.Ordinal);
 
         foreach (IROperation operation in ir.Operations)
         {
@@ -111,9 +111,9 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
                 .Concat(operation.QueryParameters)
                 .Concat(operation.HeaderParameters))
             {
-                if (parameter.Id is not null)
+                if (parameter.Id is not null && parameter.Type is not null)
                 {
-                    index[Key(parameter.Id)] = IrTypeMapper.ToCSharp(parameter.Type);
+                    index[Key(parameter.Id)] = parameter.Type;
                 }
             }
         }
@@ -122,9 +122,9 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         {
             foreach (IRProperty property in model.Properties)
             {
-                if (property.Id is not null)
+                if (property.Id is not null && TypeRefOf(property) is { } type)
                 {
-                    index[Key(property.Id)] = IrTypeMapper.ToCSharp(property);
+                    index[Key(property.Id)] = type;
                 }
             }
         }
@@ -132,11 +132,49 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         return index;
     }
 
+    /// <summary>Enum members by enum id, for the <c>AllowedValues</c> of a parameter that names one.</summary>
+    private static Dictionary<string, string[]> EnumIndex(IRDocument ir)
+    {
+        var index = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        foreach (IREnum @enum in ir.Enums)
+        {
+            if (@enum.Id is not null)
+            {
+                index[Key(@enum.Id)] = [.. @enum.Members.Select(m => m.Value?.ToString() ?? m.Name)];
+            }
+        }
+        return index;
+    }
+
+    private static IRTypeRef? TypeRefOf(IRProperty property) => property switch
+    {
+        IRPropertyPrimitive p => p.Type,
+        IRPropertyObject p => p.Type,
+        IRPropertyCollection p => p.Type,
+        IRPropertyEnum p => p.Type,
+        IRPropertyUnion p => p.Type,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The C# type a parameter binds as. Enums render as <c>string</c> with their members carried
+    /// on <c>AllowedValues</c> — the shape the hand-written indexes use, and the only one that
+    /// compiles while the model stage does not emit enum types.
+    /// </summary>
+    private static string Render(IRTypeRef type) => type switch
+    {
+        IRTypeRefEnum => "string",
+        IRTypeRefArray a => $"IList<{Render(a.Element)}>",
+        IRTypeRefDictionary d => $"IDictionary<string, {Render(d.Value)}>",
+        _ => IrTypeMapper.ToCSharp(type),
+    };
+
     /// <summary>The parameters that take part in <paramref name="setName"/>, with per-set overrides applied.</summary>
     private static IReadOnlyList<Parameter> ParametersFor(
         PSCommandAttribute command,
         string setName,
-        IReadOnlyDictionary<string, string> types)
+        IReadOnlyDictionary<string, IRTypeRef> types,
+        IReadOnlyDictionary<string, string[]> enums)
     {
         var parameters = new List<Parameter>();
 
@@ -156,19 +194,26 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
             }
 
             // An identity parameter binds the module identity type, which nothing emits yet.
-            string type = parameter.Identity == true
-                ? "object"
-                : parameter.SourceParameterId is { } id && types.TryGetValue(Key(id), out string? mapped)
-                    ? mapped
-                    : "object";
+            IRTypeRef? type = parameter.Identity == true || parameter.SourceParameterId is null
+                ? null
+                : types.TryGetValue(Key(parameter.SourceParameterId), out IRTypeRef? found)
+                    ? found
+                    : null;
+
+            string[] allowed = type is IRTypeRefEnum e
+                && e.Id is not null
+                && enums.TryGetValue(Key(e.Id), out string[]? members)
+                    ? members
+                    : [];
 
             parameters.Add(
                 new Parameter(
                     Name: parameter.Name,
-                    Type: type,
+                    Type: type is null ? "object" : Render(type),
                     Help: over?.HelpMessage ?? parameter.HelpMessage ?? string.Empty,
                     Required: over?.Mandatory ?? parameter.Mandatory ?? false,
-                    Aliases: parameter.Alias ?? []));
+                    Aliases: parameter.Alias ?? [],
+                    AllowedValues: allowed));
         }
 
         return parameters;
@@ -181,6 +226,8 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
 
         source.AppendLine(Banner);
         source.AppendLine("using Core.Abstractions;");
+        // Parameters can bind model types, which the model stage emits into a child namespace.
+        source.AppendLine($"using {ns}.Models;");
         source.AppendLine();
         source.AppendLine($"namespace {ns};");
         source.AppendLine();
@@ -208,7 +255,8 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
                     $"            [{Literal(parameter.Name)}] = new({Literal(parameter.Name)}, {Literal(parameter.Name)}, "
                         + $"typeof({parameter.Type}), {Literal(parameter.Help)}, "
                         + $"IsRequired: {(parameter.Required ? "true" : "false")}, "
-                        + $"Aliases: [{string.Join(", ", parameter.Aliases.Select(Literal))}], AllowedValues: []),");
+                        + $"Aliases: [{string.Join(", ", parameter.Aliases.Select(Literal))}], "
+                        + $"AllowedValues: [{string.Join(", ", parameter.AllowedValues.Select(Literal))}]),");
             }
             source.AppendLine("        },");
             source.AppendLine("        ParameterAliases: new Dictionary<string, string>");
@@ -274,5 +322,6 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         string Type,
         string Help,
         bool Required,
-        IReadOnlyList<string> Aliases);
+        IReadOnlyList<string> Aliases,
+        IReadOnlyList<string> AllowedValues);
 }

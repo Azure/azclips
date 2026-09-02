@@ -2,6 +2,7 @@ using System.Text.Json;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace Ace.Generator.Tests;
@@ -59,6 +60,80 @@ public sealed class ExtensionIndexTests
         Assert.DoesNotContain(
             tree.GetDiagnostics(),
             d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+    }
+
+    /// <summary>
+    /// Parsing cannot see an unresolved name, so every type the table names must be one that
+    /// exists: a BCL type, or a type the generator itself emitted.
+    /// </summary>
+    [Fact]
+    public async Task Every_Type_The_Table_Names_Exists()
+    {
+        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Types", LoadIr());
+
+        HashSet<string> emitted = [.. writer.Files.Keys
+            .Where(k => k.EndsWith(".g.cs", StringComparison.Ordinal))
+            .Select(k => Path.GetFileName(k)[..^".g.cs".Length])];
+
+        var root = CSharpSyntaxTree.ParseText(writer.Files["ExtensionIndex.g.cs"]).GetRoot();
+        var unresolved = new List<string>();
+
+        foreach (TypeOfExpressionSyntax typeOf in root.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+        {
+            foreach (string name in NamesIn(typeOf.Type))
+            {
+                if (!Bcl.Contains(name) && !emitted.Contains(name))
+                {
+                    unresolved.Add(name);
+                }
+            }
+        }
+
+        Assert.Empty(unresolved);
+    }
+
+    private static readonly HashSet<string> Bcl =
+    [
+        "string", "bool", "sbyte", "short", "int", "long", "byte", "ushort", "uint", "ulong",
+        "float", "double", "decimal", "object", "IList", "IDictionary",
+    ];
+
+    /// <summary>The type names a `typeof(...)` depends on, ignoring namespace qualifiers.</summary>
+    private static IEnumerable<string> NamesIn(TypeSyntax type)
+    {
+        switch (type)
+        {
+            case QualifiedNameSyntax qualified:
+                foreach (string name in NamesIn(qualified.Right)) yield return name;
+                break;
+            case GenericNameSyntax generic:
+                yield return generic.Identifier.Text;
+                foreach (TypeSyntax argument in generic.TypeArgumentList.Arguments)
+                {
+                    foreach (string name in NamesIn(argument)) yield return name;
+                }
+                break;
+            case ArrayTypeSyntax array:
+                foreach (string name in NamesIn(array.ElementType)) yield return name;
+                break;
+            case PredefinedTypeSyntax predefined:
+                yield return predefined.Keyword.Text;
+                break;
+            case IdentifierNameSyntax identifier:
+                yield return identifier.Identifier.Text;
+                break;
+        }
+    }
+
+    [Fact]
+    public async Task Renders_An_Enum_Parameter_As_A_String_With_Its_Members_Allowed()
+    {
+        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Enums", LoadIr());
+        string index = writer.Files["ExtensionIndex.g.cs"];
+
+        Assert.Contains("AllowedValues: [\"Enabled\", \"Disabled\"]", index);
+        // The enum's own type name must not survive: the model stage emits no enum types.
+        Assert.DoesNotContain("typeof(PublicNetworkAccess)", index);
     }
 
     [Fact]
