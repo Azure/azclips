@@ -63,7 +63,7 @@ describe("inferCommandNames", () => {
     expect(inferOne(group, actionWord)).toMatchObject({ verb, subject, variant });
   });
 
-  it("reports the word the verb resolved from, which `list` and `get` share a verb but not", () => {
+  it("reports the word the verb resolved from, since `list` and `get` share a verb but not an action", () => {
     expect(inferOne("ElasticSans", "listBySubscription").action).toBe("list");
     expect(inferOne("ElasticSans", "get").action).toBe("get");
   });

@@ -331,6 +331,44 @@ describe("deriveAttributes", () => {
     expect(deriveAttributes(ir).modules[0]!.identity).toBeUndefined();
   });
 
+  it("prefers a path parameter's summary over its docs on the identity property", () => {
+    const ir = {
+      ...emptyIR(),
+      sources: [
+        {
+          id: "Microsoft.Test",
+          entrypoint: "main.tsp",
+          apiVersion: { value: "2025-04-01", location: "query", parameterName: "api-version" },
+          server: { kind: "literal" as const, url: "https://management.azure.com" },
+          rootNamespace: ["Microsoft", "Test"],
+        },
+      ],
+      operations: [
+        makeOperation({
+          id: { module: "Microsoft.Test", namespace: ["Things"], name: "get" },
+          source: "Microsoft.Test",
+          pathTemplate: "/things/{thingName}",
+          pathParameters: [
+            {
+              id: { module: "Microsoft.Test", namespace: ["Things"], name: "get.thingName" },
+              name: "thingName",
+              wireName: "thingName",
+              type: { kind: "primitive" as const, name: "string" as const },
+              optional: false,
+              nullable: false,
+              summary: "The thing's name.",
+              docs: "A much longer description of the thing's name.",
+            },
+          ],
+        }),
+      ],
+    };
+
+    const identity = deriveAttributes(ir).modules[0]!.identity!;
+    const thing = identity.properties.find((p) => p.name === "ThingName")!;
+    expect(thing.helpMessage).toBe("The thing's name.");
+  });
+
   it("uses a pageable operation's item type as the output type, not the page wrapper", () => {
     const operation = makeOperation({
       id: { module: "<root>", namespace: ["ResourceGroups"], name: "list" },
