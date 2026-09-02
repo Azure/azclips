@@ -19,14 +19,22 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
+  createRegistry,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
+import { transformSteps } from "@azure-client-engine/transformer";
 
 import { resolveToolchain, type ResolvedToolchain } from "./toolchain.js";
 import { stageLocalProject, type StagedProject } from "./staging.js";
 import { createSubprocessEmitProducer } from "./tsp-compile.js";
+
+/**
+ * Steps this host makes available to `CompileConfig.pipeline`. Registration is
+ * just availability — a step runs only when config names it.
+ */
+const registry = createRegistry({ transforms: transformSteps });
 
 /** Render a diagnostic for the terminal. */
 function formatDiagnostic(d: CompilerDiagnostic): string {
@@ -159,6 +167,7 @@ async function runCompile(args: string[]): Promise<number> {
       emit: createSubprocessEmitProducer(toolchain),
       captureIR: captureIr,
       output: createFsSink(outDir),
+      registry,
     },
   );
 

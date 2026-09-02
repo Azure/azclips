@@ -11,3 +11,7 @@ export {
   type DeriveAttributesOptions,
 } from "./ps/derive.js";
 
+export { createPSDeriveStep, PS_DERIVE_STEP_ID } from "./ps/step.js";
+
+export { transformSteps } from "./registry.js";
+
