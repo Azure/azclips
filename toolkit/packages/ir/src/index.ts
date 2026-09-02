@@ -6,7 +6,7 @@
  * is considered package-internal.
  */
 
-export { IR_SCHEMA_VERSION, PS_SCHEMA_VERSION } from "./version.js";
+export { IR_SCHEMA_VERSION } from "./version.js";
 
 export {
   IRIdSchema,

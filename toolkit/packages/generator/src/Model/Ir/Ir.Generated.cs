@@ -1223,9 +1223,6 @@ public partial class OperationHints
 
 public partial class PS
 {
-    [JsonPropertyName("schemaVersion")]
-    public string SchemaVersion { get; set; } = default !;
-
     [JsonPropertyName("commands")]
     public IReadOnlyList<PSCommandAttribute> Commands { get; set; } = [];
 

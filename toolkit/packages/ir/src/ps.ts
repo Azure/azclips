@@ -319,18 +319,15 @@ export const PSModuleAttributeSchema: z.ZodType<PSModuleAttribute> = z
 /**
  * The PowerShell surface derived from an IR document, carried on `IR.ps`. Commands and modules
  * are the only top-level kinds: a parameter belongs to exactly one command and is reached
- * through it. Versioned separately from `IR_SCHEMA_VERSION` so a PowerShell naming change does
- * not re-version IR for consumers that never read this.
+ * through it.
  */
 export type PS = {
-  schemaVersion: string;
   commands: PSCommandAttribute[];
   modules: PSModuleAttribute[];
 };
 
 export const PSSchema: z.ZodType<PS> = z
   .object({
-    schemaVersion: z.string().min(1),
     commands: z.array(PSCommandAttributeSchema),
     modules: z.array(PSModuleAttributeSchema),
   })

@@ -5,9 +5,3 @@
  * Mismatch should be a hard error at the pipeline/generator boundary.
  */
 export const IR_SCHEMA_VERSION = "0.6.0" as const;
-
-/**
- * Version of the PowerShell surface on `IR.ps`, tracked separately so PowerShell naming changes
- * do not re-version IR for consumers that never read it.
- */
-export const PS_SCHEMA_VERSION = "0.1.0" as const;
