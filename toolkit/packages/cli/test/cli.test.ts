@@ -16,6 +16,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { transformSteps } from "@azure-client-engine/transformer";
 
 import { run } from "../src/index.js";
 import { createFsSink } from "../src/cli.js";
@@ -75,6 +76,13 @@ describe("ace: dispatch", () => {
     const { code, out } = await captureRun(["help"]);
     expect(code).toBe(0);
     expect(out).toContain("Usage:");
+  });
+
+  it("lists every registered transform step so config authors can discover ids", async () => {
+    const { out } = await captureRun(["help"]);
+    for (const id of Object.keys(transformSteps)) {
+      expect(out).toContain(id);
+    }
   });
 
   it("rejects an unknown command with exit 2", async () => {
@@ -255,5 +263,51 @@ describe("ace compile: --capture-ir", () => {
     ]);
     expect(code).toBe(0);
     expect(existsSync(join(outDir, "ir"))).toBe(false);
+  });
+});
+
+describe("ace compile: configured pipeline", () => {
+  it("runs a transform step named in config and lands its output on the IR", async () => {
+    const outDir = join(dir, "ps-derive");
+    writeFileSync(
+      join(dir, "pipeline.json"),
+      JSON.stringify({ pipeline: [{ use: "ps.derive", options: { modulePrefix: "Az" } }] }),
+    );
+
+    const { code } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--config",
+      join(dir, "pipeline.json"),
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(code).toBe(0);
+
+    const snapshot = join(outDir, "ir", "1-ps.derive.json");
+    expect(existsSync(snapshot)).toBe(true);
+    const ir = JSON.parse(readFileSync(snapshot, "utf8")) as {
+      ps?: { commands: { verb: string; noun: string }[] };
+    };
+    expect(ir.ps?.commands.length).toBeGreaterThan(0);
+    expect(ir.ps!.commands.every((c) => c.noun.startsWith("Az"))).toBe(true);
+  });
+
+  it("fails with a diagnostic when config names an unregistered step", async () => {
+    writeFileSync(join(dir, "bad-step.json"), JSON.stringify({ pipeline: [{ use: "ps.drive" }] }));
+
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--config",
+      join(dir, "bad-step.json"),
+      "--out-dir",
+      join(dir, "bad-step"),
+    ]);
+    expect(code).toBe(1);
+    expect(err).toContain("unknown-transform-step");
   });
 });
