@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@azure-client-engine/compiler": "*",
+    "@azure-client-engine/transformer": "*",
     "@azure-client-engine/typespec-emitter": "*",
     "@typespec/compiler": "^1.13.0"
   },
