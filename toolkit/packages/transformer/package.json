@@ -1,5 +1,5 @@
 {
-  "name": "@azure-client-engine/ps",
+  "name": "@azure-client-engine/transformer",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/src/index.js",
@@ -26,5 +26,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Derives the PowerShell surface of an IR document for the Azure Client Engine"
+  "description": "IR transforms for the Azure Client Engine: derives each client surface onto the IR document"
 }

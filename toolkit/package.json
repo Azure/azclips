@@ -5,7 +5,7 @@
   "type": "module",
   "workspaces": [
     "packages/ir",
-    "packages/ps",
+    "packages/transformer",
     "packages/typespec-emitter",
     "packages/compiler",
     "packages/cli"

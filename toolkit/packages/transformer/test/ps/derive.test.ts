@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyIR, type IRModel, type IROperation, type IRTypeRef } from "@azure-client-engine/ir";
 
-import { deriveAttributes } from "../src/derive.js";
+import { deriveAttributes } from "../../src/ps/derive.js";
 
 const modelRef = (name: string): IRTypeRef => ({
   kind: "model",

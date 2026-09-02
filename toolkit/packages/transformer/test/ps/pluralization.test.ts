@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { singularize } from "../src/pluralization.js";
+import { singularize } from "../../src/ps/pluralization.js";
 
 /**
  * Values below are what `@azure-tools/codegen`'s `EnglishPluralizationService` returns for the
