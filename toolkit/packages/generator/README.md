@@ -35,10 +35,8 @@ packages/generator/
       GeneratorOptions.cs               Host-resolved options
       GeneratorDiagnostic.cs            Structured diagnostic
       Ir/
-        Ir.Generated.cs                   IR POCOs, generated from ir.schema.json
+        Ir.Generated.cs                   IR POCOs (incl. the PS surface), generated from ir.schema.json
         IrJson.cs                         Canonical System.Text.Json options for IR (de)serialization
-      Ps/
-        PsAttributes.Generated.cs         PS attribute POCOs, generated from ps.schema.json
   test/Ace.Generator.Tests/           xUnit tests (incl. polymorphic round-trip, ElasticSan models)
     ArtifactWriter.cs                   Test handler: writes each run's output under artifacts/<test>/
     GeneratedFileCollector.cs           In-memory handler (buffers for assertions)
@@ -106,20 +104,9 @@ Re-run both steps whenever the IR schema changes. `src/Model/Ir.Generated.cs` is
 committed so the library builds out-of-the-box; treat it as generated output (do
 not hand-edit).
 
-The PowerShell attribute POCOs come from the same tool, pointed at the `ps`
-package's schema. `--extern-namespace` makes shared types (`IRId`) reference the
-already-generated IR namespace instead of being emitted a second time:
-
-```bash
-npm run schema -w @azure-client-engine/ps
-
-dotnet run --project tools/AceIrModelGen -- \
-    --schema ../ps/dist/ps.schema.json \
-    --out src/Model/Ps/PsAttributes.Generated.cs \
-    --namespace Ace.Generator.Model.Ps \
-    --root-type-name PSDocument \
-    --extern-namespace "@azure-client-engine/ir=Ace.Generator.Model.Ir"
-```
+The PowerShell attribute POCOs come from the same run: they hang off `IR.ps`, so
+they are defined in `ir.schema.json` and land in `Ir.Generated.cs` with the rest
+of IR.
 
 Nothing yet fails the build when a committed `*.Generated.cs` drifts from its
 schema, so re-run the matching command in the same change that edits a Zod schema.

@@ -1407,7 +1407,7 @@ public partial class PSParameterAttribute
     public PSDefaultValueAttribute? DefaultValue { get; set; }
 
     [JsonPropertyName("parameterSets")]
-    public object? ParameterSets { get; set; }
+    public IReadOnlyDictionary<string, PSParameterSetOverride>? ParameterSets { get; set; }
 
     [JsonPropertyName("identity")]
     public bool? Identity { get; set; }
