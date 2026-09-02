@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { isActionWord } from "../src/action-words.js";
-import { isKnownActionWord } from "../src/verb-mapping.js";
-import { inferCommandNames } from "../src/naming.js";
+import { isActionWord } from "../../src/ps/action-words.js";
+import { isKnownActionWord } from "../../src/ps/verb-mapping.js";
+import { inferCommandNames } from "../../src/ps/naming.js";
 
 /**
  * Two dictionaries answer two different questions, and the generator disagrees with itself about

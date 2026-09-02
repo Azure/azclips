@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PSDirectiveSchema } from "../src/directives.js";
+import { PSDirectiveSchema } from "../../src/ps/directives.js";
 
 describe("PSDirectiveSchema", () => {
   // Lifted verbatim from Az.ElasticSan's own README, which is the compatibility target.

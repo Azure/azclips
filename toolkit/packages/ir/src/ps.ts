@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import { IRIdSchema, type IRId } from "@azure-client-engine/ir";
+import { IRIdSchema, type IRId } from "./id.js";
 
 // ─── Shared sub-shapes ───────────────────────────────────────────────────
 
@@ -314,23 +314,20 @@ export const PSModuleAttributeSchema: z.ZodType<PSModuleAttribute> = z
   })
   .strict();
 
-// ─── Root document ───────────────────────────────────────────────────────────
+// ─── PS surface ──────────────────────────────────────────────────────────────
 
 /**
- * A derived PS attribute document -- the unit a generator stage reads. Commands and modules are
- * the only top-level kinds: a parameter belongs to exactly one command and is reached through it.
- * Mirrors `IR` in @azure-client-engine/ir, including the version stamp, so an artifact on disk
- * says which schema produced it.
+ * The PowerShell surface derived from an IR document, carried on `IR.ps`. Commands and modules
+ * are the only top-level kinds: a parameter belongs to exactly one command and is reached
+ * through it.
  */
 export type PS = {
-  schemaVersion: string;
   commands: PSCommandAttribute[];
   modules: PSModuleAttribute[];
 };
 
 export const PSSchema: z.ZodType<PS> = z
   .object({
-    schemaVersion: z.string().min(1),
     commands: z.array(PSCommandAttributeSchema),
     modules: z.array(PSModuleAttributeSchema),
   })

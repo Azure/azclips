@@ -7,7 +7,7 @@
  * authors believe are working.
  */
 
-import type { PS, PSCommandAttribute, PSParameterAttribute } from "./attributes.js";
+import type { PS, PSCommandAttribute, PSParameterAttribute } from "@azure-client-engine/ir";
 import type { PSDirective, PSDirectiveSelector, PSDirectiveSet } from "./directives.js";
 
 export type PSDirectiveDiagnostic = {

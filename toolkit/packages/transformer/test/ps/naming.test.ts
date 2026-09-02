@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deconstruct, deduplicateNoun, inferCommandNames, pascalCase, removeSequentialDuplicates } from "../src/naming.js";
+import { deconstruct, deduplicateNoun, inferCommandNames, pascalCase, removeSequentialDuplicates } from "../../src/ps/naming.js";
 
 /** Most action words yield exactly one name; assert that and unwrap it. */
 function inferOne(group: string, actionWord: string) {

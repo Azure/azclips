@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { emptyIR, type IROperation } from "@azure-client-engine/ir";
 
-import { applyDirectives } from "../src/apply-directives.js";
-import { deriveAttributes } from "../src/derive.js";
-import type { PSDirective } from "../src/directives.js";
+import { applyDirectives } from "../../src/ps/apply-directives.js";
+import { deriveAttributes } from "../../src/ps/derive.js";
+import type { PSDirective } from "../../src/ps/directives.js";
 
 function makeOperation(overrides: Partial<IROperation> & Pick<IROperation, "id" | "method">): IROperation {
   return {

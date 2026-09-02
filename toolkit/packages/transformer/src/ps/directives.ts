@@ -25,7 +25,7 @@ import {
   PSDefaultValueAttributeSchema,
   type PSCompleterAttribute,
   type PSDefaultValueAttribute,
-} from "./attributes.js";
+} from "@azure-client-engine/ir";
 
 /**
  * A regex source string. Invalid patterns are rejected rather than silently never matching.

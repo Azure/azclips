@@ -6,8 +6,8 @@ import {
   PSParameterAttributeSchema,
   PSModuleAttributeSchema,
   PSSchema,
-} from "../src/attributes.js";
-import { PS_SCHEMA_VERSION } from "../src/version.js";
+} from "../src/ps.js";
+import { IRSchema, emptyIR } from "../src/ir.js";
 
 const opId = { module: "Test", name: "createOrUpdate", namespace: ["Fleets"] };
 const paramId = { module: "Test", name: "createOrUpdate#name", namespace: ["Fleets"] };
@@ -212,30 +212,43 @@ describe("PSModuleAttribute", () => {
   });
 });
 
-describe("PS document", () => {
-  const document = (overrides: Record<string, unknown> = {}) => ({
-    schemaVersion: PS_SCHEMA_VERSION,
+describe("PS surface", () => {
+  const surface = (overrides: Record<string, unknown> = {}) => ({
     commands: [command()],
     modules: [{ name: "AzureFleet", sourceId: "Microsoft.AzureFleet", cmdletsToExport: ["New-AzFleet"] }],
     ...overrides,
   });
 
-  it("accepts commands and modules under a version stamp", () => {
-    expect(PSSchema.safeParse(document()).success).toBe(true);
+  it("accepts commands and modules", () => {
+    expect(PSSchema.safeParse(surface()).success).toBe(true);
   });
 
-  it("accepts an empty document", () => {
-    expect(PSSchema.safeParse(document({ commands: [], modules: [] })).success).toBe(true);
-  });
-
-  it("rejects a document with no version stamp", () => {
-    const { schemaVersion, ...rest } = document();
-    expect(PSSchema.safeParse(rest).success).toBe(false);
+  it("accepts an empty surface", () => {
+    expect(PSSchema.safeParse(surface({ commands: [], modules: [] })).success).toBe(true);
   });
 
   it("rejects a top-level parameter, which is only reachable through its command", () => {
-    const result = PSSchema.safeParse(document({ parameter: { name: "Name" } }));
-    expect(result.success).toBe(false);
+    expect(PSSchema.safeParse(surface({ parameter: { name: "Name" } })).success).toBe(false);
+  });
+
+  it("hangs off an IR document, and is optional there", () => {
+    // `emptyIR()` alone does not validate -- IRSchema requires at least one source.
+    const ir = {
+      ...emptyIR(),
+      sources: [
+        {
+          id: "Microsoft.AzureFleet",
+          entrypoint: "main.tsp",
+          apiVersion: { value: "2025-04-01", location: "query" as const, parameterName: "api-version" },
+          server: { kind: "literal" as const, url: "https://management.azure.com" },
+          rootNamespace: ["Microsoft", "AzureFleet"],
+        },
+      ],
+    };
+
+    expect(IRSchema.safeParse(ir).success).toBe(true);
+    expect(IRSchema.safeParse({ ...ir, ps: surface() }).success).toBe(true);
+    expect(IRSchema.safeParse({ ...ir, ps: { commands: [] } }).success).toBe(false);
   });
 });
 
