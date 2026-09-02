@@ -9,13 +9,7 @@
 //   dotnet run --project tools/AceIrModelGen -- \
 //       --schema  <path to ir.schema.json> \
 //       --out     <path to write the generated .cs> \
-//       --namespace <C# namespace> \
-//       --root-type-name <name for the outer schema object; default "IRDocument"> \
-//       --extern-namespace <pkg>=<C# namespace>[,<pkg>=<ns>...]
-//
-// `--extern-namespace` maps an owning package declared by a definition's
-// `x-defined-by` annotation onto the namespace where that type is already
-// generated, so shared types are referenced rather than duplicated.
+//       --namespace <C# namespace>
 //
 // Defaults are relative to the generator package root (this tool's working
 // directory when run from there), so a no-argument run works once the schema
@@ -26,24 +20,6 @@ using Ace.Ir.CodeGen;
 string schemaPath = GetArg("--schema") ?? "../ir/dist/ir.schema.json";
 string outPath = GetArg("--out") ?? "src/Model/Ir.Generated.cs";
 string ns = GetArg("--namespace") ?? "Ace.Ir.Model";
-string rootTypeName = GetArg("--root-type-name") ?? "IRDocument";
-
-var externNamespaces = new Dictionary<string, string>(StringComparer.Ordinal);
-foreach (string entry in (GetArg("--extern-namespace") ?? "")
-             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-{
-    string[] parts = entry.Split('=', 2);
-    if (parts.Length != 2 || parts[0].Trim().Length == 0 || parts[1].Trim().Length == 0)
-    {
-        Console.Error.WriteLine(
-            $"Invalid --extern-namespace entry '{entry}'.\n" +
-            "Expected a comma-separated list of <package>=<C# namespace>, " +
-            "e.g. `@azure-client-engine/ir=Ace.Generator.Model.Ir`.");
-        return 1;
-    }
-
-    externNamespaces[parts[0].Trim()] = parts[1].Trim();
-}
 
 if (!File.Exists(schemaPath))
 {
@@ -54,7 +30,7 @@ if (!File.Exists(schemaPath))
 }
 
 string schemaJson = await File.ReadAllTextAsync(schemaPath);
-string code = new IrModelGenerator(schemaJson, ns, rootTypeName, externNamespaces).Generate();
+string code = new IrModelGenerator(schemaJson, ns).Generate();
 
 string fullOut = Path.GetFullPath(outPath);
 Directory.CreateDirectory(Path.GetDirectoryName(fullOut)!);
