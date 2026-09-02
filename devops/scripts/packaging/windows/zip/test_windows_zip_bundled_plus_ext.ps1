@@ -224,6 +224,8 @@ if ($IsWindows -and -not $SkipRuntime) {
         throw 'FAIL: Resources command not resolved after install.'
     } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved") {
         Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
+    } elseif ($groupText -match "Missing required argument 'SubscriptionId' and no value found in profile.") {
+        Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
     } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
         Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'
     } else {

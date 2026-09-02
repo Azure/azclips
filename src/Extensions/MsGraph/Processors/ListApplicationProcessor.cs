@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
@@ -11,11 +11,11 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// Atomic processor for <c>GET /applications</c>. Takes only what the Microsoft Graph endpoint
     /// accepts natively: OData <c>$filter</c>, <c>$select</c>, <c>$orderby</c>, <c>$search</c>, and
     /// the <c>ConsistencyLevel</c> header. Convenience filter shortcuts (<c>DisplayName</c>) live in
-    /// <c>Orchestrators/ListApplicationProcessor_Orchestrator</c>. Returns an OData envelope; this
+    /// <c>Customization/ListApplicationProcessor_Orchestrator</c>. Returns an OData envelope; this
     /// processor writes its <c>value</c> array. Pagination (<c>@odata.nextLink</c>) is intentionally
     /// not followed yet.
     /// </summary>
-    public class ListApplicationProcessor : GraphProcessorBase<ApplicationList>
+    public class ListApplicationProcessor : GraphProcessorBase<object, ApplicationList>
     {
         [ArgumentInfo(
             Required = false,
@@ -47,18 +47,21 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"ConsistencyLevel")]
         public string? ConsistencyLevel { get; set; }
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        protected override HttpMethod Method => HttpMethod.Get;
 
-            string uri = "https://graph.microsoft.com/v1.0/applications"
+        protected override string CreateRequestUri() =>
+            "https://graph.microsoft.com/v1.0/applications"
                 + ODataQueryBuilder.Build(filter: Filter, select: Select, orderby: Orderby, search: Search);
 
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.SetConsistencyLevel(ConsistencyLevel);
+        protected override void CreateRequestHeaders(HttpRequestMessage request) => request.SetConsistencyLevel(ConsistencyLevel);
 
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
+        private string? nextLink(ApplicationList body) => body.NextLink;
+        private Application[]? pageItems(ApplicationList body) => body.Value;
+
+        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ApplicationList? body)
+        {
+            await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+            return true;
         }
     }
 }

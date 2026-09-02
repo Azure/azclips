@@ -4,8 +4,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
@@ -18,18 +18,22 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 /// <c>value</c> array. Pagination (<c>nextLink</c>) is intentionally not followed yet.
 /// </para>
 /// </summary>
-public class ListDiskProcessor : ComputeProcessorBase<DiskListResult>
+public class ListDiskProcessor : ComputeProcessorBase<object, DiskListResult>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
 
-    protected override async Task<HttpRequestMessage> CreateRequestMessage()
-    {
-        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/disks?api-version=2025-01-02";
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-        return request;
-    }
+    protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override object SelectOutput(DiskListResult body) => body.Value ?? [];
+    protected override string CreateRequestUri() =>
+        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/disks?api-version=2025-01-02";
+
+    private string? nextLink(DiskListResult body) => body.NextLink;
+    private Disk[]? pageItems(DiskListResult body) => body.Value;
+
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(DiskListResult? body)
+    {
+        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        return true;
+    }
 }

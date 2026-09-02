@@ -19,14 +19,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// Orchestrator (handwritten/customized) half of the deployment what-if command: it owns the
     /// what-if-specific option (result-format) on top of the shared template-source,
     /// parameters-source, mode, inline parameters, and validation-level options inherited from
-    /// <see cref="DeploymentOrchestratorBase{TResponse}"/>, together with the validation and the
+    /// <see cref="DeploymentOrchestratorBase{TRequest, TResponse}"/>, together with the validation and the
     /// template/parameters/bicep building. It builds the request body and delegates the actual
     /// POST + long-running-operation transport to the atomic
     /// <see cref="NewResourceGroupDeploymentWhatIfProcessor"/> via <c>CreateExtendedProcessor</c>.
     /// </para>
     /// </summary>
-    public class NewResourceGroupDeploymentWhatIfProcessor_Orchestrator : DeploymentOrchestratorBase<WhatIfOperationResult>
+    public class NewResourceGroupDeploymentWhatIfProcessor_Orchestrator : DeploymentOrchestratorBase<DeploymentWhatIf, WhatIfOperationResult>
     {
+        public string SubscriptionId { get; set; } = string.Empty;
+
         public string? ResultFormat { get; set; }
 
         // Builds the what-if request body (after validating the inputs) and delegates the POST +
@@ -34,7 +36,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // What-if always waits for the LRO to complete; there is no no-wait branch.
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            ResolveSubscriptionId();
             ValidateInputs();
 
             DeploymentWhatIf body = new DeploymentWhatIf
@@ -68,7 +69,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         // generic base ProcessAsync would deserialize and write the result without inspecting it.)
         public override async Task ProcessAsync()
         {
-            EnsureRuntimeContext();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             try
             {

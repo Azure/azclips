@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// Accepts a group object ID or a display-name prefix and resolves the prefix to a single
     /// object ID before delegating to the atomic. The atomic itself only accepts an object ID.
     /// </summary>
-    public class CheckGroupMemberProcessor_Orchestrator : GraphProcessorBase<CheckMemberGroupsResponse>
+    public class CheckGroupMemberProcessor_Orchestrator : GraphProcessorBase<CheckMemberGroupsRequest, CheckMemberGroupsResponse>
     {
         [ArgumentInfo(
             Required = true,
@@ -27,7 +27,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
             if (string.IsNullOrWhiteSpace(Group))
             {
                 throw new InvalidOperationException("Group is required.");
@@ -61,14 +60,5 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             });
             return await GroupResolver.PickSingleGroupIdAsync(list, JsonOptions, identifier);
         }
-
-        /// <summary>
-        /// SelectOutput mirrors the atomic's projection: true when the checked group ID appears in
-        /// Graph's response. We resolve the group ID again from what we sent — the atomic runs the
-        /// HTTP call and returns the raw envelope; the orchestrator's <see cref="ProcessAsync"/>
-        /// call path is not used here because <see cref="SendAsync"/> is what routes into the atomic.
-        /// </summary>
-        protected override object SelectOutput(CheckMemberGroupsResponse body) =>
-            body.Value is not null && body.Value.Length > 0;
     }
 }

@@ -11,7 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// the <c>AppendSelected</c> switch which merges the caller's <c>Select</c> with a default
     /// user property set.
     /// </summary>
-    public class GetSignedInUserProcessor_Orchestrator : GraphProcessorBase<User>
+    public class GetSignedInUserProcessor_Orchestrator : GraphProcessorBase<object, User>
     {
         [ArgumentInfo(
             Required = false,
@@ -33,7 +33,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
             string[]? mergedSelect = SelectClauseHelpers.MergeUserSelect(Select, AppendSelected);
             GetSignedInUserProcessor atomic = CreateExtendedProcessor<GetSignedInUserProcessor>(p =>
             {

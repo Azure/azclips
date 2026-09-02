@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// and combines with the caller's <c>Filter</c> using OData <c>and</c>. The atomic itself
     /// accepts only native OData query params.
     /// </summary>
-    public class ListApplicationProcessor_Orchestrator : GraphProcessorBase<ApplicationList>
+    public class ListApplicationProcessor_Orchestrator : GraphProcessorBase<object, ApplicationList>
     {
         [ArgumentInfo(
             Required = false,
@@ -52,8 +52,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
-            EnsureRuntimeContext();
-
             string? displayNameClause = string.IsNullOrWhiteSpace(DisplayName)
                 ? null
                 : $"displayName eq '{SelectClauseHelpers.EscapeODataString(DisplayName)}'";
@@ -70,7 +68,5 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             });
             return await atomic.SendAsync();
         }
-
-        protected override object SelectOutput(ApplicationList body) => body.Value ?? [];
     }
 }

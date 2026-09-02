@@ -10,7 +10,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-SUB="282bb33f-067d-4179-a7a4-b833c13af735"
+SUB="f758ac53-3e63-4317-a956-0997793808d7"
 RG="azclips-smoke-rg"
 LOCATION="australiaeast"
 

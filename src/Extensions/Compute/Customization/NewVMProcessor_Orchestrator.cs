@@ -8,8 +8,9 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
-    public class NewVMProcessor_Orchestrator : ComputeProcessorBase<VirtualMachine>
+    public class NewVMProcessor_Orchestrator : ComputeProcessorBase<VirtualMachine, VirtualMachine>
     {
+        public string SubscriptionId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
 
@@ -73,6 +74,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         {
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
+                p.SubscriptionId = SubscriptionId;
                 p.Name = NetworkInterfaceName;
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
@@ -96,6 +98,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
             NewVMProcessor vmProcessor = CreateExtendedProcessor<NewVMProcessor>(p =>
             {
+                p.SubscriptionId = SubscriptionId;
                 p.Name = Name;
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;

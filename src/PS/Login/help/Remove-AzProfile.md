@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
-HelpUri: ""
+HelpUri: ''
 Locale: en-US
 Module Name: Login
-ms.date: 08/06/2026
+ms.date: 09/01/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzProfile
 ---
@@ -17,7 +17,7 @@ Removes a saved profile by name.
 
 ## SYNTAX
 
-### \_\_AllParameterSets
+### __AllParameterSets
 
 ```
 Remove-AzProfile [-Name] <string> [-WhatIf] [-Confirm] [<CommonParameters>]
@@ -47,20 +47,20 @@ Prompts you for confirmation before running the cmdlet.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases:
-    - cf
+- cf
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -Name
@@ -69,19 +69,19 @@ The name of the saved profile to remove.
 
 ```yaml
 Type: System.String
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-    - Name: (All)
-      Position: 0
-      IsRequired: true
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: 0
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### -WhatIf
@@ -90,20 +90,20 @@ Runs the command in a mode that only reports what would happen without performin
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ""
+DefaultValue: ''
 SupportsWildcards: false
 Aliases:
-    - wi
+- wi
 ParameterSets:
-    - Name: (All)
-      Position: Named
-      IsRequired: false
-      ValueFromPipeline: false
-      ValueFromPipelineByPropertyName: false
-      ValueFromRemainingArguments: false
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ""
+HelpMessage: ''
 ```
 
 ### CommonParameters
@@ -124,3 +124,4 @@ This cmdlet does not emit an object on the pipeline; it only writes progress and
 ## NOTES
 
 ## RELATED LINKS
+
