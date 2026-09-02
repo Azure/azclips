@@ -160,6 +160,45 @@ function unionAlias(existing: readonly string[] | undefined, added: string | str
   return [...new Set([...(existing ?? []), ...(typeof added === "string" ? [added] : added)])];
 }
 
+/**
+ * Drops the sets a `variant` selector names, along with any parameter left with no set to belong
+ * to. In `modifiers-v2.ts` each variant is its own cmdlet, so `remove` deletes that one variant;
+ * here every variant lives on a single command, so the same directive has to cut sets out of it.
+ * Returns undefined when no set survives, which is the case that really does drop the command.
+ */
+function removeParameterSets(
+  command: PSCommandAttribute,
+  variant: string,
+): PSCommandAttribute | undefined {
+  const removed = new Set(
+    command.parameterSets.filter((set) => matches(variant, set.name)).map((set) => set.name),
+  );
+  const parameterSets = command.parameterSets.filter((set) => !removed.has(set.name));
+  if (parameterSets.length === 0) return undefined;
+
+  const parameters: PSParameterAttribute[] = [];
+  for (const parameter of command.parameters) {
+    const next = { ...parameter };
+    if (next.parameterSets !== undefined) {
+      const kept = Object.entries(next.parameterSets).filter(([name]) => !removed.has(name));
+      if (kept.length === 0) continue;
+      next.parameterSets = Object.fromEntries(kept);
+    } else if (next.parameterSetName !== undefined && removed.has(next.parameterSetName)) {
+      continue;
+    }
+    parameters.push(next);
+  }
+
+  return {
+    ...command,
+    parameterSets,
+    parameters,
+    defaultParameterSetName: removed.has(command.defaultParameterSetName)
+      ? parameterSets[0]!.name
+      : command.defaultParameterSetName,
+  };
+}
+
 function applyParameterSet(
   parameter: PSParameterAttribute,
   where: PSDirectiveSelector,
@@ -260,7 +299,13 @@ export function applyDirectives(
         }
         matched++;
 
-        if (directive.remove === true) continue;
+        if (directive.remove === true) {
+          if (where.variant === undefined) continue;
+          const trimmed = removeParameterSets(command, where.variant);
+          if (trimmed === undefined) continue;
+          kept.push({ origin, command: trimmed });
+          continue;
+        }
 
         let next = command;
         if (directive["clear-alias"] === true) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyIR, type IROperation } from "@azure-client-engine/ir";
+import { emptyIR, PSCommandAttributeSchema, type IROperation } from "@azure-client-engine/ir";
 
 import { applyDirectives } from "../../src/ps/apply-directives.js";
 import { deriveAttributes } from "../../src/ps/derive.js";
@@ -386,5 +386,72 @@ describe("applyDirectives: module exports", () => {
 
     const actual = attributes.commands.map((c) => `${c.verb}-${c.noun}`).sort();
     expect([...attributes.modules[0]!.cmdletsToExport].sort()).toEqual(actual);
+  });
+});
+
+/**
+ * A resource reachable by name or by piped identity, so every command carries a plain set and a
+ * `ViaIdentity` one -- the shape the corpus's `remove` + `variant` directives actually target.
+ */
+function variantFixture() {
+  const withGroup = (name: string, method: IROperation["method"]) =>
+    makeOperation({
+      id: { module: "<root>", namespace: ["Volumes"], name },
+      method,
+      pathTemplate: "/subscriptions/{subscriptionId}/groups/{groupName}/volumes/{volumeName}",
+      pathParameters: [pathParam(name, "groupName")],
+    });
+
+  return deriveAttributes(
+    { ...emptyIR(), operations: [withGroup("get", "GET"), withGroup("createOrUpdate", "PUT")] },
+    { modulePrefix: "Az" },
+  );
+}
+
+const applyToVariants = (directives: PSDirective[]) =>
+  applyDirectives(variantFixture(), directives);
+
+describe("applyDirectives: remove scoped by variant", () => {
+  it("cuts only the named sets out of the command, keeping the rest of the cmdlet", () => {
+    const { attributes, diagnostics } = applyToVariants([
+      { where: { variant: "^CreateViaIdentity$" }, remove: true },
+    ]);
+
+    const create = attributes.commands.find((c) => c.verb === "New")!;
+    expect(create.parameterSets.map((s) => s.name)).toEqual(["Create"]);
+    expect(create.parameters.map((p) => p.name)).not.toContain("InputObject");
+    expect(diagnostics).toHaveLength(0);
+
+    // A command whose sets the selector does not name is untouched.
+    const get = attributes.commands.find((c) => c.verb === "Get")!;
+    expect(get.parameterSets.map((s) => s.name)).toEqual(["Get", "GetViaIdentity"]);
+  });
+
+  it("moves defaultParameterSetName off a set it just removed", () => {
+    const { attributes } = applyToVariants([
+      { where: { verb: "^Get$", variant: "^Get$" }, remove: true },
+    ]);
+
+    const get = attributes.commands.find((c) => c.verb === "Get")!;
+    expect(get.parameterSets.map((s) => s.name)).toEqual(["GetViaIdentity"]);
+    expect(get.defaultParameterSetName).toBe("GetViaIdentity");
+  });
+
+  it("drops the command only when no set survives", () => {
+    const { attributes } = applyToVariants([
+      { where: { verb: "^Get$", variant: "^Get" }, remove: true },
+    ]);
+
+    expect(attributes.commands.map((c) => c.verb)).not.toContain("Get");
+  });
+
+  it("leaves a document the schema still accepts", () => {
+    const { attributes } = applyToVariants([
+      { where: { variant: "ViaIdentity$" }, remove: true },
+    ]);
+
+    for (const command of attributes.commands) {
+      expect(PSCommandAttributeSchema.safeParse(command).success).toBe(true);
+    }
   });
 });
