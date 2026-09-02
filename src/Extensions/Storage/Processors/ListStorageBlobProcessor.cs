@@ -2,10 +2,11 @@
 // Licensed under the MIT License.
 
 using System.Globalization;
+using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class ListStorageBlobProcessor : StorageBlobProcessorBase<object, Stream>
+public sealed class ListStorageBlobProcessor : StorageBlobProcessorBase<object, ListBlobsResponse>
 {
     public string Url { get; set; } = string.Empty;
     public string Version { get; set; } = "2026-04-06";

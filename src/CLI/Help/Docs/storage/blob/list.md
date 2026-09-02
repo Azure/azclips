@@ -7,6 +7,8 @@ online version:
 
 Description: List blobs in a container using Microsoft Entra authentication. Results can be filtered by prefix and include optional metadata, tags, versions, snapshots, or deleted blobs.
 
+When `--num-results` stops before the end, the last blob contains `continuationToken`; pass it to `--marker` to continue.
+
 ### List blobs
 
 ```bash

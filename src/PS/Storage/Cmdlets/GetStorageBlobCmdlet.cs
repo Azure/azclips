@@ -71,7 +71,7 @@ public sealed class GetStorageBlobCmdlet : PSCmdlet
         {
             parameters["NumResults"] = MaxCount.Value;
         }
-        var include = new List<string>();
+        List<string> include = ParameterSetName == ListParameterSet ? ["metadata"] : [];
         if (IncludeDeleted)
         {
             include.Add("deleted");

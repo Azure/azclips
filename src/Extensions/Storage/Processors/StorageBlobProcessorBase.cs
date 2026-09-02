@@ -88,7 +88,9 @@ public abstract class StorageBlobProcessorBase : IProcessor
         return request;
     }
 
-    internal virtual async Task<HttpResponseMessage> SendAsync()
+    internal virtual Task<HttpResponseMessage> SendAsync() => SendAsync(ensureSuccess: true);
+
+    internal async Task<HttpResponseMessage> SendAsync(bool ensureSuccess)
     {
         using HttpRequestMessage request = await CreateRequestMessage();
         HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
@@ -128,6 +130,10 @@ public abstract class StorageBlobProcessorBase : IProcessor
                 await Publisher.Publish(Events.TracingHttpResponseMessage, response);
             }
         }
+        if (!ensureSuccess)
+        {
+            return response;
+        }
         try
         {
             await response.EnsureSuccessAsync(Publisher);
@@ -166,6 +172,62 @@ public abstract partial class StorageBlobProcessorBase<TRequest, TResponse> : St
     protected virtual Task BeforeWriteOutputAsync(TResponse? body, ref bool returnNow) =>
         Task.CompletedTask;
 
+    internal virtual async Task<TResponse?> DeserializeResponseAsync(HttpResponseMessage response)
+    {
+        if (response.Content is null)
+        {
+            await Publisher.Publish(
+                Events.ResponseNoContent,
+                $"response has no content for {response.RequestMessage?.RequestUri}");
+            return default;
+        }
+        if (typeof(TResponse) == typeof(Stream))
+        {
+            return (TResponse)(object)await response.Content.ReadAsStreamAsync(Publisher.Token);
+        }
+
+        string rawBody = await response.Content.ReadAsStringAsync(Publisher.Token);
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            await Publisher.Publish(
+                Events.ResponseEmptyBody,
+                $"response has empty body for {response.RequestMessage?.RequestUri}");
+            return default;
+        }
+
+        string? mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (mediaType is "application/xml" or "text/xml"
+            || mediaType?.EndsWith("+xml", StringComparison.OrdinalIgnoreCase) == true
+            || rawBody.TrimStart().StartsWith('<'))
+        {
+            try
+            {
+                var serializer = new System.Xml.Serialization.XmlSerializer(typeof(TResponse));
+                using var reader = new StringReader(rawBody);
+                return (TResponse?)serializer.Deserialize(reader);
+            }
+            catch (InvalidOperationException exception)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}",
+                    exception);
+            }
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<TResponse>(rawBody);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            await Publisher.Publish(
+                Events.ResponseInvalidJson,
+                $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+            throw new InvalidOperationException(
+                $"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+        }
+    }
+
     public override async Task ProcessAsync()
     {
         HttpResponseMessage? response = null;
@@ -175,42 +237,7 @@ public abstract partial class StorageBlobProcessorBase<TRequest, TResponse> : St
             await BeforeProcessAsync();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             response = await SendAsync();
-            TResponse? body = default;
-            if (response.Content is null)
-            {
-                await Publisher.Publish(
-                    Events.ResponseNoContent,
-                    $"response has no content for {response.RequestMessage?.RequestUri}");
-            }
-            else if (typeof(TResponse) == typeof(Stream))
-            {
-                body = (TResponse)(object)await response.Content.ReadAsStreamAsync(Publisher.Token);
-            }
-            else
-            {
-                string rawBody = await response.Content.ReadAsStringAsync(Publisher.Token);
-                if (string.IsNullOrWhiteSpace(rawBody))
-                {
-                    await Publisher.Publish(
-                        Events.ResponseEmptyBody,
-                        $"response has empty body for {response.RequestMessage?.RequestUri}");
-                }
-                else
-                {
-                    try
-                    {
-                        body = System.Text.Json.JsonSerializer.Deserialize<TResponse>(rawBody);
-                    }
-                    catch (System.Text.Json.JsonException)
-                    {
-                        await Publisher.Publish(
-                            Events.ResponseInvalidJson,
-                            $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                        throw new InvalidOperationException(
-                            $"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
-                    }
-                }
-            }
+            TResponse? body = await DeserializeResponseAsync(response);
 
             bool returnNow = false;
             await BeforeWriteOutputAsync(body, ref returnNow);

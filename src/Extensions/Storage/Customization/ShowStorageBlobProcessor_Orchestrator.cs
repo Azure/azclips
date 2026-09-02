@@ -1,36 +1,55 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Xml.Linq;
 using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class ShowStorageBlobProcessor_Orchestrator : StorageBlobProcessorBase
+public sealed class ShowStorageBlobProcessor_Orchestrator : StorageBlobProcessorBase<object, object>
 {
+    private StorageBlob? _blob;
+
     public string AccountName { get; set; } = string.Empty;
     public string ContainerName { get; set; } = string.Empty;
     public string BlobName { get; set; } = string.Empty;
     public bool IncludeTag { get; set; }
 
-    public override async Task ProcessAsync()
+    protected override Task BeforeProcessAsync()
     {
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+        if (ResolvedProfile is null)
+        {
+            throw new InvalidOperationException("An active profile is required for authenticated Storage requests.");
+        }
+        return base.BeforeProcessAsync();
+    }
+
+    internal override async Task<HttpResponseMessage> SendAsync()
+    {
+        string url = StorageBlobCustomizationHelpers.BuildBlobUrl(AccountName, ContainerName, BlobName);
+        GetStorageBlobPropertiesProcessor propertiesProcessor =
+            CreateExtendedProcessor<GetStorageBlobPropertiesProcessor>(p => p.Url = url);
+        HttpResponseMessage response = await propertiesProcessor.SendAsync();
         try
         {
-            string url = StorageBlobCustomizationHelpers.BuildBlobUrl(AccountName, ContainerName, BlobName);
-            GetStorageBlobPropertiesProcessor propertiesProcessor =
-                CreateExtendedProcessor<GetStorageBlobPropertiesProcessor>(p => p.Url = url);
-            using HttpResponseMessage response = await propertiesProcessor.SendAsync();
             IReadOnlyDictionary<string, string> tags = IncludeTag
                 ? await GetTagsAsync(url)
                 : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            await WriteOutput(ToStorageBlob(response, tags), Publisher.Token);
+            _blob = ToStorageBlob(response, tags);
+            response.Content?.Dispose();
+            response.Content = null;
+            return response;
         }
-        finally
+        catch
         {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            response.Dispose();
+            throw;
         }
+    }
+
+    protected override Task BeforeWriteOutputAsync(object? body, ref bool returnNow)
+    {
+        returnNow = true;
+        return WriteOutput(_blob!, Publisher.Token);
     }
 
     private async Task<IReadOnlyDictionary<string, string>> GetTagsAsync(string url)
@@ -38,15 +57,12 @@ public sealed class ShowStorageBlobProcessor_Orchestrator : StorageBlobProcessor
         GetStorageBlobTagsProcessor tagsProcessor =
             CreateExtendedProcessor<GetStorageBlobTagsProcessor>(p => p.Url = url);
         using HttpResponseMessage response = await tagsProcessor.SendAsync();
-        XDocument document = await XDocument.LoadAsync(
-            await response.Content.ReadAsStreamAsync(Publisher.Token),
-            LoadOptions.None,
-            Publisher.Token);
-        return document.Descendants()
-            .Where(element => element.Name.LocalName == "Tag")
+        BlobTags tags = await tagsProcessor.DeserializeResponseAsync(response)
+            ?? throw new InvalidDataException("The get blob tags response did not contain a body.");
+        return tags.TagSet
             .ToDictionary(
-                tag => tag.Elements().First(element => element.Name.LocalName == "Key").Value,
-                tag => tag.Elements().First(element => element.Name.LocalName == "Value").Value,
+                tag => tag.Key,
+                tag => tag.Value,
                 StringComparer.OrdinalIgnoreCase);
     }
 

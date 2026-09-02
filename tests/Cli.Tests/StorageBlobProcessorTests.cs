@@ -607,6 +607,129 @@ public class StorageBlobProcessorTests
     }
 
     [Fact]
+    public async Task ListProcessor_MapsSwaggerRequestFields()
+    {
+        Guid requestId = Guid.NewGuid();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal(
+                "https://account.blob.core.windows.net/container?restype=container&comp=list&prefix=folder%2F&marker=next%20marker&maxresults=2&include=metadata%2Ctags&timeout=30&startFrom=start.txt",
+                request.RequestUri!.AbsoluteUri);
+            Assert.Equal("2026-04-06", request.Headers.GetValues("x-ms-version").Single());
+            Assert.Equal(requestId.ToString(), request.Headers.GetValues("x-ms-client-request-id").Single());
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("<EnumerationResults><Blobs /><NextMarker /></EnumerationResults>")
+            };
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new ListStorageBlobProcessor(), pipeline, output);
+        processor.Url = "https://account.blob.core.windows.net/container";
+        processor.ClientRequestId = requestId;
+        processor.Prefix = "folder/";
+        processor.Marker = "next marker";
+        processor.MaxResults = 2;
+        processor.Include = ["metadata", "tags"];
+        processor.Timeout = 30;
+        processor.StartFrom = "start.txt";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Empty(Assert.IsType<ListBlobsResponse>(Assert.Single(output.WrittenValues)).Blobs);
+    }
+
+    [Fact]
+    public async Task GetPropertiesProcessor_MapsSwaggerRequestFields()
+    {
+        Guid requestId = Guid.NewGuid();
+        DateTimeOffset modified = DateTimeOffset.Parse("2026-08-01T00:00:00Z");
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            Assert.Equal(HttpMethod.Head, request.Method);
+            Assert.Equal(
+                "https://account.blob.core.windows.net/container/blob?snapshot=snapshot&versionid=version&timeout=30",
+                request.RequestUri!.AbsoluteUri);
+            Assert.Equal("2026-04-06", request.Headers.GetValues("x-ms-version").Single());
+            Assert.Equal(requestId.ToString(), request.Headers.GetValues("x-ms-client-request-id").Single());
+            Assert.Equal("lease", request.Headers.GetValues("x-ms-lease-id").Single());
+            Assert.Equal("key", request.Headers.GetValues("x-ms-encryption-key").Single());
+            Assert.Equal("hash", request.Headers.GetValues("x-ms-encryption-key-sha256").Single());
+            Assert.Equal("AES256", request.Headers.GetValues("x-ms-encryption-algorithm").Single());
+            Assert.Equal(modified.ToString("R"), request.Headers.GetValues("If-Modified-Since").Single());
+            Assert.Equal("\"etag\"", request.Headers.GetValues("If-Match").Single());
+            Assert.Equal("kind = 'report'", request.Headers.GetValues("x-ms-if-tags").Single());
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var processor = CreateProcessor(
+            new GetStorageBlobPropertiesProcessor(),
+            pipeline,
+            new FakeOutputHandler());
+        processor.Url = "https://account.blob.core.windows.net/container/blob";
+        processor.ClientRequestId = requestId;
+        processor.Snapshot = "snapshot";
+        processor.VersionId = "version";
+        processor.Timeout = 30;
+        processor.LeaseId = "lease";
+        processor.EncryptionKey = "key";
+        processor.EncryptionKeySha256 = "hash";
+        processor.EncryptionAlgorithm = "AES256";
+        processor.IfModifiedSince = modified;
+        processor.IfMatch = "\"etag\"";
+        processor.IfTags = "kind = 'report'";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task GetTagsProcessor_MapsSwaggerRequestFields()
+    {
+        Guid requestId = Guid.NewGuid();
+        DateTimeOffset unmodified = DateTimeOffset.Parse("2026-08-01T00:00:00Z");
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal(
+                "https://account.blob.core.windows.net/container/blob?comp=tags&timeout=30&snapshot=snapshot&versionid=version",
+                request.RequestUri!.AbsoluteUri);
+            Assert.Equal("2026-04-06", request.Headers.GetValues("x-ms-version").Single());
+            Assert.Equal(requestId.ToString(), request.Headers.GetValues("x-ms-client-request-id").Single());
+            Assert.Equal("lease", request.Headers.GetValues("x-ms-lease-id").Single());
+            Assert.Equal("kind = 'report'", request.Headers.GetValues("x-ms-if-tags").Single());
+            Assert.Equal(
+                unmodified.ToString("R"),
+                request.Headers.GetValues("x-ms-blob-if-unmodified-since").Single());
+            Assert.Equal("\"etag\"", request.Headers.GetValues("x-ms-blob-if-none-match").Single());
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("<Tags><TagSet /></Tags>")
+            };
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(
+            new GetStorageBlobTagsProcessor(),
+            pipeline,
+            output);
+        processor.Url = "https://account.blob.core.windows.net/container/blob";
+        processor.ClientRequestId = requestId;
+        processor.Timeout = 30;
+        processor.Snapshot = "snapshot";
+        processor.VersionId = "version";
+        processor.LeaseId = "lease";
+        processor.IfTags = "kind = 'report'";
+        processor.BlobIfUnmodifiedSince = unmodified;
+        processor.BlobIfNoneMatch = "\"etag\"";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Empty(Assert.IsType<BlobTags>(Assert.Single(output.WrittenValues)).TagSet);
+    }
+
+    [Fact]
     public async Task List_FollowsMarkersAndHonorsResultLimit()
     {
         var queries = new List<string>();
@@ -643,6 +766,27 @@ public class StorageBlobProcessorTests
         Assert.Equal("test", blobs[0].Metadata["owner"]);
         Assert.Equal("report", blobs[0].Tags["kind"]);
         Assert.Equal(1, blobs[0].ContentLength);
+    }
+
+    [Fact]
+    public async Task List_PreservesContinuationTokenWhenLimited()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "<EnumerationResults><Blobs><Blob><Name>one.txt</Name><Properties><Last-Modified>Mon, 24 Aug 2026 00:00:00 GMT</Last-Modified><Etag>\"one\"</Etag></Properties></Blob></Blobs><NextMarker>next marker</NextMarker></EnumerationResults>")
+            });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(new ListStorageBlobProcessor_Orchestrator(), pipeline, output);
+        processor.AccountName = "account123";
+        processor.ContainerName = "container";
+        processor.NumResults = 1;
+
+        await processor.ProcessAsync();
+
+        StorageBlob blob = Assert.Single(Assert.IsType<StorageBlob[]>(Assert.Single(output.WrittenValues)));
+        Assert.Equal("next marker", blob.ContinuationToken);
     }
 
     [Fact]
@@ -698,7 +842,12 @@ public class StorageBlobProcessorTests
     {
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(status));
         var output = new FakeOutputHandler();
-        var processor = CreateProcessor(new BlobExistsProcessor_Orchestrator(), pipeline, output);
+        var publisher = new FakeEventPublisher();
+        var processor = CreateProcessor(
+            new BlobExistsProcessor_Orchestrator(),
+            pipeline,
+            output,
+            publisher: publisher);
         processor.AccountName = "account123";
         processor.ContainerName = "container";
         processor.BlobName = "blob.txt";
@@ -706,6 +855,7 @@ public class StorageBlobProcessorTests
         await processor.ProcessAsync();
 
         Assert.Equal(expected, Assert.IsType<bool>(Assert.Single(output.WrittenValues)));
+        Assert.DoesNotContain(Events.ResourceOperationFailed, publisher.PublishedIds);
     }
 
     [Fact]

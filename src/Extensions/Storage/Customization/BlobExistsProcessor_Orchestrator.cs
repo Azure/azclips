@@ -2,39 +2,59 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class BlobExistsProcessor_Orchestrator : StorageBlobProcessorBase
+public sealed class BlobExistsProcessor_Orchestrator : StorageBlobProcessorBase<object, object>
 {
+    private bool _exists;
+
     public string AccountName { get; set; } = string.Empty;
     public string ContainerName { get; set; } = string.Empty;
     public string BlobName { get; set; } = string.Empty;
 
-    public override async Task ProcessAsync()
+    protected override Task BeforeProcessAsync()
     {
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+        if (ResolvedProfile is null)
+        {
+            throw new InvalidOperationException("An active profile is required for authenticated Storage requests.");
+        }
+        return base.BeforeProcessAsync();
+    }
+
+    internal override async Task<HttpResponseMessage> SendAsync()
+    {
+        GetStorageBlobPropertiesProcessor processor =
+            CreateExtendedProcessor<GetStorageBlobPropertiesProcessor>(p =>
+                p.Url = StorageBlobCustomizationHelpers.BuildBlobUrl(
+                    AccountName,
+                    ContainerName,
+                    BlobName));
+        HttpResponseMessage response = await processor.SendAsync(ensureSuccess: false);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            _exists = false;
+            response.Content?.Dispose();
+            response.Content = null;
+            return response;
+        }
         try
         {
-            GetStorageBlobPropertiesProcessor processor =
-                CreateExtendedProcessor<GetStorageBlobPropertiesProcessor>(p =>
-                    p.Url = StorageBlobCustomizationHelpers.BuildBlobUrl(
-                        AccountName,
-                        ContainerName,
-                        BlobName));
-            try
-            {
-                using HttpResponseMessage response = await processor.SendAsync();
-                await WriteOutput(true, Publisher.Token);
-            }
-            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
-            {
-                await WriteOutput(false, Publisher.Token);
-            }
+            await response.EnsureSuccessAsync(Publisher);
+            _exists = true;
+            return response;
         }
-        finally
+        catch
         {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            response.Dispose();
+            throw;
         }
+    }
+
+    protected override Task BeforeWriteOutputAsync(object? body, ref bool returnNow)
+    {
+        returnNow = true;
+        return WriteOutput(_exists, Publisher.Token);
     }
 }

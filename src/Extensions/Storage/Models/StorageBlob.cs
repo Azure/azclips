@@ -12,4 +12,7 @@ public sealed record StorageBlob(
     string? LastModified,
     string? AccessTier,
     IReadOnlyDictionary<string, string> Metadata,
-    IReadOnlyDictionary<string, string> Tags);
+    IReadOnlyDictionary<string, string> Tags)
+{
+    public string? ContinuationToken { get; init; }
+}

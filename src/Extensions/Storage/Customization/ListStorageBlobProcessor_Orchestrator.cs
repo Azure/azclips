@@ -1,14 +1,15 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Globalization;
-using System.Xml.Linq;
 using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class ListStorageBlobProcessor_Orchestrator : StorageBlobProcessorBase
+public sealed class ListStorageBlobProcessor_Orchestrator : StorageBlobProcessorBase<object, ListBlobsResponse>
 {
+    private readonly List<StorageBlob> _blobs = [];
+    private ListBlobsResponse? _lastPage;
+
     public string AccountName { get; set; } = string.Empty;
     public string ContainerName { get; set; } = string.Empty;
     public string? Prefix { get; set; }
@@ -16,86 +17,97 @@ public sealed class ListStorageBlobProcessor_Orchestrator : StorageBlobProcessor
     public int NumResults { get; set; }
     public string[] Include { get; set; } = [];
 
-    public override async Task ProcessAsync()
+    protected override Task BeforeProcessAsync()
     {
         if (NumResults < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(NumResults), "NumResults cannot be negative.");
         }
-
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-        try
+        if (ResolvedProfile is null)
         {
-            List<StorageBlob> blobs = [];
-            string? marker = Marker;
-            do
-            {
-                int? maxResults = NumResults == 0 ? null : Math.Min(5000, NumResults - blobs.Count);
-                ListStorageBlobProcessor processor = CreateExtendedProcessor<ListStorageBlobProcessor>(p =>
-                {
-                    p.Url = StorageBlobCustomizationHelpers.BuildContainerUrl(AccountName, ContainerName);
-                    p.Prefix = Prefix;
-                    p.Marker = marker;
-                    p.MaxResults = maxResults;
-                    p.Include = Include;
-                });
-                using HttpResponseMessage response = await processor.SendAsync();
-                XDocument document = await XDocument.LoadAsync(
-                    await response.Content.ReadAsStreamAsync(Publisher.Token),
-                    LoadOptions.None,
-                    Publisher.Token);
-                blobs.AddRange(document.Descendants()
-                    .Where(element => element.Name.LocalName == "Blob")
-                    .Select(ParseBlob));
-                marker = Value(document.Root, "NextMarker");
-            }
-            while (!string.IsNullOrWhiteSpace(marker) && (NumResults == 0 || blobs.Count < NumResults));
-
-            await WriteOutput(
-                NumResults == 0 ? blobs.ToArray() : blobs.Take(NumResults).ToArray(),
-                Publisher.Token);
+            throw new InvalidOperationException("An active profile is required for authenticated Storage requests.");
         }
-        finally
+        _blobs.Clear();
+        _lastPage = null;
+        return base.BeforeProcessAsync();
+    }
+
+    internal override async Task<HttpResponseMessage> SendAsync()
+    {
+        string? marker = Marker;
+        while (true)
         {
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+            int? maxResults = NumResults == 0 ? null : Math.Min(5000, NumResults - _blobs.Count);
+            ListStorageBlobProcessor processor = CreateExtendedProcessor<ListStorageBlobProcessor>(p =>
+            {
+                p.Url = StorageBlobCustomizationHelpers.BuildContainerUrl(AccountName, ContainerName);
+                p.Prefix = Prefix;
+                p.Marker = marker;
+                p.MaxResults = maxResults;
+                p.Include = Include;
+            });
+            HttpResponseMessage response = await processor.SendAsync();
+            ListBlobsResponse page;
+            try
+            {
+                page = await processor.DeserializeResponseAsync(response)
+                    ?? throw new InvalidDataException("The list blobs response did not contain a body.");
+            }
+            catch
+            {
+                response.Dispose();
+                throw;
+            }
+            _blobs.AddRange(page.Blobs.Select(ToStorageBlob));
+            marker = page.NextMarker;
+            if (string.IsNullOrWhiteSpace(marker) || NumResults > 0 && _blobs.Count >= NumResults)
+            {
+                _lastPage = page;
+                return response;
+            }
+            response.Dispose();
         }
     }
 
-    private static StorageBlob ParseBlob(XElement element)
+    internal override Task<ListBlobsResponse?> DeserializeResponseAsync(HttpResponseMessage response)
     {
-        XElement? properties = Child(element, "Properties");
-        XElement? metadata = Child(element, "Metadata");
-        XElement? tags = Child(Child(element, "BlobTags"), "TagSet");
+        ListBlobsResponse? page = _lastPage;
+        _lastPage = null;
+        return Task.FromResult(page);
+    }
+
+    protected override Task BeforeWriteOutputAsync(ListBlobsResponse? body, ref bool returnNow)
+    {
+        returnNow = true;
+        StorageBlob[] blobs = NumResults == 0
+            ? _blobs.ToArray()
+            : _blobs.Take(NumResults).ToArray();
+        if (blobs.Length > 0 && !string.IsNullOrWhiteSpace(body?.NextMarker))
+        {
+            blobs[^1] = blobs[^1] with { ContinuationToken = body.NextMarker };
+        }
+        return WriteOutput(blobs, Publisher.Token);
+    }
+
+    private static StorageBlob ToStorageBlob(BlobItem item)
+    {
         return new StorageBlob(
-            Value(element, "Name") ?? string.Empty,
-            Value(properties, "BlobType"),
-            ParseLong(Value(properties, "Content-Length")),
-            Value(properties, "Content-Type"),
-            Value(properties, "Etag"),
-            Value(properties, "Last-Modified"),
-            Value(properties, "AccessTier"),
-            metadata?.Elements().ToDictionary(
-                item => item.Name.LocalName,
-                item => item.Value,
+            item.Name.Content,
+            item.Properties.BlobType?.ToString(),
+            item.Properties.ContentLength,
+            item.Properties.ContentType,
+            item.Properties.ETag,
+            item.Properties.LastModified,
+            item.Properties.AccessTier,
+            item.Metadata?.Items.ToDictionary(
+                element => element.LocalName,
+                element => element.InnerText,
                 StringComparer.OrdinalIgnoreCase)
                 ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-            ParseTags(tags));
-    }
-
-    private static IReadOnlyDictionary<string, string> ParseTags(XElement? tagSet) =>
-        tagSet?.Elements()
-            .Where(element => element.Name.LocalName == "Tag")
-            .ToDictionary(
-                tag => Value(tag, "Key") ?? string.Empty,
-                tag => Value(tag, "Value") ?? string.Empty,
+            item.Tags?.TagSet.ToDictionary(
+                tag => tag.Key,
+                tag => tag.Value,
                 StringComparer.OrdinalIgnoreCase)
-            ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-    private static XElement? Child(XElement? element, string name) =>
-        element?.Elements().FirstOrDefault(child => child.Name.LocalName == name);
-
-    private static string? Value(XElement? element, string name) => Child(element, name)?.Value;
-
-    private static long? ParseLong(string? value) =>
-        long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out long parsed) ? parsed : null;
+                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+    }
 }

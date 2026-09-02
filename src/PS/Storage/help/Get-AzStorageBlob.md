@@ -38,6 +38,8 @@ Get-AzStorageBlob [-BlobName] <string> -AccountName <string> -ContainerName <str
 ## DESCRIPTION
 
 Gets one blob's properties or lists blobs in a container using Microsoft Entra authentication.
+List results include metadata. When `-MaxCount` stops before the end, the last blob contains
+`ContinuationToken`; pass it to `-ContinuationToken` to continue.
 
 ## EXAMPLES
 

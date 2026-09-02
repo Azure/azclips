@@ -1,9 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Microsoft.Azure.Azclips.Extensions.Storage.Models;
+
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
-public sealed class GetStorageBlobTagsProcessor : StorageBlobProcessorBase<object, Stream>
+public sealed class GetStorageBlobTagsProcessor : StorageBlobProcessorBase<object, BlobTags>
 {
     public string Url { get; set; } = string.Empty;
     public string Version { get; set; } = "2026-04-06";
