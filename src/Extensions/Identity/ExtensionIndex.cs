@@ -49,7 +49,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
 
         private static readonly CommandMetadata psIdentityShow = new(
             Name: nameof(Processors.ShowIdentityProcessor),
-            InvocationName: $"Get-{PSCommandPrefix}UserAssignedIdentity_Show",
+            InvocationName: $"Get-{PSCommandPrefix}UserAssignedIdentity_Get",
             Aliases: [],
             FullName: typeof(Processors.ShowIdentityProcessor).FullName!,
             AssemblyName: typeof(Processors.ShowIdentityProcessor).Assembly.GetName().Name!,
@@ -75,6 +75,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroup", "ResourceGroupName", typeof(string), "Resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Name"] = new("ResourceName", "Name", typeof(string), "Name of the user assigned identity.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Location"] = new("Location", "Location", typeof(string), "Location.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Tags"] = new("Tags", "Tags", typeof(Dictionary<string, string>), "Resource tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["IsolationScope"] = new("IsolationScope", "IsolationScope", typeof(string), "Identity isolation scope.", IsRequired: false, Aliases: [], AllowedValues: ["None", "Regional"]),
                 ["ResourceRestriction"] = new("ResourceRestrictionProviders", "ResourceRestriction", typeof(List<string>), "List of resource provider types that this identity can be assigned to.", IsRequired: false, Aliases: [], AllowedValues: []),

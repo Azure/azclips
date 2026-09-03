@@ -33,6 +33,30 @@ public class IdentityExtensionTests
     }
 
     [Fact]
+    public void PowerShellMetadata_ExposesIdentityCmdletCommandSet()
+    {
+        var index = new ExtensionIndex();
+
+        Assert.Equal(
+            ["New-AzUserAssignedIdentity", "Get-AzUserAssignedIdentity_List", "Get-AzUserAssignedIdentity_Get", "Update-AzUserAssignedIdentity", "Remove-AzUserAssignedIdentity"],
+            [.. index.GetCommandKeys(ClientType.PowerShell)]);
+    }
+
+    [Fact]
+    public void PowerShellMetadata_MapsCmdletParameters_ToProcessorProperties()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("Update-AzUserAssignedIdentity", ClientType.PowerShell);
+
+        Assert.Equal(typeof(UpdateIdentityProcessor), metadata.ProcessorType);
+        Assert.Equal("ResourceGroup", metadata.Parameters["ResourceGroupName"].Name);
+        Assert.Equal("ResourceName", metadata.Parameters["Name"].Name);
+        Assert.Equal("Location", metadata.Parameters["Location"].Name);
+        Assert.Equal("ResourceRestrictionProviders", metadata.Parameters["ResourceRestriction"].Name);
+        Assert.Equal(typeof(List<string>), metadata.Parameters["ResourceRestriction"].ParameterType);
+        Assert.Equal(typeof(Dictionary<string, string>), metadata.Parameters["Tags"].ParameterType);
+    }
+
+    [Fact]
     public void CliMetadata_UsesLearnParameterNames_NotPowerShellNames()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
@@ -289,6 +313,7 @@ public class IdentityExtensionTests
         processor.SubscriptionId = TestSubscriptionId;
         processor.ResourceGroup = "rg1";
         processor.ResourceName = "id1";
+        processor.Location = "westus2";
         processor.IsolationScope = "None";
         processor.ResourceRestrictionProviders = ["Microsoft.Storage"];
 
@@ -298,6 +323,7 @@ public class IdentityExtensionTests
         Assert.Equal(HttpMethod.Patch, sentRequest!.Method);
         string body = await sentRequest.Content!.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(body);
+        Assert.Equal("westus2", doc.RootElement.GetProperty("location").GetString());
         Assert.Equal("None", doc.RootElement.GetProperty("properties").GetProperty("isolationScope").GetString());
         Assert.Equal("Microsoft.Storage", doc.RootElement.GetProperty("properties").GetProperty("assignmentRestrictions").GetProperty("providers")[0].GetString());
     }
