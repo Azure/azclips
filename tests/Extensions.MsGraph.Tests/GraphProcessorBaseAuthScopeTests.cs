@@ -25,7 +25,7 @@ public class GraphProcessorBaseAuthScopeTests
     /// <c>Customization/GraphProcessorBase.cs</c> — so tests can observe the auth-override
     /// installation without setting up an HTTP pipeline for a full <c>ProcessAsync</c> run.
     /// </summary>
-    private static async Task InvokeBeforeProcessAsyncAsync(GraphProcessorBase processor)
+    private static async Task InvokeBeforeProcessAsync(GraphProcessorBase processor)
     {
         MethodInfo method = processor.GetType().GetMethod(
             "BeforeProcessAsync",
@@ -62,7 +62,7 @@ public class GraphProcessorBaseAuthScopeTests
         // (via the OverrideBeforeProcessAsyncBase partial method in Customization/).
         var processor = new GetUserProcessor();
         processor.Init(CreateContext(authHandler));
-        await InvokeBeforeProcessAsyncAsync(processor);
+        await InvokeBeforeProcessAsync(processor);
 
         Assert.True(authHandler.ApplyOverride);
         Assert.NotNull(authHandler.AcquireTokenAsyncOverride);
@@ -101,7 +101,7 @@ public class GraphProcessorBaseAuthScopeTests
 
         var processor = new GetUserProcessor();
         processor.Init(CreateContext(authHandler));
-        await InvokeBeforeProcessAsyncAsync(processor);
+        await InvokeBeforeProcessAsync(processor);
 
         await authHandler.AcquireTokenAsyncOverride!(null, "contoso-tenant", true, CancellationToken.None, null);
 

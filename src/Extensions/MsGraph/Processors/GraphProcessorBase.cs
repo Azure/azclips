@@ -49,7 +49,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
             AuthHandler = context.AuthHandler;
-            Profile = context.AuthHandler.Profile
+            Profile = AuthHandler.Profile
                 ?? throw new InvalidOperationException(
                     "Microsoft Graph commands require an active profile. Sign in first.");
 
