@@ -20,6 +20,9 @@ parameters:
 - name: ubuntu_pool
   type: string
   default: 'ubuntu-latest'
+- name: arm64_pool
+  type: string
+  default: 'ubuntu-24.04-arm64'
 - name: windows_pool
   type: string
   default: 'windows-latest'
@@ -103,6 +106,7 @@ stages:
   - template: ../jobs/build-docker.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      arm64_pool: ${{ parameters.arm64_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
       PackagingDockerOutRoot: $(PackagingDockerOutRoot)

@@ -22,7 +22,7 @@ PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 
 PLATFORM="${PLATFORM:-linux/amd64}"
-BASE_IMAGE="${BASE_IMAGE:-mcr.microsoft.com/powershell:7.6-ubuntu-24.04}"
+BASE_IMAGE="${BASE_IMAGE:-mcr.microsoft.com/dotnet/runtime-deps:10.0-noble}"
 IMAGE_VARIANT="${IMAGE_VARIANT:-noble}"
 IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-azclips-powershell}"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-0.0.0}"
