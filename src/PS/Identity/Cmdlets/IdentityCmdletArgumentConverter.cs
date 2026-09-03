@@ -14,7 +14,7 @@ internal static class IdentityCmdletArgumentConverter
         {
             if (entry.Key is null)
             {
-                throw new ArgumentException("Key keys cannot be null.", nameof(table));
+                throw new ArgumentException("Key cannot be null.", nameof(table));
             }
 
             result[entry.Key.ToString()!] = entry.Value?.ToString() ?? string.Empty;

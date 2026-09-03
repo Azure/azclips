@@ -82,7 +82,10 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
             foreach (string id in Ids)
             {
                 using HttpResponseMessage response = await CreateUpdateProcessor(id).SendAsync();
-                results.Add((await response.Content.ReadFromJsonAsync<UserAssignedIdentity>(JsonOptions))!);
+                if (await ReadResponseBodyAsync<UserAssignedIdentity>(response) is { } identity)
+                {
+                    results.Add(identity);
+                }
             }
 
             await WriteOutput(results.ToArray());
@@ -112,7 +115,7 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
             //need to get the current state of the resource to apply the patch operations
             using HttpResponseMessage response = await processor.SendAsync();
 
-            JsonObject? patchBody = await response.Content.ReadFromJsonAsync<JsonObject>(JsonOptions);
+            JsonObject? patchBody = await ReadResponseBodyAsync<JsonObject>(response);
             if (patchBody is not null)
             {
                 IdentityJsonPatchHelper.MergePatch(patchBody, BuildPatchBody());

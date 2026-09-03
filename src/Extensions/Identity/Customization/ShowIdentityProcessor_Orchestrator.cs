@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net.Http.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Identity.Models;
@@ -41,7 +40,10 @@ public class ShowIdentityProcessor_Orchestrator : ShowIdentityProcessor
                     p.ResourceName = identityId.ResourceName;
                 }).SendAsync();
 
-                results.Add((await response.Content.ReadFromJsonAsync<UserAssignedIdentity>(JsonOptions))!);
+                if (await ReadResponseBodyAsync<UserAssignedIdentity>(response) is { } identity)
+                {
+                    results.Add(identity);
+                }
             }
 
             await WriteOutput(results.ToArray());

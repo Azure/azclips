@@ -84,6 +84,32 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
             return await HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
         }
 
+        protected async Task<T?> ReadResponseBodyAsync<T>(HttpResponseMessage response) where T : class
+        {
+            string? rawBody = null;
+            if (response.Content is null)
+            {
+                await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+                return default;
+            }
+
+            if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync()))
+            {
+                await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                return default;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<T>(rawBody, JsonOptions);
+            }
+            catch (JsonException ex)
+            {
+                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(T).Name}. Raw body: {rawBody}", ex);
+            }
+        }
+
         protected T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : IdentityProcessorBase, new()
         {
             T child = new T
@@ -123,29 +149,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
                 await BeforeProcessAsync();
                 await Publisher.Publish(Events.ProcessorProcessAsyncStart);
                 using HttpResponseMessage response = await SendAsync();
-                string? rawBody = null;
-                TResponse? body = default;
-
-                if (response.Content is null)
-                {
-                    await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
-                }
-                else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync()))
-                {
-                    await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
-                }
-                else
-                {
-                    try
-                    {
-                        body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
-                    }
-                    catch (JsonException ex)
-                    {
-                        await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                        throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
-                    }
-                }
+                TResponse? body = await ReadResponseBodyAsync<TResponse>(response);
 
                 if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
                 {

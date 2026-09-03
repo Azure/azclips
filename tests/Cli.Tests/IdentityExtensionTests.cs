@@ -299,6 +299,34 @@ public class IdentityExtensionTests
     }
 
     [Fact]
+    public async Task ShowProcessAsync_AllowsMultipleIds_AndSkipsNoContentResponses()
+    {
+        var sentUris = new List<string>();
+        var pipeline = CreatePipeline((request, _) =>
+        {
+            sentUris.Add(request.RequestUri!.ToString());
+            return sentUris.Count == 1
+                ? Json("""{ "name": "id1", "location": "eastus" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<ShowIdentityProcessor_Orchestrator>(pipeline, output, profile: null);
+        processor.Ids =
+        [
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id1",
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id2",
+        ];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, sentUris.Count);
+        var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(writtenValues));
+        var identity = Assert.Single(identities);
+        Assert.Equal("id1", identity.Name);
+    }
+
+    [Fact]
     public async Task UpdateProcessAsync_SerializesResourceRestrictionAndIsolationScope()
     {
         HttpRequestMessage? sentRequest = null;
@@ -425,6 +453,35 @@ public class IdentityExtensionTests
         var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(writtenValues));
         Assert.Equal(["id1", "id2"], identities.Select(identity => identity.Name!).ToArray());
         Assert.All(identities, identity => Assert.Equal("Regional", identity.Properties!.IsolationScope));
+    }
+
+    [Fact]
+    public async Task UpdateOrchestrator_AllowsMultipleIds_AndSkipsNoContentResponses()
+    {
+        var sentRequests = new List<HttpRequestMessage>();
+        var pipeline = CreatePipeline((request, _) =>
+        {
+            sentRequests.Add(CloneRequest(request).GetAwaiter().GetResult());
+            return sentRequests.Count == 1
+                ? Json("""{ "name": "id1", "location": "eastus" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(pipeline, output, profile: null);
+        processor.Ids =
+        [
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id1",
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id2",
+        ];
+        processor.IsolationScope = "Regional";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, sentRequests.Count);
+        var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(writtenValues));
+        var identity = Assert.Single(identities);
+        Assert.Equal("id1", identity.Name);
     }
 
     [Fact]
