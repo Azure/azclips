@@ -10,11 +10,12 @@ parameters:
 
 jobs:
 - job: DockerValidation
-  displayName: CLI and PowerShell Docker Validation
+  displayName: $(ValidationDisplayName)
   timeoutInMinutes: 30
   strategy:
     matrix:
       cli_amd64_noble:
+        ValidationDisplayName: CLI Docker Validation (amd64)
         Pool: ${{ parameters.amd64_pool }}
         ImageFlavor: cli
         Platform: linux/amd64
@@ -22,6 +23,7 @@ jobs:
         ImageVariant: noble
         DockerArtifact: Docker_CLI_Noble_Amd64
       cli_arm64_noble:
+        ValidationDisplayName: CLI Docker Validation (arm64)
         Pool: ${{ parameters.arm64_pool }}
         ImageFlavor: cli
         Platform: linux/arm64
@@ -29,6 +31,7 @@ jobs:
         ImageVariant: noble
         DockerArtifact: Docker_CLI_Noble_Arm64
       pwsh_amd64_noble:
+        ValidationDisplayName: PowerShell Docker Validation (amd64)
         Pool: ${{ parameters.amd64_pool }}
         ImageFlavor: pwsh
         Platform: linux/amd64
@@ -36,6 +39,7 @@ jobs:
         ImageVariant: noble
         DockerArtifact: Docker_Pwsh_Noble_Amd64
       pwsh_arm64_noble:
+        ValidationDisplayName: PowerShell Docker Validation (arm64)
         Pool: ${{ parameters.arm64_pool }}
         ImageFlavor: pwsh
         Platform: linux/arm64
