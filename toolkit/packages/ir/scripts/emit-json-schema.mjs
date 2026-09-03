@@ -35,6 +35,17 @@ import {
   // type is named `TransformedIR` to say so. `IR`'s own types come along as
   // shared definitions.
   TransformedIRSchema,
+  // PowerShell metadata definitions consumed by command dialect generation.
+  PSSchema,
+  PSCommandAttributeSchema,
+  PSParameterSetAttributeSchema,
+  PSParameterAttributeSchema,
+  PSParameterSetOverrideSchema,
+  PSModuleAttributeSchema,
+  PSIdentityAttributeSchema,
+  PSIdentityPropertyAttributeSchema,
+  PSCompleterAttributeSchema,
+  PSDefaultValueAttributeSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
   // meaningful type names (IRId, IRModel, ...) instead of anonymous ones.
   // Registering the structurally-recursive types (IRId, IRTypeRef, IRServer)
@@ -243,6 +254,17 @@ const definitions = {
   // Placement.
   IRTarget: IRTargetSchema,
   IRTargetDirectories: IRTargetDirectoriesSchema,
+  // PowerShell metadata.
+  PS: PSSchema,
+  PSCommandAttribute: PSCommandAttributeSchema,
+  PSParameterSetAttribute: PSParameterSetAttributeSchema,
+  PSParameterAttribute: PSParameterAttributeSchema,
+  PSParameterSetOverride: PSParameterSetOverrideSchema,
+  PSModuleAttribute: PSModuleAttributeSchema,
+  PSIdentityAttribute: PSIdentityAttributeSchema,
+  PSIdentityPropertyAttribute: PSIdentityPropertyAttributeSchema,
+  PSCompleterAttribute: PSCompleterAttributeSchema,
+  PSDefaultValueAttribute: PSDefaultValueAttributeSchema,
 };
 
 const jsonSchema = zodToJsonSchema(TransformedIRSchema, {
