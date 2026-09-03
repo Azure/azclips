@@ -59,6 +59,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(ParseName("System.Threading.Tasks")),
                 UsingDirective(ParseName("Core.Abstractions")),
                 UsingDirective(ParseName("Core.Abstractions.Runtime")),
+                UsingDirective(ParseName("Core.Abstractions.Runtime.Handler")),
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
@@ -86,6 +87,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 DepProp("IEventPublisher", "Publisher", "null!"),
                 DepProp("JsonSerializerOptions", "JsonOptions", "null!"),
                 DepProp("OutputStreamDelegate", "WriteOutput", "null!"),
+                DepProp("IAuthHandler", "AuthHandler", "null!"),
                 DepProp("ProfileModel?", "ResolvedProfile", "null!"),
                 AutoProp("string?", "Profile", null, SyntaxKind.PublicKeyword),
                 MethodDeclaration(ParseTypeName("void"), Identifier("BeforeInit"))
@@ -155,12 +157,12 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 // Maintainer note (from the reference base): C# does not allow a partial method with a
                 // return type to be left unimplemented, so a `partial Task` is forbidden — the hook is a
                 // synchronous `partial void` that BeforeProcessAsync invokes.
-                MethodDeclaration(ParseTypeName("void"), Identifier("OverrideBeforeProcessAsyncBase"))
+                MethodDeclaration(ParseTypeName("void"), Identifier("OverrideBeforeProcessBase"))
                     .AddModifiers(Token(SyntaxKind.PartialKeyword))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 MethodDeclaration(ParseTypeName("Task"), Identifier("BeforeProcessAsync"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
-                    .WithRawBody("OverrideBeforeProcessAsyncBase(); return Task.CompletedTask;"),
+                    .WithRawBody("OverrideBeforeProcessBase(); return Task.CompletedTask;"),
                 // Maintainer note (from the reference base): an async method can't take a `ref` parameter,
                 // and this override typically needs to WriteOutput (so it's async) — hence it returns
                 // Task<bool> (true = suppress the default WriteOutput) rather than mutating a ref.
@@ -290,6 +292,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         Publisher = context.Publisher;
         WriteOutput = context.OutputHandler.WriteOutput;
         ResolvedProfile = context.Profile;
+        AuthHandler = context.AuthHandler;
 
         AfterInit();
         return this;
@@ -318,6 +321,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
             HttpPipeline = HttpPipeline,
             Publisher = Publisher,
             JsonOptions = JsonOptions,
+            AuthHandler = AuthHandler,
         };
         child.WriteOutput = WriteOutput;
         child.ResolvedProfile = ResolvedProfile;

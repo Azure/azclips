@@ -123,6 +123,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 
 13. **Write customization**
 	- User can jump straight into this step if they have uncustomized extension ready. When user ask to go with step 13 directly, ask for working directory of their extension as `<output-path>`, and `<project-root>`.
+	- Once get working directory, ask for what specific customization the user wants to perform. Otherwise fallback to `<output-path>/finalized-workflows.md`
 	- Customization should strickly follow `<project-root>/eng-docs/howto/Extension-Development-For-Private-Preview.md` and `<project-root>/src/Extensions/Compute/Customization`
 	- Customization should be placed under `<output-path>/Customization`
 	- Customization folder can contain any kinds of C# code. But those classes implement or inherited processors are the customer facing "commands". That is to say, if there is a finalized workflow requires customization, there has to be a customized class implementing or inheriting the relevant processor.
@@ -165,7 +166,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Encourage user to try test scripts
 
 19. **Final cleanup**
-	- Delete `<output-path>`
+	- Delete everything under `<output-path>` except `<output-path>/finalized-shapes.md` and `<output-path>/finalized-workflows.md`
 	- Delete the output path for external API if any
 
 ## Output
