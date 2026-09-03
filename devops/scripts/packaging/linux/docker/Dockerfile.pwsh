@@ -2,25 +2,16 @@ ARG BASE_IMAGE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
-ARG POWERSHELL_VERSION=7.6.0
 ARG AZCLIPS_UID=10001
 ARG AZCLIPS_GID=10001
 
-RUN case "${TARGETARCH}" in \
-        amd64) POWERSHELL_ARCH=x64; POWERSHELL_SHA256=04517472cf57d7f9cbd93897da9bed467c73ca6063c29d7655ebc20aa1d6023f ;; \
-        arm64) POWERSHELL_ARCH=arm64; POWERSHELL_SHA256=dddf7564fb3b52dc26be5580fc5b4e08eb3fa65b094488aae6d4b3cad5fea460 ;; \
-        *) echo "Unsupported target architecture: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl gpg \
+    && install -d -m 0755 /etc/apt/keyrings \
+    && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main" > /etc/apt/sources.list.d/microsoft-prod.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
-    && curl -fsSLo /tmp/powershell.tar.gz \
-        "https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHELL_VERSION}/powershell-${POWERSHELL_VERSION}-linux-${POWERSHELL_ARCH}.tar.gz" \
-    && echo "${POWERSHELL_SHA256}  /tmp/powershell.tar.gz" | sha256sum --check --strict \
-    && mkdir -p /opt/microsoft/powershell/7.6 \
-    && tar -xzf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7.6 \
-    && chmod +x /opt/microsoft/powershell/7.6/pwsh \
-    && ln -sf /opt/microsoft/powershell/7.6/pwsh /usr/bin/pwsh \
-    && rm -f /tmp/powershell.tar.gz \
+    && apt-get install -y --no-install-recommends powershell \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid "${AZCLIPS_GID}" azclips \
     && useradd --system --uid "${AZCLIPS_UID}" --gid azclips \
