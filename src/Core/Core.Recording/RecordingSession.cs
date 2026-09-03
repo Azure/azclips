@@ -1,7 +1,7 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
-namespace Tests.Common.Recording;
+namespace Core.Recording;
 
 /// <summary>
 /// Ties a scenario's mode, recording file, and interceptors together. Playback loads the committed
@@ -31,21 +31,7 @@ public sealed class RecordingSession
     /// <summary>The recording: loaded from disk in playback, accumulated in record.</summary>
     public SessionRecord Record { get; }
 
-    /// <summary>
-    /// Opens the session for a test, taking the mode from <see cref="RecorderModeResolver"/> and the
-    /// file from the canonical <see cref="SessionRecordFiles"/> layout.
-    /// </summary>
-    public static RecordingSession Open(Type testClass, string testName, IRequestMatcher? matcher = null, RecordingSanitizers? sanitizers = null)
-    {
-        var session = Open(RecorderModeResolver.FromEnvironment(), SessionRecordFiles.GetPath(testClass, testName), matcher, sanitizers);
-        if (session.Mode == RecorderMode.Record)
-        {
-            session.Record.Metadata["scenario"] = $"{testClass.Name}/{testName}";
-        }
-        return session;
-    }
-
-    /// <summary>Opens the session with an explicit mode and file. Used by the canonical overload and by tests.</summary>
+    /// <summary>Opens the session with an explicit mode and file. Tests use the canonical layout helper in SessionRecordFiles.</summary>
     public static RecordingSession Open(RecorderMode mode, string path, IRequestMatcher? matcher = null, RecordingSanitizers? sanitizers = null)
     {
         var record = mode == RecorderMode.Playback ? SessionRecord.Load(path) : new SessionRecord();

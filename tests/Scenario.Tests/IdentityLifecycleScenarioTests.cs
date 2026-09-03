@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Identity.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Core.Recording;
 using Tests.Common.Recording;
 
 namespace Scenario.Tests;
@@ -21,7 +22,7 @@ public class IdentityLifecycleScenarioTests
     [Fact]
     public void CreateListShowUpdateDeleteIdentity()
     {
-        var recording = RecordingSession.Open(typeof(IdentityLifecycleScenarioTests), nameof(CreateListShowUpdateDeleteIdentity));
+        var recording = SessionRecordFiles.OpenSession(typeof(IdentityLifecycleScenarioTests), nameof(CreateListShowUpdateDeleteIdentity));
 
         if (recording.Mode == RecorderMode.Record)
         {

@@ -1,10 +1,10 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Tests.Common.Recording;
+namespace Core.Recording;
 
 /// <summary>
 /// One recorded HTTP exchange: the request as it left the pipeline and the response the

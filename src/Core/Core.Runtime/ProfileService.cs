@@ -12,7 +12,7 @@ namespace Core.Runtime;
 /// </summary>
 public class ProfileService : IProfileService // todo: testability, consider injecting file system abstractions
 {
-    private static readonly string DefaultAzclipsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
+    private static string DefaultAzclipsDirectory => HomePaths.GetDefaultLocalAppDataRoot();
 
     private readonly ILoggingService _logger;
     private readonly string _azclipsDirectory;

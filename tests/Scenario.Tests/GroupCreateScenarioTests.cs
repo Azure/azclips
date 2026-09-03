@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using Core.Recording;
 using Tests.Common.Recording;
 
 namespace Scenario.Tests;
@@ -22,7 +23,7 @@ public class GroupCreateScenarioTests
     [Fact]
     public void CreatesResourceGroup()
     {
-        var recording = RecordingSession.Open(typeof(GroupCreateScenarioTests), nameof(CreatesResourceGroup));
+        var recording = SessionRecordFiles.OpenSession(typeof(GroupCreateScenarioTests), nameof(CreatesResourceGroup));
 
         if (recording.Mode == RecorderMode.Record)
         {
