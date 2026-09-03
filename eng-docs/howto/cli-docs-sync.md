@@ -1,23 +1,23 @@
 # CLI docs sync (to MicrosoftDocs/azure-docs-cli)
 
-Runbook for [build/Sync-AzclipsCliDocs.ps1](../../build/Sync-AzclipsCliDocs.ps1). Covers running locally, the three modes (dry-run / `-Force` / `-Push`), and how to eyeball the output on a real PR against `MicrosoftDocs/azure-docs-cli`.
+Runbook for [build/Sync-AzClipsCliDocs.ps1](../../build/Sync-AzClipsCliDocs.ps1). Covers running locally, the three modes (dry-run / `-Force` / `-Push`), and how to eyeball the output on a real PR against `MicrosoftDocs/azure-docs-cli`.
 
 ## What it does
 
 Runs a two-stage transform of AzClips CLI content into the shape `MicrosoftDocs/azure-docs-cli` expects:
 
-1. **Exporter** ([`tools/Help/Azclips.Cli.Export`](../../tools/Help/Azclips.Cli.Export/)) — reads AzClips CLI runtime metadata + authored help markdown under `src/CLI/Help/Docs/**` and emits snake_case JSON at `artifacts/cli-export/latest/<verb>.json` + `_root_.json`.
+1. **Exporter** ([`tools/Help/Azclips.Cli.Export`](../../tools/Help/Azclips.Cli.Export/)) — reads AzClips CLI runtime metadata + authored help markdown under `src/CLI/Help/Docs/**` and emits snake*case JSON at `artifacts/cli-export/latest/<verb>.json` + `\_root*.json`.
 2. **CLI2Yaml** (docs.ms's NuGet-packaged transformer) — reads the JSON + side-car configs (`.docsreference.azclips.json`, `service_name.json`, `index.json`) and emits `YamlMime:AzureCLIGroup` SDP YAML into `docs-ref-autogen/<VersionFolder>/latest/*.yml` in the target docs repo.
 
 Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/…` — via the `--sourceRepo` / `--editBranch` options landed in [ceapex/CLI2Yaml PR 1213094](https://ceapex.visualstudio.com/Engineering/_git/CLI2Yaml/pullrequest/1213094), packaged as `CLI2Yaml 20260827.1.0` and later.
 
 ## Three-mode escape hatch
 
-| Mode              | Flag     | Effect                                                                                                                                                | Auth needed                    |
-| ----------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Mode              | Flag     | Effect                                                                                                                                                 | Auth needed                     |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
 | Dry-run (default) | —        | Builds + exports + runs CLI2Yaml into a scratch folder at `artifacts/cli-yaml/dry-run/`; prints a shape report with editLink sanity. No target writes. | Read-only on the `apidrop` feed |
 | Force             | `-Force` | Same pipeline but writes into a sibling `MicrosoftDocs/azure-docs-cli` clone, creates an `azclips-cli-sync-<timestamp>` branch, commits. **No push.**  | Same                            |
-| Push              | `-Push`  | Would push the branch + open a PR. **Currently throws** — docs.ms bot-auth pattern is still pending.                                                  | Deferred                        |
+| Push              | `-Push`  | Would push the branch + open a PR. **Currently throws** — docs.ms bot-auth pattern is still pending.                                                   | Deferred                        |
 
 ## Prerequisites
 
@@ -78,7 +78,7 @@ Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/
 ### Dry-run (safest — start here)
 
 ```powershell
-pwsh -File build/Sync-AzclipsCliDocs.ps1
+pwsh -File build/Sync-AzClipsCliDocs.ps1
 ```
 
 Output goes to `artifacts/cli-yaml/dry-run/latest/*.yml`. Expected report tail:
@@ -124,7 +124,7 @@ Requires a local clone of the target docs repo (or a stand-in). Simplest way:
     ```
 5. Run:
     ```powershell
-    pwsh -File build/Sync-AzclipsCliDocs.ps1 -Force -Timestamp 'YYYYMMDDHHMM'
+    pwsh -File build/Sync-AzClipsCliDocs.ps1 -Force -Timestamp 'YYYYMMDDHHMM'
     ```
 
 `-Timestamp` is optional but locks the branch name (`azclips-cli-sync-<timestamp>`) and commit message. Otherwise the script uses the current UTC time.
@@ -185,16 +185,16 @@ The CLI2Yaml cache at `~/.nuget/packages/cli2yaml/` stays around — harmless, a
 
 ## Common failure modes
 
-| Error                                                                     | Cause                                                                                                                | Fix                                                                                                                                                     |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLI2Yaml is not in the local NuGet cache`                                | First run on this machine — package hasn't been fetched                                                              | Follow the fetch snippet in the error message (or the Prerequisites section above)                                                                      |
-| `401 Unauthorized` during the fetch snippet                               | Credential Provider not installed or not picked up                                                                   | Rerun `iex "& { $(irm https://aka.ms/install-artifacts-credprovider.ps1) }"`, then retry with `--interactive`                                            |
-| `Target version folder 'preview-version' does not exist`                  | Registration config PR ([#6153](https://github.com/MicrosoftDocs/azure-docs-cli/pull/6153)) not merged / not checked out | Check out the PR branch on your target clone, or `New-Item -ItemType Directory -Path ../azure-docs-cli/docs-ref-autogen/preview-version -Force`         |
-| `Target working tree is dirty`                                            | Uncommitted changes in the local target clone                                                                        | Commit, stash, or `git checkout .` in the target                                                                                                        |
-| `Target '…' is not a git repository`                                      | `-TargetRepoPath` points somewhere that isn't a git repo                                                             | Check the path; typically `../azure-docs-cli`                                                                                                           |
-| `Branch 'azclips-cli-sync-…' already exists`                              | Re-running with the same `-Timestamp`                                                                                | Delete the old branch or pass a fresh `-Timestamp`                                                                                                      |
-| yellow warning: `editLinks do NOT start with '<sourceRepo>/blob/…'`       | A stale pre-`20260827.1.0` `CLI2Yaml` package is cached and doesn't support `--sourceRepo`                             | `Remove-Item -Recurse "$env:USERPROFILE\.nuget\packages\cli2yaml"` and rerun the fetch snippet to pull the current version                                |
-| `-Push is not yet implemented`                                            | Correct behavior — auth boundary                                                                                     | Use `-Force` and hand off to your normal PR flow                                                                                                        |
+| Error                                                               | Cause                                                                                                                    | Fix                                                                                                                                             |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLI2Yaml is not in the local NuGet cache`                          | First run on this machine — package hasn't been fetched                                                                  | Follow the fetch snippet in the error message (or the Prerequisites section above)                                                              |
+| `401 Unauthorized` during the fetch snippet                         | Credential Provider not installed or not picked up                                                                       | Rerun `iex "& { $(irm https://aka.ms/install-artifacts-credprovider.ps1) }"`, then retry with `--interactive`                                   |
+| `Target version folder 'preview-version' does not exist`            | Registration config PR ([#6153](https://github.com/MicrosoftDocs/azure-docs-cli/pull/6153)) not merged / not checked out | Check out the PR branch on your target clone, or `New-Item -ItemType Directory -Path ../azure-docs-cli/docs-ref-autogen/preview-version -Force` |
+| `Target working tree is dirty`                                      | Uncommitted changes in the local target clone                                                                            | Commit, stash, or `git checkout .` in the target                                                                                                |
+| `Target '…' is not a git repository`                                | `-TargetRepoPath` points somewhere that isn't a git repo                                                                 | Check the path; typically `../azure-docs-cli`                                                                                                   |
+| `Branch 'azclips-cli-sync-…' already exists`                        | Re-running with the same `-Timestamp`                                                                                    | Delete the old branch or pass a fresh `-Timestamp`                                                                                              |
+| yellow warning: `editLinks do NOT start with '<sourceRepo>/blob/…'` | A stale pre-`20260827.1.0` `CLI2Yaml` package is cached and doesn't support `--sourceRepo`                               | `Remove-Item -Recurse "$env:USERPROFILE\.nuget\packages\cli2yaml"` and rerun the fetch snippet to pull the current version                      |
+| `-Push is not yet implemented`                                      | Correct behavior — auth boundary                                                                                         | Use `-Force` and hand off to your normal PR flow                                                                                                |
 
 ## Running the tests
 

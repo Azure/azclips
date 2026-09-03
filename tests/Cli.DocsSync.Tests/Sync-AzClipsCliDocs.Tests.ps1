@@ -1,10 +1,10 @@
-# Pester tests for build/Sync-AzclipsCliDocs.ps1.
+# Pester tests for build/Sync-AzClipsCliDocs.ps1.
 #
 # Run: Invoke-Pester -Path tests/Cli.DocsSync.Tests/
 
 BeforeAll {
     $env:AZCLIPS_CLI_SYNC_LOAD_ONLY = '1'
-    . "$PSScriptRoot/../../build/Sync-AzclipsCliDocs.ps1"
+    . "$PSScriptRoot/../../build/Sync-AzClipsCliDocs.ps1"
     $env:AZCLIPS_CLI_SYNC_LOAD_ONLY = ''
 }
 

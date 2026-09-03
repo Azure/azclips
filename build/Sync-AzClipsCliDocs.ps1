@@ -3,9 +3,9 @@
 # / -Force (write to local target) / -Push (deferred until docs.ms bot-auth is decided).
 #
 # Usage:
-#   pwsh -File build/Sync-AzclipsCliDocs.ps1               # dry-run against a scratch folder
-#   pwsh -File build/Sync-AzclipsCliDocs.ps1 -Force        # writes to local target; no push
-#   pwsh -File build/Sync-AzclipsCliDocs.ps1 -Push         # WILL FAIL — deferred until auth-pattern decided
+#   pwsh -File build/Sync-AzClipsCliDocs.ps1               # dry-run against a scratch folder
+#   pwsh -File build/Sync-AzClipsCliDocs.ps1 -Force        # writes to local target; no push
+#   pwsh -File build/Sync-AzClipsCliDocs.ps1 -Push         # WILL FAIL — deferred until auth-pattern decided
 #
 # Preflight: requires CLI2Yaml NuGet package to be resolvable — either already in the local
 # NuGet cache under ~/.nuget/packages/cli2yaml/ or fetchable from the internal apidrop feed
