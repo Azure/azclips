@@ -2,7 +2,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
     /// <summary>Shows the full details of a single profile by name, or the active profile.</summary>
     public class ProfileShowProcessor : ProfileProcessorBase

@@ -149,7 +149,7 @@ foreach ($completionFile in @('az.completions.ps1', 'az.completions.bash', 'az.c
 
 $builtins = @(
     'Microsoft.Azure.Azclips.Extensions.Extension',
-    'Microsoft.Azure.Azclips.Extensions.Login',
+    'Microsoft.Azure.Azclips.Extensions.Accounts',
     'Microsoft.Azure.Azclips.Extensions.Config'
 )
 

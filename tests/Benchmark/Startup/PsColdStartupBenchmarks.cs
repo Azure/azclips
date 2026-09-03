@@ -23,9 +23,9 @@ public class PsColdStartupBenchmarks : StartupBenchmarkBase
     public void Setup()
     {
         InitializeCommon();
-        // Stage once, outside the measured region. Staging Config pulls in Login via RequiredModules.
+        // Stage once, outside the measured region. Staging Config pulls in Accounts via RequiredModules.
         _configManifest = StageModule("Config");
-        _loginManifest = StageModule("Login");
+        _loginManifest = StageModule("Accounts");
     }
 
     [IterationSetup]

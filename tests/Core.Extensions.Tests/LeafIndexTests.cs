@@ -154,7 +154,7 @@ namespace Core.Extensions.Tests
             {
                 Extensions =
                 {
-                    ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                    ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                     {
                         Version = "0.0.0",
                         Contributions = { new Contribution { Verb = "login", Path = "" } },

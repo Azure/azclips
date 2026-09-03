@@ -5,8 +5,8 @@ using System.Net.Http;
 using System.Reflection;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Microsoft.Azure.Azclips.Extensions.Login;
-using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Microsoft.Azure.Azclips.Extensions.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 

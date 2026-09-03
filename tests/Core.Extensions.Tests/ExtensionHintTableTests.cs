@@ -53,12 +53,12 @@ namespace Core.Extensions.Tests
             {
                 Leaves = new Dictionary<string, ExtensionHint>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["login"] = new() { PackageId = "Microsoft.Azure.Azclips.Extensions.Login" },
+                    ["login"] = new() { PackageId = "Microsoft.Azure.Azclips.Extensions.Accounts" },
                 },
             };
 
             Assert.True(table.TryGetPackageId("login", "", out var pkg));
-            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Login", pkg);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Accounts", pkg);
         }
 
         [Fact]

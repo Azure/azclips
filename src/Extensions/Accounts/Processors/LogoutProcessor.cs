@@ -5,7 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
     /// <summary>
     /// Signs out the active profile: removes the profile's account from the shared MSAL token cache and

@@ -1,7 +1,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 
-namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
     /// <summary>
     /// Base for profile management processors (list/show/set/remove). These commands operate

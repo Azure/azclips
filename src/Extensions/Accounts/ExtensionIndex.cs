@@ -6,7 +6,7 @@
 
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Azclips.Extensions.Login
+namespace Microsoft.Azure.Azclips.Extensions.Accounts
 {
     [ExtensionVerb("login")]
     [ExtensionVerb("logout")]

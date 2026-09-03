@@ -2,7 +2,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
     /// <summary>Sets the active profile persistently. Validates existence; performs no re-authentication.</summary>
     public class ProfileSetProcessor : ProfileProcessorBase

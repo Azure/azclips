@@ -2,7 +2,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
     /// <summary>Lists all saved profiles, indicating which one is active.</summary>
     public class ProfileListProcessor : ProfileProcessorBase

@@ -17,9 +17,9 @@ namespace Cli.Tests;
 public class StripKnownExtensionPrefixTests
 {
     [Theory]
-    [InlineData("Microsoft.Azure.Azclips.Extensions.Login", "Login")]
-    [InlineData("microsoft.azure.azclips.extensions.login", "login")]
-    [InlineData("MICROSOFT.AZURE.AZCLIPS.EXTENSIONS.LOGIN", "LOGIN")]
+    [InlineData("Microsoft.Azure.Azclips.Extensions.Accounts", "Accounts")]
+    [InlineData("microsoft.azure.azclips.extensions.accounts", "accounts")]
+    [InlineData("MICROSOFT.AZURE.AZCLIPS.EXTENSIONS.ACCOUNTS", "ACCOUNTS")]
     [InlineData("Microsoft.Azure.Azclips.Extensions.Compute", "Compute")]
     [InlineData("microsoft.azure.azclips.extensions.compute", "compute")]
     [InlineData("MICROSOFT.AZURE.AZCLIPS.EXTENSIONS.COMPUTE", "COMPUTE")]

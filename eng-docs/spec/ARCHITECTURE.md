@@ -21,7 +21,7 @@
 Azclips is a modular Azure CLI tool with **AI-powered fallback** for natural language commands, typo correction, and "how to" questions. The architecture uses:
 
 1. **Exception-Driven Fallback** - Standard command parsing in try-catch, AI agent invoked on exception
-2. **Extension System** - Dynamic module loading via DLL discovery (Login.dll, Resources.dll)
+2. **Extension System** - Dynamic module loading via DLL discovery (Accounts.dll, Resources.dll)
 3. **Azure OpenAI Integration** - CloudAgent with GPT-4o-mini for natural language interpretation
 
 **Note:** This document describes the **actual implementation** on the `resilv/merge-cli` branch, not idealized designs.
@@ -164,7 +164,7 @@ New-AzResourceGroup -Name mygroup -Location eastus
          │  CommandGroupIndex        │
          │  LoadFromDirectory()      │
          │  • Find Group.dll         │
-         │  • Find Login.dll         │
+         │  • Find Accounts.dll      │
          │  • Find Resources.dll     │
          └───────────┬───────────────┘
                      │
@@ -206,7 +206,7 @@ New-AzResourceGroup -Name mygroup -Location eastus
 | **PowerShell Help Markdown** | `src/PS/<Module>/help/*.md`                                | Authored PowerShell help (PlatyPS → MAML)     |
 | **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
 | **Help Tool**                | `tools/Help/Azclips.Help.Tool/`                             | Build-time validators + manifest emitter      |
-| **Login Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Login/`     | Authentication commands                       |
+| **Accounts Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Accounts/`     | Authentication commands                       |
 | **Resources Extension**      | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Resources/` | Resource management commands                  |
 
 ### Dependency Graph
@@ -308,7 +308,7 @@ args: ["group", "create", "--name", "test"]
 
 ```
 artifacts/Release/Group/Group.dll → "group" command group
-artifacts/Release/Login/Login.dll → "login" command group
+artifacts/Release/Accounts/Accounts.dll → "login" command group
 artifacts/Release/Resources/Resources.dll → "resources" command group
 ```
 
@@ -479,9 +479,9 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 - `group show` - Show resource group details
 - `group delete` - Delete resource group
 
-### Login Extension
+### Accounts Extension
 
-**Location:** `artifacts/Release/Login/Login.dll`
+**Location:** `artifacts/Release/Accounts/Accounts.dll`
 
 **Commands:**
 
@@ -752,7 +752,7 @@ Execute this command? (yes/no): yes
 
 ### ✅ Extension DLL Loading
 
-**Decision:** Load commands from DLL files at runtime (Group.dll, Login.dll, Resources.dll).
+**Decision:** Load commands from DLL files at runtime (Group.dll, Accounts.dll, Resources.dll).
 
 **Rationale:**
 
@@ -887,10 +887,10 @@ artifacts/
       Resources.psd1                                  ← PowerShell Resources module
       Resources.psm1
       runtimes/
-    Microsoft.Azure.Azclips.Extensions.Login/
-      Login.psd1                                      ← PowerShell Login module
-      Login.psm1
-      Microsoft.Azure.Azclips.Extensions.Login.dll
+    Microsoft.Azure.Azclips.Extensions.Accounts/
+      Accounts.psd1                                      ← PowerShell Accounts module
+      Accounts.psm1
+      Microsoft.Azure.Azclips.Extensions.Accounts.dll
     Microsoft.Azure.Azclips.Extensions.Resources/
       Resources.psd1
       Resources.psm1
@@ -922,7 +922,7 @@ Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 New-AzResourceGroup -Name test -Location eastus
 ```
 
-**Note:** The Login module requires the solution to be built first so that `Login.dll` is available in the artifacts directory.
+**Note:** The Accounts module requires the solution to be built first so that `Accounts.dll` is available in the artifacts directory.
 
 ## Future Enhancements
 

@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 using Core.Cli.Help;
-using Microsoft.Azure.Azclips.Extensions.Login;
+using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Tests.Common.Utilities;
 
 namespace Cli.Tests;

@@ -567,7 +567,7 @@ Common keys you'll actually use: `telemetry.enabled` (opt out of telemetry), `ag
 
 A **profile** is a named connection: tenant, subscription, user, cloud, auth method. `IProfileService`/`ProfileService` (`src/Core/Core.Runtime/ProfileService.cs:14`) store them in `{LocalApplicationData}/.azclips/profiles.json` with a separate `active-profile` pointer file. Writes are **atomic** (temp file + rename) and serialized in-process by a semaphore.
 
-The design (fully documented in `openspec/changes/profile-management/design.md`) makes the profile the _single source of truth_ for connection state — it **replaced** the old `AuthContext`/`context.json`. The commands live in the `Login` extension (`src/Extensions/Login/Processors/`): `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor`.
+The design (fully documented in `openspec/changes/profile-management/design.md`) makes the profile the _single source of truth_ for connection state — it **replaced** the old `AuthContext`/`context.json`. The commands live in the `Login` extension (`src/Extensions/Accounts/Processors/`): `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor`.
 
 Login/profile semantics, which trip up newcomers:
 
@@ -993,7 +993,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 - `src/CLI/Parser/ExtensionDispatcher.cs` — arg parsing / verb resolution (`:44`).
 - `src/Extensions/Extension/` — extension management (`add`/`update`/`pin`…).
 - `src/Extensions/ExtensionRuntime/` — serialization runtime.
-- `src/Extensions/Login/Processors/` — login/logout + profile commands.
+- `src/Extensions/Accounts/Processors/` — login/logout + profile commands.
 
 **AI & TUI**
 

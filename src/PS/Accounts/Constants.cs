@@ -13,5 +13,5 @@ internal static class Constants
     /// <summary>
     /// Name of the extension under the hood.
     /// </summary>
-    public const string ExtensionName = "Login";
+    public const string ExtensionName = "Accounts";
 }

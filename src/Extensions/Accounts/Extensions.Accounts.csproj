@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Microsoft.Azure.Azclips.Extensions.Login</AssemblyName>
+        <AssemblyName>Microsoft.Azure.Azclips.Extensions.Accounts</AssemblyName>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-        <RootNamespace>Microsoft.Azure.Azclips.Extensions.Login</RootNamespace>
-        <ExtName>Microsoft.Azure.Azclips.Extensions.Login</ExtName>
+        <RootNamespace>Microsoft.Azure.Azclips.Extensions.Accounts</RootNamespace>
+        <ExtName>Microsoft.Azure.Azclips.Extensions.Accounts</ExtName>
 
         <Description>Azure authentication extension for Azclips CLI</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
-        <PackageId>Microsoft.Azure.Azclips.Extensions.Login</PackageId>
+        <PackageId>Microsoft.Azure.Azclips.Extensions.Accounts</PackageId>
         <Version>0.1.0</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>

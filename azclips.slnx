@@ -20,7 +20,7 @@
     <Project Path="src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
     <Project Path="src/Extensions/Extension/Extensions.Extension.csproj" />
     <Project Path="src/Extensions/Resources/Extensions.Resources.csproj" />
-    <Project Path="src/Extensions/Login/Extensions.Login.csproj" />
+    <Project Path="src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />

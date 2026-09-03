@@ -32,7 +32,7 @@ Two host surfaces consume the same extensions:
 
 ### 2.1 What an Extension Is
 
-An extension is a .NET class library that implements a set of commands for one Azure service area (e.g., Login, Resources). Every extension must provide:
+An extension is a .NET class library that implements a set of commands for one Azure service area (e.g., Accounts, Resources). Every extension must provide:
 
 - **`ExtensionIndex`** — implements `IExtensionIndex`, returns `ICommandMetadata` for a given command name and client type
 - **Processor classes** — implement `IProcessor` with `Init(context)` and `ProcessAsync()`
@@ -317,10 +317,10 @@ publish/win-x64/
 
 ```
 Azclips/
-  Login/
-    Login.psd1, Login.psm1, exports/*.ps1
+  Accounts/
+    Accounts.psd1, Accounts.psm1, exports/*.ps1
     lib/                            ← Assembled DLLs
-      Core.*.dll, Login.dll, ...
+      Core.*.dll, Accounts.dll, ...
   Resources/
     Resources.psd1, ...
 ```

@@ -74,7 +74,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
         var artifactsDir = ResolveArtifactsDirectory();
 
-        var loginExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Login");
+        var loginExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Accounts");
 
         if (!Directory.Exists(loginExtensionDir))
         {

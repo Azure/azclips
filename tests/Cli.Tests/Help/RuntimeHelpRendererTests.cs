@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 using Core.Cli.Help;
-using Microsoft.Azure.Azclips.Extensions.Login;
+using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Tests.Common.Utilities;
 
 namespace Cli.Tests;
@@ -14,7 +14,7 @@ public class RuntimeHelpRendererTests
     public void RenderGroup_ShouldMatchFixture_ForLoginGroup()
     {
         var renderer = new RuntimeHelpRenderer();
-        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex().GetCommandTable(ClientType.CLI), "Login");
+        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex().GetCommandTable(ClientType.CLI), "login");
         var group = helpProvider.GetGroupHelp(["login"]);
 
         Assert.NotNull(group);

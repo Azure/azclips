@@ -80,8 +80,8 @@ public class ExtensionDispatcherTests
     public void LoginHelpAdapter_ShouldProvideRuntimeCommandHelp()
     {
         var helpProvider = new ExtensionIndexHelpAdapter(
-            new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex().GetCommandTable(ClientType.CLI),
-            "Login");
+            new Microsoft.Azure.Azclips.Extensions.Accounts.ExtensionIndex().GetCommandTable(ClientType.CLI),
+            "login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
         var commandHelp = helpProvider.GetCommandHelp(["login"]);
@@ -168,11 +168,11 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldRouteBuiltInRoot_ByVerb()
     {
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login"]);
 
-        Assert.Equal("Login", invocation.ExtensionName);
+        Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
     }
 
@@ -182,7 +182,7 @@ public class ExtensionDispatcherTests
         // Built-ins contribute only (verb, ""). The dispatcher matches that, then prepends `verb`
         // to whatever ExtensionParser pulls out of the residual — yielding "login logout".
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true, string.Empty));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Accounts", true, string.Empty));
 
         var invocation = dispatcher.Parse(["login", "logout"]);
 
@@ -198,7 +198,7 @@ public class ExtensionDispatcherTests
         {
             Extensions =
             {
-                ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                 {
                     Version = "0.0.0",
                     Verb = "login",
@@ -212,7 +212,7 @@ public class ExtensionDispatcherTests
 
         var invocation = dispatcher.Parse(["login"]);
 
-        Assert.Equal("Login", invocation.ExtensionName);
+        Assert.Equal("Accounts", invocation.ExtensionName);
         Assert.Equal("login", invocation.CommandName);
     }
 
@@ -314,7 +314,7 @@ public class ExtensionDispatcherTests
         {
             Extensions =
             {
-                ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                 {
                     Version = "0.0.0",
                     Contributions = { new Contribution { Verb = "login", Path = "" } },

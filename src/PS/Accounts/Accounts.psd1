@@ -65,7 +65,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
                         '../../../artifacts/Debug/Core/Core.Recording.dll',
                         '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Login/Microsoft.Azure.Azclips.Extensions.Login.dll'
+                        '../../../artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Accounts/Microsoft.Azure.Azclips.Extensions.Accounts.dll'
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
 # ScriptsToProcess = @()

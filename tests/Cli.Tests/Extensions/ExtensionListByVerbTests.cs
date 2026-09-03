@@ -92,11 +92,11 @@ public class ExtensionListByVerbTests
     public void PivotByVerb_ShouldPropagateLocation_FromContributorToRow()
     {
         // Location on the input contributor must land on every emitted row.
-        const string bundledLocation = @"C:\Program Files\azclips\Extensions\Microsoft.Azure.Azclips.Extensions.Login\Microsoft.Azure.Azclips.Extensions.Login.dll";
+        const string bundledLocation = @"C:\Program Files\azclips\Extensions\Microsoft.Azure.Azclips.Extensions.Accounts\Microsoft.Azure.Azclips.Extensions.Accounts.dll";
         const string installedLocation = @"C:\Users\example\.azclips\extensions\Microsoft.Azure.Azclips.Extensions.Compute\1.2.3\Microsoft.Azure.Azclips.Extensions.Compute.dll";
 
         var bundled = new LiveContributor(
-            PackageId: "Microsoft.Azure.Azclips.Extensions.Login",
+            PackageId: "Microsoft.Azure.Azclips.Extensions.Accounts",
             Version: "0.1.0",
             SelectedVersion: "0.1.0",
             Pinned: false,
