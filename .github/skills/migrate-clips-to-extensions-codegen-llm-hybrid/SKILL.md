@@ -165,7 +165,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Encourage user to try test scripts
 
 19. **Final cleanup**
-	- Delete `<output-path>`
+	- Delete everything under `<output-path>` except `<output-path>/finalized-shapes.md` and `<output-path>/finalized-workflows.md`
 	- Delete the output path for external API if any
 
 ## Output
