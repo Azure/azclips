@@ -112,6 +112,8 @@ writes the file in record mode and does nothing in playback.
 
 A scenario can also be a script run by a real shell against the real az binary, one process per
 command, chaining values the way a user would (see `Scripts/vm-create.ps1` and `.sh`). The
+PowerShell module surface works the same way: `Scripts/vm-create-module.ps1` imports the built
+modules and drives the real cmdlets, with the subscription resolving from the active profile. The
 product side is `RecordingHook`: setting `AZCLIPS_TEST_RECORDING` makes az wire the record
 playback interceptor itself, and `AZCLIPS_HOME` points every azclips path (profiles, config,
 auth context) at an isolated directory so runs never touch the developer's real state.

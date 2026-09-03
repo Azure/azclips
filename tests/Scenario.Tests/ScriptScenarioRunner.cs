@@ -44,6 +44,8 @@ internal static class ScriptScenarioRunner
             var psi = new ProcessStartInfo
             {
                 FileName = shell,
+                // scripts import PS modules by repo-relative paths
+                WorkingDirectory = repoRoot,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

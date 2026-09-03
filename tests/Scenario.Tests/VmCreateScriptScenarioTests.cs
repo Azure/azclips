@@ -32,4 +32,14 @@ public class VmCreateScriptScenarioTests
         Assert.Contains("created scenario-vm in scenario-vm-rg: Succeeded", result.StdOut);
         Assert.Equal(result.EntriesTotal, result.EntriesConsumed);
     }
+
+    [Fact]
+    public void ModuleScript_ReplaysTheWholeRecording()
+    {
+        var result = ScriptScenarioRunner.RunPlayback("vm-create-module.ps1", RecordingPath);
+
+        Assert.True(result.ExitCode == 0, $"exit {result.ExitCode}\n{result.StdOut}\n{result.StdErr}");
+        Assert.Contains("created scenario-vm in scenario-vm-rg: Succeeded", result.StdOut);
+        Assert.Equal(result.EntriesTotal, result.EntriesConsumed);
+    }
 }
