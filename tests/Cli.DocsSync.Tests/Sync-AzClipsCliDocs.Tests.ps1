@@ -403,3 +403,30 @@ Describe 'Write-SyncManifest' {
         }
     }
 }
+
+Describe 'Remove-ServicePageOutput' {
+    BeforeEach {
+        $script:VersionFolder = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-clisync-sp-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path (Join-Path $script:VersionFolder 'latest/service-page') -Force | Out-Null
+        Set-Content -Path (Join-Path $script:VersionFolder 'latest/service-page/azure-cli.yml') -Value 'x'
+        Set-Content -Path (Join-Path $script:VersionFolder 'latest/vm.yml') -Value 'y'
+    }
+
+    AfterEach {
+        if (Test-Path $script:VersionFolder) { Remove-Item $script:VersionFolder -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'removes the service-page directory but leaves peer files intact' {
+        Remove-ServicePageOutput -OutputVersionFolder $script:VersionFolder
+
+        Test-Path (Join-Path $script:VersionFolder 'latest/service-page') | Should -BeFalse
+        Test-Path (Join-Path $script:VersionFolder 'latest/vm.yml')       | Should -BeTrue
+    }
+
+    It 'is a no-op when the service-page directory does not exist' {
+        Remove-Item (Join-Path $script:VersionFolder 'latest/service-page') -Recurse -Force
+
+        { Remove-ServicePageOutput -OutputVersionFolder $script:VersionFolder } | Should -Not -Throw
+        Test-Path (Join-Path $script:VersionFolder 'latest/vm.yml') | Should -BeTrue
+    }
+}

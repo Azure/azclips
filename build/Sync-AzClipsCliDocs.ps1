@@ -14,6 +14,10 @@
 #   -CommitAuthor <name>  inline user.name for the commit (does not persist to target repo config)
 #   -CommitEmail <email>  inline user.email — same
 #   -OutputManifest <p>   write a machine-readable JSON summary of the run to <p>
+#   -SkipServicePages     drop service-page/**/*.yml from CLI2Yaml output before applying to the
+#                         target. Defaults to $true because our current service_name.json produces
+#                         a single broken page with unresolvable xrefs (tracked as follow-up to
+#                         Azure/CLIPS#588). Pass `-SkipServicePages:$false` once upstream is fixed.
 #
 # Preflight: requires CLI2Yaml NuGet package to be resolvable — either already in the local
 # NuGet cache under ~/.nuget/packages/cli2yaml/ or fetchable from the internal apidrop feed
@@ -35,6 +39,7 @@ param(
     [string]$CommitAuthor,
     [string]$CommitEmail,
     [string]$OutputManifest,
+    [bool]$SkipServicePages = $true,
     [switch]$Force,
     [switch]$Push
 )
@@ -298,6 +303,24 @@ function Invoke-Cli2Yaml
     }
 
     $output | Select-Object -Last 1 | ForEach-Object { Write-Host "  → $_" }
+}
+
+# Strips the CLI2Yaml-emitted service-page/ subdirectory from OutputVersionFolder/latest/.
+# See Azure/CLIPS#588 follow-up for the upstream fix that makes this obsolete.
+function Remove-ServicePageOutput
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$OutputVersionFolder
+    )
+
+    $servicePageDir = Join-Path (Join-Path $OutputVersionFolder 'latest') 'service-page'
+    if (Test-Path $servicePageDir)
+    {
+        $count = @(Get-ChildItem $servicePageDir -Recurse -File).Count
+        Remove-Item -Recurse -Force $servicePageDir
+        Write-Host "  → Removed service-page/ ($count file(s)) — SkipServicePages is on" -ForegroundColor DarkGray
+    }
 }
 
 # ── Target-repo helpers ─────────────────────────────────────────────────────────
@@ -637,6 +660,8 @@ if ($Force)
         -SourceRepoUrl $effectiveSourceRepoUrl `
         -SourceBranch $effectiveSourceBranch
 
+    if ($SkipServicePages) { Remove-ServicePageOutput -OutputVersionFolder $targetVersionFolder }
+
     $effectiveTimestamp = if ($Timestamp) { $Timestamp } else { [DateTime]::UtcNow.ToString('yyyyMMddHHmm') }
     Write-Host ''
     Write-Host "Applying CLI docs to $effectiveTargetRepoPath ..." -ForegroundColor Cyan
@@ -690,6 +715,8 @@ Invoke-Cli2Yaml `
     -ServiceMapping $serviceMapping `
     -SourceRepoUrl $effectiveSourceRepoUrl `
     -SourceBranch $effectiveSourceBranch
+
+if ($SkipServicePages) { Remove-ServicePageOutput -OutputVersionFolder $scratchOutput }
 
 Write-DryRunReport -ScratchOutput $scratchOutput -Moniker $effectiveMoniker -VersionFolder $effectiveVersionFolder -SourceRepoUrl $effectiveSourceRepoUrl -SourceBranch $effectiveSourceBranch
 
