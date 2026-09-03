@@ -221,3 +221,15 @@ jobs:
       targetPath: ${{ parameters.PackagingDockerOutRoot }}/images
       artifact: $(DockerArtifact)
       publishLocation: pipeline
+
+- job: BuildDockerImages
+  displayName: Docker Image Build Summary
+  dependsOn:
+  - BuildDockerImagesAmd64
+  - BuildDockerImagesArm64
+  condition: succeeded()
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - script: echo "Docker image builds completed successfully."
+    displayName: Confirm Docker Image Builds
