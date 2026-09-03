@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788307017183,
+  "lastUpdate": 1788397526253,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -6092,6 +6092,48 @@ window.BENCHMARK_DATA = {
             "value": 1529436.6765844712,
             "unit": "ns",
             "range": "± 24704.932633899716"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aryasadeghi@microsoft.com",
+            "name": "aryasadeghi1",
+            "username": "aryasadeghi1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3991c8f38ae33084a243d292c2473d1139f5008f",
+          "message": "{Tests} Run scenario scripts through the real client binary (#784)\n\nScenario tests now exercise the real az binary instead of an in-process host, following the review feedback on the scenario tier (CLIPS task #734). A test case is a script run by a real shell, one process per command, chaining values the way a user would.\n\nThe product side is small: the recording primitives move from Tests.Common into Core.Recording, and the two client composition roots call RecordingHook.TryRegister()\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-03T10:49:26+10:00",
+          "tree_id": "a66a6b7ec1131bfbc6fadbfe2a6ccb8f5ca156ff",
+          "url": "https://github.com/Azure/azclips/commit/3991c8f38ae33084a243d292c2473d1139f5008f"
+        },
+        "date": 1788397523212,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 1564435.2095469255,
+            "unit": "ns",
+            "range": "± 37579.21649487093"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 4427448.378632829,
+            "unit": "ns",
+            "range": "± 60054.170966332866"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 1523844.5525943872,
+            "unit": "ns",
+            "range": "± 34167.98988457075"
           }
         ]
       }
