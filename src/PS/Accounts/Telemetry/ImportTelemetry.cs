@@ -5,7 +5,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Telemetry;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
+namespace Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 
 /// <summary>
 /// Emits the module import trace.

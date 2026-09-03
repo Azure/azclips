@@ -11,7 +11,7 @@ using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
+namespace Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 
 public class PSTelemetryProvider : DefaultTelemetryProvider
 {

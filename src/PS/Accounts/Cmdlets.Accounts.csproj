@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Login</AssemblyName>
-        <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Login</RootNamespace>
-        <Description>PowerShell binary cmdlets for Azclips Login module</Description>
+        <AssemblyName>Microsoft.Azure.Azclips.Cmdlets.Accounts</AssemblyName>
+        <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Accounts</RootNamespace>
+        <Description>PowerShell binary cmdlets for Azclips Accounts module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 

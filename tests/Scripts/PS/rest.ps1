@@ -6,7 +6,7 @@
 #
 # Prereq: import Login + Resources modules, then Connect-AzAccount.
 
-Import-Module ../../../src/PS/Login/Login.psd1
+Import-Module ../../../src/PS/Accounts/Accounts.psd1
 Import-Module ../../../src/PS/Resources/Resources.psd1
 
 # Happy path: relative ARM path. {subscriptionId} is substituted from the auth context,

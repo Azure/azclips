@@ -2,7 +2,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 /// <summary>Sets the active profile persistently (no re-authentication).</summary>
 [Cmdlet(VerbsCommon.Set, CommandNoun)]

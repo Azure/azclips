@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 using System;
 using System.Collections;

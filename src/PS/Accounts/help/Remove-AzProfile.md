@@ -1,42 +1,42 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Login
 ms.date: 09/01/2026
 PlatyPS schema version: 2024-05-01
-title: Disconnect-AzAccount
+title: Remove-AzProfile
 ---
 
-# Disconnect-AzAccount
+# Remove-AzProfile
 
 ## SYNOPSIS
 
-Sign out from the current Azure account context.
+Removes a saved profile by name.
 
 ## SYNTAX
 
 ### __AllParameterSets
 
 ```
-Disconnect-AzAccount [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzProfile [-Name] <string> [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
 ## DESCRIPTION
 
-Sign out from the current Azure account context.
+Removes the saved profile with the specified name. If the removed profile was the active profile, the active pointer is cleared.
 
 ## EXAMPLES
 
-### Sign out of the current account
+### Example 1
 
-Clears the persisted Azure account context. Subsequent Azclips cmdlets will require a fresh `Connect-AzAccount` before they can authenticate.
+Removes the profile named "prod".
 
 ```powershell
-Disconnect-AzAccount
+Remove-AzProfile -Name prod
 ```
 
 ## PARAMETERS
@@ -63,12 +63,29 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Name
+
+The name of the saved profile to remove.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: 0
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -WhatIf
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
-Runs the command in a mode that only reports what would happen without performing the actions.
-Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
@@ -106,9 +123,5 @@ This cmdlet does not emit an object on the pipeline; it only writes progress and
 
 ## NOTES
 
-Generated help for login.
-
 ## RELATED LINKS
 
-
-- [Online Version]()

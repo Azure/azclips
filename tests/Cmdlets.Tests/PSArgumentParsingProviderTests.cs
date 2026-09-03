@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
-using Microsoft.Azure.Azclips.Cmdlets.Login;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 namespace Cmdlets.Tests;
 

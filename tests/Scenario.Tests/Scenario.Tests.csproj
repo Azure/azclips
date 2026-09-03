@@ -14,7 +14,7 @@
     <!-- The PowerShell surface's argument-parsing provider lives in the Login cmdlet module
          (registered by its ModuleInitializer). Referencing it lets the scenario host bind
          parameters exactly the way an imported module does. -->
-    <ProjectReference Include="../../src/PS/Login/Cmdlets.Login.csproj" />
+    <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 

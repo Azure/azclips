@@ -6,10 +6,10 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Core.Telemetry;
-using Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {

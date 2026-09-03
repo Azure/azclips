@@ -19,7 +19,7 @@
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Login\Login.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
 Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\MsGraph\MsGraph.psd1') -Force
 
 # Defaults match the shared test tenant (azclitools20260430.onmicrosoft.com).

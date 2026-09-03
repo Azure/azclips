@@ -7,8 +7,8 @@ param(
 
     [string]$PwshPath = 'pwsh',
 
-    [ValidateSet('Login', 'Config', 'Resources', 'Compute', 'MsGraph')]
-    [string[]]$Module = @('Login', 'Config', 'Resources', 'Compute', 'MsGraph')
+    [ValidateSet('Accounts', 'Config', 'Resources', 'Compute', 'MsGraph')]
+    [string[]]$Module = @('Accounts', 'Config', 'Resources', 'Compute', 'MsGraph')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -107,15 +107,15 @@ foreach ($moduleName in $Module)
     # real import path in an isolated pwsh process because binary modules and their
     # dependencies are not reliably unloadable within a long-running PowerShell session.
     $expectedJson = $declaredCmdlets | ConvertTo-Json -Compress
-    $loginManifestPath = Join-Path $modulesRoot 'Login/Login.psd1'
+    $accountsManifestPath = Join-Path $modulesRoot 'Accounts/Accounts.psd1'
     & $PwshPath -NoProfile -Command {
-        param($ManifestPath, $ModuleName, $ExpectedJson, $LoginManifestPath)
+        param($ManifestPath, $ModuleName, $ExpectedJson, $AccountsManifestPath)
         $ErrorActionPreference = 'Stop'
 
         $expectedCmdlets = @($ExpectedJson | ConvertFrom-Json)
-        if ($ModuleName -ne 'Login')
+        if ($ModuleName -ne 'Accounts')
         {
-            Import-Module -Name $LoginManifestPath -Force -Verbose -ErrorAction Stop
+            Import-Module -Name $AccountsManifestPath -Force -Verbose -ErrorAction Stop
         }
 
         $loadedModule = Import-Module -Name $ManifestPath -Force -PassThru -Verbose -ErrorAction Stop
@@ -128,7 +128,7 @@ foreach ($moduleName in $Module)
                 throw "Module '$ModuleName' did not export declared cmdlet '$declaredCmdlet'. Exported: $($exportedCmdlets -join ', ')"
             }
         }
-    } -Args $manifestPath, $moduleName, $expectedJson, $loginManifestPath
+    } -Args $manifestPath, $moduleName, $expectedJson, $accountsManifestPath
 
     if ($LASTEXITCODE -ne 0)
     {

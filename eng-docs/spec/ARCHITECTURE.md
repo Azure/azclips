@@ -914,7 +914,7 @@ PowerShell modules are available in `src/PS/` and can be used directly:
 
 ```powershell
 # Import modules from source
-Import-Module ./src/PS/Login/Login.psd1
+Import-Module ./src/PS/Accounts/Accounts.psd1
 Import-Module ./src/PS/Resources/Resources.psd1
 
 # Use cmdlets and functions

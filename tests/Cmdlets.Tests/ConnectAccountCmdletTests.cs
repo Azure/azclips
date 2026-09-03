@@ -6,7 +6,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Runtime;
-using Microsoft.Azure.Azclips.Cmdlets.Login;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Login;
 using Microsoft.Azure.Azclips.Extensions.Login.Processors;
 

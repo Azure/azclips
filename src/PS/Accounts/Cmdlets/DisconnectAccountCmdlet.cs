@@ -6,7 +6,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 [Cmdlet(VerbsCommunications.Disconnect, CommandNoun, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(void))]

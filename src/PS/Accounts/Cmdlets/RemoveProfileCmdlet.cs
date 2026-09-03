@@ -1,42 +1,28 @@
-using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
-/// <summary>
-/// Lists all profiles, shows a single profile when <c>-Name</c> is supplied, or shows the active
-/// profile when <c>-Active</c> is supplied.
-/// </summary>
-[Cmdlet(VerbsCommon.Get, CommandNoun, DefaultParameterSetName = "List")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileSummary")]
-public class GetProfileCmdlet : PSCmdlet
+/// <summary>Removes a profile. If the removed profile was active, the active pointer is cleared.</summary>
+[Cmdlet(VerbsCommon.Remove, CommandNoun, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[OutputType(typeof(void))]
+public class RemoveProfileCmdlet : PSCmdlet
 {
     private const string CommandNoun = Constants.CommandPrefix + "Profile";
-    private const string CommandName = VerbsCommon.Get + "-" + CommandNoun;
+    private const string CommandName = VerbsCommon.Remove + "-" + CommandNoun;
 
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(ParameterSetName = "Show", Mandatory = true, Position = 0)]
-    public string? Name { get; set; }
-
-    [Parameter(ParameterSetName = "ShowActive", Mandatory = true)]
-    public SwitchParameter Active { get; set; }
+    [Parameter(Mandatory = true, Position = 0)]
+    public string Name { get; set; } = "";
 
     protected override void BeginProcessing()
     {
         streams = new OutputStreams(
-            WriteOutput: (value, ct) =>
-            {
-                if (value is IEnumerable and not string)
-                    WriteObject(value, true);
-                else
-                    WriteObject(value);
-                return Task.CompletedTask;
-            },
+            WriteOutput: (value, ct) => { WriteObject(value); return Task.CompletedTask; },
             WriteVerbose: (value, ct) => { WriteVerbose(value?.ToString() ?? ""); return Task.CompletedTask; },
             WriteDebug: (value, ct) => { WriteDebug(value?.ToString() ?? ""); return Task.CompletedTask; },
             WriteWarning: (value, ct) => { WriteWarning(value?.ToString() ?? ""); return Task.CompletedTask; },
@@ -59,25 +45,18 @@ public class GetProfileCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
+        if (!ShouldProcess(Name, "Remove profile"))
+        {
+            return;
+        }
+
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
 
-        var parameters = new Dictionary<string, object>();
-        var commandName = $"{CommandName}_List";
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)))
-        {
-            parameters.Add("Name", Name!);
-            commandName = $"{CommandName}_Show";
-        }
-        else if (Active.IsPresent)
-        {
-            parameters.Add("Active", true);
-            commandName = $"{CommandName}_Show";
-        }
-
+        var parameters = new Dictionary<string, object> { ["Name"] = Name };
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation(Constants.ExtensionName, commandName, parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation(Constants.ExtensionName, CommandName, parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

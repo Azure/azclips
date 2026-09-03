@@ -60,7 +60,7 @@
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
-    <Project Path="src/PS/Login/Cmdlets.Login.csproj" />
+    <Project Path="src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
     <Project Path="src/PS/MsGraph/Cmdlets.MsGraph.csproj" />
   </Folder>

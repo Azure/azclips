@@ -1,6 +1,6 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Login

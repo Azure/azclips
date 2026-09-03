@@ -302,7 +302,7 @@ Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build co
 
 `Get-Help <Cmdlet>` reads MAML XML from `<ModuleBase>/<culture>/<dll>-Help.xml`. The build:
 
-1. Runs `Import-MarkdownCommandHelp` over `src/PS/<Module>/help/*.md` and pipes through `Export-MamlCommandHelp` to write MAML XML. The produced `<Module>-Help.xml` is then renamed to whatever the per-cmdlet `external help file:` frontmatter declares (e.g. `Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml`) and copied into both `src/PS/<Module>/en-US/` (gitignored local build output) and `artifacts/Debug/PS/<Module>/en-US/` (next to the staged `.psd1`).
+1. Runs `Import-MarkdownCommandHelp` over `src/PS/<Module>/help/*.md` and pipes through `Export-MamlCommandHelp` to write MAML XML. The produced `<Module>-Help.xml` is then renamed to whatever the per-cmdlet `external help file:` frontmatter declares (e.g. `Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml`) and copied into both `src/PS/<Module>/en-US/` (gitignored local build output) and `artifacts/Debug/PS/<Module>/en-US/` (next to the staged `.psd1`).
 2. Copies that XML to `artifacts/<Config>/PS/<Module>/en-US/` so `Import-Module artifacts/<Config>/PS/<Module>/<Module>.psd1` resolves help next to the manifest.
 
 ## Build Process

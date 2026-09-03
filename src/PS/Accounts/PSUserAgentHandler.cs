@@ -4,7 +4,7 @@
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
-namespace Microsoft.Azure.Azclips.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 /// <summary>
 /// PowerShell-specific User-Agent handler that stamps
