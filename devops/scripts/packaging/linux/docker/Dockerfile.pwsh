@@ -26,7 +26,8 @@ COPY InstallModule.ps1 /opt/azclips/local-repo/InstallModule.ps1
 RUN pwsh -NoLogo -NoProfile -File /opt/azclips/local-repo/InstallModule.ps1 \
     -RepositoryName LocalAzclips \
     -ModuleName Az \
-    -Scope AllUsers
+    -Scope AllUsers \
+    && rm -rf /opt/azclips/local-repo
 
 RUN pwsh -NoLogo -NoProfile -Command "Unregister-PSRepository -Name LocalAzclips -ErrorAction SilentlyContinue"
 

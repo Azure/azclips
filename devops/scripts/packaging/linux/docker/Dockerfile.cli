@@ -5,7 +5,7 @@ ARG AZCLIPS_UID=10001
 ARG AZCLIPS_GID=10001
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates tzdata \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system --gid "${AZCLIPS_GID}" azclips \
