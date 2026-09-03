@@ -1,35 +1,30 @@
-ARG BASE_IMAGE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
-FROM ${BASE_IMAGE}
+ARG POWERSHELL_BUILDER_IMAGE=mcr.microsoft.com/dotnet/sdk:10.0-noble
+ARG BASE_IMAGE=mcr.microsoft.com/dotnet/runtime:10.0-noble
 
-ARG AZCLIPS_UID=10001
-ARG AZCLIPS_GID=10001
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl gpg \
-    && install -d -m 0755 /etc/apt/keyrings \
-    && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc -o /tmp/microsoft.asc \
-    && gpg --show-keys --with-colons /tmp/microsoft.asc | awk -F: '$1 == "fpr" { print $10 }' | grep -Fxq 'BC528686B50D79E339D3721CEB3E94ADBE1229CF' \
-    && gpg --dearmor --yes -o /etc/apt/keyrings/microsoft.gpg /tmp/microsoft.asc \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main" > /etc/apt/sources.list.d/microsoft-prod.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends powershell \
-    && apt-get purge -y --auto-remove curl gpg \
-    && rm -f /tmp/microsoft.asc \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --system --gid "${AZCLIPS_GID}" azclips \
-    && useradd --system --uid "${AZCLIPS_UID}" --gid azclips \
-        --create-home --shell /usr/sbin/nologin azclips
+FROM ${POWERSHELL_BUILDER_IMAGE} AS builder
 
 COPY local-repo/ /opt/azclips/local-repo/
 COPY InstallModule.ps1 /opt/azclips/local-repo/InstallModule.ps1
 
 RUN pwsh -NoLogo -NoProfile -File /opt/azclips/local-repo/InstallModule.ps1 \
-    -RepositoryName LocalAzclips \
-    -ModuleName Az \
-    -Scope AllUsers \
+        -RepositoryName LocalAzclips \
+        -ModuleName Az \
+        -Scope AllUsers \
+    && pwsh -NoLogo -NoProfile -Command "Unregister-PSRepository -Name LocalAzclips -ErrorAction SilentlyContinue" \
     && rm -rf /opt/azclips/local-repo
 
-RUN pwsh -NoLogo -NoProfile -Command "Unregister-PSRepository -Name LocalAzclips -ErrorAction SilentlyContinue"
+FROM ${BASE_IMAGE}
+
+ARG AZCLIPS_UID=10001
+ARG AZCLIPS_GID=10001
+
+COPY --from=builder /usr/share/powershell/ /usr/share/powershell/
+COPY --from=builder /usr/local/share/powershell/ /usr/local/share/powershell/
+
+RUN ln -s /usr/share/powershell/pwsh /usr/bin/pwsh \
+    && groupadd --system --gid "${AZCLIPS_GID}" azclips \
+    && useradd --system --uid "${AZCLIPS_UID}" --gid azclips \
+        --create-home --shell /usr/sbin/nologin azclips
 
 USER azclips
 WORKDIR /home/azclips

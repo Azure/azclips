@@ -19,7 +19,7 @@ parameters:
   default: 'mcr.microsoft.com/dotnet/runtime-deps:10.0-noble'
 - name: pwsh_base_image
   type: string
-  default: 'mcr.microsoft.com/dotnet/runtime-deps:10.0-noble'
+  default: 'mcr.microsoft.com/dotnet/runtime:10.0-noble'
 
 jobs:
 - job: BuildDockerImagesAmd64
