@@ -17,6 +17,7 @@ import type { IREnum, IREnumMember } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
+import { accessFrom, usageFrom } from "./annotations.js";
 import { idFor } from "./types.js";
 
 function valueTypeOf(e: SdkEnumType): "string" | "number" {
@@ -28,14 +29,6 @@ function valueTypeOf(e: SdkEnumType): "string" | "number" {
 }
 
 export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined {
-  if (e.access === "internal") {
-    if (!ctx.flags.internalAccessWarned) {
-      reportDiagnostic(ctx.program, { code: "internal-access-skipped", target: NoTarget });
-      ctx.flags.internalAccessWarned = true;
-    }
-    return undefined;
-  }
-
   if (!e.isFixed && !ctx.flags.openEnumWarned) {
     reportDiagnostic(ctx.program, {
       code: "open-enum-as-closed",
@@ -50,12 +43,15 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
     name: v.name,
     value: v.value,
     ...(v.doc !== undefined ? { docs: v.doc } : {}),
+    ...(v.summary !== undefined ? { summary: v.summary } : {}),
   }));
   if (members.length === 0) {
     // IR requires min(1). Skip silently; an empty enum is a meaningless
     // surface and almost certainly a TCGC quirk we can't help.
     return undefined;
   }
+  const usage = usageFrom(e.usage);
+  const access = accessFrom(e.access);
   return {
     id,
     name: id.name,
@@ -65,6 +61,9 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
     // (carried on id.module), not the spec's source id. See IREnum.source.
     source: id.module,
     ...(e.doc !== undefined ? { docs: e.doc } : {}),
+    ...(e.summary !== undefined ? { summary: e.summary } : {}),
+    ...(usage !== undefined ? { usage } : {}),
+    ...(access !== undefined ? { access } : {}),
   };
 }
 

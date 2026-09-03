@@ -9,3 +9,6 @@ coverage/
 .vscode/
 .idea/
 *.tsbuildinfo
+
+# Generator host staged next to the CLI by build.ps1 (published .NET output).
+packages/cli/generator-host/

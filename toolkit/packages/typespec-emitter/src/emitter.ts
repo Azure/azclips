@@ -16,7 +16,6 @@
 
 import type { EmitContext } from "@typespec/compiler";
 import { NoTarget } from "@typespec/compiler";
-import { getAuthentication } from "@typespec/http";
 import {
   createSdkContext,
   listAllServiceNamespaces,
@@ -75,16 +74,6 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
     sourceId: options.sourceId ?? fqn,
     diagnosticsAsErrors: options.diagnosticsAsErrors,
   });
-
-  // Auth is an explicit IR deferral: the IR has no IRAuth node yet. If the
-  // service declares @useAuth, drop the metadata but tell the user once.
-  if (getAuthentication(context.program, serviceNs) !== undefined && !buildCtx.flags.authNotEmittedWarned) {
-    buildCtx.flags.authNotEmittedWarned = true;
-    reportDiagnostic(context.program, {
-      code: "auth-not-emitted",
-      target: NoTarget,
-    });
-  }
 
   const { source, apiVersion, server } = buildSource(buildCtx, serviceNs);
 
