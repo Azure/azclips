@@ -31,6 +31,17 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   IR_SCHEMA_VERSION,
   IRSchema,
+  // PowerShell surface, reachable from the root through `IR.ps`.
+  PSSchema,
+  PSCommandAttributeSchema,
+  PSParameterSetAttributeSchema,
+  PSParameterAttributeSchema,
+  PSParameterSetOverrideSchema,
+  PSModuleAttributeSchema,
+  PSIdentityAttributeSchema,
+  PSIdentityPropertyAttributeSchema,
+  PSCompleterAttributeSchema,
+  PSDefaultValueAttributeSchema,
   // Named nodes registered as shared `$defs` so generated C# gets stable,
   // meaningful type names (IRId, IRModel, ...) instead of anonymous ones.
   // Registering the structurally-recursive types (IRId, IRTypeRef, IRServer)
@@ -155,6 +166,17 @@ const definitions = {
   ParameterHints: ParameterHintsSchema,
   OperationHints: OperationHintsSchema,
   RequestBodyHints: RequestBodyHintsSchema,
+  // PowerShell surface (`IR.ps`).
+  PS: PSSchema,
+  PSCommandAttribute: PSCommandAttributeSchema,
+  PSParameterSetAttribute: PSParameterSetAttributeSchema,
+  PSParameterAttribute: PSParameterAttributeSchema,
+  PSParameterSetOverride: PSParameterSetOverrideSchema,
+  PSModuleAttribute: PSModuleAttributeSchema,
+  PSIdentityAttribute: PSIdentityAttributeSchema,
+  PSIdentityPropertyAttribute: PSIdentityPropertyAttributeSchema,
+  PSCompleterAttribute: PSCompleterAttributeSchema,
+  PSDefaultValueAttribute: PSDefaultValueAttributeSchema,
 };
 
 const jsonSchema = zodToJsonSchema(IRSchema, {
