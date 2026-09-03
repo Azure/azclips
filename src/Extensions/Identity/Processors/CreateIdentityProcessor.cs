@@ -1,16 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Identity.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
 {
-    public class CreateIdentityProcessor : IdentityProcessorBase<UserAssignedIdentity>
+    public class CreateIdentityProcessor : IdentityProcessorBase<UserAssignedIdentity, UserAssignedIdentity>
     {
         [ArgumentInfo(
         Required = true,
@@ -32,9 +28,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
 
         [ArgumentInfo(
         Required = false,
-        Description = @"Resource tags. Format: key1=value1 key2=value2",
+        Description = @"Resource tags.",
         SerializedName = @"Tags")]
-        public string[]? Tags { get; set; }
+        public Dictionary<string, string>? Tags { get; set; }
 
         [ArgumentInfo(
         Required = false,
@@ -44,52 +40,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Processors
 
         [ArgumentInfo(
         Required = false,
-        Description = @"Restrictions on which resource providers this identity can be assigned to.",
+        Description = @"List of resource provider types that this identity can be assigned to.",
         SerializedName = @"ResourceRestriction")]
-        public string[]? ResourceRestriction { get; set; }
+        public List<string> ResourceRestrictionProviders { get; set; } = [];
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            if (string.IsNullOrWhiteSpace(ResourceGroup))
-                throw new InvalidOperationException("--resource-group is required.");
-            if (string.IsNullOrWhiteSpace(ResourceName))
-                throw new InvalidOperationException("--name or --resource-name is required.");
-            if (string.IsNullOrWhiteSpace(Location))
-                throw new InvalidOperationException("Location is required. Specify --location, or ensure the resource group exists so its location can be resolved automatically.");
+        protected override HttpMethod Method => HttpMethod.Put;
 
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+        protected override string CreateRequestUri() =>
+            $"{ManagementEndpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroup)}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{Uri.EscapeDataString(ResourceName)}?api-version={IdentityApiVersion}";
 
-            string uri = BuildIdentityUri(ResourceGroup, ResourceName);
-
-            var properties = new JsonObject();
-            JsonObject? restriction = ParseAssignmentRestrictions(ResourceRestriction);
-            if (restriction is not null)
+        protected override UserAssignedIdentity CreateRequestBody() =>
+            new()
             {
-                properties["assignmentRestrictions"] = restriction;
-            }
-            if (!string.IsNullOrWhiteSpace(IsolationScope))
-            {
-                properties["isolationScope"] = IsolationScope;
-            }
-
-            HttpRequestMessage request = new(HttpMethod.Put, uri)
-            {
-                Content = JsonContent.Create(new UserAssignedIdentity
+                Location = Location,
+                Tags = Tags,
+                Properties = ResourceRestrictionProviders.Count == 0 && string.IsNullOrWhiteSpace(IsolationScope) ? null
+                : new UserAssignedIdentityProperties
                 {
-                    Location = Location,
-                    Tags = ParseTags(Tags),
-                    Properties = properties.Count == 0
-                        ? null
-                        : new UserAssignedIdentityProperties
-                        {
-                            AssignmentRestrictions = restriction?.Deserialize<AssignmentRestrictions>(JsonOptions),
-                            IsolationScope = IsolationScope
-                        }
-                }, options: JsonOptions)
+                    AssignmentRestrictions = ResourceRestrictionProviders.Count == 0 ? null : new AssignmentRestrictions { Providers = ResourceRestrictionProviders },
+                    IsolationScope = IsolationScope
+                }
             };
-
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
     }
 }
