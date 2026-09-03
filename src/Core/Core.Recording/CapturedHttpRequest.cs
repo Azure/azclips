@@ -1,7 +1,7 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
-namespace Tests.Common.Recording;
+namespace Core.Recording;
 
 /// <summary>
 /// Immutable snapshot of an HTTP request as it left the runtime pipeline, taken at the

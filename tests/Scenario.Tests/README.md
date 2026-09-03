@@ -83,7 +83,7 @@ should learn it too.
 ## Authoring a scenario
 
 ```csharp
-var recording = RecordingSession.Open(typeof(MyScenarioTests), nameof(MyTest));
+var recording = SessionRecordFiles.OpenSession(typeof(MyScenarioTests), nameof(MyTest));
 
 if (recording.Mode == RecorderMode.Record)
 {
@@ -107,3 +107,16 @@ using (var ps = new ScenarioHost(ClientType.PowerShell, recording.CreateIntercep
 `RecordingSession` resolves the mode, loads or creates the recording at the canonical path, and
 hands out a fresh interceptor per surface (each replays the whole recording independently). `Save`
 writes the file in record mode and does nothing in playback.
+
+## Script scenarios
+
+A scenario can also be a script run by a real shell against the real az binary, one process per
+command, chaining values the way a user would (see `Scripts/vm-create.ps1` and `.sh`). The
+product side is `RecordingHook`: setting `AZCLIPS_TEST_RECORDING` makes az wire the record
+playback interceptor itself, and `AZCLIPS_HOME` points every azclips path (profiles, config,
+auth context) at an isolated directory so runs never touch the developer's real state.
+
+`ScriptScenarioRunner` handles the environment layer for a test: temp home, seeded placeholder
+profile, a private copy of the recording (playback consumption is tracked in a ledger file next
+to it, so it survives across the script's processes), spawn pwsh or bash, capture stdout and the
+exit code. Assert on those, plus full ledger consumption to prove the whole recording replayed.

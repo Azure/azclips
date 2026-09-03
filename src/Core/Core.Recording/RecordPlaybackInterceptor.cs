@@ -1,12 +1,12 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
 using System.Net;
 using System.Text;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
-namespace Tests.Common.Recording;
+namespace Core.Recording;
 
 public enum RecorderMode
 {
@@ -31,12 +31,18 @@ public sealed class RecordPlaybackInterceptor(
     RecorderMode mode,
     SessionRecord sessionRecord,
     IRequestMatcher? matcher = null,
-    RecordingSanitizers? sanitizers = null) : ITracingInterceptor
+    RecordingSanitizers? sanitizers = null,
+    IEnumerable<int>? alreadyConsumed = null,
+    Action<int>? onConsumed = null,
+    Action<SessionRecordEntry>? onRecorded = null) : ITracingInterceptor
 {
     private readonly IRequestMatcher _matcher = matcher ?? new DefaultRequestMatcher();
     private readonly RecordingSanitizers _sanitizers = sanitizers ?? RecordingSanitizers.Default;
     private readonly List<CapturedHttpRequest> _sent = [];
-    private readonly HashSet<int> _consumed = [];
+
+    // Scripted scenarios run one process per command; the seed and callbacks let consumption
+    // and captured entries persist across those processes (see RecordingHook).
+    private readonly HashSet<int> _consumed = [.. alreadyConsumed ?? []];
 
     // Orchestrators fan out requests concurrently (e.g. vm create fires vnet + nsg in parallel),
     // so every touch of the shared lists goes through this gate.
@@ -122,6 +128,7 @@ public sealed class RecordPlaybackInterceptor(
         lock (_gate)
         {
             SessionRecord.Entries.Add(entry);
+            onRecorded?.Invoke(entry);
         }
 
         return response;
@@ -148,6 +155,7 @@ public sealed class RecordPlaybackInterceptor(
                 if (!_consumed.Contains(i) && _matcher.Matches(entry.Request, snapshot))
                 {
                     _consumed.Add(i);
+                    onConsumed?.Invoke(i);
                     return ToResponse(entry.Response);
                 }
             }
