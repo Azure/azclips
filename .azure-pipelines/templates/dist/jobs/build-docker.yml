@@ -2,9 +2,6 @@ parameters:
 - name: ubuntu_pool
   type: string
   default: 'ubuntu-latest'
-- name: arm64_pool
-  type: string
-  default: 'ubuntu-24.04-arm64'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingLinuxOutRoot
@@ -144,7 +141,9 @@ jobs:
         DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
         DockerArtifact: Docker_Pwsh_Noble_Arm64
   pool:
-    vmImage: ${{ parameters.arm64_pool }}
+    type: docker
+    os: linux
+    hostArchitecture: arm64
   steps:
   - checkout: self
     clean: true
