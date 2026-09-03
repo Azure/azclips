@@ -20,6 +20,7 @@ ARG AZCLIPS_GID=10001
 
 COPY --from=builder /usr/share/powershell/ /usr/share/powershell/
 COPY --from=builder /usr/local/share/powershell/ /usr/local/share/powershell/
+COPY LICENSE NOTICE /usr/share/doc/azclips/
 
 RUN ln -s /usr/share/powershell/pwsh /usr/bin/pwsh \
     && groupadd --system --gid "${AZCLIPS_GID}" azclips \

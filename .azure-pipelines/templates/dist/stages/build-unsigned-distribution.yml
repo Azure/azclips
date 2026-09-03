@@ -178,6 +178,19 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
+- stage: ValidateDocker
+  displayName: Validate (CLI+PS) Docker Images
+  dependsOn:
+  - Init
+  - BuildDocker
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/validate-build-docker.yml
+    parameters:
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+
 - stage: ValidateWindows
   displayName: Validate (CLI) Windows
   dependsOn:
@@ -224,6 +237,7 @@ stages:
   - Benchmark
   - BuildPSModules
   - ValidateLinux
+  - ValidateDocker
   - ValidateWindows
   - ValidateMacOS
   - ComponentGovernance
@@ -239,6 +253,7 @@ stages:
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
+    ValidateDockerResult: $[ stageDependencies.ValidateDocker.DockerValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
     ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]

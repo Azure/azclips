@@ -16,8 +16,9 @@ fi
 
 if ! docker version >/dev/null 2>&1; then
   sudo systemctl start docker
-  # The hosted agent user runs subsequent pipeline steps outside the docker group.
-  sudo chmod 666 /var/run/docker.sock
+  # Grant Docker access only to the current ephemeral build-agent identity.
+  sudo chown "$(id -u):$(id -g)" /var/run/docker.sock
+  sudo chmod 660 /var/run/docker.sock
 fi
 
 docker version

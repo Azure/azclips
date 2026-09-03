@@ -123,6 +123,15 @@ jobs:
       fi
     displayName: Build Docker Image
 
+  - script: |
+      set -euo pipefail
+      chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+      IMAGE_TAG="$(DockerImageTag)" \
+      IMAGE_FLAVOR="$(ImageFlavor)" \
+      PLATFORM="$(Platform)" \
+      "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+    displayName: Smoke Test Docker Image
+
   - task: PublishPipelineArtifact@1
     displayName: Publish Docker Image
     inputs:
@@ -230,6 +239,15 @@ jobs:
         "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
       fi
     displayName: Build Docker Image
+
+  - script: |
+      set -euo pipefail
+      chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+      IMAGE_TAG="$(DockerImageTag)" \
+      IMAGE_FLAVOR="$(ImageFlavor)" \
+      PLATFORM="$(Platform)" \
+      "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+    displayName: Smoke Test Docker Image
 
   - task: PublishPipelineArtifact@1
     displayName: Publish Docker Image

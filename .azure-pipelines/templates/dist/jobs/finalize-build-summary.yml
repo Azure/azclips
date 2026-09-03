@@ -30,6 +30,7 @@ jobs:
       echo "Benchmark: $(BenchmarkResult)"
       echo "BuildPSModules: $(BuildPSModulesResult)"
       echo "ValidateLinux: $(ValidateLinuxResult)"
+      echo "ValidateDocker: $(ValidateDockerResult)"
       echo "ValidateWindows: $(ValidateWindowsResult)"
       echo "ValidateMacOS: $(ValidateMacOSResult)"
       echo "ComponentGovernance: $(ComponentGovernanceResult)"
@@ -48,6 +49,14 @@ jobs:
           ;;
       esac
     displayName: Validate Component Governance Result
+
+  - bash: |
+      set -euo pipefail
+      if [[ "$(ValidateDockerResult)" != "Succeeded" ]]; then
+        echo "ERROR: Docker image validation did not complete successfully. Result: $(ValidateDockerResult)"
+        exit 1
+      fi
+    displayName: Validate Docker Image Result
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Common Distribution Artifacts
