@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if command -v docker >/dev/null 2>&1 && docker version >/dev/null 2>&1; then
-  docker buildx version
-  exit 0
+packages=()
+if ! command -v docker >/dev/null 2>&1; then
+  packages+=(docker.io)
+fi
+if ! command -v docker >/dev/null 2>&1 || ! docker buildx version >/dev/null 2>&1; then
+  packages+=(docker-buildx)
 fi
 
-sudo apt-get update
-sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker.io docker-buildx
-sudo systemctl start docker
-# The hosted agent user runs subsequent pipeline steps outside the docker group.
-sudo chmod 666 /var/run/docker.sock
+if (( ${#packages[@]} > 0 )); then
+  sudo apt-get update
+  sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
+fi
+
+if ! docker version >/dev/null 2>&1; then
+  sudo systemctl start docker
+  # The hosted agent user runs subsequent pipeline steps outside the docker group.
+  sudo chmod 666 /var/run/docker.sock
+fi
+
 docker version
 docker buildx version
