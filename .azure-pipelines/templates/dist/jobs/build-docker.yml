@@ -23,7 +23,7 @@ parameters:
 
 jobs:
 - job: BuildDockerImages
-  displayName: CLI and PowerShell Docker Images
+  displayName: Docker Image
   timeoutInMinutes: 30
   strategy:
     matrix:
