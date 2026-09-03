@@ -127,7 +127,7 @@ public class NewVMProcessor : ComputeProcessorBase<VirtualMachine, VirtualMachin
     * Empty or whitespace content publishes `ResponseEmptyBody` and skips deserialization
     * Invalid JSON publishes `ResponseInvalidJson` and throws `InvalidOperationException`
 * Reuse these processing override entries instead of replacing the whole lifecycle:
-    * <a id="overridebeforeprocessasyncbase"></a>`partial void OverrideBeforeProcessAsyncBase()` is the synchronous, base-wide injection point. Implement it in a companion partial file to affect every processor
+    * <a id="overridebeforeprocessbase"></a>`partial void OverrideBeforeProcessBase()` is the synchronous, base-wide injection point. Implement it in a companion partial file to affect every processor
     * `Task BeforeProcessAsync()` is the per-processor injection point. An override replaces the default; call `base.BeforeProcessAsync()` when the base-wide injection should also run
     * `Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body)` runs before the default output write. Return `false` to let the base write a non-null body. To customize or omit output, perform any required output work in the override and return `true`
 
@@ -175,8 +175,8 @@ public class NewVMProcessor : ComputeProcessorBase<VirtualMachine, VirtualMachin
 Customization has no restrictions beyond deriving from the processor base and reusing its override entries where they fit. The full-control escape hatches are:
 * <a id="createrequestmessage"></a>Override `CreateRequestMessage()` for request construction that cannot use `Method`, `CreateRequestUri()`, `CreateRequestBody()`, and `CreateRequestHeaders()`. This bypasses those entries and the base's request-creation event wiring, so publish any required events in the override
 * Override [SendAsync()](#sendasync) to compose processors or replace send behavior
-* Implement [`OverrideBeforeProcessAsyncBase()`](#overridebeforeprocessasyncbase) in a companion partial file when synchronous setup must run before `ProcessAsync()` for every processor. Use `BeforeProcessAsync()` instead when the behavior applies to only one processor
-* Override [ProcessAsync()](#processasync) only for a completely custom operation. This bypasses `OverrideBeforeProcessAsyncBase()`, `BeforeProcessAsync()`, `BeforeWriteOutputAsyncAndReturn()`, and the base-owned processing lifecycle, so preserve required events and output behavior in the override
+* Implement [`OverrideBeforeProcessBase()`](#overridebeforeprocessbase) in a companion partial file when synchronous setup must run before `ProcessAsync()` for every processor. Use `BeforeProcessAsync()` instead when the behavior applies to only one processor
+* Override [ProcessAsync()](#processasync) only for a completely custom operation. This bypasses `OverrideBeforeProcessBase()`, `BeforeProcessAsync()`, `BeforeWriteOutputAsyncAndReturn()`, and the base-owned processing lifecycle, so preserve required events and output behavior in the override
 
 # Develop ExtensionIndex
 * Ask LLM to create `Azclips/src/Extensions/{ExtensionName}/ExtensionIndex.cs`, by reviewing what you already have in `Azclips/src/Extensions/{ExtensionName}` and `Azclips/src/Extensions/Compute` as reference

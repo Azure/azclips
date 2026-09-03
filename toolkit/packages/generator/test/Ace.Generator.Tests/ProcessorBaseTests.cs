@@ -29,6 +29,9 @@ public sealed class ProcessorBaseTests
 
         Assert.Contains("public abstract partial class ProcessorBase : IProcessor", src);
         Assert.Contains("public partial class ProcessorBase<TRequest, TResponse> : ProcessorBase where TRequest : class where TResponse : class", src);
+        // Runtime deps injected in Init (incl. the auth handler) and copied to children.
+        Assert.Contains("IAuthHandler AuthHandler { get; private set; }", src);
+        Assert.Contains("AuthHandler = context.AuthHandler;", src);
     }
 
     [Fact]
