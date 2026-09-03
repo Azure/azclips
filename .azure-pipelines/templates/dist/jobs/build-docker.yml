@@ -72,9 +72,11 @@ jobs:
 
   - script: |
       set -euo pipefail
-      # Registers QEMU emulation so a single amd64 build agent can also
-      # produce arm64 images via docker buildx.
-      docker run --rm --privileged tonistiigi/binfmt --install all
+      # Pin the QEMU helper image to a fixed tag to avoid floating dependency changes.
+      # If the org requires an even stricter supply-chain guarantee, replace this tag with
+      # the validated digest from the approved image source.
+      BINFMT_IMAGE="tonistiigi/binfmt:qemu-v7.2.0"
+      docker run --rm --privileged "$BINFMT_IMAGE" --install all
       docker buildx create --use --name azclips-builder --driver docker-container 2>/dev/null || docker buildx use azclips-builder
       docker buildx inspect --bootstrap
     displayName: Setup Docker Buildx (QEMU)
@@ -86,11 +88,13 @@ jobs:
       fi
       shopt -s nullglob
       tarball_path=""
-      for f in "${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)"/*.tar.gz; do
-        tarball_path="$f"
+      for candidate in \
+        "${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)"/*.tar.gz \
+        "${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)"/Release/tarball/*.tar.gz; do
+        tarball_path="$candidate"
       done
       if [[ -z "$tarball_path" ]]; then
-        echo "ERROR: No tarball found under ${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)"
+        echo "ERROR: No tarball found under ${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact) or ${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)/Release/tarball"
         exit 1
       fi
       echo "##vso[task.setvariable variable=ResolvedTarballPath]$tarball_path"

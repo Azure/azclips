@@ -22,7 +22,7 @@ PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 
 PLATFORM="${PLATFORM:-linux/amd64}"
-BASE_IMAGE="${BASE_IMAGE:-mcr.microsoft.com/dotnet/runtime-deps:10.0-noble}"
+BASE_IMAGE="${BASE_IMAGE:-mcr.microsoft.com/powershell:7.6-ubuntu-24.04}"
 IMAGE_VARIANT="${IMAGE_VARIANT:-noble}"
 IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-azclips-powershell}"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-0.0.0}"
@@ -60,7 +60,8 @@ cp "$PACKAGING_ROOT/powershell/InstallModule.ps1" "$BUILD_CONTEXT/InstallModule.
 IMAGE_TAG="$IMAGE_REPOSITORY:$ARTIFACT_VERSION-$IMAGE_VARIANT-$ARCH_LABEL"
 SAVE_DIR="$OUT_ROOT/images"
 mkdir -p "$SAVE_DIR"
-SAVE_PATH="$SAVE_DIR/azclips-powershell-$ARTIFACT_VERSION-$IMAGE_VARIANT-$ARCH_LABEL.tar"
+SANITIZED_REPOSITORY="${IMAGE_REPOSITORY//\//-}"
+SAVE_PATH="$SAVE_DIR/${SANITIZED_REPOSITORY}-$ARTIFACT_VERSION-$IMAGE_VARIANT-$ARCH_LABEL.tar"
 
 echo "Building docker image $IMAGE_TAG (platform=$PLATFORM, base=$BASE_IMAGE)"
 docker buildx build \
