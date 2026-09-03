@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# build_pwsh_docker_image.sh
+# Builds and saves a Docker image containing PowerShell and pre-packaged Azclips
+# PowerShell modules from the PSModules pipeline artifact.
+#
+# Required env vars:
+#   MODULE_REPO_ROOT  Path to local-repo directory containing Az.*.nupkg
+#
+# Optional env vars:
+#   PLATFORM          linux/amd64|linux/arm64         (default: linux/amd64)
+#   BASE_IMAGE        Maintained Microsoft base image  (default: mcr.microsoft.com/dotnet/runtime-deps:10.0-noble)
+#   IMAGE_VARIANT     Label used in output naming      (default: noble)
+#   IMAGE_REPOSITORY  Image repository name            (default: azclips-powershell)
+#   ARTIFACT_VERSION  Version used in image tag        (default: 0.0.0)
+#   OUT_ROOT          Root output directory            (default: <repo>/devops/out/docker)
+#   DOCKERFILE        Path to Dockerfile               (default: <packaging>/linux/docker/Dockerfile.pwsh)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
+
+PLATFORM="${PLATFORM:-linux/amd64}"
+BASE_IMAGE="${BASE_IMAGE:-mcr.microsoft.com/dotnet/runtime-deps:10.0-noble}"
+IMAGE_VARIANT="${IMAGE_VARIANT:-noble}"
+IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-azclips-powershell}"
+ARTIFACT_VERSION="${ARTIFACT_VERSION:-0.0.0}"
+OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/docker}"
+DOCKERFILE="${DOCKERFILE:-$PACKAGING_ROOT/linux/docker/Dockerfile.pwsh}"
+MODULE_REPO_ROOT="${MODULE_REPO_ROOT:?ERROR: MODULE_REPO_ROOT must point to a PS local-repo directory}"
+
+if [[ ! -d "$MODULE_REPO_ROOT" ]]; then
+  echo "ERROR: Module repository directory not found at $MODULE_REPO_ROOT"
+  exit 1
+fi
+
+if [[ ! -f "$DOCKERFILE" ]]; then
+  echo "ERROR: Dockerfile not found at $DOCKERFILE"
+  exit 1
+fi
+
+case "$PLATFORM" in
+  linux/amd64) ARCH_LABEL=amd64 ;;
+  linux/arm64) ARCH_LABEL=arm64 ;;
+  *)
+    echo "ERROR: Unsupported PLATFORM '$PLATFORM'. Expected 'linux/amd64' or 'linux/arm64'."
+    exit 1
+    ;;
+esac
+
+BUILD_CONTEXT="$OUT_ROOT/context/pwsh-$IMAGE_VARIANT-$ARCH_LABEL"
+LOCAL_REPO_CONTEXT="$BUILD_CONTEXT/local-repo"
+rm -rf "$BUILD_CONTEXT"
+mkdir -p "$LOCAL_REPO_CONTEXT"
+
+cp -a "$MODULE_REPO_ROOT/." "$LOCAL_REPO_CONTEXT/"
+cp "$PACKAGING_ROOT/powershell/InstallModule.ps1" "$BUILD_CONTEXT/InstallModule.ps1"
+
+IMAGE_TAG="$IMAGE_REPOSITORY:$ARTIFACT_VERSION-$IMAGE_VARIANT-$ARCH_LABEL"
+SAVE_DIR="$OUT_ROOT/images"
+mkdir -p "$SAVE_DIR"
+SAVE_PATH="$SAVE_DIR/azclips-powershell-$ARTIFACT_VERSION-$IMAGE_VARIANT-$ARCH_LABEL.tar"
+
+echo "Building docker image $IMAGE_TAG (platform=$PLATFORM, base=$BASE_IMAGE)"
+docker buildx build \
+  --platform "$PLATFORM" \
+  --build-arg BASE_IMAGE="$BASE_IMAGE" \
+  --file "$DOCKERFILE" \
+  --tag "$IMAGE_TAG" \
+  --load \
+  "$BUILD_CONTEXT"
+
+echo "Saving image to $SAVE_PATH"
+rm -f "$SAVE_PATH"
+docker save -o "$SAVE_PATH" "$IMAGE_TAG"
+
+echo "Created $SAVE_PATH"
+echo "##vso[task.setvariable variable=DockerImageTag]$IMAGE_TAG"
+echo "##vso[task.setvariable variable=DockerImageTarPath]$SAVE_PATH"

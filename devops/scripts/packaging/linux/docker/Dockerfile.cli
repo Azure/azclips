@@ -1,0 +1,25 @@
+ARG BASE_IMAGE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
+FROM ${BASE_IMAGE}
+
+ARG AZCLIPS_UID=10001
+ARG AZCLIPS_GID=10001
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --system --gid "${AZCLIPS_GID}" azclips \
+    && useradd --system --uid "${AZCLIPS_UID}" --gid azclips \
+        --create-home --shell /usr/sbin/nologin azclips
+
+COPY --chown=azclips:azclips cli/ /app/
+
+ENV PATH="/app:${PATH}" \
+    DOTNET_NOLOGO=1 \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1
+
+USER azclips
+WORKDIR /home/azclips
+
+ENTRYPOINT ["/app/az"]
+CMD ["--help"]

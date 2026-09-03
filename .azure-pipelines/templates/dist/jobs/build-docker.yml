@@ -1,0 +1,143 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: PackagingScriptsRoot
+  type: string
+- name: PackagingLinuxOutRoot
+  type: string
+- name: PackagingDockerOutRoot
+  type: string
+- name: ps_modules_artifact_name
+  type: string
+  default: 'PSModules'
+- name: cli_base_image
+  type: string
+  default: 'mcr.microsoft.com/dotnet/runtime-deps:10.0-noble'
+- name: pwsh_base_image
+  type: string
+  default: 'mcr.microsoft.com/dotnet/runtime-deps:10.0-noble'
+
+jobs:
+- job: BuildDockerImages
+  displayName: CLI and PowerShell Docker Images
+  timeoutInMinutes: 30
+  strategy:
+    matrix:
+      cli_amd64_noble:
+        Rid: linux-x64
+        ImageFlavor: cli
+        Platform: linux/amd64
+        BaseImage: ${{ parameters.cli_base_image }}
+        ImageVariant: noble
+        DistributionArtifact: Distribution_Linux_Lean
+        DockerArtifact: Docker_CLI_Noble_Amd64
+      cli_arm64_noble:
+        Rid: linux-arm64
+        ImageFlavor: cli
+        Platform: linux/arm64
+        BaseImage: ${{ parameters.cli_base_image }}
+        ImageVariant: noble
+        DistributionArtifact: Distribution_Linux_Arm64_Lean
+        DockerArtifact: Docker_CLI_Noble_Arm64
+      pwsh_amd64_noble:
+        Rid: linux-x64
+        ImageFlavor: pwsh
+        Platform: linux/amd64
+        BaseImage: ${{ parameters.pwsh_base_image }}
+        ImageVariant: noble
+        DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
+        DockerArtifact: Docker_Pwsh_Noble_Amd64
+      pwsh_arm64_noble:
+        Rid: linux-arm64
+        ImageFlavor: pwsh
+        Platform: linux/arm64
+        BaseImage: ${{ parameters.pwsh_base_image }}
+        ImageVariant: noble
+        DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
+        DockerArtifact: Docker_Pwsh_Noble_Arm64
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+    retryCountOnTaskFailure: 3
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Get Docker Source Artifact
+    inputs:
+      artifact: $(DistributionArtifact)
+      path: ${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)
+
+  - script: |
+      set -euo pipefail
+      # Registers QEMU emulation so a single amd64 build agent can also
+      # produce arm64 images via docker buildx.
+      docker run --rm --privileged tonistiigi/binfmt --install all
+      docker buildx create --use --name azclips-builder --driver docker-container 2>/dev/null || docker buildx use azclips-builder
+      docker buildx inspect --bootstrap
+    displayName: Setup Docker Buildx (QEMU)
+
+  - script: |
+      set -euo pipefail
+      if [[ "$(ImageFlavor)" != "cli" ]]; then
+        exit 0
+      fi
+      shopt -s nullglob
+      tarball_path=""
+      for f in "${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)"/*.tar.gz; do
+        tarball_path="$f"
+      done
+      if [[ -z "$tarball_path" ]]; then
+        echo "ERROR: No tarball found under ${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)"
+        exit 1
+      fi
+      echo "##vso[task.setvariable variable=ResolvedTarballPath]$tarball_path"
+    displayName: Locate CLI Tarball
+
+  - script: |
+      set -euo pipefail
+      if [[ "$(ImageFlavor)" != "pwsh" ]]; then
+        exit 0
+      fi
+      module_repo="${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)/artifacts/PSGallery/local-repo"
+      if [[ ! -d "$module_repo" ]]; then
+        echo "ERROR: PS module local repository was not found at $module_repo"
+        exit 1
+      fi
+      echo "##vso[task.setvariable variable=ResolvedModuleRepo]$module_repo"
+    displayName: Locate PowerShell Module Repository
+
+  - script: |
+      set -euo pipefail
+      if [[ "$(ImageFlavor)" == "cli" ]]; then
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_cli_docker_image.sh"
+        ARTIFACT_VERSION="$(ArtifactVersion)" \
+        OUT_ROOT="${{ parameters.PackagingDockerOutRoot }}" \
+        RID="$(Rid)" \
+        PLATFORM="$(Platform)" \
+        BASE_IMAGE="$(BaseImage)" \
+        IMAGE_VARIANT="$(ImageVariant)" \
+        DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.cli" \
+        TARBALL_PATH="$(ResolvedTarballPath)" \
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_cli_docker_image.sh"
+      else
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
+        ARTIFACT_VERSION="$(ArtifactVersion)" \
+        OUT_ROOT="${{ parameters.PackagingDockerOutRoot }}" \
+        PLATFORM="$(Platform)" \
+        BASE_IMAGE="$(BaseImage)" \
+        IMAGE_VARIANT="$(ImageVariant)" \
+        DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.pwsh" \
+        MODULE_REPO_ROOT="$(ResolvedModuleRepo)" \
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
+      fi
+    displayName: Build Docker Image
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Docker Image
+    inputs:
+      targetPath: ${{ parameters.PackagingDockerOutRoot }}/images
+      artifact: $(DockerArtifact)
+      publishLocation: pipeline

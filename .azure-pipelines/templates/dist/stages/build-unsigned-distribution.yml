@@ -90,6 +90,24 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
+- stage: BuildDocker
+  displayName: Build (CLI+PS) Docker Images
+  dependsOn:
+  - Init
+  - BuildLinux
+  - BuildPSModules
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/build-docker.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
+      PackagingDockerOutRoot: $(PackagingDockerOutRoot)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
 - stage: BuildWindows
   displayName: Build (CLI) Windows
   dependsOn:
@@ -200,6 +218,7 @@ stages:
   - Init
   - BuildCommon
   - BuildLinux
+  - BuildDocker
   - BuildWindows
   - BuildMacOS
   - Test
@@ -214,6 +233,7 @@ stages:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
     BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
     BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
+    BuildDockerResult: $[ stageDependencies.BuildDocker.BuildDockerImages.result ]
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
     TestResult: $[ stageDependencies.Test.UnitTests.result ]

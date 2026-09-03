@@ -7,6 +7,8 @@ variables:
   value: $(PackagingOutRoot)/common
 - name: PackagingLinuxOutRoot
   value: $(PackagingOutRoot)/linux
+- name: PackagingDockerOutRoot
+  value: $(PackagingOutRoot)/docker
 - name: PackagingWindowsOutRoot
   value: $(PackagingOutRoot)/windows
 - name: PackagingMacOSOutRoot
