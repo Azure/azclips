@@ -22,8 +22,8 @@ parameters:
   default: 'mcr.microsoft.com/dotnet/runtime:10.0-noble'
 
 jobs:
-- job: BuildDockerImagesAmd64
-  displayName: CLI and PowerShell Docker Images (amd64)
+- job: BuildDockerImages
+  displayName: CLI and PowerShell Docker Images
   timeoutInMinutes: 30
   strategy:
     matrix:
@@ -36,114 +36,6 @@ jobs:
         ImageVariant: noble
         DistributionArtifact: Distribution_Linux_Lean
         DockerArtifact: Docker_CLI_Noble_Amd64
-      pwsh_amd64_noble:
-        Pool: ${{ parameters.amd64_pool }}
-        Rid: linux-x64
-        ImageFlavor: pwsh
-        Platform: linux/amd64
-        BaseImage: ${{ parameters.pwsh_base_image }}
-        ImageVariant: noble
-        DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
-        DockerArtifact: Docker_Pwsh_Noble_Amd64
-  pool:
-    name: $(Pool)
-  steps:
-  - checkout: self
-    clean: true
-    fetchDepth: 0
-    retryCountOnTaskFailure: 3
-
-  - script: |
-      set -euo pipefail
-      chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
-      "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
-    displayName: Install Docker
-
-  - task: DownloadPipelineArtifact@2
-    displayName: Get Docker Source Artifact
-    inputs:
-      artifact: $(DistributionArtifact)
-      path: ${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)
-
-  - script: |
-      set -euo pipefail
-      if [[ "$(ImageFlavor)" != "cli" ]]; then
-        exit 0
-      fi
-      tarball_dir="${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)/Release/tarball"
-      mapfile -t tarball_candidates < <(find "$tarball_dir" -maxdepth 1 -type f -name '*.tar.gz' 2>/dev/null | sort)
-      if [[ ${#tarball_candidates[@]} -eq 0 ]]; then
-        echo "ERROR: No tarball found under $tarball_dir"
-        exit 1
-      fi
-      if [[ ${#tarball_candidates[@]} -gt 1 ]]; then
-        echo "ERROR: Expected exactly one tarball under $tarball_dir, found ${#tarball_candidates[@]}:"
-        printf '%s\n' "${tarball_candidates[@]}"
-        exit 1
-      fi
-      echo "##vso[task.setvariable variable=ResolvedTarballPath]${tarball_candidates[0]}"
-    displayName: Locate CLI Tarball
-
-  - script: |
-      set -euo pipefail
-      if [[ "$(ImageFlavor)" != "pwsh" ]]; then
-        exit 0
-      fi
-      module_repo="${{ parameters.PackagingLinuxOutRoot }}/$(DistributionArtifact)/artifacts/PSGallery/local-repo"
-      if [[ ! -d "$module_repo" ]]; then
-        echo "ERROR: PS module local repository was not found at $module_repo"
-        exit 1
-      fi
-      echo "##vso[task.setvariable variable=ResolvedModuleRepo]$module_repo"
-    displayName: Locate PowerShell Module Repository
-
-  - script: |
-      set -euo pipefail
-      if [[ "$(ImageFlavor)" == "cli" ]]; then
-        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_cli_docker_image.sh"
-        ARTIFACT_VERSION="$(ArtifactVersion)" \
-        OUT_ROOT="${{ parameters.PackagingDockerOutRoot }}" \
-        RID="$(Rid)" \
-        PLATFORM="$(Platform)" \
-        BASE_IMAGE="$(BaseImage)" \
-        IMAGE_VARIANT="$(ImageVariant)" \
-        DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.cli" \
-        TARBALL_PATH="$(ResolvedTarballPath)" \
-        "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_cli_docker_image.sh"
-      else
-        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
-        ARTIFACT_VERSION="$(ArtifactVersion)" \
-        OUT_ROOT="${{ parameters.PackagingDockerOutRoot }}" \
-        PLATFORM="$(Platform)" \
-        BASE_IMAGE="$(BaseImage)" \
-        IMAGE_VARIANT="$(ImageVariant)" \
-        DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.pwsh" \
-        MODULE_REPO_ROOT="$(ResolvedModuleRepo)" \
-        "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
-      fi
-    displayName: Build Docker Image
-
-  - script: |
-      set -euo pipefail
-      chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
-      IMAGE_TAG="$(DockerImageTag)" \
-      IMAGE_FLAVOR="$(ImageFlavor)" \
-      PLATFORM="$(Platform)" \
-      "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
-    displayName: Smoke Test Docker Image
-
-  - task: PublishPipelineArtifact@1
-    displayName: Publish Docker Image
-    inputs:
-      targetPath: ${{ parameters.PackagingDockerOutRoot }}/images
-      artifact: $(DockerArtifact)
-      publishLocation: pipeline
-
-- job: BuildDockerImagesArm64
-  displayName: CLI and PowerShell Docker Images (arm64)
-  timeoutInMinutes: 30
-  strategy:
-    matrix:
       cli_arm64_noble:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
@@ -153,6 +45,15 @@ jobs:
         ImageVariant: noble
         DistributionArtifact: Distribution_Linux_Arm64_Lean
         DockerArtifact: Docker_CLI_Noble_Arm64
+      pwsh_amd64_noble:
+        Pool: ${{ parameters.amd64_pool }}
+        Rid: linux-x64
+        ImageFlavor: pwsh
+        Platform: linux/amd64
+        BaseImage: ${{ parameters.pwsh_base_image }}
+        ImageVariant: noble
+        DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
+        DockerArtifact: Docker_Pwsh_Noble_Amd64
       pwsh_arm64_noble:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
@@ -255,15 +156,3 @@ jobs:
       targetPath: ${{ parameters.PackagingDockerOutRoot }}/images
       artifact: $(DockerArtifact)
       publishLocation: pipeline
-
-- job: BuildDockerImages
-  displayName: Docker Image Build Summary
-  dependsOn:
-  - BuildDockerImagesAmd64
-  - BuildDockerImagesArm64
-  condition: succeeded()
-  pool:
-    name: ${{ parameters.amd64_pool }}
-  steps:
-  - script: echo "Docker image builds completed successfully."
-    displayName: Confirm Docker Image Builds
