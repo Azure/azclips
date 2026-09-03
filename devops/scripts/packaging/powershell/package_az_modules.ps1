@@ -357,6 +357,17 @@ function Resolve-ModuleDependency
         [string]$ManifestDirectory
     )
 
+    # A bare name means a sibling module directory; a path points at the manifest itself.
+    if ($ModuleName -notmatch '[\\/]')
+    {
+        $siblingManifest = Join-Path (Split-Path $ManifestDirectory -Parent) $ModuleName "$ModuleName.psd1"
+        if (-not (Test-Path -Path $siblingManifest -PathType Leaf))
+        {
+            throw "Required module manifest was not found: $siblingManifest"
+        }
+        return $ModuleName
+    }
+
     $dependencyPath = $ModuleName
     if (-not [System.IO.Path]::IsPathRooted($dependencyPath))
     {

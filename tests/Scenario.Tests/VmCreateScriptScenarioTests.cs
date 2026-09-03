@@ -33,7 +33,7 @@ public class VmCreateScriptScenarioTests
         Assert.Equal(result.EntriesTotal, result.EntriesConsumed);
     }
 
-    [Fact]
+    [DebugArtifactsFact]
     public void ModuleScript_ReplaysTheWholeRecording()
     {
         var result = ScriptScenarioRunner.RunPlayback("vm-create-module.ps1", RecordingPath);
@@ -41,5 +41,18 @@ public class VmCreateScriptScenarioTests
         Assert.True(result.ExitCode == 0, $"exit {result.ExitCode}\n{result.StdOut}\n{result.StdErr}");
         Assert.Contains("created scenario-vm in scenario-vm-rg: Succeeded", result.StdOut);
         Assert.Equal(result.EntriesTotal, result.EntriesConsumed);
+    }
+
+    private sealed class DebugArtifactsFactAttribute : FactAttribute
+    {
+        public DebugArtifactsFactAttribute()
+        {
+            var debugCore = Path.Combine(global::Tests.Common.Utilities.RepoLocator.GetRepoRoot(), "artifacts", "Debug", "Core");
+            if (!Directory.Exists(debugCore))
+            {
+                Skip = "The dev module manifests hard-code artifacts/Debug paths, so importing them "
+                    + "needs a Debug build; this environment only has another configuration.";
+            }
+        }
     }
 }
