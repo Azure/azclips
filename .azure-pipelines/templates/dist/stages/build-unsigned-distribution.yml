@@ -102,7 +102,6 @@ stages:
   jobs:
   - template: ../jobs/build-docker.yml
     parameters:
-      ubuntu_pool: ${{ parameters.ubuntu_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
       PackagingDockerOutRoot: $(PackagingDockerOutRoot)

@@ -1,7 +1,10 @@
 parameters:
-- name: ubuntu_pool
+- name: amd64_pool
   type: string
-  default: 'ubuntu-latest'
+  default: 'pool-ubuntu-latest-multi-core'
+- name: arm64_pool
+  type: string
+  default: 'pool-ubuntu-latest-arm64'
 - name: PackagingScriptsRoot
   type: string
 - name: PackagingLinuxOutRoot
@@ -25,6 +28,7 @@ jobs:
   strategy:
     matrix:
       cli_amd64_noble:
+        Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: cli
         Platform: linux/amd64
@@ -33,6 +37,7 @@ jobs:
         DistributionArtifact: Distribution_Linux_Lean
         DockerArtifact: Docker_CLI_Noble_Amd64
       pwsh_amd64_noble:
+        Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: pwsh
         Platform: linux/amd64
@@ -41,7 +46,7 @@ jobs:
         DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
         DockerArtifact: Docker_Pwsh_Noble_Amd64
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: $(Pool)
   steps:
   - checkout: self
     clean: true
@@ -125,6 +130,7 @@ jobs:
   strategy:
     matrix:
       cli_arm64_noble:
+        Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: cli
         Platform: linux/arm64
@@ -133,6 +139,7 @@ jobs:
         DistributionArtifact: Distribution_Linux_Arm64_Lean
         DockerArtifact: Docker_CLI_Noble_Arm64
       pwsh_arm64_noble:
+        Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: pwsh
         Platform: linux/arm64
@@ -141,9 +148,7 @@ jobs:
         DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
         DockerArtifact: Docker_Pwsh_Noble_Arm64
   pool:
-    type: docker
-    os: linux
-    hostArchitecture: arm64
+    name: $(Pool)
   steps:
   - checkout: self
     clean: true
@@ -228,7 +233,7 @@ jobs:
   - BuildDockerImagesArm64
   condition: succeeded()
   pool:
-    vmImage: ${{ parameters.ubuntu_pool }}
+    name: ${{ parameters.amd64_pool }}
   steps:
   - script: echo "Docker image builds completed successfully."
     displayName: Confirm Docker Image Builds
