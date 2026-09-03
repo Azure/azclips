@@ -446,4 +446,14 @@ describe("emitter e2e: scalar-service.tsp → semantic scalar formats", () => {
     // A plain string carries no format.
     expect(fmtOf("plain")).toBeUndefined();
   });
+
+  it("carries the author-supplied request body name and isGeneratedName", () => {
+    const create = ir.operations.find((o) => o.name === "create");
+    expect(create?.requestBody?.name).toBe("pet");
+    expect(create?.requestBody?.isGeneratedName).toBe(false);
+
+    const rename = ir.operations.find((o) => o.name === "rename");
+    expect(rename?.requestBody?.name).toBe("body");
+    expect(rename?.requestBody?.isGeneratedName).toBe(false);
+  });
 });

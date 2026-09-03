@@ -193,6 +193,16 @@ export type IRRequestBody = {
   type?: IRTypeRef | undefined;
   contentType: string;
   multipart?: IRMultipartBody | undefined;
+  /**
+   * Client-facing name of the body parameter -- `payload` for `@body payload: Widget`.
+   * Undefined when TCGC had nothing to take a name from.
+   */
+  name?: string | undefined;
+  /**
+   * True when TCGC synthesized `name` (e.g. `<operation>Request`) rather than the author
+   * writing it. A consumer needing an author-intended name should treat it as unusable.
+   */
+  isGeneratedName?: boolean | undefined;
   docs?: string | undefined;
   /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
   summary?: string | undefined;
@@ -204,6 +214,8 @@ export const IRRequestBodySchema: z.ZodType<IRRequestBody> = z
     type: IRTypeRefSchema.optional(),
     contentType: z.string().min(1),
     multipart: IRMultipartBodySchema.optional(),
+    name: z.string().min(1).optional(),
+    isGeneratedName: z.boolean().optional(),
     docs: z.string().optional(),
     summary: z.string().optional(),
     rendering: RequestBodyHintsSchema.optional(),

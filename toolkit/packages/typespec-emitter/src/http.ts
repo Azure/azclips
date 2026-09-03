@@ -182,6 +182,8 @@ export function bodyFrom(
     ...(irType !== undefined ? { type: irType } : {}),
     contentType,
     ...(multipart !== undefined ? { multipart } : {}),
+    ...(b.name !== undefined ? { name: b.name } : {}),
+    ...(b.isGeneratedName !== undefined ? { isGeneratedName: b.isGeneratedName } : {}),
     ...(b.doc !== undefined ? { docs: b.doc } : {}),
     ...(b.summary !== undefined ? { summary: b.summary } : {}),
   };
