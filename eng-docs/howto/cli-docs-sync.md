@@ -68,6 +68,17 @@ Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/
 
 **Precedence** — for each overrideable field: CLI param (`-Moniker`, `-VersionFolder`, `-TargetRepoPath`, `-SourceRepoUrl`, `-SourceBranch`) → env var (`AZCLIPS_CLI_MONIKER`, `AZCLIPS_CLI_VERSION_FOLDER`) → config file.
 
+**CI-oriented parameters** (all optional, no effect on interactive use):
+
+| Param             | Purpose                                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `-NoBuild`        | Skip the leading `dotnet build azclips.slnx` (CI usually builds in a preceding step)                                       |
+| `-Configuration`  | `Debug` \| `Release` for the build + exporter run (default `Debug`)                                                         |
+| `-FetchIfMissing` | Auto-fetch `CLI2Yaml` non-interactively when missing from the NuGet cache. Requires pre-arranged credentials (federated identity or PAT env var) |
+| `-CommitAuthor`   | Inline `user.name` for the target commit. Does NOT persist to the target repo's git config                                 |
+| `-CommitEmail`    | Inline `user.email` — same                                                                                                 |
+| `-OutputManifest` | Write a machine-readable JSON summary to the given path. Feeds CI PR-body generation, artifact upload, downstream steps    |
+
 **Two folder concepts, decoupled by design:**
 
 - `moniker` = URL slug (`?view=azure-cli-preview` on Learn). Permanent, per docs.ms rules.

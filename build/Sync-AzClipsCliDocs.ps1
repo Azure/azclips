@@ -7,6 +7,14 @@
 #   pwsh -File build/Sync-AzClipsCliDocs.ps1 -Force        # writes to local target; no push
 #   pwsh -File build/Sync-AzClipsCliDocs.ps1 -Push         # WILL FAIL — deferred until auth-pattern decided
 #
+# CI-oriented parameters (all optional, no effect on interactive use):
+#   -NoBuild              skip the leading `dotnet build` (CI usually builds separately)
+#   -Configuration <cfg>  Debug|Release for the build + exporter run (default Debug)
+#   -FetchIfMissing       auto-fetch CLI2Yaml non-interactively when missing from the NuGet cache
+#   -CommitAuthor <name>  inline user.name for the commit (does not persist to target repo config)
+#   -CommitEmail <email>  inline user.email — same
+#   -OutputManifest <p>   write a machine-readable JSON summary of the run to <p>
+#
 # Preflight: requires CLI2Yaml NuGet package to be resolvable — either already in the local
 # NuGet cache under ~/.nuget/packages/cli2yaml/ or fetchable from the internal apidrop feed
 # (needs Azure Artifacts Credential Provider on a Microsoft-tenant machine).
@@ -20,6 +28,13 @@ param(
     [string]$SourceRepoUrl,
     [string]$SourceBranch,
     [string]$Timestamp,
+    [ValidateSet('Debug', 'Release')]
+    [string]$Configuration = 'Debug',
+    [switch]$NoBuild,
+    [switch]$FetchIfMissing,
+    [string]$CommitAuthor,
+    [string]$CommitEmail,
+    [string]$OutputManifest,
     [switch]$Force,
     [switch]$Push
 )
@@ -75,10 +90,10 @@ if (-not $__loadOnly) {
 
 # ── CLI2Yaml resolution ─────────────────────────────────────────────────────────
 
-# Locates CLI2Yaml.dll in the NuGet cache. Prefers newest cached version. If none is
-# cached, prints a fetch snippet the caller can run — we intentionally don't fetch
-# automatically because the feed requires interactive AAD auth on first hit.
-function Get-Cli2YamlDllPath
+# Non-interactively pulls CLI2Yaml from the configured feed via a throwaway csproj.
+# Caller must have credentials pre-arranged (federated identity, env-var PAT, or a warm
+# credential-provider session). Interactive AAD auth is intentionally disabled — CI-safe.
+function Install-Cli2Yaml
 {
     [CmdletBinding()]
     param(
@@ -86,10 +101,54 @@ function Get-Cli2YamlDllPath
         [Parameter(Mandatory)][string]$Feed
     )
 
+    $fetchDir = Join-Path $env:TEMP "azclips-cli2yaml-fetch"
+    New-Item -Path $fetchDir -ItemType Directory -Force | Out-Null
+
+    $csprojBody = @"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RestoreSources>$Feed</RestoreSources>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="$PackageName" Version="*" />
+  </ItemGroup>
+</Project>
+"@
+    $csprojPath = Join-Path $fetchDir 'Fetch.csproj'
+    Set-Content -Path $csprojPath -Value $csprojBody -NoNewline
+
+    Write-Host "Fetching $PackageName from feed (non-interactive)..." -ForegroundColor Cyan
+    $output = & dotnet restore $csprojPath --interactive:false 2>&1
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "Non-interactive fetch of $PackageName failed with exit $LASTEXITCODE. Credentials may not be available; ensure a federated-identity token or PAT is exported via NuGet env vars. Output:`n$($output -join "`n")"
+    }
+    $output | Select-Object -Last 1 | ForEach-Object { Write-Host "  → $_" }
+}
+
+# Locates CLI2Yaml.dll in the NuGet cache. Prefers newest cached version. If none is
+# cached and -FetchIfMissing is set, non-interactively pulls the package first (CI use).
+# Otherwise throws with a fetch snippet the caller can run manually (dev use).
+function Get-Cli2YamlDllPath
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PackageName,
+        [Parameter(Mandatory)][string]$Feed,
+        [switch]$FetchIfMissing
+    )
+
     $cacheRoot = Join-Path $env:USERPROFILE ".nuget/packages/$($PackageName.ToLowerInvariant())"
     if (-not (Test-Path $cacheRoot))
     {
-        throw @"
+        if ($FetchIfMissing)
+        {
+            Install-Cli2Yaml -PackageName $PackageName -Feed $Feed
+        }
+        else
+        {
+            throw @"
 CLI2Yaml is not in the local NuGet cache ($cacheRoot).
 Fetch it once via a throwaway csproj:
 
@@ -108,7 +167,10 @@ Fetch it once via a throwaway csproj:
     '@ | Set-Content (Join-Path `$fetch 'Fetch.csproj')
 
     dotnet restore (Join-Path `$fetch 'Fetch.csproj') --interactive
+
+Or re-run this script with -FetchIfMissing to fetch non-interactively (needs pre-arranged credentials).
 "@
+        }
     }
 
     $dll = Get-ChildItem $cacheRoot -Recurse -Filter 'CLI2Yaml.dll' | Sort-Object { [Version]($_.Directory.Parent.Name) } -Descending | Select-Object -First 1
@@ -128,7 +190,8 @@ function Invoke-CliExporter
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
-        [Parameter(Mandatory)][string]$ExportProject
+        [Parameter(Mandatory)][string]$ExportProject,
+        [string]$Configuration = 'Debug'
     )
 
     $projectPath = Join-Path $RepoRoot $ExportProject
@@ -137,15 +200,14 @@ function Invoke-CliExporter
         throw "Exporter project not found at $projectPath. Check the 'exportProject' field in the config."
     }
 
-    Write-Host "Running exporter: $projectPath" -ForegroundColor Cyan
+    Write-Host "Running exporter ($Configuration): $projectPath" -ForegroundColor Cyan
     Push-Location $RepoRoot
     try {
-        $output = & dotnet run --project $projectPath --no-build --configuration Debug 2>&1
+        $output = & dotnet run --project $projectPath --no-build --configuration $Configuration 2>&1
         if ($LASTEXITCODE -ne 0)
         {
             throw "Exporter failed with exit $LASTEXITCODE. Output:`n$($output -join "`n")"
         }
-        # Emit progress line for the reporter
         $output | Select-Object -Last 1 | ForEach-Object { Write-Host "  → $_" }
     }
     finally {
@@ -309,7 +371,9 @@ function Invoke-SyncApply
         [Parameter(Mandatory)][string]$TargetRepoPath,
         [Parameter(Mandatory)][string]$VersionFolder,
         [Parameter(Mandatory)][string]$Moniker,
-        [Parameter(Mandatory)][string]$Timestamp
+        [Parameter(Mandatory)][string]$Timestamp,
+        [string]$CommitAuthor,
+        [string]$CommitEmail
     )
 
     $branchName = "azclips-cli-sync-$Timestamp"
@@ -343,7 +407,13 @@ function Invoke-SyncApply
             }
         }
 
-        git -C $TargetRepoPath commit -m $commitMessage 2>&1 | Out-Null
+        # Compose commit args, injecting inline user.name / user.email if provided.
+        # Inline `-c` is preferred over persistent config so we don't mutate the target repo.
+        $commitArgs = @('-C', $TargetRepoPath)
+        if ($CommitAuthor) { $commitArgs += @('-c', "user.name=$CommitAuthor") }
+        if ($CommitEmail)  { $commitArgs += @('-c', "user.email=$CommitEmail") }
+        $commitArgs += @('commit', '-m', $commitMessage)
+        git @commitArgs 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "git commit failed." }
 
         $commitSha = git -C $TargetRepoPath rev-parse HEAD 2>$null
@@ -421,6 +491,87 @@ function Write-DryRunReport
     Write-Host '(No files written to a target repo. Pass -Force to write to the local target. Pass -Push to also open a PR — currently DEFERRED, will fail.)' -ForegroundColor DarkGray
 }
 
+# ── Machine-readable manifest ───────────────────────────────────────────────────
+
+# Builds a hashtable describing the run outcome. Callers write it to disk as JSON when
+# -OutputManifest is set — feeds CI-side PR-body generation, artifact upload, downstream
+# steps. Shape is deliberately flat; add keys additively (don't rename existing ones).
+function New-SyncManifest
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('dry-run', 'force')][string]$Mode,
+        [Parameter(Mandatory)][string]$Moniker,
+        [Parameter(Mandatory)][string]$VersionFolder,
+        [Parameter(Mandatory)][string]$SourceRepoUrl,
+        [Parameter(Mandatory)][string]$SourceBranch,
+        [Parameter(Mandatory)][string]$OutputLocation,
+        [Parameter(Mandatory)][string]$Cli2YamlDll,
+        [PSCustomObject]$ApplyResult
+    )
+
+    $files = @(Get-ChildItem $OutputLocation -Recurse -File -ErrorAction SilentlyContinue)
+    $ymlFiles = @($files | Where-Object Extension -eq '.yml')
+    $topLevel = @(
+        $files
+        | Where-Object { $_.DirectoryName -eq (Join-Path $OutputLocation 'latest') }
+        | Sort-Object Name
+        | ForEach-Object { $_.Name }
+    )
+
+    $editLinkPrefix = "$SourceRepoUrl/blob/$SourceBranch/"
+    $allEditLinks = @(Get-ChildItem (Join-Path $OutputLocation 'latest') -Filter '*.yml' -File -ErrorAction SilentlyContinue |
+        Select-String -Pattern '^\s*editLink:' |
+        ForEach-Object { $_.Line.Trim() })
+    $editLinkAllMatch = $allEditLinks.Count -eq 0 -or -not @($allEditLinks | Where-Object { -not $_.StartsWith("editLink: $editLinkPrefix") })
+
+    $manifest = [ordered]@{
+        mode              = $Mode
+        moniker           = $Moniker
+        versionFolder     = $VersionFolder
+        sourceRepoUrl     = $SourceRepoUrl
+        sourceBranch      = $SourceBranch
+        cli2yamlDll       = $Cli2YamlDll
+        cli2yamlVersion   = (Split-Path (Split-Path $Cli2YamlDll -Parent) -Parent | Split-Path -Leaf)
+        outputLocation    = $OutputLocation
+        filesProduced     = $files.Count
+        ymlProduced       = $ymlFiles.Count
+        topLevelFiles     = $topLevel
+        editLinkPrefix    = $editLinkPrefix
+        editLinkAllMatch  = [bool]$editLinkAllMatch
+        editLinkSampled   = $allEditLinks.Count
+        generatedAt       = ([DateTime]::UtcNow).ToString('o')
+    }
+
+    if ($Mode -eq 'force' -and $ApplyResult)
+    {
+        $manifest.branch         = $ApplyResult.Branch
+        $manifest.commitSha      = $ApplyResult.CommitSha
+        $manifest.commitMessage  = $ApplyResult.CommitMessage
+        $manifest.commitFileCount = $ApplyResult.FileCount
+        $manifest.noChanges      = [bool]$ApplyResult.NoChanges
+    }
+
+    return [PSCustomObject]$manifest
+}
+
+function Write-SyncManifest
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][PSCustomObject]$Manifest
+    )
+
+    $dir = Split-Path -Parent $Path
+    if ($dir -and -not (Test-Path $dir))
+    {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    $Manifest | ConvertTo-Json -Depth 6 | Set-Content -Path $Path -Encoding utf8 -NoNewline
+    Write-Host "Wrote manifest → $Path" -ForegroundColor DarkGray
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────────
 
 if ($__loadOnly) { return }
@@ -431,22 +582,30 @@ if ($Push)
 }
 
 # Resolve CLI2Yaml first — cheap check that fails fast on unresolved package.
-$cli2yamlDll = Get-Cli2YamlDllPath -PackageName $config.cli2yamlPackage -Feed $config.cli2yamlFeed
+$cli2yamlDll = Get-Cli2YamlDllPath -PackageName $config.cli2yamlPackage -Feed $config.cli2yamlFeed -FetchIfMissing:$FetchIfMissing
 Write-Host "CLI2Yaml : $cli2yamlDll" -ForegroundColor DarkGray
 
-# Build the solution so exporter reflects over up-to-date DLLs.
-Write-Host 'Building azclips.slnx (Debug) ...' -ForegroundColor Cyan
-Push-Location $repoRoot
-try {
-    dotnet build azclips.slnx --configuration Debug --nologo -clp:ErrorsOnly 2>&1 | Select-Object -Last 3 | ForEach-Object { Write-Host "  → $_" }
-    if ($LASTEXITCODE -ne 0) { throw "dotnet build failed with exit $LASTEXITCODE." }
+# Build the solution so exporter reflects over up-to-date DLLs. CI typically has already
+# built in a preceding step and passes -NoBuild to skip this.
+if ($NoBuild)
+{
+    Write-Host "Skipping build ($Configuration) — assuming caller has already built." -ForegroundColor DarkGray
 }
-finally {
-    Pop-Location
+else
+{
+    Write-Host "Building azclips.slnx ($Configuration) ..." -ForegroundColor Cyan
+    Push-Location $repoRoot
+    try {
+        dotnet build azclips.slnx --configuration $Configuration --nologo -clp:ErrorsOnly 2>&1 | Select-Object -Last 3 | ForEach-Object { Write-Host "  → $_" }
+        if ($LASTEXITCODE -ne 0) { throw "dotnet build failed with exit $LASTEXITCODE." }
+    }
+    finally {
+        Pop-Location
+    }
 }
 
 # Stage 1: exporter → JSON
-$exporterOutput = Invoke-CliExporter -RepoRoot $repoRoot -ExportProject $config.exportProject
+$exporterOutput = Invoke-CliExporter -RepoRoot $repoRoot -ExportProject $config.exportProject -Configuration $Configuration
 
 # Stage 2: assemble CLI2Yaml workspace + commit map
 $workspace = New-Cli2YamlWorkspace -RepoRoot $repoRoot -ExporterOutput $exporterOutput
@@ -481,23 +640,39 @@ if ($Force)
     $effectiveTimestamp = if ($Timestamp) { $Timestamp } else { [DateTime]::UtcNow.ToString('yyyyMMddHHmm') }
     Write-Host ''
     Write-Host "Applying CLI docs to $effectiveTargetRepoPath ..." -ForegroundColor Cyan
-    $result = Invoke-SyncApply -TargetRepoPath $effectiveTargetRepoPath -VersionFolder $effectiveVersionFolder -Moniker $effectiveMoniker -Timestamp $effectiveTimestamp
+    $applyResult = Invoke-SyncApply `
+        -TargetRepoPath $effectiveTargetRepoPath `
+        -VersionFolder $effectiveVersionFolder `
+        -Moniker $effectiveMoniker `
+        -Timestamp $effectiveTimestamp `
+        -CommitAuthor $CommitAuthor `
+        -CommitEmail $CommitEmail
 
     Write-Host ''
-    if ($result.NoChanges)
+    if ($applyResult.NoChanges)
     {
         Write-Host '=== No changes to sync ===' -ForegroundColor Yellow
         Write-Host "Target already matches AzClips CLI output (moniker: $effectiveMoniker). Nothing committed." -ForegroundColor DarkGray
-        return
+    }
+    else
+    {
+        Write-Host '=== Sync applied ===' -ForegroundColor Cyan
+        Write-Host "Branch      : $($applyResult.Branch)"
+        Write-Host "Commit      : $($applyResult.CommitSha)"
+        Write-Host "Message     : $($applyResult.CommitMessage)"
+        Write-Host "Files       : $($applyResult.FileCount)"
+        Write-Host ''
+        Write-Host "(Nothing pushed. Inspect with: git -C '$effectiveTargetRepoPath' log $($applyResult.Branch) --stat)" -ForegroundColor DarkGray
     }
 
-    Write-Host '=== Sync applied ===' -ForegroundColor Cyan
-    Write-Host "Branch      : $($result.Branch)"
-    Write-Host "Commit      : $($result.CommitSha)"
-    Write-Host "Message     : $($result.CommitMessage)"
-    Write-Host "Files       : $($result.FileCount)"
-    Write-Host ''
-    Write-Host "(Nothing pushed. Inspect with: git -C '$effectiveTargetRepoPath' log $($result.Branch) --stat)" -ForegroundColor DarkGray
+    if ($OutputManifest)
+    {
+        $manifest = New-SyncManifest -Mode 'force' -Moniker $effectiveMoniker -VersionFolder $effectiveVersionFolder `
+            -SourceRepoUrl $effectiveSourceRepoUrl -SourceBranch $effectiveSourceBranch `
+            -OutputLocation $targetVersionFolder -Cli2YamlDll $cli2yamlDll `
+            -ApplyResult $applyResult
+        Write-SyncManifest -Path $OutputManifest -Manifest $manifest
+    }
     return
 }
 
@@ -517,3 +692,11 @@ Invoke-Cli2Yaml `
     -SourceBranch $effectiveSourceBranch
 
 Write-DryRunReport -ScratchOutput $scratchOutput -Moniker $effectiveMoniker -VersionFolder $effectiveVersionFolder -SourceRepoUrl $effectiveSourceRepoUrl -SourceBranch $effectiveSourceBranch
+
+if ($OutputManifest)
+{
+    $manifest = New-SyncManifest -Mode 'dry-run' -Moniker $effectiveMoniker -VersionFolder $effectiveVersionFolder `
+        -SourceRepoUrl $effectiveSourceRepoUrl -SourceBranch $effectiveSourceBranch `
+        -OutputLocation $scratchOutput -Cli2YamlDll $cli2yamlDll
+    Write-SyncManifest -Path $OutputManifest -Manifest $manifest
+}

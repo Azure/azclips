@@ -262,4 +262,144 @@ Describe 'Invoke-SyncApply' {
         $dirty = git -C $script:Target status --porcelain 2>$null
         $dirty | Should -BeNullOrEmpty
     }
+
+    It 'uses the injected CommitAuthor and CommitEmail when provided' {
+        Set-Content -Path (Join-Path $script:VersionPath 'vm.yml') -Value 'x'
+
+        $result = Invoke-SyncApply -TargetRepoPath $script:Target -VersionFolder 'preview-version' -Moniker 'azure-cli-preview' -Timestamp '202609030105' -CommitAuthor 'AzClips Docs Bot' -CommitEmail 'azclips-docs-bot@microsoft.com'
+
+        $author = git -C $script:Target log -1 --format='%an <%ae>' $result.Branch 2>$null
+        $author | Should -Match 'AzClips Docs Bot <azclips-docs-bot@microsoft.com>'
+    }
+
+    It 'does not persist the injected identity to the target repo config' {
+        Set-Content -Path (Join-Path $script:VersionPath 'vm.yml') -Value 'x'
+
+        $null = Invoke-SyncApply -TargetRepoPath $script:Target -VersionFolder 'preview-version' -Moniker 'azure-cli-preview' -Timestamp '202609030106' -CommitAuthor 'AzClips Docs Bot' -CommitEmail 'azclips-docs-bot@microsoft.com'
+
+        (git -C $script:Target config user.name) | Should -Be 'Test'
+        (git -C $script:Target config user.email) | Should -Be 'test@example.com'
+    }
+}
+
+Describe 'New-SyncManifest' {
+    BeforeAll {
+        $script:FakeCli2YamlDll = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-clisync-fakedll-" + [Guid]::NewGuid().ToString('N')) `
+            | ForEach-Object {
+                $folder = Join-Path $_ 'cli2yaml/20260827.1.0/tools'
+                New-Item -ItemType Directory -Path $folder -Force | Out-Null
+                $dll = Join-Path $folder 'CLI2Yaml.dll'
+                Set-Content -Path $dll -Value 'stub' -NoNewline
+                $dll
+            }
+    }
+
+    BeforeEach {
+        $script:Output = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-clisync-out-" + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path (Join-Path $script:Output 'latest') -Force | Out-Null
+        Set-Content -Path (Join-Path $script:Output 'latest/vm.yml') -Value @"
+### YamlMime:AzureCLIGroup
+directCommands:
+- editLink: https://github.com/Azure/azclips/blob/main/src/CLI/Help/Docs/vm/index.md
+"@
+        Set-Content -Path (Join-Path $script:Output 'latest/TOC.yml') -Value '- name: Reference'
+    }
+
+    AfterEach {
+        if (Test-Path $script:Output) { Remove-Item $script:Output -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    AfterAll {
+        $probe = Split-Path (Split-Path (Split-Path $script:FakeCli2YamlDll -Parent) -Parent) -Parent
+        if (Test-Path $probe) { Remove-Item $probe -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'builds a dry-run manifest with all expected keys' {
+        $m = New-SyncManifest -Mode 'dry-run' -Moniker 'azure-cli-preview' -VersionFolder 'preview-version' `
+            -SourceRepoUrl 'https://github.com/Azure/azclips' -SourceBranch 'main' `
+            -OutputLocation $script:Output -Cli2YamlDll $script:FakeCli2YamlDll
+
+        $m.mode              | Should -Be 'dry-run'
+        $m.moniker           | Should -Be 'azure-cli-preview'
+        $m.versionFolder     | Should -Be 'preview-version'
+        $m.sourceRepoUrl     | Should -Be 'https://github.com/Azure/azclips'
+        $m.sourceBranch      | Should -Be 'main'
+        $m.cli2yamlVersion   | Should -Be '20260827.1.0'
+        $m.editLinkPrefix    | Should -Be 'https://github.com/Azure/azclips/blob/main/'
+        $m.editLinkAllMatch  | Should -BeTrue
+        $m.filesProduced     | Should -Be 2
+        $m.ymlProduced       | Should -Be 2
+        $m.topLevelFiles     | Should -Contain 'vm.yml'
+    }
+
+    It 'flags editLinkAllMatch=false when the prefix does not apply' {
+        Set-Content -Path (Join-Path $script:Output 'latest/wrong.yml') -Value 'editLink: https://github.com/Azure/azure-cli/blob/dev/x.md'
+
+        $m = New-SyncManifest -Mode 'dry-run' -Moniker 'azure-cli-preview' -VersionFolder 'preview-version' `
+            -SourceRepoUrl 'https://github.com/Azure/azclips' -SourceBranch 'main' `
+            -OutputLocation $script:Output -Cli2YamlDll $script:FakeCli2YamlDll
+
+        $m.editLinkAllMatch | Should -BeFalse
+    }
+
+    It 'includes branch/commit fields when Mode=force and ApplyResult is supplied' {
+        $apply = [PSCustomObject]@{
+            Branch        = 'azclips-cli-sync-202609030200'
+            CommitSha     = 'abc123def456'
+            CommitMessage = 'AzClips-CLI docs sync -- azure-cli-preview -- 202609030200'
+            FileCount     = 20
+            NoChanges     = $false
+        }
+
+        $m = New-SyncManifest -Mode 'force' -Moniker 'azure-cli-preview' -VersionFolder 'preview-version' `
+            -SourceRepoUrl 'https://github.com/Azure/azclips' -SourceBranch 'main' `
+            -OutputLocation $script:Output -Cli2YamlDll $script:FakeCli2YamlDll `
+            -ApplyResult $apply
+
+        $m.mode            | Should -Be 'force'
+        $m.branch          | Should -Be 'azclips-cli-sync-202609030200'
+        $m.commitSha       | Should -Be 'abc123def456'
+        $m.commitFileCount | Should -Be 20
+        $m.noChanges       | Should -BeFalse
+    }
+}
+
+Describe 'Write-SyncManifest' {
+    BeforeEach {
+        $script:File = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-clisync-manifest-" + [Guid]::NewGuid().ToString('N') + '.json')
+    }
+
+    AfterEach {
+        if (Test-Path $script:File) { Remove-Item $script:File -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'writes JSON that parses back to the original values' {
+        $manifest = [PSCustomObject]@{
+            mode          = 'dry-run'
+            moniker       = 'azure-cli-preview'
+            filesProduced = 20
+            topLevelFiles = @('vm.yml', 'config.yml')
+        }
+
+        Write-SyncManifest -Path $script:File -Manifest $manifest
+
+        Test-Path $script:File | Should -BeTrue
+        $parsed = Get-Content $script:File -Raw | ConvertFrom-Json
+        $parsed.mode          | Should -Be 'dry-run'
+        $parsed.filesProduced | Should -Be 20
+        $parsed.topLevelFiles | Should -Be @('vm.yml', 'config.yml')
+    }
+
+    It 'creates the parent directory if it does not exist' {
+        $nested = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-clisync-newdir-" + [Guid]::NewGuid().ToString('N') + '/deep/manifest.json')
+        try {
+            $manifest = [PSCustomObject]@{ mode = 'dry-run' }
+            Write-SyncManifest -Path $nested -Manifest $manifest
+            Test-Path $nested | Should -BeTrue
+        }
+        finally {
+            $probe = Split-Path (Split-Path $nested -Parent) -Parent
+            if (Test-Path $probe) { Remove-Item $probe -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+    }
 }
