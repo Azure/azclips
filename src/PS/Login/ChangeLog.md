@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* `az login` / `Connect-AzAccount`: Add optional `--description` / `-Description` to store extra human-readable context on a profile at creation (#664)
+    - Shown by `profile show` / `profile list`; set only at creation and cannot be combined with `--profile` / `-Profile`
 
 ## Version 0.1.0
 

@@ -29,6 +29,12 @@
         "group_name": "Managed Identity Arguments"
       },
       {
+        "name": "--description",
+        "required": false,
+        "short_summary": "Optional description to store on the profile for extra context. Set only when the profile is created; cannot be combined with --profile.",
+        "long_summary": ""
+      },
+      {
         "name": "--identity",
         "required": false,
         "short_summary": "Login using managed identity in the current environment.",

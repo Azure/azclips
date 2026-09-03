@@ -12,6 +12,9 @@ public record Profile
     /// <summary>The unique profile name.</summary>
     public string Name { get; init; } = default!;
 
+    /// <summary>Optional free-form description giving the profile extra human-readable context.</summary>
+    public string? Description { get; init; }
+
     /// <summary>The Azure tenant (directory) ID.</summary>
     public string TenantId { get; init; } = default!;
 
@@ -41,6 +44,7 @@ public record Profile
 
     public override string ToString() =>
         $"Name: {Name}{Environment.NewLine}" +
+        (string.IsNullOrWhiteSpace(Description) ? string.Empty : $"Description: {Description}{Environment.NewLine}") +
         $"Subscription: {SubscriptionId}{Environment.NewLine}" +
         $"Tenant: {TenantId}{Environment.NewLine}" +
         $"Cloud: {CloudName}{Environment.NewLine}" +

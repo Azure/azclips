@@ -124,7 +124,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Login.Processors.ProfileSummary
 
-One `ProfileSummary` per configured profile: name, whether it is currently active, tenant ID, subscription ID, cloud, authentication method, and user principal name.
+One `ProfileSummary` per configured profile: name, whether it is currently active, tenant ID, subscription ID, cloud, authentication method, user principal name, and description.
 
 ## NOTES
 

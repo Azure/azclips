@@ -312,6 +312,27 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
+    public void ValidateArguments_ProfileWithDescription_NamesSurfaceCorrectFlags(ClientType surface)
+    {
+        InitDi(surface);
+        var processor = new LoginProcessor { Profile = "existing", Description = "note" };
+        var expectedDescription = FlagFor(surface, nameof(LoginProcessor.Description));
+        var expectedProfile = FlagFor(surface, nameof(LoginProcessorBase.Profile));
+        var forbiddenDescription = FlagFor(OtherSurface(surface), nameof(LoginProcessor.Description));
+        var forbiddenProfile = FlagFor(OtherSurface(surface), nameof(LoginProcessorBase.Profile));
+
+        var ex = Assert.Throws<ArgumentException>(() => InvokePrivate(
+            processor, "ValidateArguments", Array.Empty<object?>()));
+
+        Assert.Contains(expectedDescription, ex.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedProfile, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(forbiddenDescription, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(forbiddenProfile, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
     public void ValidateArguments_IdentityWithTenantId_NamesSurfaceCorrectFlags(ClientType surface)
     {
         InitDi(surface);
@@ -448,6 +469,8 @@ public class LoginProcessorValidationTests
             new LoginProcessor { Identity = true, ResourceId = "r" } };
         yield return new object[] { "re-auth-existing-profile",
             new LoginProcessor { Profile = "existing" } };
+        yield return new object[] { "out-profile-with-description",
+            new LoginProcessor { SubscriptionId = "sub-1", OutProfile = "prod", Description = "read-only prod" } };
     }
 
     [Theory]

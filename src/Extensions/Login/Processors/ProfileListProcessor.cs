@@ -23,7 +23,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                     profile.SubscriptionId,
                     profile.CloudName,
                     profile.AuthMethod,
-                    profile.UserPrincipalName))
+                    profile.UserPrincipalName,
+                    profile.Description))
                 .ToList();
 
             await WriteOutput(summaries);

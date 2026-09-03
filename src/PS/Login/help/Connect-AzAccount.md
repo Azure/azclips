@@ -21,7 +21,7 @@ Authenticate to Azure.
 
 ```
 Connect-AzAccount [-SubscriptionId <string>] [-TenantId <string>] [-UseDeviceCode]
- [-OutProfile <string>] [-Profile <string>] [-Identity] [-ClientId <string>] [-ObjectId <string>]
+ [-OutProfile <string>] [-Description <string>] [-Profile <string>] [-Identity] [-ClientId <string>] [-ObjectId <string>]
  [-ResourceId <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -92,6 +92,27 @@ ParameterSets:
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
+```
+
+### -Description
+
+Optional description to store on the profile for extra context. Set only when the profile is created; it cannot be changed by re-authenticating and can't be combined with `-Profile`.
+
+```yaml
+Type: System.String
+DefaultValue: ""
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ""
 ```
 
 ### -Identity

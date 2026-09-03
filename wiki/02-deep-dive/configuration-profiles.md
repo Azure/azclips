@@ -205,6 +205,7 @@ The `Profile` record is a superset of the old context (`src/Core/Core.Abstractio
 | Field                  | Meaning                                                                            |
 | ---------------------- | ---------------------------------------------------------------------------------- |
 | `Name`                 | Unique profile name (also the map key)                                             |
+| `Description`          | Optional free-form description giving the profile extra human-readable context     |
 | `TenantId`             | Azure tenant (directory) ID                                                        |
 | `SubscriptionId`       | Azure subscription ID                                                              |
 | `CloudName`            | Cloud environment; **stored only**, no behavioral impact yet                       |
@@ -308,6 +309,10 @@ two mutually-exclusive flags before any authentication runs
   / subscription / cloud from that stored profile.
 - **`--profile` + `--out-profile` together** → rejected with a fail-fast `ArgumentException`
   (`LoginProcessor.cs:46`) — one re-authenticates, the other creates; they can't be combined.
+- **`az login --out-profile <name> --description <text>`** → stores an optional free-form
+  description on the profile at creation. The description is **set only at creation**: passing
+  `--description` with `--profile` is rejected, and re-auth preserves the stored value. There is
+  no command to edit a description in place today.
 
 In all cases the result is persisted and activated in a single call:
 

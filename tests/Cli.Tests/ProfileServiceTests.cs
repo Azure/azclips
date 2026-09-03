@@ -38,6 +38,29 @@ public sealed class ProfileServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAndGet_ShouldRoundTripDescription_ThroughProfilesJson()
+    {
+        await _service.SaveProfileAsync(MakeProfile("prod") with { Description = "read-only prod" });
+
+        var loaded = await _service.GetProfileAsync("prod");
+        Assert.NotNull(loaded);
+        Assert.Equal("read-only prod", loaded!.Description);
+        // Confirm the value is actually written to disk, not just held in memory.
+        var json = await File.ReadAllTextAsync(Path.Combine(_dir, "profiles.json"));
+        Assert.Contains("read-only prod", json);
+    }
+
+    [Fact]
+    public async Task SaveAndGet_WithoutDescription_ShouldRoundTripNull()
+    {
+        await _service.SaveProfileAsync(MakeProfile("prod"));
+
+        var loaded = await _service.GetProfileAsync("prod");
+        Assert.NotNull(loaded);
+        Assert.Null(loaded!.Description);
+    }
+
+    [Fact]
     public async Task GetProfile_ShouldBeCaseInsensitive()
     {
         await _service.SaveProfileAsync(MakeProfile("Prod"));
