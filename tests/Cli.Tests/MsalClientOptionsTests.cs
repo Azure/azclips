@@ -198,7 +198,12 @@ public class MsalClientOptionsTests
             // Must complete without throwing despite the invalid cache location.
             await service.LogoutAsync(Upn);
 
-            Assert.Contains(logger.Messages, m => m.Contains("Non-fatal", StringComparison.Ordinal) && m.Contains("failed to remove account", StringComparison.Ordinal));
+            // Assert on a stable phrase describing the non-fatal condition rather than exact wording,
+            // and confirm the account UPN is not surfaced in the console-routed warning (PII).
+            Assert.Contains(logger.Messages, m =>
+                m.Contains("Non-fatal:", StringComparison.Ordinal) &&
+                m.Contains("token-cache cleanup failed during logout", StringComparison.Ordinal) &&
+                !m.Contains(Upn, StringComparison.Ordinal));
         }
         finally
         {
