@@ -23,7 +23,7 @@ public class NewSqlServerProcessorTests
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
     private const string ExpectedCreateUri =
         "https://management.azure.com/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735"
-        + "/resourceGroups/my-rg/providers/Microsoft.Sql/servers/myserver001?api-version=2023-08-01";
+        + "/resourceGroups/my-rg/providers/Microsoft.Sql/servers/myserver001?api-version=2025-01-01";
 
     private const string SucceededServerBody = """
         {
@@ -142,11 +142,55 @@ public class NewSqlServerProcessorTests
     }
 
     [Fact]
+    public async Task CreateRequestMessage_PlacesTagsOnEnvelope_NotUnderProperties()
+    {
+        var recorder = new RequestRecorder(_ => Json(HttpStatusCode.OK, SucceededServerBody));
+        var pipeline = new FakeHttpPipeline(recorder.Respond);
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler());
+        processor.Tags = ["env=prod", "cost=cc-1234"];
+
+        await processor.ProcessAsync();
+
+        string body = Assert.IsType<string>(recorder.Bodies[0]);
+        // Tags belong to TrackedResource, so they must sit beside "location", never inside "properties".
+        Assert.Contains("\"tags\":{\"env\":\"prod\",\"cost\":\"cc-1234\"}", body);
+        int tagsIndex = body.IndexOf("\"tags\"", StringComparison.Ordinal);
+        int propertiesIndex = body.IndexOf("\"properties\"", StringComparison.Ordinal);
+        Assert.True(tagsIndex < propertiesIndex, "tags must be serialized on the envelope, before properties");
+    }
+
+    [Fact]
+    public async Task CreateRequestMessage_TreatsBareTagKeyAsEmptyValue()
+    {
+        var recorder = new RequestRecorder(_ => Json(HttpStatusCode.OK, SucceededServerBody));
+        var pipeline = new FakeHttpPipeline(recorder.Respond);
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler());
+        processor.Tags = ["archived", "env=prod"];
+
+        await processor.ProcessAsync();
+
+        string body = Assert.IsType<string>(recorder.Bodies[0]);
+        // `az --tags key[=value]` makes the value optional; a bare key is an empty-valued tag.
+        Assert.Contains("\"tags\":{\"archived\":\"\",\"env\":\"prod\"}", body);
+    }
+
+    [Fact]
+    public async Task CreateRequestMessage_RejectsTagWithEmptyKey()
+    {
+        var recorder = new RequestRecorder(_ => Json(HttpStatusCode.OK, SucceededServerBody));
+        var pipeline = new FakeHttpPipeline(recorder.Respond);
+        var processor = CreateProcessor(pipeline, new FakeOutputHandler());
+        processor.Tags = ["=orphan-value"];
+
+        await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+    }
+
+    [Fact]
     public async Task SendAsync_PollsAsyncOperation_UntilProvisioningSucceeded()
     {
         const string inProgress = """{ "status": "InProgress" }""";
         const string succeeded = """{ "status": "Succeeded" }""";
-        const string asyncOperationUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Sql/locations/eastus/serverAzureAsyncOperation/op1?api-version=2023-08-01";
+        const string asyncOperationUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Sql/locations/eastus/serverAzureAsyncOperation/op1?api-version=2025-01-01";
 
         var recorder = new RequestRecorder(sendCount => sendCount switch
         {

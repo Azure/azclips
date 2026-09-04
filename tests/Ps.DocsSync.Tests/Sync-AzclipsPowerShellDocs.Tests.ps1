@@ -53,7 +53,7 @@ Describe 'Get-PublishableModule' {
         { Get-PublishableModule -PsRoot (Join-Path $script:TempRoot 'nonexistent') } | Should -Throw
     }
 
-    It 'discovers all five modules against the real src/PS tree' {
+    It 'discovers all six modules against the real src/PS tree' {
         $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
         $result = @(Get-PublishableModule -PsRoot (Join-Path $repoRoot 'src/PS'))
         ($result | ForEach-Object Name) | Sort-Object | Should -Be @('Compute', 'Config', 'Login', 'MsGraph', 'Resources', 'Sql')

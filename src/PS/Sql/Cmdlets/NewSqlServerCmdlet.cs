@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
@@ -38,12 +39,16 @@ public class NewSqlServerCmdlet : PSCmdlet
     public string? ServerVersion { get; set; }
 
     [Parameter(Mandatory = false)]
-    [ValidateSet("1.0", "1.1", "1.2", "1.3")]
+    [ValidateSet("None", "1.0", "1.1", "1.2", "1.3")]
     public string? MinimalTlsVersion { get; set; }
 
     [Parameter(Mandatory = false)]
-    [ValidateSet("Enabled", "Disabled")]
+    [ValidateSet("Enabled", "Disabled", "SecuredByPerimeter")]
     public string? PublicNetworkAccess { get; set; }
+
+    [Parameter(Mandatory = false)]
+    [Alias("Tag")]
+    public Hashtable? Tags { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -70,6 +75,7 @@ public class NewSqlServerCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ServerVersion)))       { parameters.Add("ServerVersion", ServerVersion!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(MinimalTlsVersion)))   { parameters.Add("MinimalTlsVersion", MinimalTlsVersion!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicNetworkAccess))) { parameters.Add("PublicNetworkAccess", PublicNetworkAccess!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Tags)))                { parameters.Add("Tags", ToTagArray(Tags!)); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
@@ -89,6 +95,13 @@ public class NewSqlServerCmdlet : PSCmdlet
     {
         _cts.Dispose();
     }
+
+    // ponytail: the engine binds by exact CLR type, so the hashtable is flattened to key=value
+    // strings here rather than teaching the shared binder about dictionaries.
+    private static string[] ToTagArray(Hashtable tags) =>
+        tags.Cast<DictionaryEntry>()
+            .Select(entry => $"{entry.Key}={entry.Value}")
+            .ToArray();
 
     protected override void StopProcessing() => _cts.Cancel();
 }

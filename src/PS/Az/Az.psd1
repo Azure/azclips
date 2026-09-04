@@ -12,6 +12,7 @@ RequiredModules = @(
     @{ ModuleName = '../Login/Login.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Resources/Resources.psd1'; ModuleVersion = '0.1.0' },
+    @{ ModuleName = '../Sql/Sql.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Config/Config.psd1'; ModuleVersion = '0.1.0' }
 )
 FunctionsToExport = @()

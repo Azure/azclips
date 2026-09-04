@@ -23,6 +23,9 @@ public class SqlServer
     public string? Location { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Tags { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SqlServerProperties? Properties { get; set; }
 
     public override string ToString() => JsonNode.FromObject(this).ToString();

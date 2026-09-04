@@ -25,8 +25,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql
                 ["AdministratorLogin"]         = new("AdministratorLogin", "AdministratorLogin", typeof(string), "The administrator login name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["AdministratorLoginPassword"] = new("AdministratorLoginPassword", "AdministratorLoginPassword", typeof(string), "The administrator login password.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["ServerVersion"]              = new("ServerVersion", "ServerVersion", typeof(string), "The version of the SQL server (e.g. 12.0).", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["MinimalTlsVersion"]          = new("MinimalTlsVersion", "MinimalTlsVersion", typeof(string), "Minimal TLS version enforced by the server.", IsRequired: false, Aliases: [], AllowedValues: ["1.0", "1.1", "1.2", "1.3"]),
-                ["PublicNetworkAccess"]        = new("PublicNetworkAccess", "PublicNetworkAccess", typeof(string), "Whether public network access is allowed.", IsRequired: false, Aliases: [], AllowedValues: ["Enabled", "Disabled"]),
+                ["MinimalTlsVersion"]          = new("MinimalTlsVersion", "MinimalTlsVersion", typeof(string), "Minimal TLS version enforced by the server.", IsRequired: false, Aliases: [], AllowedValues: ["None", "1.0", "1.1", "1.2", "1.3"]),
+                ["PublicNetworkAccess"]        = new("PublicNetworkAccess", "PublicNetworkAccess", typeof(string), "Whether public network access is allowed.", IsRequired: false, Aliases: [], AllowedValues: ["Enabled", "Disabled", "SecuredByPerimeter"]),
+                ["Tags"]                       = new("Tags", "Tags", typeof(string[]), "Resource tags as key=value pairs.", IsRequired: false, Aliases: ["Tag"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -48,8 +49,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql
                 ["admin-user"]             = new("AdministratorLogin", "admin-user", typeof(string), "The administrator login name.", IsRequired: true, Aliases: ["u"], AllowedValues: []),
                 ["admin-password"]         = new("AdministratorLoginPassword", "admin-password", typeof(string), "The administrator login password.", IsRequired: true, Aliases: ["p"], AllowedValues: []),
                 ["server-version"]         = new("ServerVersion", "server-version", typeof(string), "The version of the SQL server (e.g. 12.0).", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["minimal-tls-version"]    = new("MinimalTlsVersion", "minimal-tls-version", typeof(string), "Minimal TLS version enforced by the server.", IsRequired: false, Aliases: [], AllowedValues: ["1.0", "1.1", "1.2", "1.3"]),
-                ["public-network-access"]  = new("PublicNetworkAccess", "public-network-access", typeof(string), "Whether public network access is allowed.", IsRequired: false, Aliases: [], AllowedValues: ["Enabled", "Disabled"]),
+                ["minimal-tls-version"]    = new("MinimalTlsVersion", "minimal-tls-version", typeof(string), "Minimal TLS version enforced by the server.", IsRequired: false, Aliases: [], AllowedValues: ["None", "1.0", "1.1", "1.2", "1.3"]),
+                ["public-network-access"]  = new("PublicNetworkAccess", "public-network-access", typeof(string), "Whether public network access is allowed.", IsRequired: false, Aliases: [], AllowedValues: ["Enabled", "Disabled", "SecuredByPerimeter"]),
+                ["tags"]                   = new("Tags", "tags", typeof(string[]), "Resource tags as space-separated key[=value] pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {

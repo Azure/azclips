@@ -23,7 +23,7 @@ Create an Azure SQL logical server.
 New-AzSqlServer -SubscriptionId <string> -ResourceGroupName <string> -Name <string>
  -Location <string> -AdministratorLogin <string> -AdministratorLoginPassword <string>
  [-ServerVersion <string>] [-MinimalTlsVersion <string>] [-PublicNetworkAccess <string>]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -31,7 +31,7 @@ New-AzSqlServer -SubscriptionId <string> -ResourceGroupName <string> -Name <stri
 ## DESCRIPTION
 
 Creates a `Microsoft.Sql/servers` resource in the specified resource group and region, with the supplied administrator login and password.
-Optionally pins the server version, the minimal TLS version the server enforces, and whether public network access is allowed.
+Optionally pins the server version, the minimal TLS version the server enforces, whether public network access is allowed, and resource tags.
 The create operation is long-running; the cmdlet waits for it to finish and returns the final server resource.
 
 ## EXAMPLES
@@ -46,13 +46,13 @@ $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzSqlServer -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myResourceGroup -Name myserver001 -Location eastus -AdministratorLogin sqladmin -AdministratorLoginPassword $adminPassword
 ```
 
-### Create a SQL server with public network access disabled and TLS 1.2 enforced
+### Create a SQL server with public network access disabled, TLS 1.2 enforced, and resource tags
 
-Harden the server at creation time by blocking public endpoints and requiring TLS 1.2.
+Harden the server at creation time by blocking public endpoints and requiring TLS 1.2, and tag it for ownership tracking.
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzSqlServer -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myResourceGroup -Name myserver001 -Location eastus -AdministratorLogin sqladmin -AdministratorLoginPassword $adminPassword -ServerVersion 12.0 -MinimalTlsVersion 1.2 -PublicNetworkAccess Disabled
+New-AzSqlServer -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myResourceGroup -Name myserver001 -Location eastus -AdministratorLogin sqladmin -AdministratorLoginPassword $adminPassword -ServerVersion 12.0 -MinimalTlsVersion 1.2 -PublicNetworkAccess Disabled -Tags @{ env = 'prod'; owner = 'data-team' }
 ```
 
 ## PARAMETERS
@@ -281,6 +281,28 @@ ParameterSets:
 - Name: (All)
   Position: Named
   IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Tags
+
+Resource tags as key/value pairs.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- Tag
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
