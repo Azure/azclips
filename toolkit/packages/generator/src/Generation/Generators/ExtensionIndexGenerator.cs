@@ -3,6 +3,8 @@ using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Ace.Generator.Generators;
 
@@ -235,63 +237,102 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
     /// </summary>
     private static string EmitCore(GeneratorOptions options)
     {
-        string ns = options.RootNamespace;
-        var source = new StringBuilder();
+        ClassDeclarationSyntax index = ClassDeclaration("ExtensionIndex")
+            .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
+            .WithBaseList(
+                BaseList(SingletonSeparatedList<BaseTypeSyntax>(SimpleBaseType(ParseTypeName("IExtensionIndex")))))
+            .AddMembers(
+                Table("s_psTable", "BuildPowerShell()"),
+                Table("s_cliTable", "BuildCli()"),
+                SurfaceHook("AddPowerShellCommands")
+                    .WithLeadingXmlDoc("Filled by the PowerShell partial; compiles away when that surface is not generated."),
+                SurfaceHook("AddCliCommands")
+                    .WithLeadingXmlDoc("Filled by the CLI partial; compiles away when that surface is not generated."),
+                Builder("BuildPowerShell", "StringComparer.OrdinalIgnoreCase", "AddPowerShellCommands"),
+                Builder("BuildCli", "StringComparer.Ordinal", "AddCliCommands"),
+                MethodDeclaration(ParseTypeName("CommandMetadata"), Identifier("GetCommandMetadata"))
+                    .AddModifiers(Token(SyntaxKind.PublicKeyword))
+                    .AddParameterListParameters(
+                        Parameter(Identifier("name")).WithType(ParseTypeName("string")),
+                        Parameter(Identifier("clientType")).WithType(ParseTypeName("ClientType")))
+                    .WithExpressionBody(ArrowExpressionClause(ParseExpression(GetCommandMetadataBody)))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                MethodDeclaration(ParseTypeName("IReadOnlyDictionary<string, CommandMetadata>"), Identifier("GetCommandTable"))
+                    .AddModifiers(Token(SyntaxKind.PublicKeyword))
+                    .AddParameterListParameters(Parameter(Identifier("clientType")).WithType(ParseTypeName("ClientType")))
+                    .WithExpressionBody(ArrowExpressionClause(ParseExpression(GetCommandTableBody)))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                Arrow("IEnumerable<CommandMetadata>", "GetAllCommands", "GetCommandTable(clientType).Values"),
+                Arrow("IEnumerable<string>", "GetCommandKeys", "GetCommandTable(clientType).Keys"));
 
-        source.AppendLine(Banner);
-        source.AppendLine("using Core.Abstractions;");
-        source.AppendLine();
-        source.AppendLine($"namespace {ns};");
-        source.AppendLine();
-        source.AppendLine("public partial class ExtensionIndex : IExtensionIndex");
-        source.AppendLine("{");
-        source.AppendLine("    private static readonly Dictionary<string, CommandMetadata> s_psTable = BuildPowerShell();");
-        source.AppendLine("    private static readonly Dictionary<string, CommandMetadata> s_cliTable = BuildCli();");
-        source.AppendLine();
-        source.AppendLine("    static partial void AddPowerShellCommands(Dictionary<string, CommandMetadata> table);");
-        source.AppendLine();
-        source.AppendLine("    static partial void AddCliCommands(Dictionary<string, CommandMetadata> table);");
-        source.AppendLine();
-        source.AppendLine("    private static Dictionary<string, CommandMetadata> BuildPowerShell()");
-        source.AppendLine("    {");
-        source.AppendLine("        var table = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);");
-        source.AppendLine("        AddPowerShellCommands(table);");
-        source.AppendLine("        return table;");
-        source.AppendLine("    }");
-        source.AppendLine();
-        source.AppendLine("    private static Dictionary<string, CommandMetadata> BuildCli()");
-        source.AppendLine("    {");
-        source.AppendLine("        var table = new Dictionary<string, CommandMetadata>(StringComparer.Ordinal);");
-        source.AppendLine("        AddCliCommands(table);");
-        source.AppendLine("        return table;");
-        source.AppendLine("    }");
-        source.AppendLine();
-        source.AppendLine("    public CommandMetadata GetCommandMetadata(string name, ClientType clientType) =>");
-        source.AppendLine("        GetCommandTable(clientType).TryGetValue(name, out CommandMetadata? metadata)");
-        source.AppendLine("            ? metadata");
-        source.AppendLine("            : throw new KeyNotFoundException($\"Command '{name}' not found for client type '{clientType}'.\");");
-        source.AppendLine();
-        source.AppendLine("    public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType) => clientType switch");
-        source.AppendLine("    {");
-        source.AppendLine("        ClientType.PowerShell => s_psTable,");
-        source.AppendLine("        ClientType.CLI => s_cliTable,");
-        source.AppendLine("        _ => throw new ArgumentException($\"Client type '{clientType}' is not supported.\"),");
-        source.AppendLine("    };");
-        source.AppendLine();
-        source.AppendLine("    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) => GetCommandTable(clientType).Values;");
-        source.AppendLine();
-        source.AppendLine("    public IEnumerable<string> GetCommandKeys(ClientType clientType) => GetCommandTable(clientType).Keys;");
-        source.AppendLine("}");
-
-        return source.ToString();
+        return Render(
+            CompilationUnit()
+                .AddUsings(UsingDirective(ParseName("Core.Abstractions")))
+                .AddMembers(
+                    FileScopedNamespaceDeclaration(ParseName(options.RootNamespace)).AddMembers(index)));
     }
 
+    /// <summary><c>private static readonly Dictionary&lt;string, CommandMetadata&gt; {name} = {init};</c></summary>
+    private static FieldDeclarationSyntax Table(string name, string initializer) =>
+        FieldDeclaration(
+                VariableDeclaration(ParseTypeName("Dictionary<string, CommandMetadata>"))
+                    .AddVariables(
+                        VariableDeclarator(Identifier(name))
+                            .WithInitializer(EqualsValueClause(ParseExpression(initializer)))))
+            .AddModifiers(
+                Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.ReadOnlyKeyword));
+
+    /// <summary>An unimplemented <c>static partial void</c> a surface partial may fill.</summary>
+    private static MethodDeclarationSyntax SurfaceHook(string name) =>
+        MethodDeclaration(ParseTypeName("void"), Identifier(name))
+            .AddModifiers(Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.PartialKeyword))
+            .AddParameterListParameters(
+                Parameter(Identifier("table")).WithType(ParseTypeName("Dictionary<string, CommandMetadata>")))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+    private static MethodDeclarationSyntax Builder(string name, string comparer, string hook) =>
+        MethodDeclaration(ParseTypeName("Dictionary<string, CommandMetadata>"), Identifier(name))
+            .AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.StaticKeyword))
+            .WithRawBody(
+                $"var table = new Dictionary<string, CommandMetadata>({comparer}); {hook}(table); return table;");
+
+    private static MethodDeclarationSyntax Arrow(string returnType, string name, string expression) =>
+        MethodDeclaration(ParseTypeName(returnType), Identifier(name))
+            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+            .AddParameterListParameters(Parameter(Identifier("clientType")).WithType(ParseTypeName("ClientType")))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(expression)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+    private const string GetCommandMetadataBody =
+        """
+        GetCommandTable(clientType).TryGetValue(name, out CommandMetadata? metadata)
+            ? metadata
+            : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.")
+        """;
+
+    private const string GetCommandTableBody =
+        """
+        clientType switch
+        {
+            ClientType.PowerShell => s_psTable,
+            ClientType.CLI => s_cliTable,
+            _ => throw new ArgumentException($"Client type '{clientType}' is not supported."),
+        }
+        """;
+
+    /// <summary>
+    /// The PowerShell surface: one statement per command. Emitted as text rather than through
+    /// <c>SyntaxFactory</c> because it is data, not structure — and because `NormalizeWhitespace`
+    /// puts each command on a single multi-thousand-character line, which makes a one-parameter
+    /// change an unreadable diff. The core above is structural, per the house style.
+    /// </summary>
     private static string EmitPowerShell(GeneratorOptions options, IReadOnlyList<Entry> entries)
     {
         string ns = options.RootNamespace;
         var source = new StringBuilder();
 
         source.AppendLine(Banner);
+        source.AppendLine();
         source.AppendLine("using Core.Abstractions;");
         // Parameters can bind model types, which the model stage emits into a child namespace.
         source.AppendLine($"using {ns}.Models;");
@@ -340,6 +381,16 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         source.AppendLine("    }");
         source.AppendLine("}");
 
+        return source.ToString();
+    }
+
+    private static string Render(CompilationUnitSyntax unit)
+    {
+        var source = new StringBuilder();
+        source.AppendLine(Banner);
+        source.AppendLine();
+        source.Append(unit.NormalizeWhitespace().ToFullString());
+        source.AppendLine();
         return source.ToString();
     }
 
