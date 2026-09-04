@@ -1,8 +1,45 @@
 # Azclips PowerShell live test template.
-# Generated scripts should be written under tests/Scripts/PS/live-test-scripts/<module-name>/.
-# Keep this as a simple command collection like tests/Scripts/PS/VMCreate.ps1.
+# Custom-code integration PowerShell scripts belong under tests/Scripts/PS/<ModuleName>/<CommandName>/<testFileName>.ps1.
+# Use a filesystem-safe Azclips cmdlet name for <CommandName>.
+# Replace this VM example with verified cmdlets, parameters, output properties, and assertions for the selected behavior.
 
-$SubscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
+$ErrorActionPreference = 'Stop'
+
+function GetRequiredEnv {
+    param([Parameter(Mandatory)][string] $Name)
+
+    $value = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        throw "Required environment variable '$Name' is not set."
+    }
+    $value
+}
+
+function Assert-Equal {
+    param(
+        [object] $Expected,
+        [object] $Actual,
+        [Parameter(Mandatory)][string] $Message
+    )
+
+    if ($Expected -ne $Actual) {
+        throw "FAIL: $Message. Expected '$Expected', got '$Actual'."
+    }
+}
+
+function Assert-NotNullOrEmpty {
+    param(
+        [object] $Value,
+        [Parameter(Mandatory)][string] $Message
+    )
+
+    if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string] $Value)) {
+        throw "FAIL: $Message. Value was null or empty."
+    }
+}
+
+$SubscriptionId = GetRequiredEnv AZCLIPS_SUBSCRIPTION_ID
+$AdminPassword = GetRequiredEnv AZCLIPS_VM_ADMIN_PASSWORD
 $RunId = if ($env:AZCLIPS_LIVE_TEST_RUN_ID) { $env:AZCLIPS_LIVE_TEST_RUN_ID } else { [Guid]::NewGuid().ToString('N').Substring(0, 8) }
 $NamePrefix = 'azclips-vm'
 
@@ -14,14 +51,14 @@ $VirtualNetworkName = "$NamePrefix-vnet-$RunId"
 $SubnetName = "$NamePrefix-subnet-$RunId"
 $NetworkSecurityGroupName = "$NamePrefix-nsg-$RunId"
 
-New-AzVM `
+$createdVm = New-AzVM `
     -SubscriptionId $SubscriptionId `
     -ResourceGroupName $ResourceGroupName `
     -Name $VmName `
     -Location $Location `
     -VmSize Standard_D2s_v3 `
     -AdminUsername azclipsadmin `
-    -AdminPassword $env:AZCLIPS_VM_ADMIN_PASSWORD `
+    -AdminPassword $AdminPassword `
     -NetworkInterfaceName $NetworkInterfaceName `
     -VirtualNetworkName $VirtualNetworkName `
     -AddressPrefixes "10.0.0.0/16" `
@@ -38,10 +75,17 @@ New-AzVM `
     -RuleDestinationAddressPrefixes '*' `
     -RuleAccesses Allow
 
-Get-AzVM `
+Assert-Equal $VmName $createdVm.Name 'New-AzVM should return the created VM name'
+Assert-Equal $Location $createdVm.Location 'New-AzVM should return the requested location'
+Assert-NotNullOrEmpty $createdVm.Id 'New-AzVM should return a resource id'
+
+$shownVm = Get-AzVM `
     -SubscriptionId $SubscriptionId `
     -ResourceGroupName $ResourceGroupName `
     -Name $VmName
+
+Assert-Equal $VmName $shownVm.Name 'Get-AzVM should return the created VM name'
+Assert-NotNullOrEmpty $shownVm.Properties.NetworkProfile.NetworkInterfaces[0].Id 'Get-AzVM should expose the NIC reference'
 
 Remove-AzVM `
     -SubscriptionId $SubscriptionId `
@@ -49,7 +93,18 @@ Remove-AzVM `
     -Name $VmName `
     -Force
 
-Get-AzVM `
-    -SubscriptionId $SubscriptionId `
-    -ResourceGroupName $ResourceGroupName `
-    -Name $VmName
+$deleted = $false
+try {
+    Get-AzVM `
+        -SubscriptionId $SubscriptionId `
+        -ResourceGroupName $ResourceGroupName `
+        -Name $VmName | Out-Null
+} catch {
+    $deleted = $true
+}
+
+if (-not $deleted) {
+    throw 'FAIL: Get-AzVM should fail after Remove-AzVM.'
+}
+
+Write-Host 'All assertions passed.'

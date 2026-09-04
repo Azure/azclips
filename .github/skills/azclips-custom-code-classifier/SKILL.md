@@ -1,7 +1,7 @@
 ---
 name: azclips-custom-code-classifier
-description: "Use when integrating Azure CLI or Azure PowerShell custom code into Azclips. Classifies behavior as shared customization logic, CLI-only surface logic, PowerShell-only surface logic, or blacklisted no-longer-needed code such as parameter validation."
-argument-hint: "Provide Azclips module/command and the upstream Azure CLI or Azure PowerShell custom behavior to classify."
+description: "Use when integrating Azure CLI or Azure PowerShell custom code from remote main into Azclips. Classifies behavior as shared customization logic, CLI-only surface logic, PowerShell-only surface logic, or blacklisted no-longer-needed code such as parameter validation."
+argument-hint: "Provide Azclips module/command and the remote main upstream Azure CLI or Azure PowerShell custom behavior to classify."
 ---
 
 # Azclips Custom Code Classifier
@@ -12,17 +12,23 @@ The classifier does not copy code. It first removes blacklisted behavior, then c
 
 ## Inputs
 - Azclips module or command, such as `Compute`, `vm create`, or `New-AzVM`.
-- Upstream Azure CLI custom-code behavior, source path, PR link, or command name.
-- Upstream Azure PowerShell custom-code behavior, source path, PR link, or cmdlet name.
+- Upstream Azure CLI custom-code behavior, repo-relative remote `main` source path, or command name.
+- Upstream Azure PowerShell custom-code behavior, repo-relative remote `main` source path, or cmdlet name.
 - Current editor file or nearby Azclips implementation, if available.
 
-## Blacklist Gate
-Before routing, read [the blacklist](./references/blacklist.md). If a behavior item is only a blacklisted concern, remove it from the candidate work and do not route it to implementation.
+## Upstream Source Rule
 
-The routing order is mandatory:
+Read upstream Azure CLI, Azure CLI Extensions, and Azure PowerShell evidence from the remote GitHub `main` branch only. Do not inspect local clones, local checkouts, forks, feature branches, or PR branches as upstream evidence. Local files are valid only for the current Azclips repo.
+
+If remote `main` cannot be reached or does not contain the needed upstream evidence, report `insufficient-evidence` instead of falling back to local upstream files.
+
+## Blacklist Check
+Before classification, read [the blacklist](./references/blacklist.md). If a behavior item is only a blacklisted concern, remove it from the candidate work and do not route it to implementation.
+
+The classification order is mandatory:
 1. Identify behavior items from upstream Azure CLI and Azure PowerShell custom code.
 2. Remove behavior items that match the blacklist.
-3. Route only the remaining non-blacklisted behavior.
+3. Classify only the remaining non-blacklisted behavior.
 
 Record each skipped item as:
 
@@ -30,7 +36,7 @@ Record each skipped item as:
 blacklist_skips:
 - item: "<behavior>"
   reason: "<matching blacklist entry>"
-  evidence: "<upstream or local signal>"
+  evidence: "<remote main upstream signal or current Azclips local signal>"
 ```
 
 ## Evidence To Gather
@@ -43,7 +49,7 @@ Gather only the evidence needed to classify the behavior.
 5. Read CLI parser, help, or command metadata code only when needed to determine whether behavior is CLI-only. Do not implement CLI-only behavior without user direction.
 6. Compare upstream CLI and PowerShell behavior by intent: Azure operations, request shape, orchestration steps, user-facing parameters, confirmation behavior, and output shape.
 
-## Route Buckets
+## Classification Buckets
 Split the upstream custom behavior into work items. Each work item must go into exactly one bucket.
 
 ### Route 1: `shared-customization`
@@ -78,7 +84,7 @@ Strong signals:
 - The upstream behavior exists in Azure CLI but has no PowerShell equivalent and does not change the underlying Azure operation.
 - The behavior is needed for `az ...` compatibility but would be unnatural as a PowerShell cmdlet parameter or parameter set.
 
-Routing action:
+Classification action:
 - Do not implement CLI-only behavior in this workflow.
 - Add the behavior to `blocked_on_user_direction` and ask the user how to handle the CLI-specific change.
 
@@ -91,7 +97,7 @@ Strong signals:
 - The upstream behavior exists in Azure PowerShell but has no CLI equivalent and does not change the underlying Azure operation.
 - The behavior is needed for cmdlet compatibility but would be unnatural as a CLI option or command group.
 
-Routing action:
+Classification action:
 - Do not implement PowerShell-only behavior in this workflow.
 - Add the behavior to `blocked_on_user_direction` and ask the user how to handle the PowerShell-specific change.
 
@@ -99,13 +105,13 @@ Routing action:
 - If both upstream surfaces share behavior, prefer `shared-customization` even if one surface implements it with validation or helper code locally.
 - If behavior changes Azure resource side effects, request body construction, LRO handling, or response semantics, it is usually shared.
 - If behavior changes only command-line spelling, help, completion, or shell-specific prompting, it is surface-specific.
-- If a behavior is only defensive input checking, run the blacklist gate before assigning a route.
+- If a behavior is only defensive input checking, run the blacklist check before assigning a route.
 - If a command has both shared and surface-specific parts, split it into multiple work items instead of forcing one route.
 - If a non-blacklisted behavior requires a generated model or atomic processor edit, stop and ask for user direction.
 
 ## Output Format
 
-Return a compact routing result before implementation:
+Return a compact classification result before implementation:
 
 ```yaml
 target:
@@ -117,7 +123,7 @@ target_mapping:
   azure_cli_commands: []
   azure_powershell_cmdlets: []
 evidence:
-- "<file, symbol, or upstream behavior signal>"
+- "<current Azclips file or remote main upstream behavior signal>"
 routes:
   shared-customization:
   - behavior: "<shared behavior>"

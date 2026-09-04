@@ -2,7 +2,7 @@
 
 This blacklist records upstream Azure CLI or Azure PowerShell custom-code behavior that should not be ported into Azclips by default.
 
-When a behavior matches an entry here, record it in the router output under `blacklist_skips` and do not implement it unless the user explicitly asks to override the blacklist.
+When a behavior matches an entry here, record it in the classification output under `blacklist_skips` and do not implement it unless the user explicitly asks to override the blacklist.
 
 ## Entries
 

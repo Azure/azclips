@@ -1,6 +1,6 @@
 ---
 name: migrate-clips-to-extensions-codegen-llm-hybrid
-description: "Migrate legacy Azure CLI and Azure PowerShell commands to AzClips extensions using TypeSpec codegen plus LLM-authored customization. Use when porting existing command groups, comparing legacy command shapes and workflows with REST APIs, selecting generated processors, or composing migration orchestrators."
+description: "Migrate legacy Azure CLI and Azure PowerShell commands to AzClips extensions using TypeSpec codegen plus LLM-authored customization. Use when porting existing command groups, comparing legacy command shapes and workflows with REST APIs, selecting generated processors, or composing migration customizations."
 ---
 
 # Migrate Legacy Clips Commands to AzClips Extensions
@@ -129,7 +129,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Customization folder can contain any kinds of C# code. But those classes implement or inherited processors are the customer facing "commands". That is to say, if there is a finalized workflow requires customization, there has to be a customized class implementing or inheriting the relevant processor.
 	- Inherit processor only when the interface covers all parameters from the parent processor. It can have more but no less.
 	- Customization should only write those entries provided by processors to wire with runtime. Otherwise should be private helper functions only.
-	- When customization needs multiple processors engaged, strickly follow example how `<project-root>/src/Extensions/Compute/Customization/NewVMProcessor_Orchestrator` use `CreateExtendedProcessor`
+	- When customization needs multiple processors engaged, follow current `src/Extensions/<extension-name>/Customization` examples that use `CreateExtendedProcessor`.
 	- If external API needed for customization, see step 14.
 	- do not compile yet
 
@@ -152,7 +152,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- If not able to perform successful compilation, ask user for manual fix and wait for confirmation before proceeding.
 
 17. **Create PS and CLI**
-	- Compose `<project-root>/src/Extensions/<extension-name>/ExtensionIndex.cs` to expose CLI/PS syntax that map to processors/orchestrators.
+	- Compose `<project-root>/src/Extensions/<extension-name>/ExtensionIndex.cs` to expose CLI/PS syntax that maps to processors or customizations.
 	- Generally speaking if one processor has a corresponding customization, that processor should be hidden, expose customization instead.
 	- External API produced processors should be hidden. External API only customizations should be hidden as well if they have been referrenced in other customizations.
 	- Produce corresponding PS module under `<project-root>/src/PS`, see `<project-root>/src/PS/Compute` as reference.
@@ -160,8 +160,8 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- Rebuild solution at `<project-root>` with PS project added
 
 18. **Write test scripts**
-	- Write workable tests scripts for PS under `<project-root>/tests/Scripts/PS`. See `<project-root>/tests/Scripts/PS/VMCreate.ps1` as example.
-	- Write workable tests scripts for CLI under `<project-root>/tests/Scripts/CLI`. See `<project-root>/tests/Scripts/CLI/VMCreate.sh` as example.
+	- Write workable test scripts for PS under `<project-root>/tests/Scripts/PS/<ModuleName>/<CommandName>/<testFileName>.ps1`.
+	- Write workable test scripts for CLI under `<project-root>/tests/Scripts/CLI/<ModuleName>/<CommandName>/<testFileName>.sh`.
 	- Make sure any resources created in test scripts are properly cleaned up.
 	- Encourage user to try test scripts
 
@@ -173,7 +173,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 
 Summarize:
 - Folder structure of `<project-root>/src/Extensions/<extension-name>`
-- Exposed CLI/PS commands and their mappings to processors/orchestrators, and their mapping to APIs.
+- Exposed CLI/PS commands and their mappings to processors or customizations, and their mapping to APIs.
 - Tests and builds run, including any validation that could not be completed
 
 ## Guardrails
