@@ -74,17 +74,17 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
         var artifactsDir = ResolveArtifactsDirectory();
 
-        var loginExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Accounts");
+        var accountsExtensionDir = Path.Combine(artifactsDir, "Microsoft.Azure.Azclips.Extensions.Accounts");
 
-        if (!Directory.Exists(loginExtensionDir))
+        if (!Directory.Exists(accountsExtensionDir))
         {
             throw new InvalidOperationException(
-                $"Accounts extension not found at {loginExtensionDir}. " +
+                $"Accounts extension not found at {accountsExtensionDir}. " +
                 $"Run `dotnet build tests/Cli.Tests/Cli.Tests.csproj` (or `dotnet test`) to regenerate it.");
         }
 
         Console.WriteLine($"Extensions found in: {artifactsDir}");
-        Console.WriteLine($"   - Accounts extension: {loginExtensionDir}");
+        Console.WriteLine($"   - Accounts extension: {accountsExtensionDir}");
 
         // route MSAL MI discovery to the mock IMDS server
         _imds = new MockImdsServer(MockAccessToken, MockClientId);
