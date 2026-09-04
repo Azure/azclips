@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 using System.Security.Cryptography;
+using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
@@ -92,12 +92,14 @@ public sealed class BlobDownloadProcessor_Orchestrator : StorageBlobProcessorBas
         return response;
     }
 
-    protected override Task BeforeWriteOutputAsync(Stream? body, ref bool returnNow)
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(Stream? body)
     {
-        returnNow = true;
-        return body is null
-            ? throw new InvalidDataException("The blob download response did not contain a body.")
-            : WriteDownloadAsync(body);
+        if (body is null)
+        {
+            throw new InvalidDataException("The blob download response did not contain a body.");
+        }
+        await WriteDownloadAsync(body);
+        return true;
     }
 
     private async Task WriteDownloadAsync(Stream body)
@@ -139,13 +141,15 @@ public sealed class BlobDownloadProcessor_Orchestrator : StorageBlobProcessorBas
         }
 
         await WriteOutput(
-            new BlobTransferResult(
-                "download",
-                new Uri(_requestUrl).GetLeftPart(UriPartial.Path),
-                _destinationPath,
-                _etag,
-                _lastModified,
-                _contentLength),
+            new BlobTransferResult
+            {
+                Operation = "download",
+                Source = new Uri(_requestUrl).GetLeftPart(UriPartial.Path),
+                Destination = _destinationPath,
+                ETag = _etag,
+                LastModified = _lastModified,
+                ContentLength = _contentLength,
+            },
             Publisher.Token);
     }
 

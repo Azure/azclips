@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 using System.Net;
+using Microsoft.Azure.Azclips.Extensions.Storage.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 
@@ -34,7 +34,7 @@ public sealed class BlockBlobUploadProcessor_Orchestrator : StorageBlobProcessor
         }
 
         _sourcePath = Path.GetFullPath(FilePath);
-        var sourceInfo = new FileInfo(_sourcePath);
+        FileInfo sourceInfo = new(_sourcePath);
         if (!sourceInfo.Exists)
         {
             throw new FileNotFoundException($"Upload file '{_sourcePath}' does not exist.", _sourcePath);
@@ -132,17 +132,19 @@ public sealed class BlockBlobUploadProcessor_Orchestrator : StorageBlobProcessor
         return response;
     }
 
-    protected override Task BeforeWriteOutputAsync(object? body, ref bool returnNow)
+    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(object? body)
     {
-        returnNow = true;
-        return WriteOutput(
-            new BlobTransferResult(
-                "upload",
-                _sourcePath,
-                _blobUrl,
-                _etag,
-                _lastModified,
-                _contentLength),
+        await WriteOutput(
+            new BlobTransferResult
+            {
+                Operation = "upload",
+                Source = _sourcePath,
+                Destination = _blobUrl,
+                ETag = _etag,
+                LastModified = _lastModified,
+                ContentLength = _contentLength,
+            },
             Publisher.Token);
+        return true;
     }
 }

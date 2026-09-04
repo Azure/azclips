@@ -146,7 +146,6 @@ public abstract class StorageBlobProcessorBase : IProcessor
             : response.Content?.Headers.TryGetValues(name, out values) == true
                 ? values.FirstOrDefault()
                 : null;
-
 }
 
 public abstract partial class StorageBlobProcessorBase<TRequest, TResponse> : StorageBlobProcessorBase
@@ -163,8 +162,8 @@ public abstract partial class StorageBlobProcessorBase<TRequest, TResponse> : St
         return Task.CompletedTask;
     }
 
-    protected virtual Task BeforeWriteOutputAsync(TResponse? body, ref bool returnNow) =>
-        Task.CompletedTask;
+    protected virtual Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body) =>
+        Task.FromResult(false);
 
     public override async Task ProcessAsync()
     {
@@ -212,9 +211,7 @@ public abstract partial class StorageBlobProcessorBase<TRequest, TResponse> : St
                 }
             }
 
-            bool returnNow = false;
-            await BeforeWriteOutputAsync(body, ref returnNow);
-            if (!returnNow && body is not null)
+            if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
             {
                 await WriteOutput(body, Publisher.Token);
                 disposeResponse = body is not Stream;
