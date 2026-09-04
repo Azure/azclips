@@ -61,7 +61,7 @@ if (-not $__loadOnly) {
 
     $config = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
 
-    # CLI param → env var → config, for each overrideable field.
+    # CLI param → env var (Moniker/VersionFolder only) → config.
     $effectiveMoniker = $Moniker
     if (-not $effectiveMoniker) { $effectiveMoniker = $env:AZCLIPS_CLI_MONIKER }
     if (-not $effectiveMoniker) { $effectiveMoniker = $config.moniker }
@@ -151,11 +151,20 @@ function Get-Cli2YamlDllPath
         [switch]$FetchIfMissing
     )
 
-    # USERPROFILE on Windows, HOME on Linux/macOS; .NET fallback covers oddballs.
-    $userProfile = if ($env:USERPROFILE) { $env:USERPROFILE }
-                   elseif ($env:HOME) { $env:HOME }
-                   else { [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile) }
-    $cacheRoot = Join-Path $userProfile ".nuget/packages/$($PackageName.ToLowerInvariant())"
+    # Respect NUGET_PACKAGES override (common on CI + constrained envs) before falling back to the default global cache.
+    if ($env:NUGET_PACKAGES)
+    {
+        $packagesRoot = $env:NUGET_PACKAGES
+    }
+    else
+    {
+        # USERPROFILE on Windows, HOME on Linux/macOS; .NET fallback covers oddballs.
+        $userProfile = if ($env:USERPROFILE) { $env:USERPROFILE }
+                       elseif ($env:HOME) { $env:HOME }
+                       else { [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile) }
+        $packagesRoot = Join-Path $userProfile '.nuget/packages'
+    }
+    $cacheRoot = Join-Path $packagesRoot $PackageName.ToLowerInvariant()
     if (-not (Test-Path $cacheRoot))
     {
         if ($FetchIfMissing)
@@ -208,7 +217,7 @@ Or re-run this script with -FetchIfMissing to fetch non-interactively (needs pre
     }
     if (-not $dllPath)
     {
-        throw "No CLI2Yaml.dll found under $cacheRoot even though the folder exists. Restore may have failed silently."
+        throw "No $PackageName.dll found under $cacheRoot. If `$env:NUGET_PACKAGES is set, the package may live elsewhere — check that path. Otherwise the restore may have failed silently; re-run with -FetchIfMissing or run the fetch snippet manually."
     }
     return $dllPath
 }

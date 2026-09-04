@@ -12,18 +12,22 @@ Describe 'Get-Cli2YamlDllPath' {
     BeforeAll {
         # Redirect the function's lookup to a fake profile so we don't touch the real cache.
         $script:FakeProfile = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-clisync-fake-" + [Guid]::NewGuid().ToString('N'))
-        $script:RealUserProfile = $env:USERPROFILE
+        $script:RealUserProfile   = $env:USERPROFILE
+        $script:RealNugetPackages = $env:NUGET_PACKAGES
     }
 
     AfterAll {
-        $env:USERPROFILE = $script:RealUserProfile
+        $env:USERPROFILE   = $script:RealUserProfile
+        $env:NUGET_PACKAGES = $script:RealNugetPackages
         if (Test-Path $script:FakeProfile) { Remove-Item $script:FakeProfile -Recurse -Force }
     }
 
     BeforeEach {
         if (Test-Path $script:FakeProfile) { Remove-Item $script:FakeProfile -Recurse -Force }
         New-Item -ItemType Directory -Path $script:FakeProfile | Out-Null
-        $env:USERPROFILE = $script:FakeProfile
+        $env:USERPROFILE   = $script:FakeProfile
+        # Clear NUGET_PACKAGES so tests exercise the USERPROFILE fallback path deterministically.
+        $env:NUGET_PACKAGES = ''
     }
 
     It 'throws with a fetch snippet when the package cache is missing' {
@@ -59,6 +63,25 @@ Describe 'Get-Cli2YamlDllPath' {
 
         { Get-Cli2YamlDllPath -PackageName 'CLI2Yaml' -Feed 'https://example.invalid/feed' } |
             Should -Throw '*No CLI2Yaml.dll found*'
+    }
+
+    It 'honours NUGET_PACKAGES over the USERPROFILE fallback' {
+        # Simulate a CI-style redirect: package resolves under NUGET_PACKAGES, not USERPROFILE.
+        $altRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-clisync-nugetalt-" + [Guid]::NewGuid().ToString('N'))
+        try {
+            $tools = Join-Path $altRoot 'cli2yaml/20260827.1.0/tools'
+            New-Item -ItemType Directory -Path $tools -Force | Out-Null
+            Set-Content -Path (Join-Path $tools 'CLI2Yaml.dll') -Value 'stub' -NoNewline
+            $env:NUGET_PACKAGES = $altRoot
+
+            $result = Get-Cli2YamlDllPath -PackageName 'CLI2Yaml' -Feed 'https://example.invalid/feed'
+            $result | Should -Match ([regex]::Escape($altRoot))
+            $result | Should -Match 'CLI2Yaml\.dll$'
+        }
+        finally {
+            $env:NUGET_PACKAGES = ''
+            if (Test-Path $altRoot) { Remove-Item $altRoot -Recurse -Force -ErrorAction SilentlyContinue }
+        }
     }
 }
 
