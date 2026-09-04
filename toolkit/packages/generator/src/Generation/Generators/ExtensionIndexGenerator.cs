@@ -4,6 +4,7 @@ using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Formatting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Ace.Generator.Generators;
@@ -321,67 +322,75 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         """;
 
     /// <summary>
-    /// The PowerShell surface: one statement per command. Emitted as text rather than through
-    /// <c>SyntaxFactory</c> because it is data, not structure — and because `NormalizeWhitespace`
-    /// puts each command on a single multi-thousand-character line, which makes a one-parameter
-    /// change an unreadable diff. The core above is structural, per the house style.
+    /// The PowerShell surface: the partial that fills the PowerShell table, one entry per
+    /// parameter set. The class and the hook are composed structurally; the table itself is the
+    /// method's implementation, so it is authored as a body — the same split the other generators use.
     /// </summary>
     private static string EmitPowerShell(GeneratorOptions options, IReadOnlyList<Entry> entries)
     {
         string ns = options.RootNamespace;
-        var source = new StringBuilder();
 
-        source.AppendLine(Banner);
-        source.AppendLine();
-        source.AppendLine("using Core.Abstractions;");
-        // Parameters can bind model types, which the model stage emits into a child namespace.
-        source.AppendLine($"using {ns}.Models;");
-        source.AppendLine();
-        source.AppendLine($"namespace {ns};");
-        source.AppendLine();
-        source.AppendLine("public partial class ExtensionIndex");
-        source.AppendLine("{");
-        source.AppendLine("    static partial void AddPowerShellCommands(Dictionary<string, CommandMetadata> table)");
-        source.AppendLine("    {");
+        ClassDeclarationSyntax index = ClassDeclaration("ExtensionIndex")
+            .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
+            .AddMembers(
+                MethodDeclaration(ParseTypeName("void"), Identifier("AddPowerShellCommands"))
+                    .AddModifiers(Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.PartialKeyword))
+                    .AddParameterListParameters(
+                        Parameter(Identifier("table")).WithType(ParseTypeName("Dictionary<string, CommandMetadata>")))
+                    .WithRawBody(AddCommandsBody(ns, entries)));
+
+        return Render(
+            CompilationUnit()
+                .AddUsings(
+                    UsingDirective(ParseName("Core.Abstractions")),
+                    // Parameters can bind model types, which the model stage emits into a child namespace.
+                    UsingDirective(ParseName($"{ns}.Models")))
+                .AddMembers(FileScopedNamespaceDeclaration(ParseName(ns)).AddMembers(index)));
+    }
+
+    /// <summary>The statements of <c>AddPowerShellCommands</c>: one table assignment per entry.</summary>
+    private static string AddCommandsBody(string ns, IReadOnlyList<Entry> entries)
+    {
+        var body = new StringBuilder();
+
+        const string Arg = "        ";
+        const string Item = "            ";
 
         foreach (Entry entry in entries)
         {
-            source.AppendLine($"        table[{Literal(entry.InvocationName)}] = new(");
-            source.AppendLine($"            Name: {Literal(entry.ProcessorType)},");
-            source.AppendLine($"            InvocationName: {Literal(entry.InvocationName)},");
-            source.AppendLine($"            Aliases: [{string.Join(", ", entry.Aliases.Select(Literal))}],");
-            source.AppendLine($"            FullName: {Literal($"{ns}.Processors.{entry.ProcessorType}")},");
-            source.AppendLine($"            AssemblyName: {Literal(ns)},");
-            source.AppendLine($"            ProcessorType: typeof(Processors.{entry.ProcessorType}),");
-            source.AppendLine("            Parameters: new Dictionary<string, ParameterMetadata>");
-            source.AppendLine("            {");
+            body.AppendLine($"table[{Literal(entry.InvocationName)}] = new(");
+            body.AppendLine($"{Arg}Name: {Literal(entry.ProcessorType)},");
+            body.AppendLine($"{Arg}InvocationName: {Literal(entry.InvocationName)},");
+            body.AppendLine($"{Arg}Aliases: [{string.Join(", ", entry.Aliases.Select(Literal))}],");
+            body.AppendLine($"{Arg}FullName: {Literal($"{ns}.Processors.{entry.ProcessorType}")},");
+            body.AppendLine($"{Arg}AssemblyName: {Literal(ns)},");
+            body.AppendLine($"{Arg}ProcessorType: typeof(Processors.{entry.ProcessorType}),");
+            body.AppendLine($"{Arg}Parameters: new Dictionary<string, ParameterMetadata>");
+            body.AppendLine($"{Arg}{{");
             foreach (Parameter parameter in entry.Parameters)
             {
-                source.AppendLine(
-                    $"                [{Literal(parameter.Name)}] = new({Literal(parameter.Name)}, {Literal(parameter.Name)}, "
+                body.AppendLine(
+                    $"{Item}[{Literal(parameter.Name)}] = new({Literal(parameter.Name)}, {Literal(parameter.Name)}, "
                         + $"typeof({parameter.Type}), {Literal(parameter.Help)}, "
                         + $"IsRequired: {(parameter.Required ? "true" : "false")}, "
                         + $"Aliases: [{string.Join(", ", parameter.Aliases.Select(Literal))}], "
                         + $"AllowedValues: [{string.Join(", ", parameter.AllowedValues.Select(Literal))}]),");
             }
-            source.AppendLine("            },");
-            source.AppendLine("            ParameterAliases: new Dictionary<string, string>");
-            source.AppendLine("            {");
+            body.AppendLine($"{Arg}}},");
+            body.AppendLine($"{Arg}ParameterAliases: new Dictionary<string, string>");
+            body.AppendLine($"{Arg}{{");
             foreach (Parameter parameter in entry.Parameters)
             {
                 foreach (string alias in parameter.Aliases)
                 {
-                    source.AppendLine($"                [{Literal(alias)}] = {Literal(parameter.Name)},");
+                    body.AppendLine($"{Item}[{Literal(alias)}] = {Literal(parameter.Name)},");
                 }
             }
-            source.AppendLine("            });");
-            source.AppendLine();
+            body.AppendLine($"{Arg}}});");
+            body.AppendLine();
         }
 
-        source.AppendLine("    }");
-        source.AppendLine("}");
-
-        return source.ToString();
+        return body.ToString();
     }
 
     private static string Render(CompilationUnitSyntax unit)
@@ -389,7 +398,10 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         var source = new StringBuilder();
         source.AppendLine(Banner);
         source.AppendLine();
-        source.Append(unit.NormalizeWhitespace().ToFullString());
+        // Formatter, not NormalizeWhitespace: it expands the elastic trivia SyntaxFactory leaves
+        // between tokens while keeping the line breaks a raw body already has. NormalizeWhitespace
+        // discards those, which puts each command on one multi-thousand-character line.
+        source.Append(Formatter.Format(unit, new AdhocWorkspace()).ToFullString());
         source.AppendLine();
         return source.ToString();
     }

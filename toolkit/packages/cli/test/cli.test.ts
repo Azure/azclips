@@ -349,9 +349,14 @@ describe("ace compile: configured pipeline", () => {
       // The index only exists because the transform ran first, so its presence proves the chain.
       const index = join(outDir, "ExtensionIndex.cs");
       expect(existsSync(index)).toBe(true);
-      const source = readFileSync(index, "utf8");
-      expect(source).toContain("public class ExtensionIndex : IExtensionIndex");
-      expect(source).toContain('InvocationName: "Get-AzPet');
+      expect(readFileSync(index, "utf8")).toContain(
+        "public partial class ExtensionIndex : IExtensionIndex",
+      );
+
+      // The commands land in the surface partial, not the core.
+      const psIndex = join(outDir, "ExtensionIndex.Ps.cs");
+      expect(existsSync(psIndex)).toBe(true);
+      expect(readFileSync(psIndex, "utf8")).toContain('InvocationName: "Get-AzPet');
     },
   );
 
