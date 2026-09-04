@@ -11,7 +11,7 @@ function Get-TelemetryService {
     if ($null -eq $script:TelemetryService) {
         try {
             # Ensure Core.DependencyInjection is loaded and accessible
-            # Ensure this script is loaded after the module that initializes the DI container (e.g. Login.psm1) so that the service provider is available
+            # Ensure this script is loaded after the module that initializes the DI container (e.g. Accounts.psm1) so that the service provider is available
             # We assume the module loading this script has loaded the necessary DLLs via RequiredAssemblies
             $script:TelemetryService = [Core.DependencyInjection.AzclipsServiceProvider]::GetRequiredService([Core.Abstractions.ITelemetryService])
         }

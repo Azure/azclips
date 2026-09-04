@@ -27,7 +27,7 @@ function Get-AzModuleDefinitions
     )
 
     Get-ChildItem -Path $SourcePsRoot -Filter '*.psd1' -Recurse |
-        Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Login') { 0 } elseif ($_.BaseName -eq 'Az') { 2 } else { 1 } } }, FullName |
+        Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Accounts') { 0 } elseif ($_.BaseName -eq 'Az') { 2 } else { 1 } } }, FullName |
         ForEach-Object {
             $manifestData = Import-PowerShellDataFile -Path $_.FullName
             $sourceModule = $_.BaseName

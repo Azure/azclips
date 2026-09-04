@@ -128,7 +128,7 @@ try {
     dotnet publish (Join-Path $repoRoot 'Agent/Core.Agent.csproj') -c Release -r $Rid --self-contained true -o $agentScratch -p:IsPackagedBuild=true
 
     # Publish the Agent.Commands extension into builtin-publish/ so the inject
-    # script picks it up in the same pass as Login/Config.
+    # script picks it up in the same pass as Accounts/Config.
     Write-Host "Publishing Agent.Commands extension (Release)"
     $agentExtDir = Join-Path $builtinPublishRoot 'Microsoft.Azure.Azclips.Extensions.Agent'
     dotnet publish (Join-Path $repoRoot 'Agent/Commands/Agent.Commands.csproj') -c Release -o $agentExtDir

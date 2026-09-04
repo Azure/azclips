@@ -42,7 +42,7 @@ Get-AzVM -ResourceGroupName myrg -SubscriptionId <sub-id>
 Set-AzConfig -Key telemetry.enabled -Value false
 ```
 
-The `Set-AzConfig -Key telemetry.enabled -Value false` opt-out is the documented PowerShell equivalent of the CLI's `az config set` (`README.md:166`). Note the Compute module declares the Login module as a `RequiredModule` (`src/PS/Compute/Compute.psd1:55`), so importing Compute pulls in Login automatically.
+The `Set-AzConfig -Key telemetry.enabled -Value false` opt-out is the documented PowerShell equivalent of the CLI's `az config set` (`README.md:166`). Note the Compute module declares the Accounts module as a `RequiredModule` (`src/PS/Compute/Compute.psd1:55`), so importing Compute pulls in Accounts automatically.
 
 ## Shared Engine, Per-Invocation Output Channel
 
@@ -126,6 +126,6 @@ Each module ships a `.psd1` manifest (e.g. `src/PS/Compute/Compute.psd1`) declar
 - `src/PS/Common/CmdletOutputStreamsFactory.cs:30` — maps engine streams to `$PSCmdlet` output methods.
 - `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87` — cmdlet resolves `IEngine` and opens a session.
 - `src/Core/Core.Engine/Engine.cs:13` — per-invocation channel thread-safety / output-routing contract.
-- `azclips.slnx:40` — PowerShell cmdlet projects (`Resources`, `Compute`, `Login`, `Config`).
+- `azclips.slnx:40` — PowerShell cmdlet projects (`Resources`, `Compute`, `Accounts`, `Config`).
 - `src/PS/Accounts/Constants.cs:11` — `Az` command-noun prefix.
 - `README.md:166` — `Set-AzConfig -Key telemetry.enabled` opt-out.

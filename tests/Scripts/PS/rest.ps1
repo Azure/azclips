@@ -4,7 +4,7 @@
 # Universal REST passthrough - PowerShell
 # Equivalent of: Invoke-AzRestMethod -Method GET -Uri <url>
 #
-# Prereq: import Login + Resources modules, then Connect-AzAccount.
+# Prereq: import Accounts + Resources modules, then Connect-AzAccount.
 
 Import-Module ../../../src/PS/Accounts/Accounts.psd1
 Import-Module ../../../src/PS/Resources/Resources.psd1

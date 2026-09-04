@@ -5,7 +5,7 @@
 # This is the PowerShell-side counterpart to tests/Scripts/CLI/AzclipsRenameSmoke.sh.
 #
 # It deliberately uses a direct reflection load (rather than Import-Module Resources.psd1) because
-# the dev-layout module manifests chain through Login.psd1, whose relative RequiredAssemblies paths
+# the dev-layout module manifests chain through Accounts.psd1, whose relative RequiredAssemblies paths
 # only resolve in the deployed bin/ layout. The reflection load exercises the renamed assembly the
 # same way the module would, with no Azure dependency.
 #
