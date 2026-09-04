@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788501924259,
+  "lastUpdate": 1788501982510,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8068,6 +8068,48 @@ window.BENCHMARK_DATA = {
             "value": 1392784.8229441624,
             "unit": "ns",
             "range": "± 38542.27086188383"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xumi@microsoft.com",
+            "name": "xuming-ms",
+            "username": "xuming-ms"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "610257fb45020825ce93032690d49519dafa1ad8",
+          "message": "[Login] Make managed identity authentication compatible with classic CLIPS (#806)\n\n**Related command**\n\n`az login`, `Connect-AzAccount`\n\n**Description**\nMake managed identity authentication compatible with classic Azure CLI\nand Azure PowerShell\n\n\n**PowerShell — `Connect-AzAccount`**\n\n| Parameter | Added aliases |\n| --- | --- |\n| `-Identity` | `MSI`, `ManagedIdentity`, `ManagedService` |\n| `-ClientId` | `AccountId` |\n\n**CLI — `az login`**\n\n| Parameter | Added aliases |\n| --- | --- |\n| `--identity` | `-i` |\n\n\n**Testing Guide**\n\n```bash\ndotnet build azclips.slnx\ndotnet test tests/Cli.Tests/Cli.Tests.csproj\ndotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj\ndotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj\ndotnet test tests/Scenario.Tests/Scenario.Tests.csproj\n```\n\n989 passed / 0 failed. New tests resolve the binder through DI rather\nthan constructing core services directly. Also verified manually against\nthe built client:\n\n\n**History Notes**\n\n[Login] `Connect-AzAccount`: Add `MSI`, `ManagedIdentity` and\n`ManagedService` aliases for `-Identity`, and `AccountId` for\n`-ClientId`\n[Login] `az login`: Add the `-i` alias for `--identity`\n[Login] BREAKING CHANGE: `az login`: Remove the `--subscription` and\n`-s` aliases, use `--subscription-id`\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-04T15:45:22+10:00",
+          "tree_id": "5c8caf56ab6390b16b860656e18549aab78ca447",
+          "url": "https://github.com/Azure/azclips/commit/610257fb45020825ce93032690d49519dafa1ad8"
+        },
+        "date": 1788501979824,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1431017.4501620745,
+            "unit": "ns",
+            "range": "± 38600.3019480758"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1431794.3417976622,
+            "unit": "ns",
+            "range": "± 40850.87965472556"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1393459.6458628364,
+            "unit": "ns",
+            "range": "± 37624.85888889305"
           }
         ]
       }
