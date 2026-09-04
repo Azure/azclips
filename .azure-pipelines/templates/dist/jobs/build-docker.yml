@@ -27,7 +27,7 @@ jobs:
   timeoutInMinutes: 30
   strategy:
     matrix:
-      cli_amd64_noble:
+      cli_linux_glibc_lean_amd64:
         Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: cli
@@ -35,8 +35,8 @@ jobs:
         BaseImage: ${{ parameters.cli_base_image }}
         ImageVariant: noble
         DistributionArtifact: Distribution_Linux_Lean
-        DockerArtifact: Docker_CLI_Noble_Amd64
-      cli_arm64_noble:
+        DockerArtifact: Docker_CLI_Linux_Glibc_Lean_Amd64
+      cli_linux_glibc_lean_arm64:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: cli
@@ -44,8 +44,8 @@ jobs:
         BaseImage: ${{ parameters.cli_base_image }}
         ImageVariant: noble
         DistributionArtifact: Distribution_Linux_Arm64_Lean
-        DockerArtifact: Docker_CLI_Noble_Arm64
-      pwsh_amd64_noble:
+        DockerArtifact: Docker_CLI_Linux_Glibc_Lean_Arm64
+      powershell_linux_glibc_amd64:
         Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: pwsh
@@ -53,8 +53,8 @@ jobs:
         BaseImage: ${{ parameters.pwsh_base_image }}
         ImageVariant: noble
         DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
-        DockerArtifact: Docker_Pwsh_Noble_Amd64
-      pwsh_arm64_noble:
+        DockerArtifact: Docker_PowerShell_Linux_Glibc_Amd64
+      powershell_linux_glibc_arm64:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: pwsh
@@ -62,7 +62,7 @@ jobs:
         BaseImage: ${{ parameters.pwsh_base_image }}
         ImageVariant: noble
         DistributionArtifact: ${{ parameters.ps_modules_artifact_name }}
-        DockerArtifact: Docker_Pwsh_Noble_Arm64
+        DockerArtifact: Docker_PowerShell_Linux_Glibc_Arm64
   pool:
     name: $(Pool)
   steps:

@@ -94,32 +94,32 @@ jobs:
       path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Arm64_Full
 
   - task: DownloadPipelineArtifact@2
-    displayName: Download Docker CLI Noble Amd64 Image Artifacts
+    displayName: Download Docker CLI Linux glibc Lean Amd64 Image Artifacts
     condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
-      artifact: Docker_CLI_Noble_Amd64
-      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_Noble_Amd64
+      artifact: Docker_CLI_Linux_Glibc_Lean_Amd64
+      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_Linux_Glibc_Lean_Amd64
 
   - task: DownloadPipelineArtifact@2
-    displayName: Download Docker CLI Noble Arm64 Image Artifacts
+    displayName: Download Docker CLI Linux glibc Lean Arm64 Image Artifacts
     condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
-      artifact: Docker_CLI_Noble_Arm64
-      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_Noble_Arm64
+      artifact: Docker_CLI_Linux_Glibc_Lean_Arm64
+      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_Linux_Glibc_Lean_Arm64
 
   - task: DownloadPipelineArtifact@2
-    displayName: Download Docker Pwsh Noble Amd64 Image Artifacts
+    displayName: Download Docker PowerShell Linux glibc Amd64 Image Artifacts
     condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
-      artifact: Docker_Pwsh_Noble_Amd64
-      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_Pwsh_Noble_Amd64
+      artifact: Docker_PowerShell_Linux_Glibc_Amd64
+      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_PowerShell_Linux_Glibc_Amd64
 
   - task: DownloadPipelineArtifact@2
-    displayName: Download Docker Pwsh Noble Arm64 Image Artifacts
+    displayName: Download Docker PowerShell Linux glibc Arm64 Image Artifacts
     condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:
-      artifact: Docker_Pwsh_Noble_Arm64
-      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_Pwsh_Noble_Arm64
+      artifact: Docker_PowerShell_Linux_Glibc_Arm64
+      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_PowerShell_Linux_Glibc_Arm64
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Windows Distribution Artifacts
