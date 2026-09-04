@@ -106,11 +106,12 @@ function Install-Cli2Yaml
         [Parameter(Mandatory)][string]$Feed
     )
 
-    # [System.IO.Path]::GetTempPath honours TMPDIR / TEMP / TMP per-OS.
-    $fetchDir = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-cli2yaml-fetch"
+    # Unique per-invocation folder so concurrent runs don't clobber each other's Fetch.csproj / obj / assets.
+    $fetchDir = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-cli2yaml-fetch-" + [Guid]::NewGuid().ToString('N'))
     New-Item -Path $fetchDir -ItemType Directory -Force | Out-Null
 
-    $csprojBody = @"
+    try {
+        $csprojBody = @"
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -121,17 +122,21 @@ function Install-Cli2Yaml
   </ItemGroup>
 </Project>
 "@
-    $csprojPath = Join-Path $fetchDir 'Fetch.csproj'
-    Set-Content -Path $csprojPath -Value $csprojBody -NoNewline
+        $csprojPath = Join-Path $fetchDir 'Fetch.csproj'
+        Set-Content -Path $csprojPath -Value $csprojBody -NoNewline
 
-    Write-Host "Fetching $PackageName from feed (non-interactive)..." -ForegroundColor Cyan
-    # `dotnet restore` is non-interactive by default; --interactive is a switch and does not accept a value.
-    $output = & dotnet restore $csprojPath 2>&1
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "Non-interactive fetch of $PackageName failed with exit $LASTEXITCODE. Credentials may not be available; ensure a federated-identity token or PAT is exported via NuGet env vars. Output:`n$($output -join "`n")"
+        Write-Host "Fetching $PackageName from feed (non-interactive)..." -ForegroundColor Cyan
+        # `dotnet restore` is non-interactive by default; --interactive is a switch and does not accept a value.
+        $output = & dotnet restore $csprojPath 2>&1
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "Non-interactive fetch of $PackageName failed with exit $LASTEXITCODE. Credentials may not be available; ensure a federated-identity token or PAT is exported via NuGet env vars. Output:`n$($output -join "`n")"
+        }
+        $output | Select-Object -Last 1 | ForEach-Object { Write-Host "  → $_" }
     }
-    $output | Select-Object -Last 1 | ForEach-Object { Write-Host "  → $_" }
+    finally {
+        Remove-Item -Recurse -Force $fetchDir -ErrorAction SilentlyContinue
+    }
 }
 
 # Locates CLI2Yaml.dll in the NuGet cache. Prefers newest cached version. If none is
@@ -184,12 +189,28 @@ Or re-run this script with -FetchIfMissing to fetch non-interactively (needs pre
         }
     }
 
-    $dll = Get-ChildItem $cacheRoot -Recurse -Filter 'CLI2Yaml.dll' | Sort-Object { [Version]($_.Directory.Parent.Name) } -Descending | Select-Object -First 1
-    if (-not $dll)
+    # Iterate immediate version dirs and probe the well-known tools/CLI2Yaml.dll path.
+    # Avoids -Recurse across the whole package tree and skips folders whose names aren't versions.
+    $parsed = $null
+    $versionDirs = Get-ChildItem $cacheRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { [Version]::TryParse($_.Name, [ref]$parsed) } |
+        Sort-Object { [Version]$_.Name } -Descending
+
+    $dllPath = $null
+    foreach ($vd in $versionDirs)
+    {
+        $candidate = Join-Path $vd.FullName 'tools/CLI2Yaml.dll'
+        if (Test-Path $candidate)
+        {
+            $dllPath = $candidate
+            break
+        }
+    }
+    if (-not $dllPath)
     {
         throw "No CLI2Yaml.dll found under $cacheRoot even though the folder exists. Restore may have failed silently."
     }
-    return $dll.FullName
+    return $dllPath
 }
 
 # ── Exporter ────────────────────────────────────────────────────────────────────
@@ -419,6 +440,10 @@ function Invoke-SyncApply
         throw "Branch '$branchName' already exists in target. Delete it (git -C '$TargetRepoPath' branch -D $branchName) or pass a different -Timestamp."
     }
 
+    # Capture baseline for deterministic rollback (Test-TargetReady guarantees a clean tree here).
+    $originalBranch = (git -C $TargetRepoPath rev-parse --abbrev-ref HEAD 2>$null).Trim()
+    $originalHead   = (git -C $TargetRepoPath rev-parse HEAD 2>$null).Trim()
+
     git -C $TargetRepoPath checkout -b $branchName 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "git checkout -b '$branchName' failed." }
 
@@ -462,7 +487,17 @@ function Invoke-SyncApply
         }
     }
     catch {
-        git -C $TargetRepoPath checkout - 2>&1 | Out-Null
+        # Deterministic rollback: reset any staged/working-tree changes to the pre-run baseline,
+        # then switch back to the caller's branch and drop the sync branch.
+        git -C $TargetRepoPath reset --hard $originalHead 2>&1 | Out-Null
+        if ($originalBranch -and $originalBranch -ne 'HEAD')
+        {
+            git -C $TargetRepoPath checkout $originalBranch 2>&1 | Out-Null
+        }
+        else
+        {
+            git -C $TargetRepoPath checkout - 2>&1 | Out-Null
+        }
         git -C $TargetRepoPath branch -D $branchName 2>&1 | Out-Null
         throw
     }

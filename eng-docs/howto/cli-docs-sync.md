@@ -23,6 +23,8 @@ Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/
 
 - **.NET SDK** matching `global.json`.
 - **PowerShell 7** (`pwsh`).
+- **Git** — the `-Force` mode branches + commits inside the target clone, and the mock-PR workflow below uses ordinary `git` commands.
+- **GitHub CLI** (`gh`) — optional; only needed if you plan to open a mock PR against a personal fork of `MicrosoftDocs/azure-docs-cli` from this machine.
 - **Azure Artifacts Credential Provider** installed on a Microsoft-tenant Windows machine — the [`apidrop`](https://apidrop.visualstudio.com/) NuGet feed hosts `CLI2Yaml` behind AAD auth:
     ```powershell
     iex "& { $(irm https://aka.ms/install-artifacts-credprovider.ps1) }"
