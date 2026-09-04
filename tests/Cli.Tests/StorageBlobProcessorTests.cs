@@ -66,7 +66,7 @@ public class StorageBlobProcessorTests
             Assert.Equal(HttpMethod.Put, requestMethod);
             Assert.Equal("BlockBlob", blobType);
             Assert.Equal("*", ifNoneMatch);
-            Assert.Equal("2026-04-06", storageVersion);
+            Assert.Equal("2026-12-06", storageVersion);
             Assert.True(DateTimeOffset.TryParse(storageDate, out _));
             Assert.NotNull(scopes);
             Assert.Equal(["https://storage.azure.com/.default"], scopes);
@@ -201,7 +201,7 @@ public class StorageBlobProcessorTests
             Assert.Equal(
                 "https://account.blob.core.windows.net/container/blob?timeout=30",
                 request.RequestUri!.AbsoluteUri);
-            Assert.Equal("2026-04-06", request.Headers.GetValues("x-ms-version").Single());
+            Assert.Equal("2026-12-06", request.Headers.GetValues("x-ms-version").Single());
             Assert.Equal(requestId.ToString(), request.Headers.GetValues("x-ms-client-request-id").Single());
             Assert.Equal("owner", request.Headers.GetValues("x-ms-meta-team").Single());
             Assert.Equal("lease", request.Headers.GetValues("x-ms-lease-id").Single());
@@ -330,7 +330,7 @@ public class StorageBlobProcessorTests
 
             Assert.Equal(expected, await File.ReadAllBytesAsync(destinationPath));
             Assert.Equal(HttpMethod.Get, requestMethod);
-            Assert.Equal("2026-04-06", storageVersion);
+            Assert.Equal("2026-12-06", storageVersion);
             Assert.True(DateTimeOffset.TryParse(storageDate, out _));
             Assert.NotNull(scopes);
             Assert.Equal(["https://storage.azure.com/.default"], scopes);
@@ -357,7 +357,7 @@ public class StorageBlobProcessorTests
             Assert.Equal(
                 "https://account.blob.core.windows.net/container/blob?snapshot=snapshot&versionid=version&timeout=30",
                 request.RequestUri!.AbsoluteUri);
-            Assert.Equal("2026-04-06", request.Headers.GetValues("x-ms-version").Single());
+            Assert.Equal("2026-12-06", request.Headers.GetValues("x-ms-version").Single());
             Assert.Equal(requestId.ToString(), request.Headers.GetValues("x-ms-client-request-id").Single());
             Assert.Equal("bytes=0-2", request.Headers.GetValues("Range").Single());
             Assert.Equal("lease", request.Headers.GetValues("x-ms-lease-id").Single());

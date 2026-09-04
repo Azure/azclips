@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors;
 public sealed class BlockBlobUploadProcessor : StorageBlobProcessorBase<Stream, object>
 {
     public string Url { get; set; } = string.Empty;
-    public string Version { get; set; } = "2026-04-06";
+    public string Version { get; set; } = "2026-12-06";
     public Guid? ClientRequestId { get; set; }
     public Dictionary<string, string> Metadata { get; set; } = [];
     public int? Timeout { get; set; }
