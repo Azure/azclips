@@ -257,6 +257,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_startVM_CLI = new(
+            Name: "StartVMProcessor",
+            InvocationName: "vm start",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.StartVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.StartVMProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs (space-delimited). It should be a complete resource ID containing all information of 'Resource Id' arguments. You should provide either --ids or other 'Resource Id' arguments.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["acquire-policy-token"] = new("AcquirePolicyToken", "acquire-policy-token", typeof(bool), "Acquiring an Azure Policy token automatically for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["change-reference"] = new("ChangeReference", "change-reference", typeof(string), "The related change reference ID for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Do not wait for the long-running operation to finish.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         // Lives under the `disk` verb declared by the class-level [ExtensionVerb("disk")]
         // attribute — proves one extension can contribute to multiple top-level namespaces.
         private static readonly CommandMetadata s_listDisk_CLI = new(
@@ -355,6 +374,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["vm show"]     = s_getVM_CLI,
             ["vm list"]     = s_listVM_CLI,
             ["vm delete"]   = s_deleteVM_CLI,
+            ["vm start"]    = s_startVM_CLI,
             ["disk list"]   = s_listDisk_CLI,
         };
 

@@ -125,6 +125,63 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             return child;
         }
 
+        protected virtual string ResourceIdProvider => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(ResourceIdProvider)}.");
+
+        protected virtual string ResourceIdType => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(ResourceIdType)}.");
+
+        protected static bool HasMultipleResourceIds(string[]? ids) => ids is { Length: > 1 };
+
+        protected virtual void SetResourceIdArguments(string subscriptionId, string resourceGroup, string name) { }
+
+        protected void ApplyResourceId(string[]? ids)
+        {
+            if (ids is null || ids.Length == 0)
+            {
+                return;
+            }
+
+            var (subscriptionId, resourceGroup, name) = ParseResourceId(ids[0]);
+            SetResourceIdArguments(subscriptionId, resourceGroup, name);
+        }
+
+        protected static void ValidateResourceIdArguments(string? resourceGroup, string? name, string[]? ids)
+        {
+            if (ids is { Length: > 0 })
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(resourceGroup))
+            {
+                throw new InvalidOperationException("--resource-group is required unless --ids is provided.");
+            }
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new InvalidOperationException("--name is required unless --ids is provided.");
+            }
+        }
+
+        protected (string SubscriptionId, string ResourceGroup, string Name) ParseResourceId(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                throw new InvalidOperationException("Resource id cannot be empty.");
+            }
+
+            string[] segments = id.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length != 8
+                || !segments[0].Equals("subscriptions", StringComparison.OrdinalIgnoreCase)
+                || !segments[2].Equals("resourceGroups", StringComparison.OrdinalIgnoreCase)
+                || !segments[4].Equals("providers", StringComparison.OrdinalIgnoreCase)
+                || !segments[5].Equals(ResourceIdProvider, StringComparison.OrdinalIgnoreCase)
+                || !segments[6].Equals(ResourceIdType, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Invalid resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/{ResourceIdProvider}/{ResourceIdType}/{{name}}.");
+            }
+
+            return (segments[1], segments[3], segments[7]);
+        }
+
         /*
             For LRO API has
                 "x-ms-long-running-operation-options": {
@@ -169,12 +226,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         // Yabo: C# does not allow partial with return type to be unimplemented
         // So partial Task is forbidden, have to make it synchronous.
         partial void OverrideBeforeProcessBase();
-        protected virtual Task BeforeProcessAsync() 
+        protected virtual Task BeforeProcessAsync()
         {
             OverrideBeforeProcessBase();
             return Task.CompletedTask;
         }
-        
+
         // Yabo: C# does not allow async task to have ref parameter
         // this override likely needs to perform write output, thus likely to be async
         // return Task<bool> instead
@@ -203,7 +260,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                         await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
                         throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
                     }
-                }          
+                }
                 if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
                 {
                     await WriteOutput(body);
