@@ -4,7 +4,6 @@
   "references": [
     { "path": "./packages/ir" },
     { "path": "./packages/typespec-emitter" },
-    { "path": "./packages/transformer" },
     { "path": "./packages/compiler" },
     { "path": "./packages/transformers" },
     { "path": "./packages/cli" }

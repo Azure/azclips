@@ -27,8 +27,12 @@ import {
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
-import { createCommandStep, flattenModelStep, tweakIrStep } from "@azure-client-engine/transformers";
-import { createPSDeriveStep } from "@azure-client-engine/transformer";
+import {
+  createCommandStep,
+  createPSDeriveStep,
+  flattenModelStep,
+  tweakIrStep,
+} from "@azure-client-engine/transformers";
 
 import {
   stageLocalProject,

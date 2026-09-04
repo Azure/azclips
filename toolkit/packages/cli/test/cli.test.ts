@@ -188,6 +188,50 @@ describe("ace compile: --config loading", () => {
   });
 });
 
+describe("ace compile: configured pipeline", () => {
+  it("documents ps.derive in help so config authors can discover it", async () => {
+    const { out } = await captureRun(["help"]);
+    expect(out).toContain("ps.derive");
+  });
+
+  it.runIf(generatorHostBuilt)(
+    "runs ps.derive when enabled by config and lands its output on the IR",
+    async () => {
+      const outDir = join(dir, "ps-derive");
+      writeFileSync(
+        join(dir, "ps-derive.json"),
+        JSON.stringify({
+          pipeline: { "ps.derive": true },
+          stageOptions: { "ps.derive": { modulePrefix: "Az" } },
+        }),
+      );
+
+      const { code, err } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--config",
+        join(dir, "ps-derive.json"),
+        "--out-dir",
+        outDir,
+        "--capture-ir",
+      ]);
+      expect(code, err).toBe(0);
+
+      const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+      const withPs = captures
+        .map(
+          (f) =>
+            JSON.parse(readFileSync(f, "utf8")) as { ps?: { commands: { noun: string }[] } },
+        )
+        .find((ir) => ir.ps !== undefined);
+      expect(withPs).toBeDefined();
+      expect(withPs!.ps!.commands.length).toBeGreaterThan(0);
+      expect(withPs!.ps!.commands.every((c) => c.noun.startsWith("Az"))).toBe(true);
+    },
+  );
+});
+
 describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {
   it("compiles pets.tsp and exits 0", async () => {
     const { code, err } = await captureRun([

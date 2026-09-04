@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyIR, IRSchema, type IROperation } from "@azure-client-engine/ir";
 import type { TransformContext } from "@azure-client-engine/compiler";
-import { createPSDeriveStep, PS_DERIVE_STEP_ID, transformSteps } from "../../src/index.js";
+import { createPSDeriveStep, PS_DERIVE_STEP_ID } from "../../src/index.js";
 
 const context: TransformContext = { reportDiagnostic: () => {}, config: {} };
 
@@ -43,8 +43,7 @@ const ir = {
 };
 
 describe("ps.derive step", () => {
-  it("is registered under its id", () => {
-    expect(transformSteps[PS_DERIVE_STEP_ID]).toBe(createPSDeriveStep);
+  it("names itself after its stage id", () => {
     expect(createPSDeriveStep().name).toBe(PS_DERIVE_STEP_ID);
   });
 

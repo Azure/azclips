@@ -6,7 +6,6 @@
   "workspaces": [
     "packages/ir",
     "packages/typespec-emitter",
-    "packages/transformer",
     "packages/compiler",
     "packages/transformers",
     "packages/cli"

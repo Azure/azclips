@@ -27,5 +27,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Reusable IR transformation steps for the Azure Client Engine compiler"
+  "description": "Reusable IR transformation steps for the Azure Client Engine compiler, including per-client-surface derivations (e.g. IR.ps)"
 }
