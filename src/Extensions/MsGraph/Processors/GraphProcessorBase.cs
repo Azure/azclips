@@ -162,10 +162,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         // Yabo: C# does not allow partial with return type to be unimplemented
         // So partial Task is forbidden, have to make it synchronous.
-        partial void OverrideBeforeProcessAsyncBase();
+        partial void OverrideBeforeProcessBase();
         protected virtual Task BeforeProcessAsync()
         {
-            OverrideBeforeProcessAsyncBase();
+            OverrideBeforeProcessBase();
             return Task.CompletedTask;
         }
 

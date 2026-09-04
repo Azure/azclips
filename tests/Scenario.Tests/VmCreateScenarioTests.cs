@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
+using Core.Recording;
 using Tests.Common.Recording;
 
 namespace Scenario.Tests;
@@ -21,7 +22,7 @@ public class VmCreateScenarioTests
     [Fact]
     public void CreatesVirtualMachine()
     {
-        var recording = RecordingSession.Open(typeof(VmCreateScenarioTests), nameof(CreatesVirtualMachine));
+        var recording = SessionRecordFiles.OpenSession(typeof(VmCreateScenarioTests), nameof(CreatesVirtualMachine));
 
         if (recording.Mode == RecorderMode.Record)
         {

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.6.0",
   "sources": [
     {
       "id": "PetStore",
@@ -57,8 +57,6 @@
           "wireName": "items",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "collection",
           "type": {
             "kind": "array",
@@ -86,8 +84,6 @@
           "wireName": "nextLink",
           "optional": true,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -95,6 +91,10 @@
             "format": "uri"
           }
         }
+      ],
+      "usage": [
+        "output",
+        "json"
       ]
     },
     {
@@ -120,8 +120,6 @@
           "wireName": "id",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -140,8 +138,6 @@
           "wireName": "name",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -160,8 +156,6 @@
           "wireName": "kind",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -199,7 +193,12 @@
             }
           }
         ]
-      }
+      },
+      "usage": [
+        "input",
+        "output",
+        "json"
+      ]
     },
     {
       "id": {
@@ -224,8 +223,6 @@
           "wireName": "id",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -251,8 +248,6 @@
           "wireName": "name",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -278,8 +273,6 @@
           "wireName": "kind",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "defaultValue": {
             "kind": "string",
             "value": "dog"
@@ -309,8 +302,6 @@
           "wireName": "breed",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -325,7 +316,12 @@
         ],
         "name": "Pet"
       },
-      "discriminatorValue": "dog"
+      "discriminatorValue": "dog",
+      "usage": [
+        "input",
+        "output",
+        "json"
+      ]
     },
     {
       "id": {
@@ -350,8 +346,6 @@
           "wireName": "id",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -377,8 +371,6 @@
           "wireName": "name",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -404,8 +396,6 @@
           "wireName": "kind",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "defaultValue": {
             "kind": "string",
             "value": "cat"
@@ -435,8 +425,6 @@
           "wireName": "indoor",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -451,7 +439,12 @@
         ],
         "name": "Pet"
       },
-      "discriminatorValue": "cat"
+      "discriminatorValue": "cat",
+      "usage": [
+        "input",
+        "output",
+        "json"
+      ]
     },
     {
       "id": {
@@ -476,8 +469,6 @@
           "wireName": "operationId",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
@@ -496,8 +487,6 @@
           "wireName": "status",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "enum",
           "type": {
             "kind": "enum",
@@ -510,6 +499,11 @@
             }
           }
         }
+      ],
+      "usage": [
+        "output",
+        "json",
+        "lroPolling"
       ]
     },
     {
@@ -535,14 +529,16 @@
           "wireName": "newName",
           "optional": false,
           "nullable": false,
-          "readOnly": false,
-          "writeOnly": false,
           "typeKind": "primitive",
           "type": {
             "kind": "primitive",
             "name": "string"
           }
         }
+      ],
+      "usage": [
+        "input",
+        "json"
       ]
     }
   ],
@@ -579,7 +575,12 @@
           "value": "Canceled"
         }
       ],
-      "source": "PetStore"
+      "source": "PetStore",
+      "usage": [
+        "output",
+        "json",
+        "lroPolling"
+      ]
     }
   ],
   "operations": [
