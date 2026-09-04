@@ -1,14 +1,14 @@
 ---
-name: azclips-custom-code-router
-description: "Use when integrating Azure CLI or Azure PowerShell custom code into Azclips. Routes behavior into shared orchestrator logic, CLI-only surface logic, PowerShell-only surface logic, and applies a blacklist for no-longer-needed code such as parameter validation."
+name: azclips-custom-code-classifier
+description: "Use when integrating Azure CLI or Azure PowerShell custom code into Azclips. Classifies behavior as shared customization logic, CLI-only surface logic, PowerShell-only surface logic, or blacklisted no-longer-needed code such as parameter validation."
 argument-hint: "Provide Azclips module/command and the upstream Azure CLI or Azure PowerShell custom behavior to classify."
 ---
 
-# Azclips Custom Code Router
+# Azclips Custom Code Classifier
 
 Use this skill before implementing Azure CLI or Azure PowerShell custom-code behavior in Azclips.
 
-The router does not copy code. It first removes blacklisted behavior, then classifies the remaining behavior so implementation work lands in the correct Azclips layer or stops for user direction.
+The classifier does not copy code. It first removes blacklisted behavior, then classifies the remaining behavior so implementation work lands in the correct Azclips layer or stops for user direction.
 
 ## Inputs
 - Azclips module or command, such as `Compute`, `vm create`, or `New-AzVM`.
@@ -37,7 +37,7 @@ blacklist_skips:
 Gather only the evidence needed to classify the behavior.
 
 1. Locate the Azclips extension index for the module, usually `src/Extensions/<Module>/ExtensionIndex.cs`.
-2. Read the current orchestrator for the target command under `src/Extensions/<Module>/Orchestrators` when one exists.
+2. Read the current customization for the target command under `src/Extensions/<Module>/Customization` when one exists, and confirm active routing from `ExtensionIndex.cs`.
 3. Read atomic processors under `src/Extensions/<Module>/Processors` only as evidence. Do not modify them.
 4. Read the PowerShell wrapper under `src/PS/<Module>/Cmdlets` only when needed to determine whether behavior is PowerShell-only. Do not implement PowerShell-only behavior without user direction.
 5. Read CLI parser, help, or command metadata code only when needed to determine whether behavior is CLI-only. Do not implement CLI-only behavior without user direction.
@@ -46,7 +46,7 @@ Gather only the evidence needed to classify the behavior.
 ## Route Buckets
 Split the upstream custom behavior into work items. Each work item must go into exactly one bucket.
 
-### Route 1: `shared-orchestrator`
+### Route 1: `shared-customization`
 
 Choose this when the behavior is common Azure operation logic that both CLI and PowerShell should share.
 
@@ -57,13 +57,17 @@ Strong signals:
 - The Azclips command already maps CLI and PowerShell invocation names to the same `ProcessorType`.
 
 Likely implementation locations:
-- Multi-step behavior: `src/Extensions/<Module>/Orchestrators/*_Orchestrator.cs`.
-- Shared helper behavior only when it can live with the orchestrator or another explicitly allowed shared location.
-- Routing: `src/Extensions/<Module>/ExtensionIndex.cs` so CLI and PowerShell point to the shared processor or orchestrator.
+- Handwritten shared behavior: `src/Extensions/<Module>/Customization`.
+- Multi-step behavior: override `SendAsync()` in a customization class and compose atomic processors with `CreateExtendedProcessor<T>`.
+- Request-shape behavior: use `Method`, `CreateRequestUri()`, `CreateRequestBody()`, and `CreateRequestHeaders(HttpRequestMessage request)`.
+- Pre-processing or output behavior: prefer `BeforeProcessAsync()` and `BeforeWriteOutputAsyncAndReturn(TResponse? body)` before overriding `ProcessAsync()`.
+- Base-wide behavior: implement the base partial hook `OverrideBeforeProcessBase()` in a companion partial customization file.
+- Routing: `src/Extensions/<Module>/ExtensionIndex.cs` so CLI and PowerShell point to the shared customization class when it replaces an atomic command.
 
 Forbidden locations:
 - Do not edit atomic processors under `src/Extensions/<Module>/Processors`.
-- If the behavior appears to require an atomic processor change, add it to `blocked_on_user_direction` instead of implementing it.
+- Do not edit generated models under `src/Extensions/<Module>/Models`.
+- If the behavior appears to require a generated model or atomic processor change, add it to `blocked_on_user_direction` instead of implementing it.
 
 ### Route 2: `cli-only-surface`
 
@@ -92,12 +96,12 @@ Routing action:
 - Add the behavior to `blocked_on_user_direction` and ask the user how to handle the PowerShell-specific change.
 
 ## Tie Breakers
-- If both upstream surfaces share behavior, prefer `shared-orchestrator` even if one surface implements it with validation or helper code locally.
+- If both upstream surfaces share behavior, prefer `shared-customization` even if one surface implements it with validation or helper code locally.
 - If behavior changes Azure resource side effects, request body construction, LRO handling, or response semantics, it is usually shared.
 - If behavior changes only command-line spelling, help, completion, or shell-specific prompting, it is surface-specific.
 - If a behavior is only defensive input checking, run the blacklist gate before assigning a route.
 - If a command has both shared and surface-specific parts, split it into multiple work items instead of forcing one route.
-- If a non-blacklisted behavior requires an atomic processor edit, stop and ask for user direction.
+- If a non-blacklisted behavior requires a generated model or atomic processor edit, stop and ask for user direction.
 
 ## Output Format
 
@@ -105,15 +109,19 @@ Return a compact routing result before implementation:
 
 ```yaml
 target:
-  azclips_module: "<module or unknown>"
-  azclips_commands:
-  - "<vm create | New-AzVM | other>"
+  service_module: "<Swagger/TSP service module or unknown>"
+  resource: "<resource or unknown>"
+  action: "<action or unknown>"
+target_mapping:
+  azclips_commands: []
+  azure_cli_commands: []
+  azure_powershell_cmdlets: []
 evidence:
 - "<file, symbol, or upstream behavior signal>"
 routes:
-  shared-orchestrator:
+  shared-customization:
   - behavior: "<shared behavior>"
-    target_layer: "src/Extensions/<Module>/Orchestrators or ExtensionIndex.cs"
+    target_layer: "src/Extensions/<Module>/Customization or ExtensionIndex.cs"
   cli-only-surface:
   - behavior: "<CLI-only behavior>"
     action: "stop-for-user-direction"
@@ -130,8 +138,8 @@ If `blocked_on_user_direction` is non-empty, stop and ask one focused question b
 
 ## Common Mistakes To Avoid
 - Do not port Azure CLI or Azure PowerShell source text directly.
-- Do not treat every upstream custom function as an Azclips orchestrator. Single-call custom behavior may be a handwritten processor.
+- Do not treat every upstream custom function as an Azclips customization. Single-call custom behavior may only need a small split request or lifecycle hook override.
 - Do not put PowerShell parameter-set behavior into the shared extension layer.
 - Do not put CLI option spelling or help behavior into a PowerShell cmdlet.
 - Do not port blacklisted validation just because both upstream projects contain it.
-- Do not edit atomic processors under `src/Extensions/<Module>/Processors`.
+- Do not edit generated models under `src/Extensions/<Module>/Models` or atomic processors under `src/Extensions/<Module>/Processors`.
