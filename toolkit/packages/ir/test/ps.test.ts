@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   PSCommandAttributeSchema,
   PSCompleterAttributeSchema,
@@ -48,7 +48,10 @@ describe("PSCommandAttribute", () => {
       }),
     );
     expect(result.success).toBe(false);
-    expect(JSON.stringify(result)).toContain("must be unique within a command");
+    assert(!result.success);
+    expect(result.error.issues).toHaveLength(1);
+    expect(result.error.issues[0]?.path).toEqual(["parameterSets"]);
+    expect(result.error.issues[0]?.message).toMatch(/must be unique within a command/);
   });
 
   it("accepts several sets backed by one operation, since one operation fans out into variants", () => {
@@ -70,7 +73,10 @@ describe("PSCommandAttribute", () => {
       }),
     );
     expect(result.success).toBe(false);
-    expect(JSON.stringify(result)).toContain("not in the command's sourceOperationIds");
+    assert(!result.success);
+    expect(result.error.issues).toHaveLength(1);
+    expect(result.error.issues[0]?.path).toEqual(["parameterSets", 0, "sourceOperationId"]);
+    expect(result.error.issues[0]?.message).toMatch(/not in the command's sourceOperationIds/);
   });
 
   it("accepts nested parameters that reference a declared set", () => {
@@ -285,14 +291,16 @@ describe("PS surface", () => {
 
   it("hangs off an IR document, and is optional there", () => {
     // `emptyIR()` alone does not validate -- IRSchema requires at least one source.
+    const serverId = { module: "Microsoft.AzureFleet", namespace: [], name: "server" };
     const ir = {
       ...emptyIR(),
+      servers: [{ id: serverId, endpoint: { kind: "literal" as const, url: "https://management.azure.com" } }],
       sources: [
         {
           id: "Microsoft.AzureFleet",
           entrypoint: "main.tsp",
           apiVersion: { value: "2025-04-01", location: "query" as const, parameterName: "api-version" },
-          server: { kind: "literal" as const, url: "https://management.azure.com" },
+          server: serverId,
           rootNamespace: ["Microsoft", "AzureFleet"],
         },
       ],
