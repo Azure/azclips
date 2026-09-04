@@ -22,6 +22,7 @@ public sealed class CSharpClientGenerator : IClientGenerator
         new ModelGenerator(),
         new ProcessorGenerator(),
         new ProcessorBaseGenerator(),
+        new ExtensionIndexGenerator(),
         new ProjectStubGenerator(),
     ];
 
