@@ -5,10 +5,9 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using System.Net;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
-using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 using ProfileModel = Core.Abstractions.Profile;
+using Core.Abstractions.Runtime.Handler;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
@@ -28,6 +27,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public IEventPublisher Publisher = null!;
         public JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
+        protected IAuthHandler AuthHandler = null!;
 
         /// <summary>The resolved connection profile from the processor context; null when none is available.</summary>
         protected ProfileModel? ResolvedProfile = null!;
@@ -61,6 +61,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
             ResolvedProfile = context.Profile;
+            AuthHandler = context.AuthHandler;
 
             AfterInit();
             return this;
@@ -105,7 +106,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
-        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile)
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile, AuthHandler)
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
@@ -116,6 +117,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 HttpPipeline = HttpPipeline,
                 Publisher = Publisher,
                 JsonOptions = JsonOptions,
+                AuthHandler = AuthHandler,
             };
             child.WriteOutput = WriteOutput;
             child.ResolvedProfile = ResolvedProfile;
@@ -166,10 +168,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         // Yabo: C# does not allow partial with return type to be unimplemented
         // So partial Task is forbidden, have to make it synchronous.
-        partial void OverrideBeforeProcessAsyncBase();
+        partial void OverrideBeforeProcessBase();
         protected virtual Task BeforeProcessAsync() 
         {
-            OverrideBeforeProcessAsyncBase();
+            OverrideBeforeProcessBase();
             return Task.CompletedTask;
         }
         

@@ -18,6 +18,18 @@
       {
         "short_summary": "Login with device code",
         "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
+      },
+      {
+        "short_summary": "Login with a managed identity",
+        "command": "az login --identity"
+      },
+      {
+        "short_summary": "Login with a user-assigned managed identity",
+        "command": "az login --identity --client-id 11111111-1111-1111-1111-111111111111"
+      },
+      {
+        "short_summary": "Login with a managed identity using short flags",
+        "command": "az login -i"
       }
     ],
     "parameters": [

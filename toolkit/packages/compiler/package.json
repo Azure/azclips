@@ -11,9 +11,7 @@
     }
   },
   "dependencies": {
-    "@azure-client-engine/ir": "*",
-    "@azure-client-engine/typespec-emitter": "*",
-    "@typespec/compiler": "^1.13.0"
+    "@azure-client-engine/ir": "*"
   },
   "devDependencies": {
     "@types/node": "~20.14.0",
