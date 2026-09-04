@@ -11,6 +11,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
     [ExtensionVerb("login")]
     [ExtensionVerb("logout")]
     [ExtensionVerb("profile")]
+    [ExtensionVerb("account")]
     public class ExtensionIndex : IExtensionIndex
     {
         private const string PSCommandPrefix = "Az";
@@ -101,6 +102,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata psGetAccessToken = new(
+            Name: nameof(Processors.GetAccessTokenProcessor),
+            InvocationName: $"Get-{PSCommandPrefix}AccessToken",
+            Aliases: [],
+            FullName: typeof(Processors.GetAccessTokenProcessor).FullName!,
+            AssemblyName: typeof(Processors.GetAccessTokenProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.GetAccessTokenProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["ResourceUrl"]      = new("Resource", "ResourceUrl", typeof(string), "Resource URL (v1.0) to acquire the token for. Mutually exclusive with -ResourceTypeName and -Scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceTypeName"] = new("ResourceType", "ResourceTypeName", typeof(string), "Well-known resource type shortcut (e.g. Arm, MSGraph, KeyVault). Mutually exclusive with -ResourceUrl and -Scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Scope"]            = new("Scope", "Scope", typeof(string[]), "One or more Microsoft Entra v2.0 scopes. Mutually exclusive with -ResourceUrl and -ResourceTypeName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TenantId"]         = new("Tenant", "TenantId", typeof(string), "Tenant ID to acquire the token for. Defaults to the current profile's tenant.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SubscriptionId"]   = new("Subscription", "SubscriptionId", typeof(string), "Subscription ID associated with the request. Defaults to the current profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
 #endregion
 
 #region CLI Command Metadata
@@ -186,6 +204,24 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             },
             ParameterAliases: new Dictionary<string, string> { [""] = "name" }
         );
+        private static readonly CommandMetadata cliGetAccessToken = new(
+            Name: nameof(Processors.GetAccessTokenProcessor),
+            InvocationName: "account get-access-token",
+            Aliases: [],
+            FullName: typeof(Processors.GetAccessTokenProcessor).FullName!,
+            AssemblyName: typeof(Processors.GetAccessTokenProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(Processors.GetAccessTokenProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["resource"]      = new("Resource", "resource", typeof(string), "Resource URL (v1.0) to acquire the token for. Mutually exclusive with --resource-type and --scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-type"] = new("ResourceType", "resource-type", typeof(string), "Well-known resource type shortcut (e.g. arm, ms-graph, key-vault). Mutually exclusive with --resource and --scope.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["scope"]         = new("Scope", "scope", typeof(string[]), "One or more Microsoft Entra v2.0 scopes. Mutually exclusive with --resource and --resource-type.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tenant"]        = new("Tenant", "tenant", typeof(string), "Tenant ID to acquire the token for. Defaults to the current profile's tenant.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription"]  = new("Subscription", "subscription", typeof(string), "Subscription ID associated with the request. Defaults to the current profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["plaintext"]     = new("Plaintext", "plaintext", typeof(bool), "Emit the raw access token as plain text. By default the token is redacted in output.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
 #endregion
 
 #region Command Tables
@@ -195,7 +231,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             psProfileList,
             psProfileShow,
             psProfileSet,
-            psProfileRemove
+            psProfileRemove,
+            psGetAccessToken
         );
         private static readonly Dictionary<string, CommandMetadata> cliTable = BuildCommandTable(
             cliLogin,
@@ -203,7 +240,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Login
             cliProfileList,
             cliProfileShow,
             cliProfileSet,
-            cliProfileRemove
+            cliProfileRemove,
+            cliGetAccessToken
         );
         private static Dictionary<string, CommandMetadata> BuildCommandTable(params CommandMetadata[] commands) =>
             commands.ToDictionary(cmd => cmd.InvocationName, cmd => cmd);
