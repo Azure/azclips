@@ -153,6 +153,6 @@ jobs:
   - task: PublishPipelineArtifact@1
     displayName: Publish Docker Image
     inputs:
-      targetPath: ${{ parameters.PackagingDockerOutRoot }}/images
+      targetPath: ${{ parameters.PackagingDockerOutRoot }}/Release/docker
       artifact: $(DockerArtifact)
       publishLocation: pipeline
