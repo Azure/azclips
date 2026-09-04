@@ -65,21 +65,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 continue;
             }
 
-            string typeName = ProcessorTypeName(operation);
+            string typeName = ProcessorNaming.TypeName(operation);
             yield return new GeneratedFile($"Processors/{typeName}.cs", Emit(ns, modelsNamespace, typeName, operation), typeName);
         }
-    }
-
-    /// <summary>
-    /// Unique C# class name for a processor: <c>{Verb}{Group}Processor</c>, where the group is the
-    /// last segment of the operation's <see cref="IRId.Namespace"/> (the operation interface, e.g.
-    /// <c>ElasticSans</c>) — operation <see cref="IROperation.Name"/>s alone are not unique across
-    /// groups. Falls back to <c>{Verb}Processor</c> when the operation carries no id.
-    /// </summary>
-    private static string ProcessorTypeName(IROperation operation)
-    {
-        string group = operation.Id?.Namespace is { Count: > 0 } ns ? ns[^1] : string.Empty;
-        return (operation.Name + group).Identifier() + "Processor";
     }
 
     private static string Emit(string @namespace, string modelsNamespace, string className, IROperation operation)
