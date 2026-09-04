@@ -26,16 +26,15 @@ namespace Core.Cli.Parser;
 /// </remarks>
 internal static class GlobalArgParser
 {
-    private const string DebugFlag = "--debug";
-    private const string OutputFlag = "--output";
-    private const string OutputFlagPrefix = "--output=";
-    private const string NoCacheFlag = "--no-cache";
     private const string HelpSubcommand = "help";
 
     private static readonly string[] s_helpFlags = ["--help", "-h", "-?", "?"];
 
     /// <summary>
     /// Classifies <paramref name="args"/> into a <see cref="GlobalArgs"/> record in one pass.
+    /// Per-token flag recognition dispatches through <see cref="KnownGlobalFlags.All"/>; the
+    /// positional-list post-pass handles help / version classification since those need to
+    /// examine the whole stream, not a single token.
     /// </summary>
     /// <exception cref="AzclipsErrorException">
     /// Raised as a usage error (exit code 2) when <c>--output</c> is missing a value or receives an
@@ -58,42 +57,17 @@ internal static class GlobalArgParser
         }
 
         var positional = new List<string>(args.Length);
-        bool debug = false;
-        var output = OutputFormat.Plain;
-        bool noCache = false;
+        var builder = new GlobalArgsBuilder();
 
         for (int i = 0; i < args.Length; i++)
         {
             var token = args[i];
+            var match = MatchKnownFlag(token);
 
-            if (token.Equals(DebugFlag, StringComparison.OrdinalIgnoreCase))
+            if (match?.Action is not null)
             {
-                debug = true;
-                continue;
-            }
-
-            if (token.Equals(NoCacheFlag, StringComparison.OrdinalIgnoreCase))
-            {
-                noCache = true;
-                continue;
-            }
-
-            if (token.Equals(OutputFlag, StringComparison.OrdinalIgnoreCase))
-            {
-                if (i + 1 >= args.Length)
-                {
-                    throw AzclipsErrorException.UsageError(
-                        "--output requires a value ('json' or 'plain').",
-                        new Dictionary<string, object?> { ["flag"] = OutputFlag });
-                }
-                output = ParseOutputValue(args[i + 1]);
-                i++;
-                continue;
-            }
-
-            if (token.StartsWith(OutputFlagPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                output = ParseOutputValue(token[OutputFlagPrefix.Length..]);
+                var consumed = match.Action.Apply(builder, args, i);
+                i += consumed - 1;
                 continue;
             }
 
@@ -106,30 +80,41 @@ internal static class GlobalArgParser
         return new GlobalArgs(
             Positional: positional,
             IsBareInvocation: isBareInvocation,
-            Debug: debug,
-            Output: output,
-            NoCache: noCache,
+            Debug: builder.Debug,
+            Output: builder.Output,
+            NoCache: builder.NoCache,
             Help: help,
             Version: version);
     }
 
-    private static OutputFormat ParseOutputValue(string value)
+    // Case-insensitive match of `token` (or its `--name=value` prefix) against
+    // KnownGlobalFlags.All by name or alias. Returns null when no flag matches.
+    private static KnownGlobalFlag? MatchKnownFlag(string token)
     {
-        if (value.Equals("json", StringComparison.OrdinalIgnoreCase))
+        var lookup = token;
+        var eq = token.IndexOf('=');
+        if (eq >= 0)
         {
-            return OutputFormat.Json;
+            lookup = token[..eq];
         }
-        if (value.Equals("plain", StringComparison.OrdinalIgnoreCase))
+
+        foreach (var flag in KnownGlobalFlags.All)
         {
-            return OutputFormat.Plain;
-        }
-        throw AzclipsErrorException.UsageError(
-            $"--output value '{value}' is not recognized. Expected 'json' or 'plain'.",
-            new Dictionary<string, object?>
+            if (flag.Name.Equals(lookup, StringComparison.OrdinalIgnoreCase))
             {
-                ["flag"] = OutputFlag,
-                ["value"] = value,
-            });
+                return flag;
+            }
+
+            foreach (var alias in flag.Aliases)
+            {
+                if (alias.Equals(lookup, StringComparison.OrdinalIgnoreCase))
+                {
+                    return flag;
+                }
+            }
+        }
+
+        return null;
     }
 
     // Recognized shapes: `az help ...` or `az <verb> ... --help`. `az --help <trailing>` intentionally falls through.

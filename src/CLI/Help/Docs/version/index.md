@@ -18,3 +18,7 @@ az version
 ```bash
 az --version
 ```
+
+### Notes
+
+Replace `<your-format>` with a supported output format, then run `az version` --output json to render it.

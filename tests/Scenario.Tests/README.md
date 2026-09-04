@@ -47,9 +47,16 @@ AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests --filter FullyQualifiedN
 ```
 
 The recording under `SessionRecords/<TestClass>/<TestName>.json` is rewritten; review it (no live
-ids or tokens should appear, the sanitisers scrub them) and commit it. Record from a single
-surface: the recording is shared by both the CLI and PowerShell runs on playback. Clean up any
-real resources the scenario created.
+ids, tokens, or passwords should appear, the sanitisers scrub them) and commit it. Record from a
+single surface: the recording is shared by both the CLI and PowerShell runs on playback. Clean up
+any real resources the scenario created.
+
+The vm create scenario (`--filter FullyQualifiedName~VmCreateScenarioTests`) records a whole
+orchestration: vnet, nsg, nic, and the vm with its polling, thirteen-odd entries in one file.
+Before recording it live, the subscription needs the `Microsoft.Compute` and `Microsoft.Network`
+providers registered and quota for one small vm. The subscription comes from the signed-in
+profile. Afterwards delete the resource group the run created (`scenario-vm-rg`), which removes
+the vm and all its network resources with it.
 
 ## Secret scanning
 
@@ -76,7 +83,7 @@ should learn it too.
 ## Authoring a scenario
 
 ```csharp
-var recording = RecordingSession.Open(typeof(MyScenarioTests), nameof(MyTest));
+var recording = SessionRecordFiles.OpenSession(typeof(MyScenarioTests), nameof(MyTest));
 
 if (recording.Mode == RecorderMode.Record)
 {
@@ -100,3 +107,16 @@ using (var ps = new ScenarioHost(ClientType.PowerShell, recording.CreateIntercep
 `RecordingSession` resolves the mode, loads or creates the recording at the canonical path, and
 hands out a fresh interceptor per surface (each replays the whole recording independently). `Save`
 writes the file in record mode and does nothing in playback.
+
+## Script scenarios
+
+A scenario can also be a script run by a real shell against the real az binary, one process per
+command, chaining values the way a user would (see `Scripts/vm-create.ps1` and `.sh`). The
+product side is `RecordingHook`: setting `AZCLIPS_TEST_RECORDING` makes az wire the record
+playback interceptor itself, and `AZCLIPS_HOME` points every azclips path (profiles, config,
+auth context) at an isolated directory so runs never touch the developer's real state.
+
+`ScriptScenarioRunner` handles the environment layer for a test: temp home, seeded placeholder
+profile, a private copy of the recording (playback consumption is tracked in a ledger file next
+to it, so it survives across the script's processes), spawn pwsh or bash, capture stdout and the
+exit code. Assert on those, plus full ledger consumption to prove the whole recording replayed.

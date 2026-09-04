@@ -12,7 +12,7 @@ namespace Core.Runtime;
 /// </summary>
 public class ProfileService : IProfileService // todo: testability, consider injecting file system abstractions
 {
-    private static readonly string DefaultAzclipsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
+    private static string DefaultAzclipsDirectory => HomePaths.GetDefaultLocalAppDataRoot();
 
     private readonly ILoggingService _logger;
     private readonly string _azclipsDirectory;
@@ -25,6 +25,39 @@ public class ProfileService : IProfileService // todo: testability, consider inj
         _azclipsDirectory = string.IsNullOrWhiteSpace(baseDirectory) ? DefaultAzclipsDirectory : baseDirectory;
         _profilesFilePath = Path.Combine(_azclipsDirectory, "profiles.json");
         _activeProfileFilePath = Path.Combine(_azclipsDirectory, "active-profile");
+    }
+
+    // default profile keys for other services to use as default, for now SubscriptionId only
+    public List<string> GetProfileKeysForDefault() =>
+    [
+        "SubscriptionId"
+    ];
+
+    public string? GetProfileValueByKey(Profile? profile, string key)
+    {
+        switch (key)
+        {
+            case "Name":
+                return profile?.Name;
+            case "SubscriptionId":
+                return profile?.SubscriptionId;
+            case "TenantId":
+                return profile?.TenantId;
+            case "ClientId":
+                return profile?.ClientId;
+            case "CloudName":
+                return profile?.CloudName;
+            case "AuthMethod":
+                return profile?.AuthMethod.ToString();
+            case "DefaultLocation":
+                return profile?.DefaultLocation;
+            case "UserPrincipalName":
+                return profile?.UserPrincipalName;
+            case "ManagedIdentityId":
+                return profile?.ManagedIdentityId;
+            default:
+                return null;
+        }
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()

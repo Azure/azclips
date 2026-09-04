@@ -26,7 +26,7 @@ public class CliColdStartupBenchmarks : StartupBenchmarkBase
     public void Config() => RunToExit(CliStartInfo("config", "list"));
 
     [Benchmark(Description = "login")]
-    public void Login() => RunToExit(CliStartInfo("login"));
+    public void Login() => RunToExit(CliStartInfo("login", "--subscription-id", "00000000-0000-0000-0000-000000000000"));
 
     [Benchmark(Description = "extension")]
     public void Extension() => RunToExit(CliStartInfo("extension", "list"));

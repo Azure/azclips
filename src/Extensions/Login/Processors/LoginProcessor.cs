@@ -35,24 +35,28 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
 
         // Managed identity
 
+        [ParameterGroup("Managed Identity Arguments")]
         [ArgumentInfo(
         Required = false,
         Description = @"Login using managed identity in the current environment.",
         SerializedName = @"Identity")]
         public bool Identity { get; set; } = false;
 
+        [ParameterGroup("Managed Identity Arguments")]
         [ArgumentInfo(
         Required = false,
         Description = @"Client ID of the user-assigned managed identity.",
         SerializedName = @"ClientId")]
         public string ClientId { get; set; } = "";
 
+        [ParameterGroup("Managed Identity Arguments")]
         [ArgumentInfo(
         Required = false,
         Description = @"Object ID of the user-assigned managed identity.",
         SerializedName = @"ObjectId")]
         public string ObjectId { get; set; } = "";
 
+        [ParameterGroup("Managed Identity Arguments")]
         [ArgumentInfo(
         Required = false,
         Description = @"Resource ID of the user-assigned managed identity.",
@@ -109,7 +113,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
             }
             else
             {
-                targetName = outName ?? ProfileNameValidator.ReservedTempName;
+                targetName = outName ?? ProfileNameValidator.ReservedDefaultName;
                 tenantId = TenantId;
                 subscriptionId = SubscriptionId;
                 cloudName = DefaultCloudName;

@@ -20,9 +20,10 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
     // whether spans are recorded; the CLI process is single-shot so the runtime
     // toggle is largely a no-op here, but the shared pattern keeps the three
     // providers uniform.
-    public CLITelemetryProvider(IEnumerable<BaseProcessor<Activity>> filterProcessors)
+    public CLITelemetryProvider(
+        IEnumerable<BaseProcessor<Activity>> filterProcessors,
+        ITelemetrySender sender)
     {
-        FileTelemetrySender sender = new();
         ActivitySource = new ActivitySource(ClientType.CLI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(ClientType.CLI.ToString())
@@ -42,7 +43,7 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
             builder.AddProcessor(processor);
         }
 
-        sender.ConfigureExporter(builder, FileTelemetrySender.GetTraceDirectory());
+        sender.ConfigureExporter(builder);
         TracerProvider = builder.Build();
     }
 }

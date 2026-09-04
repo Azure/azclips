@@ -29,6 +29,7 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.TenantId,
         TelemetryTags.AuthType,
         TelemetryTags.Mode,
+        TelemetryTags.ImportKind,
     };
 
     [Theory]

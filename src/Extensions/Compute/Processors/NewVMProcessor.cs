@@ -8,8 +8,9 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
-    public class NewVMProcessor : ComputeProcessorBase<VirtualMachine>
+    public class NewVMProcessor : ComputeProcessorBase<VirtualMachine, VirtualMachine>
     {
+        public string SubscriptionId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
         public string ResourceGroupName { get; set; } = string.Empty;
@@ -27,10 +28,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public bool VTpmEnabled { get; set; } = true;
         public bool BootDiagnosticsEnabled { get; set; } = false;
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
+        protected override HttpMethod Method => HttpMethod.Put;
+
+        protected override string CreateRequestUri() =>
+            $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
+
+        protected override VirtualMachine? CreateRequestBody()
         {
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-            string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
             VirtualMachine body = new VirtualMachine
             {
                 Location = Location,
@@ -76,12 +80,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                     }
                 }
             };
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
-            {
-                Content = JsonContent.Create(body, options: JsonOptions)
-            };
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
+            return body;
         }
 
         /*

@@ -55,9 +55,10 @@ public class ExecutionSessionSeamTests
         {
             GetExtensionVersion = () => string.Empty,
             CacheGetOrAdd = (_, _, _) => index,
-            BindProcessor = (processor, _, _, _) => processor,
+            BindProcessor = (processor, _, _, _, _) => processor,
+            ResolveProfileAsync = (s) => Task.FromResult<Profile?>(new Profile(){SubscriptionId = "sub-1"}),
             CreateProcessorContext =
-                (s, _) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
+                (s) => Task.FromResult(new ProcessorContext(null!, s.EventBus, null!, null!)),
         };
         return session;
     }

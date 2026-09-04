@@ -3,7 +3,7 @@
     * .Net project
     * [Models](#models)
     * [Processors](#processors)
-    * [Orchestrators](#orchestrators)
+    * [Customization](#customization)
     * [ExtensionIndex](#extensionindex)
 * <a id="models"></a>Models: 
     * C# class representation of API schema
@@ -13,9 +13,9 @@
     * Programmable representation of Azure operations
     * Implemented `IProcessor` interface, provide method `ProcessAsync()`
     * Classes under directory `Processors` indicate atomic(generated) operations
-* <a id="Orchestrators"></a>Orchestrators: 
-    * Conceptual representation of Azure or any operations
-    * Classes under directory `Orchestrators` indicate customized(handwritten) operations
+* <a id="customization"></a>Customization:
+    * Handwritten representation of customized Azure or other operations
+    * Classes under directory `Customization` indicate customized (handwritten) operations
 * <a id="extensionindex"></a>ExtensionIndex:
     * Dictionary representation of complete syntax extracted from extension.
     * Will be generated at build-time in the future, manually maintained for now
@@ -27,7 +27,8 @@
 * This article aims for Azclips private preview only
 * Most of manual works will be replaced by CodeGen in the future
 * Reference [Compute Extension](https://github.com/Azure/azclips/tree/main/src/Extensions/Compute) 
-* Azure APIs have swagger and TypeSpec as sources, to make it easier for LLM, use swagger as spec
+* TypeSpec is the only source format accepted by CodeGen
+* Provide CodeGen either a TypeSpec project directory or an entry `.tsp` file
 
 # Create a new Extension Project
 * Create a new directory `Azclips/src/Extensions/{ExtensionName}`
@@ -71,74 +72,111 @@
 
 # Develop [Models](#models)
 * Create directory `Azclips/src/Extensions/{ExtensionName}/Models`
-* Locate the API you are trying to support, find the schema of request/response, for example:
-    * Locate API for [`POST: "/subscriptions/{subscriptionId}/providers/Microsoft.AzureTerraform/exportTerraform"`](https://github.com/Azure/azure-rest-api-specs/blob/main/specification/terraform/resource-manager/Microsoft.AzureTerraform/preview/2025-09-01-preview/export.json#L89)
-    * Find schema names for [request schema Id](https://github.com/Azure/azure-rest-api-specs/blob/main/specification/terraform/resource-manager/Microsoft.AzureTerraform/preview/2025-09-01-preview/export.json#L110) and [response schema Id](https://github.com/Azure/azure-rest-api-specs/blob/main/specification/terraform/resource-manager/Microsoft.AzureTerraform/preview/2025-09-01-preview/export.json#L118)
-    * Find schemas by schema Ids: [request schema](https://github.com/Azure/azure-rest-api-specs/blob/main/specification/terraform/resource-manager/Microsoft.AzureTerraform/preview/2025-09-01-preview/export.json#L191), [response schema](https://github.com/Azure/azure-rest-api-specs/blob/main/specification/terraform/resource-manager/Microsoft.AzureTerraform/preview/2025-09-01-preview/export.json#L410)
-* Ask LLM to create model classes for request schema/response schema under `Azclips/src/Extensions/{ExtensionName}/Models`, take `Azclips/src/Extensions/Compute` as reference
-* Ask LLM to resolve and create model classes for all dependency schemas under `Azclips/src/Extensions/{ExtensionName}/Models`
+* Locate the TypeSpec project or entry `.tsp` file for the service you are trying to support
+* Locate the TypeSpec operation and its request and response models. CodeGen resolves referenced model dependencies from the TypeSpec program
+* Review the generated model classes under `Azclips/src/Extensions/{ExtensionName}/Models`, using `src/Extensions/Compute/Models` as the canonical example
 
 # Develop [Processors](#processors)
 * Create directory `Azclips/src/Extensions/{ExtensionName}/Processors`
-* Understand `ProcessorBase` by reviewing `src/Extensions/Compute/Processors/ComputeProcessorBase.cs`. You can ignore most properties/methods but please ensure get familiar with below 3 methods:
-    * <a id="createrequestmessage"></a>`CreateRequestMessage()`
-        * Access modifier: `protected` indicates only used by child classes
-        * This method defines what request this processor sends
-        * Empty in base class, implemented in child classes
-    * <a id="sendasync"></a>`SendAsync()`
-        * Access modifier: `internal` indicates only used inside this extension assembly
-        * This method defines what response this processor receives
-        * Implemented by base class
-    * <a id="processasync"></a>`ProcessAsync()`
-        * Access modifier: `public` indicates used by external callers
-        * This method defines how this processor processes
-        * Implemented by base class
-* Ask LLM to create `Azclips/src/Extensions/{ExtensionName}/Processors/{ExtensionName}ProcessorBase.cs`, take `Azclips/src/Extensions/Compute` as reference
-* Ask LLM to create processors for APIs you are trying to support, take `Azclips/src/Extensions/Compute` as reference, ensure public properties match the request model class
-    * Ensure generic type is the response type of the API
-    * For Delete API, the generic type should be object
-    * For long running operations (PUT/PATCH/POST/DELETE), ensure LRO properties are correctly set, see https://github.com/Azure/azclips/blob/c606d4ea85b60eb0499811faa5b1310422fd9c5d/src/Extensions/Compute/Processors/ComputeProcessorBase.cs#L77-L85
-    * Ensure [`CreateRequestMessage`](#createrequestmessage) matches the API
-        * For APIs with request body (PUT/PATCH/POST), ensure [`CreateRequestMessage`](#createrequestmessage) wire public properties to request correctly
+* Use `src/Extensions/Compute` as the canonical example for this guide. In particular, review `src/Extensions/Compute/Processors/ComputeProcessorBase.cs`; ignore processor bases in other extensions
+* Ask LLM to create `Azclips/src/Extensions/{ExtensionName}/Processors/{ExtensionName}ProcessorBase.cs`, following `ComputeProcessorBase`
+* Define the generic base as `ProcessorBase<TRequest, TResponse>` because request and response schemas are independent
+    * Use the request and response model types when schemas exist: `ProcessorBase<RequestModel, ResponseModel>`
+    * Use `object` as the no-schema marker on either side
+    * A read is `ProcessorBase<object, ResponseModel>`
+    * A delete with no response body is `ProcessorBase<object, object>`
+    * Do not add a one-arity convenience base
+    * Give anonymous request bodies a named request model. Until such a model exists, use `object` and the full-request override described in [Miscellaneous](#miscellaneous)
+* Ask LLM to create processors for the APIs you are trying to support, following the processors under `src/Extensions/Compute/Processors`; ensure public properties match the request model
+* Build requests through these four protected override entries, which keep request construction and event publishing in the base:
+    * `HttpMethod Method` defines the HTTP verb. It has no default; every processor must override it
+    * `string CreateRequestUri()` builds the request URI. It has no default; every processor must override it
+    * `TRequest? CreateRequestBody()` builds the typed body. It defaults to `null`; override it only when the API has a request body
+    * `void CreateRequestHeaders(HttpRequestMessage request)` adds operation-specific headers by mutating `request`. It is a no-op by default; authentication remains the HTTP pipeline's responsibility
+* Follow `GetVMProcessor` for a GET:
+```csharp
+public class GetVMProcessor : ComputeProcessorBase<object, VirtualMachine>
+{
+    protected override HttpMethod Method => HttpMethod.Get;
 
-# Develop Orchestrators
-* Create directory `Azclips/src/Extensions/{ExtensionName}/Orchestrators`
-* Identify APIs to be orchestrated, for example minimal creation for `vm` requires `vnet`, `nsg`, `nic` from Network RP
+    protected override string CreateRequestUri() =>
+        $"https://management.azure.com/.../{Name}?api-version=2025-11-01";
+}
+```
+* Follow `NewVMProcessor` for a PUT with a body:
+```csharp
+public class NewVMProcessor : ComputeProcessorBase<VirtualMachine, VirtualMachine>
+{
+    protected override HttpMethod Method => HttpMethod.Put;
+
+    protected override string CreateRequestUri() =>
+        $"https://management.azure.com/.../{Name}?api-version=2025-11-01";
+
+    protected override VirtualMachine? CreateRequestBody() => new VirtualMachine
+    {
+        Location = Location,
+        Properties = new VirtualMachineProperties { /* ... */ }
+    };
+}
+```
+    * Return the request model instance directly from `CreateRequestBody()`; do not construct `HttpRequestMessage` or set `HttpContent` there
+    * For long running operations (PUT/PATCH/POST/DELETE), ensure LRO properties are correctly set, see https://github.com/Azure/azclips/blob/c606d4ea85b60eb0499811faa5b1310422fd9c5d/src/Extensions/Compute/Processors/ComputeProcessorBase.cs#L77-L85
+* Understand the base-owned processing lifecycle:
+    * <a id="sendasync"></a>`SendAsync()` creates and sends the request and returns the response. Override it when a customization composes multiple processors or needs different send behavior
+    * <a id="processasync"></a>`ProcessAsync()` calls `BeforeProcessAsync()`, publishes the start event, calls `SendAsync()`, deserializes the response, handles output, and publishes the end event exactly once from `finally`
+    * Empty or whitespace content publishes `ResponseEmptyBody` and skips deserialization
+    * Invalid JSON publishes `ResponseInvalidJson` and throws `InvalidOperationException`
+* Reuse these processing override entries instead of replacing the whole lifecycle:
+    * <a id="overridebeforeprocessbase"></a>`partial void OverrideBeforeProcessBase()` is the synchronous, base-wide injection point. Implement it in a companion partial file to affect every processor
+    * `Task BeforeProcessAsync()` is the per-processor injection point. An override replaces the default; call `base.BeforeProcessAsync()` when the base-wide injection should also run
+    * `Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body)` runs before the default output write. Return `false` to let the base write a non-null body. To customize or omit output, perform any required output work in the override and return `true`
+
+# Develop Customization
+* Create directory `Azclips/src/Extensions/{ExtensionName}/Customization`
+* Customization is intentionally flexible. There is no required class name, filename suffix, or naming convention
+    * Compute uses names such as `NewVMProcessor_Orchestrator`; `_Orchestrator` is only the name chosen by that implementation, not a convention for new customization
+    * New customization may use any clear, arbitrary name
+    * Follow the patterns under `src/Extensions/Compute/Customization` as examples, but reuse the processor override entries described in [Develop Processors](#develop-processors) instead of creating a separate framework
+* Identify APIs to customize, for example minimal creation for `vm` requires `vnet`, `nsg`, `nic` from Network RP
 * Create processors for APIs, see [develop processors](#develop-processors)
 
-## Orchestrators with Multi-API
-* Create `Azclips/src/Extensions/{ExtensionName}/Orchestrators/(APIName)Processor_Orchestrator.cs`
-* Generic type is the model class of the final API
-* Recurse [Multi-API Orchestrator](#orchestrators-with-multi-api) for required orchestrators if needed `Azclips/src/Extensions/{ExtensionName}/Orchestrators/(RequiredOrchestratorName)Processor_Orchestrator.cs`, for example nic creation is multi-API orchestrator
-* Ask LLM to compose public properties, should be union of all APIs (processors) in this orchestrator
+## Multi-API Customization
+* Create a class with an appropriate arbitrary name under `Azclips/src/Extensions/{ExtensionName}/Customization`
+* Specify both request and response generic types. Use the request and response models for the final API, or `object` where no schema exists
+* Recurse [Multi-API Customization](#multi-api-customization) for required customization if needed. For example, Compute's NIC creation is itself a multi-API customization
+* Ask LLM to compose public properties, which should be the union of all APIs (processors) in this customization
 * Override [SendAsync()](#sendasync)
-    * Use `CreateExtendedProcessor<T>` to create orchestrated processors
-        * `T` is the type of orchestrated processor
-        * Map public properties from orchestrator to processors
-    * Execute [`SendAsync()`](#sendasync) of each processors, sequentially or in parallel, except the processor for the generic type of orchestrator
+    * Use `CreateExtendedProcessor<T>` to create the processors used by the customization
+        * `T` is the processor type
+        * Map public properties from the customization to processors
+    * Execute [`SendAsync()`](#sendasync) for each processor, sequentially or in parallel, except the final processor
     * `return await {FinalProcessor}.SendAsync();`
     * You can ask LLM to do it but I suggest try with bare hands.
 
-## Orchestrators with no API calls
-* Create `Azclips/src/Extensions/{ExtensionName}/Orchestrators/(ArbitraryName)Processor_Orchestrator.cs`
-* Generic type is `object`
+## Customization with no API calls
+* Create an arbitrarily named class under `Azclips/src/Extensions/{ExtensionName}/Customization`
+* Use `object` for request or response types that have no schema
 * Arbitrarily compose public properties
-* Override [ProcessAsync()](#processasync), orchestrate arbitrarily
-* For example, an orchestrator to connect ACR
+* Override [ProcessAsync()](#processasync) to implement the custom operation
+* For example, a customization to connect ACR
     * public properties: ACREndpoint + UserName + Password
     * `ProcessAsync`: `docker login {ACREndpoint} -u {UserName} -p {Password}`
 
-## Orchestrators with computation
+## Customization with computation
 * Imagine API `A` requires property `P`, value of `P` can only be retrieved at runtime from DB by string `k`
 * Let's define a computation `P = Func(K)`
-* Create `Azclips/src/Extensions/{ExtensionName}/Orchestrators/(A)Processor_Orchestrator.cs`
-* Generic type is the model class of `A`
-* Copy entire content from processor A to orchestrator A
-* replace public property `P` with `K`
-* In [CreateRequestMessage()](#createrequestmessage), assign `P = Func(k);`
+* Create an arbitrarily named class under `Azclips/src/Extensions/{ExtensionName}/Customization`
+* Specify both the request and response model types of `A`
+* Copy the entire content from processor A to customization A
+* Replace public property `P` with `K`
+* Assign `P = Func(K)` in `CreateRequestUri()` or `CreateRequestBody()`, whichever consumes `P`
 
 ## Miscellaneous
-Improvise overriding [CreateRequestMessage()](#createrequestmessage), [SendAsync()](#sendasync) and [ProcessAsync()](#processasync)
+Customization has no restrictions beyond deriving from the processor base and reusing its override entries where they fit. The full-control escape hatches are:
+* <a id="createrequestmessage"></a>Override `CreateRequestMessage()` for request construction that cannot use `Method`, `CreateRequestUri()`, `CreateRequestBody()`, and `CreateRequestHeaders()`. This bypasses those entries and the base's request-creation event wiring, so publish any required events in the override
+* Override [SendAsync()](#sendasync) to compose processors or replace send behavior
+* Implement [`OverrideBeforeProcessBase()`](#overridebeforeprocessbase) in a companion partial file when synchronous setup must run before `ProcessAsync()` for every processor. Use `BeforeProcessAsync()` instead when the behavior applies to only one processor
+* Override [ProcessAsync()](#processasync) only for a completely custom operation. This bypasses `OverrideBeforeProcessBase()`, `BeforeProcessAsync()`, `BeforeWriteOutputAsyncAndReturn()`, and the base-owned processing lifecycle, so preserve required events and output behavior in the override
 
 # Develop ExtensionIndex
 * Ask LLM to create `Azclips/src/Extensions/{ExtensionName}/ExtensionIndex.cs`, by reviewing what you already have in `Azclips/src/Extensions/{ExtensionName}` and `Azclips/src/Extensions/Compute` as reference
@@ -163,4 +201,3 @@ Ask LLM to review `Azclips/src/Extensions/{ExtensionName}/ExtensionIndex.cs` and
 Persist manual verification scripts in
 * `Azclips/tests/Scripts/CLI`
 * `Azclips/tests/Scripts/PS`
-* No need to guarantee the script files runnable, guarantee content of scripts are runnable

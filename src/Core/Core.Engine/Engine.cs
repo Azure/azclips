@@ -52,10 +52,11 @@ namespace Core.Engine
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = () => invocation.ModuleVersion ?? string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
-            session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
+            session.BindProcessor = argumentParsingService.BindArgumentsToProcessor; 
             session.Option = GetOption();
-            session.CreateProcessorContext = (s, profileName) => CreateProcessorContext(s, profileName);
-            session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
+            session.ResolveProfileAsync = ResolveProfileAsync;
+            session.CreateProcessorContext = CreateProcessorContext;
+            session.CacheGetOrAdd = CacheGetOrAdd;
             return session;
         }
 
@@ -96,13 +97,11 @@ namespace Core.Engine
         /// <param name="profileNameOverride">
         /// The pre-bound global <c>--profile</c>/<c>-Profile</c> value, or null when not supplied.
         /// </param>
-        private async Task<ProcessorContext> CreateProcessorContext(ExecutionSession session, string? profileNameOverride)
+        private async Task<ProcessorContext> CreateProcessorContext(ExecutionSession session)
         {
-            Profile? profile = await ResolveProfileAsync(profileNameOverride);
-
             IAuthHandler authHandler = new AuthHandler
             {
-                Profile = profile,
+                Profile = session.Profile,
                 AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync,
                 ApplyOverride = false
             };
@@ -127,18 +126,18 @@ namespace Core.Engine
                 Publisher: session.EventBus,
                 AuthHandler: authHandler,
                 OutputHandler: outputHandler,
-                Profile: profile
+                Profile:session.Profile
             );
             // stamp User-Agent header on every outgoing request
             httpPipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
-            // passthrough by default, terminate during client mocking
-            httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep);
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
+            // passthrough by default, terminate during client mocking
+            httpPipeline.Append(httpPipelineService.HttpPipelineTerminatingStep);
 
             // Announce the created context; the ProcessorContextCreated subscriber enriches the
             // telemetry root span with profile-derived tags (subscription, tenant, auth type).
-            await session.EventBus.Publish(Events.ProcessorContextCreated, new EventData { Payload = profile });
+            await session.EventBus.Publish(Events.ProcessorContextCreated, new EventData { Payload = session.Profile });
 
             return context;
         }

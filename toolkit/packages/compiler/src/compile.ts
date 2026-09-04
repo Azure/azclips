@@ -7,17 +7,19 @@
  * Diagnostics are structured data. Cancellable via `AbortSignal`, checked at
  * every stage boundary.
  *
- * The pipeline is configurable, not hard-coded: transform steps and the
- * generator are resolved from `CompileConfig.pipeline` / `.generator` against a
- * `CompilerRegistry`, or overridden directly via `CompileOptions`. The backbone
+ * The pipeline is configurable, not hard-coded: the emit producer, transform
+ * steps, and the generator are all injectable seams. Emit has no built-in
+ * default — the orchestrator is TypeSpec-free, so the host supplies a producer
+ * (`CompileOptions.emit`, e.g. the CLI's out-of-process tsp-compile). Transforms
+ * and the generator resolve from `CompileConfig.pipeline` / `.generator` against
+ * a `CompilerRegistry`, or are overridden via `CompileOptions`. The backbone
  * owns the step loop, so with `captureIR` it emits a labeled `IRSnapshot` after
  * emit and after each transform step.
  */
 
 import type { IR } from "@azure-client-engine/ir";
 
-import { emitIR } from "./emit.js";
-import { toCompilerDiagnostic } from "./diagnostics.js";
+import type { EmitContext, EmitProducer } from "./emit-producer.js";
 import {
   createTransformPipeline,
   identityPipeline,
@@ -25,7 +27,9 @@ import {
   type TransformPipeline,
   type TransformStep,
 } from "./transform.js";
-import { noopGenerator, type Generator, type GeneratorContext } from "./generate.js";
+import type { Generator, GeneratorContext } from "./generate.js";
+import { createBuiltinEmit } from "./builtins/emit.js";
+import { createCsharpGenerator, CSHARP_GENERATOR_ID } from "./builtins/generate-csharp.js";
 import { createCollectorSink, type OutputDelegate } from "./output.js";
 import { isAbortError, throwIfAborted } from "./abort.js";
 import type {
@@ -49,7 +53,6 @@ export async function compile(
   };
 
   const config = input.config ?? {};
-  const extensions = input.extensions ?? {};
   const captureIR = options.captureIR === true;
 
   // Output sink: a caller-provided delegate, or the default in-memory collector
@@ -82,26 +85,30 @@ export async function compile(
     }
   };
 
-  // ── Stage 1 + 2: compile TypeSpec and emit IR ──────────────────────────
-  const emitted = await emitIR({
-    entrypoint: input.entrypoint,
-    ...(config.emitter !== undefined ? { emitterOptions: config.emitter } : {}),
-    ...(config.additionalImports !== undefined
-      ? { additionalImports: config.additionalImports }
-      : {}),
-    ...(config.warnAsError !== undefined ? { warnAsError: config.warnAsError } : {}),
-    ...(config.trace !== undefined ? { trace: config.trace } : {}),
-    ...(config.nostdlib !== undefined ? { nostdlib: config.nostdlib } : {}),
-  });
-  for (const d of emitted.diagnostics) diagnostics.push(toCompilerDiagnostic(d));
+  // ── Stage 1 + 2: emit IR (built-in tsp-emit via the host runtime, or an
+  //    injected producer as the escape hatch) ──
+  const emitProducer = resolveEmit(options, reportDiagnostic);
+  if (emitProducer === undefined) return finish(false);
+  const emitContext: EmitContext = {
+    reportDiagnostic,
+    ...(signal !== undefined ? { signal } : {}),
+  };
+  let emittedIr: IR | undefined;
+  try {
+    ({ ir: emittedIr } = await emitProducer.produce(input, emitContext));
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    reportDiagnostic(stageError("emit", emitProducer.name, error));
+    return finish(false);
+  }
 
-  if (emitted.ir === undefined || hasError()) {
+  if (emittedIr === undefined || hasError()) {
     return finish(false);
   }
 
   // Snapshot 0: the IR straight from the emitter.
   throwIfAborted(signal);
-  if (!(await captureSnapshot(0, "emit", emitted.ir))) return finish(false);
+  if (!(await captureSnapshot(0, "emit", emittedIr))) return finish(false);
 
   // ── Stage 3: transform (identity unless configured/injected) ────────────
   const pipeline = resolvePipeline(options, config, reportDiagnostic);
@@ -109,10 +116,10 @@ export async function compile(
 
   const transformContext: TransformContext = {
     reportDiagnostic,
-    extensions,
+    config,
     ...(signal !== undefined ? { signal } : {}),
   };
-  let ir: IR = emitted.ir;
+  let ir: IR = emittedIr;
   let index = 1;
   for (const step of pipeline.steps) {
     throwIfAborted(signal);
@@ -132,30 +139,40 @@ export async function compile(
   const generator = resolveGenerator(options, config, reportDiagnostic);
   if (generator === undefined) return finish(false, ir);
 
+  let outputFailed = false;
   const generatorContext: GeneratorContext = {
     reportDiagnostic,
-    extensions,
+    config,
     ...(signal !== undefined ? { signal } : {}),
+    // The generator streams each artifact here the moment it is produced; we
+    // forward it straight to the sink (nothing buffered). Removes arrive before
+    // files, so stale scopes are wiped before fresh output lands.
+    emit: async (artifact) => {
+      if (outputFailed) return;
+      try {
+        if (artifact.kind === "file") {
+          await sink({ kind: "generated-file", path: artifact.path, contents: artifact.contents });
+        } else {
+          await sink({ kind: "remove", path: artifact.path });
+        }
+      } catch (error) {
+        if (isAbortError(error)) throw error;
+        outputFailed = true;
+        reportDiagnostic(
+          outputError(artifact.kind === "file" ? "generated-file" : "remove", artifact.path, error),
+        );
+      }
+    },
   };
-  let files: Map<string, string>;
+
   try {
-    ({ files } = await generator.generate(ir, generatorContext));
+    await generator.generate(ir, generatorContext);
   } catch (error) {
     if (isAbortError(error)) throw error;
     reportDiagnostic(stageError("generate", generator.name, error));
     return finish(false, ir);
   }
-
-  // Forward generated files to the sink (in-memory collector or host).
-  for (const [path, contents] of files) {
-    try {
-      await sink({ kind: "generated-file", path, contents });
-    } catch (error) {
-      if (isAbortError(error)) throw error;
-      reportDiagnostic(outputError("generated-file", path, error));
-      return finish(false, ir);
-    }
-  }
+  if (outputFailed) return finish(false, ir);
 
   const failed =
     hasError() ||
@@ -163,6 +180,26 @@ export async function compile(
       diagnostics.some((d) => d.severity === "warning"));
 
   return finish(!failed, ir);
+}
+
+/** Resolve the emit producer: explicit override, then the runtime-backed built-in. */
+function resolveEmit(
+  options: CompileOptions,
+  reportDiagnostic: (d: CompilerDiagnostic) => void,
+): EmitProducer | undefined {
+  // Explicit injection wins — the escape hatch for tests and bespoke embedding.
+  if (options.emit !== undefined) return options.emit;
+  // Otherwise the compiler owns emit: its built-in tsp-emit tool, driven through
+  // the host runtime (which resolves the toolchain and spawns the worker).
+  if (options.runtime !== undefined) return createBuiltinEmit(options.runtime);
+  reportDiagnostic({
+    severity: "error",
+    code: "@azure-client-engine/compiler/no-emit-producer",
+    message:
+      "No emit stage available: provide a host runtime (CompileOptions.runtime) so the " +
+      "built-in tsp-emit tool can run, or inject an emit producer (CompileOptions.emit).",
+  });
+  return undefined;
 }
 
 /** Resolve the transform pipeline: explicit override, then config+registry, then identity. */
@@ -192,7 +229,13 @@ function resolvePipeline(
   return createTransformPipeline("configured", steps);
 }
 
-/** Resolve the generator: explicit override, then config+registry, then no-op. */
+/**
+ * Resolve the generator: explicit override, else the config-selected generator,
+ * else the compiler's built-in `csharp` default. The pipeline always ends in a
+ * generator — generated code is the product — so there is no no-op default; a
+ * caller that deliberately wants no output injects `noopGenerator` through
+ * `CompileOptions.generator` (the escape hatch).
+ */
 function resolveGenerator(
   options: CompileOptions,
   config: CompileConfig,
@@ -200,9 +243,25 @@ function resolveGenerator(
 ): Generator | undefined {
   if (options.generator !== undefined) return options.generator;
 
-  const spec = config.generator;
-  if (spec === undefined) return noopGenerator;
+  const spec = config.generator ?? { use: CSHARP_GENERATOR_ID };
 
+  // Compiler-owned built-in catalog: the C# generator runs out of process
+  // through the host runtime — the compiler owns the stage, the host owns the spawn.
+  if (spec.use === CSHARP_GENERATOR_ID) {
+    if (options.runtime === undefined) {
+      reportDiagnostic({
+        severity: "error",
+        code: "@azure-client-engine/compiler/generator-requires-runtime",
+        message:
+          `The '${CSHARP_GENERATOR_ID}' generator runs out of process and needs a ` +
+          "host runtime (CompileOptions.runtime).",
+      });
+      return undefined;
+    }
+    return createCsharpGenerator(options.runtime, spec.options ?? {});
+  }
+
+  // Host-registered custom (in-process) generators — the registry extension seam.
   const factory = options.registry?.generators.get(spec.use);
   if (factory === undefined) {
     reportDiagnostic({

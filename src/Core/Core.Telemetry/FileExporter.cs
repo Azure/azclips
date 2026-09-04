@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
 using OpenTelemetry;
 
 namespace Core.Telemetry;
@@ -28,34 +27,14 @@ internal class FileExporter : BaseExporter<Activity>
     {
         try
         {
-            // Initialize file path on first write using the first activity's TraceId
-            if (_filePath == null)
-            {
-                foreach (var activity in batch)
-                {
-                    var traceId = activity.TraceId.ToString();
-                    _filePath = Path.Combine(_rootDirectory, $"traces-{traceId}.log");
-                    
-                    var directory = Path.GetDirectoryName(_filePath);
-                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                    {
-                        Directory.CreateDirectory(directory);
-                    }
-                    break; // Only need one
-                }
-
-                // If batch was empty (unlikely), we can't determine TraceId yet.
-                // Just return success and wait for next batch.
-                if (_filePath == null)
-                {
-                    return ExportResult.Success;
-                }
-            }
-
             var traces = new List<object>();
-            
+
+            // Single pass: a Batch<Activity> backed by a circular buffer dequeues as it is
+            // enumerated, so the file path is taken from the first activity on the way past.
             foreach (var activity in batch)
             {
+                _filePath ??= CreateTraceFilePath(activity.TraceId.ToString());
+
                 var trace = new
                 {
                     TraceId = activity.TraceId.ToString(),
@@ -72,20 +51,21 @@ internal class FileExporter : BaseExporter<Activity>
                     Events = GetEvents(activity),
                     Resource = GetResource(activity)
                 };
-                
+
                 traces.Add(trace);
+            }
+
+            // An empty batch (unlikely) leaves nothing to write, and the TraceId that names the
+            // file is still unknown. Wait for the next one.
+            if (traces.Count == 0)
+            {
+                return ExportResult.Success;
             }
 
             // Synchronously write to file
             lock (_lock)
             {
-                var json = JsonSerializer.Serialize(traces, new JsonSerializerOptions 
-                { 
-                    WriteIndented = true 
-                });
-                
-                // Append to file with timestamp
-                File.AppendAllText(_filePath, $"\n--- Batch at {DateTime.UtcNow:O} ---\n{json}\n");
+                File.AppendAllText(_filePath!, TraceFileFormat.FormatBatch(traces, DateTime.UtcNow));
             }
 
             return ExportResult.Success;
@@ -98,6 +78,20 @@ internal class FileExporter : BaseExporter<Activity>
             Console.Error.WriteLine($"Error exporting traces to file: {ex.Message}");
             return ExportResult.Failure;
         }
+    }
+
+    /// <summary>Resolves the file a trace buffers into, creating its directory if needed.</summary>
+    private string CreateTraceFilePath(string traceId)
+    {
+        var path = Path.Combine(_rootDirectory, TraceFileStore.FileNameFor(traceId));
+
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return path;
     }
 
     private static List<object> GetEvents(Activity activity)

@@ -4,6 +4,8 @@
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
+using Core.Recording;
+
 namespace Tests.Common.Recording;
 
 /// <summary>
