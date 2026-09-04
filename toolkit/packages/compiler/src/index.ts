@@ -27,6 +27,7 @@ export {
   TWEAK_IR_STAGE,
   FLATTEN_MODEL_STAGE,
   CREATE_COMMAND_STAGE,
+  PS_DERIVE_STAGE,
   CSHARP_STAGE,
   planStages,
   isStageEnabled,

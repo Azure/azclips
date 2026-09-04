@@ -22,11 +22,13 @@ import {
   TWEAK_IR_STAGE,
   FLATTEN_MODEL_STAGE,
   CREATE_COMMAND_STAGE,
+  PS_DERIVE_STAGE,
   type CompileConfig,
   type CompilerDiagnostic,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
 import { createCommandStep, flattenModelStep, tweakIrStep } from "@azure-client-engine/transformers";
+import { createPSDeriveStep } from "@azure-client-engine/transformer";
 
 import {
   stageLocalProject,
@@ -39,15 +41,16 @@ import { createHostRuntime } from "./runtime.js";
  * Implementations this host supplies for the compiler's declared stages.
  *
  * This is fulfilment, not orchestration: the compiler's catalog owns where
- * `flatten-model` sits and whether it runs by default, and the host only
- * provides the code behind the id. `tsp-emit` and `csharp` need no entry — they
- * are external stages driven through the host runtime.
+ * `flatten-model`/`ps.derive` sit and whether each runs by default, and the
+ * host only provides the code behind each id. `tsp-emit` and `csharp` need no
+ * entry — they are external stages driven through the host runtime.
  */
 const STAGE_IMPLEMENTATIONS = createRegistry({
   transforms: {
     [TWEAK_IR_STAGE]: tweakIrStep,
     [FLATTEN_MODEL_STAGE]: flattenModelStep,
     [CREATE_COMMAND_STAGE]: createCommandStep,
+    [PS_DERIVE_STAGE]: createPSDeriveStep,
   },
 });
 
@@ -64,7 +67,8 @@ export function usage(): string {
     "  --config <path>        Path to a JSON file of generation-time settings,",
     "                         loaded as CompileInput.config (CompileConfig) (optional).",
     "                         Its 'pipeline' flips compiler-declared stages on or off,",
-    "                         e.g. { \"pipeline\": { \"flatten-model\": false } }, and",
+    "                         e.g. { \"pipeline\": { \"flatten-model\": false } } or",
+    "                         { \"pipeline\": { \"ps.derive\": true } }, and",
     "                         'stageOptions' configures them by stage id.",
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
