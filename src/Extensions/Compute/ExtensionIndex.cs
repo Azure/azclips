@@ -86,6 +86,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_startVM_PS = new(
+            Name: "StartVMProcessor",
+            InvocationName: "Start-AzVM",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.StartVMProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.StartVMProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Id"]                = new("Ids", "Id", typeof(string[]), "The complete resource ID of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["NoWait"]            = new("NoWait", "NoWait", typeof(bool), "Starts the operation and returns immediately, before the operation is completed.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_newVMOrchestrator_PS = new(
             Name: "NewVMOrchestrator",
             InvocationName: "New-AzVM",
@@ -364,6 +381,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["Get-AzVM_Get"]                   = s_getVM_PS,
             ["Get-AzVM_List"]               = s_listVM_PS,
             ["Remove-AzVM"]                = s_deleteVM_PS,
+            ["Start-AzVM"]                 = s_startVM_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
