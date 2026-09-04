@@ -104,7 +104,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql.Processors
 
         internal async virtual Task<HttpResponseMessage> SendAsync()
         {
-            IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+            IRuntimeHttpPipeline _httpPipeline = HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
             IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
             using HttpRequestMessage _request = await CreateRequestMessage();
             HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
@@ -126,7 +126,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql.Processors
             HttpRequestMessage _request = await CreateRequestMessage();
             try
             {
-                IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+                IRuntimeHttpPipeline _httpPipeline = HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
                 IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
                 string _originalUri = _request.RequestUri!.AbsoluteUri;
                 HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
@@ -138,12 +138,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql.Processors
                 var _operationLocationUri = GetOperationLocationUri(_response);
 
                 //polling
-                while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
+                while ((_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK)
+                     || _response.StatusCode == HttpStatusCode.Created
+                     || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
-                    int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
+                    int delay = Math.Max(1, (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval));
                     await _publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
-                    Task delayTask = Task.Delay(delay*1000, _publisher.Token);
+                    Task delayTask = Task.Delay(delay * 1000, _publisher.Token);
 
                     // while we wait, let's grab the headers and get ready to poll.
                     if (!string.IsNullOrEmpty(GetAsyncOperationUri(_response)))
@@ -241,24 +243,24 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql.Processors
                 {
                     case HttpStatusCode.OK:
                     case HttpStatusCode.NoContent:
-                    {
-                        await _publisher.Publish(Events.PollingFinished);
-                        break;
-                    }
+                        {
+                            await _publisher.Publish(Events.PollingFinished);
+                            break;
+                        }
                     default:
-                    {
-                        await _publisher.Publish(Events.PollingFailed);
-                        try
                         {
-                            await _response.EnsureSuccessAsync(_publisher);
+                            await _publisher.Publish(Events.PollingFailed);
+                            try
+                            {
+                                await _response.EnsureSuccessAsync(_publisher);
+                            }
+                            catch
+                            {
+                                _response.Dispose();
+                                throw;
+                            }
+                            break;
                         }
-                        catch
-                        {
-                            _response.Dispose();
-                            throw;
-                        }
-                        break;
-                    }
                 }
                 return _response;
             }
