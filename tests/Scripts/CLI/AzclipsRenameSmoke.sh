@@ -4,7 +4,7 @@
 #   - Microsoft.Azure.Azclips.Extensions.Resources  (group list/show/create, rest GET)
 #   - Microsoft.Azure.Azclips.Extensions.Compute     (vm list)
 #
-# Prereqs: build the solution first with tests\Scripts\CLI\AzclipsRenameSmoke.shnet build, then sign in.
+# Prereqs: build the solution first with dotnet build, then sign in.
 #
 # Usage: ./tests/Scripts/CLI/AzclipsRenameSmoke.sh
 set -euo pipefail
