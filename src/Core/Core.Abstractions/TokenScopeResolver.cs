@@ -80,8 +80,12 @@ public static class TokenScopeResolver
     }
 
     /// <summary>
-    /// Converts a resource URL to its default scope by appending <c>/.default</c>, avoiding a double
-    /// slash if the resource already ends in <c>/</c> and leaving an existing <c>/.default</c> intact.
+    /// Converts a resource URL to its default scope by appending <c>/.default</c>. The trailing
+    /// slash of the resource is preserved (matching Azure CLI's <c>resource_to_scopes</c>), so
+    /// <c>https://management.core.windows.net/</c> becomes
+    /// <c>https://management.core.windows.net//.default</c> and
+    /// <c>https://managedhsm.azure.com</c> becomes <c>https://managedhsm.azure.com/.default</c>. An
+    /// existing <c>/.default</c> suffix is left intact.
     /// </summary>
     public static string ToDefaultScope(string resource)
     {
@@ -91,13 +95,8 @@ public static class TokenScopeResolver
         }
 
         var trimmed = resource.Trim();
-        if (trimmed.EndsWith(DefaultScopeSuffix, StringComparison.OrdinalIgnoreCase))
-        {
-            return trimmed;
-        }
-
-        return trimmed.EndsWith('/')
-            ? trimmed + ".default"
+        return trimmed.EndsWith(DefaultScopeSuffix, StringComparison.OrdinalIgnoreCase)
+            ? trimmed
             : trimmed + DefaultScopeSuffix;
     }
 }
