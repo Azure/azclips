@@ -261,6 +261,62 @@ describe("ace compile: configured pipeline", () => {
       }
     },
   );
+
+  it.runIf(generatorHostBuilt)(
+    "runs steps in the declared order, feeding ps.derive's output to ps.directives",
+    async () => {
+      const outDir = join(dir, "ps-chain");
+      writeFileSync(
+        join(dir, "chain.json"),
+        JSON.stringify({
+          pipeline: { "ps.derive": true, "ps.directives": true },
+          stageOptions: {
+            "ps.directives": {
+              directives: [{ where: { subject: "Pet" }, set: { subject: "Animal" } }],
+            },
+          },
+        }),
+      );
+
+      const { code } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--config",
+        join(dir, "chain.json"),
+        "--out-dir",
+        outDir,
+        "--capture-ir",
+      ]);
+      expect(code).toBe(0);
+
+      const captures = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
+      const ir = JSON.parse(readFileSync(captures.sort().at(-1)!, "utf8")) as {
+        ps?: { commands: { noun: string }[] };
+      };
+      const nouns = ir.ps!.commands.map((c) => c.noun);
+      expect(nouns).toContain("Animal");
+      // `subject: Pet` is anchored, so the rename must not reach `PetStatus`.
+      expect(nouns).toContain("PetStatus");
+    },
+  );
+
+  it("fails when ps.directives is enabled without ps.derive", async () => {
+    const configPath = join(dir, "no-derive.json");
+    writeFileSync(configPath, JSON.stringify({ pipeline: { "ps.directives": true } }));
+
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      PETS_TSP,
+      "--config",
+      configPath,
+      "--out-dir",
+      join(dir, "no-derive"),
+    ]);
+    expect(code).toBe(1);
+    expect(err).toContain("missing-required-stage");
+  });
 });
 
 describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {
