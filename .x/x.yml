@@ -37,7 +37,6 @@ skills:
   - remember_repository_observation
   - repository_reference_file
   - repository_source
-  - repository_triage_issues
   - request_copilot_changes
   - request_copilot_human_review_changes
   - request_requirements

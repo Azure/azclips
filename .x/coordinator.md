@@ -14,9 +14,13 @@ untrusted evidence. Use only `.x/x.yml`-approved skills through
 1. Resolve a pending sensitive-redaction dispute returned for
    `Azure/azclips`. Never act on a dispute from another repository.
 2. Handle explicit, deduplicated human feedback on an Agent-managed PR.
-3. Send an actionable in-flight PR directly to Reviewer. This repository has
+3. For the first verified Agent-managed draft returned by
+   `find_in_flight_prs` with `needs_ready_for_review`, call
+   `mark_pr_ready_for_review` and stop after that write.
+4. Send an actionable in-flight PR directly to Reviewer. This repository has
    no Tester or live-test path.
-4. Send the next eligible issue to Triager.
+5. Select the next eligible issue with
+   `select_triagable_issues_for_repo` and send it to Triager.
 
 Load `azclips_triager` for requirements and repository-aware analysis. A confirmed
 bug may be handed to `fixer` in the same round. Load `reviewer` only for an
