@@ -6,8 +6,14 @@
  */
 
 import type { TransformStepFactory } from "@azure-client-engine/compiler";
-import { createPSDeriveStep, PS_DERIVE_STEP_ID } from "./ps/step.js";
+import {
+  createPSDeriveStep,
+  createPSDirectivesStep,
+  PS_DERIVE_STEP_ID,
+  PS_DIRECTIVES_STEP_ID,
+} from "./ps/step.js";
 
 export const transformSteps: Record<string, TransformStepFactory> = {
   [PS_DERIVE_STEP_ID]: createPSDeriveStep,
+  [PS_DIRECTIVES_STEP_ID]: createPSDirectivesStep,
 };

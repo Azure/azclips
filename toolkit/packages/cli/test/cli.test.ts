@@ -229,6 +229,69 @@ describe("ace compile: configured pipeline", () => {
       expect(ir.ps!.commands.every((c) => c.noun.startsWith("Az"))).toBe(true);
     },
   );
+
+  it.runIf(generatorHostBuilt)(
+    "runs steps in the declared order, feeding ps.derive's output to ps.directives",
+    async () => {
+      const outDir = join(dir, "ps-chain");
+      writeFileSync(
+        join(dir, "chain.json"),
+        JSON.stringify({
+          pipeline: [
+            { use: "ps.derive" },
+            {
+              use: "ps.directives",
+              options: { directives: [{ where: { subject: "Pet" }, set: { subject: "Animal" } }] },
+            },
+          ],
+        }),
+      );
+
+      const { code } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--config",
+        join(dir, "chain.json"),
+        "--out-dir",
+        outDir,
+        "--capture-ir",
+      ]);
+      expect(code).toBe(0);
+
+      const snapshot = join(outDir, "ir", "2-ps.directives.json");
+      expect(existsSync(snapshot)).toBe(true);
+      const ir = JSON.parse(readFileSync(snapshot, "utf8")) as {
+        ps: { commands: { noun: string }[] };
+      };
+      const nouns = ir.ps.commands.map((c) => c.noun);
+      expect(nouns).toContain("Animal");
+      // `subject: Pet` is anchored, so the rename must not reach `PetStatus`.
+      expect(nouns).toContain("PetStatus");
+    },
+  );
+
+  it.runIf(generatorHostBuilt)(
+    "fails when ps.directives runs without ps.derive ahead of it",
+    async () => {
+      writeFileSync(
+        join(dir, "no-derive.json"),
+        JSON.stringify({ pipeline: [{ use: "ps.directives" }] }),
+      );
+
+      const { code, err } = await captureRun([
+        "compile",
+        "--tsp-location",
+        PETS_TSP,
+        "--config",
+        join(dir, "no-derive.json"),
+        "--out-dir",
+        join(dir, "no-derive"),
+      ]);
+      expect(code).toBe(1);
+      expect(err).toContain("ps-surface-missing");
+    },
+  );
 });
 
 describe.runIf(generatorHostBuilt)("ace compile: happy path", () => {
