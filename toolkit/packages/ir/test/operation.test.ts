@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { IRRequestBodySchema } from "../src/operation.js";
 
 const body = (overrides: Record<string, unknown> = {}) => ({
@@ -20,7 +20,10 @@ describe("IRRequestBody", () => {
 
   it("rejects the flag without the name it describes", () => {
     const result = IRRequestBodySchema.safeParse(body({ isGeneratedName: true }));
-    expect(result.success).toBe(false);
-    expect(JSON.stringify(result)).toContain("cannot be set without one");
+
+    assert(!result.success);
+    expect(result.error.issues).toHaveLength(1);
+    expect(result.error.issues[0]?.path).toEqual(["isGeneratedName"]);
+    expect(result.error.issues[0]?.message).toMatch(/cannot be set without one/);
   });
 });

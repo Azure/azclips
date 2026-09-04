@@ -194,13 +194,15 @@ export type IRRequestBody = {
   contentType: string;
   multipart?: IRMultipartBody | undefined;
   /**
-   * Client-facing name of the body parameter -- `payload` for `@body payload: Widget`.
-   * Undefined when TCGC had nothing to take a name from.
+   * Client-facing name of the body parameter -- `pet` for `@body pet: Pet`. TCGC always
+   * supplies one, synthesizing a name when the spec gives it nothing to take one from, so
+   * `isGeneratedName` rather than absence is what says whether an author wrote it. Optional
+   * because IR need not come from TCGC.
    */
   name?: string | undefined;
   /**
-   * True when TCGC synthesized `name` (e.g. `<operation>Request`) rather than the author
-   * writing it. A consumer needing an author-intended name should treat it as unusable.
+   * True when `name` was synthesized rather than written by the spec author. A consumer
+   * needing an author-intended name should treat a generated one as unusable.
    */
   isGeneratedName?: boolean | undefined;
   docs?: string | undefined;
