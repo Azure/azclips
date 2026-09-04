@@ -106,7 +106,8 @@ function Install-Cli2Yaml
         [Parameter(Mandatory)][string]$Feed
     )
 
-    $fetchDir = Join-Path $env:TEMP "azclips-cli2yaml-fetch"
+    # [System.IO.Path]::GetTempPath honours TMPDIR / TEMP / TMP per-OS.
+    $fetchDir = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-cli2yaml-fetch"
     New-Item -Path $fetchDir -ItemType Directory -Force | Out-Null
 
     $csprojBody = @"
@@ -124,7 +125,8 @@ function Install-Cli2Yaml
     Set-Content -Path $csprojPath -Value $csprojBody -NoNewline
 
     Write-Host "Fetching $PackageName from feed (non-interactive)..." -ForegroundColor Cyan
-    $output = & dotnet restore $csprojPath --interactive:false 2>&1
+    # `dotnet restore` is non-interactive by default; --interactive is a switch and does not accept a value.
+    $output = & dotnet restore $csprojPath 2>&1
     if ($LASTEXITCODE -ne 0)
     {
         throw "Non-interactive fetch of $PackageName failed with exit $LASTEXITCODE. Credentials may not be available; ensure a federated-identity token or PAT is exported via NuGet env vars. Output:`n$($output -join "`n")"
@@ -144,7 +146,11 @@ function Get-Cli2YamlDllPath
         [switch]$FetchIfMissing
     )
 
-    $cacheRoot = Join-Path $env:USERPROFILE ".nuget/packages/$($PackageName.ToLowerInvariant())"
+    # USERPROFILE on Windows, HOME on Linux/macOS; .NET fallback covers oddballs.
+    $userProfile = if ($env:USERPROFILE) { $env:USERPROFILE }
+                   elseif ($env:HOME) { $env:HOME }
+                   else { [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile) }
+    $cacheRoot = Join-Path $userProfile ".nuget/packages/$($PackageName.ToLowerInvariant())"
     if (-not (Test-Path $cacheRoot))
     {
         if ($FetchIfMissing)
@@ -157,7 +163,7 @@ function Get-Cli2YamlDllPath
 CLI2Yaml is not in the local NuGet cache ($cacheRoot).
 Fetch it once via a throwaway csproj:
 
-    `$fetch = Join-Path `$env:TEMP 'azclips-cli2yaml-fetch'
+    `$fetch = Join-Path ([System.IO.Path]::GetTempPath()) 'azclips-cli2yaml-fetch'
     New-Item -Path `$fetch -ItemType Directory -Force | Out-Null
     @'
     <Project Sdk="Microsoft.NET.Sdk">
@@ -254,7 +260,12 @@ function New-Cli2YamlWorkspace
 
     Push-Location $RepoRoot
     try {
-        pwsh -File $commitMapScript -OutputPath $commitMapPath 2>&1 | Select-Object -Last 1 | ForEach-Object { Write-Host "  → $_" }
+        $output = & pwsh -File $commitMapScript -OutputPath $commitMapPath 2>&1
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "Get-DocCommitMap.ps1 failed with exit $LASTEXITCODE. Output:`n$($output -join "`n")"
+        }
+        $output | Select-Object -Last 1 | ForEach-Object { Write-Host "  → $_" }
     }
     finally {
         Pop-Location

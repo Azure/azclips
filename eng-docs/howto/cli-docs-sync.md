@@ -6,7 +6,7 @@ Runbook for [build/Sync-AzClipsCliDocs.ps1](../../build/Sync-AzClipsCliDocs.ps1)
 
 Runs a two-stage transform of AzClips CLI content into the shape `MicrosoftDocs/azure-docs-cli` expects:
 
-1. **Exporter** ([`tools/Help/Azclips.Cli.Export`](../../tools/Help/Azclips.Cli.Export/)) — reads AzClips CLI runtime metadata + authored help markdown under `src/CLI/Help/Docs/**` and emits snake*case JSON at `artifacts/cli-export/latest/<verb>.json` + `\_root*.json`.
+1. **Exporter** ([`tools/Help/Azclips.Cli.Export`](../../tools/Help/Azclips.Cli.Export/)) — reads AzClips CLI runtime metadata + authored help markdown under `src/CLI/Help/Docs/**` and emits `snake_case` JSON at `artifacts/cli-export/latest/<verb>.json` + `_root_.json`.
 2. **CLI2Yaml** (docs.ms's NuGet-packaged transformer) — reads the JSON + side-car configs (`.docsreference.azclips.json`, `service_name.json`, `index.json`) and emits `YamlMime:AzureCLIGroup` SDP YAML into `docs-ref-autogen/<VersionFolder>/latest/*.yml` in the target docs repo.
 
 Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/…` — via the `--sourceRepo` / `--editBranch` options landed in [ceapex/CLI2Yaml PR 1213094](https://ceapex.visualstudio.com/Engineering/_git/CLI2Yaml/pullrequest/1213094), packaged as `CLI2Yaml 20260827.1.0` and later.
@@ -70,14 +70,14 @@ Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/
 
 **CI-oriented parameters** (all optional, no effect on interactive use):
 
-| Param             | Purpose                                                                                                                    |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `-NoBuild`        | Skip the leading `dotnet build azclips.slnx` (CI usually builds in a preceding step)                                       |
-| `-Configuration`  | `Debug` \| `Release` for the build + exporter run (default `Debug`)                                                         |
+| Param             | Purpose                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-NoBuild`        | Skip the leading `dotnet build azclips.slnx` (CI usually builds in a preceding step)                                                             |
+| `-Configuration`  | `Debug` \| `Release` for the build + exporter run (default `Debug`)                                                                              |
 | `-FetchIfMissing` | Auto-fetch `CLI2Yaml` non-interactively when missing from the NuGet cache. Requires pre-arranged credentials (federated identity or PAT env var) |
-| `-CommitAuthor`   | Inline `user.name` for the target commit. Does NOT persist to the target repo's git config                                 |
-| `-CommitEmail`    | Inline `user.email` — same                                                                                                 |
-| `-OutputManifest` | Write a machine-readable JSON summary to the given path. Feeds CI PR-body generation, artifact upload, downstream steps    |
+| `-CommitAuthor`   | Inline `user.name` for the target commit. Does NOT persist to the target repo's git config                                                       |
+| `-CommitEmail`    | Inline `user.email` — same                                                                                                                       |
+| `-OutputManifest` | Write a machine-readable JSON summary to the given path. Feeds CI PR-body generation, artifact upload, downstream steps                          |
 
 **Two folder concepts, decoupled by design:**
 
