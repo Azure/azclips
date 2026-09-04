@@ -77,7 +77,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Sql.
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzSqlServer'
+CmdletsToExport = 'New-AzSqlServer', 'New-AzSqlDatabase'
 
 # List of all modules packaged with this module
 # ModuleList = @()

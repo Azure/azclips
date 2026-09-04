@@ -40,6 +40,13 @@ namespace Core.Cli
                     {
                         throw new PropertyParserException($"Property '{propertyName}' expects an integer value, but received '{value}'.");
                     }
+                case var t when t == typeof(long):
+                    // TryParse rather than the try/catch above — it also covers overflow.
+                    if (!long.TryParse(value, out long longValue))
+                    {
+                        throw new PropertyParserException($"Property '{propertyName}' expects an integer value, but received '{value}'.");
+                    }
+                    return longValue;
                 case var t when t == typeof(bool):
                     try
                     {

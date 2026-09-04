@@ -5,7 +5,7 @@ using System.Net.Http.Json;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Sql.Models;
-// ponytail: alias avoids the collision with the ambient Microsoft.SqlServer namespace.
+// alias avoids the collision with the ambient Microsoft.SqlServer namespace.
 using SqlServerModel = Microsoft.Azure.Azclips.Extensions.Sql.Models.SqlServer;
 
 namespace Microsoft.Azure.Azclips.Extensions.Sql.Processors;
