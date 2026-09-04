@@ -310,7 +310,8 @@ directCommands:
     }
 
     AfterAll {
-        $probe = Split-Path (Split-Path (Split-Path $script:FakeCli2YamlDll -Parent) -Parent) -Parent
+        # DLL path: <root>/cli2yaml/20260827.1.0/tools/CLI2Yaml.dll — four Split-Parents up to <root>.
+        $probe = Split-Path (Split-Path (Split-Path (Split-Path $script:FakeCli2YamlDll -Parent) -Parent) -Parent) -Parent
         if (Test-Path $probe) { Remove-Item $probe -Recurse -Force -ErrorAction SilentlyContinue }
     }
 

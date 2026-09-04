@@ -217,13 +217,15 @@ Import-Module Pester -MinimumVersion 5.0
 Invoke-Pester -Path tests/Cli.DocsSync.Tests/ -Output Detailed
 ```
 
-21 Pester tests cover: CLI2Yaml DLL resolution, target-version-folder composition, `latest/` folder clearing, target-repo preflight, workspace assembly, and `-Force`-mode git plumbing (against a temp `git init`'d target — no external target needed).
+Pester tests cover: CLI2Yaml DLL resolution, target-version-folder composition, `latest/` folder clearing, target-repo preflight, workspace assembly, and `-Force`-mode git plumbing (against a temp `git init`'d target — no external target needed).
 
 Exporter + CLI2Yaml integration is intentionally not part of Pester — both require a full build + real NuGet package, too heavy for the test suite. That validation is the dry-run smoke.
 
 ## CI orchestration
 
-**Not wired to CI yet.** The shim is intentionally iterative — we're battle-testing it by using it to refresh [MicrosoftDocs/azure-docs-cli#6153](https://github.com/MicrosoftDocs/azure-docs-cli/pull/6153) as we go. A CI job (dry-run + Pester on every PR) lands once the shim is stable.
+**PR CI** — the `cli-docs-sync-tests` job in [`.github/workflows/build-and-test.yml`](../../.github/workflows/build-and-test.yml) runs the Pester suite plus a load-only smoke (dot-sources the shim under `AZCLIPS_CLI_SYNC_LOAD_ONLY=1` to catch parse errors and stale function references without needing CLI2Yaml, which lives behind apidrop auth).
+
+**Publish CI** — not wired yet. The shim is intentionally iterative; we're battle-testing it by using it to refresh [MicrosoftDocs/azure-docs-cli#6153](https://github.com/MicrosoftDocs/azure-docs-cli/pull/6153) as we go. A publish workflow (real dry-run + `-Push`) lands once the docs.ms bot-auth pattern is decided (588-D2).
 
 ## What's NOT covered (yet)
 

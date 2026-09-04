@@ -165,7 +165,7 @@ function Get-Cli2YamlDllPath
         else
         {
             throw @"
-CLI2Yaml is not in the local NuGet cache ($cacheRoot).
+$PackageName is not in the local NuGet cache ($cacheRoot).
 Fetch it once via a throwaway csproj:
 
     `$fetch = Join-Path ([System.IO.Path]::GetTempPath()) 'azclips-cli2yaml-fetch'
@@ -665,8 +665,12 @@ else
     Write-Host "Building azclips.slnx ($Configuration) ..." -ForegroundColor Cyan
     Push-Location $repoRoot
     try {
-        dotnet build azclips.slnx --configuration $Configuration --nologo -clp:ErrorsOnly 2>&1 | Select-Object -Last 3 | ForEach-Object { Write-Host "  → $_" }
-        if ($LASTEXITCODE -ne 0) { throw "dotnet build failed with exit $LASTEXITCODE." }
+        $buildOutput = & dotnet build azclips.slnx --configuration $Configuration --nologo -clp:ErrorsOnly 2>&1
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "dotnet build failed with exit $LASTEXITCODE. Output:`n$($buildOutput -join "`n")"
+        }
+        $buildOutput | Select-Object -Last 3 | ForEach-Object { Write-Host "  → $_" }
     }
     finally {
         Pop-Location
