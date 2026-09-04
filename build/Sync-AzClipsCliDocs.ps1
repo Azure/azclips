@@ -694,30 +694,50 @@ if ($Force)
     }
 
     $targetVersionFolder = Get-TargetVersionFolder -TargetRepoPath $effectiveTargetRepoPath -VersionFolder $effectiveVersionFolder
-    Clear-TargetLatest -TargetVersionFolder $targetVersionFolder
 
-    Invoke-Cli2Yaml `
-        -Cli2YamlDll $cli2yamlDll `
-        -Workspace $workspace `
-        -OutputVersionFolder $targetVersionFolder `
-        -DocsReferenceConfig $docsReferenceConfig `
-        -ExtensionIndex $extensionIndex `
-        -ServiceMapping $serviceMapping `
-        -SourceRepoUrl $effectiveSourceRepoUrl `
-        -SourceBranch $effectiveSourceBranch
+    # Capture pre-mutation baseline so any failure between here and Invoke-SyncApply
+    # (Clear-TargetLatest, CLI2Yaml, Remove-ServicePageOutput) can hard-reset the target.
+    $targetOriginalBranch = (git -C $effectiveTargetRepoPath rev-parse --abbrev-ref HEAD 2>$null).Trim()
+    $targetOriginalHead   = (git -C $effectiveTargetRepoPath rev-parse HEAD 2>$null).Trim()
 
-    if ($SkipServicePages) { Remove-ServicePageOutput -OutputVersionFolder $targetVersionFolder }
+    try {
+        Clear-TargetLatest -TargetVersionFolder $targetVersionFolder
 
-    $effectiveTimestamp = if ($Timestamp) { $Timestamp } else { [DateTime]::UtcNow.ToString('yyyyMMddHHmm') }
-    Write-Host ''
-    Write-Host "Applying CLI docs to $effectiveTargetRepoPath ..." -ForegroundColor Cyan
-    $applyResult = Invoke-SyncApply `
-        -TargetRepoPath $effectiveTargetRepoPath `
-        -VersionFolder $effectiveVersionFolder `
-        -Moniker $effectiveMoniker `
-        -Timestamp $effectiveTimestamp `
-        -CommitAuthor $CommitAuthor `
-        -CommitEmail $CommitEmail
+        Invoke-Cli2Yaml `
+            -Cli2YamlDll $cli2yamlDll `
+            -Workspace $workspace `
+            -OutputVersionFolder $targetVersionFolder `
+            -DocsReferenceConfig $docsReferenceConfig `
+            -ExtensionIndex $extensionIndex `
+            -ServiceMapping $serviceMapping `
+            -SourceRepoUrl $effectiveSourceRepoUrl `
+            -SourceBranch $effectiveSourceBranch
+
+        if ($SkipServicePages) { Remove-ServicePageOutput -OutputVersionFolder $targetVersionFolder }
+
+        $effectiveTimestamp = if ($Timestamp) { $Timestamp } else { [DateTime]::UtcNow.ToString('yyyyMMddHHmm') }
+        Write-Host ''
+        Write-Host "Applying CLI docs to $effectiveTargetRepoPath ..." -ForegroundColor Cyan
+        $applyResult = Invoke-SyncApply `
+            -TargetRepoPath $effectiveTargetRepoPath `
+            -VersionFolder $effectiveVersionFolder `
+            -Moniker $effectiveMoniker `
+            -Timestamp $effectiveTimestamp `
+            -CommitAuthor $CommitAuthor `
+            -CommitEmail $CommitEmail
+    }
+    catch {
+        Write-Host "Sync failed; rolling target back to $targetOriginalHead ..." -ForegroundColor Yellow
+        git -C $effectiveTargetRepoPath reset --hard $targetOriginalHead 2>&1 | Out-Null
+        # -fd removes untracked files+dirs (e.g. YAML that CLI2Yaml wrote before failing).
+        # Test-TargetReady required a clean tree at entry, so nothing developer-authored is at risk.
+        git -C $effectiveTargetRepoPath clean -fd 2>&1 | Out-Null
+        if ($targetOriginalBranch -and $targetOriginalBranch -ne 'HEAD')
+        {
+            git -C $effectiveTargetRepoPath checkout $targetOriginalBranch 2>&1 | Out-Null
+        }
+        throw
+    }
 
     Write-Host ''
     if ($applyResult.NoChanges)
