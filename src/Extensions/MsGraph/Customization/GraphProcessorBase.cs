@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
     /// Hand-authored auth hook for <see cref="GraphProcessorBase{TRequest, TResponse}"/>. Implements the
-    /// codegen-declared <c>OverrideBeforeProcessAsyncBase</c> seam so Graph processors acquire tokens for
+    /// codegen-declared <c>OverrideBeforeProcessBase</c> seam so Graph processors acquire tokens for
     /// the Microsoft Graph audience instead of the default ARM scope.
     /// </summary>
     /// <remarks>
@@ -25,7 +25,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         /// <see cref="GraphConstants.GraphScopes"/>, wrapping the engine default delegate so only the token
         /// scope changes. Runs at the start of every <c>ProcessAsync</c> via <c>BeforeProcessAsync</c>.
         /// </summary>
-        partial void OverrideBeforeProcessAsyncBase()
+        partial void OverrideBeforeProcessBase()
         {
             AcquireTokenAsyncDelegate acquireWithDefaultScope = AuthHandler.AcquireTokenAsyncDefault;
 

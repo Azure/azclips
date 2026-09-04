@@ -21,7 +21,7 @@ public class GraphProcessorBaseAuthScopeTests
 
     /// <summary>
     /// Runs the base's <c>BeforeProcessAsync</c> pipeline stage — which fires the
-    /// <c>OverrideBeforeProcessAsyncBase</c> partial method that lives under
+    /// <c>OverrideBeforeProcessBase</c> partial method that lives under
     /// <c>Customization/GraphProcessorBase.cs</c> — so tests can observe the auth-override
     /// installation without setting up an HTTP pipeline for a full <c>ProcessAsync</c> run.
     /// </summary>
@@ -59,7 +59,7 @@ public class GraphProcessorBaseAuthScopeTests
         };
 
         // Init captures the auth handler; BeforeProcessAsync installs the Graph scope override
-        // (via the OverrideBeforeProcessAsyncBase partial method in Customization/).
+        // (via the OverrideBeforeProcessBase partial method in Customization/).
         var processor = new GetUserProcessor();
         processor.Init(CreateContext(authHandler));
         await InvokeBeforeProcessAsync(processor);
