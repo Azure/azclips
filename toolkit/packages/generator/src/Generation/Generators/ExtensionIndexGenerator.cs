@@ -81,22 +81,31 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
             yield break;
         }
 
-        string source = Emit(context.Options, entries);
-
-        // A malformed table should fail here, naming this generator, rather than in the
-        // consumer's build where the cause is a generated file nobody wrote.
-        foreach (Diagnostic diagnostic in SyntaxFactory.ParseCompilationUnit(source).GetDiagnostics())
+        // The core carries the interface and the lookups; each client surface contributes its
+        // commands through its own partial, so the surfaces can be generated independently.
+        // Only the core claims the class name: both files declare the same partial type, and the
+        // orchestrator's class map holds one path per type.
+        foreach ((string path, string source, string? className) in new[]
         {
-            if (diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error)
+            ("ExtensionIndex.cs", EmitCore(context.Options), "ExtensionIndex"),
+            ("ExtensionIndex.Ps.cs", EmitPowerShell(context.Options, entries), (string?)null),
+        })
+        {
+            // A malformed table should fail here, naming this generator, rather than in the
+            // consumer's build where the cause is a generated file nobody wrote.
+            foreach (Diagnostic diagnostic in SyntaxFactory.ParseCompilationUnit(source).GetDiagnostics())
             {
-                context.Report(
-                    Model.DiagnosticSeverity.Error,
-                    "ace-generator/invalid-extension-index",
-                    $"Emitted an unparseable extension index: {diagnostic.GetMessage()}");
+                if (diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error)
+                {
+                    context.Report(
+                        Model.DiagnosticSeverity.Error,
+                        "ace-generator/invalid-extension-index",
+                        $"Emitted an unparseable extension index ({path}): {diagnostic.GetMessage()}");
+                }
             }
-        }
 
-        yield return new GeneratedFile("ExtensionIndex.cs", source, "ExtensionIndex");
+            yield return new GeneratedFile(path, source, className);
+        }
     }
 
     /// <summary>Every id a PS parameter can name, mapped to the IR type it binds.</summary>
@@ -218,69 +227,44 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         return parameters;
     }
 
-    private static string Emit(GeneratorOptions options, IReadOnlyList<Entry> entries)
+    /// <summary>
+    /// The surface-agnostic half: the interface, the tables, and the lookups. Each surface fills
+    /// its table through a partial hook. A hook with no implementing partial compiles away, so a
+    /// module that generates only one surface still builds and simply reports an empty table for
+    /// the other.
+    /// </summary>
+    private static string EmitCore(GeneratorOptions options)
     {
         string ns = options.RootNamespace;
         var source = new StringBuilder();
 
         source.AppendLine(Banner);
         source.AppendLine("using Core.Abstractions;");
-        // Parameters can bind model types, which the model stage emits into a child namespace.
-        source.AppendLine($"using {ns}.Models;");
         source.AppendLine();
         source.AppendLine($"namespace {ns};");
         source.AppendLine();
-        source.AppendLine("public class ExtensionIndex : IExtensionIndex");
+        source.AppendLine("public partial class ExtensionIndex : IExtensionIndex");
         source.AppendLine("{");
-
-        var fields = new List<string>();
-        foreach (Entry entry in entries)
-        {
-            string field = "s_" + entry.InvocationName.Identifier();
-            fields.Add(field);
-
-            source.AppendLine($"    private static readonly CommandMetadata {field} = new(");
-            source.AppendLine($"        Name: {Literal(entry.ProcessorType)},");
-            source.AppendLine($"        InvocationName: {Literal(entry.InvocationName)},");
-            source.AppendLine($"        Aliases: [{string.Join(", ", entry.Aliases.Select(Literal))}],");
-            source.AppendLine($"        FullName: {Literal($"{ns}.Processors.{entry.ProcessorType}")},");
-            source.AppendLine($"        AssemblyName: {Literal(ns)},");
-            source.AppendLine($"        ProcessorType: typeof(Processors.{entry.ProcessorType}),");
-            source.AppendLine("        Parameters: new Dictionary<string, ParameterMetadata>");
-            source.AppendLine("        {");
-            foreach (Parameter parameter in entry.Parameters)
-            {
-                source.AppendLine(
-                    $"            [{Literal(parameter.Name)}] = new({Literal(parameter.Name)}, {Literal(parameter.Name)}, "
-                        + $"typeof({parameter.Type}), {Literal(parameter.Help)}, "
-                        + $"IsRequired: {(parameter.Required ? "true" : "false")}, "
-                        + $"Aliases: [{string.Join(", ", parameter.Aliases.Select(Literal))}], "
-                        + $"AllowedValues: [{string.Join(", ", parameter.AllowedValues.Select(Literal))}]),");
-            }
-            source.AppendLine("        },");
-            source.AppendLine("        ParameterAliases: new Dictionary<string, string>");
-            source.AppendLine("        {");
-            foreach (Parameter parameter in entry.Parameters)
-            {
-                foreach (string alias in parameter.Aliases)
-                {
-                    source.AppendLine($"            [{Literal(alias)}] = {Literal(parameter.Name)},");
-                }
-            }
-            source.AppendLine("        });");
-            source.AppendLine();
-        }
-
-        source.AppendLine("    private static readonly Dictionary<string, CommandMetadata> s_psTable = new(StringComparer.OrdinalIgnoreCase)");
-        source.AppendLine("    {");
-        for (int i = 0; i < entries.Count; i++)
-        {
-            source.AppendLine($"        [{Literal(entries[i].InvocationName)}] = {fields[i]},");
-        }
-        source.AppendLine("    };");
+        source.AppendLine("    private static readonly Dictionary<string, CommandMetadata> s_psTable = BuildPowerShell();");
+        source.AppendLine("    private static readonly Dictionary<string, CommandMetadata> s_cliTable = BuildCli();");
         source.AppendLine();
-        source.AppendLine("    // The CLI surface arrives with IR.cli; until then this extension contributes no CLI commands.");
-        source.AppendLine("    private static readonly Dictionary<string, CommandMetadata> s_cliTable = new();");
+        source.AppendLine("    static partial void AddPowerShellCommands(Dictionary<string, CommandMetadata> table);");
+        source.AppendLine();
+        source.AppendLine("    static partial void AddCliCommands(Dictionary<string, CommandMetadata> table);");
+        source.AppendLine();
+        source.AppendLine("    private static Dictionary<string, CommandMetadata> BuildPowerShell()");
+        source.AppendLine("    {");
+        source.AppendLine("        var table = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);");
+        source.AppendLine("        AddPowerShellCommands(table);");
+        source.AppendLine("        return table;");
+        source.AppendLine("    }");
+        source.AppendLine();
+        source.AppendLine("    private static Dictionary<string, CommandMetadata> BuildCli()");
+        source.AppendLine("    {");
+        source.AppendLine("        var table = new Dictionary<string, CommandMetadata>(StringComparer.Ordinal);");
+        source.AppendLine("        AddCliCommands(table);");
+        source.AppendLine("        return table;");
+        source.AppendLine("    }");
         source.AppendLine();
         source.AppendLine("    public CommandMetadata GetCommandMetadata(string name, ClientType clientType) =>");
         source.AppendLine("        GetCommandTable(clientType).TryGetValue(name, out CommandMetadata? metadata)");
@@ -297,6 +281,63 @@ internal sealed class ExtensionIndexGenerator : IArtifactGenerator
         source.AppendLine("    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) => GetCommandTable(clientType).Values;");
         source.AppendLine();
         source.AppendLine("    public IEnumerable<string> GetCommandKeys(ClientType clientType) => GetCommandTable(clientType).Keys;");
+        source.AppendLine("}");
+
+        return source.ToString();
+    }
+
+    private static string EmitPowerShell(GeneratorOptions options, IReadOnlyList<Entry> entries)
+    {
+        string ns = options.RootNamespace;
+        var source = new StringBuilder();
+
+        source.AppendLine(Banner);
+        source.AppendLine("using Core.Abstractions;");
+        // Parameters can bind model types, which the model stage emits into a child namespace.
+        source.AppendLine($"using {ns}.Models;");
+        source.AppendLine();
+        source.AppendLine($"namespace {ns};");
+        source.AppendLine();
+        source.AppendLine("public partial class ExtensionIndex");
+        source.AppendLine("{");
+        source.AppendLine("    static partial void AddPowerShellCommands(Dictionary<string, CommandMetadata> table)");
+        source.AppendLine("    {");
+
+        foreach (Entry entry in entries)
+        {
+            source.AppendLine($"        table[{Literal(entry.InvocationName)}] = new(");
+            source.AppendLine($"            Name: {Literal(entry.ProcessorType)},");
+            source.AppendLine($"            InvocationName: {Literal(entry.InvocationName)},");
+            source.AppendLine($"            Aliases: [{string.Join(", ", entry.Aliases.Select(Literal))}],");
+            source.AppendLine($"            FullName: {Literal($"{ns}.Processors.{entry.ProcessorType}")},");
+            source.AppendLine($"            AssemblyName: {Literal(ns)},");
+            source.AppendLine($"            ProcessorType: typeof(Processors.{entry.ProcessorType}),");
+            source.AppendLine("            Parameters: new Dictionary<string, ParameterMetadata>");
+            source.AppendLine("            {");
+            foreach (Parameter parameter in entry.Parameters)
+            {
+                source.AppendLine(
+                    $"                [{Literal(parameter.Name)}] = new({Literal(parameter.Name)}, {Literal(parameter.Name)}, "
+                        + $"typeof({parameter.Type}), {Literal(parameter.Help)}, "
+                        + $"IsRequired: {(parameter.Required ? "true" : "false")}, "
+                        + $"Aliases: [{string.Join(", ", parameter.Aliases.Select(Literal))}], "
+                        + $"AllowedValues: [{string.Join(", ", parameter.AllowedValues.Select(Literal))}]),");
+            }
+            source.AppendLine("            },");
+            source.AppendLine("            ParameterAliases: new Dictionary<string, string>");
+            source.AppendLine("            {");
+            foreach (Parameter parameter in entry.Parameters)
+            {
+                foreach (string alias in parameter.Aliases)
+                {
+                    source.AppendLine($"                [{Literal(alias)}] = {Literal(parameter.Name)},");
+                }
+            }
+            source.AppendLine("            });");
+            source.AppendLine();
+        }
+
+        source.AppendLine("    }");
         source.AppendLine("}");
 
         return source.ToString();
