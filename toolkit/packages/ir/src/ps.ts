@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import { IRIdSchema, type IRId } from "./id.js";
+import { IRIdSchema, serializeId, type IRId } from "./id.js";
 
 // ─── Shared sub-shapes ───────────────────────────────────────────────────
 
@@ -236,6 +236,31 @@ export const PSCommandAttributeSchema: z.ZodType<PSCommandAttribute> = z
   .strict()
   .superRefine((command, ctx) => {
     const setNames = new Set(command.parameterSets.map((set) => set.name));
+
+    // Set names key `defaultParameterSetName` and every per-set override, so a duplicate would
+    // make those references ambiguous rather than merely redundant.
+    if (setNames.size !== command.parameterSets.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parameterSets"],
+        message: "Parameter set names must be unique within a command.",
+      });
+    }
+
+    // A set is backed by one of the operations the command was merged from. Several sets may
+    // share an operation (one operation fans out into base/Expanded/ViaIdentity variants), so
+    // this is containment rather than a pairing.
+    const sourceIds = new Set(command.sourceOperationIds.map(serializeId));
+    command.parameterSets.forEach((set, index) => {
+      if (!sourceIds.has(serializeId(set.sourceOperationId))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["parameterSets", index, "sourceOperationId"],
+          message: `Parameter set '${set.name}' names a source operation that is not in the command's sourceOperationIds.`,
+        });
+      }
+    });
+
     if (!setNames.has(command.defaultParameterSetName)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

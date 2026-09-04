@@ -38,6 +38,41 @@ describe("PSCommandAttribute", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects two parameter sets sharing a name", () => {
+    const result = PSCommandAttributeSchema.safeParse(
+      command({
+        parameterSets: [
+          { name: "CreateOrUpdate", sourceOperationId: opId },
+          { name: "CreateOrUpdate", sourceOperationId: opId },
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result)).toContain("must be unique within a command");
+  });
+
+  it("accepts several sets backed by one operation, since one operation fans out into variants", () => {
+    const result = PSCommandAttributeSchema.safeParse(
+      command({
+        parameterSets: [
+          { name: "CreateOrUpdate", sourceOperationId: opId },
+          { name: "CreateOrUpdateExpanded", sourceOperationId: opId },
+        ],
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a parameter set naming an operation the command does not claim", () => {
+    const result = PSCommandAttributeSchema.safeParse(
+      command({
+        parameterSets: [{ name: "CreateOrUpdate", sourceOperationId: { ...opId, name: "delete" } }],
+      }),
+    );
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result)).toContain("not in the command's sourceOperationIds");
+  });
+
   it("accepts nested parameters that reference a declared set", () => {
     const result = PSCommandAttributeSchema.safeParse(
       command({
