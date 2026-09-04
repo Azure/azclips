@@ -121,17 +121,64 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql
             }
         );
 
+        // PS Command Metadata
+        private static readonly CommandMetadata s_newSqlServerFirewallRule_PS = new(
+            Name: "NewSqlServerFirewallRuleProcessor",
+            InvocationName: "New-AzSqlServerFirewallRule",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Sql.Processors.NewSqlServerFirewallRuleProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Sql",
+            ProcessorType: typeof(Processors.NewSqlServerFirewallRuleProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ServerName"]        = new("ServerName", "ServerName", typeof(string), "The name of the SQL server the firewall rule applies to.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["FirewallRuleName"]  = new("Name", "FirewallRuleName", typeof(string), "The name of the firewall rule.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["StartIpAddress"]    = new("StartIpAddress", "StartIpAddress", typeof(string), "The start IP address of the firewall rule, in IPv4 format.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["EndIpAddress"]      = new("EndIpAddress", "EndIpAddress", typeof(string), "The end IP address of the firewall rule, in IPv4 format.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        // CLI Command Metadata
+        private static readonly CommandMetadata s_newSqlServerFirewallRule_CLI = new(
+            Name: "NewSqlServerFirewallRuleProcessor",
+            InvocationName: "sql server firewall-rule create",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Sql.Processors.NewSqlServerFirewallRuleProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Sql",
+            ProcessorType: typeof(Processors.NewSqlServerFirewallRuleProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]   = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-group"]    = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["server"]            = new("ServerName", "server", typeof(string), "The name of the SQL server the firewall rule applies to.", IsRequired: true, Aliases: ["s"], AllowedValues: []),
+                ["name"]              = new("Name", "name", typeof(string), "The name of the firewall rule.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
+                ["start-ip-address"]  = new("StartIpAddress", "start-ip-address", typeof(string), "The start IP address of the firewall rule, in IPv4 format.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["end-ip-address"]    = new("EndIpAddress", "end-ip-address", typeof(string), "The end IP address of the firewall rule, in IPv4 format.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+                ["g"] = "resource-group",
+                ["s"] = "server",
+            }
+        );
+
         // Dispatch Tables
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
             ["New-AzSqlServer"] = s_newSqlServer_PS,
             ["New-AzSqlDatabase"] = s_newSqlDatabase_PS,
+            ["New-AzSqlServerFirewallRule"] = s_newSqlServerFirewallRule_PS,
         };
 
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["sql server create"] = s_newSqlServer_CLI,
             ["sql db create"] = s_newSqlDatabase_CLI,
+            ["sql server firewall-rule create"] = s_newSqlServerFirewallRule_CLI,
         };
 
         static ExtensionIndex()
