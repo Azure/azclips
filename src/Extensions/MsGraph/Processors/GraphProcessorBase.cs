@@ -14,16 +14,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// <summary>
     /// Non-generic base used as a marker so that <see cref="CreateExtendedProcessor{T}"/> and
     /// any code that needs to reference "any graph processor" stays type-safe.
-    /// All real processors should derive from <see cref="GraphProcessorBase{TResponse}"/>.
+    /// All real processors should derive from <see cref="GraphProcessorBase{TRequest, TResponse}"/>.
     /// </summary>
     /// <remarks>
-    /// Microsoft Graph requires a different token audience than ARM. ARM-bound processors let the
-    /// engine acquire a token for the default ARM scope; Graph processors instead install an
-    /// <see cref="IAuthHandler.AcquireTokenAsyncOverride"/> during <see cref="Init"/> that requests
-    /// the <see cref="GraphConstants.GraphScopes"/> audience. The override wraps the engine default
-    /// delegate, so token cache, tenant, and interactive fallback behavior are all preserved, only
-    /// the scope changes. This keeps the entire Graph audience concern inside the extension; no
-    /// Core change is required.
+    /// The Microsoft Graph token-audience override is installed via a partial-method injection
+    /// point on the generic base — see <c>Customization/GraphProcessorBase.cs</c>. That keeps the
+    /// hand-authored auth hook out of the codegen path.
     /// </remarks>
     public abstract class GraphProcessorBase : IProcessor
     {
@@ -32,6 +28,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
         protected Profile Profile = null!;
+        protected IAuthHandler AuthHandler = null!;
 
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
@@ -51,32 +48,13 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             HttpPipeline = context.HttpPipeline;
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
-            Profile = context.AuthHandler.Profile
+            AuthHandler = context.AuthHandler;
+            Profile = AuthHandler.Profile
                 ?? throw new InvalidOperationException(
                     "Microsoft Graph commands require an active profile. Sign in first.");
 
-            ApplyGraphScope(context.AuthHandler);
-
             AfterInit();
             return this;
-        }
-
-        /// <summary>
-        /// Redirects token acquisition for this invocation to the Microsoft Graph audience by
-        /// installing an override on the shared <see cref="IAuthHandler"/>. The override delegates
-        /// to the engine default delegate but forces <see cref="GraphConstants.GraphScopes"/>,
-        /// ignoring any scopes the pipeline would otherwise pass (the pipeline currently passes
-        /// none, defaulting to ARM).
-        /// </summary>
-        private static void ApplyGraphScope(IAuthHandler authHandler)
-        {
-            AcquireTokenAsyncDelegate acquireWithDefaultScope = authHandler.AcquireTokenAsyncDefault;
-
-            Task<AuthResult> AcquireWithGraphScope(string[]? _, string? tenantId, bool promptOnError, CancellationToken cancellationToken, Profile? profile) =>
-                acquireWithDefaultScope(GraphConstants.GraphScopes, tenantId, promptOnError, cancellationToken, profile);
-
-            authHandler.AcquireTokenAsyncOverride = AcquireWithGraphScope;
-            authHandler.ApplyOverride = true;
         }
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
@@ -119,7 +97,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
-        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, Profile)
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, Profile, AuthHandler)
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
@@ -133,6 +111,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             };
             child.WriteOutput = WriteOutput;
             child.Profile = Profile;
+            child.AuthHandler = AuthHandler;
             configure?.Invoke(child);
             return child;
         }
