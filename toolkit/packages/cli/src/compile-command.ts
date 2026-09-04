@@ -17,12 +17,14 @@ import { parseArgs } from "node:util";
 
 import {
   compile,
+  createRegistry,
   CSHARP_GENERATOR_ID,
   type CompileConfig,
   type CompilerDiagnostic,
   type GeneratorConfig,
   type OutputDelegate,
 } from "@azure-client-engine/compiler";
+import { transformSteps } from "@azure-client-engine/transformer";
 
 import {
   stageLocalProject,
@@ -30,6 +32,12 @@ import {
   type StagedProject,
 } from "./staging.js";
 import { createHostRuntime } from "./runtime.js";
+
+/**
+ * Transform steps this host makes available to `CompileConfig.pipeline`. Registration is
+ * availability only — a step runs when config names it.
+ */
+const registry = createRegistry({ transforms: transformSteps });
 
 /** Usage/help text for `ace compile`. */
 export function usage(): string {
@@ -42,7 +50,10 @@ export function usage(): string {
     "Options:",
     "  --tsp-location <path>  Path to the TypeSpec project dir or entry .tsp file (required)",
     "  --config <path>        Path to a JSON file of generation-time settings,",
-    "                         loaded as CompileInput.config (CompileConfig) (optional)",
+    "                         loaded as CompileInput.config (CompileConfig) (optional).",
+    "                         Its `pipeline` array selects transform steps by id:",
+    '                           { "pipeline": [{ "use": "ps.derive" }] }',
+    `                         Registered steps: ${[...registry.transforms.keys()].join(", ")}`,
     "  --api-version <v>      API version to compile at: a specific version,",
     "                         'latest' (default), or 'all'. Overrides config.apiVersion.",
     "  --out-dir <path>       Directory to write generated files to (default: cwd).",
@@ -155,6 +166,7 @@ export async function runCompile(args: string[]): Promise<number> {
     },
     {
       runtime: createHostRuntime(),
+      registry,
       captureIR: captureIr,
       output: createFsSink(outDir),
     },
