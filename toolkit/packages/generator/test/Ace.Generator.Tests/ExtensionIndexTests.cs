@@ -46,7 +46,7 @@ public sealed class ExtensionIndexTests
         int sets = ir.Ps!.Commands.Where(c => c.Hidden != true).Sum(c => c.ParameterSets.Count);
 
         ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex", ir);
-        string index = writer.Files["ExtensionIndex.cs"];
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
 
         Assert.Equal(sets, index.Split("InvocationName:").Length - 1);
     }
@@ -56,7 +56,7 @@ public sealed class ExtensionIndexTests
     {
         ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Parse", LoadIr());
 
-        var tree = CSharpSyntaxTree.ParseText(writer.Files["ExtensionIndex.cs"]);
+        var tree = CSharpSyntaxTree.ParseText(writer.Files["ExtensionIndex.Ps.cs"]);
         Assert.DoesNotContain(
             tree.GetDiagnostics(),
             d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
@@ -75,7 +75,7 @@ public sealed class ExtensionIndexTests
             .Where(k => k.EndsWith(".cs", StringComparison.Ordinal))
             .Select(k => Path.GetFileName(k)[..^".cs".Length])];
 
-        var root = CSharpSyntaxTree.ParseText(writer.Files["ExtensionIndex.cs"]).GetRoot();
+        var root = CSharpSyntaxTree.ParseText(writer.Files["ExtensionIndex.Ps.cs"]).GetRoot();
         var unresolved = new List<string>();
 
         foreach (TypeOfExpressionSyntax typeOf in root.DescendantNodes().OfType<TypeOfExpressionSyntax>())
@@ -129,7 +129,7 @@ public sealed class ExtensionIndexTests
     public async Task Renders_An_Enum_Parameter_As_A_String_With_Its_Members_Allowed()
     {
         ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Enums", LoadIr());
-        string index = writer.Files["ExtensionIndex.cs"];
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
 
         Assert.Contains("AllowedValues: [\"Enabled\", \"Disabled\"]", index);
         // The enum's own type name must not survive: the model stage emits no enum types.
@@ -141,7 +141,7 @@ public sealed class ExtensionIndexTests
     {
         IRDocument ir = LoadIr();
         ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Names", ir);
-        string index = writer.Files["ExtensionIndex.cs"];
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
 
         foreach (PSCommandAttribute command in ir.Ps!.Commands.Where(c => c.Hidden != true))
         {
@@ -165,7 +165,7 @@ public sealed class ExtensionIndexTests
     {
         IRDocument ir = LoadIr();
         ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Processors", ir);
-        string index = writer.Files["ExtensionIndex.cs"];
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
 
         // Every processor the index names must be a file the processor stage actually emitted.
         foreach (string line in index.Split('\n').Where(l => l.Contains("ProcessorType: typeof(", StringComparison.Ordinal)))
@@ -184,6 +184,28 @@ public sealed class ExtensionIndexTests
         ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Absent", ir);
 
         Assert.DoesNotContain("ExtensionIndex.cs", writer.Files.Keys);
+        Assert.DoesNotContain("ExtensionIndex.Ps.cs", writer.Files.Keys);
+    }
+
+    /// <summary>
+    /// The surfaces are generated independently, so the core must not name any one of them: it
+    /// declares a hook per surface and each partial fills its own table.
+    /// </summary>
+    [Fact]
+    public async Task Splits_The_Core_From_The_Surface_So_Each_Can_Be_Generated_Alone()
+    {
+        ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Partial", LoadIr());
+
+        string core = writer.Files["ExtensionIndex.cs"];
+        string ps = writer.Files["ExtensionIndex.Ps.cs"];
+
+        Assert.Contains("public partial class ExtensionIndex : IExtensionIndex", core);
+        Assert.Contains("static partial void AddPowerShellCommands", core);
+        Assert.Contains("static partial void AddCliCommands", core);
+        // No command data in the core, and no interface/lookup surface in the partial.
+        Assert.DoesNotContain("InvocationName:", core);
+        Assert.DoesNotContain("IExtensionIndex", ps);
+        Assert.DoesNotContain("GetCommandTable", ps);
     }
 
     [Fact]
@@ -194,7 +216,7 @@ public sealed class ExtensionIndexTests
         hidden.Hidden = true;
 
         ArtifactWriter writer = await EmitAsync("ElasticSan_ExtensionIndex_Hidden", ir);
-        string index = writer.Files["ExtensionIndex.cs"];
+        string index = writer.Files["ExtensionIndex.Ps.cs"];
 
         Assert.DoesNotContain($"\"{hidden.Verb}-{hidden.Noun}\"", index);
         Assert.DoesNotContain($"\"{hidden.Verb}-{hidden.Noun}_", index);
