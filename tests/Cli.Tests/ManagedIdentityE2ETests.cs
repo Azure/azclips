@@ -79,12 +79,12 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         if (!Directory.Exists(loginExtensionDir))
         {
             throw new InvalidOperationException(
-                $"Login extension not found at {loginExtensionDir}. " +
+                $"Accounts extension not found at {loginExtensionDir}. " +
                 $"Run `dotnet build tests/Cli.Tests/Cli.Tests.csproj` (or `dotnet test`) to regenerate it.");
         }
 
         Console.WriteLine($"Extensions found in: {artifactsDir}");
-        Console.WriteLine($"   - Login extension: {loginExtensionDir}");
+        Console.WriteLine($"   - Accounts extension: {loginExtensionDir}");
 
         // route MSAL MI discovery to the mock IMDS server
         _imds = new MockImdsServer(MockAccessToken, MockClientId);

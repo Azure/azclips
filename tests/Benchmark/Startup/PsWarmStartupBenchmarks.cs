@@ -12,7 +12,7 @@ namespace Benchmark.Startup;
 /// <summary>
 /// PowerShell warm startup: fresh pwsh process, Import-Module
 /// triggers service provider initialization + first cmdlet, OS page
-/// cache hot. Config imports Login transitively (RequiredModules). Stops at the resolve-only seam.
+/// cache hot. Config imports Accounts transitively (RequiredModules). Stops at the resolve-only seam.
 /// </summary>
 [SimpleJob(RunStrategy.Monitoring, warmupCount: 10, iterationCount: 100)]
 public class PsWarmStartupBenchmarks : StartupBenchmarkBase

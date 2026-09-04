@@ -65,7 +65,7 @@ When a user runs `az --help`:
 3. **Render roots** — Build a root help page listing all discovered verbs and their one-line summaries.
 4. **Return to user** — `az --help` displays the collected namespace tree.
 
-**Example**: If three extensions are discovered (`Resources` with `group`, `Compute` with `vm`/`disk`, `Login` with `login`), root help shows all four verbs grouped by extension.
+**Example**: If three extensions are discovered (`Resources` with `group`, `Compute` with `vm`/`disk`, `Accounts` with `login`), root help shows all four verbs grouped by extension.
 
 ### 3.2 Verb & Command Help (`az vm --help`, `az vm create --help`)
 

@@ -397,7 +397,7 @@ active pointer — even though `prod` happens to be active after the login.
 | Abstraction       | `IConfigurationService`                     | `IProfileService`                                    |
 | Impl              | `ConfigurationService` (Core.Configuration) | `ProfileService` (Core.Runtime)                      |
 | Concurrency       | `{path}.lock` file (cross-process spin)     | `SemaphoreSlim _gate` + atomic temp+rename           |
-| Command home      | `Config` extension                          | `Login` extension                                    |
+| Command home      | `Config` extension                          | `Accounts` extension                                    |
 | Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `default`) |
 
 The one place they touch: `agent.enabled` / `agent.provider` (configuration) gate the AI agent,

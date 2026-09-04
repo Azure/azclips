@@ -101,7 +101,7 @@ INSTALL_MODULE_SCRIPT="${INSTALL_MODULE_SCRIPT:-$PACKAGING_ROOT/powershell/Insta
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 NOTICE_FILE="${NOTICE_FILE:-$REPO_ROOT/NOTICE}"
 LICENSE_FILE="${LICENSE_FILE:-$REPO_ROOT/LICENSE}"
-BUILTIN_CLI_EXTENSION_PACKAGES=(extension login config)
+BUILTIN_CLI_EXTENSION_PACKAGES=(extension accounts config)
 
 copy_legal_files() {
   local destination_root="$1"

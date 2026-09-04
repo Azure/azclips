@@ -110,7 +110,7 @@ public class ExtensionHelpManifestBuilderTests
     [Fact]
     public void BuildManifest_ShouldSplitExamples_ByLanguageTag()
     {
-        // Login extension has both CLI (bash) and PowerShell examples in its markdown.
+        // Accounts extension has both CLI (bash) and PowerShell examples in its markdown.
         var index = new ExtensionIndex();
         var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "login");
 

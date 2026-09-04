@@ -44,7 +44,7 @@ Prints the discovered modules + a copy plan (one entry per cmdlet md, plus one g
 Expected shape:
 
 ```
-Publishable     : 4 module(s) - Compute, Config, Login, Resources
+Publishable     : 4 module(s) - Accounts, Compute, Config, Resources
 Total files     : 22 (18 cmdlet md + 4 module-index)
 
 Copy plan:
