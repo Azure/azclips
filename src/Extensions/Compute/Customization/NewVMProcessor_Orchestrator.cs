@@ -35,6 +35,49 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public string NetworkSecurityGroupName { get; set; } = string.Empty;
 
         [ParameterGroup("Network Arguments")]
+        public string PublicIPAddressId { get; set; } = string.Empty;
+
+        [ParameterGroup("Network Arguments")]
+        public string PublicIPAddressName { get; set; } = string.Empty;
+
+        [ParameterGroup("Network Arguments")]
+        public string PublicIPAddressDomainNameLabel { get; set; } = string.Empty;
+
+        [ParameterGroup("Network Arguments")]
+        public string PublicIPAddressSku { get; set; } = "Standard";
+
+        [ParameterGroup("Network Arguments")]
+        public string PublicIPAddressAllocationMethod { get; set; } = "Static";
+
+        [ParameterGroup("Network Arguments")]
+        public bool NoPublicIPAddress { get; set; }
+
+        [ParameterGroup("Network Arguments")]
+        public bool EnableAcceleratedNetworking { get; set; }
+
+        [ParameterGroup("Network Arguments")]
+        public bool DisableAcceleratedNetworking { get; set; }
+
+        public string OsDiskCreateOption { get; set; } = "FromImage";
+        public string ImageId { get; set; } = string.Empty;
+        public string ImagePublisher { get; set; } = "MicrosoftWindowsServer";
+        public string ImageOffer { get; set; } = "WindowsServer";
+        public string ImageSku { get; set; } = "2022-datacenter-azure-edition";
+        public string ImageVersion { get; set; } = "latest";
+        public string SecurityType { get; set; } = "TrustedLaunch";
+        public bool SecureBootEnabled { get; set; } = true;
+        public bool VTpmEnabled { get; set; } = true;
+        public bool BootDiagnosticsEnabled { get; set; }
+        public bool DisableBootDiagnostics { get; set; }
+        public string BootDiagnosticsStorageUri { get; set; } = string.Empty;
+        public string BootDiagnosticsStorageAccountUri { get; set; } = string.Empty;
+        public string IdentityType { get; set; } = string.Empty;
+        public bool SystemAssignedIdentity { get; set; }
+        public List<string> UserAssignedIdentityIds { get; set; } = [];
+        public bool EnableIntegrityMonitoring { get; set; }
+        public bool DisableIntegrityMonitoringAutoUpgrade { get; set; }
+
+        [ParameterGroup("Network Arguments")]
         public List<string> SubnetNames { get; set; } = [];
 
         [ParameterGroup("Network Arguments")]
@@ -72,14 +115,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         internal override async Task<HttpResponseMessage> SendAsync()
         {
+            string networkInterfaceName = string.IsNullOrWhiteSpace(NetworkInterfaceName) ? $"{Name}-nic" : NetworkInterfaceName;
+            string virtualNetworkName = string.IsNullOrWhiteSpace(VirtualNetworkName) ? $"{Name}-vnet" : VirtualNetworkName;
+            string networkSecurityGroupName = string.IsNullOrWhiteSpace(NetworkSecurityGroupName) ? $"{Name}-nsg" : NetworkSecurityGroupName;
+
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
-                p.Name = NetworkInterfaceName;
+                p.Name = networkInterfaceName;
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
-                p.VirtualNetworkName = VirtualNetworkName;
-                p.NetworkSecurityGroupName = NetworkSecurityGroupName;
+                p.VirtualNetworkName = virtualNetworkName;
+                p.NetworkSecurityGroupName = networkSecurityGroupName;
+                p.PublicIPAddressId = PublicIPAddressId;
+                p.PublicIPAddressName = PublicIPAddressName;
+                p.PublicIPAddressDomainNameLabel = PublicIPAddressDomainNameLabel;
+                p.PublicIPAddressSku = PublicIPAddressSku;
+                p.PublicIPAddressAllocationMethod = PublicIPAddressAllocationMethod;
+                p.NoPublicIPAddress = NoPublicIPAddress;
+                p.EnableAcceleratedNetworking = ResolveAcceleratedNetworking();
                 p.SubnetNames = SubnetNames;
                 p.SubnetAddressPrefixes = SubnetAddressPrefixes;
                 p.AddressPrefixes = AddressPrefixes;
@@ -96,7 +150,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
 
-            NewVMProcessor vmProcessor = CreateExtendedProcessor<NewVMProcessor>(p =>
+            NewVirtualMachineProcessor_Customized vmProcessor = CreateExtendedProcessor<NewVirtualMachineProcessor_Customized>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
                 p.Name = Name;
@@ -105,9 +159,70 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.VmSize = VmSize;
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = AdminPassword;
+                p.OsDiskCreateOption = OsDiskCreateOption;
+                p.ImageId = ImageId;
+                p.ImagePublisher = ImagePublisher;
+                p.ImageOffer = ImageOffer;
+                p.ImageSku = ImageSku;
+                p.ImageVersion = ImageVersion;
                 p.NetworkInterfaceId = nic.Id;
+                p.SecurityType = EnableIntegrityMonitoring ? "TrustedLaunch" : SecurityType;
+                p.SecureBootEnabled = EnableIntegrityMonitoring || SecureBootEnabled;
+                p.VTpmEnabled = EnableIntegrityMonitoring || VTpmEnabled;
+                p.BootDiagnosticsEnabled = BootDiagnosticsEnabled;
+                p.DisableBootDiagnostics = DisableBootDiagnostics;
+                p.BootDiagnosticsStorageUri = BootDiagnosticsStorageUri;
+                p.BootDiagnosticsStorageAccountUri = BootDiagnosticsStorageAccountUri;
+                p.IdentityType = IdentityType;
+                p.SystemAssignedIdentity = SystemAssignedIdentity;
+                p.UserAssignedIdentityIds = UserAssignedIdentityIds;
              });
-            return await vmProcessor.SendAsync();
+            HttpResponseMessage vmResponse = await vmProcessor.SendAsync();
+
+            if (EnableIntegrityMonitoring)
+            {
+                NewVMGuestAttestationExtensionProcessor_Orchestrator extensionProcessor = CreateExtendedProcessor<NewVMGuestAttestationExtensionProcessor_Orchestrator>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.ResourceGroupName = ResourceGroupName;
+                    p.VMName = Name;
+                    p.Location = Location;
+                    p.ExtensionPublisher = ResolveGuestAttestationPublisher();
+                    p.EnableAutomaticUpgrade = !DisableIntegrityMonitoringAutoUpgrade;
+                });
+                using HttpResponseMessage _ = await extensionProcessor.SendAsync();
+            }
+
+            return vmResponse;
+        }
+
+        private bool? ResolveAcceleratedNetworking()
+        {
+            if (EnableAcceleratedNetworking)
+            {
+                return true;
+            }
+
+            if (DisableAcceleratedNetworking)
+            {
+                return false;
+            }
+
+            return null;
+        }
+
+        private string ResolveGuestAttestationPublisher()
+        {
+            string image = string.Join(' ', ImageId, ImagePublisher, ImageOffer, ImageSku);
+            return image.Contains("linux", StringComparison.OrdinalIgnoreCase)
+                || image.Contains("ubuntu", StringComparison.OrdinalIgnoreCase)
+                || image.Contains("canonical", StringComparison.OrdinalIgnoreCase)
+                || image.Contains("debian", StringComparison.OrdinalIgnoreCase)
+                || image.Contains("rhel", StringComparison.OrdinalIgnoreCase)
+                || image.Contains("redhat", StringComparison.OrdinalIgnoreCase)
+                || image.Contains("sles", StringComparison.OrdinalIgnoreCase)
+                    ? "Microsoft.Azure.Security.LinuxAttestation"
+                    : "Microsoft.Azure.Security.WindowsAttestation";
         }
     }
 }

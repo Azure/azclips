@@ -37,14 +37,38 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string AdminPassword { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string NetworkInterfaceName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string VirtualNetworkName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string NetworkSecurityGroupName { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string PublicIPAddressId { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string PublicIPAddressName { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string PublicIPAddressDomainNameLabel { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string PublicIPAddressSku { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string PublicIPAddressAllocationMethod { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public bool NoPublicIPAddress { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public bool EnableAcceleratedNetworking { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public bool DisableAcceleratedNetworking { get; set; }
 
     [Parameter(Mandatory = false)]
     public string[]? SubnetNames { get; set; }
@@ -83,6 +107,54 @@ public class NewVMCmdlet : PSCmdlet
     public string[]? RuleAccesses { get; set; }
 
     [Parameter(Mandatory = false)]
+    public string OsDiskCreateOption { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string ImageId { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string ImagePublisher { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string ImageOffer { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string ImageSku { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string ImageVersion { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string SecurityType { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public bool SecureBootEnabled { get; set; } = true;
+
+    [Parameter(Mandatory = false)]
+    public bool VTpmEnabled { get; set; } = true;
+
+    [Parameter(Mandatory = false)]
+    public bool BootDiagnosticsEnabled { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public bool DisableBootDiagnostics { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string BootDiagnosticsStorageUri { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string BootDiagnosticsStorageAccountUri { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string IdentityType { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public bool SystemAssignedIdentity { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? UserAssignedIdentityIds { get; set; }
+
+    [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     protected override void BeginProcessing()
@@ -103,11 +175,19 @@ public class NewVMCmdlet : PSCmdlet
             { "VmSize", VmSize },
             { "AdminUsername", AdminUsername },
             { "AdminPassword", AdminPassword },
-            { "NetworkInterfaceName", NetworkInterfaceName },
-            { "VirtualNetworkName", VirtualNetworkName },
-            { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                { parameters.Add("SubscriptionId", SubscriptionId); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))          { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))            { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkSecurityGroupName)))      { parameters.Add("NetworkSecurityGroupName", NetworkSecurityGroupName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIPAddressId)))             { parameters.Add("PublicIPAddressId", PublicIPAddressId); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIPAddressName)))           { parameters.Add("PublicIPAddressName", PublicIPAddressName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIPAddressDomainNameLabel))) { parameters.Add("PublicIPAddressDomainNameLabel", PublicIPAddressDomainNameLabel); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIPAddressSku)))            { parameters.Add("PublicIPAddressSku", PublicIPAddressSku); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicIPAddressAllocationMethod))) { parameters.Add("PublicIPAddressAllocationMethod", PublicIPAddressAllocationMethod); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NoPublicIPAddress)))             { parameters.Add("NoPublicIPAddress", NoPublicIPAddress); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(EnableAcceleratedNetworking)))   { parameters.Add("EnableAcceleratedNetworking", EnableAcceleratedNetworking); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(DisableAcceleratedNetworking)))  { parameters.Add("DisableAcceleratedNetworking", DisableAcceleratedNetworking); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }
@@ -120,6 +200,22 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationPortRanges)))      { parameters.Add("RuleDestinationPortRanges", RuleDestinationPortRanges!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(OsDiskCreateOption)))             { parameters.Add("OsDiskCreateOption", OsDiskCreateOption); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageId)))                        { parameters.Add("ImageId", ImageId); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImagePublisher)))                 { parameters.Add("ImagePublisher", ImagePublisher); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageOffer)))                     { parameters.Add("ImageOffer", ImageOffer); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageSku)))                       { parameters.Add("ImageSku", ImageSku); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageVersion)))                   { parameters.Add("ImageVersion", ImageVersion); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))                   { parameters.Add("SecurityType", SecurityType); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecureBootEnabled)))              { parameters.Add("SecureBootEnabled", SecureBootEnabled); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(VTpmEnabled)))                    { parameters.Add("VTpmEnabled", VTpmEnabled); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(BootDiagnosticsEnabled)))         { parameters.Add("BootDiagnosticsEnabled", BootDiagnosticsEnabled); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(DisableBootDiagnostics)))         { parameters.Add("DisableBootDiagnostics", DisableBootDiagnostics); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(BootDiagnosticsStorageUri)))      { parameters.Add("BootDiagnosticsStorageUri", BootDiagnosticsStorageUri); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(BootDiagnosticsStorageAccountUri))) { parameters.Add("BootDiagnosticsStorageAccountUri", BootDiagnosticsStorageAccountUri); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(IdentityType)))                   { parameters.Add("IdentityType", IdentityType); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SystemAssignedIdentity)))         { parameters.Add("SystemAssignedIdentity", SystemAssignedIdentity); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(UserAssignedIdentityIds)))        { parameters.Add("UserAssignedIdentityIds", UserAssignedIdentityIds!); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
