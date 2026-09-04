@@ -137,6 +137,16 @@ describe("emitter e2e: pets.tsp → IR", () => {
     // lifecycle phases -> the field is omitted (absent = all phases).
     expect(props.every((p) => p.visibility === undefined)).toBe(true);
   });
+
+  it("carries the author-supplied request body name and isGeneratedName", () => {
+    const create = ir.operations.find((o) => o.name === "create");
+    expect(create?.requestBody?.name).toBe("pet");
+    expect(create?.requestBody?.isGeneratedName).toBe(false);
+
+    const rename = ir.operations.find((o) => o.name === "rename");
+    expect(rename?.requestBody?.name).toBe("body");
+    expect(rename?.requestBody?.isGeneratedName).toBe(false);
+  });
 });
 
 describe("emitter e2e: enum-service.tsp → IREnum.isFixed", () => {
@@ -445,15 +455,5 @@ describe("emitter e2e: scalar-service.tsp → semantic scalar formats", () => {
     expect(fmtOf("address6")).toBe("ip-address"); // ipV6Address
     // A plain string carries no format.
     expect(fmtOf("plain")).toBeUndefined();
-  });
-
-  it("carries the author-supplied request body name and isGeneratedName", () => {
-    const create = ir.operations.find((o) => o.name === "create");
-    expect(create?.requestBody?.name).toBe("pet");
-    expect(create?.requestBody?.isGeneratedName).toBe(false);
-
-    const rename = ir.operations.find((o) => o.name === "rename");
-    expect(rename?.requestBody?.name).toBe("body");
-    expect(rename?.requestBody?.isGeneratedName).toBe(false);
   });
 });

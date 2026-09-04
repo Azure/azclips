@@ -229,6 +229,13 @@ export const IRRequestBodySchema: z.ZodType<IRRequestBody> = z
         message: "A request body requires a type unless it is a multipart tuple",
       });
     }
+    if (body.isGeneratedName !== undefined && body.name === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["isGeneratedName"],
+        message: "`isGeneratedName` describes `name`, so it cannot be set without one.",
+      });
+    }
   });
 
 // ─── Responses ──────────────────────────────────────────────────────────

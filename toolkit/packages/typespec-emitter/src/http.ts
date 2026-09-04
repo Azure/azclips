@@ -181,9 +181,19 @@ export function bodyFrom(
   const body: IRRequestBody = {
     ...(irType !== undefined ? { type: irType } : {}),
     contentType,
+<<<<<<< HEAD
     ...(multipart !== undefined ? { multipart } : {}),
     ...(b.name !== undefined ? { name: b.name } : {}),
     ...(b.isGeneratedName !== undefined ? { isGeneratedName: b.isGeneratedName } : {}),
+=======
+    // The flag describes `name`, so it only travels with one.
+    ...(b.name !== undefined
+      ? {
+          name: b.name,
+          ...(b.isGeneratedName !== undefined ? { isGeneratedName: b.isGeneratedName } : {}),
+        }
+      : {}),
+>>>>>>> f5e3043e0 ([Cirrus Codegen] IR: Tie isGeneratedName to the name it describes)
     ...(b.doc !== undefined ? { docs: b.doc } : {}),
     ...(b.summary !== undefined ? { summary: b.summary } : {}),
   };
