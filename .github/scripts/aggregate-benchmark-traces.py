@@ -29,9 +29,8 @@ SIDECAR_SCHEMA = 1
 def discover(root):
     """Return (path, stem, product, extension) for every telemetry file under root.
 
-    Searches recursively rather than with a fixed depth glob: CI writes
-    <EXT>/<PRODUCT>/telemetry/ but a local run writes <timestamp>/telemetry/,
-    and the same invocation has to work against both.
+    Walks recursively for directories named 'telemetry', so both the CI layout
+    (<EXT>/<PRODUCT>/telemetry/) and a local run's (<timestamp>/telemetry/) match.
     """
     found = []
     for dirpath, _dirnames, filenames in os.walk(root):
@@ -48,7 +47,7 @@ def discover(root):
 
 
 def product_of(stem):
-    """BenchmarkName strips the 'Benchmark.' prefix, so the stem starts with the product."""
+    """The stem's first dot-separated segment, when it names a known product."""
     head = stem.split(".", 1)[0].upper()
     return head if head in PRODUCTS else None
 
@@ -65,10 +64,10 @@ def extension_of(telemetry_dir):
 # -------------------------------------------------------------------- parsing
 
 def parse_time(value):
-    """Parse a .NET round-trip ('O') timestamp.
+    """Parse a .NET round-trip ('O') timestamp, or None when unparseable.
 
-    'O' emits 7 fractional-second digits; datetime.fromisoformat accepts at most
-    6 and raises on the seventh, so truncation here is required, not defensive.
+    'O' emits 7 fractional-second digits; fromisoformat accepts at most 6, so the
+    fraction is truncated before parsing.
     """
     if not value:
         return None
@@ -131,8 +130,7 @@ def link(spans):
     """Return (children_by_parent_id, roots).
 
     A span is a root when it has no parent, or when its parent is absent from this
-    trace. The latter is a truncated export: BatchActivityExportProcessor drains on
-    shutdown in [IterationCleanup] and a span still in flight is dropped.
+    trace — the latter indicates a truncated export.
     """
     known = {span["SpanId"] for span in spans}
     children = defaultdict(list)
@@ -149,10 +147,9 @@ def link(spans):
 def flatten(root, children):
     """Walk one trace, returning [(path, duration_ms, start_offset_ms)].
 
-    Same-named siblings are indexed by start order, so a path is unique within a
-    trace. That matters because SessionCreated, AuthBeforeTokenAcquisition, and
-    ActionStart are started from event handlers in Engine.Subscriptions.cs and can
-    each fire more than once under the same parent.
+    A path is a tuple of (operation_name, occurrence_index) pairs from the root down.
+    Same-named siblings are indexed by start order, keeping a path unique within a
+    trace when one operation fires several times under the same parent.
     """
     root_start = parse_time(root.get("StartTime"))
     collected = []
@@ -225,11 +222,9 @@ class Report:
         return max(roots, key=lambda path: self.nodes[path]["count"])
 
     def to_dict(self, commit=None, ref=None, run_id=None, generated=None):
-        """Serialize to the sidecar shape. Averages are stored, not the running totals.
+        """Serialize to the sidecar shape, storing averages rather than running totals.
 
-        offset_ms is not cosmetic: sibling ordering is derived from it, so a sidecar
-        without it could not be rendered in execution order and the two sides of a
-        comparison would draw children in different sequences.
+        offset_ms is included because sibling ordering derives from it.
         """
         stamp = generated or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         return {
@@ -264,8 +259,7 @@ class Report:
     def from_dict(cls, data):
         """Rebuild a Report from a sidecar. Raises ValueError on an unusable document.
 
-        Totals are reconstructed as avg * count so average() and mean_offset() keep
-        working unchanged against a deserialised report.
+        Totals are reconstructed as avg * count so average() and mean_offset() work.
         """
         if not isinstance(data, dict):
             raise ValueError(f"sidecar is {type(data).__name__}, expected object")
@@ -316,13 +310,12 @@ def aggregate_file(path, stem, product, extension):
     for trace_spans in group_by_trace(spans):
         children, roots = link(trace_spans)
         if not roots:
-            # Only reachable if every span's parent is present, i.e. a reference
-            # cycle. Counted rather than dropped silently.
+            # Every span's parent is present, i.e. a reference cycle.
             report.rootless_traces += 1
             continue
         roots.sort(key=child_sort_key)
-        # Keep the earliest root. Other roots are detached subtrees from a truncated
-        # export; reparenting them would fabricate a hierarchy that never existed.
+        # Keep the earliest root; the rest are detached subtrees from a truncated
+        # export, and reparenting them would invent a hierarchy.
         report.orphan_subtrees += len(roots) - 1
         report.trace_count += 1
         for node_path, duration, offset in flatten(roots[0], children):
@@ -334,22 +327,16 @@ def aggregate_file(path, stem, product, extension):
 # ----------------------------------------------------------------- outputs
 
 def sidecar_path(root, report):
-    """<root>/<EXTENSION>/<PRODUCT>/<stem>.json.
-
-    Local runs have no extension segment in their telemetry path, so extension is
-    None; 'LOCAL' keeps those files addressable instead of collapsing them into the
-    root directory. Stems are dotted alphanumerics, so they need no escaping.
+    """<root>/<EXTENSION>/<PRODUCT>/<stem>.json, with 'LOCAL' standing in when a run
+    has no extension segment. Stems are dotted alphanumerics and need no escaping.
     """
     return os.path.join(root, report.extension or "LOCAL",
                         report.product or "UNKNOWN", report.stem + ".json")
 
 
 def write_sidecars(root, reports, commit, ref, run_id):
-    """Write one sidecar per report. Returns how many were written.
-
-    One timestamp is shared across the whole run so every sidecar from a single
-    workflow run reports the same vintage. A partial file left by a failed write
-    is cleaned up so publishing logic finds only valid sidecars.
+    """Write one sidecar per report, sharing one timestamp. Returns how many were
+    written. A partial file from a failed write is removed.
     """
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     written = 0
@@ -361,8 +348,7 @@ def write_sidecars(root, reports, commit, ref, run_id):
                 json.dump(report.to_dict(commit, ref, run_id, generated), handle, indent=2)
             written += 1
         except Exception as exc:
-            # A sidecar is regenerable, so a write failure must not cost us the summary.
-            # Best-effort cleanup of any partial file left by an interrupted write.
+            # A sidecar is regenerable, so a write failure must not cost the summary.
             try:
                 os.unlink(path)
             except OSError:
@@ -374,14 +360,13 @@ def write_sidecars(root, reports, commit, ref, run_id):
 def load_sidecar(path, source="baseline"):
     """Read one sidecar. Returns None for anything unusable, having warned.
 
-    source distinguishes reload failures from baseline failures in the warning.
+    source names the caller in the warning, distinguishing a reload from a baseline.
     """
     try:
         with open(path, "r", encoding="utf-8") as handle:
             return Report.from_dict(json.load(handle))
     except Exception as exc:
-        # A bad baseline degrades to no baseline, which renders the v1 single tree.
-        # A reload failure downgrades to the in-memory report (asymmetric rendering).
+        # A missing baseline degrades to a single-tree render rather than failing.
         print(f"::warning::ignoring {source} sidecar {path}: {exc}", file=sys.stderr)
         return None
 
@@ -389,12 +374,9 @@ def load_sidecar(path, source="baseline"):
 def find_baseline(root, report):
     """Locate this benchmark's baseline under root, or None.
 
-    The exact <EXT>/<PRODUCT>/<stem>.json is tried first. A local run's telemetry
-    path carries no extension segment, so its reports have extension None and only
-    the recursive fallback can match; the stem alone identifies the benchmark.
-
-    Multiple matches are resolved deterministically by sorting: the first path
-    found (in sorted order) wins, making the selection platform-independent.
+    Tries the exact <EXT>/<PRODUCT>/<stem>.json, then a recursive search by filename,
+    which is the only match for a local run's extension-less report. Ties are broken
+    by sorted order.
     """
     filename = report.stem + ".json"
     exact = sidecar_path(root, report)
@@ -412,23 +394,12 @@ def find_baseline(root, report):
 # ----------------------------------------------------------------- rendering
 
 def bar(ratio):
-    """A proportional bar of BAR_WIDTH cells, drawn from the *displayed* percentage.
+    """A proportional bar of BAR_WIDTH cells, drawn from the displayed percentage.
 
-    ASCII rather than block elements (U+2588..U+258F). Those are East Asian Width
-    "Ambiguous", so a browser that font-falls-back on them renders them at a width
-    that is not the monospace cell. Because a row's block count varies from 0 to
-    BAR_WIDTH, that error is multiplied by the difference and shifts every column
-    after the bar — which is what made the two trees drift apart in the job summary.
-    '#' is unambiguous in every font.
-
-    The cell count comes from `round(ratio * 100)` — the same value the caller prints
-    in the %ROOT column — rather than from the raw ratio. Deriving them separately let
-    them disagree: a span at 14.83% printed as "15%" but drew only two cells, and two
-    spans both printed as "5%" drew one cell and none, because one was really 5.05%
-    and the other 4.81%. Reading the bar off the printed number is now always correct.
-
-    Truncates the division, so a cell appears only once its share is fully earned:
-    at BAR_WIDTH 20 each cell is 5%, so 24% draws four cells and 26% draws five.
+    Uses '#' because block elements (U+2588..U+258F) are East Asian Width "Ambiguous"
+    and misalign every column after the bar under font fallback. The cell count comes
+    from round(ratio * 100), the same value the caller prints, and truncates: at
+    BAR_WIDTH 20 each cell is 5%, so 24% draws four and 26% draws five.
     """
     ratio = max(0.0, min(1.0, ratio))
     percent = round(ratio * 100)          # matches the caller's f"{ratio * 100:>4.0f}%"
@@ -446,8 +417,7 @@ def label(path, report):
 
 
 def node_text(path):
-    """v1's node label without the coverage marker: name, plus [n] from the second
-    occurrence on."""
+    """Node name, plus [n] from the second occurrence on. No coverage marker."""
     name, index = path[-1]
     return name if index == 0 else f"{name}[{index}]"
 
@@ -455,8 +425,8 @@ def node_text(path):
 def delta_percent(baseline_average, current_average):
     """None when the comparison is undefined: a one-sided node, or a zero baseline.
 
-    A one-sided node has not regressed — it was added, removed, or renamed — so
-    reporting +/-100% would misattribute a shape change as a timing change.
+    A one-sided node was added, removed, or renamed rather than slowed, so a delta
+    would misreport a shape change as a timing change.
     """
     if baseline_average is None or current_average is None or baseline_average == 0:
         return None
@@ -464,21 +434,12 @@ def delta_percent(baseline_average, current_average):
 
 
 def compare_rows(baseline, current):
-    """Rows over the union of both node sets, in one shared order.
+    """Returns (rows, orphaned_count) over the union of both node sets, where rows is
+    [(path, connector)] in one shared order, so row n is the same node on both sides.
 
-    Returns (rows, orphaned_count) where rows is [(path, connector)]. Both sides
-    render from this single list, which is what makes "row n is the same node on
-    the left and the right" a guarantee rather than a coincidence: two independently
-    ordered trees would drift apart the moment one side gained or lost a node.
-
-    orphaned_count is the number of union nodes whose parent is absent from the
-    union (unreachable from any root). They are not rendered as rows but are
-    counted and surfaced by the caller as a note. Only from_dict can produce
-    orphans; aggregate_file keeps every ancestor of every node it collects via
-    flatten()'s top-down walk.
-
-    Ordering uses the current run's mean start offset where the node exists there and
-    the baseline's otherwise, tie-broken on the path for determinism.
+    orphaned_count counts union nodes unreachable from any root; they are not
+    rendered. Ordering uses the current run's mean start offset where the node exists
+    there and the baseline's otherwise, tie-broken on the path.
     """
     roots = []
     for report in (current, baseline):
@@ -500,9 +461,8 @@ def compare_rows(baseline, current):
     children_of = defaultdict(list)
     placed = set(roots)  # roots are always placed
     for path in paths:
-        # flatten() emits every ancestor of every node it collects, so a node's
-        # parent is always present on the side that produced it, and therefore in
-        # the union. Depth-1 paths are the roots themselves.
+        # flatten() emits every ancestor of the nodes it collects, so a parent is
+        # always in the union; depth-1 paths are the roots themselves.
         if len(path) > 1 and path[:-1] in paths:
             children_of[path[:-1]].append(path)
             placed.add(path)
@@ -580,8 +540,7 @@ def render_report(report):
 def relative_age(generated):
     """Coarse age of a baseline, or None when the timestamp is unusable.
 
-    Days are enough: the point is to let a reader discount a stale baseline, not to
-    time it precisely.
+    Resolution is whole days, enough to flag a stale baseline.
     """
     stamp = parse_time(generated)
     if stamp is None:
@@ -597,11 +556,8 @@ def relative_age(generated):
 def render_comparison(baseline, current):
     """Render main and this run as two trees sharing one row order.
 
-    Each side keeps v1's semantics exactly: AVG, %ROOT against its own root, and a
-    bar scaled to its own root. Bars are therefore NOT comparable across the gutter
-    — an unchanged node draws differently on each side whenever the roots differ.
-    That is a deliberate trade for keeping each tree readable on its own; the AVG
-    and Δ% columns are the comparison.
+    Each side scales %ROOT and its bar to its own root, so bars are not comparable
+    across the gutter; the AVG and Δ% columns carry the comparison.
     """
     rows, orphaned_count = compare_rows(baseline, current)
     if not rows:
@@ -613,10 +569,8 @@ def render_comparison(baseline, current):
     current_scale = current.average(current_root) if current_root else 0.0
 
     def side_label(report, path, connector):
-        """v1's label, with coverage counted against this side's own trace count.
-
-        The two sides are never reconciled into one figure: a marker on one side
-        only is meaningful — it says the node is intermittent there and not here.
+        """Node label with coverage counted against this side's own trace count, so a
+        marker on one side only means the node is intermittent there.
         """
         text = connector + node_text(path)
         count = report.occurrences(path)
@@ -629,8 +583,8 @@ def render_comparison(baseline, current):
         for report in (baseline, current):
             if path in report.nodes:
                 label_width = max(label_width, len(side_label(report, path, connector)))
-    # "9.3f ms" = 9 + 3 chars = 12, then "  " = 2, "%ROOT" = 5, "  " = 2,
-    # bar = BAR_WIDTH, "  " = 2, label.  Must agree with the format strings in cell().
+    # 12 for "9.3f ms", 2 gutter, 5 for %ROOT, 2 gutter, BAR_WIDTH, 2 gutter, label;
+    # must agree with the format strings in cell().
     side_width = 12 + 2 + 5 + 2 + BAR_WIDTH + 2 + label_width
 
     def cell(report, path, connector, scale):
@@ -643,9 +597,8 @@ def render_comparison(baseline, current):
             body = (f"{average:>9.3f} ms  {ratio * 100:>4.0f}%  "
                     f"{bar(ratio):<{BAR_WIDTH}}  {text}")
         else:
-            # Keep the same column structure with the percentage and bar left blank,
-            # so a zero-root row aligns with normal rows. {'':>5} fills %ROOT width
-            # and {'':<{BAR_WIDTH}} fills the bar column; both must stay.
+            # Blank the percentage and bar but keep their widths, so a zero-root row
+            # still aligns with normal rows.
             body = f"{average:>9.3f} ms  {'':>5}  {'':<{BAR_WIDTH}}  {text}"
         return body.ljust(side_width)
 
@@ -700,7 +653,6 @@ def render_comparison(baseline, current):
     if only_current:
         shape.append(f"{only_current} node(s) only in PR")
     if shape:
-        # State drift explicitly rather than leaving the reader to spot blank rows.
         notes.append(", ".join(shape) + " — tree shape changed")
 
     if orphaned_count:
@@ -717,13 +669,13 @@ def render_comparison(baseline, current):
 def render_summary(reports, baselines=None):
     """Markdown for $GITHUB_STEP_SUMMARY, truncated to stay under the 1 MiB cap.
 
-    A benchmark with a baseline renders side by side; one without falls back to the
-    v1 single tree, so a new benchmark or a first-ever run still reports something.
+    A benchmark with a baseline renders side by side; one without falls back to a
+    single tree.
     """
     baselines = baselines or {}
     blocks = ["## 🔬 Benchmark Trace Hierarchy", ""]
-    # "\n".join inserts one separator byte per element beyond the first, so charge
-    # each block for its own separator or the budget silently undercounts.
+    # "\n".join adds one separator byte per element beyond the first, so each block
+    # is charged for its separator to keep the budget accurate.
     used = sum(len(block.encode("utf-8")) for block in blocks) + len(blocks) - 1
     truncated = 0
 
@@ -764,11 +716,8 @@ def run(args):
         written = write_sidecars(args.sidecar_out, usable,
                                  args.commit, args.ref, args.run_id)
         print(f"[traces] wrote {written} sidecar(s) to {args.sidecar_out}")
-        # Render from what was just written. Both sides of a comparison then travel
-        # the same to_dict/from_dict path, so a field that fails to round-trip
-        # surfaces here rather than silently only on the baseline side. It is also
-        # what gives this run's tree its provenance header: an in-memory report has
-        # an empty source, so the heading would read "PR · 100 traces" with no commit.
+        # Render from what was just written so both sides of a comparison travel the
+        # same to_dict/from_dict path, and this run's tree gets its provenance header.
         usable = [load_sidecar(sidecar_path(args.sidecar_out, report), source="reload") or report
                   for report in usable]
 
