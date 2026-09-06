@@ -31,7 +31,7 @@ public sealed class RecordPlaybackInterceptor(
     RecordingSanitizers? sanitizers = null,
     IEnumerable<int>? alreadyConsumed = null,
     Action<int>? onConsumed = null,
-    Action<SessionRecordEntry>? onRecorded = null) : ITracingInterceptor
+    Action<SessionRecordEntry>? onRecorded = null) : ITracingInterceptor, IHttpTerminateHandler
 {
     private readonly IRequestMatcher _matcher = matcher ?? new DefaultRequestMatcher();
     private readonly RecordingSanitizers _sanitizers = sanitizers ?? RecordingSanitizers.Default;
