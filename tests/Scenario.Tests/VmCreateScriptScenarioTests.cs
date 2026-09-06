@@ -58,6 +58,13 @@ public class VmCreateScriptScenarioTests
     {
         public DebugArtifactsFactAttribute()
         {
+#if !DEBUG
+            // The injected hook assembly would be a Release build loading beside the
+            // Debug assemblies the manifests reference; mixed identities break the import.
+            Skip = "The dev module manifests hard-code artifacts/Debug paths, so the module "
+                + "scenario only runs from a Debug test build.";
+            return;
+#endif
             var debugCore = Path.Combine(global::Tests.Common.Utilities.RepoLocator.GetRepoRoot(), "artifacts", "Debug", "Core");
             if (!Directory.Exists(debugCore))
             {
