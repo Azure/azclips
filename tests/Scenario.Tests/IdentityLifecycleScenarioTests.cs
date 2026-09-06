@@ -105,7 +105,7 @@ public class IdentityLifecycleScenarioTests
 
     private static void AssertListed(IReadOnlyList<object> outputs)
     {
-        var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(outputs));
+        var identities = Assert.IsType<List<UserAssignedIdentity>>(Assert.Single(outputs));
         var identity = Assert.Single(identities);
         Assert.Equal(IdentityName, identity.Name);
         Assert.Equal(Location, identity.Location);
@@ -113,13 +113,15 @@ public class IdentityLifecycleScenarioTests
 
     private static void AssertShown(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
     {
-        var identity = Assert.IsType<UserAssignedIdentity>(Assert.Single(outputs));
+        var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(outputs));
+        var identity = Assert.Single(identities);
         AssertIdentity(identity, "Regional", expectedSubscriptionId);
     }
 
     private static void AssertUpdated(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
     {
-        var identity = Assert.IsType<UserAssignedIdentity>(Assert.Single(outputs));
+        var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(outputs));
+        var identity = Assert.Single(identities);
         AssertIdentity(identity, "None", expectedSubscriptionId);
         Assert.Equal("scenario-updated", identity.Tags?["env"]);
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Managed identity lifecycle smoke test for the azclips CLI surface.
-# Exercises create, list, multi-id show, multi-id update, and multi-id delete.
+# Exercises create, list, show, update, generic update, resource restrictions, and delete.
 #
 # Prereqs:
 #   1. Build the solution: dotnet build azclips.slnx
@@ -104,6 +104,36 @@ echo "=== [identity list] resource group ==="
 
 echo "=== [identity show] multiple ids ==="
 "$AZ" identity show --ids "$IDENTITY_ID" "$SECONDARY_IDENTITY_ID"
+
+echo "=== [identity update] normal path without ids ==="
+"$AZ" identity update \
+  --subscription "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$IDENTITY_NAME" \
+  --isolation-scope None \
+  --tags env=normal-update
+
+echo "=== [identity update] single id ==="
+"$AZ" identity update \
+  --ids "$SECONDARY_IDENTITY_ID" \
+  --isolation-scope None \
+  --tags env=single-id-update
+
+echo "=== [identity update] resource restriction provider list ==="
+"$AZ" identity update \
+  --subscription "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$IDENTITY_NAME" \
+  --resource-restriction '{"providers":["Microsoft.Storage/accounts"]}'
+
+echo "=== [identity update] generic set/add/remove ==="
+"$AZ" identity update \
+  --subscription "$SUBSCRIPTION_ID" \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$IDENTITY_NAME" \
+  --set properties.isolationScope=Regional \
+  --add properties.assignmentRestrictions.providers Microsoft.KeyVault \
+  --remove properties.assignmentRestrictions.providers
 
 echo "=== [identity update] multiple ids ==="
 "$AZ" identity update \
