@@ -13,6 +13,7 @@ set -euo pipefail
 # Optional env vars (with defaults):
 #   RID             linux-x64 | linux-arm64                        (default: linux-x64)
 #   PLATFORM        Docker platform, e.g. linux/amd64|linux/arm64  (default: linux/amd64)
+#   PACKAGE_PROFILE lean | full                                    (default: lean)
 #   BASE_IMAGE      Base image reference                            (default: mcr.microsoft.com/dotnet/runtime-deps:10.0-noble)
 #   IMAGE_VARIANT   Label used in tag/output naming                 (default: noble)
 #   IMAGE_REPOSITORY Image repository name                          (default: azclips)
@@ -26,6 +27,7 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 
 RID="${RID:-linux-x64}"
 PLATFORM="${PLATFORM:-linux/amd64}"
+PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
 BASE_IMAGE="${BASE_IMAGE:-mcr.microsoft.com/dotnet/runtime-deps:10.0-noble}"
 IMAGE_VARIANT="${IMAGE_VARIANT:-noble}"
 IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-azclips}"
@@ -53,7 +55,15 @@ case "$RID" in
     ;;
 esac
 
-BUILD_CONTEXT="$OUT_ROOT/context/$IMAGE_VARIANT-$ARCH_LABEL"
+case "$PACKAGE_PROFILE" in
+  lean|full) ;;
+  *)
+    echo "ERROR: Unsupported PACKAGE_PROFILE '$PACKAGE_PROFILE'. Expected 'lean' or 'full'."
+    exit 1
+    ;;
+esac
+
+BUILD_CONTEXT="$OUT_ROOT/context/$IMAGE_VARIANT-$PACKAGE_PROFILE-$ARCH_LABEL"
 CLI_EXTRACT_DIR="$BUILD_CONTEXT/cli"
 rm -rf "$BUILD_CONTEXT"
 mkdir -p "$CLI_EXTRACT_DIR"
@@ -63,11 +73,11 @@ tar -xzf "$TARBALL_PATH" -C "$CLI_EXTRACT_DIR"
 cp "$REPO_ROOT/LICENSE" "$CLI_EXTRACT_DIR/LICENSE"
 cp "$REPO_ROOT/NOTICE" "$CLI_EXTRACT_DIR/NOTICE"
 
-IMAGE_TAG="$IMAGE_REPOSITORY:$ARTIFACT_VERSION-$IMAGE_VARIANT-$ARCH_LABEL"
+IMAGE_TAG="$IMAGE_REPOSITORY:$ARTIFACT_VERSION-$IMAGE_VARIANT-$PACKAGE_PROFILE-$ARCH_LABEL"
 SAVE_DIR="$OUT_ROOT/Release/docker"
 mkdir -p "$SAVE_DIR"
 SANITIZED_REPOSITORY="${IMAGE_REPOSITORY//\//-}"
-SAVE_PATH="$SAVE_DIR/${SANITIZED_REPOSITORY}-$ARTIFACT_VERSION-$IMAGE_VARIANT-$ARCH_LABEL.tar"
+SAVE_PATH="$SAVE_DIR/${SANITIZED_REPOSITORY}-$ARTIFACT_VERSION-$IMAGE_VARIANT-$PACKAGE_PROFILE-$ARCH_LABEL.tar"
 
 echo "Building docker image $IMAGE_TAG (platform=$PLATFORM, base=$BASE_IMAGE)"
 docker buildx build \

@@ -108,6 +108,20 @@ jobs:
       path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_Linux_Glibc_Lean_Arm64
 
   - task: DownloadPipelineArtifact@2
+    displayName: Download Docker CLI Linux glibc Full Amd64 Image Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Docker_CLI_Linux_Glibc_Full_Amd64
+      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_Linux_Glibc_Full_Amd64
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Docker CLI Linux glibc Full Arm64 Image Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Docker_CLI_Linux_Glibc_Full_Arm64
+      path: $(Pipeline.Workspace)/distribution-artifacts/Docker_CLI_Linux_Glibc_Full_Arm64
+
+  - task: DownloadPipelineArtifact@2
     displayName: Download Docker PowerShell Linux glibc Amd64 Image Artifacts
     condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildDockerResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
     inputs:

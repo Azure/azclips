@@ -31,6 +31,7 @@ jobs:
         Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: cli
+        PackageProfile: lean
         Platform: linux/amd64
         BaseImage: ${{ parameters.cli_base_image }}
         ImageVariant: noble
@@ -40,15 +41,37 @@ jobs:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: cli
+        PackageProfile: lean
         Platform: linux/arm64
         BaseImage: ${{ parameters.cli_base_image }}
         ImageVariant: noble
         DistributionArtifact: Distribution_Linux_Arm64_Lean
         DockerArtifact: Docker_CLI_Linux_Glibc_Lean_Arm64
+      cli_linux_glibc_full_amd64:
+        Pool: ${{ parameters.amd64_pool }}
+        Rid: linux-x64
+        ImageFlavor: cli
+        PackageProfile: full
+        Platform: linux/amd64
+        BaseImage: ${{ parameters.cli_base_image }}
+        ImageVariant: noble
+        DistributionArtifact: Distribution_Linux_Full
+        DockerArtifact: Docker_CLI_Linux_Glibc_Full_Amd64
+      cli_linux_glibc_full_arm64:
+        Pool: ${{ parameters.arm64_pool }}
+        Rid: linux-arm64
+        ImageFlavor: cli
+        PackageProfile: full
+        Platform: linux/arm64
+        BaseImage: ${{ parameters.cli_base_image }}
+        ImageVariant: noble
+        DistributionArtifact: Distribution_Linux_Arm64_Full
+        DockerArtifact: Docker_CLI_Linux_Glibc_Full_Arm64
       powershell_linux_glibc_amd64:
         Pool: ${{ parameters.amd64_pool }}
         Rid: linux-x64
         ImageFlavor: pwsh
+        PackageProfile: none
         Platform: linux/amd64
         BaseImage: ${{ parameters.pwsh_base_image }}
         ImageVariant: noble
@@ -58,6 +81,7 @@ jobs:
         Pool: ${{ parameters.arm64_pool }}
         Rid: linux-arm64
         ImageFlavor: pwsh
+        PackageProfile: none
         Platform: linux/arm64
         BaseImage: ${{ parameters.pwsh_base_image }}
         ImageVariant: noble
@@ -123,6 +147,7 @@ jobs:
         OUT_ROOT="${{ parameters.PackagingDockerOutRoot }}" \
         RID="$(Rid)" \
         PLATFORM="$(Platform)" \
+        PACKAGE_PROFILE="$(PackageProfile)" \
         BASE_IMAGE="$(BaseImage)" \
         IMAGE_VARIANT="$(ImageVariant)" \
         DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.cli" \
