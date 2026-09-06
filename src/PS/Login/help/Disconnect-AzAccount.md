@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Login
-ms.date: 08/06/2026
+ms.date: 09/01/2026
 PlatyPS schema version: 2024-05-01
 title: Disconnect-AzAccount
 ---
@@ -67,6 +67,7 @@ HelpMessage: ''
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 

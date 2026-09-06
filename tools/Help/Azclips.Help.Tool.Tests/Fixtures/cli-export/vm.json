@@ -160,8 +160,8 @@
       },
       {
         "name": "--subscription-id",
-        "required": true,
-        "short_summary": "Azure Subscription Id.",
+        "required": false,
+        "short_summary": "Azure Subscription Id. Defaults to the active profile\u0027s subscription.",
         "long_summary": ""
       },
       {
@@ -245,8 +245,8 @@
       },
       {
         "name": "--subscription-id",
-        "required": true,
-        "short_summary": "Azure Subscription Id.",
+        "required": false,
+        "short_summary": "Azure Subscription Id. Defaults to the active profile\u0027s subscription.",
         "long_summary": ""
       },
       {
@@ -311,8 +311,8 @@
       },
       {
         "name": "--subscription-id",
-        "required": true,
-        "short_summary": "Azure Subscription Id.",
+        "required": false,
+        "short_summary": "Azure Subscription Id. Defaults to the active profile\u0027s subscription.",
         "long_summary": ""
       },
       {
@@ -384,7 +384,7 @@
       {
         "name": "--subscription-id",
         "required": false,
-        "short_summary": "Azure Subscription Id. Defaults to the logged-in subscription.",
+        "short_summary": "Azure Subscription Id. Defaults to the active profile\u0027s subscription.",
         "long_summary": ""
       },
       {

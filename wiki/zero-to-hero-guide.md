@@ -489,7 +489,7 @@ An **extension** is a DLL that exposes commands. Structurally each has:
 
 - an `ExtensionIndex.cs` — the registry mapping verbs to processor types,
 - one `IProcessor` per verb (the command logic),
-- optionally `Orchestrators/` and `Processors/` for multi-step flows (see `Resources`/`Compute`),
+- optionally `Customization/` and `Processors/` for multi-step flows (see `Resources`/`Compute`),
 - a `Compatibility.cs` marking Azclips compatibility.
 
 The six extensions today (`azclips.slnx`):
@@ -508,7 +508,7 @@ The six extensions today (`azclips.slnx`):
 
 ### 10.1 Simple commands vs. orchestrated commands
 
-Not every command is a single `ProcessAsync`. Look at `Resources` and `Compute`: alongside `Processors/` they have `Orchestrators/` (e.g. `NewResourceGroupDeploymentProcessor_Orchestrator.cs`, `DeploymentOrchestratorBase.cs`). An **orchestrator** coordinates a multi-step flow — submit an ARM deployment, then poll until it completes — while the plain processor handles the single-shot case. When you author a command:
+Not every command is a single `ProcessAsync`. Look at `Resources` and `Compute`: alongside `Processors/` they have `Customization/` (e.g. `NewResourceGroupDeploymentProcessor_Orchestrator.cs`, `DeploymentOrchestratorBase.cs`). An **orchestrator** coordinates a multi-step flow — submit an ARM deployment, then poll until it completes — while the plain processor handles the single-shot case. When you author a command:
 
 - **Single request/response** (like `config set`, `group show`) → a plain `IProcessor`.
 - **Long-running / multi-call** (like a deployment with polling, or "create a VM" which also creates a NIC, NSG, and VNet) → an orchestrator that sequences several processors.
@@ -716,7 +716,7 @@ az group --help
 | `az config list`                  | Dump current settings (`~/.azclips/config.json`)         |
 | `az config set --key K --value V` | Set a setting (keys normalize `:`→`.`, case-insensitive) |
 | `az config get --key K`           | Read one setting                                         |
-| `az login`                        | Auth into the reserved `temp` profile                    |
+| `az login`                        | Auth into the reserved `default` profile                 |
 | `az login --out-profile prod`     | Auth into a named profile                                |
 | `az --profile prod group list`    | Run a command under a specific profile                   |
 | `az --upload-telemetry`           | (Internal) the detached uploader the CLI spawns for you  |

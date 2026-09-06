@@ -12,9 +12,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
     /// <c>groups</c> endpoint accepts: an object ID, OData <c>$select</c>, and OData
     /// <c>$expand</c>. Convenience features that layer on top (display-name resolution,
     /// merging <c>$select</c> with a default property set, ...) live in
-    /// <c>Orchestrators/GetGroupProcessor_Orchestrator</c>.
+    /// <c>Customization/GetGroupProcessor_Orchestrator</c>.
     /// </summary>
-    public class GetGroupProcessor : GraphProcessorBase<Group>
+    public class GetGroupProcessor : GraphProcessorBase<object, Group>
     {
         [ArgumentInfo(
             Required = true,
@@ -34,21 +34,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             SerializedName = @"Expand")]
         public string[]? Expand { get; set; }
 
-        protected override async Task<HttpRequestMessage> CreateRequestMessage()
-        {
-            if (string.IsNullOrWhiteSpace(Id))
-            {
-                throw new InvalidOperationException("Id is required to get a group.");
-            }
+        protected override HttpMethod Method => HttpMethod.Get;
 
-            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-
-            string uri = $"https://graph.microsoft.com/v1.0/groups/{Uri.EscapeDataString(Id)}"
+        protected override string CreateRequestUri() =>
+            $"https://graph.microsoft.com/v1.0/groups/{Uri.EscapeDataString(Id)}"
                 + ODataQueryBuilder.Build(select: Select, expand: Expand);
-
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-            return request;
-        }
     }
 }

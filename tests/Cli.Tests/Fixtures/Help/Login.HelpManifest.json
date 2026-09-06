@@ -28,7 +28,9 @@
           "type": "bool",
           "required": false,
           "description": "Login using managed identity in the current environment.",
-          "aliases": [],
+          "aliases": [
+            "i"
+          ],
           "allowedValues": [],
           "parameterSetName": "(All)",
           "supportsPipeline": false,
@@ -131,6 +133,18 @@
           {
             "title": "Login with device code",
             "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
+          },
+          {
+            "title": "Login with a managed identity",
+            "command": "az login --identity"
+          },
+          {
+            "title": "Login with a user-assigned managed identity",
+            "command": "az login --identity --client-id 11111111-1111-1111-1111-111111111111"
+          },
+          {
+            "title": "Login with a managed identity using short flags",
+            "command": "az login -i"
           }
         ],
         "powerShell": []

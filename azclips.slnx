@@ -8,6 +8,7 @@
     <Project Path="src/Core/Core.Authentication/Core.Authentication.csproj" />
     <Project Path="src/Core/Core.Engine/Core.Engine.csproj" />
     <Project Path="src/Core/Core.Telemetry/Core.Telemetry.csproj" />
+    <Project Path="src/Core/Core.Recording/Core.Recording.csproj" />
     <Project Path="src/Core/Core.Runtime/Core.Runtime.csproj" />
     <Project Path="src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
     <Project Path="src/Core/Core.AssemblyLoading/Core.AssemblyLoading.csproj" />
@@ -23,6 +24,7 @@
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
+    <Project Path="src/Extensions/Identity/Extensions.Identity.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />

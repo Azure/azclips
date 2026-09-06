@@ -466,7 +466,7 @@ public class LoginProcessorValidationTests
         var processor = new LoginProcessor
         {
             SubscriptionId = "sub-1",
-            OutProfile = ProfileNameValidator.ReservedTempName,
+            OutProfile = ProfileNameValidator.ReservedDefaultName,
         };
 
         Assert.ThrowsAny<ArgumentException>(() => InvokePrivate(

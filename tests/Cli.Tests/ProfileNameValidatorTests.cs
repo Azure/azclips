@@ -9,7 +9,7 @@ public class ProfileNameValidatorTests
     [InlineData("prod")]
     [InlineData("my-prod.env_01")]
     [InlineData("a")]
-    [InlineData("temp")] // charset/length valid; reserved-ness is a separate rule
+    [InlineData("default")] // charset/length valid; reserved-ness is a separate rule
     public void IsValid_ShouldAccept_WellFormedNames(string name)
     {
         Assert.True(ProfileNameValidator.IsValid(name));
@@ -40,10 +40,10 @@ public class ProfileNameValidatorTests
     }
 
     [Theory]
-    [InlineData("temp", true)]
-    [InlineData("TEMP", true)]
+    [InlineData("default", true)]
+    [InlineData("DEFAULT", true)]
     [InlineData("prod", false)]
-    public void IsReserved_ShouldDetectTemp_CaseInsensitively(string name, bool expected)
+    public void IsReserved_ShouldDetectDefault_CaseInsensitively(string name, bool expected)
     {
         Assert.Equal(expected, ProfileNameValidator.IsReserved(name));
     }
@@ -55,16 +55,16 @@ public class ProfileNameValidatorTests
     }
 
     [Fact]
-    public void Validate_ShouldAllow_TempName()
+    public void Validate_ShouldAllow_DefaultName()
     {
-        // Validate enforces only charset/length; "temp" is well-formed.
-        ProfileNameValidator.Validate("temp");
+        // Validate enforces only charset/length; "default" is well-formed.
+        ProfileNameValidator.Validate("default");
     }
 
     [Fact]
-    public void ValidateForCreation_ShouldThrow_OnReservedTempName()
+    public void ValidateForCreation_ShouldThrow_OnReservedDefaultName()
     {
-        Assert.Throws<ArgumentException>(() => ProfileNameValidator.ValidateForCreation("temp"));
+        Assert.Throws<ArgumentException>(() => ProfileNameValidator.ValidateForCreation("default"));
     }
 
     [Fact]

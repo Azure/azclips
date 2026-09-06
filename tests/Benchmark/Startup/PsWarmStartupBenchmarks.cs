@@ -33,5 +33,5 @@ public class PsWarmStartupBenchmarks : StartupBenchmarkBase
     public void Config() => RunToExit(PsStartInfo(_configManifest, "Get-AzConfigList"));
 
     [Benchmark(Description = "login")]
-    public void Login() => RunToExit(PsStartInfo(_loginManifest, "Connect-AzAccount"));
+    public void Login() => RunToExit(PsStartInfo(_loginManifest, "Connect-AzAccount", "-SubscriptionId", "00000000-0000-0000-0000-000000000000"));
 }

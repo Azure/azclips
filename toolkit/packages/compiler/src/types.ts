@@ -9,6 +9,8 @@
 import type { IR } from "@azure-client-engine/ir";
 import type { TransformPipeline } from "./transform.js";
 import type { Generator } from "./generate.js";
+import type { EmitProducer } from "./emit-producer.js";
+import type { Runtime } from "./runtime.js";
 import type { IRSnapshot, OutputDelegate } from "./output.js";
 import type { CompilerRegistry } from "./registry.js";
 
@@ -41,6 +43,13 @@ export interface CompilerDiagnostic {
  * affects an Azure Client Engine compile.
  */
 export interface CompileConfig {
+  /**
+   * API version to compile the spec at. A specific version string
+   * (e.g. `"2025-09-01"`), `"latest"` (default), or `"all"`. Threaded to the
+   * emitter as the `api-version` option, which TCGC uses to project the
+   * `@versioned` program to that version before the IR is built.
+   */
+  apiVersion?: string;
   /** Extra files/libraries to import, on top of what the entrypoint imports. */
   additionalImports?: string[];
   /** Promote warning-severity TypeSpec diagnostics to errors. Default false. */
@@ -64,8 +73,10 @@ export interface CompileConfig {
    */
   pipeline?: PipelineStepConfig[];
   /**
-   * Generator to run, resolved by `use` id against the registry. Absent -> the
-   * no-op generator.
+   * Generator to run, resolved by `use` id against the built-in catalog (e.g.
+   * `csharp`) or the registry. Absent -> the built-in `csharp` generator, which
+   * requires a host runtime. Generated code is the product, so the pipeline
+   * always ends in a generator.
    */
   generator?: GeneratorConfig;
 }
@@ -94,14 +105,14 @@ export interface GeneratorConfig {
 export interface CompileInput {
   /** Local path to the TypeSpec project directory or an entry `.tsp` file. */
   entrypoint: string;
-  /** Resolved compile configuration (see `CompileConfig`). */
-  config?: CompileConfig;
   /**
-   * Free-form, app-resolved settings threaded into the transform and generate
-   * stages (and available for compile-time supplements to the source spec).
-   * Deliberately a plain dictionary for now.
+   * Resolved compile configuration (see `CompileConfig`). All app-resolved
+   * settings are named fields here — the emit stage reads compiler/emitter
+   * fields, and transform/generate steps read their fields off the same
+   * `config` (exposed read-only on their contexts). There is no separate
+   * free-form `extensions` bag.
    */
-  extensions?: Record<string, unknown>;
+  config?: CompileConfig;
 }
 
 /** Knobs for a single compile run. */
@@ -111,13 +122,32 @@ export interface CompileOptions {
   /** Cooperative cancellation (timeouts, web request abort). */
   signal?: AbortSignal;
   /**
+   * Host runtime backing the compiler's built-in **external** stages (the
+   * `tsp-emit` tool and the `csharp` generator). The backbone owns *which* tool
+   * runs and its protocol; the runtime resolves the logical tool id to a command
+   * and executes it. Required for the built-in emit (unless `emit` is injected)
+   * and for the built-in `csharp` generator.
+   */
+  runtime?: Runtime;
+  /**
+   * Source -> IR emit stage. **Escape hatch**: normally emit is the compiler's
+   * built-in `tsp-emit` tool run through `runtime`. Inject a producer to bypass
+   * that (tests, bespoke embedding). With neither `emit` nor `runtime`,
+   * `compile()` fails with a `no-emit-producer` diagnostic.
+   */
+  emit?: EmitProducer;
+  /**
    * IR -> IR transform stage. Defaults to an identity pipeline. Injecting a
    * pipeline lets a front end compose passes without forking the backbone.
    */
   transform?: TransformPipeline;
   /**
-   * IR -> files back end (e.g. the future Roslyn C# generator). Defaults to a
-   * no-op generator that emits nothing.
+   * IR -> files back end. **Escape hatch**: normally the generator is selected
+   * as data via `CompileConfig.generator` (e.g. the built-in `csharp`, run
+   * through `runtime`) or resolved from the registry. Injecting one bypasses
+   * that. With neither this nor `CompileConfig.generator` set, the built-in
+   * `csharp` generator runs (the pipeline always ends in a generator); inject
+   * `noopGenerator` here for a deliberate no-output run.
    */
   generator?: Generator;
   /**
@@ -133,7 +163,11 @@ export interface CompileOptions {
    * ownership, leaving those result buffers empty.
    */
   output?: OutputDelegate;
-  /** Implementations backing `CompileConfig.pipeline` / `.generator` ids. */
+  /**
+   * Implementations backing custom (in-process) `CompileConfig.pipeline` /
+   * `.generator` ids — the extension seam. The built-in `csharp` generator is
+   * compiler-owned and does not need to be registered here.
+   */
   registry?: CompilerRegistry;
 }
 

@@ -31,6 +31,7 @@ import type {
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
 import { propertyFrom } from "./properties.js";
+import { accessFrom, usageFrom } from "./annotations.js";
 import { idFor, typeRefFor, unwrapNullable } from "./types.js";
 
 /**
@@ -170,16 +171,8 @@ function polymorphismOf(
   return { discriminator: discId, subtypes };
 }
 
-/** Top-level: build the IR model for one SdkModelType. Skips internal-access. */
-export function modelFrom(ctx: BuildContext, m: SdkModelType): IRModel | undefined {
-  if (m.access === "internal") {
-    if (!ctx.flags.internalAccessWarned) {
-      reportDiagnostic(ctx.program, { code: "internal-access-skipped", target: NoTarget });
-      ctx.flags.internalAccessWarned = true;
-    }
-    return undefined;
-  }
-
+/** Top-level: build the IR model for one SdkModelType. */
+export function modelFrom(ctx: BuildContext, m: SdkModelType): IRModel {
   const id = idFor(ctx, m);
   const properties = denormalizedProperties(ctx, m, id);
   const polymorphism = polymorphismOf(ctx, m, id, properties);
@@ -201,6 +194,9 @@ export function modelFrom(ctx: BuildContext, m: SdkModelType): IRModel | undefin
     additionalProperties = typeRefFor(ctx, ap, `${id.name}.additionalProperties`);
   }
 
+  const usage = usageFrom(m.usage);
+  const access = accessFrom(m.access);
+
   const model: IRModel = {
     id,
     name: id.name,
@@ -213,18 +209,16 @@ export function modelFrom(ctx: BuildContext, m: SdkModelType): IRModel | undefin
     ...(polymorphism !== undefined ? { polymorphism } : {}),
     ...(additionalProperties !== undefined ? { additionalProperties } : {}),
     ...(m.doc !== undefined ? { docs: m.doc } : {}),
+    ...(m.summary !== undefined ? { summary: m.summary } : {}),
+    ...(usage !== undefined ? { usage } : {}),
+    ...(access !== undefined ? { access } : {}),
   };
   return model;
 }
 
-/** Convert all visible models in the sdkPackage to IR models. */
+/** Convert all models in the sdkPackage to IR models. */
 export function modelsFrom(ctx: BuildContext): IRModel[] {
-  const out: IRModel[] = [];
-  for (const m of ctx.sdkContext.sdkPackage.models) {
-    const ir = modelFrom(ctx, m);
-    if (ir) out.push(ir);
-  }
-  return out;
+  return ctx.sdkContext.sdkPackage.models.map((m) => modelFrom(ctx, m));
 }
 
 /** Re-export for the smoke test wiring. */

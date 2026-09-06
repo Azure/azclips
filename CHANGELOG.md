@@ -1,3 +1,16 @@
+## v0.1.2 - 2026-08-31 23:07 UTC
+
+#### Help
+- Group Login managed-identity params + [ParameterGroup] convention linter (#719)
+- Show 'Values from:' hint under --help parameters (#714)
+- Group --help parameters into named sections (#711)
+
+#### Login
+- `az login` / `Connect-AzAccount`: Bare sign-in now saves the reserved profile as `default` instead of `temp` (#490) (#776)
+
+#### MsGraph
+- Module (#423)
+
 ## v0.1.1 - 2026-08-17 01:33 UTC
 
 #### CLI

@@ -60,6 +60,9 @@ namespace Core.Abstractions.Runtime
         public const string ResponseInvalidJson = nameof(ResponseInvalidJson);
         public const string ResourceOperationFailed = nameof(ResourceOperationFailed);
 
+        // Pagination
+        public const string PaginationNextPage = nameof(PaginationNextPage);
+
         // Auth
         public const string AuthBeforeTokenAcquisition = nameof(AuthBeforeTokenAcquisition);
         public const string AuthAfterTokenAcquisition = nameof(AuthAfterTokenAcquisition);

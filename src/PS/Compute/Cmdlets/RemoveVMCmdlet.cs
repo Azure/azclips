@@ -16,7 +16,7 @@ public class RemoveVMCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = true)]
@@ -46,10 +46,14 @@ public class RemoveVMCmdlet : PSCmdlet
 
         var parameters = new Dictionary<string, object>
         {
-            { "SubscriptionId", SubscriptionId },
             { "Name", Name },
             { "ResourceGroupName", ResourceGroupName },
         };
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
+        {
+            parameters.Add("SubscriptionId", SubscriptionId);
+        }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

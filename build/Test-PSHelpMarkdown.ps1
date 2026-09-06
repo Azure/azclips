@@ -152,8 +152,26 @@ foreach ($moduleName in $modules)
 
             try
             {
-                $old   = Import-MarkdownCommandHelp -Path $md -ErrorAction Stop 2>$null
-                $new   = Update-CommandHelp         -Path $md -ErrorAction Stop 2>$null
+                $old = Import-MarkdownCommandHelp -Path $md -ErrorAction Stop 2>$null
+
+                # Update-CommandHelp returns syntax parameters in reflection/declaration order,
+                # while Markdown uses canonical PowerShell syntax order (mandatory before optional).
+                # Round-trip a temporary copy through the same writer used by -Refresh so comparison
+                # detects semantic drift rather than parameter ordering differences.
+                $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("AzclipsHelpCompare-" + [Guid]::NewGuid().ToString('N'))
+                $tempMd = Join-Path $tempDir $file.Name
+                New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+                try
+                {
+                    Copy-Item -Path $md -Destination $tempMd -Force
+                    Update-MarkdownCommandHelp -Path $tempMd -NoBackup -ErrorAction Stop | Out-Null
+                    $new = Import-MarkdownCommandHelp -Path $tempMd -ErrorAction Stop 2>$null
+                }
+                finally
+                {
+                    Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+
                 # *>&1 folds Compare-CommandHelp's Information/Verbose trace into $trace as strings.
                 $trace = Compare-CommandHelp `
                     -ReferenceCommandHelp $old `

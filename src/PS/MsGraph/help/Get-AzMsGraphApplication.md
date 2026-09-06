@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.MsGraph.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: MsGraph
-ms.date: 08/19/2026
+ms.date: 09/01/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzMsGraphApplication
 ---

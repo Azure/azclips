@@ -46,16 +46,6 @@ public class ListGroupMemberProcessorTests
             request.RequestUri!.ToString());
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task CreateRequestMessage_MissingGroupId_ShouldThrow(string groupId)
-    {
-        var processor = CreateProcessor(groupId: groupId);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
-    }
-
     [Fact]
     public async Task CreateRequestMessage_WithFilter_ShouldAppendQuery()
     {

@@ -62,7 +62,7 @@ public abstract class StartupBenchmarkBase
     }
 
     /// <summary>ProcessStartInfo for a pwsh module-import + cmdlet invocation, stopping at the seam.</summary>
-    protected ProcessStartInfo PsStartInfo(string modulePsd1, string cmdlet)
+    protected ProcessStartInfo PsStartInfo(string modulePsd1, string cmdlet, params string[] args)
     {
         var psi = new ProcessStartInfo
         {
@@ -74,7 +74,8 @@ public abstract class StartupBenchmarkBase
         psi.ArgumentList.Add("-NoProfile");
         psi.ArgumentList.Add("-NonInteractive");
         psi.ArgumentList.Add("-Command");
-        psi.ArgumentList.Add($"Import-Module '{modulePsd1}'; {cmdlet} | Out-Null");
+        var call = args.Length == 0 ? cmdlet : $"{cmdlet} {string.Join(' ', args)}";
+        psi.ArgumentList.Add($"Import-Module '{modulePsd1}'; {call} | Out-Null");
         psi.Environment["AZCLIPS_BENCH_RESOLVE_ONLY"] = "true";
         return psi;
     }

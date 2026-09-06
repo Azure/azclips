@@ -19,6 +19,13 @@ export interface EmitterOptions {
   emitterName?: string;
   /** Override the IRSource.id (and the IRId.module string for types declared by this spec). */
   sourceId?: string;
+  /**
+   * API version selector read by TCGC (`createSdkContext` → `context.options`).
+   * A specific version string, `"latest"`, or `"all"`. Kebab-cased because TCGC
+   * reads the literal `"api-version"` key. The emitter itself does not consume
+   * it — declaring it here lets it pass the emitter's option-schema validation.
+   */
+  "api-version"?: string;
   /** If true, any warning-severity diagnostic causes a non-zero exit code. Default `false`. */
   diagnosticsAsErrors?: boolean;
 }
@@ -31,8 +38,14 @@ export const EMITTER_OPTION_DEFAULTS = {
   diagnosticsAsErrors: false,
 } as const;
 
-/** Resolve user-provided options against defaults. */
-export function resolveOptions(opts: EmitterOptions | undefined): Required<Omit<EmitterOptions, "sourceId">> & { sourceId?: string } {
+/**
+ * Resolve user-provided options against defaults.
+ *
+ * `sourceId` and `api-version` are excluded from the required set: they are
+ * optional pass-throughs the emitter never reads from here (`api-version` flows
+ * through the raw `context.options` to TCGC's `createSdkContext`).
+ */
+export function resolveOptions(opts: EmitterOptions | undefined): Required<Omit<EmitterOptions, "sourceId" | "api-version">> & { sourceId?: string } {
   const o = opts ?? {};
   return {
     outputFile: o.outputFile ?? EMITTER_OPTION_DEFAULTS.outputFile,

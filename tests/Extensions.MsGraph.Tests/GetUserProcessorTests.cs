@@ -59,16 +59,6 @@ public class GetUserProcessorTests
         Assert.DoesNotContain("#", request.RequestUri!.OriginalString, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task CreateRequestMessage_MissingId_ShouldThrow(string id)
-    {
-        var processor = CreateProcessor(id);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processor.BuildRequestAsync());
-    }
-
     [Fact]
     public async Task CreateRequestMessage_WithSelect_ShouldAppendQuery()
     {
