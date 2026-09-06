@@ -39,7 +39,7 @@ internal static class ScriptScenarioRunner
 
             var (shell, arguments) = scriptName.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
                 ? ("pwsh", new[] { "-NoProfile", "-File", scriptPath })
-                : ("bash", [scriptPath]);
+                : (ResolveBash(), [scriptPath]);
 
             var psi = new ProcessStartInfo
             {
@@ -84,6 +84,36 @@ internal static class ScriptScenarioRunner
             try { Directory.Delete(home, recursive: true); } catch { }
         }
     }
+
+    // On Windows, PATH's bash is often the System32 WSL relay, which fails without a distro.
+    // Git's bash is present wherever the repo was cloned, so prefer it; null means no usable
+    // bash, and bash scenarios skip instead of failing.
+    internal static string? TryResolveBash()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return "bash";
+        }
+
+        string?[] roots =
+        [
+            Environment.GetEnvironmentVariable("ProgramFiles"),
+            Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
+            Environment.GetEnvironmentVariable("LocalAppData") is { } local ? Path.Combine(local, "Programs") : null,
+        ];
+        foreach (var root in roots)
+        {
+            if (root is not null && Path.Combine(root, "Git", "bin", "bash.exe") is var candidate && File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static string ResolveBash()
+        => TryResolveBash()
+           ?? throw new InvalidOperationException("No usable bash found; on Windows only Git's bash works, the System32 relay needs WSL.");
 
     private static void SeedPlaybackProfile(string home)
     {
