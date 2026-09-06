@@ -367,13 +367,19 @@ public class IdentityExtensionTests
             {
                 return Json("""
                     {
+                      "id": "/subscriptions/s/resourceGroups/rg1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id1",
                       "name": "id1",
+                      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
                       "location": "eastus",
                       "tags": { "old": "remove-me", "env": "dev" },
                       "properties": {
                         "assignmentRestrictions": { "providers": ["Microsoft.Compute"] },
-                        "isolationScope": "None"
-                      }
+                        "isolationScope": "None",
+                        "tenantId": "tenant-1",
+                        "principalId": "principal-1",
+                        "clientId": "client-1"
+                      },
+                      "systemData": {}
                     }
                     """);
             }
@@ -397,12 +403,20 @@ public class IdentityExtensionTests
         Assert.Equal([HttpMethod.Get, HttpMethod.Patch], sentRequests.Select(request => request.Method).ToArray());
         string body = await sentRequests[1].Content!.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(body);
+        Assert.False(doc.RootElement.TryGetProperty("id", out _));
+        Assert.False(doc.RootElement.TryGetProperty("name", out _));
+        Assert.False(doc.RootElement.TryGetProperty("type", out _));
+        Assert.False(doc.RootElement.TryGetProperty("systemData", out _));
         Assert.False(doc.RootElement.GetProperty("tags").TryGetProperty("old", out _));
         Assert.Equal("prod", doc.RootElement.GetProperty("tags").GetProperty("env").GetString());
-        Assert.Equal("Regional", doc.RootElement.GetProperty("properties").GetProperty("isolationScope").GetString());
+        JsonElement properties = doc.RootElement.GetProperty("properties");
+        Assert.False(properties.TryGetProperty("tenantId", out _));
+        Assert.False(properties.TryGetProperty("principalId", out _));
+        Assert.False(properties.TryGetProperty("clientId", out _));
+        Assert.Equal("Regional", properties.GetProperty("isolationScope").GetString());
         Assert.Equal(
             ["Microsoft.Storage", "Microsoft.KeyVault"],
-            doc.RootElement.GetProperty("properties").GetProperty("assignmentRestrictions").GetProperty("providers")
+            properties.GetProperty("assignmentRestrictions").GetProperty("providers")
                 .EnumerateArray()
                 .Select(provider => provider.GetString()!)
                 .ToArray());

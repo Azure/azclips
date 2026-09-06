@@ -73,6 +73,24 @@ internal static class IdentityJsonPatchHelper
         }
     }
 
+    internal static void RemovePaths(JsonObject target, params string[] paths)
+    {
+        foreach (string path in paths)
+        {
+            var segments = SplitPath(path);
+            if (segments.Length == 0)
+            {
+                continue;
+            }
+
+            JsonObject? parent = segments.Length == 1
+                ? target
+                : ResolvePath(target, string.Join('.', segments[..^1]), create: false) as JsonObject;
+
+            parent?.Remove(segments[^1]);
+        }
+    }
+
     private static JsonNode? ParseLooseCliValue(string value, bool forceString)
     {
         if (forceString)

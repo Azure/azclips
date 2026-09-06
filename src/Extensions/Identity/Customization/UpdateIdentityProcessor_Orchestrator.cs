@@ -2,8 +2,10 @@
 // Licensed under the MIT License.
 
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Identity.Models;
@@ -13,6 +15,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Customization;
 
 public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
 {
+    private static readonly string[] ReadOnlyIdentityPatchBodyPaths =
+    [
+        JsonPropertyName<UserAssignedIdentity>(nameof(UserAssignedIdentity.Id)),
+        JsonPropertyName<UserAssignedIdentity>(nameof(UserAssignedIdentity.Name)),
+        JsonPropertyName<UserAssignedIdentity>(nameof(UserAssignedIdentity.Type)),
+        JsonPropertyName<UserAssignedIdentity>(nameof(UserAssignedIdentity.SystemData)),
+        JsonPath<UserAssignedIdentity, UserAssignedIdentityProperties>(
+            nameof(UserAssignedIdentity.Properties),
+            nameof(UserAssignedIdentityProperties.TenantId)),
+        JsonPath<UserAssignedIdentity, UserAssignedIdentityProperties>(
+            nameof(UserAssignedIdentity.Properties),
+            nameof(UserAssignedIdentityProperties.PrincipalId)),
+        JsonPath<UserAssignedIdentity, UserAssignedIdentityProperties>(
+            nameof(UserAssignedIdentity.Properties),
+            nameof(UserAssignedIdentityProperties.ClientId)),
+    ];
+
     private JsonObject? patchBodyOverride;
 
     [ArgumentInfo(
@@ -120,6 +139,7 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
             {
                 IdentityJsonPatchHelper.MergePatch(patchBody, BuildPatchBody());
                 IdentityJsonPatchHelper.ApplyGenericUpdate(patchBody, Set, Add, Remove, ParseForceString());
+                IdentityJsonPatchHelper.RemovePaths(patchBody, ReadOnlyIdentityPatchBodyPaths);
             }
             patchBodyOverride = patchBody;
         }
@@ -191,4 +211,11 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
             _ => throw new InvalidOperationException($"Invalid --force-string value '{ForceString}'.")
         };
     }
+
+    private static string JsonPath<TParent, TChild>(string parentPropertyName, string childPropertyName) =>
+        $"{JsonPropertyName<TParent>(parentPropertyName)}.{JsonPropertyName<TChild>(childPropertyName)}";
+
+    private static string JsonPropertyName<T>(string propertyName) =>
+        typeof(T).GetProperty(propertyName)?.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
+        ?? throw new InvalidOperationException($"Property '{typeof(T).Name}.{propertyName}' does not define {nameof(JsonPropertyNameAttribute)}.");
 }
