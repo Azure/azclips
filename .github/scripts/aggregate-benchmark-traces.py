@@ -553,6 +553,20 @@ def relative_age(generated):
     return f"{days} days ago"
 
 
+def ref_label(ref):
+    """Short side label for a git ref: 'PR', the branch name, or 'run' when absent."""
+    ref = (ref or "").strip()
+    if not ref:
+        return "run"
+    if ref.startswith("refs/pull/"):
+        return "PR"
+    if ref.startswith("refs/heads/"):
+        return ref[len("refs/heads/"):] or "run"
+    if ref.startswith("refs/tags/"):
+        return ref[len("refs/tags/"):] or "run"
+    return ref
+
+
 def render_comparison(baseline, current):
     """Render main and this run as two trees sharing one row order.
 
@@ -618,9 +632,15 @@ def render_comparison(baseline, current):
     if subtitle:
         lines.append(f" {subtitle}")
     lines.append("")
-    lines.append((f"{heading(baseline, 'main', True):^{side_width}}"
+    baseline_tag = ref_label((baseline.source or {}).get("ref"))
+    current_tag = ref_label((current.source or {}).get("ref"))
+    if baseline_tag == current_tag:
+        # Both sides on the same ref (a push comparing against its predecessor);
+        # distinguish them by age rather than by an identical label.
+        baseline_tag, current_tag = f"{baseline_tag} (baseline)", f"{current_tag} (current)"
+    lines.append((f"{heading(baseline, baseline_tag, True):^{side_width}}"
                   + " │         │ "
-                  + f"{heading(current, 'PR', False):^{side_width}}").rstrip())
+                  + f"{heading(current, current_tag, False):^{side_width}}").rstrip())
     lines.append(f"{'AVG':>12}  {'%ROOT':>5}".ljust(side_width)
                  + " │    Δ%   │ " + f"{'AVG':>12}  {'%ROOT':>5}")
 
@@ -634,7 +654,7 @@ def render_comparison(baseline, current):
                       + cell(current, path, connector, current_scale)).rstrip())
 
     notes = []
-    for tag, report in (("main", baseline), ("PR", current)):
+    for tag, report in ((baseline_tag, baseline), (current_tag, current)):
         detail = []
         if report.orphan_subtrees:
             detail.append(f"{report.orphan_subtrees} orphan subtree(s) dropped")
@@ -649,9 +669,9 @@ def render_comparison(baseline, current):
     only_current = sum(1 for path, _ in rows if path not in baseline.nodes)
     shape = []
     if only_baseline:
-        shape.append(f"{only_baseline} node(s) only in main")
+        shape.append(f"{only_baseline} node(s) only in {baseline_tag}")
     if only_current:
-        shape.append(f"{only_current} node(s) only in PR")
+        shape.append(f"{only_current} node(s) only in {current_tag}")
     if shape:
         notes.append(", ".join(shape) + " — tree shape changed")
 
@@ -711,6 +731,12 @@ def run(args):
     reports = [aggregate_file(*item) for item in files]
     usable = [report for report in reports if report.trace_count > 0]
     print(f"[traces] aggregated {len(usable)} benchmark(s) from {len(files)} file(s)")
+
+    # Record provenance up front so the heading names this run even when no sidecar
+    # is written; the reload below overwrites it with the same values.
+    for report in usable:
+        report.source = {"commit": args.commit or "", "ref": args.ref or "",
+                         "run_id": args.run_id or "", "generated": ""}
 
     if args.sidecar_out:
         written = write_sidecars(args.sidecar_out, usable,
