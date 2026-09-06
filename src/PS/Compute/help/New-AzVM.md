@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 09/01/2026
+ms.date: 09/06/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVM
 ---
@@ -27,8 +27,8 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
  [-RuleNames <string[]>] [-RuleDirections <string[]>] [-RuleProtocols <string[]>]
  [-RulePriorities <int[]>] [-RuleSourceAddressPrefixes <string[]>]
  [-RuleSourcePortRanges <string[]>] [-RuleDestinationPortRanges <string[]>]
- [-RuleDestinationAddressPrefixes <string[]>] [-RuleAccesses <string[]>] [-Profile <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-RuleDestinationAddressPrefixes <string[]>] [-RuleAccesses <string[]>] [-AcceleratedNetworking]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -52,6 +52,27 @@ New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Locati
 ```
 
 ## PARAMETERS
+
+### -AcceleratedNetworking
+
+{{ Fill AcceleratedNetworking Description }}
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -AddressPrefixes
 
@@ -562,6 +583,7 @@ HelpMessage: ''
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.

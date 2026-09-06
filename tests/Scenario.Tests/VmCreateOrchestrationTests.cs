@@ -147,6 +147,42 @@ public class VmCreateOrchestrationTests
         AssertVm(host.RunCli(s_cliArgs));
     }
 
+    [Fact]
+    public void AcceleratedNetworking_IsOffByDefault_AndOptIn()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli(s_cliArgs));
+        }
+        Assert.Contains("\"enableAcceleratedNetworking\":false", NicBody(record));
+
+        record = new SessionRecord();
+        recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.CLI, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunCli(s_groupArgs);
+            AssertVm(host.RunCli([.. s_cliArgs, "--accelerated-networking", "true"]));
+        }
+        Assert.Contains("\"enableAcceleratedNetworking\":true", NicBody(record));
+
+        record = new SessionRecord();
+        recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]))
+        {
+            host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+            var parameters = PsParameters();
+            parameters["AcceleratedNetworking"] = true;
+            AssertVm(host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+        }
+        Assert.Contains("\"enableAcceleratedNetworking\":true", NicBody(record));
+
+        static string NicBody(SessionRecord record)
+            => record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/")).Request.Body!;
+    }
+
     private static void AssertVm(IReadOnlyList<object> outputs)
     {
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
