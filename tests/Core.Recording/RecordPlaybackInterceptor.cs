@@ -10,10 +10,7 @@ namespace Core.Recording;
 
 public enum RecorderMode
 {
-    /// <summary>Send requests through the real pipeline tail and capture each exchange into the session record.</summary>
     Record,
-
-    /// <summary>Serve responses from the session record; the network is never touched.</summary>
     Playback,
 }
 

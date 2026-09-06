@@ -22,18 +22,12 @@ public static class RecorderModeResolver
     /// </summary>
     public static RecorderMode Parse(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return RecorderMode.Playback;
-        }
+        if (string.IsNullOrWhiteSpace(value)) return RecorderMode.Playback;
 
         var trimmed = value.Trim();
         foreach (var mode in Enum.GetValues<RecorderMode>())
         {
-            if (string.Equals(trimmed, mode.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                return mode;
-            }
+            if (string.Equals(trimmed, mode.ToString(), StringComparison.OrdinalIgnoreCase)) return mode;
         }
 
         var valid = string.Join(", ", Enum.GetNames<RecorderMode>());

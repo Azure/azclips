@@ -8,7 +8,6 @@
     <Project Path="src/Core/Core.Authentication/Core.Authentication.csproj" />
     <Project Path="src/Core/Core.Engine/Core.Engine.csproj" />
     <Project Path="src/Core/Core.Telemetry/Core.Telemetry.csproj" />
-    <Project Path="src/Core/Core.Recording/Core.Recording.csproj" />
     <Project Path="src/Core/Core.Runtime/Core.Runtime.csproj" />
     <Project Path="src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
     <Project Path="src/Core/Core.AssemblyLoading/Core.AssemblyLoading.csproj" />
@@ -41,6 +40,7 @@
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Cmdlets.Tests/Cmdlets.Tests.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
+    <Project Path="tests/Core.Recording/Core.Recording.csproj" />
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />
@@ -53,6 +53,7 @@
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
+  <Folder Name="/tools/" />
   <Folder Name="/tools/Help/">
       <Project Path="tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj" />
       <Project Path="tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" />

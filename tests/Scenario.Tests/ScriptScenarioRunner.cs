@@ -59,6 +59,9 @@ internal static class ScriptScenarioRunner
             psi.Environment["AZCLIPS_HOME"] = home.Replace('\\', '/');
             psi.Environment[RecordingHook.RecordingPathVariable] = recordingCopy.Replace('\\', '/');
             psi.Environment["AZCLIPS_TEST_AZ"] = ResolveCliBinary(repoRoot).Replace('\\', '/');
+            // The product has no test awareness; the runtime injects the recording assembly
+            // into every spawned az and pwsh process.
+            psi.Environment["DOTNET_STARTUP_HOOKS"] = typeof(RecordingHook).Assembly.Location;
             // Script tests always replay; an ambient record-mode run must not leak in.
             psi.Environment.Remove(RecorderModeResolver.EnvironmentVariable);
 
