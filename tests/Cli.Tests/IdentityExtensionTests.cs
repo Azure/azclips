@@ -456,6 +456,54 @@ public class IdentityExtensionTests
     }
 
     [Fact]
+    public async Task UpdateOrchestrator_MultipleIdsWithGenericUpdate_BuildsPatchBodyPerChildInstance()
+    {
+        var sentRequests = new List<HttpRequestMessage>();
+        var pipeline = CreatePipeline((request, _) =>
+        {
+            sentRequests.Add(CloneRequest(request).GetAwaiter().GetResult());
+            string name = request.RequestUri!.ToString().Contains("/id1?", StringComparison.Ordinal)
+                ? "id1"
+                : "id2";
+
+            if (request.Method == HttpMethod.Get)
+            {
+                return Json($$"""
+                    {
+                      "name": "{{name}}",
+                      "location": "eastus",
+                      "tags": { "env": "dev" },
+                      "properties": { "isolationScope": "None" }
+                    }
+                    """);
+            }
+
+            return Json($$"""{ "name": "{{name}}", "location": "eastus", "properties": { "isolationScope": "Regional" } }""");
+        });
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(pipeline, output, profile: null);
+        processor.Ids =
+        [
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id1",
+            $"/subscriptions/{TestSubscriptionId}/resourceGroups/rg2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id2",
+        ];
+        processor.Set = ["properties.isolationScope=Regional"];
+
+        await processor.ProcessAsync();
+
+        HttpRequestMessage[] patchRequests = [.. sentRequests.Where(request => request.Method == HttpMethod.Patch)];
+        Assert.Equal(2, patchRequests.Length);
+        foreach (HttpRequestMessage patchRequest in patchRequests)
+        {
+            string body = await patchRequest.Content!.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(body);
+            Assert.Equal("Regional", doc.RootElement.GetProperty("properties").GetProperty("isolationScope").GetString());
+            Assert.Equal("dev", doc.RootElement.GetProperty("tags").GetProperty("env").GetString());
+        }
+    }
+
+    [Fact]
     public async Task UpdateOrchestrator_AllowsMultipleIds_AndSkipsNoContentResponses()
     {
         var sentRequests = new List<HttpRequestMessage>();

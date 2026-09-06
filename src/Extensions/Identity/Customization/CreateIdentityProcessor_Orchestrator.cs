@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Extensions.Identity.Models;
 using Microsoft.Azure.Azclips.Extensions.Identity.Processors;
 
 namespace Microsoft.Azure.Azclips.Extensions.Identity.Customization;
@@ -20,10 +21,10 @@ public class CreateIdentityProcessor_Orchestrator : CreateIdentityProcessor
     SerializedName = @"ResourceRestriction")]
     public string[]? ResourceRestriction { get; set; }
 
-    internal override Task<HttpResponseMessage> SendAsync()
+    protected override UserAssignedIdentity CreateRequestBody()
     {
         Tags = IdentityCliArgumentParser.ParseTags(TagsInput);
         ResourceRestrictionProviders = IdentityCliArgumentParser.ParseResourceRestrictionProviders(ResourceRestriction);
-        return base.SendAsync();
+        return base.CreateRequestBody();
     }
 }
