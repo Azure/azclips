@@ -1,5 +1,5 @@
 {
-  "moniker": "azclipsps-preview",
+  "moniker": "azps-100.0.0",
   "targetRepoPath": "../azure-docs-powershell",
   "targetModuleNamePattern": "Az.{ModuleName}",
   "sourcePsRoot": "src/PS",
