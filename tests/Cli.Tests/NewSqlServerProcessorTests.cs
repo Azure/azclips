@@ -3,6 +3,7 @@
 
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Sql.Processors;
@@ -153,10 +154,13 @@ public class NewSqlServerProcessorTests
 
         string body = Assert.IsType<string>(recorder.Bodies[0]);
         // Tags belong to TrackedResource, so they must sit beside "location", never inside "properties".
-        Assert.Contains("\"tags\":{\"env\":\"prod\",\"cost\":\"cc-1234\"}", body);
-        int tagsIndex = body.IndexOf("\"tags\"", StringComparison.Ordinal);
-        int propertiesIndex = body.IndexOf("\"properties\"", StringComparison.Ordinal);
-        Assert.True(tagsIndex < propertiesIndex, "tags must be serialized on the envelope, before properties");
+        using JsonDocument document = JsonDocument.Parse(body);
+        JsonElement root = document.RootElement;
+
+        JsonElement tags = root.GetProperty("tags");
+        Assert.Equal("prod", tags.GetProperty("env").GetString());
+        Assert.Equal("cc-1234", tags.GetProperty("cost").GetString());
+        Assert.False(root.GetProperty("properties").TryGetProperty("tags", out _), "tags must not be nested under properties");
     }
 
     [Fact]

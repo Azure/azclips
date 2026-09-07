@@ -26,8 +26,8 @@
 # This script asserts on the responses instead of only printing them, so a silent
 # behavior change fails the run. Exit code is non-zero when any assertion fails.
 
-Import-Module ../../../src/PS/Login/Login.psd1
-Import-Module ../../../src/PS/Sql/Sql.psd1
+Import-Module $PSScriptRoot/../../../src/PS/Login/Login.psd1
+Import-Module $PSScriptRoot/../../../src/PS/Sql/Sql.psd1
 
 $sub = 'f758ac53-3e63-4317-a956-0997793808d7'
 $rg  = 'rg-sql-test'

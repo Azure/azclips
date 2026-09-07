@@ -23,7 +23,17 @@
 # Run unattended: on a command ERROR az normally hands off to the interactive
 # agent-mode TUI (which would block on input). Disable the agent via config so the
 # classic error and a non-zero exit surface instead, and the negative cases below
-# don't hang.
+# don't hang. The previous value is restored on exit so the script does not leave
+# the developer's or the CI agent's global az config mutated.
+PREV_AGENT_ENABLED=$(az config get --key agent.enabled --query value -o tsv 2>/dev/null)
+restore_agent_config() {
+    if [ -n "$PREV_AGENT_ENABLED" ]; then
+        az config set --key agent.enabled --value "$PREV_AGENT_ENABLED" >/dev/null 2>&1
+    else
+        az config unset --key agent.enabled >/dev/null 2>&1
+    fi
+}
+trap restore_agent_config EXIT
 az config set --key agent.enabled --value false
 
 # No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
