@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788754951714,
+  "lastUpdate": 1788768008443,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -8528,6 +8528,48 @@ window.BENCHMARK_DATA = {
             "value": 2547419.7801296334,
             "unit": "ns",
             "range": "± 106642.00057885342"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b52c031228e57579b95524e46cbaac0c91f083d7",
+          "message": "[Auth] Rename Az.Login module and Login extension to Az.Accounts (#804)\n\n**Related command**\n\nAz.Accounts (Connect-AzAccount, Disconnect-AzAccount, Get-AzProfile,\nSet-AzProfile, Remove-AzProfile); az login / az logout / az profile\n\n**Description**\n\nRenames the authentication surface from `Login` to `Accounts` so the\npreview matches the shipping Azure PowerShell name `Az.Accounts`. Two\nlogical steps (one commit each):\n\n1. PowerShell module `Az.Login` -> `Az.Accounts`: folder `src/PS/Login`\n-> `src/PS/Accounts`, `Login.psd1` -> `Accounts.psd1`,\nassembly/namespace `Microsoft.Azure.Azclips.Cmdlets.Login` ->\n`...Cmdlets.Accounts`, and the `Az` rollup plus\n`Compute`/`Config`/`Resources`/`MsGraph` `RequiredModules` references.\n2. Extension `Login` -> `Accounts`: folder `src/Extensions/Login` ->\n`src/Extensions/Accounts`, assembly/namespace\n`Microsoft.Azure.Azclips.Extensions.Login` -> `...Extensions.Accounts`,\nand `Constants.ExtensionName` (the short name the cmdlets hand to\n`LoadExtension`).\n\nUser/maintainer impact:\n- The imported module is now `Accounts` (`Import-Module Accounts.psd1`,\n`Get-Command -Module Accounts`).\n- The bundled extension short name is now `Accounts` (`az extension add\n--name Accounts`).\n- No behavior change to cmdlets or CLI verbs: `Connect-AzAccount` and\n`az login` / `az logout` / `az profile` are unchanged. Processor class\nnames (`LoginProcessor`, etc.) are also unchanged.\n\n**Testing Guide**\n\n    dotnet build azclips.slnx -c Debug\n    dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Debug\ndotnet test tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj -c\nDebug\n    dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj -c Debug\n\nManual smoke:\n\n    ./artifacts/Debug/Core.Cli/az login --help\n    ./artifacts/Debug/Core.Cli/az profile list\npwsh -NoProfile -c \"Import-Module ./src/PS/Accounts/Accounts.psd1\n-Force; (Get-Command -Module Accounts).Name\"\n\nExpected: build clean; Cli.Tests 634 passed / 8 skipped,\nCore.Extensions.Tests 82 passed, Cmdlets.Tests 100 passed; `az\nlogin`/`az profile` resolve; the module exports the five cmdlets.\n\nNote for reviewers/local envs: any previously installed pre-rename\nextension at\n`~/.azclips/extensions/Microsoft.Azure.Azclips.Extensions.Login` must be\nremoved, otherwise it collides with the bundled `Accounts` extension\n(both claim the `login` verb) and every `az` command fails with\n`Duplicate leaf '(login, )'`.\n\n**History Notes**\n\n[PowerShell] `Az.Accounts`: Rename the `Az.Login` module to\n`Az.Accounts`\n[CLI] `az extension`: Rename the bundled Login extension to Accounts\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-07T17:39:08+10:00",
+          "tree_id": "fce52aa36cb05b9a03197ca15d97609039758f5b",
+          "url": "https://github.com/Azure/azclips/commit/b52c031228e57579b95524e46cbaac0c91f083d7"
+        },
+        "date": 1788768005522,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 2557986.707297514,
+            "unit": "ns",
+            "range": "± 95382.79829294492"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 4959124.811156186,
+            "unit": "ns",
+            "range": "± 148540.399919333"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 2538825.220297534,
+            "unit": "ns",
+            "range": "± 111606.9928496649"
           }
         ]
       }
