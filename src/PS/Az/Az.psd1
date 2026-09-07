@@ -9,9 +9,10 @@ Copyright = '(c) Microsoft. All rights reserved.'
 Description = 'Rollup module for Azure PowerShell cmdlets'
 PowerShellVersion = '7.6'
 RequiredModules = @(
-    @{ ModuleName = '../Login/Login.psd1'; ModuleVersion = '0.1.0' },
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Compute/Compute.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Resources/Resources.psd1'; ModuleVersion = '0.1.0' },
+    @{ ModuleName = '../Identity/Identity.psd1'; ModuleVersion = '0.1.0' },
     @{ ModuleName = '../Config/Config.psd1'; ModuleVersion = '0.1.0' }
 )
 FunctionsToExport = @()

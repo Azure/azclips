@@ -113,10 +113,12 @@ tests/Benchmark/
 │   ├── CLIBenchmarkBase.cs                       # BDN attributes, extension staging + DI overrides
 │   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
 │   ├── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG  [Resources]
+│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update UAI [Identity]
 │   └── VirtualMachineBenchmarks.cs               # CLI: List / Create / Get VM  [Compute]
 └── PS/
     ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + module-import helper
     ├── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG   [Resources]
+    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update UAI [Identity]
     └── VirtualMachineBenchmarks.cs               # PS: List / Create / Get VM   [Compute]
 ```
 
@@ -158,6 +160,17 @@ Create is a long-running operation; the benchmark stub returns `Retry-After: 0` 
 minimally-shaped virtual-network body so the orchestrated create completes without
 real polling. See "Project Structure" and `tests/Common/Stubs/`.
 
+### Identity (User-Assigned Managed Identity)
+
+Azure user-assigned managed identity operations, run against the resource-aware stubbed HTTP (no real Azure calls):
+
+| Operation | CLI command | PowerShell cmdlet | Notes |
+|-----------|-------------|-------------------|-------|
+| List | `identity list` | `Get-AzUserAssignedIdentity` (by resource group) | GET, non-LRO |
+| Create | `identity create` | `New-AzUserAssignedIdentity` | PUT, includes tags, isolation scope, and resource restrictions |
+| Get | `identity show` | `Get-AzUserAssignedIdentity -Name` | GET, non-LRO |
+| Update | `identity update` | `Update-AzUserAssignedIdentity` | PATCH, updates tags and isolation scope |
+
 ---
 
 ## Telemetry & Feedback Loop
@@ -180,7 +193,7 @@ Aggregated benchmark results are what get exported to App Insights. Command-leve
 
 1. Add `CLI/<Resource>Benchmarks.cs` and `PS/<Resource>Benchmarks.cs`, each tagged
    `[BenchmarkExtension("<Name>")]`. Use a single, title-cased `<Name>` (e.g. `Compute`,
-   `Login`) — it becomes the dashboard title (`Azclips <Name> CLI Benchmarks`).
+   `Accounts`) — it becomes the dashboard title (`Azclips <Name> CLI Benchmarks`).
    `RequiredExtensions` (CLI) and `ModuleName` (PS) are derived from the attribute, so
    there is nothing else to wire up on the class.
 2. Keep the product source under `src/Extensions/<Name>/` (and/or `src/PS/<Name>/`) —

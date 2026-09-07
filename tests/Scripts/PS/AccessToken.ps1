@@ -7,14 +7,14 @@
 #
 # Prereqs:
 #   1. Build the solution:   pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
-#   2. Import the Login module (below).
+#   2. Import the Accounts module (below).
 #   3. Sign in:              Connect-AzAccount -TenantId <tenant>
 #
 # Usage: pwsh -NoProfile -File .\tests\Scripts\PS\AccessToken.ps1
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
-Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Login\Login.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
 
 $PlaintextEnvVar = 'AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN'
 

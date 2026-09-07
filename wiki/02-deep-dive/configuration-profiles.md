@@ -266,11 +266,11 @@ stateDiagram-v2
     end note
 ```
 
-### Profile management commands (in the Login extension)
+### Profile management commands (in the Accounts extension)
 
-The CRUD/switch verbs are **not** in a separate extension — they live in the Login extension
-under `src/Extensions/Login/Processors/`, all deriving from `ProfileProcessorBase`
-(`src/Extensions/Login/Processors/ProfileProcessorBase.cs:10`), which deliberately does **not**
+The CRUD/switch verbs are **not** in a separate extension — they live in the Accounts extension
+under `src/Extensions/Accounts/Processors/`, all deriving from `ProfileProcessorBase`
+(`src/Extensions/Accounts/Processors/ProfileProcessorBase.cs:10`), which deliberately does **not**
 require a resolved `Profile` on the context:
 
 | Command             | Processor                | Behavior                                                                                     |
@@ -281,7 +281,7 @@ require a resolved `Profile` on the context:
 | `az profile remove` | `ProfileRemoveProcessor` | Deletes a definition; if it was active, clears the pointer (**no fallback to default**)      |
 
 `ProfileSetProcessor` is the switch primitive — it resolves the named profile and only writes
-the pointer, never re-authenticating (`src/Extensions/Login/Processors/ProfileSetProcessor.cs:16`):
+the pointer, never re-authenticating (`src/Extensions/Accounts/Processors/ProfileSetProcessor.cs:16`):
 
 ```csharp
 Profile profile = await profileService.GetProfileAsync(Name)
@@ -298,7 +298,7 @@ of `login` (design Non-Goals). User-facing creation would go through
 
 `LoginProcessor` was repurposed to build and return a `Profile` (Decision 7). It reconciles
 two mutually-exclusive flags before any authentication runs
-(`src/Extensions/Login/Processors/LoginProcessor.cs:36`):
+(`src/Extensions/Accounts/Processors/LoginProcessor.cs:36`):
 
 - **Bare `az login`** → saves the connection to the reserved profile named `"default"`,
   overwriting any previous default (`ReservedDefaultName`, `ProfileNameValidator.cs:14`).
@@ -397,7 +397,7 @@ active pointer — even though `prod` happens to be active after the login.
 | Abstraction       | `IConfigurationService`                     | `IProfileService`                                    |
 | Impl              | `ConfigurationService` (Core.Configuration) | `ProfileService` (Core.Runtime)                      |
 | Concurrency       | `{path}.lock` file (cross-process spin)     | `SemaphoreSlim _gate` + atomic temp+rename           |
-| Command home      | `Config` extension                          | `Login` extension                                    |
+| Command home      | `Config` extension                          | `Accounts` extension                                    |
 | Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `default`) |
 
 The one place they touch: `agent.enabled` / `agent.provider` (configuration) gate the AI agent,
@@ -415,7 +415,7 @@ user is signed in — see the [AI Agent](./ai-agent.md) page.
 - `src/Core/Core.Abstractions/CoreOptions.cs`, `TelemetryOptions.cs`, `AgentOptions.cs` — typed known keys
 - `src/Core/Core.Runtime/ProfileService.cs` — file-backed store, `_gate`, atomic writes
 - `src/Core/Core.Abstractions/IProfileService.cs`, `Models/Profile.cs`, `ProfileNameValidator.cs`
-- `src/Extensions/Login/Processors/LoginProcessor.cs`, `ProfileSetProcessor.cs`, `ProfileListProcessor.cs`, `ProfileShowProcessor.cs`, `ProfileRemoveProcessor.cs`, `ProfileProcessorBase.cs`
+- `src/Extensions/Accounts/Processors/LoginProcessor.cs`, `ProfileSetProcessor.cs`, `ProfileListProcessor.cs`, `ProfileShowProcessor.cs`, `ProfileRemoveProcessor.cs`, `ProfileProcessorBase.cs`
 - `src/Core/Core.Engine/Engine.cs` — `ResolveProfileAsync` and context wiring
 - `openspec/changes/profile-management/design.md` — Decisions 1–8 (storage, temp login, global `--profile`, AuthContext removal, logout, login output)
 - `docs/azure-cli/docs-conceptual/config.md`, `eng-docs/spec/config-implementation.md`

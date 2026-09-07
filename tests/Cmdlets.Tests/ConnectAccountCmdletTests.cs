@@ -6,9 +6,9 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Runtime;
-using Microsoft.Azure.Azclips.Cmdlets.Login;
-using Microsoft.Azure.Azclips.Extensions.Login;
-using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 
 namespace Cmdlets.Tests;
 
@@ -83,6 +83,34 @@ public class ConnectAccountCmdletTests
         Assert.NotNull(alias);
         Assert.Contains("MSI", alias!.AliasNames);
         Assert.Contains("ManagedIdentity", alias.AliasNames);
+        // Az PowerShell's own alias for -Identity; existing scripts depend on it.
+        Assert.Contains("ManagedService", alias.AliasNames);
+    }
+
+    [Fact]
+    public void Cmdlet_ClientId_ShouldAliasAccountId()
+    {
+        // Connect-AzAccount -Identity -AccountId <clientId> is the Az PowerShell spelling.
+        var alias = (AliasAttribute?)typeof(ConnectAccountCmdlet)
+            .GetProperty("ClientId")!
+            .GetCustomAttributes(typeof(AliasAttribute), inherit: true)
+            .SingleOrDefault();
+
+        Assert.NotNull(alias);
+        Assert.Contains("AccountId", alias!.AliasNames);
+    }
+
+    [Fact]
+    public void PSMetadata_ShouldResolveLegacyManagedIdentityAliases()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
+
+        Assert.Equal("Identity", metadata.ParameterAliases["ManagedService"]);
+        Assert.Equal("Identity", metadata.ParameterAliases["MSI"]);
+        Assert.Equal("Identity", metadata.ParameterAliases["ManagedIdentity"]);
+        Assert.Equal("ClientId", metadata.ParameterAliases["AccountId"]);
+        Assert.Contains("ManagedService", metadata.Parameters["Identity"].Aliases);
+        Assert.Contains("AccountId", metadata.Parameters["ClientId"].Aliases);
     }
 
     [Fact]

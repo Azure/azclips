@@ -3,7 +3,7 @@
 
 using Core.DependencyInjection;
 using Core.Telemetry;
-using Microsoft.Azure.Azclips.Cmdlets.Login;
+using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Trace;
 

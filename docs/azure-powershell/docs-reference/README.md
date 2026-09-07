@@ -23,7 +23,7 @@ and examples.
 - [Remove-AzConfig][07]
 - [Set-AzConfig][08]
 
-## Az.Login
+## Az.Accounts
 
 - [Connect-AzAccount][09]
 - [Disconnect-AzAccount][10]
@@ -50,12 +50,12 @@ and examples.
 [06]: ../../../src/PS/Config/help/Get-AzConfigList.md
 [07]: ../../../src/PS/Config/help/Remove-AzConfig.md
 [08]: ../../../src/PS/Config/help/Set-AzConfig.md
-[09]: ../../../src/PS/Login/help/Connect-AzAccount.md
-[10]: ../../../src/PS/Login/help/Disconnect-AzAccount.md
-[11]: ../../../src/PS/Login/help/Get-AzAccessToken.md
-[12]: ../../../src/PS/Login/help/Get-AzProfile.md
-[13]: ../../../src/PS/Login/help/Remove-AzProfile.md
-[14]: ../../../src/PS/Login/help/Set-AzProfile.md
+[09]: ../../../src/PS/Accounts/help/Connect-AzAccount.md
+[10]: ../../../src/PS/Accounts/help/Disconnect-AzAccount.md
+[11]: ../../../src/PS/Accounts/help/Get-AzAccessToken.md
+[12]: ../../../src/PS/Accounts/help/Get-AzProfile.md
+[13]: ../../../src/PS/Accounts/help/Remove-AzProfile.md
+[14]: ../../../src/PS/Accounts/help/Set-AzProfile.md
 [15]: ../../../src/PS/Resources/help/Get-AzResourceGroup.md
 [16]: ../../../src/PS/Resources/help/Invoke-AzRestMethod.md
 [17]: ../../../src/PS/Resources/help/New-AzResourceGroup.md

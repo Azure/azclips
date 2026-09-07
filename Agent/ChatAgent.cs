@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Common;
@@ -5,6 +6,7 @@ using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
 using Core.Agent.Providers;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Help;
@@ -362,6 +364,8 @@ public sealed class ChatAgent : IAsyncDisposable
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
         oldCts?.Dispose();
+        using var send = AgentTracing.Source.StartActivity("Agent.Send");
+        send?.SetTag(TelemetryTags.AgentModel, _model);
         try
         {
             await _session.SendAndWaitAsync(

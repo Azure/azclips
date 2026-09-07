@@ -22,7 +22,7 @@ internal static class PSManifestStager
     };
 
     // Matches a RequiredModules entry that references a sibling manifest by relative path,
-    // e.g. ModuleName = '../Login/Login.psd1' — capturing the module (directory) name.
+    // e.g. ModuleName = '../Accounts/Accounts.psd1' — capturing the module (directory) name.
     private static readonly Regex RequiredModuleReference = new(
         @"ModuleName\s*=\s*'(?:\.\./)+(?<name>[^'/]+)/[^']*\.psd1'",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);

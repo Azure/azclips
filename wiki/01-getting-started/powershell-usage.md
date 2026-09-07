@@ -12,22 +12,22 @@ PowerShell users expect object output, pipelines, and cmdlet ergonomics — not 
 
 ## Modules and Cmdlets
 
-The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `Cmdlets.Resources`, `Cmdlets.Compute`, `Cmdlets.Login`, and `Cmdlets.Config`. Each ships a `.psd1` manifest and per-module help Markdown under `src/PS/<Module>/help/`.
+The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `Cmdlets.Resources`, `Cmdlets.Compute`, `Cmdlets.Accounts`, and `Cmdlets.Config`. Each ships a `.psd1` manifest and per-module help Markdown under `src/PS/<Module>/help/`.
 
 | Module | Representative cmdlets | Source |
 | --- | --- | --- |
-| **Login** | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzProfile`, `Set-AzProfile`, `Remove-AzProfile` | `src/PS/Login/Cmdlets/ConnectAccountCmdlet.cs:11` |
+| **Accounts** | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzProfile`, `Set-AzProfile`, `Remove-AzProfile` | `src/PS/Accounts/Cmdlets/ConnectAccountCmdlet.cs:11` |
 | **Resources** | `New-AzResourceGroup`, `Get-AzResourceGroup`, `New-AzResourceGroupDeployment`, `Invoke-AzRestMethod` | `src/PS/Resources/Cmdlets/NewResourceGroupCmdlet.cs` |
 | **Compute** | `New-AzVM`, `Get-AzVM`, `Remove-AzVM` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
 | **Config** | `Get-AzConfig`, `Set-AzConfig`, `Get-AzConfigList`, `Get-AzConfigInfo`, `Remove-AzConfig` | `src/PS/Config/Cmdlets/SetAzConfigCmdlet.cs` |
 
-> **Naming note:** All modules carry the `Az` noun prefix so cmdlet names match Azure PowerShell. Login and Config define the prefix via `Constants.CommandPrefix = "Az"` (`src/PS/Login/Constants.cs:11`), giving `Connect-AzAccount` and `Set-AzConfig`; Compute and Resources use `Az`-prefixed nouns like `New-AzVM` and `New-AzResourceGroup`.
+> **Naming note:** All modules carry the `Az` noun prefix so cmdlet names match Azure PowerShell. Accounts and Config define the prefix via `Constants.CommandPrefix = "Az"` (`src/PS/Accounts/Constants.cs:11`), giving `Connect-AzAccount` and `Set-AzConfig`; Compute and Resources use `Az`-prefixed nouns like `New-AzVM` and `New-AzResourceGroup`.
 
 ### Importing and Using
 
 ```powershell
 # Import a built module (manifests reference artifact DLLs by relative path)
-Import-Module ./src/PS/Login/Login.psd1
+Import-Module ./src/PS/Accounts/Accounts.psd1
 Import-Module ./src/PS/Compute/Compute.psd1
 
 # Authenticate, then create a resource group and a VM
@@ -42,7 +42,7 @@ Get-AzVM -ResourceGroupName myrg -SubscriptionId <sub-id>
 Set-AzConfig -Key telemetry.enabled -Value false
 ```
 
-The `Set-AzConfig -Key telemetry.enabled -Value false` opt-out is the documented PowerShell equivalent of the CLI's `az config set` (`README.md:166`). Note the Compute module declares the Login module as a `RequiredModule` (`src/PS/Compute/Compute.psd1:55`), so importing Compute pulls in Login automatically.
+The `Set-AzConfig -Key telemetry.enabled -Value false` opt-out is the documented PowerShell equivalent of the CLI's `az config set` (`README.md:166`). Note the Compute module declares the Accounts module as a `RequiredModule` (`src/PS/Compute/Compute.psd1:55`), so importing Compute pulls in Accounts automatically.
 
 ## Shared Engine, Per-Invocation Output Channel
 
@@ -126,6 +126,6 @@ Each module ships a `.psd1` manifest (e.g. `src/PS/Compute/Compute.psd1`) declar
 - `src/PS/Common/CmdletOutputStreamsFactory.cs:30` — maps engine streams to `$PSCmdlet` output methods.
 - `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:87` — cmdlet resolves `IEngine` and opens a session.
 - `src/Core/Core.Engine/Engine.cs:13` — per-invocation channel thread-safety / output-routing contract.
-- `azclips.slnx:40` — PowerShell cmdlet projects (`Resources`, `Compute`, `Login`, `Config`).
-- `src/PS/Login/Constants.cs:11` — `Az` command-noun prefix.
+- `azclips.slnx:40` — PowerShell cmdlet projects (`Resources`, `Compute`, `Accounts`, `Config`).
+- `src/PS/Accounts/Constants.cs:11` — `Az` command-noun prefix.
 - `README.md:166` — `Set-AzConfig -Key telemetry.enabled` opt-out.
