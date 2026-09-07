@@ -56,10 +56,19 @@ public class StartVMProcessor : ComputeProcessorBase<object, object>
         Name = name;
     }
 
+    protected override ComputeProcessorBase CreateResourceIdChild(string subscriptionId, string resourceGroup, string name)
+        => CreateExtendedProcessor<StartVMProcessor>(child =>
+        {
+            child.SubscriptionId = subscriptionId;
+            child.ResourceGroupName = resourceGroup;
+            child.Name = name;
+            child.NoWait = NoWait;
+        });
+
     internal override Task<HttpResponseMessage> SendAsync()
     {
-        // A single id stands in for --name/--resource-group; multiple ids are applied one at a time
-        // by the fan-out in ProcessAsync, which sets the fields itself.
+        // A single id stands in for --name/--resource-group; multiple ids are fanned out in
+        // ProcessAsync, which gives each one its own processor.
         if (!HasMultipleResourceIds(Ids))
         {
             ApplyResourceId(Ids);
@@ -76,21 +85,13 @@ public class StartVMProcessor : ComputeProcessorBase<object, object>
             return;
         }
 
-        // TODO revisit this batch logic with resiliency and parallelism in mind. For now the VMs are
-        // started sequentially, so without --no-wait each VM is polled to completion before the next
-        // one is even requested. A failure aborts the remaining ids.
+        // Start writes no output, so there is nothing to collect: the fan-out only has to report
+        // which ids failed. Without --no-wait each id polls its own long-running operation, so
+        // running them concurrently turns the total wait from the sum into roughly the slowest one.
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         try
         {
-            foreach (string id in Ids!)
-            {
-                var (subscriptionId, resourceGroup, name) = ParseResourceId(id);
-                SetResourceIdArguments(subscriptionId, resourceGroup, name);
-
-                // Start returns no body, so there is nothing to collect; the response is only kept
-                // long enough for SendAsync to have surfaced any failure.
-                using HttpResponseMessage response = await SendAsync();
-            }
+            await ProcessResourceIdsAsync(Ids!);
         }
         finally
         {

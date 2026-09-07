@@ -7,7 +7,7 @@ online version:
 
 Description: Start the specified virtual machine. The command is a long-running operation — by default it polls until the platform reports the start has completed and produces no output on success. Pass `--no-wait` to return as soon as Azure accepts the request instead of waiting. Starting an already-running virtual machine is a no-op.
 
-Provide either `--ids` or the `--name`/`--resource-group` pair. When several IDs are supplied the virtual machines are started sequentially and the first failure stops the rest, so pair `--ids` with `--no-wait` to avoid waiting for each machine in turn.
+Provide either `--ids` or the `--name`/`--resource-group` pair. When several IDs are supplied the virtual machines are started concurrently, up to five at a time. Every ID is attempted even if an earlier one fails; each failure is reported on its own, followed by a summary naming the virtual machines that could not be started.
 
 ### Start a virtual machine
 

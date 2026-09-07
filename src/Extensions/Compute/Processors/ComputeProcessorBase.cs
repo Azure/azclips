@@ -182,6 +182,90 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             return (segments[1], segments[3], segments[7]);
         }
 
+        // ── Parallel --ids fan-out ──
+
+        protected virtual int ResourceIdFanOutLimit => 10;
+
+        /// <summary>
+        /// Builds a processor targeting one resource id. Each id gets its own instance so the target
+        /// fields are never shared, which is what makes the fan-out safe to run concurrently.
+        /// Processors that accept <c>--ids</c> override this via <see cref="CreateExtendedProcessor{T}"/>.
+        /// </summary>
+        protected virtual ComputeProcessorBase CreateResourceIdChild(string subscriptionId, string resourceGroup, string name)
+            => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateResourceIdChild)}.");
+
+        /// <summary>
+        /// Runs one child per resource id, up to <see cref="ResourceIdFanOutLimit"/> at a time, and
+        /// reports every failure together once they have all been attempted.
+        /// </summary>
+        protected async Task ProcessResourceIdsAsync(string[] ids)
+        {
+            // Parse every id before issuing any request: a malformed id is a typo, and rejecting the
+            // whole command is better than acting on an arbitrary subset of the resources.
+            var targets = new (string SubscriptionId, string ResourceGroup, string Name)[ids.Length];
+            for (int i = 0; i < ids.Length; i++)
+            {
+                targets[i] = ParseResourceId(ids[i]);
+            }
+
+            // One slot per id, written only by its own iteration, so no synchronization is needed.
+            var failures = new Exception?[ids.Length];
+
+            ParallelOptions options = new()
+            {
+                MaxDegreeOfParallelism = ResourceIdFanOutLimit,
+                CancellationToken = Publisher.Token,
+            };
+
+            // Failures are recorded rather than propagated: if one escaped, Parallel.ForEachAsync
+            // would cancel the ids that have not started yet. Recording them keeps the run going so
+            // every id is attempted and the caller gets a complete picture.
+            await Parallel.ForEachAsync(Enumerable.Range(0, ids.Length), options, async (index, _) =>
+            {
+                try
+                {
+                    var (subscriptionId, resourceGroup, name) = targets[index];
+                    using HttpResponseMessage response = await CreateResourceIdChild(subscriptionId, resourceGroup, name).SendAsync();
+                }
+                catch (OperationCanceledException)
+                {
+                    // Cancellation is not a per-resource failure; let it unwind the whole fan-out.
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    failures[index] = ex;
+                }
+            });
+
+            ThrowIfAnyResourceIdFailed(ids, failures);
+        }
+
+        private static void ThrowIfAnyResourceIdFailed(string[] ids, Exception?[] failures)
+        {
+            int[] failed = [.. Enumerable.Range(0, ids.Length).Where(index => failures[index] is not null)];
+            if (failed.Length == 0)
+            {
+                return;
+            }
+
+            // Every failure already reached the error stream through Events.ResourceOperationFailed,
+            // so the summary names the resources instead of repeating the ARM payloads. An
+            // AggregateException would render as "One or more errors occurred." because hosts show
+            // only Message, so it is carried as the inner exception for telemetry instead.
+            string names = string.Join(", ", failed.Select(index => DescribeResourceId(ids[index])));
+            throw new InvalidOperationException(
+                $"{failed.Length} of {ids.Length} resources failed: {names}.",
+                new AggregateException(failed.Select(index => failures[index]!)));
+        }
+
+        /// <summary>Trailing segment of a resource id, for error messages. Never throws.</summary>
+        private static string DescribeResourceId(string id)
+        {
+            string[] segments = id?.Trim().Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
+            return segments.Length > 0 ? segments[^1] : "(empty id)";
+        }
+
         /*
             For LRO API has
                 "x-ms-long-running-operation-options": {
