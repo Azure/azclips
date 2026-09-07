@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
+using Core.Agent.Providers;
 using Core.Agent.Telemetry;
 using Core.DependencyInjection;
 using Core.Runtime;
@@ -112,6 +113,21 @@ public static class AgentModeEntry
             // race the spinner. Verbose/Debug/Info dropped; Warn/Error become
             // HostLogEmitted events the renderer draws under its lock.
             using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
+
+            // Observe the caller's ARM data boundary before the provider picks an endpoint.
+            // Nothing branches on it yet: the builtin provider still calls one endpoint for
+            // everyone. Recording it now proves the lookup works and shows what it costs, so the
+            // change that routes EU traffic separately starts from measured behavior. Never
+            // throws, so recovery proceeds unchanged whatever it reports.
+            var dataBoundary = await new DataBoundaryResolver(auth, profileService)
+                .ResolveAsync(cts.Token);
+            session?.SetTag(TelemetryTags.RecoveryDataBoundary, dataBoundary.TagValue);
+            trace?.Note("data_boundary", new
+            {
+                boundary = dataBoundary.TagValue,
+                rawValue = dataBoundary.RawValue,
+                failureReason = dataBoundary.FailureReason,
+            });
 
             ChatAgent agent;
             // Times Copilot SDK and stdio daemon startup.

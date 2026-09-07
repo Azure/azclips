@@ -43,6 +43,8 @@ public static class TelemetryTags
     public const string CommandSpanId = PropertyTagPrefix + "command.spanId";
     public const string RecoverySessionStyle = PropertyTagPrefix + "recovery.sessionStyle";
     public const string RecoveryProvider = PropertyTagPrefix + "recovery.provider";
+    /// <summary>eu, global, or unknown — the caller tenant's ARM data boundary.</summary>
+    public const string RecoveryDataBoundary = PropertyTagPrefix + "recovery.dataBoundary";
     public const string RecoveryExitCode = PropertyTagPrefix + "recovery.exitCode";
     public const string RecoveryReprompts = PropertyTagPrefix + "recovery.reprompts";
     public const string AgentModel = PropertyTagPrefix + "agent.model";
