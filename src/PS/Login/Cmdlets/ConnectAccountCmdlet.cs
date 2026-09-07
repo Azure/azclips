@@ -34,10 +34,11 @@ public class ConnectAccountCmdlet : PSCmdlet
     public string? Profile { get; set; }
 
     [Parameter(Mandatory = false)]
-    [Alias("MSI", "ManagedIdentity")]
+    [Alias("MSI", "ManagedIdentity", "ManagedService")]
     public SwitchParameter Identity { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("AccountId")]
     public string? ClientId { get; set; }
 
     [Parameter(Mandatory = false)]

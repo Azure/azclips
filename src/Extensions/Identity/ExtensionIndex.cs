@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Extensions.Identity.Customization;
 
 namespace Microsoft.Azure.Azclips.Extensions.Identity
 {
@@ -24,9 +25,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
                 ["ResourceGroupName"] = new("ResourceGroup", "ResourceGroupName", typeof(string), "Resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Name"] = new("ResourceName", "Name", typeof(string), "Name of the user assigned identity.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Location"] = new("Location", "Location", typeof(string), "Location.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Tags"] = new("Tags", "Tags", typeof(string[]), "Resource tags. Format: key1=value1 key2=value2", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tags"] = new("Tags", "Tags", typeof(Dictionary<string, string>), "Resource tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["IsolationScope"] = new("IsolationScope", "IsolationScope", typeof(string), "Identity isolation scope.", IsRequired: false, Aliases: [], AllowedValues: ["None", "Regional"]),
-                ["ResourceRestriction"] = new("ResourceRestriction", "ResourceRestriction", typeof(string[]), "Restrictions on which resource providers this identity can be assigned to.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceRestriction"] = new("ResourceRestrictionProviders", "ResourceRestriction", typeof(List<string>), "List of resource provider types that this identity can be assigned to.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -48,7 +49,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
 
         private static readonly CommandMetadata psIdentityShow = new(
             Name: nameof(Processors.ShowIdentityProcessor),
-            InvocationName: $"Get-{PSCommandPrefix}UserAssignedIdentity_Show",
+            InvocationName: $"Get-{PSCommandPrefix}UserAssignedIdentity_Get",
             Aliases: [],
             FullName: typeof(Processors.ShowIdentityProcessor).FullName!,
             AssemblyName: typeof(Processors.ShowIdentityProcessor).Assembly.GetName().Name!,
@@ -74,9 +75,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroup", "ResourceGroupName", typeof(string), "Resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Name"] = new("ResourceName", "Name", typeof(string), "Name of the user assigned identity.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Tags"] = new("Tags", "Tags", typeof(string[]), "Resource tags. Format: key1=value1 key2=value2", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Location"] = new("Location", "Location", typeof(string), "Location.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tags"] = new("Tags", "Tags", typeof(Dictionary<string, string>), "Resource tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["IsolationScope"] = new("IsolationScope", "IsolationScope", typeof(string), "Identity isolation scope.", IsRequired: false, Aliases: [], AllowedValues: ["None", "Regional"]),
-                ["ResourceRestriction"] = new("ResourceRestriction", "ResourceRestriction", typeof(string[]), "Restrictions on which resource providers this identity can be assigned to.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceRestriction"] = new("ResourceRestrictionProviders", "ResourceRestriction", typeof(List<string>), "List of resource provider types that this identity can be assigned to.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -100,19 +102,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
 
         #region CLI Command Metadata
         private static readonly CommandMetadata cliIdentityCreate = new(
-            Name: nameof(Processors.CreateIdentityProcessor_Orchestrator),
+            Name: nameof(CreateIdentityProcessor_Orchestrator),
             InvocationName: "identity create",
             Aliases: [],
-            FullName: typeof(Processors.CreateIdentityProcessor_Orchestrator).FullName!,
-            AssemblyName: typeof(Processors.CreateIdentityProcessor_Orchestrator).Assembly.GetName().Name!,
-            ProcessorType: typeof(Processors.CreateIdentityProcessor_Orchestrator),
+            FullName: typeof(CreateIdentityProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(CreateIdentityProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(CreateIdentityProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription"] = new("SubscriptionId", "subscription", typeof(string), "Name or ID of subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Name of resource group.", IsRequired: true, Aliases: ["g"], AllowedValues: []),
                 ["name"] = new("ResourceName", "name", typeof(string), "The name of the identity resource.", IsRequired: true, Aliases: ["resource-name", "n"], AllowedValues: []),
-                ["location"] = new("Location", "location", typeof(string), "The geo-location where the resource lives. When not specified, the location of the resource group will be used.", IsRequired: false, Aliases: ["l"], AllowedValues: []),
-                ["tags"] = new("Tags", "tags", typeof(string[]), "Resource tags.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["location"] = new("Location", "location", typeof(string), "The geo-location where the resource lives.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
+                ["tags"] = new("TagsInput", "tags", typeof(string[]), "Resource tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["isolation-scope"] = new("IsolationScope", "isolation-scope", typeof(string), "Enum to configure regional restrictions on identity assignment, as necessary.", IsRequired: false, Aliases: [], AllowedValues: ["None", "Regional"]),
                 ["resource-restriction"] = new("ResourceRestriction", "resource-restriction", typeof(string[]), "Restrictions on which resource providers this identity can be assigned to.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["acquire-policy-token"] = new("AcquirePolicyToken", "acquire-policy-token", typeof(bool), "Acquiring an Azure Policy token automatically for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -132,19 +134,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
             {
                 ["subscription"] = new("SubscriptionId", "subscription", typeof(string), "Name or ID of subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Name of resource group.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
-                ["max-items"] = new("MaxItems", "max-items", typeof(int), "Total number of items to return in the command's output.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["next-token"] = new("NextToken", "next-token", typeof(string), "Token to specify where to start paginating.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: CliAliases(("g", "resource-group"))
         );
 
         private static readonly CommandMetadata cliIdentityShow = new(
-            Name: nameof(Processors.ShowIdentityProcessor),
+            Name: nameof(ShowIdentityProcessor_Orchestrator),
             InvocationName: "identity show",
             Aliases: [],
-            FullName: typeof(Processors.ShowIdentityProcessor).FullName!,
-            AssemblyName: typeof(Processors.ShowIdentityProcessor).Assembly.GetName().Name!,
-            ProcessorType: typeof(Processors.ShowIdentityProcessor),
+            FullName: typeof(ShowIdentityProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(ShowIdentityProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(ShowIdentityProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs. Provide either --ids or other Resource Id arguments.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -156,12 +156,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
         );
 
         private static readonly CommandMetadata cliIdentityUpdate = new(
-            Name: nameof(Processors.UpdateIdentityProcessor_Orchestrator),
+            Name: nameof(UpdateIdentityProcessor_Orchestrator),
             InvocationName: "identity update",
             Aliases: [],
-            FullName: typeof(Processors.UpdateIdentityProcessor_Orchestrator).FullName!,
-            AssemblyName: typeof(Processors.UpdateIdentityProcessor_Orchestrator).Assembly.GetName().Name!,
-            ProcessorType: typeof(Processors.UpdateIdentityProcessor_Orchestrator),
+            FullName: typeof(UpdateIdentityProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(UpdateIdentityProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(UpdateIdentityProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["add"] = new("Add", "add", typeof(string[]), "Add an object to a list of objects by specifying a path and key value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -174,7 +174,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
                 ["resource-restriction"] = new("ResourceRestriction", "resource-restriction", typeof(string[]), "Restrictions on which resource providers this identity can be assigned to.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["set"] = new("Set", "set", typeof(string[]), "Update an object by specifying a property path and value to set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["subscription"] = new("SubscriptionId", "subscription", typeof(string), "Name or ID of subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["tags"] = new("Tags", "tags", typeof(string[]), "Resource tags.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"] = new("TagsInput", "tags", typeof(string[]), "Resource tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["acquire-policy-token"] = new("AcquirePolicyToken", "acquire-policy-token", typeof(bool), "Acquiring an Azure Policy token automatically for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["change-reference"] = new("ChangeReference", "change-reference", typeof(string), "The related change reference ID for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
@@ -182,12 +182,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity
         );
 
         private static readonly CommandMetadata cliIdentityDelete = new(
-            Name: nameof(Processors.DeleteIdentityProcessor),
+            Name: nameof(DeleteIdentityProcessor_Orchestrator),
             InvocationName: "identity delete",
             Aliases: [],
-            FullName: typeof(Processors.DeleteIdentityProcessor).FullName!,
-            AssemblyName: typeof(Processors.DeleteIdentityProcessor).Assembly.GetName().Name!,
-            ProcessorType: typeof(Processors.DeleteIdentityProcessor),
+            FullName: typeof(DeleteIdentityProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(DeleteIdentityProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(DeleteIdentityProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs. Provide either --ids or other Resource Id arguments.", IsRequired: false, Aliases: [], AllowedValues: []),
