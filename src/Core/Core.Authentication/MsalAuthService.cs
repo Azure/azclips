@@ -74,14 +74,15 @@ public class MsalAuthService(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Enumerating the MSAL token cache is best-effort: environmental issues (e.g. a conflicting
-            // Microsoft.Identity.Client/broker assembly already loaded by another module in the same host
-            // process, or a locked/corrupt cache file) must not prevent the user from signing out locally.
-            // Cancellation is allowed to propagate so a cancelled logout is not silently swallowed.
+            // Token-cache cleanup as a whole is best-effort: any step here (building the MSAL client,
+            // registering the cache, or enumerating accounts) can fail from environmental issues (e.g. a
+            // conflicting Microsoft.Identity.Client/broker assembly already loaded by another module in the
+            // same host process, or a locked/corrupt cache file) and must not prevent the user from signing
+            // out locally. Cancellation is allowed to propagate so a cancelled logout is not silently swallowed.
             // Keep the account identifier and full exception text at Debug only (Warn is console-routed
             // by default) to avoid surfacing the account UPN or other sensitive details from the
             // exception message as PII on a non-fatal cleanup error.
-            Logger.Debug($"[{nameof(MsalAuthService)}] Failed to remove account '{userPrincipalName}' from the MSAL token cache: {ex.GetType().Name}: {ex.Message}");
+            Logger.Debug($"[{nameof(MsalAuthService)}] Token-cache cleanup failed during logout for account '{userPrincipalName}': {ex.GetType().Name}: {ex.Message}");
             Logger.Warn($"[{nameof(MsalAuthService)}] Non-fatal: token-cache cleanup failed during logout ({ex.GetType().Name}); local sign-out continues. Enable debug logging for details.");
         }
     }
