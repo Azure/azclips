@@ -20,6 +20,7 @@ set -euo pipefail
 #   ARTIFACT_VERSION Version used in the image tag                  (default: 0.0.0)
 #   OUT_ROOT        Root output directory                           (default: <repo>/devops/out/docker)
 #   DOCKERFILE      Path to the Dockerfile                          (default: <packaging>/linux/docker/Dockerfile.cli)
+#   BUILDX_BUILDER  Docker-container Buildx builder name            (default: azclips-builder)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
@@ -34,6 +35,7 @@ IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-azclips}"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-0.0.0}"
 OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/docker}"
 DOCKERFILE="${DOCKERFILE:-$PACKAGING_ROOT/linux/docker/Dockerfile.cli}"
+BUILDX_BUILDER="${BUILDX_BUILDER:-azclips-builder}"
 TARBALL_PATH="${TARBALL_PATH:?ERROR: TARBALL_PATH must point to an existing CLI tarball}"
 
 if [[ ! -f "$TARBALL_PATH" ]]; then
@@ -81,7 +83,12 @@ SAVE_PATH="$SAVE_DIR/${SANITIZED_REPOSITORY}-$ARTIFACT_VERSION-$IMAGE_VARIANT-$P
 
 echo "Building docker image $IMAGE_TAG (platform=$PLATFORM, base=$BASE_IMAGE)"
 rm -f "$SAVE_PATH"
+if ! docker buildx inspect "$BUILDX_BUILDER" >/dev/null 2>&1; then
+  docker buildx create --name "$BUILDX_BUILDER" --driver docker-container
+fi
+docker buildx inspect "$BUILDX_BUILDER" --bootstrap
 docker buildx build \
+  --builder "$BUILDX_BUILDER" \
   --platform "$PLATFORM" \
   --build-arg BASE_IMAGE="$BASE_IMAGE" \
   --file "$DOCKERFILE" \

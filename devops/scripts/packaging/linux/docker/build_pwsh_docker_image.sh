@@ -17,6 +17,7 @@ set -euo pipefail
 #   ARTIFACT_VERSION  Version used in image tag        (default: 0.0.0)
 #   OUT_ROOT          Root output directory            (default: <repo>/devops/out/docker)
 #   DOCKERFILE        Path to Dockerfile               (default: <packaging>/linux/docker/Dockerfile.pwsh)
+#   BUILDX_BUILDER    Docker-container Buildx builder  (default: azclips-builder)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
@@ -30,6 +31,7 @@ IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-azclips-powershell}"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-0.0.0}"
 OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/docker}"
 DOCKERFILE="${DOCKERFILE:-$PACKAGING_ROOT/linux/docker/Dockerfile.pwsh}"
+BUILDX_BUILDER="${BUILDX_BUILDER:-azclips-builder}"
 MODULE_REPO_ROOT="${MODULE_REPO_ROOT:?ERROR: MODULE_REPO_ROOT must point to a PS local-repo directory}"
 
 if [[ ! -d "$MODULE_REPO_ROOT" ]]; then
@@ -69,7 +71,12 @@ SAVE_PATH="$SAVE_DIR/${SANITIZED_REPOSITORY}-$ARTIFACT_VERSION-$IMAGE_VARIANT-$A
 
 echo "Building docker image $IMAGE_TAG (platform=$PLATFORM, base=$BASE_IMAGE, builder=$POWERSHELL_BUILDER_IMAGE)"
 rm -f "$SAVE_PATH"
+if ! docker buildx inspect "$BUILDX_BUILDER" >/dev/null 2>&1; then
+  docker buildx create --name "$BUILDX_BUILDER" --driver docker-container
+fi
+docker buildx inspect "$BUILDX_BUILDER" --bootstrap
 docker buildx build \
+  --builder "$BUILDX_BUILDER" \
   --platform "$PLATFORM" \
   --build-arg BASE_IMAGE="$BASE_IMAGE" \
   --build-arg POWERSHELL_BUILDER_IMAGE="$POWERSHELL_BUILDER_IMAGE" \
