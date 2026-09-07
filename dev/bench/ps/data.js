@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788752986747,
+  "lastUpdate": 1788753038031,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8236,6 +8236,48 @@ window.BENCHMARK_DATA = {
             "value": 1402610.5017315135,
             "unit": "ns",
             "range": "± 34114.373114464805"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b46e898b82ec48fc2ab31744907c5507ab2a6ea3",
+          "message": "{Telemetry} Add separate trace for AI agent orchestration (#782)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nAny command that errors out \n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n- This fixes the issue outlined in\nhttps://github.com/Azure/CLIPS/issues/602\n- Dispose of core command activity before AI agent executable is run\n- Instrument AI agent orchestration for tracability.\n- The relationship between traces is (AI agent trace (child)) ->\n(Command root trace (parent)) (singular direction).\n\nAs illustrated below, when a command is going through the AI agent to\npropose potential recover steps. The trace only captures the duration of\nthe excepted command\n\n<img width=\"3838\" height=\"1024\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/dc85c74f-4bd7-41e5-ae70-7ff15aa5ec7d\"\n/>\n\nThe entire duration of the AI agent loop is captured as a separate trace\ninstead, as illustrated below.\n\n<img width=\"3815\" height=\"1783\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/373a542e-3c63-46d2-a330-fbd4398cace3\"\n/>\n\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n1. Ensure `agent.enabled` is enabled using `az config set --key\nagent.enabled --value true`\n2. Run any command that will lead to an exception being generated i.e\n`az profile show`\n3. Observe the trace in app insights or jaeger\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-07T12:58:49+10:00",
+          "tree_id": "adf9d3021f5db5686906812239967d287960e603",
+          "url": "https://github.com/Azure/azclips/commit/b46e898b82ec48fc2ab31744907c5507ab2a6ea3"
+        },
+        "date": 1788753035787,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1421368.806097561,
+            "unit": "ns",
+            "range": "± 27054.158315617595"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1427432.6822660097,
+            "unit": "ns",
+            "range": "± 27190.16129100051"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1396894.9879690048,
+            "unit": "ns",
+            "range": "± 28469.12394847255"
           }
         ]
       }
