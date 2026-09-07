@@ -53,9 +53,13 @@
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
+  <Folder Name="/tools/" />
   <Folder Name="/tools/Help/">
       <Project Path="tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj" />
       <Project Path="tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" />
+  </Folder>
+  <Folder Name="/src/Extensions/Sql/">
+    <Project Path="src/Extensions/Sql/Extensions.Sql.csproj" />
   </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
@@ -64,5 +68,6 @@
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
     <Project Path="src/PS/MsGraph/Cmdlets.MsGraph.csproj" />
     <Project Path="src/PS/Identity/Cmdlets.Identity.csproj" />
+    <Project Path="src/PS/Sql/Cmdlets.Sql.csproj" />
   </Folder>
 </Solution>
