@@ -193,7 +193,7 @@ Ask LLM to review `Azclips/src/Extensions/{ExtensionName}/ExtensionIndex.cs` and
 * `dotnet build azclips.slnx`
 * For CLI, `Azclips\artifacts\Debug\Core.Cli\az.exe {CommandGroupName} {Command} ...`
 * For PowerShell
-    * `Import-module Azclips\src\PS\Login\login.psd1`
+    * `Import-module Azclips\src\PS\Accounts\Accounts.psd1`
     * `Import-module Azclips\src\PS\{ModuleName}\{ModuleName}.psd1`
     * Try run PS cmdlets
 

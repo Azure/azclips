@@ -38,7 +38,7 @@ public abstract class StartupBenchmarkBase
     /// Stage a PS module and its <c>RequiredModules</c> dependency closure via
     /// <see cref="PSManifestStager"/>, returning the absolute path to the staged manifest.
     /// Unlike build/Set-ModuleConfiguration.ps1, this preserves <c>RequiredModules</c>, so importing
-    /// a dependent module (e.g. Config) transitively imports Login and initializes the service
+    /// a dependent module (e.g. Config) transitively imports Accounts and initializes the service
     /// provider. Staged fresh from source each run, so it is never stale (survives renames).
     /// Call from <c>[GlobalSetup]</c> so the staging I/O stays outside the measured region.
     /// </summary>

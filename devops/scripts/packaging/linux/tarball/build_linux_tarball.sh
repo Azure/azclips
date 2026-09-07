@@ -120,7 +120,7 @@ dotnet publish "$REPO_ROOT/Agent/Core.Agent.csproj" \
   -p:IsPackagedBuild=true
 
 # Publish the Agent.Commands extension into builtin-publish/ so the inject
-# script picks it up in the same pass as Login/Config.
+# script picks it up in the same pass as Accounts/Config.
 echo "Publishing Agent.Commands extension (Release)"
 AGENT_EXT_DIR="$COMMON_OUT_ROOT/builtin-publish/Microsoft.Azure.Azclips.Extensions.Agent"
 dotnet publish "$REPO_ROOT/Agent/Commands/Agent.Commands.csproj" \
