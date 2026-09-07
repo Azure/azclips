@@ -49,13 +49,24 @@ if [[ ! -f "$DOCKERFILE" ]]; then
 fi
 
 case "$RID" in
-  linux-x64) ARCH_LABEL=amd64 ;;
-  linux-arm64) ARCH_LABEL=arm64 ;;
+  linux-x64)
+    ARCH_LABEL=amd64
+    EXPECTED_PLATFORM=linux/amd64
+    ;;
+  linux-arm64)
+    ARCH_LABEL=arm64
+    EXPECTED_PLATFORM=linux/arm64
+    ;;
   *)
     echo "ERROR: Unsupported RID '$RID'. Expected 'linux-x64' or 'linux-arm64'."
     exit 1
     ;;
 esac
+
+if [[ "$PLATFORM" != "$EXPECTED_PLATFORM" ]]; then
+  echo "ERROR: RID '$RID' requires PLATFORM '$EXPECTED_PLATFORM', but got '$PLATFORM'."
+  exit 1
+fi
 
 case "$PACKAGE_PROFILE" in
   lean|full) ;;
