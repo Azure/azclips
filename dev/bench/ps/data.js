@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788753038031,
+  "lastUpdate": 1788754979816,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8278,6 +8278,56 @@ window.BENCHMARK_DATA = {
             "value": 1396894.9879690048,
             "unit": "ns",
             "range": "± 28469.12394847255"
+          }
+        ]
+      }
+    ],
+    "Azclips Identity PS Benchmarks": [
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f41339f9ab8fdf2f07030c5c0e2739f348add324",
+          "message": "{Benchmark} `Extensions.Identity`: Add performance benchmark tests (#817)",
+          "timestamp": "2026-09-07T10:59:04+08:00",
+          "tree_id": "c4320a24470dc060f32da04ee02bb27a57753e24",
+          "url": "https://github.com/Azure/azclips/commit/f41339f9ab8fdf2f07030c5c0e2739f348add324"
+        },
+        "date": 1788754977184,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 1500581.7780938833,
+            "unit": "ns",
+            "range": "± 39944.52265948154"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 1580576.5475126903,
+            "unit": "ns",
+            "range": "± 44241.616053027756"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 1478597.7981391586,
+            "unit": "ns",
+            "range": "± 40168.96653290664"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 1414456.0676988463,
+            "unit": "ns",
+            "range": "± 40378.354791598875"
           }
         ]
       }
