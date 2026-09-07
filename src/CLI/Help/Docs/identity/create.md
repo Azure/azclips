@@ -5,22 +5,22 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Create a user-assigned managed identity in the specified subscription and resource group. If `--location` is omitted, the resource group's location is used.
+Description: Create a user-assigned managed identity in the specified subscription and resource group.
 
 ### Create an identity
 
 ```bash
-az identity create --name myIdentity --resource-group myResourceGroup
+az identity create --name myIdentity --resource-group myResourceGroup --location eastus
 ```
 
 ### Create an identity with regional assignment restrictions
 
 ```bash
-az identity create --name myIdentity --resource-group myResourceGroup --isolation-scope Regional
+az identity create --name myIdentity --resource-group myResourceGroup --location eastus --isolation-scope Regional
 ```
 
 ### Create an identity with resource assignment restrictions
 
 ```bash
-az identity create --name myIdentity --resource-group myResourceGroup --resource-restriction '{"providers":["Microsoft.Compute"]}'
+az identity create --name myIdentity --resource-group myResourceGroup --location eastus --resource-restriction '{"providers":["Microsoft.Compute"]}'
 ```

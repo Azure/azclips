@@ -63,5 +63,6 @@
     <Project Path="src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
     <Project Path="src/PS/MsGraph/Cmdlets.MsGraph.csproj" />
+    <Project Path="src/PS/Identity/Cmdlets.Identity.csproj" />
   </Folder>
 </Solution>
