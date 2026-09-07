@@ -10,7 +10,7 @@
  * stamp and a reference to its shared server definition.
  */
 
-import { NoTarget } from "@typespec/compiler";
+import { getNamespaceFullName, NoTarget } from "@typespec/compiler";
 import type {
   SdkClientType,
   SdkHttpOperation,
