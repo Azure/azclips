@@ -307,9 +307,8 @@ args: ["group", "create", "--name", "test"]
 **Discovery Pattern:**
 
 ```
-artifacts/Release/Group/Group.dll → "group" command group
-artifacts/Release/Accounts/Accounts.dll → "login" command group
-artifacts/Release/Resources/Resources.dll → "resources" command group
+artifacts/Release/Microsoft.Azure.Azclips.Extensions.Accounts/Microsoft.Azure.Azclips.Extensions.Accounts.dll → "login", "logout", "profile" verbs
+artifacts/Release/Microsoft.Azure.Azclips.Extensions.Resources/Microsoft.Azure.Azclips.Extensions.Resources.dll → "group", "deployment", "rest" verbs
 ```
 
 ### 4. AgentEngine - Conversation Loop
@@ -481,17 +480,17 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 
 ### Accounts Extension
 
-**Location:** `artifacts/Release/Accounts/Accounts.dll`
+**Location:** `artifacts/Release/Microsoft.Azure.Azclips.Extensions.Accounts/Microsoft.Azure.Azclips.Extensions.Accounts.dll`
 
 **Commands:**
 
 - `login` - Authenticate to Azure
 - `logout` - Sign out
-- `account show` - Display current account
+- `profile list` / `profile show` / `profile set` / `profile remove` - Manage named connection profiles
 
 ### Resources Extension (PowerShell)
 
-**Location:** `artifacts/Release/Resources/Resources.dll`
+**Location:** `artifacts/Release/Microsoft.Azure.Azclips.Extensions.Resources/Microsoft.Azure.Azclips.Extensions.Resources.dll`
 
 **Contains:**
 
