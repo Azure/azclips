@@ -326,6 +326,15 @@ describe("ace compile: configured pipeline", () => {
       const psIndex = join(outDir, "ExtensionIndex.Ps.cs");
       expect(existsSync(psIndex)).toBe(true);
       expect(readFileSync(psIndex, "utf8")).toContain('InvocationName: "Get-AzPet');
+
+      // The same PS surface also produces the private binary cmdlet metadata that the
+      // build-time PowerShell exporter will reflect.
+      const cmdlet = join(outDir, "Cmdlets", "GetAzPet_Get.cs");
+      expect(existsSync(cmdlet)).toBe(true);
+      expect(readFileSync(cmdlet, "utf8")).toContain('[Cmdlet("Get", "AzPet_Get"');
+      expect(readFileSync(cmdlet, "utf8")).toContain(
+        'InvocationName => "Get-AzPet_Get"',
+      );
     },
   );
 

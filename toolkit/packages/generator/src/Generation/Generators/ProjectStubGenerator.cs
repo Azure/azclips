@@ -56,8 +56,22 @@ internal sealed class ProjectStubGenerator : IArtifactGenerator
             new XElement("Import", new XAttribute("Project", @"$(MSBuildThisFileDirectory)..\..\..\Shared.props")),
             new XElement(
                 "ItemGroup",
+                new XElement(
+                    "PackageReference",
+                    new XAttribute("Include", "System.Management.Automation"),
+                    new XAttribute("Version", "7.6.1"),
+                    new XAttribute("PrivateAssets", "all"))),
+            new XElement(
+                "ItemGroup",
+                new XElement(
+                    "Compile",
+                    new XAttribute("Include", @"..\..\PS\Common\CmdletOutputStreamsFactory.cs"),
+                    new XAttribute("Link", @"Cmdlets\CmdletOutputStreamsFactory.cs"))),
+            new XElement(
+                "ItemGroup",
                 new XComment(" TODO: Core.Abstractions will ship as a NuGet PackageReference; relative ProjectReference for now. "),
                 ProjectReference(@"..\..\Core\Core.Abstractions\Core.Abstractions.csproj"),
+                ProjectReference(@"..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj"),
                 ProjectReference(@"..\ExtensionRuntime\ExtensionRuntime.csproj")));
 
         var document = new XDocument(

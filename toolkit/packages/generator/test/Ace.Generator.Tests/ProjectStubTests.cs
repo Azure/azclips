@@ -46,6 +46,14 @@ public sealed class ProjectStubTests
         List<string> references = doc.Descendants("ProjectReference").Select(r => r.Attribute("Include")!.Value).ToList();
         Assert.Contains(references, r => r.EndsWith("ExtensionRuntime.csproj", StringComparison.Ordinal));
         Assert.Contains(references, r => r.EndsWith("Core.Abstractions.csproj", StringComparison.Ordinal));
+        Assert.Contains(references, r => r.EndsWith("Core.DependencyInjection.csproj", StringComparison.Ordinal));
+
+        XElement automation = Assert.Single(doc.Descendants("PackageReference"));
+        Assert.Equal("System.Management.Automation", automation.Attribute("Include")!.Value);
+        Assert.Equal("all", automation.Attribute("PrivateAssets")!.Value);
+
+        XElement streams = Assert.Single(doc.Descendants("Compile"));
+        Assert.EndsWith("PS\\Common\\CmdletOutputStreamsFactory.cs", streams.Attribute("Include")!.Value);
 
         // Every reference is compile-only: not copied, no runtime asset.
         Assert.All(doc.Descendants("ProjectReference"), r =>

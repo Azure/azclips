@@ -33,6 +33,17 @@ internal static class IrTypeMapper
         _ => "object",
     };
 
+    /// <summary>Return the type reference carried by a concrete property variant.</summary>
+    public static IRTypeRef ToTypeRef(IRProperty property) => property switch
+    {
+        IRPropertyPrimitive p => p.Type,
+        IRPropertyObject p => p.Type,
+        IRPropertyCollection p => p.Type,
+        IRPropertyEnum p => p.Type,
+        IRPropertyUnion p => p.Type,
+        _ => new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Any },
+    };
+
     private static string Primitive(IRTypeRefPrimitiveName name) => name switch
     {
         IRTypeRefPrimitiveName.String => "string",
