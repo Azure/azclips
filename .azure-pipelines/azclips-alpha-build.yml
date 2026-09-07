@@ -7,6 +7,14 @@ pr:
     include:
     - '*'
 
+schedules:
+- cron: '0 0 * * *'
+  displayName: Daily main alpha build
+  branches:
+    include:
+    - main
+  always: true
+
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
