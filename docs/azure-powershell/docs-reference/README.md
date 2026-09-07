@@ -27,17 +27,18 @@ and examples.
 
 - [Connect-AzAccount][09]
 - [Disconnect-AzAccount][10]
-- [Get-AzProfile][11]
-- [Remove-AzProfile][12]
-- [Set-AzProfile][13]
+- [Get-AzAccessToken][11]
+- [Get-AzProfile][12]
+- [Remove-AzProfile][13]
+- [Set-AzProfile][14]
 
 ## Az.Resources
 
-- [Get-AzResourceGroup][14]
-- [Invoke-AzRestMethod][15]
-- [New-AzResourceGroup][16]
-- [New-AzResourceGroupDeployment][17]
-- [New-AzResourceGroupDeploymentWhatIf][18]
+- [Get-AzResourceGroup][15]
+- [Invoke-AzRestMethod][16]
+- [New-AzResourceGroup][17]
+- [New-AzResourceGroupDeployment][18]
+- [New-AzResourceGroupDeploymentWhatIf][19]
 
 <!-- updated link references -->
 
@@ -51,11 +52,12 @@ and examples.
 [08]: ../../../src/PS/Config/help/Set-AzConfig.md
 [09]: ../../../src/PS/Login/help/Connect-AzAccount.md
 [10]: ../../../src/PS/Login/help/Disconnect-AzAccount.md
-[11]: ../../../src/PS/Login/help/Get-AzProfile.md
-[12]: ../../../src/PS/Login/help/Remove-AzProfile.md
-[13]: ../../../src/PS/Login/help/Set-AzProfile.md
-[14]: ../../../src/PS/Resources/help/Get-AzResourceGroup.md
-[15]: ../../../src/PS/Resources/help/Invoke-AzRestMethod.md
-[16]: ../../../src/PS/Resources/help/New-AzResourceGroup.md
-[17]: ../../../src/PS/Resources/help/New-AzResourceGroupDeployment.md
-[18]: ../../../src/PS/Resources/help/New-AzResourceGroupDeploymentWhatIf.md
+[11]: ../../../src/PS/Login/help/Get-AzAccessToken.md
+[12]: ../../../src/PS/Login/help/Get-AzProfile.md
+[13]: ../../../src/PS/Login/help/Remove-AzProfile.md
+[14]: ../../../src/PS/Login/help/Set-AzProfile.md
+[15]: ../../../src/PS/Resources/help/Get-AzResourceGroup.md
+[16]: ../../../src/PS/Resources/help/Invoke-AzRestMethod.md
+[17]: ../../../src/PS/Resources/help/New-AzResourceGroup.md
+[18]: ../../../src/PS/Resources/help/New-AzResourceGroupDeployment.md
+[19]: ../../../src/PS/Resources/help/New-AzResourceGroupDeploymentWhatIf.md
