@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 09/04/2026
+ms.date: 09/07/2026
 PlatyPS schema version: 2024-05-01
 title: Start-AzVM
 ---
@@ -214,7 +214,13 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: ResourceGroupNameParameterSetName
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: IdParameterSetName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -229,6 +235,7 @@ HelpMessage: ''
 
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
