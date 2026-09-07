@@ -16,6 +16,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot '../../../build/Get-AzPackageName.ps1')
+
 if (-not (Get-Command -Name $PwshPath -ErrorAction SilentlyContinue))
 {
     throw "PowerShell executable was not found: $PwshPath"
@@ -330,21 +332,6 @@ function Update-NupkgManifestModuleList
     {
         Remove-Item -Path $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
-}
-
-function Get-AzPackageName
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SourceModule
-    )
-
-    if ($SourceModule -eq 'Az')
-    {
-        return 'Az'
-    }
-
-    return "Az.$SourceModule"
 }
 
 function Resolve-ModuleDependency

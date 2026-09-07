@@ -20,6 +20,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'Get-AzPackageName.ps1')
+
 # Load-only mode: tests set this to $env:AZCLIPS_PS_SYNC_LOAD_ONLY=1 to dot-source the
 # functions without running config-load or the main body.
 $__loadOnly = $env:AZCLIPS_PS_SYNC_LOAD_ONLY -eq '1'
@@ -57,9 +59,6 @@ if (-not $__loadOnly) {
     } else {
         Join-Path $repoRoot $effectiveTargetRepoPath
     }
-
-    $targetNamePattern = $config.targetModuleNamePattern
-    if ([string]::IsNullOrWhiteSpace($targetNamePattern)) { $targetNamePattern = 'Az.{ModuleName}' }
 
     $sourcePsRoot = Join-Path $repoRoot $config.sourcePsRoot
 }
@@ -212,19 +211,30 @@ function New-ModuleIndexContent
     return ($lines -join "`n").TrimEnd("`n") + "`n"
 }
 
-# ── Target path resolution ──────────────────────────────────────────────────────
+# ── Plan ────────────────────────────────────────────────────────────────────────
 
-function Resolve-TargetModuleName
+# Copies a cmdlet PlatyPS .md file, rewriting the frontmatter `Module Name:` from the
+# source module name (bare, e.g. 'Config') to the packaged name ('Az.Config'). Docs.ms's
+# PSMD2Yaml prebuild requires the module name in the frontmatter to match the folder;
+# leaving it bare fails with PSMD2Yaml_FileProcessFailed. Rewrite is line-scoped so we
+# don't touch body content.
+function Copy-CmdletMarkdownWithRewrite
 {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$SourceName,
-        [Parameter(Mandatory)][string]$Pattern
+        [Parameter(Mandatory)][string]$SourcePath,
+        [Parameter(Mandatory)][string]$TargetPath,
+        [Parameter(Mandatory)][string]$TargetModuleName
     )
-    return $Pattern.Replace('{ModuleName}', $SourceName)
-}
 
-# ── Plan ────────────────────────────────────────────────────────────────────────
+    $content = Get-Content -LiteralPath $SourcePath -Raw
+    $rewritten = [regex]::Replace(
+        $content,
+        '(?m)^Module Name:\s*.*$',
+        "Module Name: $TargetModuleName",
+        [System.Text.RegularExpressions.RegexOptions]::None)
+    Set-Content -LiteralPath $TargetPath -Value $rewritten -NoNewline
+}
 
 # Builds the copy-plan — one entry per file that would land in the target. Pure function,
 # no filesystem writes. Consumed by both dry-run reporting and the Force/Push stages.
@@ -236,14 +246,13 @@ function New-SyncPlan
         [Parameter(Mandatory)][PSCustomObject[]]$Modules,
         [Parameter(Mandatory)][string]$Moniker,
         [Parameter(Mandatory)][string]$TargetRepoPath,
-        [Parameter(Mandatory)][string]$TargetModuleNamePattern,
         [Parameter(Mandatory)][PSCustomObject]$Config,
         [Parameter(Mandatory)][string]$RepoRoot
     )
 
     foreach ($module in $Modules)
     {
-        $targetName = Resolve-TargetModuleName -SourceName $module.Name -Pattern $TargetModuleNamePattern
+        $targetName = Get-AzPackageName -SourceModule $module.Name
         $targetModuleDir = Join-Path (Join-Path $TargetRepoPath $Moniker) $targetName
 
         foreach ($helpFile in $module.HelpFiles)
@@ -339,7 +348,7 @@ function Invoke-SyncApply
 
             switch ($entry.Kind) {
                 'CmdletMarkdown' {
-                    Copy-Item -LiteralPath $entry.SourcePath -Destination $entry.TargetPath -Force
+                    Copy-CmdletMarkdownWithRewrite -SourcePath $entry.SourcePath -TargetPath $entry.TargetPath -TargetModuleName $entry.TargetModule
                 }
                 'ModuleIndex' {
                     Set-Content -LiteralPath $entry.TargetPath -Value $entry.GeneratedBody -NoNewline
@@ -439,7 +448,7 @@ if ($Module)
 }
 
 $plan = @(New-SyncPlan -Modules $modules -Moniker $effectiveMoniker -TargetRepoPath $effectiveTargetRepoPath `
-    -TargetModuleNamePattern $targetNamePattern -Config $config -RepoRoot $repoRoot)
+    -Config $config -RepoRoot $repoRoot)
 
 if ($Push)
 {

@@ -13,6 +13,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+. (Join-Path $PSScriptRoot '../../../build/Get-AzPackageName.ps1')
+
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 }
@@ -514,7 +516,7 @@ if ($releaseNoteLines.Count -gt 0) {
 }
 
 foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
-    $rootSection.Add("#### Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
+    $rootSection.Add("#### $(Get-AzPackageName -SourceModule $moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
     foreach ($line in $moduleRelease.ReleaseNotes) {
         $rootSection.Add($line)
     }
@@ -554,7 +556,7 @@ if (Test-Path -Path $rollupManifestPath -PathType Leaf) {
         $rollupReleaseNotes = New-Object System.Collections.Generic.List[string]
         $rollupReleaseNotes.Add("$Version - $ReleaseTimestamp")
         foreach ($moduleRelease in ($moduleReleases | Sort-Object ModuleName)) {
-            $rollupReleaseNotes.Add("Az.$($moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
+            $rollupReleaseNotes.Add("$(Get-AzPackageName -SourceModule $moduleRelease.ModuleName) $($moduleRelease.ModuleVersion)")
             foreach ($line in $moduleRelease.ReleaseNotes) {
                 $rollupReleaseNotes.Add($line)
             }
