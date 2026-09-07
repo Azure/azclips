@@ -48,7 +48,7 @@ assert_rest_content_eq() {
     local expected="$3"
     local message="$4"
     local actual
-    actual="$(jq -r ".content | fromjson | ($filter) // empty" <<<"$response")"
+    actual="$(jq -r ".content | fromjson | ($filter)" <<<"$response")"
     [[ "$actual" == "$expected" ]] || fail "$message: expected '$expected', got '${actual:-<empty>}'"
 }
 
@@ -142,7 +142,7 @@ identity_json="$("$AZ" identity create \
     --resource-group "$RESOURCE_GROUP" \
     --name "$IDENTITY_NAME" \
     --location "$LOCATION")"
-assert_json_eq "$identity_json" '.id' "$IDENTITY_ID" "identity create should return the requested user-assigned identity id"
+assert_json_eq "$identity_json" '.id | ascii_downcase' "${IDENTITY_ID,,}" "identity create should return the requested user-assigned identity id"
 
 create_json="$("$AZ" vm create \
     --subscription-id "$SUBSCRIPTION_ID" \
@@ -228,7 +228,7 @@ standard_vm_response="$("$AZ" rest \
     --uri "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Compute/virtualMachines/$STANDARD_VM_NAME?api-version=2025-11-01")"
 assert_status_in "$standard_vm_response" "200" "Standard VM GET should succeed"
 assert_rest_content_eq "$standard_vm_response" '.properties.storageProfile.imageReference.publisher' 'MicrosoftWindowsServer' "Standard security should preserve default image publisher"
-assert_rest_content_absent "$standard_vm_response" '.properties.securityProfile' "Standard security should omit the security profile"
+assert_rest_content_eq "$standard_vm_response" '.properties.securityProfile.securityType' 'Standard' "Standard security should be effective"
 assert_rest_content_eq "$standard_vm_response" '.properties.diagnosticsProfile.bootDiagnostics.enabled' 'false' "disable boot diagnostics should set boot diagnostics false"
 assert_rest_content_eq_ci "$standard_vm_response" '.properties.networkProfile.networkInterfaces[0].id' "$STANDARD_NIC_ID" "Standard VM should reference its derived NIC id"
 

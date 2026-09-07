@@ -68,9 +68,9 @@ function Assert-Absent {
 
 $ScriptPath = Split-Path -Parent $PSCommandPath
 $RepoRoot = Resolve-Path (Join-Path $ScriptPath '../../../../..')
-Import-Module (Join-Path $RepoRoot 'src/PS/Login/Login.psd1') -Force
-Import-Module (Join-Path $RepoRoot 'src/PS/Resources/Resources.psd1') -Force
-Import-Module (Join-Path $RepoRoot 'src/PS/Compute/Compute.psd1') -Force
+Import-Module (Join-Path $RepoRoot 'artifacts/Debug/PS/Login/Login.psd1') -Force
+Import-Module (Join-Path $RepoRoot 'artifacts/Debug/PS/Resources/Resources.psd1') -Force
+Import-Module (Join-Path $RepoRoot 'artifacts/Debug/PS/Compute/Compute.psd1') -Force
 
 $SubscriptionId = Get-RequiredEnv AZCLIPS_SUBSCRIPTION_ID
 $Location = if ($env:AZCLIPS_LOCATION) { $env:AZCLIPS_LOCATION } else { 'eastus' }
@@ -115,7 +115,7 @@ try {
 
     $storageResponse = Invoke-AzRestMethod `
         -Method PUT `
-        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Storage/storageAccounts/$StorageAccountName?api-version=2023-01-01" `
+        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Storage/storageAccounts/${StorageAccountName}?api-version=2023-01-01" `
         -Payload $storageBody
     Assert-True (@(200, 201, 202) -contains $storageResponse.StatusCode) 'storage account setup should be accepted for boot diagnostics'
 
@@ -124,7 +124,7 @@ try {
     } | ConvertTo-Json -Depth 5 -Compress
     $identityResponse = Invoke-AzRestMethod `
         -Method PUT `
-        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$IdentityName?api-version=2024-11-30" `
+        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${IdentityName}?api-version=2024-11-30" `
         -Payload $identityBody
     Assert-True (@(200, 201) -contains $identityResponse.StatusCode) 'user-assigned identity setup should be accepted'
 
@@ -149,7 +149,7 @@ try {
 
     $vmResponse = Invoke-AzRestMethod `
         -Method GET `
-        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Compute/virtualMachines/$TrustedLaunchVmName?api-version=2025-11-01"
+        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Compute/virtualMachines/${TrustedLaunchVmName}?api-version=2025-11-01"
     $vm = Get-RestJson $vmResponse
     Assert-Equal 'MicrosoftWindowsServer' $vm.properties.storageProfile.imageReference.publisher 'default image publisher should be applied'
     Assert-Equal 'WindowsServer' $vm.properties.storageProfile.imageReference.offer 'default image offer should be applied'
@@ -175,7 +175,7 @@ try {
 
     $publicIpResponse = Invoke-AzRestMethod `
         -Method GET `
-        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Network/publicIPAddresses/$PublicIpName?api-version=2025-05-01"
+        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Network/publicIPAddresses/${PublicIpName}?api-version=2025-05-01"
     $publicIp = Get-RestJson $publicIpResponse
     Assert-Equal 'Standard' $publicIp.sku.name 'orchestrated public IP should default to Standard SKU'
     Assert-Equal 'Static' $publicIp.properties.publicIPAllocationMethod 'orchestrated public IP should default to static allocation'
@@ -207,10 +207,10 @@ try {
 
     $standardVmResponse = Invoke-AzRestMethod `
         -Method GET `
-        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Compute/virtualMachines/$StandardVmName?api-version=2025-11-01"
+        -Uri "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Compute/virtualMachines/${StandardVmName}?api-version=2025-11-01"
     $standardVm = Get-RestJson $standardVmResponse
     Assert-Equal 'MicrosoftWindowsServer' $standardVm.properties.storageProfile.imageReference.publisher 'Standard security should preserve default image publisher'
-    Assert-Absent $standardVm.properties.securityProfile 'Standard security should omit the security profile'
+    Assert-Equal 'Standard' $standardVm.properties.securityProfile.securityType 'Standard security should be effective'
     Assert-Equal $false $standardVm.properties.diagnosticsProfile.bootDiagnostics.enabled 'disable boot diagnostics should set boot diagnostics false'
     Assert-Equal $StandardNicId.ToLowerInvariant() ([string] $standardVm.properties.networkProfile.networkInterfaces[0].id).ToLowerInvariant() 'Standard VM should reference its derived NIC id'
 
@@ -227,7 +227,7 @@ try {
         try {
             Invoke-AzRestMethod `
                 -Method DELETE `
-                -Uri "/subscriptions/$SubscriptionId/resourcegroups/$ResourceGroupName?api-version=2025-04-01" | Out-Null
+                -Uri "/subscriptions/$SubscriptionId/resourcegroups/${ResourceGroupName}?api-version=2025-04-01" | Out-Null
         } catch {
             Write-Warning "Resource group cleanup request failed: $($_.Exception.Message)"
         }
