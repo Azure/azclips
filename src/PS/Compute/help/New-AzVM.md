@@ -55,7 +55,8 @@ New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Locati
 
 ### -AcceleratedNetworking
 
-{{ Fill AcceleratedNetworking Description }}
+Enables accelerated networking on the network interface created for the virtual machine. Off
+unless set; the chosen VM size must support accelerated networking.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
