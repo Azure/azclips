@@ -46,7 +46,8 @@ public static class HttpRuntime
             while (request.Method == HttpMethod.Put && response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created || response.StatusCode == HttpStatusCode.Accepted)
             {
                 // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
-                int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? httpPipeline.PollingInterval);
+                // Clamp to at least one second: a sub-second Retry-After truncates to 0 and busy-polls ARM.
+                int delay = Math.Max(1, (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? httpPipeline.PollingInterval));
                 await publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
                 Task delayTask = Task.Delay(delay*1000, publisher.Token);
 
