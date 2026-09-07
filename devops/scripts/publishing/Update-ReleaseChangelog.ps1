@@ -13,7 +13,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-. (Join-Path $PSScriptRoot '../../../build/Get-AzPackageName.ps1')
+. ([System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../build/Get-AzPackageName.ps1')))
 
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))

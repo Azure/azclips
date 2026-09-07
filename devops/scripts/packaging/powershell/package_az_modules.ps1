@@ -16,7 +16,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot '../../../build/Get-AzPackageName.ps1')
+. ([System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../../build/Get-AzPackageName.ps1')))
 
 if (-not (Get-Command -Name $PwshPath -ErrorAction SilentlyContinue))
 {
