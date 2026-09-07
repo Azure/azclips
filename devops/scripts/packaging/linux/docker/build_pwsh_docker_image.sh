@@ -68,18 +68,18 @@ SANITIZED_REPOSITORY="${IMAGE_REPOSITORY//\//-}"
 SAVE_PATH="$SAVE_DIR/${SANITIZED_REPOSITORY}-$ARTIFACT_VERSION-$IMAGE_VARIANT-$ARCH_LABEL.tar"
 
 echo "Building docker image $IMAGE_TAG (platform=$PLATFORM, base=$BASE_IMAGE, builder=$POWERSHELL_BUILDER_IMAGE)"
+rm -f "$SAVE_PATH"
 docker buildx build \
   --platform "$PLATFORM" \
   --build-arg BASE_IMAGE="$BASE_IMAGE" \
   --build-arg POWERSHELL_BUILDER_IMAGE="$POWERSHELL_BUILDER_IMAGE" \
   --file "$DOCKERFILE" \
   --tag "$IMAGE_TAG" \
-  --load \
+  --output "type=docker,dest=$SAVE_PATH,compression=gzip,compression-level=9,force-compression=true" \
   "$BUILD_CONTEXT"
 
-echo "Saving image to $SAVE_PATH"
-rm -f "$SAVE_PATH"
-docker save -o "$SAVE_PATH" "$IMAGE_TAG"
+echo "Loading exported image from $SAVE_PATH"
+docker load --input "$SAVE_PATH"
 
 echo "Created $SAVE_PATH"
 echo "##vso[task.setvariable variable=DockerImageTag]$IMAGE_TAG"
