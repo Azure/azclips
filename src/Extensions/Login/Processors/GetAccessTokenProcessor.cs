@@ -112,10 +112,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
         }
 
         /// <summary>
-        /// Rejects an explicit tenant that is incompatible with a managed identity or Cloud Shell
-        /// account (REQ-5 / Gap T-5). For those account types the tenant is fixed by the account, so
-        /// an explicit tenant that differs from the account's tenant cannot be honored.
+        /// Rejects an explicit tenant that is incompatible with a managed identity account
+        /// (REQ-5 / Gap T-5). For managed identity the tenant is fixed by the account, so an explicit
+        /// tenant that differs from the account's tenant cannot be honored.
         /// </summary>
+        /// <remarks>
+        /// Cloud Shell is not yet a distinct authentication method in AzCLIPS (tracked separately as a
+        /// pre-authenticated environment; see issue #164). Today a Cloud Shell session authenticates via
+        /// managed identity and is therefore already covered by this check. When a dedicated Cloud Shell
+        /// auth method is added, extend this validation to cover it.
+        /// </remarks>
         private static void ValidateTenantCompatibility(Profile profile, string? explicitTenant)
         {
             if (explicitTenant is null)
@@ -129,7 +135,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
                 !string.Equals(explicitTenant, profile.TenantId, StringComparison.OrdinalIgnoreCase))
             {
                 throw new ArgumentException(
-                    $"Tenant '{explicitTenant}' is not valid for the current account. Managed identity and Cloud Shell accounts can only acquire tokens for their own tenant ('{profile.TenantId}').");
+                    $"Tenant '{explicitTenant}' is not valid for the current account. A managed identity account can only acquire tokens for its own tenant ('{profile.TenantId}').");
             }
         }
 

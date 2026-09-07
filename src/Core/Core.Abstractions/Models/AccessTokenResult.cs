@@ -35,10 +35,4 @@ public record AccessTokenResult
 
     /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>
     public string TokenType { get; init; } = "Bearer";
-
-    /// <summary>
-    /// Renders the token field for output. Returns the raw <see cref="Token"/> when
-    /// <paramref name="plaintext"/> is true, otherwise the <see cref="RedactedPlaceholder"/>.
-    /// </summary>
-    public string RenderToken(bool plaintext) => plaintext ? Token : RedactedPlaceholder;
 }

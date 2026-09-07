@@ -11,9 +11,9 @@ namespace Cli.Tests;
 
 /// <summary>
 /// Behavioral tests for <see cref="GetAccessTokenProcessor"/>: tenant-compatibility validation for
-/// managed identity / Cloud Shell accounts, secure-by-default token rendering with per-surface
-/// plaintext opt-in (CLI <c>--plaintext</c> flag; PowerShell env var), and scope resolution flowing
-/// through to the auth service.
+/// managed identity accounts, secure-by-default token rendering with per-surface plaintext opt-in
+/// (CLI <c>--plaintext</c> flag; PowerShell env var), and scope resolution flowing through to the
+/// auth service.
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
 public class GetAccessTokenProcessorTests
