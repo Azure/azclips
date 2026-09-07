@@ -579,6 +579,9 @@ public partial class IRId
     [JsonPropertyName("namespace")]
     public IReadOnlyList<string> Namespace { get; set; } = [];
 
+    [JsonPropertyName("interface")]
+    public string? Interface { get; set; }
+
     [JsonPropertyName("name")]
     public string Name { get; set; } = default !;
 

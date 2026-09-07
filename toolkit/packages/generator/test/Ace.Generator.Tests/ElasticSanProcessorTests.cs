@@ -54,6 +54,27 @@ public sealed class ElasticSanProcessorTests
     }
 
     [Fact]
+    public async Task Regrouped_Operations_Use_Source_Interface_Names()
+    {
+        (GenerationResult result, _) = await EmitAsync("ElasticSan_Processors_Interfaces");
+
+        Assert.True(result.Success);
+        Assert.Empty(result.Diagnostics);
+        foreach (string name in new[]
+        {
+            "RestoreVolumeProcessor",
+            "PreBackupVolumeGroupsProcessor",
+            "PreRestoreVolumeGroupsProcessor",
+            "ListByElasticSanElasticSansProcessor",
+            "GetSnapshotsProcessor",
+            "ListSkusOperationGroupProcessor",
+        })
+        {
+            Assert.Contains(name, result.GeneratedClasses.Keys);
+        }
+    }
+
+    [Fact]
     public async Task Create_Processor_Has_Body_Uri_And_Lro_Send()
     {
         (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Create");

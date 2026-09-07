@@ -14,6 +14,49 @@ public sealed class IrModelDeserializationTests
     private static T Parse<T>(string json) => JsonSerializer.Deserialize<T>(json, IrJson.Options)!;
 
     [Fact]
+    public void IROperation_RoundTripsSourceInterfaceAndParameterIdentity()
+    {
+        IROperation operation = Parse<IROperation>(
+            """
+            {
+              "id": { "module": "M", "namespace": ["Contoso", "Inventory"], "interface": "Widgets", "name": "read" },
+              "name": "fetch",
+              "pathParameters": [
+                {
+                  "id": { "module": "M", "namespace": ["Contoso", "Inventory"], "interface": "Widgets", "name": "read.widgetId" },
+                  "name": "widgetId",
+                  "wireName": "widgetId",
+                  "type": { "kind": "primitive", "name": "string" }
+                }
+              ]
+            }
+            """);
+
+        IROperation roundTripped = Parse<IROperation>(JsonSerializer.Serialize(operation, IrJson.Options));
+
+        Assert.Equal("Widgets", roundTripped.Id.Interface);
+        Assert.Equal(new[] { "Contoso", "Inventory" }, roundTripped.Id.Namespace);
+        Assert.Equal("read", roundTripped.Id.Name);
+        Assert.Equal("fetch", roundTripped.Name);
+        IRParameter parameter = Assert.Single(roundTripped.PathParameters);
+        Assert.Equal(roundTripped.Id.Interface, parameter.Id.Interface);
+        Assert.Equal(roundTripped.Id.Namespace, parameter.Id.Namespace);
+        Assert.Equal("read.widgetId", parameter.Id.Name);
+        using JsonDocument json = JsonDocument.Parse(JsonSerializer.Serialize(roundTripped.Id, IrJson.Options));
+        Assert.Equal("Widgets", json.RootElement.GetProperty("interface").GetString());
+    }
+
+    [Fact]
+    public void IRId_AbsentInterface_IsNotInferredFromNamespace()
+    {
+        IRId id = Parse<IRId>(
+            """{ "module": "M", "namespace": ["Contoso", "Inventory"], "name": "get" }""");
+
+        Assert.Null(id.Interface);
+        Assert.Equal(new[] { "Contoso", "Inventory" }, id.Namespace);
+    }
+
+    [Fact]
     public void IRTypeRef_Primitive_DeserializesToDerivedType()
     {
         IRTypeRef result = Parse<IRTypeRef>("""{ "kind": "primitive", "name": "int64" }""");

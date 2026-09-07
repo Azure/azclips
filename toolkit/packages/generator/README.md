@@ -226,7 +226,13 @@ literally (logical `name` → C# member, `wireName` → `[JsonPropertyName]`,
 `optional`/`nullable` → nullable type, `docs`/`summary` → XML doc).
 
 **`ProcessorGenerator`** emits one `{Verb}{Group}Processor : ProcessorBase<TRequest, TResponse>`
-per operation: the public surface mirrors the API parameter surface exactly (one
+per flat IR operation. `Verb` comes from the display `operation.name`; `Group`
+comes from `operation.id.interface`, the source TypeSpec interface name.
+`id.namespace` contains only the TypeSpec namespace, and `id.name` retains the
+original TypeSpec operation name even when its display name differs. Parameter
+IDs carry the same owner interface. Namespace-level operations have no interface
+group and emit `{Verb}Processor`; the generator never infers a group from the
+namespace tail. The public surface mirrors the API parameter surface exactly (one
 property per path/query parameter — `subscriptionId` inline, not special-cased),
 plus a single request-body member. It overrides the base's fine-grained request
 seams — `Method`, `CreateRequestUri()` (resolved host + path template with
@@ -270,3 +276,10 @@ The `ElasticSanModelTests` and `ElasticSanProcessorTests` emit the real ElasticS
 IR (`TestData/elasticsan.ir.json`, 59 models / 30 operations) and verify the
 output parses; run `dotnet test` and open `artifacts/ElasticSan_Models/` and
 `artifacts/ElasticSan_Processors/` to see it.
+
+The fixture's IR 0.7 operation/parameter identities follow the
+[upstream TypeSpec declarations](https://github.com/Azure/azure-rest-api-specs/tree/main/specification/elasticsan/resource-manager/Microsoft.ElasticSan/ElasticSan),
+not the SDK relocations in `back-compatible.tsp`; the captured HTTP/model payloads
+are unchanged. For example, `preBackup` belongs to `VolumeGroups`, snapshots to
+`Snapshots`, and `restoreVolume` is namespace-level despite its old root-client
+grouping.

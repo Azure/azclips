@@ -589,9 +589,9 @@
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "list"
       },
       "name": "list",
@@ -604,9 +604,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "list.tag"
           },
           "name": "tag",
@@ -624,9 +624,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "list.accept"
           },
           "name": "accept",
@@ -704,9 +704,9 @@
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "get"
       },
       "name": "get",
@@ -718,9 +718,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "get.petId"
           },
           "name": "petId",
@@ -739,9 +739,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "get.accept"
           },
           "name": "accept",
@@ -804,9 +804,9 @@
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "create"
       },
       "name": "create",
@@ -820,9 +820,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -839,9 +839,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "create.accept"
           },
           "name": "accept",
@@ -917,9 +917,9 @@
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "getStatus"
       },
       "name": "getStatus",
@@ -931,9 +931,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "getStatus.operationId"
           },
           "name": "operationId",
@@ -952,9 +952,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "getStatus.accept"
           },
           "name": "accept",
@@ -1017,9 +1017,9 @@
       "id": {
         "module": "PetStore",
         "namespace": [
-          "PetStore",
-          "Pets"
+          "PetStore"
         ],
+        "interface": "Pets",
         "name": "rename"
       },
       "name": "rename",
@@ -1031,9 +1031,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "rename.petId"
           },
           "name": "petId",
@@ -1052,9 +1052,9 @@
           "id": {
             "module": "PetStore",
             "namespace": [
-              "PetStore",
-              "Pets"
+              "PetStore"
             ],
+            "interface": "Pets",
             "name": "rename.contentType"
           },
           "name": "contentType",

@@ -67,6 +67,79 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
+    public async Task Generate_DistinguishesInterfacesWithinTheSameNamespace()
+    {
+        IRDocument ir = Ir();
+        ir.Operations = new string?[] { "Widgets", "Gadgets", null }
+            .Select(group => new IROperation
+            {
+                Id = new IRId
+                {
+                    Module = "Test",
+                    Namespace = ["Contoso", "Inventory"],
+                    Interface = group,
+                    Name = "get",
+                },
+                Name = "get",
+            })
+            .ToList();
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(
+            new[] { "GetGadgetsProcessor", "GetProcessor", "GetWidgetsProcessor", "ProcessorBase" },
+            result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+        Assert.Equal(4, writer.Files.ProcessorSources().Count());
+    }
+
+    [Fact]
+    public async Task Generate_UsesDisplayNameAndSourceInterfaceForProcessorName()
+    {
+        IRDocument ir = Ir();
+        ir.Operations =
+        [
+            new IROperation
+            {
+                Id = new IRId { Module = "Test", Interface = "Widgets", Name = "read" },
+                Name = "fetch",
+            },
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        Assert.Contains("class FetchWidgetsProcessor", writer.Files.Source(result, "FetchWidgetsProcessor"));
+        Assert.DoesNotContain("ReadWidgetsProcessor", result.GeneratedClasses.Keys);
+    }
+
+    [Fact]
+    public async Task Generate_DoesNotInferInterfaceFromNamespace()
+    {
+        IRDocument ir = Ir();
+        ir.Operations =
+        [
+            new IROperation
+            {
+                Id = new IRId
+                {
+                    Module = "Test",
+                    Namespace = ["Contoso", "Inventory"],
+                    Name = "get",
+                },
+                Name = "get",
+            },
+        ];
+
+        (GenerationResult result, _) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        Assert.Contains("GetProcessor", result.GeneratedClasses.Keys);
+        Assert.DoesNotContain("GetInventoryProcessor", result.GeneratedClasses.Keys);
+    }
+
+    [Fact]
     public async Task Generate_AlwaysEmitsProcessorBaseAndProjectFile()
     {
         (GenerationResult result, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"]));

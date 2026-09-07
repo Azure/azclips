@@ -28,6 +28,7 @@ import type { HttpStatusCodeRange } from "@typespec/http";
 import type {
   CollectionFormat,
   FormatKind,
+  IRId,
   IRParameter,
   IRRequestBody,
   IRResponse,
@@ -62,17 +63,15 @@ function formatHintOf(irType: { kind: string; format?: FormatKind | undefined })
 
 function paramOf(
   ctx: BuildContext,
-  opNs: string[],
-  opName: string,
+  operationId: IRId,
   p: SdkHeaderParameter | SdkQueryParameter | SdkPathParameter,
 ): IRParameter {
   const wireName = p.serializedName ?? p.name;
   const { type, nullable } = unwrapNullable(p.type);
-  const irType = typeRefFor(ctx, type, `${opName}.${p.name}`);
+  const irType = typeRefFor(ctx, type, `${operationId.name}.${p.name}`);
   const id = {
-    module: ctx.options.sourceId,
-    namespace: opNs,
-    name: `${opName}.${p.name}`,
+    ...operationId,
+    name: `${operationId.name}.${p.__raw?.name ?? p.name}`,
   };
   const format = formatHintOf(irType);
   const cf =
@@ -97,8 +96,7 @@ function paramOf(
 export function parametersByLocation(
   ctx: BuildContext,
   op: SdkHttpOperation,
-  opNs: string[],
-  opName: string,
+  operationId: IRId,
 ): {
   pathParameters: IRParameter[];
   queryParameters: IRParameter[];
@@ -115,18 +113,18 @@ export function parametersByLocation(
 
     switch (p.kind) {
       case "path":
-        pathParameters.push(paramOf(ctx, opNs, opName, p));
+        pathParameters.push(paramOf(ctx, operationId, p));
         break;
       case "query":
-        queryParameters.push(paramOf(ctx, opNs, opName, p));
+        queryParameters.push(paramOf(ctx, operationId, p));
         break;
       case "header":
-        headerParameters.push(paramOf(ctx, opNs, opName, p));
+        headerParameters.push(paramOf(ctx, operationId, p));
         break;
       case "cookie":
         reportDiagnostic(ctx.program, {
           code: "cookie-parameter-dropped",
-          format: { name: p.name, operation: opName },
+          format: { name: p.name, operation: operationId.name },
           target: NoTarget,
         });
         break;

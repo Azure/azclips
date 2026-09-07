@@ -72,13 +72,13 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
     /// <summary>
     /// Unique C# class name for a processor: <c>{Verb}{Group}Processor</c>, where the group is the
-    /// last segment of the operation's <see cref="IRId.Namespace"/> (the operation interface, e.g.
-    /// <c>ElasticSans</c>) — operation <see cref="IROperation.Name"/>s alone are not unique across
-    /// groups. Falls back to <c>{Verb}Processor</c> when the operation carries no id.
+    /// operation's <see cref="IRId.Interface"/> (e.g. <c>ElasticSans</c>) — operation
+    /// <see cref="IROperation.Name"/>s alone are not unique across groups. Namespace-level
+    /// operations have no interface group and emit <c>{Verb}Processor</c>.
     /// </summary>
     private static string ProcessorTypeName(IROperation operation)
     {
-        string group = operation.Id?.Namespace is { Count: > 0 } ns ? ns[^1] : string.Empty;
+        string group = operation.Id?.Interface ?? string.Empty;
         return (operation.Name + group).Identifier() + "Processor";
     }
 

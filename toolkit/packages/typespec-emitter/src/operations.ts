@@ -3,15 +3,14 @@
  *
  * Walks the client tree (`sdkPackage.clients` + each client's `methods`,
  * recursive into `children`/sub-clients) and produces one IROperation per
- * leaf method. Drops override methods (`isOverride`) and internal-access
- * methods, each diagnosed once.
+ * leaf method. Drops override methods (`isOverride`), diagnosed once.
  *
  * Per-op we delegate the bulk of the work to `http.ts` (HTTP framing) and
  * `semantics.ts` (paging/LRO). The api-version and server stamps for the
  * IRSource are denormalized onto each op.
  */
 
-import { NoTarget } from "@typespec/compiler";
+import { getNamespaceFullName, NoTarget } from "@typespec/compiler";
 import type {
   SdkClientType,
   SdkHttpOperation,
@@ -47,28 +46,27 @@ function clampHttpMethod(verb: string): HttpMethod | undefined {
 }
 
 /**
- * Build the op's IRId. Namespace = the spec's namespace segments, with
- * the client/interface name appended so two ops with the same wire name
- * on different clients don't collide.
+ * Preserve TypeSpec ownership independently of SDK client organization.
+ * Inherited operations belong to the effective interface, not its base.
  */
 function opIdFor(
   ctx: BuildContext,
-  client: SdkClientType<SdkHttpOperation>,
   method: SdkServiceMethod<SdkHttpOperation>,
 ): IRId {
-  const fqn = client.namespace ?? "";
-  const baseSegments = fqn.length === 0 ? [] : fqn.split(".");
-  const namespace = client.name ? [...baseSegments, client.name] : baseSegments;
+  const raw = method.__raw ?? method.operation.__raw.operation;
+  const owner = raw.interface;
+  const namespace = owner !== undefined ? owner.namespace : raw.namespace;
+  const fqn = namespace !== undefined ? getNamespaceFullName(namespace) : "";
   return {
     module: ctx.options.sourceId,
-    namespace,
-    name: method.name,
+    namespace: fqn.length === 0 ? [] : fqn.split("."),
+    ...(owner !== undefined ? { interface: owner.name } : {}),
+    name: raw.name,
   };
 }
 
 function methodToOperation(
   ctx: BuildContext,
-  client: SdkClientType<SdkHttpOperation>,
   method: SdkServiceMethod<SdkHttpOperation>,
   apiVersion: IRApiVersionStamp,
   server: IRServer,
@@ -88,15 +86,14 @@ function methodToOperation(
     return undefined;
   }
 
-  const id = opIdFor(ctx, client, method);
+  const id = opIdFor(ctx, method);
   const body = bodyFrom(ctx, http, method.name);
   if (!body.ok) return undefined; // streaming-body-dropped already reported
 
   const { pathParameters, queryParameters, headerParameters } = parametersByLocation(
     ctx,
     http,
-    id.namespace,
-    method.name,
+    id,
   );
   const responses = responsesFrom(ctx, http, method.name);
   if (responses.length === 0) {
@@ -139,7 +136,7 @@ function walkClient(
   out: IROperation[],
 ): void {
   for (const m of client.methods) {
-    const op = methodToOperation(ctx, client, m as SdkServiceMethod<SdkHttpOperation>, apiVersion, server);
+    const op = methodToOperation(ctx, m, apiVersion, server);
     if (op) out.push(op);
   }
   if (client.children) {

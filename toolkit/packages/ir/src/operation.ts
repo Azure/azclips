@@ -3,8 +3,8 @@
  *
  * Each operation will be generated as one C# class (IProcessor pattern),
  * so the IR carries everything needed to construct an HTTP request and
- * surface its response. No client/group concept — operations live flat
- * at the IR root and are organized by `id.namespace` for output layout.
+ * surface its response. Operations live flat at the IR root; `id.namespace`
+ * and optional `id.interface` retain their TypeSpec ownership for grouping.
  */
 
 import { z } from "zod";

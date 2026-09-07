@@ -7600,8 +7600,7 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSanClient"
+          "ElasticSan"
         ],
         "name": "restoreVolume"
       },
@@ -7615,8 +7614,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.subscriptionId"
           },
@@ -7635,8 +7633,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.resourceGroupName"
           },
@@ -7655,8 +7652,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.elasticSanName"
           },
@@ -7675,8 +7671,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.volumeGroupName"
           },
@@ -7695,8 +7690,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.volumeName"
           },
@@ -7718,8 +7712,7 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSanClient"
+              "ElasticSan"
             ],
             "name": "restoreVolume.accept"
           },
@@ -7838,9 +7831,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Operations"
+          "ElasticSan"
         ],
+        "interface": "Operations",
         "name": "list"
       },
       "name": "list",
@@ -7855,9 +7848,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Operations"
+              "ElasticSan"
             ],
+            "interface": "Operations",
             "name": "list.accept"
           },
           "name": "accept",
@@ -7960,9 +7953,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "get"
       },
       "name": "get",
@@ -7975,9 +7968,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -7995,9 +7988,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8015,9 +8008,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -8038,9 +8031,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "get.accept"
           },
           "name": "accept",
@@ -8125,9 +8118,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "create"
       },
       "name": "create",
@@ -8140,9 +8133,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8160,9 +8153,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8180,9 +8173,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -8203,9 +8196,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -8223,9 +8216,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "create.accept"
           },
           "name": "accept",
@@ -8370,9 +8363,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "update"
       },
       "name": "update",
@@ -8385,9 +8378,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8405,9 +8398,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8425,9 +8418,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.elasticSanName"
           },
           "name": "elasticSanName",
@@ -8448,9 +8441,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.contentType"
           },
           "name": "contentType",
@@ -8468,9 +8461,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "update.accept"
           },
           "name": "accept",
@@ -8603,9 +8596,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "delete"
       },
       "name": "delete",
@@ -8618,9 +8611,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8638,9 +8631,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8658,9 +8651,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -8777,9 +8770,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "listByResourceGroup"
       },
       "name": "listByResourceGroup",
@@ -8792,9 +8785,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByResourceGroup.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8812,9 +8805,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByResourceGroup.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -8835,9 +8828,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByResourceGroup.accept"
           },
           "name": "accept",
@@ -8938,9 +8931,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "ElasticSans"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "listBySubscription"
       },
       "name": "listBySubscription",
@@ -8953,9 +8946,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listBySubscription.subscriptionId"
           },
           "name": "subscriptionId",
@@ -8976,9 +8969,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "ElasticSans"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listBySubscription.accept"
           },
           "name": "accept",
@@ -9079,9 +9072,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateEndpointConnections"
+          "ElasticSan"
         ],
+        "interface": "PrivateEndpointConnections",
         "name": "get"
       },
       "name": "get",
@@ -9094,9 +9087,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9114,9 +9107,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9134,9 +9127,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9154,9 +9147,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.privateEndpointConnectionName"
           },
           "name": "privateEndpointConnectionName",
@@ -9177,9 +9170,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "get.accept"
           },
           "name": "accept",
@@ -9264,9 +9257,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateEndpointConnections"
+          "ElasticSan"
         ],
+        "interface": "PrivateEndpointConnections",
         "name": "create"
       },
       "name": "create",
@@ -9279,9 +9272,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9299,9 +9292,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9319,9 +9312,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9339,9 +9332,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.privateEndpointConnectionName"
           },
           "name": "privateEndpointConnectionName",
@@ -9362,9 +9355,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -9382,9 +9375,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "create.accept"
           },
           "name": "accept",
@@ -9529,9 +9522,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateEndpointConnections"
+          "ElasticSan"
         ],
+        "interface": "PrivateEndpointConnections",
         "name": "delete"
       },
       "name": "delete",
@@ -9544,9 +9537,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9564,9 +9557,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9584,9 +9577,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9604,9 +9597,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "delete.privateEndpointConnectionName"
           },
           "name": "privateEndpointConnectionName",
@@ -9723,9 +9716,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateEndpointConnections"
+          "ElasticSan"
         ],
+        "interface": "PrivateEndpointConnections",
         "name": "list"
       },
       "name": "list",
@@ -9738,9 +9731,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "list.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9758,9 +9751,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "list.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9778,9 +9771,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "list.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9801,9 +9794,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateEndpointConnections"
+              "ElasticSan"
             ],
+            "interface": "PrivateEndpointConnections",
             "name": "list.accept"
           },
           "name": "accept",
@@ -9904,9 +9897,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "get"
       },
       "name": "get",
@@ -9919,9 +9912,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -9939,9 +9932,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -9959,9 +9952,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -9979,9 +9972,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -9999,9 +9992,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.volumeName"
           },
           "name": "volumeName",
@@ -10022,9 +10015,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "get.accept"
           },
           "name": "accept",
@@ -10109,9 +10102,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "create"
       },
       "name": "create",
@@ -10124,9 +10117,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -10144,9 +10137,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -10164,9 +10157,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -10184,9 +10177,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -10204,9 +10197,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.volumeName"
           },
           "name": "volumeName",
@@ -10227,9 +10220,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -10247,9 +10240,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "create.accept"
           },
           "name": "accept",
@@ -10394,9 +10387,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "update"
       },
       "name": "update",
@@ -10409,9 +10402,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.subscriptionId"
           },
           "name": "subscriptionId",
@@ -10429,9 +10422,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -10449,9 +10442,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.elasticSanName"
           },
           "name": "elasticSanName",
@@ -10469,9 +10462,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -10489,9 +10482,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.volumeName"
           },
           "name": "volumeName",
@@ -10512,9 +10505,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.contentType"
           },
           "name": "contentType",
@@ -10532,9 +10525,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "update.accept"
           },
           "name": "accept",
@@ -10667,9 +10660,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "delete"
       },
       "name": "delete",
@@ -10682,9 +10675,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -10702,9 +10695,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -10722,9 +10715,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -10742,9 +10735,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -10762,9 +10755,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.volumeName"
           },
           "name": "volumeName",
@@ -10784,9 +10777,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.deleteType"
           },
           "name": "deleteType",
@@ -10813,9 +10806,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.x-ms-delete-snapshots"
           },
           "name": "x-ms-delete-snapshots",
@@ -10840,9 +10833,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "delete.x-ms-force-delete"
           },
           "name": "x-ms-force-delete",
@@ -10964,9 +10957,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "Volumes",
         "name": "listByVolumeGroup"
       },
       "name": "listByVolumeGroup",
@@ -10979,9 +10972,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.subscriptionId"
           },
           "name": "subscriptionId",
@@ -10999,9 +10992,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11019,9 +11012,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11039,9 +11032,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11062,9 +11055,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.x-ms-access-soft-deleted-resources"
           },
           "name": "x-ms-access-soft-deleted-resources",
@@ -11089,9 +11082,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "Volumes",
             "name": "listByVolumeGroup.accept"
           },
           "name": "accept",
@@ -11192,9 +11185,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "preBackup"
       },
       "name": "preBackup",
@@ -11207,9 +11200,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.subscriptionId"
           },
           "name": "subscriptionId",
@@ -11227,9 +11220,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11247,9 +11240,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11267,9 +11260,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11290,9 +11283,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.contentType"
           },
           "name": "contentType",
@@ -11310,9 +11303,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preBackup.accept"
           },
           "name": "accept",
@@ -11445,9 +11438,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Volumes"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "preRestore"
       },
       "name": "preRestore",
@@ -11460,9 +11453,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.subscriptionId"
           },
           "name": "subscriptionId",
@@ -11480,9 +11473,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11500,9 +11493,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11520,9 +11513,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11543,9 +11536,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.contentType"
           },
           "name": "contentType",
@@ -11563,9 +11556,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Volumes"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "preRestore.accept"
           },
           "name": "accept",
@@ -11698,9 +11691,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "get"
       },
       "name": "get",
@@ -11713,9 +11706,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -11733,9 +11726,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11753,9 +11746,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11773,9 +11766,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11796,9 +11789,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "get.accept"
           },
           "name": "accept",
@@ -11883,9 +11876,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "create"
       },
       "name": "create",
@@ -11898,9 +11891,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -11918,9 +11911,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -11938,9 +11931,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -11958,9 +11951,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -11981,9 +11974,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -12001,9 +11994,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "create.accept"
           },
           "name": "accept",
@@ -12148,9 +12141,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "update"
       },
       "name": "update",
@@ -12163,9 +12156,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.subscriptionId"
           },
           "name": "subscriptionId",
@@ -12183,9 +12176,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -12203,9 +12196,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.elasticSanName"
           },
           "name": "elasticSanName",
@@ -12223,9 +12216,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -12246,9 +12239,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.contentType"
           },
           "name": "contentType",
@@ -12266,9 +12259,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "update.accept"
           },
           "name": "accept",
@@ -12401,9 +12394,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "delete"
       },
       "name": "delete",
@@ -12416,9 +12409,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -12436,9 +12429,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -12456,9 +12449,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -12476,9 +12469,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "delete.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -12595,9 +12588,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeGroups"
+          "ElasticSan"
         ],
+        "interface": "VolumeGroups",
         "name": "listByElasticSan"
       },
       "name": "listByElasticSan",
@@ -12610,9 +12603,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.subscriptionId"
           },
           "name": "subscriptionId",
@@ -12630,9 +12623,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -12650,9 +12643,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.elasticSanName"
           },
           "name": "elasticSanName",
@@ -12673,9 +12666,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.x-ms-access-soft-deleted-resources"
           },
           "name": "x-ms-access-soft-deleted-resources",
@@ -12700,9 +12693,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeGroups"
+              "ElasticSan"
             ],
+            "interface": "VolumeGroups",
             "name": "listByElasticSan.accept"
           },
           "name": "accept",
@@ -12803,9 +12796,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "PrivateLinkResources"
+          "ElasticSan"
         ],
+        "interface": "ElasticSans",
         "name": "listByElasticSan"
       },
       "name": "listByElasticSan",
@@ -12818,9 +12811,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateLinkResources"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByElasticSan.subscriptionId"
           },
           "name": "subscriptionId",
@@ -12838,9 +12831,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateLinkResources"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByElasticSan.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -12858,9 +12851,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateLinkResources"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByElasticSan.elasticSanName"
           },
           "name": "elasticSanName",
@@ -12881,9 +12874,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "PrivateLinkResources"
+              "ElasticSan"
             ],
+            "interface": "ElasticSans",
             "name": "listByElasticSan.accept"
           },
           "name": "accept",
@@ -12968,9 +12961,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeSnapshots"
+          "ElasticSan"
         ],
+        "interface": "Snapshots",
         "name": "get"
       },
       "name": "get",
@@ -12983,9 +12976,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13003,9 +12996,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -13023,9 +13016,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.elasticSanName"
           },
           "name": "elasticSanName",
@@ -13043,9 +13036,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -13063,9 +13056,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.snapshotName"
           },
           "name": "snapshotName",
@@ -13086,9 +13079,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "get.accept"
           },
           "name": "accept",
@@ -13173,9 +13166,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeSnapshots"
+          "ElasticSan"
         ],
+        "interface": "Snapshots",
         "name": "create"
       },
       "name": "create",
@@ -13188,9 +13181,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13208,9 +13201,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -13228,9 +13221,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.elasticSanName"
           },
           "name": "elasticSanName",
@@ -13248,9 +13241,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -13268,9 +13261,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.snapshotName"
           },
           "name": "snapshotName",
@@ -13291,9 +13284,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.contentType"
           },
           "name": "contentType",
@@ -13311,9 +13304,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "create.accept"
           },
           "name": "accept",
@@ -13458,9 +13451,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeSnapshots"
+          "ElasticSan"
         ],
+        "interface": "Snapshots",
         "name": "delete"
       },
       "name": "delete",
@@ -13473,9 +13466,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13493,9 +13486,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -13513,9 +13506,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.elasticSanName"
           },
           "name": "elasticSanName",
@@ -13533,9 +13526,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -13553,9 +13546,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "delete.snapshotName"
           },
           "name": "snapshotName",
@@ -13672,9 +13665,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "VolumeSnapshots"
+          "ElasticSan"
         ],
+        "interface": "Snapshots",
         "name": "listByVolumeGroup"
       },
       "name": "listByVolumeGroup",
@@ -13687,9 +13680,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13707,9 +13700,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.resourceGroupName"
           },
           "name": "resourceGroupName",
@@ -13727,9 +13720,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.elasticSanName"
           },
           "name": "elasticSanName",
@@ -13747,9 +13740,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.volumeGroupName"
           },
           "name": "volumeGroupName",
@@ -13769,9 +13762,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.$filter"
           },
           "name": "$filter",
@@ -13791,9 +13784,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "VolumeSnapshots"
+              "ElasticSan"
             ],
+            "interface": "Snapshots",
             "name": "listByVolumeGroup.accept"
           },
           "name": "accept",
@@ -13894,9 +13887,9 @@
         "module": "Microsoft",
         "namespace": [
           "Microsoft",
-          "ElasticSan",
-          "Skus"
+          "ElasticSan"
         ],
+        "interface": "SkusOperationGroup",
         "name": "list"
       },
       "name": "list",
@@ -13909,9 +13902,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Skus"
+              "ElasticSan"
             ],
+            "interface": "SkusOperationGroup",
             "name": "list.subscriptionId"
           },
           "name": "subscriptionId",
@@ -13931,9 +13924,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Skus"
+              "ElasticSan"
             ],
+            "interface": "SkusOperationGroup",
             "name": "list.$filter"
           },
           "name": "$filter",
@@ -13953,9 +13946,9 @@
             "module": "Microsoft",
             "namespace": [
               "Microsoft",
-              "ElasticSan",
-              "Skus"
+              "ElasticSan"
             ],
+            "interface": "SkusOperationGroup",
             "name": "list.accept"
           },
           "name": "accept",

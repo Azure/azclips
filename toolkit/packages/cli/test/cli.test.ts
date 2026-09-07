@@ -304,11 +304,15 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     const ir = JSON.parse(readFileSync(irFiles[0]!, "utf8")) as {
       schemaVersion: string;
       models: { name: string }[];
-      operations: { name: string }[];
+      operations: { name: string; id: { namespace: string[]; interface?: string } }[];
     };
     expect(typeof ir.schemaVersion).toBe("string");
     expect(ir.models.some((m) => m.name === "Pet")).toBe(true);
     expect(ir.operations.some((o) => o.name === "list")).toBe(true);
+    for (const operation of ir.operations) {
+      expect(operation.id.namespace).toEqual(["PetStore"]);
+      expect(operation.id.interface).toBe("Pets");
+    }
   });
 
   it("does not create the ir/ directory when --capture-ir is absent", async () => {

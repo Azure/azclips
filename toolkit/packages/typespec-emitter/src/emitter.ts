@@ -15,7 +15,7 @@
  */
 
 import type { EmitContext } from "@typespec/compiler";
-import { NoTarget } from "@typespec/compiler";
+import { getNamespaceFullName, NoTarget } from "@typespec/compiler";
 import {
   createSdkContext,
   listAllServiceNamespaces,
@@ -67,9 +67,7 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
   }
 
   // Build context. sourceId defaults to the service namespace FQN.
-  const fqn = sdkContext.sdkPackage.namespaces.find((n) => n.__raw === serviceNs)?.fullName
-    ?? serviceNs.name
-    ?? "spec";
+  const fqn = getNamespaceFullName(serviceNs);
   const buildCtx = createBuildContext(sdkContext, {
     sourceId: options.sourceId ?? fqn,
     diagnosticsAsErrors: options.diagnosticsAsErrors,
