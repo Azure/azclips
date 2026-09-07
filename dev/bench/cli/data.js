@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788753013954,
+  "lastUpdate": 1788754951714,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -8528,6 +8528,56 @@ window.BENCHMARK_DATA = {
             "value": 2547419.7801296334,
             "unit": "ns",
             "range": "± 106642.00057885342"
+          }
+        ]
+      }
+    ],
+    "Azclips Identity CLI Benchmarks": [
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f41339f9ab8fdf2f07030c5c0e2739f348add324",
+          "message": "{Benchmark} `Extensions.Identity`: Add performance benchmark tests (#817)",
+          "timestamp": "2026-09-07T10:59:04+08:00",
+          "tree_id": "c4320a24470dc060f32da04ee02bb27a57753e24",
+          "url": "https://github.com/Azure/azclips/commit/f41339f9ab8fdf2f07030c5c0e2739f348add324"
+        },
+        "date": 1788754948692,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2442109.5361228175,
+            "unit": "ns",
+            "range": "± 93409.9363236753"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2448703.313705788,
+            "unit": "ns",
+            "range": "± 106993.04140383651"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2419167.531908489,
+            "unit": "ns",
+            "range": "± 112870.86831928839"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2304120.442369478,
+            "unit": "ns",
+            "range": "± 104301.54958749734"
           }
         ]
       }
