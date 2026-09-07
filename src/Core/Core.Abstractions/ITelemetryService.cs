@@ -25,7 +25,7 @@ public interface ITelemetryService : IDisposable
     Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default);
 
     /// <param name="startTime">See <see cref="StartActivity"/>.</param>
-    Activity? StartRootActivity(DateTimeOffset startTime = default);
+    Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null);
 
     Activity? TagInvocation(CommandInvocation commandInvocation);
     Activity? AddTag(string propertyName, object? value, Activity? activity = null);

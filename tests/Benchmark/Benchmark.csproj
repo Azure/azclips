@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\Core\Core.Authentication\Core.Authentication.csproj" />
     <ProjectReference Include="..\..\src\Extensions\Resources\Extensions.Resources.csproj" />
     <ProjectReference Include="..\..\src\Extensions\Compute\Extensions.Compute.csproj" />
+    <ProjectReference Include="..\..\src\Extensions\Identity\Extensions.Identity.csproj" />
     <ProjectReference Include="..\..\src\CLI\Core.Cli.csproj" />
     <ProjectReference Include="..\Common\Tests.Common.csproj" />
   </ItemGroup>
