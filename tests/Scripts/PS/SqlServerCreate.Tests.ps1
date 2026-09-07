@@ -30,8 +30,6 @@
 
 BeforeAll {
     if (-not $env:AZCLIPS_SQL_ADMIN_PASSWORD) {
-        # ponytail: Write-Host, because Pester 6 replaces a throw from a top-level BeforeAll
-        # with its own break/continue message and swallows this one (pester/Pester#2669).
         # Drop the Write-Host once that is fixed.
         Write-Host 'Set $env:AZCLIPS_SQL_ADMIN_PASSWORD before running; without it the create request sends a null password.' -ForegroundColor Red
         throw 'AZCLIPS_SQL_ADMIN_PASSWORD is not set.'
