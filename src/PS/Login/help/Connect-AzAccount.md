@@ -59,7 +59,8 @@ Client ID of the user-assigned managed identity to authenticate as. Use with `-I
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- AccountId
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -105,6 +106,7 @@ SupportsWildcards: false
 Aliases:
 - MSI
 - ManagedIdentity
+- ManagedService
 ParameterSets:
 - Name: (All)
   Position: Named

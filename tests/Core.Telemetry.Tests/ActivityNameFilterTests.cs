@@ -22,6 +22,14 @@ public class ActivityNameFilterTests
     [InlineData("SessionCreated")]
     [InlineData("AuthBeforeTokenAcquisition")]
     [InlineData("ProcessorProcessAsyncStart")]
+    // AI error-recovery: the CLI's second root, plus the spans azclips-agent.exe nests
+    // under it. A missing entry drops the span silently, with no error or log.
+    [InlineData("CLI.Activity.AiRecovery")]
+    [InlineData("Agent.Session")]
+    [InlineData("Agent.Create")]
+    [InlineData("Agent.Turn")]
+    [InlineData("Agent.Send")]
+    [InlineData("Agent.Reprompt")]
     public void IsAllowed_ExactNameInAllowlist_IsAllowed(string name)
     {
         Assert.True(_filter.IsAllowed(name));
@@ -45,6 +53,10 @@ public class ActivityNameFilterTests
     [InlineData("ActionStart.MyClass.MyMethod")]
     [InlineData("AzureCLI.Startup.Container")]
     [InlineData("PowerShell.Startup.Container")]
+    // Per-tool agent spans, named $"tool.{name}" by ToolInvocationLog.Scope.
+    [InlineData("tool.get_command")]
+    [InlineData("tool.bash")]
+    [InlineData("tool.")]  // StartsWith matching admits the bare prefix too
     public void IsAllowed_NameMatchingAllowedPrefix_IsAllowed(string name)
     {
         Assert.True(_filter.IsAllowed(name));
@@ -60,6 +72,8 @@ public class ActivityNameFilterTests
     [InlineData("AuthAfterTokenAcquisition")]
     [InlineData("MsalAuthService")]                // MsalAuthService
     [InlineData("MsalAuthServiceX.Method")]        // substring
+    [InlineData("Agent.NotARealSpan")]             // Agent.* is exact-matched, not a prefix
+    [InlineData("toolbox.something")]              // "tool." prefix must not match "toolbox."
     public void IsAllowed_NameNotInAllowlist_IsDropped(string name)
     {
         Assert.False(_filter.IsAllowed(name));

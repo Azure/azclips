@@ -74,7 +74,7 @@ public async Task Foo()
 | `clientType`          | CLI/PS | Client type (e.g., CLI, PowerShell)           |
 | `module.name`         | CLI/PS | Extension loaded to run command e.g `compute` |
 | `module.version`      | CLI/PS | Version of extension loaded                   |
-| `command`             | CLI/PS | Command path, e.g., `az group list`           |
+| `command`             | CLI/PS | Command name only, e.g., `group list`         |
 | `parameter`           | CLI/PS | Parameters with values masked as `***`        |
 | `IsMicrosoftInternal` | CLI/PS | Whether the command is run by internal user   |
 | `productName`         | CLI/PS | Product running the command                   |
@@ -82,6 +82,39 @@ public async Task Foo()
 | `schemaVersion`       | CLI/PS | Schema version number                         |
 | `telemetryVersion`    | CLI/PS | Telemetry version number                      |
 | `eventName`           | CLI/PS | Event name triggering span                    |
+
+### AI Error-Recovery Tags
+
+AI error recovery runs as a blocking subprocess, so it is recorded as its own trace
+rather than inside the command's root span (Azure/CLIPS#602). The command trace ends when
+the command fails; `CLI.Activity.AiRecovery` is a second root covering the agent, and the
+agent's own spans nest under it via a W3C traceparent passed on the child environment
+block.
+
+| Tag                                | Span                        | Description                                     |
+|------------------------------------|-----------------------------|-------------------------------------------------|
+| `properties.command.traceId`       | `CLI.Activity.AiRecovery`   | Trace id of the command that triggered recovery |
+| `properties.command.spanId`        | `CLI.Activity.AiRecovery`   | Root span id of that command                    |
+| `properties.recovery.sessionStyle` | recovery / `Agent.Session`  | `oneshot` or `interactive`                      |
+| `properties.recovery.provider`     | recovery / `Agent.Session`  | `builtin` or `github`                           |
+| `properties.recovery.exitCode`     | `CLI.Activity.AiRecovery`   | Agent process exit code                         |
+| `properties.recovery.reprompts`   | `Agent.Turn`                | Tool-enforcement re-prompts on that turn        |
+| `properties.agent.model`           | `Agent.Send`                | Model name                                      |
+| `properties.process`               | `Agent.Session`             | Emitting process, e.g., `azclips-agent`         |
+
+The link is one-directional. The command trace closes before the recovery trace exists, so
+correlation goes recovery → command:
+
+```kusto
+requests
+| where name == "CLI.Activity.AiRecovery"
+| where customDimensions["properties.command.traceId"] == "<command operation_Id>"
+```
+
+The agent's `ActivitySource` is named `CLI`, matching the CLI's. `FileExporter` derives
+`service.name` from `ActivitySource.Name` and `TraceUploader` rebuilds parent/child edges
+only within a service-name group, so any other name would detach the agent's spans from
+their parent on upload.
 
 
 ### HTTP Tags (Auto-instrumented)
@@ -133,7 +166,7 @@ Each file contains JSON-formatted trace data:
   "SpanId": "def456...",
   "OperationName": "AzureCLI.Main",
   "Duration": 1234.56,
-  "Tags": { "command": "az group list", ... }
+  "Tags": { "command": "group list", ... }
 }
 ```
 

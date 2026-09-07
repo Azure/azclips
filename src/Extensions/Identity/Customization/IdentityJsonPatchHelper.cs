@@ -1,62 +1,21 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Azclips.ExtensionRuntime;
-
 using System.Globalization;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
-/// <summary>
-/// Extensions for processors that build request payloads with <see cref="System.Text.Json.Nodes.JsonObject"/>.
-/// </summary>
-public static partial class JsonNodeExtensions
+namespace Microsoft.Azure.Azclips.Extensions.Identity.Customization;
+
+internal static class IdentityJsonPatchHelper
 {
-    public static bool HasJsonUpdateOperations(this string[]? set, string[]? add, string[]? remove) =>
-        set is { Length: > 0 } || add is { Length: > 0 } || remove is { Length: > 0 };
-
-    public static (string Key, JsonNode? Value) ParseJsonKeyValue(this string pair)
-    {
-        if (string.IsNullOrWhiteSpace(pair))
-        {
-            throw new ArgumentException("Invalid inline parameter: the token is empty; expected KEY=VALUE.");
-        }
-
-        int separator = pair.IndexOf('=');
-        if (separator <= 0)
-        {
-            throw new ArgumentException($"Invalid inline parameter '{pair}': expected KEY=VALUE with a non-empty key.");
-        }
-
-        string key = pair[..separator].Trim();
-        if (key.Length == 0)
-        {
-            throw new ArgumentException($"Invalid inline parameter '{pair}': the key is empty.");
-        }
-
-        return (key, pair[(separator + 1)..].ParseJsonFirstValue());
-    }
-
-    public static JsonNode? ParseJsonFirstValue(this string raw)
-    {
-        try
-        {
-            return JsonNode.Parse(raw);
-        }
-        catch (JsonException)
-        {
-            return JsonValue.Create(raw);
-        }
-    }
-
-    public static void MergePatch(this JsonObject target, JsonObject patch)
+    internal static void MergePatch(JsonObject target, JsonObject patch)
     {
         foreach (var property in patch)
         {
             if (property.Value is JsonObject patchObject
                 && target[property.Key] is JsonObject targetObject)
             {
-                targetObject.MergePatch(patchObject);
+                MergePatch(targetObject, patchObject);
                 continue;
             }
 
@@ -64,7 +23,7 @@ public static partial class JsonNodeExtensions
         }
     }
 
-    public static void ApplyGenericUpdate(this JsonObject target, string[]? set, string[]? add, string[]? remove, bool forceString)
+    internal static void ApplyGenericUpdate(JsonObject target, string[]? set, string[]? add, string[]? remove, bool forceString)
     {
         foreach (string expression in set ?? [])
         {
@@ -114,6 +73,24 @@ public static partial class JsonNodeExtensions
         }
     }
 
+    internal static void RemovePaths(JsonObject target, params string[] paths)
+    {
+        foreach (string path in paths)
+        {
+            var segments = SplitPath(path);
+            if (segments.Length == 0)
+            {
+                continue;
+            }
+
+            JsonObject? parent = segments.Length == 1
+                ? target
+                : ResolvePath(target, string.Join('.', segments[..^1]), create: false) as JsonObject;
+
+            parent?.Remove(segments[^1]);
+        }
+    }
+
     private static JsonNode? ParseLooseCliValue(string value, bool forceString)
     {
         if (forceString)
@@ -143,9 +120,6 @@ public static partial class JsonNodeExtensions
 
         return JsonValue.Create(value);
     }
-
-    private static bool LooksLikePath(string value) =>
-        value.Contains('.', StringComparison.Ordinal) && !value.Contains('=', StringComparison.Ordinal);
 
     private static JsonNode? ResolvePath(JsonObject root, string path, bool create)
     {
