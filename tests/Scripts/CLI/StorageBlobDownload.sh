@@ -68,6 +68,7 @@ grep -Eq '"operation"[[:space:]]*:[[:space:]]*"download"' <<<"$download"
 grep -Fq "$URI" <<<"$download"
 grep -Eq "\"contentLength\"[[:space:]]*:[[:space:]]*$SOURCE_LENGTH([,}[:space:]]|$)" <<<"$download"
 cmp "$SOURCE" "$DESTINATION"
+printf 'Download result:\n%s\n' "$download"
 
 if existing_output="$("$AZ" storage blob download \
   --account-name "$ACCOUNT" \
@@ -80,12 +81,13 @@ fi
 grep -qi overwrite <<<"$existing_output"
 
 printf 'wrong content' > "$DESTINATION"
-"$AZ" storage blob download \
+overwrite="$("$AZ" storage blob download \
   --account-name "$ACCOUNT" \
   --container-name "$CONTAINER" \
   --name "$BLOB" \
   --file "$DESTINATION" \
-  --overwrite >/dev/null
+  --overwrite)"
 cmp "$SOURCE" "$DESTINATION"
+printf 'Overwrite result:\n%s\n' "$overwrite"
 
 echo "Storage Blob CLI download assertions passed."

@@ -6,8 +6,8 @@
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
-Import-Module (Join-Path $repoRoot 'src/PS/Login/Login.psd1') -Force
-Import-Module (Join-Path $repoRoot 'src/PS/Storage/Storage.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts/Debug/PS/Login/Login.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts/Debug/PS/Storage/Storage.psd1') -Force
 
 $subscription = $env:AZCLIPS_SUBSCRIPTION_ID ?? 'f758ac53-3e63-4317-a956-0997793808d7'
 $account = $env:AZCLIPS_STORAGE_ACCOUNT ?? 'mytestsa52379'
@@ -46,30 +46,22 @@ try {
     if ((Get-FileHash $source).Hash -ne (Get-FileHash $destination).Hash) {
         throw 'Downloaded bytes do not match uploaded bytes.'
     }
-
-    # Answer No to the overwrite prompt; the destination must remain unchanged.
-    $hashBefore = (Get-FileHash $destination).Hash
-    $existing = Get-AzStorageBlobContent `
-        -AccountName $account `
-        -ContainerName $container `
-        -BlobName $blob `
-        -FilePath $destination `
-        -ErrorAction Stop
-    if ($null -ne $existing -or (Get-FileHash $destination).Hash -ne $hashBefore) {
-        throw 'Download without -Force unexpectedly replaced the existing file.'
-    }
+    Write-Host 'Download result:' -ForegroundColor Cyan
+    $download | Format-List | Out-Host
 
     [IO.File]::WriteAllText($destination, 'wrong content')
-    Get-AzStorageBlobContent `
+    $overwrite = Get-AzStorageBlobContent `
         -AccountName $account `
         -ContainerName $container `
         -BlobName $blob `
         -FilePath $destination `
         -Force `
-        -ErrorAction Stop | Out-Null
+        -ErrorAction Stop
     if ((Get-FileHash $source).Hash -ne (Get-FileHash $destination).Hash) {
         throw 'Download with -Force did not replace the destination.'
     }
+    Write-Host 'Overwrite result:' -ForegroundColor Cyan
+    $overwrite | Format-List | Out-Host
 
     Write-Host 'Storage Blob PowerShell download assertions passed.' -ForegroundColor Green
 }

@@ -6,8 +6,8 @@
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
-Import-Module (Join-Path $repoRoot 'src/PS/Login/Login.psd1') -Force
-Import-Module (Join-Path $repoRoot 'src/PS/Storage/Storage.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts/Debug/PS/Login/Login.psd1') -Force
+Import-Module (Join-Path $repoRoot 'artifacts/Debug/PS/Storage/Storage.psd1') -Force
 
 $subscription = $env:AZCLIPS_SUBSCRIPTION_ID ?? 'f758ac53-3e63-4317-a956-0997793808d7'
 $account = $env:AZCLIPS_STORAGE_ACCOUNT ?? 'mytestsa52379'
@@ -35,16 +35,26 @@ try {
         $upload.ContentLength -ne (Get-Item $source).Length) {
         throw "Unexpected upload result: $($upload | ConvertTo-Json -Compress)"
     }
+    Write-Host 'Upload result:' -ForegroundColor Cyan
+    $upload | Format-List | Out-Host
 
-    # Answer No to the overwrite prompt; no transfer result should be emitted.
-    $duplicate = Set-AzStorageBlobContent `
-        -AccountName $account `
-        -ContainerName $container `
-        -BlobName $blob `
-        -FilePath $source `
-        -ErrorAction Stop
-    if ($null -ne $duplicate) {
-        throw 'Duplicate upload without -Force unexpectedly produced a transfer result.'
+    $duplicateFailed = $false
+    try {
+        Set-AzStorageBlobContent `
+            -AccountName $account `
+            -ContainerName $container `
+            -BlobName $blob `
+            -FilePath $source `
+            -ErrorAction Stop | Out-Null
+    }
+    catch {
+        if ($_ -notmatch 'BlobAlreadyExists|already exists') {
+            throw
+        }
+        $duplicateFailed = $true
+    }
+    if (!$duplicateFailed) {
+        throw 'Duplicate upload without -Force unexpectedly succeeded.'
     }
 
     [IO.File]::WriteAllBytes($source, [byte[]](0, 1, 2, 127, 128, 255, 13, 10, 3))
@@ -58,6 +68,8 @@ try {
     if ($overwrite.ContentLength -ne (Get-Item $source).Length) {
         throw "Unexpected overwrite result: $($overwrite | ConvertTo-Json -Compress)"
     }
+    Write-Host 'Overwrite result:' -ForegroundColor Cyan
+    $overwrite | Format-List | Out-Host
 
     Write-Host 'Storage Blob PowerShell upload assertions passed.' -ForegroundColor Green
 }

@@ -60,6 +60,7 @@ upload="$("$AZ" storage blob upload \
 grep -Eq '"operation"[[:space:]]*:[[:space:]]*"upload"' <<<"$upload"
 grep -Fq "$URI" <<<"$upload"
 grep -Eq "\"contentLength\"[[:space:]]*:[[:space:]]*$SOURCE_LENGTH([,}[:space:]]|$)" <<<"$upload"
+printf 'Upload result:\n%s\n' "$upload"
 
 if duplicate_output="$("$AZ" storage blob upload \
   --account-name "$ACCOUNT" \
@@ -69,7 +70,10 @@ if duplicate_output="$("$AZ" storage blob upload \
   echo "Expected duplicate upload without --overwrite to fail." >&2
   exit 1
 fi
-grep -qi overwrite <<<"$duplicate_output"
+if ! grep -Eqi 'BlobAlreadyExists|already exists' <<<"$duplicate_output"; then
+  echo "Unexpected duplicate upload error: $duplicate_output" >&2
+  exit 1
+fi
 
 printf '\x03' >> "$SOURCE"
 SOURCE_LENGTH="$(wc -c < "$SOURCE" | tr -d '[:space:]')"
@@ -80,5 +84,6 @@ overwrite="$("$AZ" storage blob upload \
   --file "$SOURCE" \
   --overwrite)"
 grep -Eq "\"contentLength\"[[:space:]]*:[[:space:]]*$SOURCE_LENGTH([,}[:space:]]|$)" <<<"$overwrite"
+printf 'Overwrite result:\n%s\n' "$overwrite"
 
 echo "Storage Blob CLI upload assertions passed."

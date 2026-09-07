@@ -53,7 +53,7 @@ foreach ($file in $psd1Files) {
         # Import validation loads dependency modules explicitly instead.
         $updated = [regex]::Replace(
             $updated,
-            '(?ms)^RequiredModules\s*=\s*@\(\s*@\{.*?\}\s*\)',
+            '(?ms)^\s*RequiredModules\s*=\s*@\(\s*@\{.*?\}\s*\)',
             'RequiredModules = @()')
     }
 
