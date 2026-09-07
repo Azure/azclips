@@ -17,8 +17,8 @@ public class NewSqlServerCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = true)]
-    public string SubscriptionId { get; set; } = "";
+    [Parameter(Mandatory = false)]
+    public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = true)]
     public string ResourceGroupName { get; set; } = "";
@@ -61,21 +61,26 @@ public class NewSqlServerCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
+        if (!ShouldProcess($"SQL server '{Name}' in resource group '{ResourceGroupName}'", "Create"))
+        {
+            return;
+        }
+
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
-            { "SubscriptionId", SubscriptionId },
             { "ResourceGroupName", ResourceGroupName },
             { "Name", Name },
             { "Location", Location },
             { "AdministratorLogin", AdministratorLogin },
             { "AdministratorLoginPassword", AdministratorLoginPassword },
         };
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ServerVersion)))       { parameters.Add("ServerVersion", ServerVersion!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(MinimalTlsVersion)))   { parameters.Add("MinimalTlsVersion", MinimalTlsVersion!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId))) { parameters.Add("SubscriptionId", SubscriptionId!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ServerVersion))) { parameters.Add("ServerVersion", ServerVersion!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(MinimalTlsVersion))) { parameters.Add("MinimalTlsVersion", MinimalTlsVersion!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(PublicNetworkAccess))) { parameters.Add("PublicNetworkAccess", PublicNetworkAccess!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Tags)))                { parameters.Add("Tags", ToTagArray(Tags!)); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Tags))) { parameters.Add("Tags", ToTagArray(Tags!)); }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
@@ -96,8 +101,6 @@ public class NewSqlServerCmdlet : PSCmdlet
         _cts.Dispose();
     }
 
-    // ponytail: the engine binds by exact CLR type, so the hashtable is flattened to key=value
-    // strings here rather than teaching the shared binder about dictionaries.
     private static string[] ToTagArray(Hashtable tags) =>
         tags.Cast<DictionaryEntry>()
             .Select(entry => $"{entry.Key}={entry.Value}")

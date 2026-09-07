@@ -20,8 +20,8 @@ Create an Azure SQL logical server.
 ### __AllParameterSets
 
 ```
-New-AzSqlServer -SubscriptionId <string> -ResourceGroupName <string> -Name <string>
- -Location <string> -AdministratorLogin <string> -AdministratorLoginPassword <string>
+New-AzSqlServer -ResourceGroupName <string> -Name <string> -Location <string>
+ -AdministratorLogin <string> -AdministratorLoginPassword <string> [-SubscriptionId <string>]
  [-ServerVersion <string>] [-MinimalTlsVersion <string>] [-PublicNetworkAccess <string>]
  [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
@@ -270,7 +270,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -280,7 +280,7 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false

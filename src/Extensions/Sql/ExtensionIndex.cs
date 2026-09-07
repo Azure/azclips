@@ -18,7 +18,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql
             ProcessorType: typeof(Processors.NewSqlServerProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["SubscriptionId"]             = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["SubscriptionId"]             = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"]          = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Name"]                       = new("Name", "Name", typeof(string), "The name of the SQL server.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Location"]                   = new("Location", "Location", typeof(string), "Location for the SQL server.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -42,7 +42,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Sql
             ProcessorType: typeof(Processors.NewSqlServerProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["subscription-id"]        = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["subscription-id"]        = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-group"]         = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: ["g"], AllowedValues: []),
                 ["name"]                   = new("Name", "name", typeof(string), "The name of the SQL server.", IsRequired: true, Aliases: ["n"], AllowedValues: []),
                 ["location"]               = new("Location", "location", typeof(string), "Location for the SQL server.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
