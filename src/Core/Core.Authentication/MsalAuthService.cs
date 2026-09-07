@@ -64,10 +64,12 @@ public class MsalAuthService(
                 {
                     // Removing one account is best-effort: a failure here must not abort removal of the
                     // remaining matching accounts, nor block the caller from signing out locally.
-                    // Keep the account identifier and full exception text at Debug only (Warn is
-                    // console-routed by default) to avoid surfacing the account UPN or other sensitive
-                    // details from the exception message as PII on a non-fatal cleanup error.
-                    Logger.Debug($"[{nameof(MsalAuthService)}] Failed to remove account '{account.Username}' from the MSAL token cache: {ex.GetType().Name}: {ex.Message}");
+                    // Log only the exception type and HResult, never ex.Message: every ILoggingService
+                    // level here is also recorded as an ActivityEvent tag, and event tags bypass the
+                    // telemetry property allowlist (DefaultTelemetryPropertyFilterProcessor only filters
+                    // top-level Activity tags), so the unbounded exception text could otherwise leak
+                    // paths/PII into exported trace files.
+                    Logger.Debug($"[{nameof(MsalAuthService)}] Failed to remove account '{account.Username}' from the MSAL token cache: {ex.GetType().Name} (HResult 0x{ex.HResult:X8})");
                     Logger.Warn($"[{nameof(MsalAuthService)}] Non-fatal: token-cache cleanup failed during logout ({ex.GetType().Name}); local sign-out continues. Enable debug logging for details.");
                 }
             }
@@ -79,10 +81,10 @@ public class MsalAuthService(
             // conflicting Microsoft.Identity.Client/broker assembly already loaded by another module in the
             // same host process, or a locked/corrupt cache file) and must not prevent the user from signing
             // out locally. Cancellation is allowed to propagate so a cancelled logout is not silently swallowed.
-            // Keep the account identifier and full exception text at Debug only (Warn is console-routed
-            // by default) to avoid surfacing the account UPN or other sensitive details from the
-            // exception message as PII on a non-fatal cleanup error.
-            Logger.Debug($"[{nameof(MsalAuthService)}] Token-cache cleanup failed during logout for account '{userPrincipalName}': {ex.GetType().Name}: {ex.Message}");
+            // Log only the exception type and HResult, never ex.Message: every ILoggingService level here is
+            // also recorded as an ActivityEvent tag, and event tags bypass the telemetry property allowlist,
+            // so the unbounded exception text could otherwise leak paths/PII into exported trace files.
+            Logger.Debug($"[{nameof(MsalAuthService)}] Token-cache cleanup failed during logout for account '{userPrincipalName}': {ex.GetType().Name} (HResult 0x{ex.HResult:X8})");
             Logger.Warn($"[{nameof(MsalAuthService)}] Non-fatal: token-cache cleanup failed during logout ({ex.GetType().Name}); local sign-out continues. Enable debug logging for details.");
         }
     }
