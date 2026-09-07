@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788501982510,
+  "lastUpdate": 1788739797396,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -6218,6 +6218,48 @@ window.BENCHMARK_DATA = {
             "value": 1559664.876969697,
             "unit": "ns",
             "range": "± 36759.226059527864"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f7d72b40d4694026552332cb40b37738078007f1",
+          "message": "[Identity] `Az.ManagedServiceIdentity`: Add Get/New/Update/Remove-AzUserAssignedIdentity (#801)\n\n**Description**\nThis PR completes https://github.com/Azure/CLIPS/issues/840 to include\nPS Cmdlet\n-  Added Cmdlets.Identity PowerShell module with:\n   - New-AzUserAssignedIdentity\n   - Get-AzUserAssignedIdentity\n   - Update-AzUserAssignedIdentity\n   - Remove-AzUserAssignedIdentity\n- Added help documentation\n- Added test coverage\n- Refactored Extensions.Identity based on processor/orchestrator\nmigration guidance for customisations and spec alignment - got rid of\nany customisations in the processor and superfluous validations, also\nupdated to use core pagination for the list command\n\n\n**Testing Guide**\n- Unit tests added, and live E2E validation passed using:\n```\n./tests/Scripts/PS/IdentityLifecycle.ps1\n```\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-07T09:51:26+10:00",
+          "tree_id": "b837313a6f05f20865704acc39353a9d5502e766",
+          "url": "https://github.com/Azure/azclips/commit/f7d72b40d4694026552332cb40b37738078007f1"
+        },
+        "date": 1788739794811,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 1561378.2879432624,
+            "unit": "ns",
+            "range": "± 28055.733322077453"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 4500359.498958333,
+            "unit": "ns",
+            "range": "± 48252.28355546011"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 1549757.187601626,
+            "unit": "ns",
+            "range": "± 28115.396673472285"
           }
         ]
       }
