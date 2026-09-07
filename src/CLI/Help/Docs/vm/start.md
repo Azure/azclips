@@ -33,8 +33,3 @@ az vm start --name myvm --resource-group myrg --no-wait
 az vm start --ids /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Compute/virtualMachines/myvm
 ```
 
-### Start several virtual machines at once
-
-```bash
-az vm start --no-wait --ids $(az vm list --resource-group myrg --query "[].id" -o tsv)
-```
