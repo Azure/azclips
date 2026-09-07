@@ -7,7 +7,7 @@ namespace Core.Abstractions;
 /// The unified set of well-known resource-type shortcuts for token retrieval, shared by both the
 /// CLI (<c>--resource-type</c>) and PowerShell (<c>-ResourceTypeName</c>) front ends. This is the
 /// union of Azure CLI's shortcut list and Azure PowerShell's shortcut list, so the same shortcut
-/// name resolves to the same resource regardless of front end (closes Gap T-4 / REQ-4).
+/// name resolves to the same resource regardless of front end.
 /// </summary>
 /// <remarks>
 /// The resource URLs below are <b>public-cloud</b> values, verified against source:
@@ -19,9 +19,8 @@ namespace Core.Abstractions;
 /// (the <c>Azure*EndpointResourceId</c> constants).</item>
 /// </list>
 /// In both upstream tools these values are ultimately <b>cloud-environment-driven</b> (they vary by
-/// sovereign cloud). This map hardcodes the public-cloud values for now and is structured so
-/// cloud-specific values can be substituted when sovereign-cloud endpoint wiring lands (a documented
-/// non-goal of this change).
+/// sovereign cloud). This map hardcodes the public-cloud values and is structured so cloud-specific
+/// values can be substituted when sovereign-cloud endpoint support is added.
 ///
 /// Notes: <c>oss-rdbms</c> and <c>media</c> are CLI-only shortcuts; the remaining names come from
 /// PowerShell. <c>storage</c> is a supported PowerShell name but is resolved via a separate

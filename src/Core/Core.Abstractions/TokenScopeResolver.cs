@@ -7,7 +7,7 @@ namespace Core.Abstractions;
 /// Resolves the three mutually-exclusive token-target inputs — a v1.0 resource URL, a well-known
 /// resource-type shortcut, or a v2.0 scope list — into the MSAL scope array passed to
 /// <see cref="IAuthService.AcquireTokenSilentlyAsync"/>. Shared by both the CLI and PowerShell front
-/// ends so identical inputs produce identical scopes (supports Gap T-3 / REQ-3 and T-4 / REQ-4).
+/// ends so identical inputs produce identical scopes across the CLI and PowerShell surfaces.
 /// </summary>
 public static class TokenScopeResolver
 {
