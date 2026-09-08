@@ -1,11 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
+[AzTableView(typeof(VirtualMachineTableView))]
 public class VirtualMachine
 {
     public string Id { get; set; } = null!;

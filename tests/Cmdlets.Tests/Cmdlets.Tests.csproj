@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/Extensions/Compute/Extensions.Compute.csproj" />
     <!--
       Common/CmdletOutputStreamsFactory.cs compiles into both Cmdlets.Config and Cmdlets.Login,
       so its internal types reach this project twice (CS0433). The alias hides Config's copy;
