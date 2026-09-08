@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788846901643,
+  "lastUpdate": 1788846991460,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8572,6 +8572,48 @@ window.BENCHMARK_DATA = {
             "value": 1385324.7930047044,
             "unit": "ns",
             "range": "± 25258.614490393753"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fa17f0631232c0065b381211e8e689e63a3f802",
+          "message": "[Profile] `az profile show`: Support default active selection (#825)\n\nImplements feature: https://github.com/Azure/azclips/issues/630",
+          "timestamp": "2026-09-08T13:30:50+08:00",
+          "tree_id": "56240ea329ddb59e85ea77084c4bafca5fb7c515",
+          "url": "https://github.com/Azure/azclips/commit/8fa17f0631232c0065b381211e8e689e63a3f802"
+        },
+        "date": 1788846988757,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1402952.5720105928,
+            "unit": "ns",
+            "range": "± 30884.856913187166"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1412337.9396084964,
+            "unit": "ns",
+            "range": "± 31538.18566783129"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1375000.2390002066,
+            "unit": "ns",
+            "range": "± 31608.367050489076"
           }
         ]
       }
