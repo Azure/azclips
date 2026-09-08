@@ -72,7 +72,7 @@ function flattenHintFor(prop: SdkModelPropertyType): FlattenHint | undefined {
 }
 
 /** Build a literal value from a `SdkConstantType`. Returns undefined if not representable. */
-function literalFromConstant(c: SdkConstantType): IRLiteralValue | undefined {
+export function literalFromConstant(c: SdkConstantType): IRLiteralValue | undefined {
   const v = c.value;
   switch (typeof v) {
     case "string":

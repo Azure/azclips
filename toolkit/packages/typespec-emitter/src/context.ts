@@ -16,8 +16,10 @@
 
 import type {
   SdkContext,
+  SdkEnumType,
   SdkHttpOperation,
   SdkModelPropertyType,
+  SdkModelType,
   SdkType,
 } from "@azure-tools/typespec-client-generator-core";
 import type { Program } from "@typespec/compiler";
@@ -39,6 +41,10 @@ export type BuildContext = {
   idCache: Map<SdkType, IRId>;
   /** Property id interning so `.overrides` pointers stay stable. */
   propertyIdCache: Map<SdkModelPropertyType, IRId>;
+  /** Includes types reached through HTTP part metadata outside TCGC's initial package. */
+  models: Set<SdkModelType>;
+  enums: Set<SdkEnumType>;
+  multipartPayloadTypes: Set<SdkType>;
 
   /** One-shot diagnostic flags. */
   flags: {
@@ -57,6 +63,9 @@ export function createBuildContext(
     options,
     idCache: new Map(),
     propertyIdCache: new Map(),
+    models: new Set(sdkContext.sdkPackage.models),
+    enums: new Set(sdkContext.sdkPackage.enums),
+    multipartPayloadTypes: new Set(),
     flags: {
       overrideMethodWarned: false,
       openEnumWarned: false,

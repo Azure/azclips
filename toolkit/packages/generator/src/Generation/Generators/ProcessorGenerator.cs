@@ -71,6 +71,15 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 continue;
             }
 
+            if (operation.RequestBody?.Multipart is not null || operation.Responses.Any(response => response.Multipart is not null))
+            {
+                context.Report(
+                    Model.DiagnosticSeverity.Warning,
+                    "ace-generator/multipart-serialization-not-supported",
+                    $"Operation '{operation.Name}' contains multipart data. Its processor is a scaffold; " +
+                    "multipart request serialization and response deserialization require customization.");
+            }
+
             string typeName = ProcessorTypeName(operation);
             yield return new GeneratedFile($"Processors/{typeName}.cs", Emit(ns, modelsNamespace, typeName, operation, server), typeName);
         }
@@ -166,7 +175,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         // model — is deferred to the model side; today CreateRequestBody just returns this member).
         if (operation.RequestBody is not null)
         {
-            members.Add(BodyProperty(operation.RequestBody));
+            members.Add(BodyProperty(operation.RequestBody, requestType));
         }
 
         // Fine-grained request seams the base assembles into CreateRequestMessage.
@@ -223,9 +232,14 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return type is not null ? IrTypeMapper.ToCSharp(type) : "object";
     }
 
-    /// <summary>The request-body model type (<c>TRequest</c>), or <c>null</c> when the operation has no body.</summary>
-    private static string? RequestType(IROperation operation) =>
-        operation.RequestBody is { } body ? IrTypeMapper.ToCSharp(body.Type) : null;
+    /// <summary>The request-body type, a tuple scaffold placeholder, or null for no body.</summary>
+    private static string? RequestType(IROperation operation) => operation.RequestBody switch
+    {
+        null => null,
+        { Type: { } type } => IrTypeMapper.ToCSharp(type),
+        { Multipart.Kind: IRMultipartBodyKind.Tuple } => "object",
+        _ => throw new InvalidOperationException("A request body requires a type unless it is a multipart tuple."),
+    };
 
     private static PropertyDeclarationSyntax ParameterProperty(IRParameter parameter)
     {
@@ -250,10 +264,10 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
     }
 
-    private static PropertyDeclarationSyntax BodyProperty(IRRequestBody body)
+    private static PropertyDeclarationSyntax BodyProperty(IRRequestBody body, string requestType)
     {
         // Nullable so CreateRequestBody() (which returns TRequest?) can hand it back directly.
-        string type = IrTypeMapper.ToCSharp(body.Type) + "?";
+        string type = requestType + "?";
         return PropertyDeclaration(ParseTypeName(type), Identifier("Body"))
             .AddModifiers(Token(SyntaxKind.PublicKeyword))
             .WithAccessorList(AutoAccessors())

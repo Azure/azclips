@@ -213,9 +213,11 @@ export function modelFrom(ctx: BuildContext, m: SdkModelType): IRModel {
   return model;
 }
 
-/** Convert all models in the sdkPackage to IR models. */
+/** Include the transitive closure of types discovered while converting HTTP parts. */
 export function modelsFrom(ctx: BuildContext): IRModel[] {
-  return ctx.sdkContext.sdkPackage.models.map((m) => modelFrom(ctx, m));
+  const models: IRModel[] = [];
+  for (const model of ctx.models) models.push(modelFrom(ctx, model));
+  return models;
 }
 
 /** Re-export for the smoke test wiring. */

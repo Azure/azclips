@@ -77,6 +77,40 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
+    public async Task Generate_MultipartTuple_EmitsScaffoldAndReportsSerializationGap()
+    {
+        IRDocument ir = Ir(operations: ["upload"]);
+        ir.Operations[0].RequestBody = new IRRequestBody
+        {
+            ContentType = "multipart/mixed",
+            Multipart = new IRMultipartBody
+            {
+                Kind = IRMultipartBodyKind.Tuple,
+                ContentTypes = ["multipart/mixed"],
+                Parts =
+                [
+                    new IRMultipartPart
+                    {
+                        Body = new IRMultipartPartBodySingle
+                        {
+                            Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Bytes },
+                            ContentTypes = ["application/octet-stream"],
+                        },
+                    },
+                ],
+            },
+        };
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        Assert.Contains(result.Diagnostics, diagnostic =>
+            diagnostic.Severity == DiagnosticSeverity.Warning &&
+            diagnostic.Code == "ace-generator/multipart-serialization-not-supported");
+        Assert.Contains("object? Body", writer.Files.Source(result, "UploadProcessor"));
+    }
+
+    [Fact]
     public async Task Generate_DistinguishesInterfacesWithinTheSameNamespace()
     {
         IRDocument ir = Ir();

@@ -152,7 +152,7 @@ not hand-edit).
 ### Discriminated unions
 
 The IR's discriminated unions — `IRTypeRef`, `IRProperty`, `IRStatusCode`,
-`IRLiteralValue`, `IRServer`, `IROperationSemantics`, `IRAuthScheme`,
+`IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IROperationSemantics`, `IRAuthScheme`,
 `IROAuth2Flow` — are emitted by `zod-to-json-schema` as `anyOf` + `const`
 discriminators. `AceIrModelGen` maps each to an **`abstract` base + derived
 types** wired for `System.Text.Json` polymorphism (`[JsonPolymorphic]` /
@@ -174,6 +174,22 @@ identity (including namespace, interface, and recursive type arguments), never
 by its source's default. Missing or ambiguous references report error diagnostics
 and skip the affected processor. Literal URLs and parameterized template/default
 substitution are unchanged; choosing a `oneOf` host remains unsupported.
+
+### Multipart metadata (IR 0.9.0)
+
+`IRRequestBody.Multipart` and `IRResponse.Multipart` preserve model/tuple body
+structure, ordered parts, per-part headers/media types, and file metadata.
+`IRMultipartPartBody` has `Single` and `File` derived types; the latter identifies
+the contents field and whether it contains text. Deserialize these nested
+unions through `IrJson.Options`, like the other IR unions.
+
+Multipart tuple bodies have no ordinary `Type` reference; inspect `Multipart`
+before interpreting a missing `Type` as an empty body. Part headers are not
+outer response headers, and raw file contents are not the JSON representation
+of their containing model. Multipart processor serialization/deserialization
+is not implemented by this metadata change. The generator reports
+`ace-generator/multipart-serialization-not-supported` for these operations;
+tuple request bodies use an `object` placeholder in the emitted scaffold.
 
 ## Generation API
 

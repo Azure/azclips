@@ -68,7 +68,7 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
 
 export function enumsFrom(ctx: BuildContext): IREnum[] {
   const out: IREnum[] = [];
-  for (const e of ctx.sdkContext.sdkPackage.enums) {
+  for (const e of ctx.enums) {
     // The @versioned api-version enum is denormalized onto IRSource.apiVersion;
     // it isn't a domain type, so don't surface it as a standalone IREnum.
     if ((e.usage & UsageFlags.ApiVersionEnum) !== 0) continue;

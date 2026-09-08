@@ -6,9 +6,9 @@
  *   2. createBuildContext → caches, diag sink
  *   3. listAllServiceNamespaces → pick first, warn if >1
  *   4. buildSource        → IRSource + shared server definition + apiVersion
- *   5. modelsFrom         → IRModel[]
- *   6. enumsFrom          → IREnum[]
- *   7. operationsFrom     → IROperation[] (server references + apiVersion stamps)
+ *   5. operationsFrom     → IROperation[] (also discovers HTTP-part types)
+ *   6. modelsFrom         → IRModel[]
+ *   7. enumsFrom          → IREnum[]
  *   8. parseIR            → integrity check (throws on bug)
  *   9. writeIR            → js-yaml / JSON serialize + emitFile
  *  10. surface diagnostics; honour `diagnosticsAsErrors`
@@ -75,9 +75,9 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
 
   const { source, apiVersion, server } = buildSource(buildCtx, serviceNs);
 
+  const operations = operationsFrom(buildCtx, apiVersion, server.id);
   const models = modelsFrom(buildCtx);
   const enums = enumsFrom(buildCtx);
-  const operations = operationsFrom(buildCtx, apiVersion, server.id);
 
   const ir: IR = {
     schemaVersion: IR_SCHEMA_VERSION,

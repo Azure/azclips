@@ -89,6 +89,8 @@ export function idFor(
   ctx: BuildContext,
   t: SdkModelType | SdkEnumType | SdkUnionType,
 ): IRId {
+  if (t.kind === "model") ctx.models.add(t);
+  if (t.kind === "enum") ctx.enums.add(t);
   const cached = ctx.idCache.get(t);
   if (cached) return cached;
 
