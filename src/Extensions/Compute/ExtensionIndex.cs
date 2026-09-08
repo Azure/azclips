@@ -14,22 +14,24 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
     {
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newVM_PS = new(
-            Name: "NewVMProcessor",
+            Name: "CreateOrUpdateVirtualMachinesProcessor",
             InvocationName: "New-AzVM",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.CreateOrUpdateVirtualMachinesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewVMProcessor),
+            ProcessorType: typeof(Processors.CreateOrUpdateVirtualMachinesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]         = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]                   = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]                   = new("VmName", "Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Location"]               = new("Location", "Location", typeof(string), "Location for the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"]      = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["VmSize"]                 = new("VmSize", "VmSize", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["AdminUsername"]          = new("AdminUsername", "AdminUsername", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["AdminPassword"]          = new("AdminPassword", "AdminPassword", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["NetworkInterfaceId"]     = new("NetworkInterfaceId", "NetworkInterfaceId", typeof(string), "Resource id of the network interface to attach.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["IfMatch"]                = new("IfMatch", "IfMatch", typeof(string), "Optional If-Match header for conditional create or update.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfNoneMatch"]            = new("IfNoneMatch", "IfNoneMatch", typeof(string), "Optional If-None-Match header for conditional create or update.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["OsDiskCreateOption"]     = new("OsDiskCreateOption", "OsDiskCreateOption", typeof(string), "OS disk create option.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ImagePublisher"]         = new("ImagePublisher", "ImagePublisher", typeof(string), "Image publisher.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ImageOffer"]             = new("ImageOffer", "ImageOffer", typeof(string), "Image offer.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -201,22 +203,24 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_newVM_CLI = new(
-            Name: "NewVMProcessor",
+            Name: "CreateOrUpdateVirtualMachinesProcessor",
             InvocationName: "vm create-basic",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.CreateOrUpdateVirtualMachinesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewVMProcessor),
+            ProcessorType: typeof(Processors.CreateOrUpdateVirtualMachinesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]          = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]                     = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]                     = new("VmName", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["location"]                 = new("Location", "location", typeof(string), "Location for the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["resource-group"]           = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["vm-size"]                  = new("VmSize", "vm-size", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["admin-username"]           = new("AdminUsername", "admin-username", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["admin-password"]           = new("AdminPassword", "admin-password", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["network-interface-id"]     = new("NetworkInterfaceId", "network-interface-id", typeof(string), "Resource id of the network interface to attach.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["if-match"]                 = new("IfMatch", "if-match", typeof(string), "Optional If-Match header for conditional create or update.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-none-match"]            = new("IfNoneMatch", "if-none-match", typeof(string), "Optional If-None-Match header for conditional create or update.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["os-disk-create-option"]    = new("OsDiskCreateOption", "os-disk-create-option", typeof(string), "OS disk create option.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["image-publisher"]          = new("ImagePublisher", "image-publisher", typeof(string), "Image publisher.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["image-offer"]              = new("ImageOffer", "image-offer", typeof(string), "Image offer.", IsRequired: false, Aliases: [], AllowedValues: []),

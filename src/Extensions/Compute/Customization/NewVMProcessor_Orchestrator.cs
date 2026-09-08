@@ -96,10 +96,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
 
-            NewVMProcessor vmProcessor = CreateExtendedProcessor<NewVMProcessor>(p =>
+            CreateOrUpdateVirtualMachinesProcessor vmProcessor = CreateExtendedProcessor<CreateOrUpdateVirtualMachinesProcessor>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
-                p.Name = Name;
+                p.VmName = Name;
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
                 p.VmSize = VmSize;
