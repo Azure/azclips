@@ -61,7 +61,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         var positionalValues = FlattenToStrings(positionalSource);
         for (int i = 0; i < positionalValues.Length; i++)
         {
-            var positionalKey = i == 0 ? string.Empty : i.ToString();
+            var positionalKey = i == 0 ? string.Empty : i.ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (parameterAliases == null || !parameterAliases.TryGetValue(positionalKey, out var canonicalKey) || !parameters.TryGetValue(canonicalKey, out var parameterMetadata))
             {
                 throw new ArgumentException($"Unrecognized positional argument(s): {string.Join(" ", positionalValues.Skip(i))}");
@@ -74,7 +74,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 
             try
             {
-                parsedArguments[parameterMetadata.Name] = propertyParser.ConvertToType(parameterMetadata.InvocationName, positionalValues[i], parameterMetadata.ParameterType);
+                parsedArguments[parameterMetadata.Name] = ParseArgument(parameterMetadata.InvocationName, positionalValues[i], parameterMetadata.ParameterType);
             }
             catch (Exception ex)
             {
