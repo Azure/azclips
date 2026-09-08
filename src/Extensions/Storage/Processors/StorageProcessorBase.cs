@@ -388,10 +388,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                     {
                         body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
                     }
-                    catch (JsonException)
+                    catch (JsonException ex)
                     {
                         await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                        throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                        throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
                     }
                 }
 

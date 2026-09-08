@@ -16,25 +16,25 @@ public class NewStorageAccountCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(Mandatory = true)]
-    public string? ResourceGroupName { get; set; }
+    public string ResourceGroupName { get; set; } = "";
 
     [Parameter(Mandatory = true)]
-    public string? AccountName { get; set; }
+    public string AccountName { get; set; } = "";
 
     [Parameter(Mandatory = true)]
-    public string? Location { get; set; }
+    public string Location { get; set; } = "";
 
     [Parameter(Mandatory = true)]
-    public string? SkuName { get; set; }
+    public string SkuName { get; set; } = "";
 
     [Parameter(Mandatory = true)]
-    public string? Kind { get; set; }
+    public string Kind { get; set; } = "";
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? SubscriptionId { get; set; }
+    public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = false)]
     public string[]? Tags { get; set; }
@@ -244,12 +244,12 @@ public class NewStorageAccountCmdlet : PSCmdlet
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId))) { parameters.Add("SubscriptionId", SubscriptionId!); }
-        parameters.Add("ResourceGroupName", ResourceGroupName!);
-        parameters.Add("AccountName", AccountName!);
-        parameters.Add("Location", Location!);
-        parameters.Add("SkuName", SkuName!);
-        parameters.Add("Kind", Kind!);
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId))) { parameters.Add("SubscriptionId", SubscriptionId); }
+        parameters.Add("ResourceGroupName", ResourceGroupName);
+        parameters.Add("AccountName", AccountName);
+        parameters.Add("Location", Location);
+        parameters.Add("SkuName", SkuName);
+        parameters.Add("Kind", Kind);
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Tags))) { parameters.Add("Tags", Tags!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AccessTier))) { parameters.Add("AccessTier", AccessTier!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(MinimumTlsVersion))) { parameters.Add("MinimumTlsVersion", MinimumTlsVersion!); }
