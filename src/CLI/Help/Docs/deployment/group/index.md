@@ -18,3 +18,4 @@ az deployment group what-if --resource-group myResourceGroup --name myDeployment
 ```bash
 az deployment group create --resource-group myResourceGroup --name myDeployment --template-file ./main.bicep --parameter location=eastus --parameter instanceCount=3
 ```
+
