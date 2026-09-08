@@ -66,10 +66,9 @@ function ancestorChain(ctx: BuildContext, m: SdkModelType): SdkModelType[] {
  * then each successive descendant. Own-overrides replace the inherited
  * copy in-place.
  *
- * For a property re-declared on an intermediate ancestor, the *defining*
- * ancestor (the root-most one that introduced it) is preserved as
- * `inheritedFrom` and inside the IR id, so the rematerialize pass and
- * downstream consumers can identify the source-of-truth model.
+ * The root-most declaring ancestor supplies the model id for `inheritedFrom`
+ * and the property id for `overrides`. Inherited copies retain the latest
+ * ancestor's effective property definition.
  */
 function denormalizedProperties(
   ctx: BuildContext,
@@ -79,24 +78,22 @@ function denormalizedProperties(
   const ancestors = ancestorChain(ctx, ownModel);
   // Map from logical name to its current IRProperty (so own overrides can find it).
   const byName = new Map<string, IRProperty>();
-  // Tracks original (defining/root-most) id per name, to populate `overrides`.
-  const definingId = new Map<string, IRId>();
+  const definingIds = new Map<string, { modelId: IRId; propertyId: IRId }>();
 
   for (const anc of ancestors) {
     const ancId = idFor(ctx, anc);
     for (const sdkProp of anc.properties) {
       const built = propertyFrom(ctx, ancId, sdkProp);
       if (!built) continue;
-      const existingDefining = definingId.get(built.name);
-      const definingAncestorId = existingDefining ?? ancId;
+      const defining = definingIds.get(built.name) ?? { modelId: ancId, propertyId: built.id };
+      definingIds.set(built.name, defining);
       // Stamp inheritedFrom to the *defining* (root-most) ancestor, not the
       // closest re-declarer; this keeps the rematerialize pass anchored on
       // the original property source-of-truth.
       const inheritedCopy: IRProperty = {
         ...built,
-        inheritedFrom: definingAncestorId,
+        inheritedFrom: defining.modelId,
       };
-      if (!existingDefining) definingId.set(built.name, built.id);
       byName.set(built.name, inheritedCopy);
     }
   }
@@ -105,10 +102,10 @@ function denormalizedProperties(
   for (const sdkProp of ownModel.properties) {
     const built = propertyFrom(ctx, ownId, sdkProp);
     if (!built) continue;
-    const inheritedId = definingId.get(built.name);
-    if (inheritedId !== undefined) {
+    const inherited = definingIds.get(built.name);
+    if (inherited !== undefined) {
       // An override of an inherited property. Drop the inherited copy.
-      const overridden: IRProperty = { ...built, overrides: inheritedId };
+      const overridden: IRProperty = { ...built, overrides: inherited.propertyId };
       byName.set(built.name, overridden);
     } else {
       byName.set(built.name, built);
