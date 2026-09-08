@@ -58,6 +58,14 @@ providers registered and quota for one small vm. The subscription comes from the
 profile. Afterwards delete the resource group the run created (`scenario-vm-rg`), which removes
 the vm and all its network resources with it.
 
+The storage account lifecycle scenario
+(`--filter FullyQualifiedName~StorageAccountLifecycleScenarioTests`) creates a resource group and
+an account, reads it back through show and both list forms, then deletes the account. Storage
+account names are globally unique across Azure, so if `azclipslifecycletest` is taken the create
+fails with `StorageAccountAlreadyTaken`; change the name in the test and re-record. The scenario
+deletes the account itself, so a re-record does not collide with the previous run, but the
+resource group (`scenario-storage-lifecycle-rg`) is left behind and should be removed afterwards.
+
 ## Secret scanning
 
 The sanitisers are the first line of defence; a PR gate is the second. The

@@ -41,7 +41,7 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Storage",
         typeof(Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex).Assembly,
         "storage",
-        ["", "account create"]);
+        ["", "account create", "account show", "account list", "account delete"]);
 }
 
 /// <summary>

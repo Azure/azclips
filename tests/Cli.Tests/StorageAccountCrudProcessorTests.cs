@@ -242,6 +242,65 @@ public class StorageAccountCrudProcessorTests
             a => Assert.Equal("second", a.Name));
     }
 
+    [Fact]
+    public async Task List_EmptyResult_WritesAnEmptyCollection()
+    {
+        // An empty resource group is ordinary, and the command must still emit a collection so a
+        // caller piping the output sees zero items rather than a missing result.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => Json("""{ "value": [] }"""));
+
+        var processor = new ListStorageAccountProcessor_Customized
+        {
+            SubscriptionId = TestSubscriptionId,
+            ResourceGroupName = ResourceGroupName,
+        };
+        processor.Init(Context(pipeline, output));
+        await processor.ProcessAsync();
+
+        var accounts = Assert.IsType<List<StorageAccount>>(Assert.Single(output.WrittenValues));
+        Assert.Empty(accounts);
+    }
+
+    [Fact]
+    public async Task List_ResultWithoutValue_WritesAnEmptyCollection()
+    {
+        // The envelope's value member is optional in the schema, so a body that omits it must not
+        // fault or silently write nothing.
+        var output = new FakeOutputHandler();
+        var pipeline = new FakeHttpPipeline((_, _) => Json("{ }"));
+
+        var processor = new ListStorageAccountProcessor_Customized { SubscriptionId = TestSubscriptionId };
+        processor.Init(Context(pipeline, output));
+        await processor.ProcessAsync();
+
+        var accounts = Assert.IsType<List<StorageAccount>>(Assert.Single(output.WrittenValues));
+        Assert.Empty(accounts);
+    }
+
+    [Fact]
+    public async Task List_SubscriptionScope_AlsoFollowsNextLink()
+    {
+        // The resource-group branch delegates to a second processor while this one runs on the
+        // customization itself, so pagination has to be proven on both paths.
+        string secondPageUri = $"https://management.azure.com/subscriptions/{TestSubscriptionId}/providers/Microsoft.Storage/storageAccounts?{ApiVersion}&skipToken=abc";
+        var uris = new List<string>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            uris.Add(request.RequestUri!.AbsoluteUri);
+            return Json(uris.Count == 1 ? ListPage(secondPageUri, "first") : ListPage("", "second"));
+        });
+        var output = new FakeOutputHandler();
+
+        var processor = new ListStorageAccountProcessor_Customized { SubscriptionId = TestSubscriptionId };
+        processor.Init(Context(pipeline, output));
+        await processor.ProcessAsync();
+
+        Assert.Equal(2, uris.Count);
+        var accounts = Assert.IsType<List<StorageAccount>>(Assert.Single(output.WrittenValues));
+        Assert.Equal(2, accounts.Count);
+    }
+
     // ── Delete ──
 
     [Fact]
@@ -311,5 +370,53 @@ public class StorageAccountCrudProcessorTests
         await processor.ProcessAsync();
 
         Assert.Empty(output.WrittenValues);
+    }
+
+    // ── Failure surfacing ──
+
+    [Fact]
+    public async Task Show_OnNotFound_Throws()
+    {
+        // Reading a missing account has to fail rather than write an empty result, otherwise a
+        // script cannot tell "absent" from "present but empty".
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NotFound)
+        {
+            Content = new StringContent(
+                """{ "error": { "code": "ResourceNotFound", "message": "The resource was not found." } }""",
+                Encoding.UTF8,
+                "application/json"),
+        });
+
+        var processor = new ShowStorageAccountProcessor
+        {
+            SubscriptionId = TestSubscriptionId,
+            ResourceGroupName = ResourceGroupName,
+            AccountName = AccountName,
+        };
+        processor.Init(Context(pipeline, new FakeOutputHandler()));
+
+        await Assert.ThrowsAnyAsync<Exception>(processor.ProcessAsync);
+    }
+
+    [Fact]
+    public async Task Delete_OnNotFound_Throws()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NotFound)
+        {
+            Content = new StringContent(
+                """{ "error": { "code": "ResourceNotFound", "message": "The resource was not found." } }""",
+                Encoding.UTF8,
+                "application/json"),
+        });
+
+        var processor = new DeleteStorageAccountProcessor
+        {
+            SubscriptionId = TestSubscriptionId,
+            ResourceGroupName = ResourceGroupName,
+            AccountName = AccountName,
+        };
+        processor.Init(Context(pipeline, new FakeOutputHandler()));
+
+        await Assert.ThrowsAnyAsync<Exception>(processor.ProcessAsync);
     }
 }
