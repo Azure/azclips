@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788842182696,
+  "lastUpdate": 1788842235935,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -6678,6 +6678,48 @@ window.BENCHMARK_DATA = {
             "value": 2363593.2192137986,
             "unit": "ns",
             "range": "± 98065.3301226507"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3b430de9ed2bcbffaa13cca79a8a7b9b33f4c2b2",
+          "message": "[Compute] `az vm start`, `Start-AzVM`: Support start vm commands (#823)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az vm start`\n`Start-AzVM`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nCLI:\n`--ids`: Dummy serial placeholder implementation 🟠 \n`--name`: ✅ \n`--resource-group`: ✅ \n`--no-wait`: blocked https://github.com/Azure/CLIPS/issues/883\n`--acquire-policy-token`: blocked\nhttps://github.com/Azure/CLIPS/issues/878\n`--change-reference`: blocked https://github.com/Azure/CLIPS/issues/878\n\nPS:\n`-Id`: ✅ \n`-Name`: ✅ \n`-ResourceGroup`: ✅ \n`-NoWait`: blocked https://github.com/Azure/CLIPS/issues/883\n`-Confirm`: ✅ \n`-WhatIf`: ✅ \n`-AsJob`: https://github.com/Azure/CLIPS/issues/876\n\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n`az vm start --name <vm-name> --resource-group <rg-name>`\n`Start-AzVM`\n`dotnet test tests/Scenario.Tests --filter\nFullyQualifiedName~VmLifecycleScenarioTests`\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n---\n\n- [ ] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [ ] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-08T14:02:50+10:00",
+          "tree_id": "90ec508d287c6ee5754150e2aa01992651a1af82",
+          "url": "https://github.com/Azure/azclips/commit/3b430de9ed2bcbffaa13cca79a8a7b9b33f4c2b2"
+        },
+        "date": 1788842233328,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2345337.393744988,
+            "unit": "ns",
+            "range": "± 96559.92900220832"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2341125.879959718,
+            "unit": "ns",
+            "range": "± 90084.63034552586"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2321562.7399959783,
+            "unit": "ns",
+            "range": "± 93740.62675638964"
           }
         ]
       }
