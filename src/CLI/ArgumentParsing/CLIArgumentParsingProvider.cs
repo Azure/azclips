@@ -16,7 +16,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         {
             string originalInput = kvp.Key;
 
-            // Positional tokens land in the empty-string key; binding is opt-in via indexed ParameterAliases (see extension-management.md §4.4.1).
+            // Positional tokens land in the empty-string key; binding is opt-in via indexed ParameterAliases.
             if (string.IsNullOrEmpty(originalInput))
             {
                 ParsePositionalArguments(kvp.Value, args, parameters, parameterAliases, parsedArguments);
