@@ -9,17 +9,27 @@ using Core.Abstractions;
 
 namespace Tests.Common.Stubs;
 
-public class StubExtensionLoader(Assembly extensionAssembly, string extensionName) : IAssemblyLoadingProvider
+public class StubExtensionLoader : IAssemblyLoadingProvider
 {
+    private readonly Dictionary<string, Assembly> _extensions;
+
+    public StubExtensionLoader(Assembly extensionAssembly, string extensionName)
+        : this(new Dictionary<string, Assembly> { [extensionName] = extensionAssembly })
+    {
+    }
+
+    // Scenarios can span extensions, e.g. vm create needs its resource group created first.
+    public StubExtensionLoader(IDictionary<string, Assembly> extensions)
+    {
+        _extensions = new Dictionary<string, Assembly>(extensions, StringComparer.OrdinalIgnoreCase);
+    }
+
     public IList<InstalledExtensionRef>? GetAllInstalledExtensions() => null;
 
     public Assembly LoadExtension(string requestedExtensionName, string? version = null)
     {
-        if (string.Equals(requestedExtensionName, extensionName, StringComparison.OrdinalIgnoreCase))
-        {
-            return extensionAssembly;
-        }
-
-        throw new InvalidOperationException($"Extension '{requestedExtensionName}' is not available in stub provider.");
+        return _extensions.TryGetValue(requestedExtensionName, out var assembly)
+            ? assembly
+            : throw new InvalidOperationException($"Extension '{requestedExtensionName}' is not available in stub provider.");
     }
 }

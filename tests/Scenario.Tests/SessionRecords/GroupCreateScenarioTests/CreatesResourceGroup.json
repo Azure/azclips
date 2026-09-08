@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "GroupCreateScenarioTests/CreatesResourceGroup"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-test-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-test-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022provisioningState\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "e46bae1b-663e-4caa-a7f3-3342bee9a9e7"
+          ],
+          "x-ms-correlation-request-id": [
+            "e46bae1b-663e-4caa-a7f3-3342bee9a9e7"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHCENTRALUS:20260807T020407Z:e46bae1b-663e-4caa-a7f3-3342bee9a9e7"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3FEFFA1141EC4F43B11A28DF6F4A3EAC Ref B: SN4AA2022305017 Ref C: 2026-08-07T02:04:05Z"
+          ],
+          "Date": [
+            "Fri, 07 Aug 2026 02:04:07 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-test-rg\u0022,\u0022name\u0022:\u0022scenario-test-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    }
+  ]
+}

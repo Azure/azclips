@@ -11,47 +11,37 @@ namespace Core.Runtime;
 /// </summary>
 public class ConsoleLoggingService : ILoggingService
 {
-    public void Log(string message)
-    {
-        Console.WriteLine($"{message}");
-        RecordTelemetry("Log", message);
-    }
+    // Alias for `Info`; kept as a permanent alias on the interface for backward compatibility
+    // (no deprecation planned). See PR #575 / issue Azure/CLIPS#493, decision D3.
+    public void Log(string message) => Info(message);
 
     public void Info(string message)
     {
-        Console.WriteLine($"[INFO] {message}");
+        ConsoleSink.Info(message);
         RecordTelemetry("Info", message);
     }
 
     public void Error(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"[ERROR] {message}");
-        Console.ResetColor();
+        ConsoleSink.Error(message);
         RecordTelemetry("Error", message);
     }
 
     public void Warn(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"[WARN] {message}");
-        Console.ResetColor();
+        ConsoleSink.Warn(message);
         RecordTelemetry("Warning", message);
     }
 
     public void Verbose(string message)
     {
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine($"[VERBOSE] {message}");
-        Console.ResetColor();
+        ConsoleSink.Verbose(message);
         RecordTelemetry("Verbose", message);
     }
 
     public void Debug(string message)
     {
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine($"[DEBUG] {message}");
-        Console.ResetColor();
+        ConsoleSink.Debug(message);
         RecordTelemetry("Debug", message);
     }
 

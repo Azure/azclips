@@ -14,7 +14,8 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         Dictionary<string, object> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
         foreach (var kvp in args)
         {
-            string key = kvp.Key;
+            string originalInput = kvp.Key;
+            string key = originalInput;
             object value = kvp.Value;
 
             // Resolve aliases
@@ -26,26 +27,26 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 
             if (!parameters.TryGetValue(key, out var parameterMetadata))
             {
-                throw new ArgumentException($"Unable to find parameter: {key}");
+                throw new ArgumentException($"Unable to find parameter: {originalInput}");
             }
             //less likely to be null, but we should still check
             if (parameterMetadata == null)
             {
-                throw new InvalidOperationException($"Parameter metadata is null for: {key}");
+                throw new InvalidOperationException($"Parameter metadata is null for: {originalInput}");
             }
             try
             {
-                parsedArguments[parameterMetadata.Name] = ParseArgument(parameterMetadata.Name, value, parameterMetadata.ParameterType);
+                parsedArguments[parameterMetadata.Name] = ParseArgument(originalInput, value, parameterMetadata.ParameterType);
             }
             catch (Exception ex)
             {
-                throw new ArgumentException($"Failed to parse parameter '{key}': {ex.Message}", ex);
+                throw new ArgumentException($"Failed to parse parameter '{originalInput}': {ex.Message}", ex);
             }
         }
         return parsedArguments;
     }
 
-    private object ParseArgument(string key, object source, Type targetType)
+    private object ParseArgument(string originalInput, object source, Type targetType)
     {
         // Already the expected type
         if (targetType.IsInstanceOfType(source))
@@ -57,7 +58,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         // CLI raw value is List<List<string>>; convert it into the target collection shape.
         if (TryGetCollectionElementType(targetType, out var elementType))
         {
-            return ConvertToCollection(key, source, targetType, elementType!);
+            return ConvertToCollection(originalInput, source, targetType, elementType!);
         }
 
         // Scalar target: flatten to string[] and take the first element
@@ -68,9 +69,9 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             {
                 return true;
             }
-            throw new ArgumentException($"Parameter '{key}' requires a value.");
+            throw new ArgumentException($"Parameter '{originalInput}' requires a value.");
         }
-        return propertyParser.ConvertToType(key, flattened[0], targetType);
+        return propertyParser.ConvertToType(originalInput, flattened[0], targetType);
     }
 
     // List<List<string>> -> string[] (flattened)
@@ -115,7 +116,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         return false;
     }
 
-    private object ConvertToCollection(string key, object source, Type targetType, Type elementType)
+    private object ConvertToCollection(string originalInput, object source, Type targetType, Type elementType)
     {
         // Determine if elementType itself is a collection (nested case: List<List<string>>, string[][])
         bool nested = TryGetCollectionElementType(elementType, out var nestedElementType);
@@ -143,7 +144,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             // Flat collection: flatten everything to strings, then convert each to elementType
             foreach (var s in FlattenToStrings(source))
             {
-                items.Add(ConvertScalar(key, s, elementType));
+                items.Add(ConvertScalar(originalInput, s, elementType));
             }
         }
 
@@ -160,13 +161,13 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         return Materialize(items, targetType, elementType);
     }
 
-    private object ConvertScalar(string key, string value, Type targetType)
+    private object ConvertScalar(string originalInput, string value, Type targetType)
     {
         if (targetType == typeof(string))
         {
             return value;
         }
-        return propertyParser.ConvertToType(key, value, targetType);
+        return propertyParser.ConvertToType(originalInput, value, targetType);
     }
 
     private static object Materialize(IList<object?> items, Type targetType, Type elementType)

@@ -9,17 +9,15 @@ public sealed class ConfigurationSchema : IConfigurationSchema
 {
     private static readonly IReadOnlyList<ConfigurationKeyMetadata> Keys =
     [
-        new() { Key = "core.logging.level", Description = "Global log level.", DefaultValue = "error", ValueType = typeof(string), AllowedValues = ["debug", "info", "warn", "error"] },
+        new() { Key = "core.logging.level", Description = "Global log level.", DefaultValue = "warn", ValueType = typeof(string), AllowedValues = ["debug", "info", "warn", "error"] },
+        new() { Key = "core.output.color", Description = "Color rendering mode for CLI diagnostic output. 'auto' (default) respects env vars and redirection; 'always' forces color; 'never' suppresses color. NO_COLOR and FORCE_COLOR env vars still take precedence.", DefaultValue = "auto", ValueType = typeof(string), AllowedValues = ["auto", "always", "never"] },
         new() { Key = "core.engine.extensionIndexCacheSize", Description = "LFU cache size for extension index.", DefaultValue = "512", ValueType = typeof(int), Minimum = 1, Maximum = 10000 },
         new() { Key = "core.http.maxRetries", Description = "Max retries for transient HTTP failures.", DefaultValue = "3", ValueType = typeof(int), Minimum = 0, Maximum = 50 },
         new() { Key = "core.http.maxRetriesFor429", Description = "Max retries for HTTP 429 responses.", DefaultValue = "5", ValueType = typeof(int), Minimum = 0, Maximum = 50 },
-        new() { Key = "assemblyLoading.builtinInstallationDir", Description = "Built-in extensions installation directory.", ValueType = typeof(string) },
-        new() { Key = "assemblyLoading.versionedInstallationDir", Description = "Versioned extensions installation directory.", ValueType = typeof(string) },
+        new() { Key = "assemblyLoading.installedExtensionsRoot", Description = "Root directory for extensions installed via `az extension add` (typically ~/.azclips/extensions).", ValueType = typeof(string) },
         new() { Key = "assemblyLoading.extensionFolderPrefix", Description = "Assembly discovery prefix for extensions.", ValueType = typeof(string) },
         new() { Key = "assemblyLoading.bypassExtensionCache", Description = "Skip the per-process ALC cache and reload extensions on every dispatch (benchmark/test hook).", DefaultValue = "false", ValueType = typeof(bool) },
         new() { Key = "telemetry.enabled", Description = "Enable or disable telemetry.", DefaultValue = "true", ValueType = typeof(bool) },
-        new() { Key = "telemetry.zipkinEndpoint", Description = "Zipkin endpoint URI.", ValueType = typeof(string), IsUri = true },
-        new() { Key = "telemetry.appInsightsInstrumentationKey", Description = "Application Insights instrumentation key.", ValueType = typeof(string) },
         new() { Key = "agent.enabled", Description = "Enable or disable agent features. Off by default; set true to opt in.", DefaultValue = "false", ValueType = typeof(bool) },
         new() { Key = "agent.sessionStyle", Description = "Agent interaction style: oneshot (propose a fix and exit) | interactive (stay in a chat loop until you exit).", DefaultValue = "oneshot", ValueType = typeof(string), AllowedValues = ["oneshot", "interactive"] },
         new() { Key = "agent.interactive.verbose", Description = "When true, interactive agent sessions also show internal tool details (get_command / find_* args and output), not just shell commands. Off by default to keep the session clean.", DefaultValue = "false", ValueType = typeof(bool) },

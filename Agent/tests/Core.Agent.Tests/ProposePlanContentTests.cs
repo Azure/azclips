@@ -36,53 +36,66 @@ public class ProposePlanContentTests
     }
 
     [Fact]
-    public void Placeholders_parses_name_and_description()
+    public void Placeholders_parses_flag_and_description()
     {
         var ph = PlanArgsParser.ExtractUserInputNeeds(Args(new
         {
-            placeholders = new[] { new { name = "admin-password", description = "Strong password" } },
+            placeholders = new[] { new { flag = "--admin-password", description = "Strong password" } },
         }), "placeholders");
 
         Assert.NotNull(ph);
         Assert.Single(ph!);
-        Assert.Equal("admin-password", ph![0].Name);
+        Assert.Equal("--admin-password", ph![0].Flag);
         Assert.Equal("Strong password", ph[0].Description);
     }
 
     [Fact]
-    public void Placeholders_skips_entries_with_blank_name()
+    public void Placeholders_skips_entries_with_blank_flag()
     {
         var ph = PlanArgsParser.ExtractUserInputNeeds(Args(new
         {
             placeholders = new[]
             {
-                new { name = "", description = "no name" },
-                new { name = "ssh-key", description = "your key" },
+                new { flag = "", description = "no flag" },
+                new { flag = "--ssh-key", description = "your key" },
             },
         }), "placeholders");
 
         Assert.NotNull(ph);
         Assert.Single(ph!);
-        Assert.Equal("ssh-key", ph![0].Name);
+        Assert.Equal("--ssh-key", ph![0].Flag);
     }
 
     [Fact]
-    public void Defaults_parses_name_value_note()
+    public void Defaults_parses_flag_note()
     {
         var defs = PlanArgsParser.ExtractChosenDefaults(Args(new
         {
             defaults = new[]
             {
-                new { name = "location", value = "eastus", note = "a common region" },
-                new { name = "vm-size", value = "Standard_D2s_v3", note = "moderate size" },
+                new { flag = "--location", note = "a common region" },
+                new { flag = "--size", note = "moderate size" },
             },
         }));
 
         Assert.NotNull(defs);
         Assert.Equal(2, defs!.Count);
-        Assert.Equal("location", defs[0].Name);
-        Assert.Equal("eastus", defs[0].Value);
+        Assert.Equal("--location", defs[0].Flag);
         Assert.Equal("a common region", defs[0].Note);
+    }
+
+    [Fact]
+    public void Defaults_tolerates_legacy_name_key()
+    {
+        // A model still emitting the old {name,...} shape should degrade to the
+        // flag name, not drop the entry.
+        var defs = PlanArgsParser.ExtractChosenDefaults(Args(new
+        {
+            defaults = new[] { new { name = "location", note = "a common region" } },
+        }));
+
+        Assert.NotNull(defs);
+        Assert.Equal("location", defs![0].Flag);
     }
 
     [Fact]

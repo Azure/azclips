@@ -27,9 +27,18 @@ namespace Core.Abstractions
     /// All commands for the requested client type, keyed by
     /// <see cref="CommandMetadata.InvocationName"/> (e.g. <c>"vm create"</c>).
     /// </param>
+    /// <param name="Location">
+    /// Absolute filesystem path to the extension's primary DLL on disk, propagated from the
+    /// loader that enumerated it via <see cref="InstalledExtensionRef.Location"/>. Surfaced by
+    /// <c>az extension list</c>/<c>show</c> so users can see exactly which on-disk file backs a
+    /// listed extension. May be <c>null</c> when discovery could not attribute the info to a
+    /// specific loader (e.g. named-extension or single-command lookup paths that bypass the
+    /// on-disk enumeration).
+    /// </param>
     public sealed record DiscoveredExtensionInfo(
         string PackageId,
         string ResolvedVersion,
         IReadOnlyList<string> Verbs,
-        IReadOnlyDictionary<string, CommandMetadata> Commands);
+        IReadOnlyDictionary<string, CommandMetadata> Commands,
+        string? Location);
 }

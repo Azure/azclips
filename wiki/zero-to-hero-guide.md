@@ -4,7 +4,7 @@
 >
 > **How to use it.** Part I teaches just enough C#/.NET to read Azclips, always by comparison to Python. Part II is a guided tour of the actual architecture (including the newer **TUI**, **AI Agent**, and **Config/Profile** pieces). Part III is the practical loop: setup, build, test, debug, contribute. At the end there's a **40+ term glossary** and a **key-file reference** you'll keep coming back to.
 >
-> **One rule this guide lives by:** every architectural claim points at a real file and line. If you ever doubt a sentence here, open the file. The prose docs in this repo (`README.md`, `AGENTS.md`, `docs/spec/ARCHITECTURE.md`) have drifted from the code — this guide is written against the code as it exists now.
+> **One rule this guide lives by:** every architectural claim points at a real file and line. If you ever doubt a sentence here, open the file. The prose docs in this repo (`README.md`, `AGENTS.md`, `eng-docs/spec/ARCHITECTURE.md`) have drifted from the code — this guide is written against the code as it exists now.
 
 ---
 
@@ -459,17 +459,15 @@ Notice the four patterns you'll copy for every command: `[ArgumentInfo]` on publ
 
 ### 9.1 The failure path (and why the agent sometimes appears)
 
-The happy path above returns `0`. The interesting behavior is what happens when a command _throws_. `Program.Main` wraps execution in a catch ladder (`src/CLI/Program.cs:91-144`), and the _type_ of exception decides everything:
+The happy path above returns `0`. The interesting behavior is what happens when a command _throws_. Help and version are dispatched from the `GlobalArgs` record before `Program.Main`'s catch ladder runs, so the ladder itself is a small triage of real failures (`src/CLI/Program.cs`):
 
-| Thrown                          | Meaning                         | What happens                                                                    |
-| ------------------------------- | ------------------------------- | ------------------------------------------------------------------------------- |
-| `DispatchHelpException`         | user asked for root help        | render help, exit                                                               |
-| `RuntimeExtensionHelpException` | user asked for a command's help | render that help, exit                                                          |
-| `AzclipsErrorException`         | a known, structured error       | print it (`error: [code] message` or JSON), return its exit code — **no agent** |
-| `HttpRequestException`          | network/ARM failure             | `TryAgentFallbackAsync`                                                         |
-| any other `Exception`           | unknown failure                 | `TryAgentFallbackAsync`                                                         |
+| Thrown                  | Meaning                   | What happens                                                                    |
+| ----------------------- | ------------------------- | ------------------------------------------------------------------------------- |
+| `AzclipsErrorException` | a known, structured error | print it (`ERROR: [code] message` or JSON), return its exit code — **no agent** |
+| `HttpRequestException`  | network/ARM failure       | `TryAgentFallbackAsync`                                                         |
+| any other `Exception`   | unknown failure           | `TryAgentFallbackAsync`                                                         |
 
-The key idea: **structured, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures that suggest the _intent_ needs reinterpreting (a typo, natural language, a "how do I…"). And even then, `TryAgentFallbackAsync` (`:281`) only proceeds if three gates pass:
+The key idea: **structured, well-understood errors never call the agent** — the system knew exactly what went wrong, so an LLM round-trip would only slow you down. The agent is reserved for failures where the command ran but broke in a way a fix could recover (a typo, a missing required flag, an unexpected runtime error). And even then, `TryAgentFallbackAsync` (`:304`) only proceeds if three gates pass:
 
 ```csharp
 if (!config.GetConfiguration<AgentOptions>().Enabled) return 1;               // opted in?
@@ -481,7 +479,7 @@ Only if all three pass does it spawn the TUI in `--agent-mode` and wait for it. 
 
 ### 9.2 The discovery path (help & completions)
 
-Not every invocation executes a command. `az --help`, `az group --help`, and shell tab-completion all take the **discovery** path instead of the execution path. `CompletionGenerator.TryHandleAsync` (`Program.cs:56`) short-circuits before real work for completion requests, and help exceptions route to `RuntimeHelpDispatcher`, which uses `Engine.OpenDiscoverySession` (`IEngine.cs:12`) to _introspect_ extensions (load their indices, read metadata) without running anything. Keeping discovery separate from execution is why `--help` is fast and side-effect-free.
+Not every invocation executes a command. Bare `az`, `az --help`, `az group --help`, and shell tab-completion all take the **discovery** path instead of the execution path. `CompletionGenerator.TryHandleAsync` (`Program.cs:56`) short-circuits before real work for completion requests, and help exceptions route to `RuntimeHelpDispatcher`, which uses `Engine.OpenDiscoverySession` (`IEngine.cs:12`) to _introspect_ extensions (load their indices, read metadata) without running anything. Keeping discovery separate from execution is why `--help` is fast and side-effect-free.
 
 <a name="p2-10"></a>
 
@@ -491,7 +489,7 @@ An **extension** is a DLL that exposes commands. Structurally each has:
 
 - an `ExtensionIndex.cs` — the registry mapping verbs to processor types,
 - one `IProcessor` per verb (the command logic),
-- optionally `Orchestrators/` and `Processors/` for multi-step flows (see `Resources`/`Compute`),
+- optionally `Customization/` and `Processors/` for multi-step flows (see `Resources`/`Compute`),
 - a `Compatibility.cs` marking Azclips compatibility.
 
 The six extensions today (`azclips.slnx`):
@@ -502,16 +500,15 @@ The six extensions today (`azclips.slnx`):
 | `Extension`        | Extension _management_: `add`/`list`/`pin`/`unpin`/`remove`/`show`/`update`                  |
 | `Resources`        | Resource groups & deployments (`group create`, `deployment ...`)                             |
 | `Compute`          | VMs, NICs, NSGs, VNets                                                                       |
-| `Login`            | `login`/`logout` **and** the profile commands (`profile list/show/set/remove`)               |
+| `Accounts`            | `login`/`logout` **and** the profile commands (`profile list/show/set/remove`)               |
 | `Config`           | `config get/set/list/delete/info`                                                            |
 
-**Discovery & loading.** Built-in extensions live in a compiled map (`BuiltInExtensions.Map`); user-installed ones live in a registry file (`~/.azclips/extensions/registry.json`). `ExtensionDispatcher` merges them into a _leaf index_ to resolve which extension owns a verb (`ExtensionDispatcher.cs:44`). Loading the DLL is `IAssemblyLoadingService` / `CLIAssemblyLoadingProvider` (`src/CLI/AssemblyLoading/`), with side-by-side versions via `MultiVersionExtensionLoader` (registered at `Program.cs:43`). Because loading + reflecting is expensive, `Engine` caches each extension's `IExtensionIndex` in an `LFUCache<Lazy<IExtensionIndex>>` keyed by `name-version` (`Engine.cs:36,81`).
-
+**Discovery & loading.** Every extension is discovered at runtime through the loader chain. `BundledExtensionLoader` scans `<install>/Extensions/` (and local build output); `InstalledExtensionLoader` scans `~/.azclips/extensions/`, honoring the config-driven root. `ExtensionDispatcher` uses a `LeafIndex` built from the discovery results to resolve which extension owns a verb (`ExtensionDispatcher.cs:44`). Loading the DLL is `IAssemblyLoadingService` / `CLIAssemblyLoadingProvider` (`src/CLI/AssemblyLoading/`), with side-by-side versions via `InstalledExtensionLoader` (registered at `Program.cs:59`). Because loading + reflecting is expensive, `Engine` caches each extension's `IExtensionIndex` in an `LFUCache<Lazy<IExtensionIndex>>` keyed by `name-version` (`Engine.cs:36,81`).
 **ExtensionRuntime** deserves a note: it's a small JSON runtime (`src/Extensions/ExtensionRuntime/Conversions/`) with converters for every primitive and collection type (`Int32Converter`, `HashSet'1Converter`, `JsonObjectConverter`, …) plus a `JsonConverterAttribute` to register custom ones. Extensions use it instead of hand-rolling ARM (de)serialization.
 
 ### 10.1 Simple commands vs. orchestrated commands
 
-Not every command is a single `ProcessAsync`. Look at `Resources` and `Compute`: alongside `Processors/` they have `Orchestrators/` (e.g. `NewResourceGroupDeploymentProcessor_Orchestrator.cs`, `DeploymentOrchestratorBase.cs`). An **orchestrator** coordinates a multi-step flow — submit an ARM deployment, then poll until it completes — while the plain processor handles the single-shot case. When you author a command:
+Not every command is a single `ProcessAsync`. Look at `Resources` and `Compute`: alongside `Processors/` they have `Customization/` (e.g. `NewResourceGroupDeploymentProcessor_Orchestrator.cs`, `DeploymentOrchestratorBase.cs`). An **orchestrator** coordinates a multi-step flow — submit an ARM deployment, then poll until it completes — while the plain processor handles the single-shot case. When you author a command:
 
 - **Single request/response** (like `config set`, `group show`) → a plain `IProcessor`.
 - **Long-running / multi-call** (like a deployment with polling, or "create a VM" which also creates a NIC, NSG, and VNet) → an orchestrator that sequences several processors.
@@ -570,7 +567,7 @@ Common keys you'll actually use: `telemetry.enabled` (opt out of telemetry), `ag
 
 A **profile** is a named connection: tenant, subscription, user, cloud, auth method. `IProfileService`/`ProfileService` (`src/Core/Core.Runtime/ProfileService.cs:14`) store them in `{LocalApplicationData}/.azclips/profiles.json` with a separate `active-profile` pointer file. Writes are **atomic** (temp file + rename) and serialized in-process by a semaphore.
 
-The design (fully documented in `openspec/changes/profile-management/design.md`) makes the profile the _single source of truth_ for connection state — it **replaced** the old `AuthContext`/`context.json`. The commands live in the `Login` extension (`src/Extensions/Login/Processors/`): `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor`.
+The design (fully documented in `openspec/changes/profile-management/design.md`) makes the profile the _single source of truth_ for connection state — it **replaced** the old `AuthContext`/`context.json`. The commands live in the `Accounts` extension (`src/Extensions/Accounts/Processors/`): `ProfileListProcessor`, `ProfileShowProcessor`, `ProfileSetProcessor`, `ProfileRemoveProcessor`.
 
 Login/profile semantics, which trip up newcomers:
 
@@ -719,7 +716,7 @@ az group --help
 | `az config list`                  | Dump current settings (`~/.azclips/config.json`)         |
 | `az config set --key K --value V` | Set a setting (keys normalize `:`→`.`, case-insensitive) |
 | `az config get --key K`           | Read one setting                                         |
-| `az login`                        | Auth into the reserved `temp` profile                    |
+| `az login`                        | Auth into the reserved `default` profile                 |
 | `az login --out-profile prod`     | Auth into a named profile                                |
 | `az --profile prod group list`    | Run a command under a specific profile                   |
 | `az --upload-telemetry`           | (Internal) the detached uploader the CLI spawns for you  |
@@ -727,19 +724,19 @@ az group --help
 **PowerShell:**
 
 ```powershell
-Import-Module ./src/PS/Login/Login.psd1
+Import-Module ./src/PS/Accounts/Accounts.psd1
 Connect-AzAccount -SubscriptionId <sub> -TenantId <tenant>
 Import-Module ./src/PS/Resources/Resources.psd1
 New-AzResourceGroup -Name demo -Location eastus
 ```
 
-**Try the TUI / agent (optional):**
+**Try the AI-based error recovery (optional):**
 
 ```bash
 az config set --key agent.enabled --value true    # opt in
-# now a failing/natural-language command on an interactive terminal
-# hands off to the TUI agent-mode:
-az "create a resource group called demo in westus"
+# now, when an az command FAILS on an interactive terminal, the failure
+# hands off to agent-mode, which proposes a fix for you to review:
+az group create --name demo   # missing --location: the agent proposes the fix
 ```
 
 <a name="p3-18"></a>
@@ -802,7 +799,7 @@ public class ConfigCommandTests
 
 **Agent tests** are worth a peek even if you're not on the agent: `ClosingToolPredicateTests`, `ProposePlanValidationTests`, and the snapshot tests (`EventRendererSnapshotTests`, `SnapshotTesting/`) show how a tool-driven agent is tested deterministically.
 
-**Benchmarks.** `tests/Benchmark` uses BenchmarkDotNet; `--no-cache` (`Program.cs:246`) and in-process hooks let you measure cold vs warm dispatch. See `docs/spec/benchmark-workflows.md`.
+**Benchmarks.** `tests/Benchmark` uses BenchmarkDotNet; `--no-cache` (classified by `GlobalArgParser`) and in-process hooks let you measure cold vs warm dispatch. See `eng-docs/spec/benchmark-workflows.md`.
 
 <a name="p3-19"></a>
 
@@ -853,11 +850,11 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 
 ## 20. Debugging playbook
 
-- **See what's happening:** run with `--debug` (`Program.cs:155`) to raise the log level; add `--output json` (`:220`) to get structured error payloads.
+- **See what's happening:** run with `--debug` to raise the log level; add `--output json` to get structured error payloads. Both are classified by `GlobalArgParser` (`src/CLI/Parser/GlobalArgParser.cs`).
 - **A command "hangs" or spawns the agent unexpectedly:** check `agent.enabled` (`az config list`) — the agent only engages when it's true _and_ you're on a TTY. In CI/pipes it's suppressed by design (`:308`).
 - **"Profile 'x' does not exist" errors:** an explicit `--profile` must name a real profile; a stale _active_ pointer silently resolves to null instead (`Engine.cs:156`). Check `az profile list` and `active-profile`.
 - **Auth failures:** the token cache is shared at `{LocalAppData}/.azclips/MSAL.cache`; `az logout` removes only the active profile's account. Re-run `az login --profile <name>` to refresh.
-- **Extension not found / stale:** the engine caches extension indices; bypass with `--no-cache` (`Program.cs:246`) to rule out a stale cache.
+- **Extension not found / stale:** the engine caches extension indices; bypass with `--no-cache` (classified by `GlobalArgParser`, sets `AZCLIPS_NO_EXTENSION_CACHE`) to rule out a stale cache.
 - **Attach a debugger:** in VS/VS Code, set the startup project to `Core.Cli`, set args in `launchSettings`/`launch.json`, and breakpoint `Program.Main`, `Engine.CreateProcessorContext`, or your processor's `ProcessAsync`.
 - **Trace the agent:** `az config set --key agent.trace.enabled --value true` writes a JSONL trace under `agent.trace.path` (default `~/.azclips/trace`) — invaluable for understanding a turn.
 - **Telemetry noise:** set `telemetry.enabled=false` while debugging to avoid the background uploader spawning.
@@ -894,7 +891,7 @@ When a change "doesn't take," check whether you're reading the file you think yo
 - **Don't:** revert the DI-composition-root pattern to manual `new`; bypass `ProcessorContext` to reach services; add a raw config-key string instead of a typed option; trust the stale prose docs over the code.
 - **Do:** cite `file:line` in PR descriptions when explaining behavior; update inline XML doc comments when you change design-bearing code.
 
-CI lives in `.azure-pipelines/` and `.github/`; see `docs/spec/ci.md`.
+CI lives in `.azure-pipelines/` and `.github/`; see `eng-docs/spec/ci.md`.
 
 ### 21.1 Your first PR checklist
 
@@ -996,7 +993,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 - `src/CLI/Parser/ExtensionDispatcher.cs` — arg parsing / verb resolution (`:44`).
 - `src/Extensions/Extension/` — extension management (`add`/`update`/`pin`…).
 - `src/Extensions/ExtensionRuntime/` — serialization runtime.
-- `src/Extensions/Login/Processors/` — login/logout + profile commands.
+- `src/Extensions/Accounts/Processors/` — login/logout + profile commands.
 
 **AI & TUI**
 
@@ -1008,7 +1005,7 @@ If all eight are green, you're in good shape. The single most common first-PR bo
 - `openspec/changes/profile-management/` — proposal/design/tasks/specs for the profile feature.
 - `docs/spec/` — agent-experience, auth-context, extension-framework, telemetry, config-implementation, ci, benchmark-workflows.
 
-> Reminder: `README.md`, `AGENTS.md`, and `docs/spec/ARCHITECTURE.md` contain stale architecture claims (.NET 9, `Bootstrapper`/`OrchestratorEngine`, Azure OpenAI, `.azclips`). When they disagree with the files above, the files win.
+> Reminder: `README.md`, `AGENTS.md`, and `eng-docs/spec/ARCHITECTURE.md` contain stale architecture claims (.NET 9, `Bootstrapper`/`OrchestratorEngine`, Azure OpenAI, `.azclips`). When they disagree with the files above, the files win.
 
 ---
 

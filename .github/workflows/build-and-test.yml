@@ -44,13 +44,25 @@ jobs:
       - name: E2E - PowerShell Module
         shell: pwsh
         run: |
-          Import-Module ./src/PS/Login/Login.psd1
-          $commands = Get-Command -Module Login
+          Import-Module ./src/PS/Accounts/Accounts.psd1
+          $commands = Get-Command -Module Accounts
           if ($commands.Count -eq 0) {
-            Write-Error "No commands found in Login module"
+            Write-Error "No commands found in Accounts module"
             exit 1
           }
-          Write-Host "Found $($commands.Count) commands in Login module"
+          Write-Host "Found $($commands.Count) commands in Accounts module"
+
+  recording-secret-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan changed recordings for secrets
+        run: python3 devops/scripts/ci/scan_recordings.py --base "origin/${{ github.base_ref || 'main' }}"
 
   help-validate:
     runs-on: ubuntu-latest
@@ -76,6 +88,18 @@ jobs:
             --artifacts-root artifacts/Debug \
             --output-root artifacts/help
 
+      - name: Install PlatyPS
+        shell: pwsh
+        run: ./build/Install-BuildDependencies.ps1
+
+      - name: Smoke-test help drift gate
+        shell: pwsh
+        run: ./tests/Scripts/PS/HelpDriftFixtures.ps1
+
+      - name: Validate PS help drift
+        shell: pwsh
+        run: ./build/Test-PSHelpMarkdown.ps1
+
   help-tool-tests:
     runs-on: ubuntu-latest
 
@@ -89,10 +113,60 @@ jobs:
           global-json-file: global.json
 
       - name: Restore dependencies
-        run: dotnet restore tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj
+        run: dotnet restore azclips.slnx
 
-      - name: Build help tool tests
-        run: dotnet build tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-restore --configuration Debug
+      - name: Build solution
+        run: dotnet build azclips.slnx --no-restore --configuration Debug
 
       - name: Run help tool tests
         run: dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal
+
+  ps-docs-sync-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Pester 5+
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Run PS docs sync Pester tests
+        shell: pwsh
+        run: |
+          $result = Invoke-Pester -Path tests/Ps.DocsSync.Tests/ -Output Detailed -PassThru
+          if ($result.FailedCount -gt 0) { throw "Pester tests failed: $($result.FailedCount) failure(s)." }
+
+      - name: PS docs sync — dry-run over real corpus
+        shell: pwsh
+        run: pwsh -File build/Sync-AzclipsPowerShellDocs.ps1 -TargetRepoPath /tmp/nonexistent
+
+  cli-docs-sync-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Pester 5+
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Run CLI docs sync Pester tests
+        shell: pwsh
+        run: |
+          $result = Invoke-Pester -Path tests/Cli.DocsSync.Tests/ -Output Detailed -PassThru
+          if ($result.FailedCount -gt 0) { throw "Pester tests failed: $($result.FailedCount) failure(s)." }
+
+      # Load-only smoke: dot-source the shim with AZCLIPS_CLI_SYNC_LOAD_ONLY=1 (used by
+      # the Pester setup) so Main is skipped. Catches parse errors and stale function
+      # references without needing CLI2Yaml (which lives behind apidrop auth).
+      - name: CLI docs sync — load-only smoke
+        shell: pwsh
+        run: |
+          $env:AZCLIPS_CLI_SYNC_LOAD_ONLY = '1'
+          . ./build/Sync-AzClipsCliDocs.ps1
+          if (-not (Get-Command Invoke-SyncApply -ErrorAction SilentlyContinue)) {
+              throw "Load-only smoke failed: Invoke-SyncApply not defined after dot-sourcing."
+          }

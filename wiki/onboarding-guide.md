@@ -2,7 +2,7 @@
 
 > **Audience.** Senior/principal engineers who need the _why_ behind Azclips, not a click-by-click tutorial. This guide assumes you can read C# fluently, know what a DI container is, and have shipped a CLI before. It trades breadth for depth: we pick the _one_ architectural idea that explains most of the codebase and follow it all the way down to `file:line`.
 >
-> **Freshness contract.** This guide was regenerated against the current working tree. Where the in-repo prose docs (`README.md`, `AGENTS.md`, `docs/spec/ARCHITECTURE.md`) disagree with the code, **the code wins** and the disagreement is called out explicitly. Notably:
+> **Freshness contract.** This guide was regenerated against the current working tree. Where the in-repo prose docs (`README.md`, `AGENTS.md`, `eng-docs/spec/ARCHITECTURE.md`) disagree with the code, **the code wins** and the disagreement is called out explicitly. Notably:
 >
 > - Target framework is **net10.0** (`global.json:3`, `src/Directory.Build.props:5`) — _not_ .NET 9.
 > - The project codename is **Azclips** (the shipping products are **Azure CLI** and **Azure PowerShell**); user state lives under **`~/.azclips`** (`src/Core/Core.Abstractions/HomePaths.cs:14`).
@@ -80,11 +80,11 @@ public static void RegisterAzclipsServices(this IServiceCollection services) =>
 The CLI, for example, prepends its extension-dispatch services and _overrides_ the assembly-loading / argument-parsing / telemetry providers with CLI-flavored ones:
 
 ```csharp
-// src/CLI/Program.cs:40
+// src/CLI/Program.cs:56
 AzclipsServiceProvider.PrependRegistration(services =>
 {
-    services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
-    services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
+    services.AddSingleton<IExtensionLoader, BundledExtensionLoader>();
+    services.AddSingleton<IExtensionLoader, InstalledExtensionLoader>();
     services.AddSingleton<PropertyParser>();
     services.AddCliExtensionDispatch();
 });
@@ -93,6 +93,7 @@ AzclipsServiceProvider.OverrideRegistration(services =>
     services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
     services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
     services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
+    services.AddSingleton<IUserAgentHandler, CLIUserAgentHandler>();
 });
 AzclipsServiceProvider.Initialize(ClientType.CLI);   // builds the container, once
 ```
@@ -179,7 +180,7 @@ if (Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE") == "1") return 1
 
 The recursion guard is the subtle one. Agent-mode can itself run `az` (via PowerShell tool calls); if that inner `az` fails, we must **not** recursively open another agent-mode TUI. The `AZCLIPS_IN_AGENT_MODE=1` env var, set on the child's `ProcessStartInfo` at `:339`, is the fuse.
 
-> **Fact vs. stale doc.** `AGENTS.md:16` and `docs/spec/ARCHITECTURE.md` describe an in-process `OrchestratorEngine` that "tries `DefaultCommandEngine` first, falls back to `AgentEngine`." That design is **not in the current tree** — `grep` finds no `OrchestratorEngine`/`AgentEngine`/`Bootstrapper` types (only unrelated `*Processor_Orchestrator` classes inside the Resources/Compute extensions). The _actual_ orchestration is the try/catch in `Program.Main` plus the process spawn in `TryAgentFallbackAsync`. Treat the spec's "theoretical vs actual" table as historical.
+> **Fact vs. stale doc.** `AGENTS.md:16` and `eng-docs/spec/ARCHITECTURE.md` describe an in-process `OrchestratorEngine` that "tries `DefaultCommandEngine` first, falls back to `AgentEngine`." That design is **not in the current tree** — `grep` finds no `OrchestratorEngine`/`AgentEngine`/`Bootstrapper` types (only unrelated `*Processor_Orchestrator` classes inside the Resources/Compute extensions). The _actual_ orchestration is the try/catch in `Program.Main` plus the process spawn in `TryAgentFallbackAsync`. Treat the spec's "theoretical vs actual" table as historical.
 
 ---
 
@@ -244,7 +245,7 @@ The diagram encodes three truths worth stating plainly:
 
 1. **All four surfaces converge on `AzclipsServiceProvider`.** There is no second wiring path.
 2. **The AI box is dashed and separate.** The solid arrows are the structured hot path; the dashed arrows are the fallback and the agent's tool-calls-back-into-`az`. The dashed boundary is a _process_ boundary.
-3. **Extensions are leaves, not core.** `Resources`, `Compute`, `Login`, `Config`, `Extension` are DLLs discovered and loaded at runtime; the core knows them only through `IExtensionIndex` and `IProcessor`.
+3. **Extensions are leaves, not core.** `Resources`, `Compute`, `Accounts`, `Config`, `Extension` are DLLs discovered and loaded at runtime; the core knows them only through `IExtensionIndex` and `IProcessor`.
 
 ### 2.1 The project map (from `azclips.slnx`)
 
@@ -252,10 +253,10 @@ The diagram encodes three truths worth stating plainly:
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `src/CLI`            | `Core.Cli`                                                                                                                                                                                                       | The `az` binary: parse args, open session, orchestrate fallback               |
 | `src/Core` (10)      | `Core.Abstractions`, `Core.ArgumentParsing`, `Core.AssemblyLoading`, `Core.Authentication`, `Core.Configuration`, `Core.DependencyInjection`, `Core.Engine`, `Core.Extensions`, `Core.Runtime`, `Core.Telemetry` | The shared spine: contracts + implementations for every cross-cutting concern |
-| `src/Extensions` (6) | `ExtensionRuntime`, `Extension`, `Resources`, `Login`, `Config`, `Compute`                                                                                                                                       | Command packages + the (de)serialization runtime they use                     |
+| `src/Extensions` (6) | `ExtensionRuntime`, `Extension`, `Resources`, `Accounts`, `Config`, `Compute`                                                                                                                                       | Command packages + the (de)serialization runtime they use                     |
 | `TUI`                | `Core.Tui`                                                                                                                                                                                                       | Interactive shell **and** agent-mode host (Hex1b terminal library)            |
 | `Agent`              | `Core.Agent` (+ `Core.Agent.Tests`)                                                                                                                                                                              | The LLM agent: `ChatAgent`, tools, renderers, daemon resolver                 |
-| `src/PS`             | `Cmdlets.Common/Compute/Config/Login/Resources`                                                                                                                                                                  | PowerShell projection of the same engine                                      |
+| `src/PS`             | `Cmdlets.Common/Compute/Config/Accounts/Resources`                                                                                                                                                                  | PowerShell projection of the same engine                                      |
 | `tests`              | `Cli.Tests`, `Cmdlets.Tests`, `Core.Extensions.Tests`, `Core.Telemetry.Tests`, `Common`, `Benchmark`, `Fixtures/*`                                                                                               | xUnit + BenchmarkDotNet + fixture extensions                                  |
 | `tools`              | `Help/*`                                                                                                                                                                                                         | Help-artifact generation tool and its tests                                   |
 
@@ -417,7 +418,7 @@ sequenceDiagram
 
 `Main` first special-cases the telemetry uploader (`Program.cs:34`) — a re-entrant `az --upload-telemetry` used by the detached flush process (see §10). Then it registers CLI providers and calls `Initialize` (`:40-53`). Completion generation gets a chance to short-circuit (`:56`), because shell tab-completion must resolve `IEngine` directly and exit before we do "real" work.
 
-`ExtensionDispatcher.Parse` (`:76`, impl at `ExtensionDispatcher.cs:44`) turns `argv` into a `CommandInvocation`. It distinguishes help forms (`--help`, `-h`, bare `az help <group>`), throwing typed `DispatchHelpException`/`RuntimeExtensionHelpException` that `Main` catches to render help rather than execute (`Program.cs:91-120`). It resolves the verb against a merged **leaf index** of built-in extensions (`BuiltInExtensions.Map`) plus the user's installed registry (`FileExtensionRegistryStore`).
+`ExtensionDispatcher.Parse` (`:76`, impl at `ExtensionDispatcher.cs:44`) turns `argv` into a `CommandInvocation`. Help / version are classified upstream by `GlobalArgParser.Parse` (`src/CLI/Parser/GlobalArgParser.cs`) into `GlobalArgs.Help` / `GlobalArgs.Version` and dispatched directly through `RuntimeHelpDispatcher` / `RuntimeVersionDispatcher` — no control-flow-via-exceptions on the cold path. Bare `az` produces `Help.Path == []` **and** triggers the ASCII welcome banner in `Program.Main` (`WelcomeBanner.cs`); user-typed help (`az --help`, `az -h`, `az help`) skips the banner. `ExtensionDispatcher` resolves the verb against a **leaf index** built once by discovery over both loader tiers (Bundled + Installed); no static verb seed.
 
 ### 5.2 Open the session, resolve the profile, build the context
 
@@ -478,15 +479,13 @@ The payoff of the single-container design is that the PowerShell path is _the sa
 
 Now the interesting path: what happens when §5 throws.
 
-`Main`'s catch ladder (`Program.cs:91-144`) is a deliberate triage:
+`Main`'s catch ladder (`Program.cs`) is a deliberate triage. Help and version are handled _before_ the ladder — they're record fields on `GlobalArgs`, dispatched inline. The catches themselves only run on real command failures:
 
-| Exception                       | Handling                                                                   | Fallback?                      |
-| ------------------------------- | -------------------------------------------------------------------------- | ------------------------------ |
-| `DispatchHelpException`         | Render root help via `RuntimeHelpDispatcher`                               | No                             |
-| `RuntimeExtensionHelpException` | Render extension help                                                      | No                             |
-| `AzclipsErrorException`         | Structured, well-known error → `EmitStructuredError`, return `ex.ExitCode` | **No** — intent is unambiguous |
-| `HttpRequestException`          | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
-| `Exception` (any other)         | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
+| Exception               | Handling                                                                   | Fallback?                      |
+| ----------------------- | -------------------------------------------------------------------------- | ------------------------------ |
+| `AzclipsErrorException` | Structured, well-known error → `EmitStructuredError`, return `ex.ExitCode` | **No** — intent is unambiguous |
+| `HttpRequestException`  | Network/ARM failure → `TryAgentFallbackAsync`                              | **Yes**                        |
+| `Exception` (any other) | Unknown failure → `TryAgentFallbackAsync`                                  | **Yes**                        |
 
 The key judgment call: **structured errors never trigger the agent.** If the failure is well-known (`AzclipsErrorException` at `:128`), the user's intent was understood and the answer is "here's the specific problem." Spending an LLM round-trip there would be worse UX, not better. The agent is reserved for the cases where parsing or execution failed in a way that suggests the user's _intent_ itself needs reinterpreting (a typo, a natural-language phrasing, a "how do I…" question).
 
@@ -527,7 +526,7 @@ sequenceDiagram
 
 `ChatAgent` (`Agent/ChatAgent.cs:23`) is a thin, opinionated wrapper over the **GitHub Copilot SDK** (`GitHub.Copilot`, `GitHub.Copilot.Rpc`; package `GitHub.Copilot.SDK` 1.0.0, `Agent/Core.Agent.csproj:31`). It talks to a **bundled native Copilot CLI daemon** located by `BundledDaemonResolver.Resolve()` (`Agent/BundledDaemonResolver.cs:12`) under `runtimes/<rid>/native/copilot`. The SDK owns the daemon's lifecycle (it kills it by PID / process tree).
 
-> **Fact vs. stale doc.** `docs/spec/ARCHITECTURE.md` says the agent uses "Azure OpenAI Service (GPT-4o-mini) with streaming, configured via .env file." That is **not** the current implementation. The current agent is the Copilot SDK + bundled daemon; the Azure OpenAI story is historical.
+> **Fact vs. stale doc.** `eng-docs/spec/ARCHITECTURE.md` says the agent uses "Azure OpenAI Service (GPT-4o-mini) with streaming, configured via .env file." That is **not** the current implementation. The current agent is the Copilot SDK + bundled daemon; the Azure OpenAI story is historical.
 
 ### 6.2 The "act through tools" contract
 
@@ -582,9 +581,9 @@ The profile _lifecycle_ is a small state machine worth internalizing, because lo
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','clusterBkg':'#161b22','clusterBorder':'#30363d','fontFamily':'monospace'}}}%%
 stateDiagram-v2
     [*] --> NoProfile
-    NoProfile --> Temp: az login (bare) → reserved "temp", activated
+    NoProfile --> Default: az login (bare) → reserved "default", activated
     NoProfile --> Named: az login --out-profile prod → created + activated
-    Temp --> Named: az login --out-profile prod
+    Default --> Named: az login --out-profile prod
     Named --> Active: profile set prod
     Active --> Reauth: az login --profile prod (refresh tokens)
     Reauth --> Active: overwrite + reactivate
@@ -594,7 +593,7 @@ stateDiagram-v2
     Active --> [*]: profile remove prod (also clears pointer)
 ```
 
-Two invariants fall out of this diagram and are enforced in code: an explicit `--profile` naming a nonexistent profile is a hard error (`Engine.ResolveProfileAsync`, `Engine.cs:156`), while a stale _active_ pointer degrades to `null`; and logout clears the pointer but **keeps the definition** so the connection can be re-activated later (`design.md` Decision 6). The `"temp"` name is reserved — bare login always targets it, and users cannot create it directly (`design.md` Decision 3).
+Two invariants fall out of this diagram and are enforced in code: an explicit `--profile` naming a nonexistent profile is a hard error (`Engine.ResolveProfileAsync`, `Engine.cs:156`), while a stale _active_ pointer degrades to `null`; and logout clears the pointer but **keeps the definition** so the connection can be re-activated later (`design.md` Decision 6). The `"default"` name is reserved — bare login always targets it, and users cannot create it directly (`design.md` Decision 3).
 
 ### 7.4 `IExtensionIndex` / `IProcessor` — the extension contract
 
@@ -616,7 +615,7 @@ Telemetry is worth a principal's attention because it is _on by default_ and tou
 
 - `TelemetryService` (`src/Core/Core.Telemetry/TelemetryService.cs`) starts a root `Activity` and per-command activities via a `System.Diagnostics` `ActivitySource` (`Program.cs:67,79`).
 - Before export, `DefaultTelemetryPropertyFilter` / `DefaultTelemetryPropertyFilterProcessor` and the activity-name equivalents strip anything not on the allow-list (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs`). The filters are _interfaces_ (`ITelemetryPropertyFilter`, `ITelemetryActivityNameFilter`) so a surface can tighten them but not loosen the core guarantee.
-- Export is two-stage and off the hot path: a `FileExporter` writes traces to disk, and a **detached** `az --upload-telemetry` (`Program.cs:410`) later calls `FileTelemetrySender.SendPendingStatic` → `DirectTelemetrySender` → `WellKnownEndpoints`.
+- Export is two-stage and off the hot path: a `FileExporter` writes traces to disk, and a **detached** `az --upload-telemetry` (`Program.cs:410`) later calls `TelemetryUpload.RunPending()` (`src/Core/Core.Telemetry/TelemetryUpload.cs`), which orchestrates `TraceUploader` → `TracerProviderExportSink` → `WellKnownEndpoints`.
 
 Opt-out is a single typed config write: `az config set --key telemetry.enabled --value false` (or `Set-AzConfig`), read back through `GetConfiguration<TelemetryOptions>()`. See §10 and the Telemetry deep-dive page for the flush sequence.
 
@@ -658,9 +657,9 @@ _Rejected:_ (a) build the full global-parameter framework first — out of scope
 _Chosen:_ delete `AuthContext`, `IAuthContextService`, `context.json`; the auth pipeline reads tenant/subscription straight off the resolved `Profile`.
 _Rejected:_ keep both — reintroduces "two ways to do the same thing" kept in sync. _Trade-off:_ `Profile?` is nullable on `ProcessorContext`; commands that need it (resource/compute) must guard and fail at point-of-use with a clear message.
 
-**D6 — Bare `az login` writes a reserved `"temp"` profile.** (`design.md` Decision 3)
-_Chosen:_ no `--out-profile` → overwrite the disposable `"temp"` profile and activate it.
-_Rejected:_ keep old non-profile login path (dual code paths); auto-generate a name from tenant/user (long, defeats the purpose). _Trade-off:_ bare login silently clobbers the previous temp — by design; named persistence needs `--out-profile`.
+**D6 — Bare `az login` writes a reserved `"default"` profile.** (`design.md` Decision 3)
+_Chosen:_ no `--out-profile` → overwrite the disposable `"default"` profile and activate it.
+_Rejected:_ keep old non-profile login path (dual code paths); auto-generate a name from tenant/user (long, defeats the purpose). _Trade-off:_ bare login silently clobbers the previous default — by design; named persistence needs `--out-profile`.
 
 **D7 — Logout targets one account by UPN, not a blanket cache clear.** (`design.md` Decision 6)
 _Chosen:_ `LogoutAsync(userPrincipalName)` removes only the matching MSAL account and clears the active pointer (`MsalAuthService.cs:29`).
@@ -691,7 +690,7 @@ _Rejected:_ raw ANSI throughout, and reusing the default console logger. _Why:_ 
 | Failure                          | Where it surfaces                            | Behavior                                                                  | Notes                                                        |
 | -------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Unknown command / typo           | `ExtensionDispatcher.Parse` throws           | If agent enabled + TTY → agent-mode reinterprets; else exit 1 with error  | The intended "typo correction" UX                            |
-| Structured domain error          | `AzclipsErrorException` at `Program.cs:128`  | `EmitStructuredError` (JSON or `error: [code] msg`), return `ex.ExitCode` | **No** agent fallback — intent was clear                     |
+| Structured domain error          | `AzclipsErrorException` at `Program.cs:128`  | `EmitStructuredError` (JSON or `ERROR: [code] msg`), return `ex.ExitCode` | **No** agent fallback — intent was clear                     |
 | Network / ARM failure            | `HttpRequestException` at `:121`             | `TryAgentFallbackAsync`                                                   | Agent can suggest fixes / retries                            |
 | Agent disabled                   | `agent.enabled=false`                        | `TryAgentFallbackAsync` returns 1, original error stands                  | Fail-safe: unreadable config ⇒ treated as disabled (`:295`)  |
 | Non-interactive (CI, pipe)       | `Console.IsInputRedirected/OutputRedirected` | No agent; original error surfaced                                         | Prevents hangs on `y/n` prompts (`:308`)                     |
@@ -711,13 +710,13 @@ The through-line: **degrade to the plain error, never to a hang or a hallucinati
 ## 10. Performance characteristics
 
 - **DI init is on the hot path** and is measured — the TUI logs `[startup] DI init: {ms}` at `TUI/Program.cs:41`. Because init is idempotent and singleton-heavy, it runs once; the cost is registration + `BuildServiceProvider`, not per-command.
-- **Extension index caching.** Loading and reflecting over an extension DLL is expensive, so `Engine` caches `IExtensionIndex` in an `LFUCache<Lazy<IExtensionIndex>>` (`Engine.cs:36,81`), sized by `CoreOptions.Engine.ExtensionIndexCacheSize`. `Lazy<T>` guarantees a single initialization per key even under concurrent access. `--no-cache` (`Program.cs:246`, via `AZCLIPS_NO_EXTENSION_CACHE`) bypasses this for benchmarking.
+- **Extension index caching.** Loading and reflecting over an extension DLL is expensive, so `Engine` caches `IExtensionIndex` in an `LFUCache<Lazy<IExtensionIndex>>` (`Engine.cs:36,81`), sized by `CoreOptions.Engine.ExtensionIndexCacheSize`. `Lazy<T>` guarantees a single initialization per key even under concurrent access. `--no-cache` (classified by `GlobalArgParser` into `GlobalArgs.NoCache`; `Program.Main` sets `AZCLIPS_NO_EXTENSION_CACHE=true`) bypasses this for benchmarking.
 - **Transient vs cached sessions.** `OpenDiscoverySession(..., isTransient)` and `Invocation.IsTransient` (`ExecutionSession.cs:48`) let one-off/help paths skip the cache entirely.
 - **HTTP retries.** Pipeline retry counts (`MaxRetries`, `MaxRetriesFor429`) and a 15s polling interval come from config (`Engine.cs:117-121`), so throttling behavior is tunable without a rebuild.
 - **Telemetry never blocks the user.** Traces buffer to a `FileExporter`; the flush is a _detached_ background `az --upload-telemetry` (`Program.cs:410`). The foreground command returns as soon as its work is done.
 - **Agent-mode is heavy by design** and kept off the structured path (§1.2). The bundled daemon start-up and LLM round-trips are only paid when the user has opted in _and_ a command failed _and_ the session is interactive.
 
-For benchmarking, `tests/Benchmark` (BenchmarkDotNet) plus the in-process/`--no-cache` hooks let you measure cold vs warm command dispatch; see `docs/spec/benchmark-workflows.md`.
+For benchmarking, `tests/Benchmark` (BenchmarkDotNet) plus the in-process/`--no-cache` hooks let you measure cold vs warm command dispatch; see `eng-docs/spec/benchmark-workflows.md`.
 
 ---
 
@@ -744,7 +743,7 @@ Architectural smell to watch: two HTTP stacks (hand-rolled `HttpPipeline` for co
 2. **Single-reader stdin in agent-mode.** The approval pump and the prompt share one stdin reader; the `AbortKeyWatcher` is _paused_ (not destroyed) while approvals read `y/n` (`TUI/AgentMode/AgentModeEntry.cs`). Terminal ownership is also split with the parent CLI (both intercept Ctrl+C to avoid "terminal hijack", `Program.cs:349-366`). This is the fiddliest code in the repo.
 3. **The "act through tools" invariant.** It spans `ChatAgent` (tracking), the host (forcing corrections), and each tool (turn-closing vs diagnostic). Changing one side silently breaks auditability.
 4. **Shared MSAL cache across profiles.** Logout must scope to one UPN; a careless `RemoveAsync` loop would sign out unrelated profiles (`MsalAuthService.cs:29`, `design.md` Decision 6).
-5. **Stale in-repo docs.** The single biggest onboarding hazard is trusting `docs/spec/ARCHITECTURE.md` or `AGENTS.md`'s architecture section. Cross-check every architectural claim against code; use the ledger below.
+5. **Stale in-repo docs.** The single biggest onboarding hazard is trusting `eng-docs/spec/ARCHITECTURE.md` or `AGENTS.md`'s architecture section. Cross-check every architectural claim against code; use the ledger below.
 
 ---
 
@@ -788,8 +787,8 @@ Seams you must not cross: don't reach into the DI container for connection/HTTP/
 1. Create `src/Extensions/<Name>/Extensions.<Name>.csproj` (net10.0 inherits from `src/Directory.Build.props`); add it to `azclips.slnx`.
 2. Implement `IExtensionIndex` as the command registry and one `IProcessor` per verb.
 3. Use `ExtensionRuntime` (`src/Extensions/ExtensionRuntime/`) for ARM payload (de)serialization rather than hand-rolling `JsonConverter`s — its `Conversions/Instances/*` cover the primitive and collection cases, and `JsonConverterAttribute` lets you register custom ones.
-4. Decide built-in vs installable: built-ins are compiled into the `BuiltInExtensions.Map`; installable ones ship as packages resolved by the extension-management commands (`add`/`update`/`pin`) and the user registry.
-5. Version deliberately: the loader supports side-by-side versions (`MultiVersionExtensionLoader`), and the engine caches indices per `name-version` key (`Engine.cs:84`).
+4. Decide packaging: extensions that must ship in every install go into `devops/scripts/packaging/config/{lean,full}_package.config`; others are installable at runtime via `az extension add`. Dispatch is uniform — no runtime tier distinction.
+5. Version deliberately: the loader supports side-by-side versions (`InstalledExtensionLoader`), and the engine caches indices per `name-version` key (`Engine.cs:84`).
 
 ### 14.3 State on disk — the reference you'll want at 2am
 

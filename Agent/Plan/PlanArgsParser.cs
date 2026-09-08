@@ -102,7 +102,7 @@ internal static class PlanArgsParser
         return list.Count > 0 ? list : null;
     }
 
-    // Parses an array of {name, description} (placeholders) into the host's
+    // Parses an array of {flag, description} (placeholders) into the host's
     // UserInputNeed view. Returns null when absent or empty. internal for tests.
     internal static IReadOnlyList<ConsoleApprovalPrompt.UserInputNeed>? ExtractUserInputNeeds(object? args, string field)
     {
@@ -112,12 +112,12 @@ internal static class PlanArgsParser
         foreach (var need in needs.EnumerateArray())
         {
             if (need.ValueKind != JsonValueKind.Object) continue;
-            var name = need.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String
+            var flag = need.TryGetProperty("flag", out var n) && n.ValueKind == JsonValueKind.String
                 ? n.GetString() : null;
             var description = need.TryGetProperty("description", out var d) && d.ValueKind == JsonValueKind.String
                 ? d.GetString() ?? string.Empty : string.Empty;
-            if (string.IsNullOrWhiteSpace(name)) continue;
-            list.Add(new ConsoleApprovalPrompt.UserInputNeed(name!, description));
+            if (string.IsNullOrWhiteSpace(flag)) continue;
+            list.Add(new ConsoleApprovalPrompt.UserInputNeed(flag!, description));
         }
         return list.Count > 0 ? list : null;
     }
@@ -139,9 +139,10 @@ internal static class PlanArgsParser
         return list.Count > 0 ? list : null;
     }
 
-    // Parses the propose_plan defaults array ({name, value, note}) into the host's
-    // ChosenDefault view — values the agent chose/derived for the user. Returns
-    // null when absent or empty. internal for unit testing.
+    // Parses the propose_plan defaults array ({flag, note}) into the host's
+    // ChosenDefault view — flags the agent chose/derived. The value is NOT taken
+    // here; it's read from the step command at render time. Returns null when
+    // absent or empty. internal for unit testing.
     internal static IReadOnlyList<ConsoleApprovalPrompt.ChosenDefault>? ExtractChosenDefaults(object? args)
     {
         if (!ArgsNormalizer.TryGetArray(args, "defaults", out var defaults)) return null;
@@ -150,11 +151,14 @@ internal static class PlanArgsParser
         foreach (var d in defaults.EnumerateArray())
         {
             if (d.ValueKind != JsonValueKind.Object) continue;
-            var name = d.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() : null;
-            var value = d.TryGetProperty("value", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? string.Empty : string.Empty;
+            // Prefer "flag"; tolerate the old "name" key so a model still emitting
+            // the previous shape degrades to the flag name rather than dropping.
+            var flag = d.TryGetProperty("flag", out var f) && f.ValueKind == JsonValueKind.String ? f.GetString()
+                     : d.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString()
+                     : null;
             var note = d.TryGetProperty("note", out var nt) && nt.ValueKind == JsonValueKind.String ? nt.GetString() ?? string.Empty : string.Empty;
-            if (string.IsNullOrWhiteSpace(name)) continue;
-            list.Add(new ConsoleApprovalPrompt.ChosenDefault(name!, value, note));
+            if (string.IsNullOrWhiteSpace(flag)) continue;
+            list.Add(new ConsoleApprovalPrompt.ChosenDefault(flag!, note));
         }
         return list.Count > 0 ? list : null;
     }

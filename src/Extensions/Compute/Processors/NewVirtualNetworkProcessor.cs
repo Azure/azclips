@@ -8,8 +8,9 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 
-public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
+public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork, VirtualNetwork>
 {
+    public string SubscriptionId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
@@ -17,10 +18,13 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public List<string> AddressPrefixes { get; set; } = [];
 
-    protected override async Task<HttpRequestMessage> CreateRequestMessage()
+    protected override HttpMethod Method => HttpMethod.Put;
+
+    protected override string CreateRequestUri() =>
+        $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
+
+    protected override VirtualNetwork? CreateRequestBody()
     {
-        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
-        string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
         VirtualNetwork body = new VirtualNetwork
         {
             Location = Location,
@@ -57,12 +61,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
                 IpAllocations = []
             }
         };
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
-        {
-            Content = JsonContent.Create(body, options: JsonOptions)
-        };
-        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-        return request;
+        return body;
     }
 
     /*

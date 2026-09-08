@@ -4,6 +4,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Reflection;
+using Benchmark.Telemetry;
 using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Exporters;
@@ -23,6 +25,8 @@ public class Program
         var productFilter = ParseProductFilter(args);
         var localMode = ParseLocalMode(args);
         var ciMode = ParseCiMode(args);
+        var extensionFilter = ParseExtensionFilter(args);
+        var listMode = ParseListMode(args);
 
         if (ciMode)
         {
@@ -35,11 +39,30 @@ public class Program
             Console.WriteLine("[Benchmark] Local mode: App Insights upload will be skipped");
         }
 
+        if (listMode)
+        {
+            var discovered = GetBenchmarkTypes(productFilter, extensionFilter);
+            Console.WriteLine($"[Benchmark] Discovered {discovered.Length} class(es):");
+            foreach (var t in discovered)
+            {
+                var ext = t.GetCustomAttribute<BenchmarkExtensionAttribute>()?.Name;
+                Console.WriteLine(ext is null
+                    ? $"  - Startup / {t.Name}"
+                    : $"  - {ext} / {ProductOf(t)} / {t.Name}");
+            }
+            return 0;
+        }
+
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
 
         var artifactsPath = ciMode
-            ? Path.Combine(RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", "ci", productFilter ?? "ALL")
+            ? Path.Combine(RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", "ci", extensionFilter ?? "ALL", productFilter ?? "ALL")
             : Path.Combine(RepoLocator.GetRepoRoot(), "artifacts", "Benchmark", timestamp);
+
+        // Benchmarks write telemetry to a stable staging path because their child processes cannot
+        // know artifactsPath. Clear it first so post-run collection can only pick up this run.
+        var telemetryStagingRoot = BenchmarkTelemetryArtifacts.StagingRoot(RepoLocator.GetRepoRoot());
+        DirectoryUtils.TryDeleteDirectory(telemetryStagingRoot);
 
         var config = ManualConfig.CreateEmpty()
             .AddColumnProvider(DefaultColumnProviders.Instance)
@@ -57,13 +80,21 @@ public class Program
             .WithOptions(ConfigOptions.DisableOptimizationsValidator);
 
         // Get benchmark types based on --product filter
-        var benchmarkTypes = GetBenchmarkTypes(productFilter);
+        var benchmarkTypes = GetBenchmarkTypes(productFilter, extensionFilter);
+        if (benchmarkTypes.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"No benchmark classes found for extension='{extensionFilter ?? "ALL"}', product='{productFilter ?? "ALL"}'.");
+        }
+
         Console.WriteLine($"[Benchmark] Running {benchmarkTypes.Length} benchmark class(es): {string.Join(", ", benchmarkTypes.Select(t => t.Name))}");
 
         // Run all matching benchmarks directly (no interactive menu).
         // .ToArray() materializes the runs so every class executes even if an
         // earlier one fails — failures are aggregated post-hoc into the exit code.
         var summaries = benchmarkTypes.Select(t => BenchmarkRunner.Run(t, config)).ToArray();
+
+        CollectTelemetry(telemetryStagingRoot, Path.Combine(artifactsPath, "telemetry"));
 
         var failures = new List<string>();
         foreach (var s in summaries)
@@ -170,27 +201,66 @@ public class Program
         }
     }
 
-    private static Type[] GetBenchmarkTypes(string? product)
+    /// <summary>
+    /// Discovers benchmark classes by reflection and filters them by product (inferred
+    /// from the base type) and extension (from <see cref="BenchmarkExtensionAttribute"/>).
+    /// A class missing the attribute is a hard error — this keeps the taxonomy honest.
+    /// </summary>
+    private static Type[] GetBenchmarkTypes(string? product, string? extension)
     {
-        var allTypes = new[]
+        // Startup benchmarks are a separate family (process-level, own base class, no
+        // [BenchmarkExtension]); select them only via an explicit --product STARTUP. They are
+        // never part of reflection-based extension discovery or the ALL set.
+        if (string.Equals(product, "STARTUP", StringComparison.OrdinalIgnoreCase))
         {
-            typeof(CLI.ResourceGroupBenchmarks),
-            typeof(PS.ResourceGroupBenchmarks)
-        };
-
-        if (string.IsNullOrEmpty(product) || product == "ALL")
-        {
-            return allTypes;
+            return GetStartupBenchmarkTypes();
         }
 
-        return product switch
+        var allTypes = typeof(Program).Assembly.GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract)
+            .Where(t => typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t)
+                     || typeof(PS.PSBenchmarkBase).IsAssignableFrom(t))
+            .ToArray();
+
+        var untagged = allTypes
+            .Where(t => t.GetCustomAttribute<BenchmarkExtensionAttribute>() is null)
+            .Select(t => t.Name)
+            .ToArray();
+        if (untagged.Length > 0)
         {
-            "CLI" => new[] { typeof(CLI.ResourceGroupBenchmarks) },
-            "PS" => new[] { typeof(PS.ResourceGroupBenchmarks) },
-            "STARTUP" => GetStartupBenchmarkTypes(),
-            _ => throw new ArgumentException($"Unknown product: {product}. Use: CLI, PS, STARTUP, or ALL")
-        };
+            throw new InvalidOperationException(
+                $"Benchmark classes missing [BenchmarkExtension]: {string.Join(", ", untagged)}");
+        }
+
+        IEnumerable<Type> filtered = allTypes;
+
+        if (!string.IsNullOrEmpty(product) && product != "ALL")
+        {
+            filtered = product switch
+            {
+                "CLI" => filtered.Where(t => typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t)),
+                "PS" => filtered.Where(t => typeof(PS.PSBenchmarkBase).IsAssignableFrom(t)),
+                _ => throw new ArgumentException($"Unknown product: {product}. Use: CLI, PS, STARTUP, or ALL")
+            };
+        }
+
+        if (!string.IsNullOrEmpty(extension) && extension != "ALL")
+        {
+            filtered = filtered.Where(t => string.Equals(
+                t.GetCustomAttribute<BenchmarkExtensionAttribute>()!.Name,
+                extension,
+                StringComparison.OrdinalIgnoreCase));
+        }
+
+        return filtered
+            .OrderBy(t => t.GetCustomAttribute<BenchmarkExtensionAttribute>()!.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(t => ProductOf(t), StringComparer.Ordinal)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
+            .ToArray();
     }
+
+    private static string ProductOf(Type t) =>
+        typeof(CLI.CLIBenchmarkBase).IsAssignableFrom(t) ? "CLI" : "PS";
 
     /// <summary>
     /// Startup benchmark classes. Warm always runs; cold runs only when OS page-cache eviction
@@ -219,6 +289,39 @@ public class Program
         return types.ToArray();
     }
 
+    /// <summary>
+    /// Moves the pruned per-benchmark telemetry files into this run's artifacts folder.
+    /// </summary>
+    /// <remarks>Never throws and never contributes to the failure list.</remarks>
+    private static void CollectTelemetry(string stagingRoot, string destination)
+    {
+        try
+        {
+            var files = Directory.Exists(stagingRoot)
+                ? Directory.GetFiles(stagingRoot, "*.jsonl")
+                : Array.Empty<string>();
+
+            if (files.Length == 0)
+            {
+                Console.WriteLine("[Telemetry] No telemetry was produced by this run");
+                return;
+            }
+
+            Directory.CreateDirectory(destination);
+            foreach (var file in files)
+            {
+                File.Move(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: true);
+            }
+
+            Console.WriteLine($"[Telemetry] Collected {files.Length} file(s) into {destination}");
+            DirectoryUtils.TryDeleteDirectory(stagingRoot);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Telemetry] Collection failed, benchmarks unaffected: {ex.Message}");
+        }
+    }
+
     private static string? ParseProductFilter(string[] args)
     {
         for (int i = 0; i < args.Length; i++)
@@ -243,5 +346,26 @@ public class Program
     private static bool ParseCiMode(string[] args)
     {
         return args.Any(arg => arg == "--ci");
+    }
+
+    private static string? ParseExtensionFilter(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i] == "--extension" && i + 1 < args.Length)
+            {
+                return args[i + 1].ToUpperInvariant();
+            }
+            if (args[i].StartsWith("--extension="))
+            {
+                return args[i].Substring("--extension=".Length).ToUpperInvariant();
+            }
+        }
+        return null;
+    }
+
+    private static bool ParseListMode(string[] args)
+    {
+        return args.Any(arg => arg == "--list");
     }
 }

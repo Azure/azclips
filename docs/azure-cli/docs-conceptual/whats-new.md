@@ -48,3 +48,11 @@ During the private preview:
 - Azure CLI doesn't modify your shell profile automatically.
 - The feature is available only in interactive terminal sessions.
 - Scripts, pipelines, and command output in non-interactive scenarios aren't affected.
+
+## Profile-based sign-in
+
+Azure CLI now supports _profiles_, which let you save named sign-in contexts for different accounts,
+tenants, and subscriptions. Profiles make it easy to switch between environments without signing in
+again.
+
+For more information, see [Manage sign-in profiles in Azure CLI](./profile-base-login.md).

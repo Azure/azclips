@@ -5,24 +5,28 @@ This directory contains the configuration for the azclips development container.
 ## Files
 
 - **devcontainer.json**: Main dev container configuration
-- **docker-compose.yml**: Docker Compose configuration for multi-container setup
-- **Dockerfile**: Custom Docker image with .NET 9.0 SDK
+- **docker-compose.yml**: Docker Compose configuration for the dev container
+- **Dockerfile**: Custom Docker image with .NET 10.0 SDK
 - **post-create.sh**: Post-creation setup script
 - **post-start.sh**: Post-start setup script
 
 ## Services
 
-The dev container uses Docker Compose to run multiple services:
+The dev container runs a single `app` service via Docker Compose: the main
+development container with the .NET 10.0 SDK and all required tools.
 
-### App Container
-The main development container with .NET 9.0 SDK and all required tools.
+## npm Registry Configuration
 
-### Zipkin Container
-A local OpenTelemetry trace collector and UI for development and debugging. Zipkin automatically starts with the dev container and is accessible at:
-- **URL**: http://localhost:9411
-- **Service Name**: Look for traces from the AzureCLI service
+The `node` dev container feature installs pnpm and yarn via npm, and the repo
+has npm workspaces under `toolkit/` and `wiki/`, so the container needs a
+reachable npm registry. It defaults to the public one, so a plain clone works
+with no setup.
 
-The application is configured to automatically export telemetry to Zipkin when running in DEBUG mode. No manual setup required!
+To use a proxy feed, create an untracked `.devcontainer/.env` file (copy `.env.example`).
+
+```
+NPM_REGISTRY=https://your-proxy-feed.example.com/npm/
+```
 
 ## Browser Authentication Setup
 
@@ -30,25 +34,27 @@ The dev container is configured to handle browser-based authentication flows (li
 
 ### How It Works
 
-1. **VS Code Browser Helper**: VS Code automatically sets the `BROWSER` environment variable to a helper script that can open URLs on the host machine
-2. **System Browser Symlinks**: The `postStartCommand` creates symlinks so common browser launchers (`xdg-open`, `gnome-open`, `kfmclient`) point directly to VS Code's browser helper
-3. **MSAL Integration**: The Microsoft Authentication Library (MSAL) uses these system browsers to open authentication URLs
+1. **VS Code Browser Helper**: VS Code sets `BROWSER` in its integrated terminals to a helper script that opens URLs on the host machine
+2. **Browser Launcher Shims**: `postStartCommand` installs `xdg-open`, `gnome-open`, `kfmclient` and `wslview` into `/usr/local/bin`, each forwarding to that helper
+3. **MSAL Integration**: MSAL invokes those four tools *by name* to open sign-in URLs. It never reads `BROWSER` itself, which is why the shims are required
+4. **Redirect Back**: MSAL listens on a loopback port and the browser redirects to it after sign-in. VS Code auto-forwards that port to the host within a second or two, so the redirect reaches the container
+5. **IPv4 Loopback**: `postStartCommand` drops the `localhost` alias from the `::1` line in `/etc/hosts`. Without this MSAL binds `[::1]` only, and since VS Code's forwarder connects over IPv4 the sign-in page hangs forever after you authenticate
 
 ### Why This Approach?
 
 - **No Device Code Flow**: Avoids the cumbersome device code authentication flow
 - **Host Browser**: Opens authentication pages in your host machine's default browser
 - **Seamless**: Works transparently with MSAL's `AcquireTokenInteractive` flow
-- **No Extra Files**: Uses VS Code's built-in browser helper directly via symlinks
-- **Automatic Setup**: Symlinks are created on container start via `postStartCommand`
+- **Resilient**: The shims resolve the helper when called, so they survive a VS Code server update changing its path
+- **Automatic Setup**: Installed on every container start via `postStartCommand`
 
 ### Testing
 
-To verify the browser proxy is working:
+Run this **from a VS Code integrated terminal**:
 
 ```bash
-# Check that xdg-open is available
-which xdg-open
+# Check that the launchers are installed
+which xdg-open gnome-open kfmclient wslview
 
 # Check the BROWSER environment variable
 echo $BROWSER
@@ -56,6 +62,10 @@ echo $BROWSER
 # Test opening a URL (will open in host browser)
 xdg-open https://www.bing.com
 ```
+
+The same commands run through `docker exec` will report `Command is only
+available in WSL or inside a Visual Studio Code terminal`, because the helper
+also needs `VSCODE_IPC_HOOK_CLI`, which only integrated terminals set.
 
 ### Rebuilding the Container
 
@@ -65,7 +75,7 @@ If you make changes to the Dockerfile, rebuild the container:
 2. Select "Dev Containers: Rebuild Container"
 3. Wait for the rebuild to complete
 
-Note: The browser symlinks are set up automatically on container start, so you don't need to rebuild for authentication to work.
+Note: The browser launchers are installed automatically on container start, so you don't need to rebuild for authentication to work.
 
 ## Environment Variables
 
@@ -73,27 +83,7 @@ The devcontainer sets the following environment variables:
 
 - `PATH`: Includes the built `az` CLI binary locations
 - `BROWSER`: VS Code's browser helper (automatically set by VS Code)
-- `ZIPKIN_ENDPOINT`: Points to the Zipkin container (`http://zipkin:9411/api/v2/spans`)
-
-## Using Zipkin for Trace Visualization
-
-Zipkin is automatically started when you open the dev container. To view traces:
-
-1. Build and run the application in DEBUG mode:
-   ```bash
-   dotnet build -c Debug azclips.slnx
-   ./artifacts/Debug/Core.Cli/az group create --Name mygroup --Location eastus --SubscriptionId <your-subscription-id>
-   ```
-   
-   > **Note**: For authentication, use `az login` or other secure methods instead of passing tokens via command-line arguments.
-
-2. Open the Zipkin UI at http://localhost:9411
-
-3. Click "Run Query" or search for traces from the "AzureCLI" service
-
-4. Click on any trace to see detailed timing and spans
-
-The Zipkin exporter is only enabled in DEBUG builds, so make sure to build with `-c Debug` to see traces.
+- `NPM_CONFIG_REGISTRY`: npm registry used inside the container (see [npm Registry Configuration](#npm-registry-configuration))
 
 ## Troubleshooting
 
@@ -104,65 +94,39 @@ If authentication doesn't open a browser:
 1. Check that `xdg-open` is available: `which xdg-open`
 2. Verify BROWSER is set: `echo $BROWSER`
 3. Test the proxy manually: `xdg-open https://www.bing.com`
-4. Rebuild the container if symlinks are missing
+4. Re-run `./.devcontainer/post-start.sh` if the launchers are missing
 
 ### Authentication Errors
 
-If you see errors about browser tools not being available:
+If `az login` fails with `Unable to open a web page using xdg-open, gnome-open,
+kfmclient or wslview tools`:
 
-1. The container may need to be rebuilt
-2. Check that the symlinks exist:
+1. Confirm the launchers exist:
    ```bash
-   ls -la /usr/local/bin/xdg-open
-   ls -la /usr/local/bin/gnome-open
-   ls -la /usr/local/bin/kfmclient
+   ls -l /usr/local/bin/xdg-open /usr/local/bin/wslview
    ```
+2. If they are missing, re-run the setup: `./.devcontainer/post-start.sh`
+3. Run `az login` from a VS Code integrated terminal, not `docker exec`.
 
-### Zipkin Not Accessible
+### Login Hangs After Signing In
 
-If you cannot access Zipkin at http://localhost:9411:
+If the browser opens, you sign in, and the page then loads forever without
+returning to the terminal, the redirect is not reaching MSAL's loopback
+listener. Check that `localhost` resolves to IPv4 only:
 
-1. Check that the Zipkin container is running:
-   ```bash
-   docker ps | grep zipkin
-   ```
+```bash
+getent ahosts localhost | head -n 1   # expect 127.0.0.1, not ::1
+```
 
-2. Verify port forwarding is configured:
-   ```bash
-   # In VS Code, check the "Ports" tab in the terminal panel
-   ```
-
-3. Restart the dev container if needed:
-   - Press `F1` or `Ctrl+Shift+P`
-   - Select "Dev Containers: Rebuild Container"
-
-### No Traces Appearing in Zipkin
-
-If Zipkin is running but you don't see any traces:
-
-1. Make sure you built the application in DEBUG mode:
-   ```bash
-   dotnet build -c Debug azclips.slnx
-   ```
-
-2. Verify the ZIPKIN_ENDPOINT environment variable:
-   ```bash
-   echo $ZIPKIN_ENDPOINT
-   # Should output: http://zipkin:9411/api/v2/spans
-   ```
-
-3. Check that you're running the DEBUG build:
-   ```bash
-   ./artifacts/Debug/Core.Cli/az --version
-   ```
+If it returns `::1`, re-run `./.devcontainer/post-start.sh`. Docker rewrites
+`/etc/hosts` on every container start, so this is reapplied each time.
 
 ## Post-Create Setup
 
 The `post-create.sh` script runs after the container is created and:
 
-- Builds the solution
-- Sets up PowerShell modules
-- Configures any additional tools
+- Installs the `Microsoft.PowerShell.PlatyPS` and `Az.Accounts` PowerShell modules
+- Adds the built `az` CLI location to `PATH` in `~/.bashrc`
 
 To re-run the post-create script manually:
 

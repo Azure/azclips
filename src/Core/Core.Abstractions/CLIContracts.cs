@@ -44,6 +44,13 @@ public class ProcessorInfoAttribute : Attribute
     public string Description { get; set; } = "";
     public string[] Examples { get; set; } = Array.Empty<string>();
     public HelpTag[] Tags { get; set; } = Array.Empty<HelpTag>();
+
+    // Lifecycle messages surfaced by the docs exporter. Tags gate emission; these strings
+    // supply the human-readable text. "[Breaking Change]" in DeprecatedMessage promotes it
+    // to breaking_change_info at emit time.
+    public string PreviewMessage { get; set; } = "";
+    public string ExperimentalMessage { get; set; } = "";
+    public string DeprecatedMessage { get; set; } = "";
 }
 
 public enum HelpTag

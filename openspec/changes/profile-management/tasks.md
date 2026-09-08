@@ -3,7 +3,7 @@
 - [x] 1.1 Add `AuthMethod` enum (Interactive, DeviceCode, ServicePrincipal, ManagedIdentity) to `Core.Abstractions`
 - [x] 1.2 Add `Profile` record to `Core.Abstractions` with all fields: Name, TenantId, SubscriptionId, CloudName, AuthMethod, DefaultLocation, DefaultResourceGroup, UserPrincipalName, ClientId. All fields use language `default` values when not explicitly set. CloudName is a stored property with no behavioral impact.
 - [x] 1.3 Add `IProfileService` interface to `Core.Abstractions` with methods: GetAllProfilesAsync, GetProfileAsync, SaveProfileAsync, RemoveProfileAsync, GetActiveProfileNameAsync, SetActiveProfileNameAsync
-- [x] 1.4 Add profile name validation: 1–100 characters, alphanumeric plus `-`, `_`, `.`; reject `"temp"` from user-facing creation paths
+- [x] 1.4 Add profile name validation: 1–100 characters, alphanumeric plus `-`, `_`, `.`; reject `"default"` from user-facing creation paths
 - [x] 1.5 Remove the `AuthContext` record (`Core.Abstractions/Models/AuthContext.cs`) and `IAuthContextService` (`Core.Abstractions/IAuthContextService.cs`)
 - [x] 1.6 Extend `AuthResult` (`Core.Abstractions/Models/AuthResult.cs`) to surface the authenticated account's user principal name (from MSAL `IAccount.Username`) and update `MsalAuthService` to populate it, so `LoginProcessor` can set `Profile.UserPrincipalName`
 
@@ -23,9 +23,9 @@
 ## 4. Login Processor Changes
 
 - [x] 4.1 Add `--out-profile` / `OutProfile` parameter to `LoginProcessor`
-- [x] 4.2 Modify `LoginProcessor.ProcessAsync()` to build a `Profile` from the login inputs (tenant, subscription, cloud, `AuthMethod` derived from flags — Interactive by default, DeviceCode with `--use-device-code`; `UserPrincipalName` from the auth result), persist it via `IProfileService`, set it active, and **return the `Profile`** as output (replacing the removed `AuthContext` output). Target name: `--out-profile` if provided, otherwise `"temp"`.
+- [x] 4.2 Modify `LoginProcessor.ProcessAsync()` to build a `Profile` from the login inputs (tenant, subscription, cloud, `AuthMethod` derived from flags — Interactive by default, DeviceCode with `--use-device-code`; `UserPrincipalName` from the auth result), persist it via `IProfileService`, set it active, and **return the `Profile`** as output (replacing the removed `AuthContext` output). Target name: `--out-profile` if provided, otherwise `"default"`.
 - [x] 4.3 Implement the `--profile` re-authentication path: when `--profile` is explicitly provided, source tenant/subscription/cloud from the named existing profile, run the auth flow, overwrite + activate it, and return it; error clearly if the profile does not exist.
-- [x] 4.4 Enforce mutual exclusivity: reject `--profile` + `--out-profile` together (fail fast before authentication) and reject `"temp"` as an `--out-profile` value. Use the bound `--profile`/`--out-profile` parameter values (not the resolved `ProcessorContext.Profile`) to distinguish explicit input from the active fallback.
+- [x] 4.4 Enforce mutual exclusivity: reject `--profile` + `--out-profile` together (fail fast before authentication) and reject `"default"` as an `--out-profile` value. Use the bound `--profile`/`--out-profile` parameter values (not the resolved `ProcessorContext.Profile`) to distinguish explicit input from the active fallback.
 - [x] 4.5 Modify `LogoutProcessor.ProcessAsync()` to sign out the active profile: when an active profile exists, remove its associated account from the shared MSAL token cache (via `IAuthService.LogoutAsync(profile.UserPrincipalName)`) and clear the active-profile pointer (`SetActiveProfileNameAsync(null)`); retain the profile definition. When no profile is active, make no changes. Narrow `IAuthService.LogoutAsync` to remove only the account matching the supplied user principal name.
 - [x] 4.6 Update Login `ExtensionIndex.cs` with `--out-profile` / `OutProfile` and `--profile` / `Profile` parameter metadata for both CLI and PS tables
 
@@ -60,7 +60,7 @@
 
 - [x] 9.1 Unit tests for `ProfileService`: CRUD operations, active profile management, persistence, atomic writes, profile name validation
 - [x] 9.2 Unit tests for profile processors: list, show, set, remove (including edge cases like remove-active clears pointer)
-- [x] 9.3 Unit tests for login integration: --out-profile, temp auto-create, temp is reserved, --profile re-auth, --profile + --out-profile fails fast, login returns the Profile
+- [x] 9.3 Unit tests for login integration: --out-profile, default auto-create, default is reserved, --profile re-auth, --profile + --out-profile fails fast, login returns the Profile
 - [x] 9.4 Integration tests for profile resolution order in Engine: --profile flag → active → null (error at point of use)
 - [x] 9.5 Tests for first-run/bootstrap scenarios: login succeeds with no active profile, profile list returns empty with no profiles, resource and compute commands fail clearly with null profile
 - [x] 9.6 Update or replace tests that referenced the removed `AuthContext` path (e.g., `StubAuthContextService`, benchmark bases, `ConfigCliTests`) to use `Profile` / `IProfileService`

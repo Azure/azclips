@@ -125,5 +125,16 @@ namespace Core.Extensions
         [JsonPropertyName("namespaces")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWriting)]
         public List<string> Namespaces { get; set; } = new();
+
+        /// <summary>
+        /// Absolute filesystem path to the extension's primary DLL as reported by the loader
+        /// that discovered it. Populated at runtime by
+        /// <c>DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences</c> so
+        /// <c>az extension list</c> and <c>az extension show</c> can surface it.
+        /// <b>Runtime-only</b> — never persisted to <c>registry.json</c> because paths shift
+        /// between installs and the file is portable.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.Always)]
+        public string? Location { get; set; }
     }
 }

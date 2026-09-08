@@ -40,7 +40,7 @@ public class ShowExtensionProcessor : IProcessor
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var _ = telemetryService.StartActivity($"{nameof(ShowExtensionProcessor)}.{nameof(Process)}");
 
-        var store = new FileExtensionRegistryStore();
+        var store = AzclipsServiceProvider.GetRequiredService<IExtensionRegistryStore>();
         var fileRegistry = store.Load();
         var registry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
 
@@ -86,6 +86,7 @@ public class ShowExtensionProcessor : IProcessor
             Pinned = entry.Pinned,
             Source = entry.Source,
             InstalledAt = entry.InstalledAt,
+            Location = entry.Location,
         };
     }
 

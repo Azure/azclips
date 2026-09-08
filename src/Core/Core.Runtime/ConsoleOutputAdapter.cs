@@ -33,28 +33,19 @@ public class ConsoleOutputAdapter : IOutputAdapter
 
     public Task WriteWarningAsync(string message)
     {
-        var originalColor = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine(message);
-        Console.ForegroundColor = originalColor;
+        ConsoleSink.EmitStderr(ConsoleColor.Yellow, message);
         return Task.CompletedTask;
     }
 
     public Task WriteErrorAsync(string message)
     {
-        var originalColor = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.Error.WriteLine(message);
-        Console.ForegroundColor = originalColor;
+        ConsoleSink.EmitStderr(ConsoleColor.Red, message);
         return Task.CompletedTask;
     }
 
     public Task WriteColoredAsync(string message, OutputColor color)
     {
-        var originalColor = Console.ForegroundColor;
-        Console.ForegroundColor = MapColor(color);
-        Console.Write(message);
-        Console.ForegroundColor = originalColor;
+        ConsoleSink.EmitStdout(MapColor(color), message);
         return Task.CompletedTask;
     }
 

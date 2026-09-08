@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Ace.Generator — Roslyn-based C# client generator (IR -> C#).
+
+    Stage 3 of the Azure Client Engine pipeline (emit -> transform -> generate).
+    This is a plain class library: it exposes a generation API and the IR POCOs.
+    Hosting/integration with the `ace` CLI is intentionally out of scope here and
+    is wired up separately.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>Ace.Generator</RootNamespace>
+    <AssemblyName>Ace.Generator</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Roslyn, used to build and normalize the generated C# syntax trees. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+  </ItemGroup>
+
+  <!--
+    The test, codegen-tool, and subprocess-host projects live in subfolders of
+    this package. The SDK's default source glob is recursive, so exclude them
+    here to keep them out of the library's compilation (each is built as its own
+    project).
+  -->
+  <ItemGroup>
+    <Compile Remove="test/**/*.cs" />
+    <Compile Remove="tools/**/*.cs" />
+    <Compile Remove="host/**/*.cs" />
+  </ItemGroup>
+
+</Project>

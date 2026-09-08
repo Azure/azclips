@@ -40,6 +40,9 @@ static class HistoryRenderer
                 case HistoryItemType.Error:
                     widgets.Add(ctx.Text($"  {theme.AnsiError}× {entry.Text}{Ansi.End}").Wrap());
                     break;
+                case HistoryItemType.Warn:
+                    widgets.Add(ctx.Text($"  {Ansi.Yellow}⚠ {entry.Text}{Ansi.End}").Wrap());
+                    break;
                 case HistoryItemType.Info:
                     widgets.Add(ctx.Text($"  {Ansi.DimGray}◇ {entry.Text}{Ansi.End}").Wrap());
                     break;

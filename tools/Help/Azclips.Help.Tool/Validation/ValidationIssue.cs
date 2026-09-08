@@ -23,11 +23,13 @@ namespace Azclips.Help.Tool.Validation
     /// <c>MD_MissingSummary</c>). Used to group the final summary and, eventually, to baseline
     /// individual rules in CI. See <see cref="ProblemIds"/> for the canonical vocabulary.
     /// </param>
+    /// <param name="Line">Optional 1-based line number, when the validator can pinpoint one. Consumed by the GitHub Actions annotation emitter to render inline squiggles on the PR diff.</param>
     public sealed record ValidationIssue(
         ValidationSeverity Severity,
         string Message,
         string? FilePath = null,
-        string? ProblemId = null)
+        string? ProblemId = null,
+        int? Line = null)
     {
         public override string ToString()
         {

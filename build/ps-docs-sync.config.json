@@ -1,0 +1,9 @@
+{
+  "moniker": "azclipsps-preview",
+  "targetRepoPath": "../azure-docs-powershell",
+  "targetModuleNamePattern": "Az.{ModuleName}",
+  "sourcePsRoot": "src/PS",
+  "sourceRepoUrl": "https://github.com/Azure/azclips",
+  "sourceBranch": "main",
+  "downloadHelpLinkBase": "https://learn.microsoft.com/powershell/module"
+}

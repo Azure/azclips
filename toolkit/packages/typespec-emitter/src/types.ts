@@ -171,6 +171,19 @@ function primitiveKindOf(kind: string): PrimitiveKind | undefined {
   }
 }
 
+/**
+ * Azure.Core semantic string scalars (`armResourceIdentifier`, `uuid`, `ipV4/6Address`)
+ * `extends string`, so TCGC flattens them to `kind: "string"` — but retains their
+ * identity in `crossLanguageDefinitionId`. Map that identity onto the IR's format
+ * hint so the semantic survives the flattening (source-faithful — nothing dropped).
+ */
+const SEMANTIC_SCALAR_FORMATS: Readonly<Record<string, FormatKind>> = {
+  "Azure.Core.armResourceIdentifier": "arm-id",
+  "Azure.Core.uuid": "uuid",
+  "Azure.Core.ipV4Address": "ip-address",
+  "Azure.Core.ipV6Address": "ip-address",
+};
+
 /** Compute a wire-format hint from a TCGC builtin/datetime/duration kind. */
 function formatFor(t: SdkType): FormatKind | undefined {
   switch (t.kind) {
@@ -191,8 +204,12 @@ function formatFor(t: SdkType): FormatKind | undefined {
       if (enc === "base64") return "base64";
       return undefined;
     }
-    default:
-      return undefined;
+    default: {
+      // Semantic string scalars keep their identity in crossLanguageDefinitionId
+      // even though TCGC reports kind "string".
+      const xldi = (t as SdkBuiltInType).crossLanguageDefinitionId;
+      return xldi !== undefined ? SEMANTIC_SCALAR_FORMATS[xldi] : undefined;
+    }
   }
 }
 

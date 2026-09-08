@@ -9,6 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 [Cmdlet(VerbsCommon.New, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine")]
 public class NewVMCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -16,9 +17,6 @@ public class NewVMCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
-
-    [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = true)]
@@ -84,6 +82,9 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     public string[]? RuleAccesses { get; set; }
 
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
+
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "VMError", ErrorCategory.NotSpecified);
@@ -96,7 +97,6 @@ public class NewVMCmdlet : PSCmdlet
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
-            { "SubscriptionId", SubscriptionId },
             { "Name", Name },
             { "Location", Location },
             { "ResourceGroupName", ResourceGroupName },
@@ -107,6 +107,7 @@ public class NewVMCmdlet : PSCmdlet
             { "VirtualNetworkName", VirtualNetworkName },
             { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }

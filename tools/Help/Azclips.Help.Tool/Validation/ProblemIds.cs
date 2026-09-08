@@ -28,6 +28,11 @@ namespace Azclips.Help.Tool.Validation
         public const string MD_TodoPlaceholder = "MD_TodoPlaceholder";
         public const string CLI_ExamplePlaceholder = "CLI_ExamplePlaceholder";
 
+        // MarkdigWellFormednessValidator. Fires on prose (non-fenced-code content) that
+        // would render as surprising HTML through docfx's Markdig pipeline.
+        public const string MD_SuspiciousHtmlTag = "MD_SuspiciousHtmlTag";
+        public const string MD_UnbalancedBackticks = "MD_UnbalancedBackticks";
+
         // HelpCompletenessValidator
         public const string Completeness_MissingHelpFile = "Completeness_MissingHelpFile";
         public const string Completeness_OrphanedHelpFile = "Completeness_OrphanedHelpFile";
@@ -66,8 +71,18 @@ namespace Azclips.Help.Tool.Validation
         // PlatyPS `{{ Fill ... }}` scaffold markers. Symmetric with PS_TodoPlaceholder.
         public const string PSL12_FillPlaceholder = "PSL12_FillPlaceholder";
 
+        // PlatyPS refresh-and-diff (build/Test-PSHelpMarkdown.ps1). Emitted by that script, not by
+        // this C# tool; declared here so PSL* IDs share one grep-able registry.
+        public const string PSL13_SchemaFailure = "PSL13_SchemaFailure";
+        public const string PSL14_ParameterDrift = "PSL14_ParameterDrift";
+        public const string PSL15_MetadataDrift = "PSL15_MetadataDrift";
+
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";
         public const string ExtensionIndexLoadFailed = "Tool_ExtensionIndexLoadFailed";
+
+        // ParameterGroupConventionValidator. Warns when a `[ParameterGroup]` value doesn't end in
+        // " Arguments" (the convention Azure CLI uses uniformly for its group headers).
+        public const string GRP_NonConventionalGroupName = "GRP_NonConventionalGroupName";
     }
 }

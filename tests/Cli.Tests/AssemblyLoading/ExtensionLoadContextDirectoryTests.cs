@@ -8,7 +8,7 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Regression: <c>MultiVersionExtensionLoader.ExtensionLoadContext</c> must be constructed with
+/// Regression: <c>InstalledExtensionLoader.ExtensionLoadContext</c> must be constructed with
 /// the extension's *directory* (not its primary DLL path). Its <c>Load(AssemblyName)</c> override
 /// composes <c>Path.Combine(ExtensionDirectory, "...dll")</c>; passing the DLL path itself
 /// produced non-existent paths like <c>foo.dll/Other.dll</c>, breaking dependency resolution
@@ -23,7 +23,7 @@ public class ExtensionLoadContextDirectoryTests
         Directory.CreateDirectory(tempDir);
         try
         {
-            var ctx = new MultiVersionExtensionLoader.ExtensionLoadContext(tempDir);
+            var ctx = new InstalledExtensionLoader.ExtensionLoadContext(tempDir);
 
             Assert.Equal(tempDir, ctx.ExtensionDirectory);
         }
@@ -46,7 +46,7 @@ public class ExtensionLoadContextDirectoryTests
         File.WriteAllBytes(siblingPath, new byte[] { 0x4D, 0x5A }); // MZ stub; existence check only
         try
         {
-            var ctx = new MultiVersionExtensionLoader.ExtensionLoadContext(tempDir);
+            var ctx = new InstalledExtensionLoader.ExtensionLoadContext(tempDir);
             var composed = Path.Combine(ctx.ExtensionDirectory, "Sibling.dll");
 
             Assert.True(File.Exists(composed),

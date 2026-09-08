@@ -3,28 +3,10 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+      args:
+        # Set NPM_REGISTRY in .devcontainer/.env (untracked) to use a proxy feed.
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     volumes:
       - ..:/workspaces/azclips:cached
-    # Set environment variables
-    environment:
-      - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
-      - BROWSER=${BROWSER}
     # Overrides default command so things don't shut down after the process ends.
     command: sleep infinity
-    depends_on:
-      zipkin:
-        condition: service_healthy
-
-  zipkin:
-    image: openzipkin/zipkin
-    ports:
-      - "9411:9411"
-    # Restart policy to ensure Zipkin stays running
-    restart: unless-stopped
-    # Health check to ensure Zipkin is ready before app starts
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9411/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s

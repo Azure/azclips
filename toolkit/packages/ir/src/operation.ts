@@ -11,7 +11,7 @@ import { z } from "zod";
 import { IRIdSchema, type IRId } from "./id.js";
 import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
-import { FormatKinds, type FormatKind } from "./primitives.js";
+import { AccessKinds, FormatKinds, type FormatKind, type IRAccess } from "./primitives.js";
 import {
   OperationHintsSchema,
   ParameterHintsSchema,
@@ -43,6 +43,8 @@ export type IRParameter = {
   /** Serialization format for primitive-shaped parameters (e.g. date-time). */
   format?: FormatKind | undefined;
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
   rendering?: ParameterHints | undefined;
 };
 
@@ -58,6 +60,7 @@ export const IRParameterSchema: z.ZodType<IRParameter> = z
     collectionFormat: z.enum(CollectionFormats).optional(),
     format: z.enum(FormatKinds).optional(),
     docs: z.string().optional(),
+    summary: z.string().optional(),
     rendering: ParameterHintsSchema.optional(),
   })
   .strict();
@@ -77,6 +80,8 @@ export type IRRequestBody = {
   type: IRTypeRef;
   contentType: string;
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
   rendering?: RequestBodyHints | undefined;
 };
 
@@ -85,6 +90,7 @@ export const IRRequestBodySchema: z.ZodType<IRRequestBody> = z
     type: IRTypeRefSchema,
     contentType: z.string().min(1),
     docs: z.string().optional(),
+    summary: z.string().optional(),
     rendering: RequestBodyHintsSchema.optional(),
   })
   .strict();
@@ -119,6 +125,8 @@ export type IRResponseHeader = {
   type: IRTypeRef;
   format?: FormatKind | undefined;
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
 };
 
 export const IRResponseHeaderSchema: z.ZodType<IRResponseHeader> = z
@@ -128,6 +136,7 @@ export const IRResponseHeaderSchema: z.ZodType<IRResponseHeader> = z
     type: IRTypeRefSchema,
     format: z.enum(FormatKinds).optional(),
     docs: z.string().optional(),
+    summary: z.string().optional(),
   })
   .strict();
 
@@ -334,6 +343,10 @@ export type IROperation = {
   semantics?: IROperationSemantics | undefined;
 
   docs?: string | undefined;
+  /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
+  summary?: string | undefined;
+  /** Generated-code visibility (`@access`). Omitted when `public` (the default). */
+  access?: IRAccess | undefined;
   rendering?: OperationHints | undefined;
 };
 
@@ -357,6 +370,8 @@ export const IROperationSchema: z.ZodType<IROperation> = z
     semantics: IROperationSemanticsSchema.optional(),
 
     docs: z.string().optional(),
+    summary: z.string().optional(),
+    access: z.enum(AccessKinds).optional(),
     rendering: OperationHintsSchema.optional(),
   })
   .strict();

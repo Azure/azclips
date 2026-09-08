@@ -8,32 +8,23 @@ using BenchmarkDotNet.Attributes;
 
 namespace Benchmark.CLI;
 
+[BenchmarkExtension("Resources")]
 public class ResourceGroupBenchmarks : CLIBenchmarkBase
 {
-    protected override IReadOnlyList<string> RequiredExtensions => new[] { "Resources" };
+    private int _rgCounter = 0;
 
     [Benchmark(Description = "CLI: List RG")]
-    public int ListResourceGroups()
-    {
-        var exitCode = Core.Cli.Program.Main(["group", "list", "--subscription-id", SubscriptionId]).GetAwaiter().GetResult();
-        if (exitCode != 0) throw new InvalidOperationException($"CLI exited with code {exitCode}");
-        return exitCode;
-    }
+    public int ListResourceGroups() =>
+        RunCli("group", "list", "--subscription-id", SubscriptionId);
 
     [Benchmark(Description = "CLI: Create RG")]
     public int CreateResourceGroup()
     {
-        var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
-        var exitCode = Core.Cli.Program.Main(["group", "create", "--name", rgName, "--location", "eastus", "--subscription-id", SubscriptionId]).GetAwaiter().GetResult();
-        if (exitCode != 0) throw new InvalidOperationException($"CLI exited with code {exitCode}");
-        return exitCode;
+        var rgName = $"bench-rg-{Interlocked.Increment(ref _rgCounter)}";
+        return RunCli("group", "create", "--name", rgName, "--location", "eastus", "--subscription-id", SubscriptionId);
     }
 
     [Benchmark(Description = "CLI: Get RG")]
-    public int GetResourceGroup()
-    {
-        var exitCode = Core.Cli.Program.Main(["group", "show", "--name", "bench-rg-get", "--subscription-id", SubscriptionId]).GetAwaiter().GetResult();
-        if (exitCode != 0) throw new InvalidOperationException($"CLI exited with code {exitCode}");
-        return exitCode;
-    }
+    public int GetResourceGroup() =>
+        RunCli("group", "show", "--name", "bench-rg-get", "--subscription-id", SubscriptionId);
 }

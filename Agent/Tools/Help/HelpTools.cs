@@ -6,8 +6,8 @@ using Microsoft.Extensions.AI;
 namespace Core.Agent.Tools.Help;
 
 /// <summary>
-/// Two AI agent tools that surface the azclips help catalog to the LLM:
-///   • list_commands — flat catalog of every azclips command (cliName + psName + summary)
+/// Two AI agent tools that surface the Azure CLI help catalog to the LLM:
+///   • list_commands — flat catalog of every Azure CLI command (cliName + psName + summary)
 ///   • get_command   — full HelpCommand for one command (parameters + examples + description)
 ///
 /// Both shell out to <c>az agent tool help [--name &lt;x&gt;]</c>; the CLI processor
@@ -27,7 +27,7 @@ public sealed class HelpTools
         ListCommands = AIFunctionFactory.Create(ListCommandsAsync, new AIFunctionFactoryOptions
         {
             Name = "list_commands",
-            Description = "Return the full catalog of azclips commands across all extensions. " +
+            Description = "Return the full catalog of Azure CLI commands across all extensions. " +
                 "Each entry has cliName (e.g. 'vm create', empty string when no CLI verb), " +
                 "psName (e.g. 'New-AzVM', empty string when no PS cmdlet), verb, summary. " +
                 "Use FIRST when you don't already know whether a command exists or what its exact name is. " +
@@ -40,7 +40,7 @@ public sealed class HelpTools
         GetCommand = AIFunctionFactory.Create(GetCommandAsync, new AIFunctionFactoryOptions
         {
             Name = "get_command",
-            Description = "Return the full HelpCommand for one azclips command: parameters (name/psName, type, required, description), " +
+            Description = "Return the full HelpCommand for one Azure CLI command: parameters (name/psName, type, required, description), " +
                 "examples (cli[] and powerShell[]), description, summary. " +
                 "Pass 'name' as the cliName (e.g. 'vm create') OR the psName (e.g. 'New-AzVM') — " +
                 "lookup is case-insensitive and searches both surfaces. " +

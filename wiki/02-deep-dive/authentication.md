@@ -162,7 +162,7 @@ sequenceDiagram
 `LoginProcessor` builds a `LoginRequest` from its bound arguments, calls `LoginAsync`, then
 projects the returned `AuthResult` into a `Profile` (carrying `TenantId`, `SubscriptionId`,
 `AuthMethod` and `UserPrincipalName`) and persists it with a single
-`SaveAndActivateProfileAsync` call (`src/Extensions/Login/Processors/LoginProcessor.cs:90`). Note
+`SaveAndActivateProfileAsync` call (`src/Extensions/Accounts/Processors/LoginProcessor.cs:90`). Note
 that `--profile` **re-authenticates** an existing profile while `--out-profile` **creates** one;
 supplying both fails fast before any network call (`LoginProcessor.cs:46`).
 
@@ -230,7 +230,7 @@ foreach (var account in matching)
 
 The orchestration lives in `LogoutProcessor`, which reads the active profile, calls
 `LogoutAsync(activeProfile.UserPrincipalName)`, then unsets the active pointer via
-`SetActiveProfileNameAsync(null)` (`src/Extensions/Login/Processors/LogoutProcessor.cs:21`). When no
+`SetActiveProfileNameAsync(null)` (`src/Extensions/Accounts/Processors/LogoutProcessor.cs:21`). When no
 profile is active, logout is a safe no-op.
 
 ```mermaid
@@ -276,7 +276,7 @@ array, keeping the returned record fully decoupled (`AuthResultExtensions.cs:17`
 ## From `AuthContext`/`context.json` to `Profile` on `ProcessorContext`
 
 Historically the signed-in session was represented by an `AuthContext` object persisted to
-`context.json` (still described by the now-stale spec `docs/spec/auth-context.md`). That model was
+`context.json` (still described by the now-stale spec `eng-docs/spec/auth-context.md`). That model was
 **removed**. Per **Decision 5** of the profile-management design, `AuthContext`,
 `IAuthContextService`/`AuthContextService`, and `context.json` were deleted, and the resolved
 **`Profile`** became the single connection-state object flowing through the runtime
@@ -335,7 +335,7 @@ the auth subsystem.
 - `src/Core/Core.Abstractions/HomePaths.cs:47` — token-cache location under `.azclips`
 - `src/Core/Core.Runtime/Handler/AuthHandler.cs:38` — HTTP pipeline token attachment
 - `src/Core/Core.Engine/Engine.cs:101` — wires `AcquireTokenSilentlyAsync` + resolves `Profile`
-- `src/Extensions/Login/Processors/LoginProcessor.cs:90` — login → profile save + activate
-- `src/Extensions/Login/Processors/LogoutProcessor.cs:21` — active-profile logout orchestration
+- `src/Extensions/Accounts/Processors/LoginProcessor.cs:90` — login → profile save + activate
+- `src/Extensions/Accounts/Processors/LogoutProcessor.cs:21` — active-profile logout orchestration
 - `openspec/changes/profile-management/design.md:70` — Decisions 5 & 6 (Profile replaces AuthContext; scoped logout)
-- `docs/spec/auth-context.md` — **stale** legacy spec; the `AuthContext`/`context.json` model it describes was removed
+- `eng-docs/spec/auth-context.md` — **stale** legacy spec; the `AuthContext`/`context.json` model it describes was removed

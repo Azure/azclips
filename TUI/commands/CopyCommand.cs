@@ -30,6 +30,7 @@ class CopyCommand : ISlashCommand
                 continue;
             }
             if (entry.Type == HistoryItemType.Output || entry.Type == HistoryItemType.Error
+                || entry.Type == HistoryItemType.Warn
                 || entry.Type == HistoryItemType.Info || entry.Type == HistoryItemType.Success)
             {
                 // Strip ANSI escape codes

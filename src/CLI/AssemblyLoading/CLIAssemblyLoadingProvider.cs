@@ -7,19 +7,30 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Extensions;
 
-public class CLIAssemblyLoadingProvider(
-    IEnumerable<IExtensionLoader> extensionLoaders,
-    ILoggingService loggingService,
-    IExtensionRegistryStore? registryStore = null) : IAssemblyLoadingProvider
+public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
 {
-    private Assembly? LoadExtension(IEnumerable<IExtensionLoader> extensionLoaders, string extensionName, string? version = null) => extensionLoaders
+    private readonly IEnumerable<IExtensionLoader> _extensionLoaders;
+    private readonly ILoggingService _loggingService;
+    private readonly IExtensionRegistryStore _registryStore;
+
+    public CLIAssemblyLoadingProvider(
+        IEnumerable<IExtensionLoader> extensionLoaders,
+        ILoggingService loggingService,
+        IExtensionRegistryStore registryStore)
+    {
+        _extensionLoaders = extensionLoaders;
+        _loggingService = loggingService;
+        _registryStore = registryStore;
+    }
+
+    private Assembly? LoadExtensionFromLoaders(string extensionName, string? version = null) => _extensionLoaders
                     .Select(loader => loader.LoadExtension(extensionName, version))
                     .FirstOrDefault(assembly => assembly != null);
 
     public Assembly LoadExtension(string extensionName, string? extensionVersion = null)
     {
-        loggingService.Info($"Processing command with extension '{extensionName}'.");
-        return LoadExtension(extensionLoaders, extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
+        _loggingService.Info($"Processing command with extension '{extensionName}'.");
+        return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
     }
 
     public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
@@ -27,17 +38,25 @@ public class CLIAssemblyLoadingProvider(
         var result = new List<InstalledExtensionRef>();
         var registry = TryLoadRegistry();
 
-        foreach (var loader in extensionLoaders)
+        foreach (var loader in _extensionLoaders)
         {
-            foreach (var (name, version) in loader.GetInstalledExtensions())
+            foreach (var (name, version, location) in loader.GetInstalledExtensions())
             {
                 var effectiveVersion = version;
-                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion))
+                var effectiveLocation = location;
+                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion) &&
+                    !string.Equals(pinnedVersion, version, StringComparison.OrdinalIgnoreCase))
                 {
                     effectiveVersion = pinnedVersion;
+                    // Pin routes to a different version than what the loader discovered; the
+                    // reported Location points at the discovered version's DLL, not the pinned
+                    // one. Null it out rather than returning a path that disagrees with dispatch.
+                    // When the pin matches the discovered version, keep Location intact —
+                    // dispatch loads that exact DLL.
+                    effectiveLocation = null;
                 }
 
-                result.Add(new InstalledExtensionRef(name, effectiveVersion));
+                result.Add(new InstalledExtensionRef(name, effectiveVersion, effectiveLocation));
             }
         }
 
@@ -48,11 +67,11 @@ public class CLIAssemblyLoadingProvider(
     {
         try
         {
-            return (registryStore ?? new FileExtensionRegistryStore()).Load();
+            return _registryStore.Load();
         }
         catch (Exception ex)
         {
-            loggingService.Debug($"Failed to load extension registry during discovery: {ex.Message}");
+            _loggingService.Debug($"Failed to load extension registry during discovery: {ex.Message}");
             return null;
         }
     }
@@ -67,7 +86,7 @@ public class CLIAssemblyLoadingProvider(
         pinnedVersion = string.Empty;
 
         if (string.IsNullOrWhiteSpace(discoveredVersion) ||
-            loader is BuiltinExtensionLoader ||
+            loader is BundledExtensionLoader ||
             registry is null ||
             !RegistryLookup.TryFind(registry, extensionName, out var match) ||
             !match.Value.Pinned ||
@@ -76,8 +95,8 @@ public class CLIAssemblyLoadingProvider(
             return false;
         }
 
-        if (loader is MultiVersionExtensionLoader multiVersionLoader &&
-            !multiVersionLoader.HasInstalledVersion(extensionName, match.Value.Version))
+        if (loader is InstalledExtensionLoader installedLoader &&
+            !installedLoader.HasInstalledVersion(extensionName, match.Value.Version))
         {
             return false;
         }

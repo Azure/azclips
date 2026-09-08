@@ -1,0 +1,36 @@
+services:
+  jaeger:
+    image: jaegertracing/jaeger:2.20.0
+    container_name: azclips-jaeger
+    # v2 runs the default all-in-one config (memory storage, OTLP enabled) with no --config flag.
+    ports:
+      - "${AZCLIPS_OTLP_PORT:-4317}:4317"     # OTLP gRPC  (the app exports here)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # Rebrands the Jaeger UI (Azure logo + "Azclips" wordmark) via an nginx CSS
+  # overlay. Serves the UI on :16686 and proxies everything to the Jaeger container.
+  ui:
+    image: nginx:1.27-alpine
+    container_name: azclips-jaeger-ui
+    depends_on:
+      jaeger:
+        condition: service_healthy
+    ports:
+      - "${AZCLIPS_JAEGER_UI_PORT:-16686}:16686"   # rebranded Jaeger UI
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./branding:/usr/share/nginx/branding:ro
+    restart: unless-stopped
+    healthcheck:
+      # 127.0.0.1 (not localhost) so the probe uses IPv4, matching nginx's bind.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:16686"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s

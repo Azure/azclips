@@ -6,6 +6,7 @@ using System.Management.Automation;
 namespace Microsoft.Azure.Azclips.Cmdlets.Config;
 
 [Cmdlet(VerbsCommon.Remove, "AzConfig", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
+[OutputType(typeof(string))]
 public class RemoveAzConfigCmdlet : ConfigCmdletBase
 {
     [Parameter(Mandatory = true)]

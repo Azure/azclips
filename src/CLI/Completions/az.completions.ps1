@@ -5,7 +5,7 @@
 # Usage: . <path-to>/az.completions.ps1
 # Or add to your $PROFILE to auto-load on every session.
 #
-# Completions are resolved dynamically by invoking `az --completions [group] [subcommand]`
+# Completions are resolved dynamically by invoking `az --completions [command-group]` (or no args for full tree)
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
 # Detection: The script auto-detects azclips by calling `az --completions`.
@@ -70,12 +70,12 @@ function global:_azQueryCompletions {
     # Skip exes already known to not be azclips
     if ($global:_azCompletionsCache.notAzclips.ContainsKey($exePath)) { return $null }
     $configStamp = _azGetConfigStamp
-    
+
     # Check cache validity: invalidate on exe path or config stamp change
-    $isCacheValid = ($null -ne $global:_azCompletionsCache.tree) -and 
+    $isCacheValid = ($null -ne $global:_azCompletionsCache.tree) -and
                     ($global:_azCompletionsCache.exe -eq $exePath) -and
                     ($global:_azCompletionsCache.configStamp -eq $configStamp)
-    
+
     if ($isCacheValid) {
         # Use cached tree, navigate to requested context
         $tree = $global:_azCompletionsCache.tree
@@ -89,7 +89,7 @@ function global:_azQueryCompletions {
         }
         if ($isCacheValid) { return $tree }
     }
-    
+
     # Cache miss or exe changed: query fresh
     $args_ = @('--completions') + $context
     try {
@@ -99,7 +99,7 @@ function global:_azQueryCompletions {
             if ($joined) {
                 $result = $joined | ConvertFrom-Json -AsHashtable
                 $global:_azCompletionsCache.isAzclips = $true
-                
+
                 # Only cache root-level query (no context) to minimize memory
                 if ($context.Count -eq 0) {
                     $global:_azCompletionsCache.tree = $result
@@ -163,58 +163,63 @@ function global:_azGetCompletions {
     $groupDef = _azGetGroupDef -exePath $exePath -group $group
     if (-not $groupDef) { return @() }
 
-    $subcommands = if ($groupDef.ContainsKey('_subcommands')) { $groupDef['_subcommands'] } else { @() }
+    $subcommands = if ($groupDef.ContainsKey('_subcommands')) { @($groupDef['_subcommands']) } else { @() }
 
-    # --- Level 1: completing subcommand ---
-    $hasSubcommand = $false
-    $subcommand = $null
+    # The command path within the group is the leading run of non-flag tokens after the
+    # verb, excluding the word currently being completed.
+    $limit = if ($isCompletingNewToken) { $completedArgs.Count } else { $completedArgs.Count - 1 }
+    $subPath = @()
+    for ($i = 1; $i -lt $limit; $i++) {
+        if ($completedArgs[$i] -like '-*') { break }
+        $subPath += $completedArgs[$i].ToLower()
+    }
 
-    if ($completedArgs.Count -ge 2) {
-        $candidate = $completedArgs[1].ToLower()
-        if ($subcommands -contains $candidate) {
-            $hasSubcommand = $true
-            $subcommand = $candidate
+    $wordToComplete = if (-not $isCompletingNewToken) { $completedArgs[-1] } else { '' }
+    $results = @()
+
+    # 1) Deeper navigation: the next token of every command whose path extends $subPath.
+    $nextTokens = @()
+    foreach ($subcommand in $subcommands) {
+        $tokens = @($subcommand -split '\s+' | Where-Object { $_ -ne '' })
+        if ($tokens.Count -le $subPath.Count) { continue }
+        $matchesPrefix = $true
+        for ($i = 0; $i -lt $subPath.Count; $i++) {
+            if ($tokens[$i] -ne $subPath[$i]) { $matchesPrefix = $false; break }
+        }
+        if ($matchesPrefix) {
+            $next = [string]$tokens[$subPath.Count]
+            if ($nextTokens -notcontains $next) { $nextTokens += $next }
+        }
+    }
+    foreach ($token in $nextTokens) {
+        if ($token -like "$wordToComplete*") {
+            $fullPath = (@($group) + $subPath + $token) -join ' '
+            $results += [System.Management.Automation.CompletionResult]::new($token, $token, 'ParameterValue', $fullPath)
         }
     }
 
-    if ((-not $hasSubcommand) -and ($completedArgs.Count -eq 1 -and $isCompletingNewToken) -or
-        ($completedArgs.Count -eq 2 -and -not $isCompletingNewToken -and -not $hasSubcommand)) {
-        $prefix = if ($completedArgs.Count -ge 2) { $completedArgs[1] } else { '' }
-        $results = @()
-
-        $results += @($subcommands | Where-Object { $_ -like "$prefix*" } | ForEach-Object {
-            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', "$group $_")
-        })
-
-        if ($groupDef.ContainsKey('_params')) {
-            $results += @($groupDef['_params'] | Where-Object { $_ -like "$prefix*" } | ForEach-Object {
-                [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
-            })
-        }
-        return $results
-    }
-
-    # --- Level 2: completing parameters ---
-    $paramStartIndex = if ($hasSubcommand) { 2 } else { 1 }
+    # 2) Parameters: when $subPath names a complete command (or the verb itself is a
+    #    command), offer its flags, excluding those already present on the line.
+    $joined = ($subPath -join ' ')
     $paramList = @()
-    if ($hasSubcommand -and $groupDef.ContainsKey($subcommand)) {
-        $paramList = $groupDef[$subcommand]
+    if ($joined -and $groupDef.ContainsKey($joined)) {
+        $paramList = @($groupDef[$joined])
     }
-    elseif (-not $hasSubcommand -and $groupDef.ContainsKey('_params')) {
-        $paramList = $groupDef['_params']
+    elseif (-not $joined -and $groupDef.ContainsKey('_params')) {
+        $paramList = @($groupDef['_params'])
     }
 
-    if ($paramList.Count -eq 0) { return @() }
+    if ($paramList.Count -gt 0) {
+        $typedArgs = if ($isCompletingNewToken) { $completedArgs } else { @($completedArgs[0..($completedArgs.Count - 2)]) }
+        $usedParams = @($typedArgs | Where-Object { $_ -like '--*' })
+        $results += @($paramList | Where-Object {
+            $_ -like "$wordToComplete*" -and $_ -notin $usedParams
+        } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
+        })
+    }
 
-    $allParamTokens = @($completedArgs[$paramStartIndex..($completedArgs.Count - 1)])
-    $usedParams = @($allParamTokens | Where-Object { $_ -like '--*' })
-
-    $wordToComplete = if (-not $isCompletingNewToken -and $completedArgs.Count -gt 0) { $completedArgs[-1] } else { '' }
-    return @($paramList | Where-Object {
-        $_ -like "$wordToComplete*" -and $_ -notin $usedParams
-    } | ForEach-Object {
-        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
-    })
+    return $results
 }
 
 # Register native argument completer for both az and az.exe
@@ -296,9 +301,9 @@ function global:TabExpansion2 {
                     $replIndex = $lastSpace + 1
                     $replLength = $cursor - $replIndex
 
-                    $matches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
-                    foreach ($r in $results) { $matches.Add($r) }
-                    return [System.Management.Automation.CommandCompletion]::new($matches, 0, $replIndex, $replLength)
+                    $completionResultMatches = [System.Collections.ObjectModel.Collection[System.Management.Automation.CompletionResult]]::new()
+                    foreach ($r in $results) { $completionResultMatches.Add($r) }
+                    return [System.Management.Automation.CommandCompletion]::new($completionResultMatches, 0, $replIndex, $replLength)
                 }
                 # isAzclips is $false after query → not azclips, fall through
             }

@@ -136,8 +136,8 @@ if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Exte
   echo "FAIL: Built-in Extension manager bundle missing"
   exit 1
 fi
-if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Login" ]]; then
-  echo "FAIL: Built-in Login bundle missing"
+if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Accounts" ]]; then
+  echo "FAIL: Built-in Accounts bundle missing"
   exit 1
 fi
 if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Config" ]]; then
@@ -155,17 +155,39 @@ if [[ "$SKIP_RUNTIME" == "true" ]]; then
 fi
 
 echo ""
-echo "[1/5] CLI help (bundled install)"
-HOME="$SIM_ROOT/home" "$AZ" --help 2>&1 | head -n 20 || true
+echo "[1/6] CLI version (bundled install)"
+if ! version_output="$(HOME="$SIM_ROOT/home" "$AZ" --version 2>&1)"; then
+  echo "FAIL: az --version exited with a non-zero status"
+  printf '%s\n' "$version_output" | sed -n '1,20p'
+  exit 1
+fi
+if [[ -z "${version_output//[[:space:]]/}" ]]; then
+  echo "FAIL: az --version returned no output"
+  exit 1
+fi
+printf '%s\n' "$version_output" | sed -n '1,20p'
 
 echo ""
-echo "[2/5] Verify built-in extension manager is available"
+echo "[2/6] CLI help (bundled install)"
+if ! help_output="$(HOME="$SIM_ROOT/home" "$AZ" --help 2>&1)"; then
+  echo "FAIL: az --help exited with a non-zero status"
+  printf '%s\n' "$help_output" | sed -n '1,20p'
+  exit 1
+fi
+if [[ -z "${help_output//[[:space:]]/}" ]]; then
+  echo "FAIL: az --help returned no output"
+  exit 1
+fi
+printf '%s\n' "$help_output" | sed -n '1,20p'
+
+echo ""
+echo "[3/6] Verify built-in extension manager is available"
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add 2>&1 || true)
 echo "  $output"
-if echo "$output" | grep -qi "Extension.*could not be found"; then
+if grep -Eqi "Extension.*could not be found" <<<"$output"; then
   echo "  FAIL: Extension manager not loaded"
   exit 1
-elif echo "$output" | grep -Eqi "Either Name or Path must be provided|Required option.*(name|path)"; then
+elif grep -Eqi "Either Name or Path must be provided|Required option.*(name|path)" <<<"$output"; then
   echo "  PASS: Extension manager loaded"
 else
   echo "  FAIL: Extension command response was unexpected"
@@ -173,12 +195,12 @@ else
 fi
 
 echo ""
-echo "[3/5] Verify bundled Config commands work"
+echo "[4/6] Verify bundled Config commands work"
 set_output=$(HOME="$SIM_ROOT/home" "$AZ" config set --key core.logging.level --value debug --force 2>&1 || true)
 get_output=$(HOME="$SIM_ROOT/home" "$AZ" config get --key core.logging.level 2>&1 || true)
 echo "  $set_output"
 echo "  $get_output"
-if echo "$get_output" | grep -q "core.logging.level = debug"; then
+if grep -Fq "core.logging.level = debug" <<<"$get_output"; then
   echo "  PASS: Bundled Config commands work"
 else
   echo "  FAIL: Bundled Config commands did not return expected value"
@@ -186,7 +208,7 @@ else
 fi
 
 echo ""
-echo "[4/5] Install Resources extension via 'extension add'"
+echo "[5/6] Install Resources extension via 'extension add'"
 RES_NUPKG=$(find "$EXT_PACK_DIR" -name "azcli.extensions.resources*.nupkg" | head -1)
 if [[ -z "${RES_NUPKG:-}" ]]; then
   echo "ERROR: Resources package not found in $EXT_PACK_DIR"
@@ -195,7 +217,7 @@ fi
 echo "Installing from: $RES_NUPKG"
 output=$(HOME="$SIM_ROOT/home" "$AZ" extension add --path "$RES_NUPKG" 2>&1 || true)
 echo "  $output"
-if echo "$output" | grep -q "installedExtensionPath"; then
+if grep -Fq "installedExtensionPath" <<<"$output"; then
   echo "  PASS: Resources extension installed"
 else
   echo "  FAIL: Resources extension install output did not include installed path"
@@ -203,15 +225,15 @@ else
 fi
 
 echo ""
-echo "[5/5] Verify Resources command resolves"
+echo "[6/6] Verify Resources command resolves"
 output=$(HOME="$SIM_ROOT/home" "$AZ" group list 2>&1 || true)
 echo "  $output"
-if echo "$output" | grep -q "could not be found"; then
+if grep -Fq "could not be found" <<<"$output"; then
   echo "  FAIL: Resources extension command not found"
   exit 1
-elif echo "$output" | grep -Eqi "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved"; then
+elif grep -Eqi "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved" <<<"$output"; then
   echo "  PASS: Resources extension loaded"
-elif echo "$output" | grep -Eqi "AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication"; then
+elif grep -Eqi "AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication" <<<"$output"; then
   echo "  PASS: Resources command resolved (authentication context not available in CI)"
 else
   echo "  PASS: Resources command resolved"

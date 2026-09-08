@@ -8,11 +8,13 @@ using Core.AssemblyLoading;
 using Core.Configuration.Abstractions;
 using Core.Cli.Parser;
 using Core.DependencyInjection;
+using Core.Extensions;
 using Core.Runtime;
 using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Config.Commands;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests;
 
@@ -20,23 +22,11 @@ namespace Cli.Tests;
 public class ConfigCliTests
 {
     [Fact]
-    public void ExtensionDispatcher_ShouldRouteConfigCommandGroup()
-    {
-        var dispatcher = new ExtensionDispatcher();
-
-        var invocation = dispatcher.Parse(["config", "list"]);
-
-        Assert.Equal("Config", invocation.ExtensionName);
-        // commandName is full-path form for built-in commands as well.
-        Assert.Equal("config list", invocation.CommandName);
-    }
-
-    [Fact]
     public void ArgumentParsingService_ShouldTreatBareBoolFlagsAsTrue()
     {
         var loggingService = new ConsoleLoggingService();
         var provider = new Core.Cli.CLIArgumentParsingProvider(new Core.Cli.PropertyParser(loggingService), loggingService);
-        var parser = new Core.ArgumentParsing.ArgumentParsingService(provider);
+        var parser = new Core.ArgumentParsing.ArgumentParsingService(provider, new ProfileService(new ScopedLoggingService()));
         var processor = new BoolFlagProcessor();
 
         parser.BindArgumentsToProcessor(
@@ -46,7 +36,8 @@ public class ConfigCliTests
             {
                 ["all"] = new("All", "all", typeof(bool), "Include defaults.", false, [], [])
             },
-            parameterAliases: null);
+            parameterAliases: null,
+            profile: null);
 
         Assert.True(processor.All);
     }
@@ -71,7 +62,7 @@ public class ConfigCliTests
         fixture.ExecuteCli(["config", "delete", "--key", "core.logging.level", "--force"]);
 
         var getAfterDeleteOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = error [default]", getAfterDeleteOutput.Single());
+        Assert.Contains("core.logging.level = warn [default]", getAfterDeleteOutput.Single());
 
     }
 
@@ -100,7 +91,7 @@ public class ConfigCliTests
         Assert.Contains("Deleted core.logging.level", deleteOutput.Single());
 
         var getDeletedOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
-        Assert.Contains("core.logging.level = error [default]", getDeletedOutput.Single());
+        Assert.Contains("core.logging.level = warn [default]", getDeletedOutput.Single());
     }
 
     [Fact]
@@ -247,7 +238,7 @@ public class ConfigCliTests
 
         var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
 
-        Assert.Contains("logging.level = error", output.Single());
+        Assert.Contains("logging.level = warn", output.Single());
     }
 
     [Fact]
@@ -322,7 +313,6 @@ public class ConfigCliTests
         private static readonly string[] s_environmentKeys =
         [
             "AZCLIPS_LOG_LEVEL",
-            "ZIPKIN_ENDPOINT",
             "PS_HTTP_MAX_RETRIES",
             "AZURE_PS_HTTP_MAX_RETRIES",
             "PS_HTTP_MAX_RETRIES_FOR_429",
@@ -364,7 +354,7 @@ public class ConfigCliTests
         {
             _outputs.Clear();
 
-            var dispatcher = new ExtensionDispatcher();
+            var dispatcher = BuildDispatcher();
             var invocation = dispatcher.Parse(args);
             var engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
 
@@ -400,6 +390,31 @@ public class ConfigCliTests
             {
                 Directory.Delete(directory, recursive: true);
             }
+        }
+
+        private static ExtensionDispatcher BuildDispatcher()
+        {
+            var registry = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Microsoft.Azure.Azclips.Extensions.Config"] = new ExtensionRegistryEntry
+                    {
+                        Version = "0.0.0",
+                        Contributions =
+                        {
+                            new Contribution { Verb = "config", Path = "" },
+                            new Contribution { Verb = "config", Path = "get" },
+                            new Contribution { Verb = "config", Path = "set" },
+                            new Contribution { Verb = "config", Path = "delete" },
+                            new Contribution { Verb = "config", Path = "list" },
+                            new Contribution { Verb = "config", Path = "info" },
+                        },
+                    },
+                },
+            };
+            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
+            return new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
         }
     }
 

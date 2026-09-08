@@ -12,18 +12,12 @@ namespace Core.Extensions
     /// </summary>
     /// <param name="Verb">Top-level namespace (e.g. <c>"vm"</c>).</param>
     /// <param name="Path">Path within the namespace (e.g. <c>"create"</c>, or <c>""</c> for the root).</param>
-    /// <param name="PackageId">Package id of the contributing extension (or built-in seed entry).</param>
-    /// <remarks>
-    /// Built-in vs. installed is implicit in the source: a leaf is built-in iff its
-    /// <c>PackageId</c> matches a <see cref="BuiltInExtensions"/> seed entry, or equivalently iff
-    /// <see cref="BuiltInExtensions.IsBuiltInVerb"/> returns true for <c>Verb</c> and <c>Path</c>
-    /// is empty. No live code path branches on the distinction.
-    /// </remarks>
+    /// <param name="PackageId">Package id of the contributing extension.</param>
     public sealed record LeafEntry(string Verb, string Path, string PackageId, string? Version);
 
     /// <summary>
-    /// Read-only <c>(verb, path) -&gt; <see cref="LeafEntry"/></c> index built from the merged
-    /// built-in seed and on-disk registry. Drives the dispatcher's longest-prefix match.
+    /// Read-only <c>(verb, path) -&gt; <see cref="LeafEntry"/></c> index built from the
+    /// discovery-driven <see cref="ExtensionRegistry"/>. Drives the dispatcher's longest-prefix match.
     /// </summary>
     public sealed class LeafIndex
     {
@@ -33,12 +27,35 @@ namespace Core.Extensions
         private readonly IReadOnlyDictionary<(string Verb, string Path), LeafEntry> _entries;
         private readonly HashSet<string> _verbs;
 
+        // Every (verb, path) that is a proper prefix of some leaf — i.e. a command group with no
+        // runnable leaf of its own (e.g. (agent, "") and (agent, "tool") when (agent, "tool env")
+        // exists). Precomputed so IsCommandGroup is an O(1) set lookup instead of scanning entries.
+        private readonly HashSet<(string Verb, string Path)> _groups;
+
         private LeafIndex(IReadOnlyDictionary<(string Verb, string Path), LeafEntry> entries)
         {
             _entries = entries;
             _verbs = entries.Keys
                 .Select(k => k.Verb)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            _groups = new HashSet<(string, string)>(s_keyComparer);
+            foreach (var (verb, path) in entries.Keys)
+            {
+                // A leaf marks all of its proper-prefix ancestors as groups, never itself.
+                // "tool resource find" contributes ancestors "", "tool", "tool resource".
+                // A root leaf like (login, "") has no ancestors, so login stays runnable.
+                if (path.Length == 0)
+                {
+                    continue;
+                }
+                var segments = path.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                _groups.Add((verb, string.Empty));
+                for (int i = 1; i < segments.Length; i++)
+                {
+                    _groups.Add((verb, string.Join(" ", segments, 0, i)));
+                }
+            }
         }
 
         /// <summary>
@@ -78,30 +95,37 @@ namespace Core.Extensions
         }
 
         /// <summary>
-        /// Builds an index from the supplied built-in seed and registry. Duplicate <c>(verb, path)</c>
-        /// pairs across sources fail fast \u2014 duplicate leaves are a hard error. Built-ins
-        /// are emitted as <c>(verb, "")</c> root leaves.
+        /// True if <c>(verb, path)</c> names a command group rather than a runnable leaf. A leaf is
+        /// runnable only when it has no children: <c>login</c> (whose sole leaf is its root) is
+        /// runnable, whereas a group root like <c>agent</c> or an intermediate group like
+        /// <c>agent tool</c> owns longer leaves and so is a group. The dispatcher uses this to surface
+        /// a <c>CommandNotFound</c> hint instead of handing a non-runnable group to the extension,
+        /// which would misreport it as an unknown command and fall through to the AI agent.
         /// </summary>
-        /// <param name="builtIns">Map from verb to built-in descriptor (e.g. <see cref="BuiltInExtensions.Map"/>).</param>
-        /// <param name="registry">Loaded registry (post v1\u2192v2 normalization).</param>
-        /// <exception cref="InvalidOperationException">A <c>(verb, path)</c> leaf is claimed by more than one source.</exception>
-        public static LeafIndex Build(
-            IReadOnlyDictionary<string, BuiltInExtension> builtIns,
-            ExtensionRegistry registry)
+        public bool IsCommandGroup(string verb, string path)
         {
-            ArgumentNullException.ThrowIfNull(builtIns);
+            if (string.IsNullOrEmpty(verb))
+            {
+                return false;
+            }
+
+            // O(1): _groups holds every (verb, path) that is a proper prefix of some leaf, computed
+            // once at construction. A runnable root/leaf is never in it (see the ctor).
+            return _groups.Contains((verb, path ?? string.Empty));
+        }
+
+        /// <summary>
+        /// Builds an index from the supplied registry. Duplicate <c>(verb, path)</c>
+        /// pairs across extensions fail fast — duplicate leaves are a hard error
+        /// (classic-Azure-CLI shadowing-gap protection).
+        /// </summary>
+        /// <param name="registry">Discovery-built registry (post v1→v2 normalization).</param>
+        /// <exception cref="InvalidOperationException">A <c>(verb, path)</c> leaf is claimed by more than one extension.</exception>
+        public static LeafIndex Build(ExtensionRegistry registry)
+        {
             ArgumentNullException.ThrowIfNull(registry);
 
             var entries = new Dictionary<(string Verb, string Path), LeafEntry>(s_keyComparer);
-
-            foreach (var builtIn in builtIns.Values)
-            {
-                AddLeaf(entries, builtIn.Verb, string.Empty, builtIn.PackageId, version: null);
-                foreach (var path in builtIn.Leaves)
-                {
-                    AddLeaf(entries, builtIn.Verb, path, builtIn.PackageId, version: null);
-                }
-            }
 
             foreach (var (packageId, entry) in registry.Extensions)
             {

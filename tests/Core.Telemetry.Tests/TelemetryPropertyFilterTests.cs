@@ -4,6 +4,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Reflection;
 using Core.Abstractions;
 
 namespace Core.Telemetry.Tests;
@@ -29,6 +30,17 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.TenantId,
         TelemetryTags.AuthType,
         TelemetryTags.Mode,
+        TelemetryTags.ImportKind,
+        // AI error-recovery tags. These ride the properties.* channel rather than
+        // AllowedKeys; a tag outside both is stripped silently at export.
+        TelemetryTags.CommandTraceId,
+        TelemetryTags.CommandSpanId,
+        TelemetryTags.RecoverySessionStyle,
+        TelemetryTags.RecoveryProvider,
+        TelemetryTags.RecoveryExitCode,
+        TelemetryTags.RecoveryReprompts,
+        TelemetryTags.AgentModel,
+        TelemetryTags.ProcessName,
     };
 
     [Theory]
@@ -102,5 +114,20 @@ public class TelemetryPropertyFilterTests
         {
             Assert.True(_filter.IsAllowed(key), $"allowlist key '{key}' should pass IsAllowed");
         }
+    }
+
+    [Fact]
+    public void IsAllowed_EveryTelemetryTagsConstant_IsAdmitted()
+    {
+        var stripped = typeof(TelemetryTags)
+            .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            .Where(field => field is { IsLiteral: true, IsInitOnly: false } && field.FieldType == typeof(string))
+            // PropertyTagPrefix is a prefix fragment, not an emitted tag key.
+            .Where(field => field.Name != nameof(TelemetryTags.PropertyTagPrefix))
+            .Select(field => new { field.Name, Value = (string)field.GetRawConstantValue()! })
+            .Where(tag => !_filter.IsAllowed(tag.Value))
+            .ToArray();
+
+        Assert.Empty(stripped);
     }
 }

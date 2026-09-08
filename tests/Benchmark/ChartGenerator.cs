@@ -92,20 +92,35 @@ public static class ChartGenerator
 
     private static List<OverheadData> CalculateOverhead(List<ChartDataPoint> data)
     {
-        var operations = new[] { "List RG", "Create RG", "Get RG" };
-
-        return operations.Select(op =>
-        {
-            var cliResult = data.FirstOrDefault(x => x.Method.Contains(op) && x.Product == "CLI");
-            var psResult = data.FirstOrDefault(x => x.Method.Contains(op) && x.Product == "PS");
-
-            return new OverheadData
+        // Derive the operation label from each benchmark's display name by stripping the
+        // leading product prefix ("CLI: " / "PS: "). This keeps the comparison view
+        // extension-agnostic — whatever operations ran show up automatically, in
+        // first-seen order — instead of a hardcoded Resource-Group list.
+        return data
+            .Select(x => OperationLabel(x.Method))
+            .Distinct()
+            .Select(op =>
             {
-                Operation = op,
-                CliTime = Math.Round(cliResult?.MeanSeconds ?? 0, 4),
-                PsTime = Math.Round(psResult?.MeanSeconds ?? 0, 4)
-            };
-        }).ToList();
+                var cliResult = data.FirstOrDefault(x => OperationLabel(x.Method) == op && x.Product == "CLI");
+                var psResult = data.FirstOrDefault(x => OperationLabel(x.Method) == op && x.Product == "PS");
+
+                return new OverheadData
+                {
+                    Operation = op,
+                    CliTime = Math.Round(cliResult?.MeanSeconds ?? 0, 4),
+                    PsTime = Math.Round(psResult?.MeanSeconds ?? 0, 4)
+                };
+            }).ToList();
+    }
+
+    // "CLI: List VM" -> "List VM"; "PS: Create RG" -> "Create RG"; falls back to the
+    // whole trimmed name when there is no "<product>: " prefix. BenchmarkDotNet wraps
+    // the display name in single quotes (e.g. 'CLI: List VM'), so strip those first.
+    private static string OperationLabel(string method)
+    {
+        var label = method.Trim().Trim('\'');
+        var colon = label.IndexOf(':');
+        return colon >= 0 ? label[(colon + 1)..].Trim() : label.Trim();
     }
 
     //TODO: Refactor chart generation
@@ -202,7 +217,7 @@ public static class ChartGenerator
 <body>
     <div class=""container"">
         <h1>📊 Benchmark Comparison</h1>
-        <p class=""subtitle"">Execution time comparison across CLI and PowerShell for Resource Group operations</p>
+        <p class=""subtitle"">Execution time comparison across CLI and PowerShell</p>
 
         <div class=""chart-container"">
             <div class=""chart-wrapper"">

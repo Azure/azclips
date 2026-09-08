@@ -11,59 +11,6 @@ namespace Core.Extensions.Tests
     public class LeafIndexTests
     {
         [Fact]
-        public void Build_ShouldEmitBuiltInsAsRootLeaves()
-        {
-            var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
-                ["config"] = new("config", "Microsoft.Azure.Azclips.Extensions.Config"),
-            };
-
-            var index = LeafIndex.Build(builtIns, new ExtensionRegistry());
-
-            Assert.True(index.TryGet("login", "", out var login));
-            Assert.NotNull(login);
-            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Login", login!.PackageId);
-
-            Assert.True(index.TryGet("config", "", out _));
-            Assert.False(index.TryGet("vm", "", out _));
-        }
-
-        [Fact]
-        public void Build_ShouldMergeRegistryContributions_WithBuiltIns()
-        {
-            var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
-            };
-
-            var registry = new ExtensionRegistry
-            {
-                Extensions =
-                {
-                    ["Microsoft.Azure.Azclips.Extensions.Compute"] = new ExtensionRegistryEntry
-                    {
-                        Version = "1.0.0",
-                        InstalledAt = DateTimeOffset.UtcNow,
-                        Contributions =
-                        {
-                            new Contribution { Verb = "vm",   Path = "create" },
-                            new Contribution { Verb = "disk", Path = "attach" },
-                        },
-                    },
-                },
-            };
-
-            var index = LeafIndex.Build(builtIns, registry);
-
-            Assert.Equal(3, index.Entries.Count);
-            Assert.True(index.TryGet("vm", "create", out var vmCreate));
-            Assert.NotNull(vmCreate);
-            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Compute", vmCreate!.PackageId);
-            Assert.True(index.TryGet("disk", "attach", out _));
-        }
-
-        [Fact]
         public void Build_ShouldLookup_CaseInsensitively()
         {
             var registry = new ExtensionRegistry
@@ -79,7 +26,7 @@ namespace Core.Extensions.Tests
                 },
             };
 
-            var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), registry);
+            var index = LeafIndex.Build(registry);
 
             Assert.True(index.TryGet("vm", "create", out _));
             Assert.True(index.TryGet("VM", "CREATE", out _));
@@ -108,35 +55,11 @@ namespace Core.Extensions.Tests
             };
 
             var ex = Assert.Throws<InvalidOperationException>(
-                () => LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), registry));
+                () => LeafIndex.Build(registry));
             Assert.Contains("vm", ex.Message, StringComparison.Ordinal);
             Assert.Contains("create", ex.Message, StringComparison.Ordinal);
             Assert.Contains("Pkg.A", ex.Message, StringComparison.Ordinal);
             Assert.Contains("Pkg.B", ex.Message, StringComparison.Ordinal);
-        }
-
-        [Fact]
-        public void Build_ShouldThrow_WhenRegistryClashesWithBuiltIn()
-        {
-            var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
-            };
-
-            var registry = new ExtensionRegistry
-            {
-                Extensions =
-                {
-                    ["Rogue.Login"] = new ExtensionRegistryEntry
-                    {
-                        Version = "1.0.0",
-                        InstalledAt = DateTimeOffset.UtcNow,
-                        Contributions = { new Contribution { Verb = "login", Path = "" } },
-                    },
-                },
-            };
-
-            Assert.Throws<InvalidOperationException>(() => LeafIndex.Build(builtIns, registry));
         }
 
         [Fact]
@@ -154,7 +77,7 @@ namespace Core.Extensions.Tests
             };
             var registry = new ExtensionRegistry { Extensions = { ["Pkg.Vm"] = entry } };
 
-            var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), registry);
+            var index = LeafIndex.Build(registry);
 
             Assert.True(index.TryGet("vm", "", out var vm));
             Assert.Equal("Pkg.Vm", vm!.PackageId);
@@ -181,7 +104,7 @@ namespace Core.Extensions.Tests
                 },
             };
 
-            var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), registry);
+            var index = LeafIndex.Build(registry);
 
             Assert.True(index.HasVerb("vm"));
             Assert.True(index.HasVerb("disk"));
@@ -204,7 +127,7 @@ namespace Core.Extensions.Tests
                 },
             };
 
-            var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), registry);
+            var index = LeafIndex.Build(registry);
 
             Assert.True(index.HasVerb("vm"));
             Assert.True(index.HasVerb("VM"));
@@ -214,24 +137,97 @@ namespace Core.Extensions.Tests
         [Fact]
         public void HasVerb_ShouldReturnFalse_ForNullOrEmpty()
         {
-            var index = LeafIndex.Build(new Dictionary<string, BuiltInExtension>(), new ExtensionRegistry());
+            var index = LeafIndex.Build(new ExtensionRegistry());
 
             Assert.False(index.HasVerb(string.Empty));
             Assert.False(index.HasVerb(null!));
         }
 
-        [Fact]
-        public void HasVerb_ShouldReturnTrue_ForBuiltInVerbs()
+        // ── IsCommandGroup ──
+        // An extension whose only leaf is its root (Login: (login, "")) is runnable; one that owns
+        // longer leaves (Agent: (agent, "tool env"), …) is a group at the root and at every
+        // intermediate path.
+
+        private static LeafIndex BuildAgentAndAccountsIndex()
         {
-            var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+            var registry = new ExtensionRegistry
             {
-                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
+                Extensions =
+                {
+                    ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
+                    {
+                        Version = "0.0.0",
+                        Contributions = { new Contribution { Verb = "login", Path = "" } },
+                    },
+                    ["Microsoft.Azure.Azclips.Extensions.Agent"] = new ExtensionRegistryEntry
+                    {
+                        Version = "0.0.0",
+                        Contributions =
+                        {
+                            new Contribution { Verb = "agent", Path = "" },
+                            new Contribution { Verb = "agent", Path = "tool env" },
+                            new Contribution { Verb = "agent", Path = "tool resource find" },
+                            new Contribution { Verb = "agent", Path = "tool resource show" },
+                        },
+                    },
+                },
             };
 
-            var index = LeafIndex.Build(builtIns, new ExtensionRegistry());
+            return LeafIndex.Build(registry);
+        }
 
-            Assert.True(index.HasVerb("login"));
-            Assert.False(index.HasVerb("vm"));
+        [Fact]
+        public void IsCommandGroup_ShouldReturnTrue_ForGroupRootAndIntermediatePaths()
+        {
+            var index = BuildAgentAndAccountsIndex();
+
+            Assert.True(index.IsCommandGroup("agent", ""));                 // az agent
+            Assert.True(index.IsCommandGroup("agent", "tool"));             // az agent tool
+            Assert.True(index.IsCommandGroup("agent", "tool resource"));    // az agent tool resource
+        }
+
+        [Fact]
+        public void IsCommandGroup_ShouldReturnFalse_ForRunnableLeaves()
+        {
+            var index = BuildAgentAndAccountsIndex();
+
+            Assert.False(index.IsCommandGroup("agent", "tool env"));            // runnable leaf
+            Assert.False(index.IsCommandGroup("agent", "tool resource find"));  // runnable leaf
+        }
+
+        [Fact]
+        public void IsCommandGroup_ShouldReturnFalse_ForRunnableRootVerb()
+        {
+            var index = BuildAgentAndAccountsIndex();
+
+            // login's only leaf is its root, so `az login` is a runnable command, not a group.
+            Assert.False(index.IsCommandGroup("login", ""));
+        }
+
+        [Fact]
+        public void IsCommandGroup_ShouldReturnFalse_ForUnknownLeafUnderGroup()
+        {
+            var index = BuildAgentAndAccountsIndex();
+
+            // `tool resource findxxx` is neither a leaf nor a group prefix — a typo, not a group.
+            Assert.False(index.IsCommandGroup("agent", "tool resource findxxx"));
+        }
+
+        [Fact]
+        public void IsCommandGroup_ShouldMatch_CaseInsensitively()
+        {
+            var index = BuildAgentAndAccountsIndex();
+
+            Assert.True(index.IsCommandGroup("AGENT", "Tool Resource"));
+        }
+
+        [Fact]
+        public void IsCommandGroup_ShouldReturnFalse_ForNullOrEmptyVerb()
+        {
+            var index = BuildAgentAndAccountsIndex();
+
+            Assert.False(index.IsCommandGroup(string.Empty, ""));
+            Assert.False(index.IsCommandGroup(null!, ""));
         }
     }
 }

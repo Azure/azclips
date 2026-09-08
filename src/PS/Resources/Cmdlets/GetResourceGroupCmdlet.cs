@@ -9,21 +9,22 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsCommon.Get, "AzResourceGroup", DefaultParameterSetName = "List")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.ResourceGroup")]
 public class GetResourceGroupCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
-
-    [Parameter(ParameterSetName = "Get", Mandatory = true)]
-    [Parameter(ParameterSetName = "List", Mandatory = true)]
+    [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "List", Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     public string? Name { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     protected override void BeginProcessing()
     {

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/CLI/Core.Cli.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Configuration/Core.Configuration.csproj" />
+    <ProjectReference Include="../../src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Extensions/Core.Extensions.csproj" />
+    <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
+    <ProjectReference Include="../../src/Extensions/Compute/Extensions.Compute.csproj" />
+    <ProjectReference Include="../../src/Extensions/Identity/Extensions.Identity.csproj" />
+    <ProjectReference Include="../../src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
+    <!-- The PowerShell surface's argument-parsing provider lives in the Accounts cmdlet module
+         (registered by its ModuleInitializer). Referencing it lets the scenario host bind
+         parameters exactly the way an imported module does. -->
+    <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <ProjectReference Include="../Common/Tests.Common.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -36,6 +36,7 @@ import type {
 } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
+import { authFrom } from "./auth.js";
 import { reportDiagnostic } from "./lib.js";
 import { serverFrom } from "./server.js";
 
@@ -169,12 +170,15 @@ export function buildSource(
 
   const rootNamespace = fqn.length === 0 ? [] : fqn.split(".");
 
+  const auth = authFrom(ctx, serviceNs);
+
   const source: IRSource = {
     id: ctx.options.sourceId,
     entrypoint,
     apiVersion,
     server,
     rootNamespace,
+    ...(auth !== undefined ? { auth } : {}),
   };
   return { source, apiVersion, server };
 }

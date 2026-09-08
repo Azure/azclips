@@ -66,12 +66,14 @@ public sealed class ConsoleApprovalPrompt
     // StepMeta so the hook owns the JSON parsing. Destructive drives the red marker.
     public sealed record PlanStep(int Id, string Label, string Cmd, bool Destructive = false);
 
-    // A secret only the user can supply — rendered with <Name> as a placeholder.
-    public sealed record UserInputNeed(string Name, string Description);
+    // A secret only the user can supply — Flag names the flag (e.g. --admin-password);
+    // its value appears as a <placeholder> alongside the flag in the step command.
+    public sealed record UserInputNeed(string Flag, string Description);
 
-    // A value the agent chose/derived for the user — rendered as the real value
-    // (italic when the terminal supports it) so the user can run as-is or change it.
-    public sealed record ChosenDefault(string Name, string Value, string Note);
+    // A flag the agent chose/derived for the user. Value is NOT stored — it's read
+    // from the matching flag in the plan's step command at render time, so the
+    // review line always matches what will actually run.
+    public sealed record ChosenDefault(string Flag, string Note);
 
     // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
     // set, the user typed free-form text at the y/n prompt — the host treats it
@@ -220,6 +222,7 @@ public sealed class ConsoleApprovalPrompt
     // (shown as the real value, plain) and the secrets the user must fill in
     // (shown as <name> placeholders). Empty block is skipped.
     private static void RenderReviewValues(
+        IReadOnlyList<PlanStep>? steps,
         IReadOnlyList<ChosenDefault>? defaults,
         IReadOnlyList<UserInputNeed>? placeholders)
     {
@@ -232,13 +235,60 @@ public sealed class ConsoleApprovalPrompt
         if (hasDefaults)
             foreach (var d in defaults!)
             {
-                // Agent-chosen value: the real value, then the note after a colon.
+                // Show the flag exactly as it appears in the step command — with its
+                // real value if it takes one, bare if it's a switch — so the review
+                // line matches what runs. The value is never stored on ChosenDefault;
+                // it's read from the command here.
+                var token = FindFlagToken(steps, d.Flag);
                 var note = string.IsNullOrWhiteSpace(d.Note) ? "" : $": {OneLine(d.Note)}";
-                Console.WriteLine($"• {OneLine(d.Name)} {OneLine(d.Value)}{note}");
+                Console.WriteLine($"• {OneLine(token)}{note}");
             }
         if (hasPlaceholders)
             foreach (var p in placeholders!)
-                Console.WriteLine($"• <{OneLine(p.Name)}>: {OneLine(p.Description)}");
+            {
+                // Show the flag with its value as it appears in the step command (e.g.
+                // "--admin-password <admin-password>"). If the step didn't include the flag,
+                // FindFlagToken returns the bare flag; append a <flag-derived> placeholder so
+                // the "you must fill this in" cue isn't lost.
+                var token = FindFlagToken(steps, p.Flag);
+                var display = token.Contains(' ') || token.Contains('<')
+                    ? token
+                    : $"{token} <{OneLine(token.TrimStart('-'))}>";
+                Console.WriteLine($"• {OneLine(display)}: {OneLine(p.Description)}");
+            }
+    }
+
+    // Locate a flag in the plan's step commands and return the flag with its value
+    // if any: "--location eastus2", "--admin-password <pw>", or a bare "--active"
+    // for a switch. The flag is normalized to a leading "--" for matching (a model
+    // may list it without dashes), and "--flag=value" is rendered as "--flag value".
+    // Falls back to the flag alone if not found. internal for unit testing.
+    internal static string FindFlagToken(IReadOnlyList<PlanStep>? steps, string flag)
+    {
+        if (string.IsNullOrWhiteSpace(flag)) return flag;
+        // Normalize to a leading "--" form; this normalized value is used both for
+        // matching and for the fallback display when the flag isn't found.
+        var needle = flag.StartsWith('-') ? flag : "--" + flag;
+        if (steps is not null)
+        {
+            foreach (var s in steps)
+            {
+                if (string.IsNullOrEmpty(s.Cmd)) continue;
+                // Match the flag as a WHOLE token — the trailing (?![\w-]) stops
+                // "--resource" from matching inside "--resource-group". Then an
+                // optional value that isn't itself a flag ((?!-) rejects both
+                // "--x" and short "-x"). A quoted value ("..." or '...') is taken
+                // whole so a value with spaces (e.g. --query "[?a].b c") isn't cut
+                // at the first space; otherwise a bare non-space token. Group "val"
+                // is absent for a switch.
+                var m = Regex.Match(s.Cmd,
+                    $@"(?<![^\s]){Regex.Escape(needle)}(?![\w-])(?:[=\s]+(?<val>(?!-)(?:""[^""]*""|'[^']*'|\S+)))?",
+                    RegexOptions.IgnoreCase);
+                if (m.Success)
+                    return m.Groups["val"].Success ? $"{needle} {m.Groups["val"].Value}" : needle;
+            }
+        }
+        return needle; // not found in any step — show the flag alone
     }
 
     // Collapse newlines/tabs/runs of whitespace to single spaces so a stray
@@ -430,7 +480,7 @@ public sealed class ConsoleApprovalPrompt
             }
         }
 
-        RenderReviewValues(plan.Defaults, plan.Placeholders);
+        RenderReviewValues(plan.Steps, plan.Defaults, plan.Placeholders);
         // Blank line between the review-values block and the disclaimer, then the
         // disclaimer as the last line of every rendered plan — so it travels with
         // the plan wherever it's shown (one-shot at submit, interactive before

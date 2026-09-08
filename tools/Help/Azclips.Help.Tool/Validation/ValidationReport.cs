@@ -26,6 +26,9 @@ namespace Azclips.Help.Tool.Validation
         public void AddError(string problemId, string message, string? filePath = null) =>
             _issues.Add(new ValidationIssue(ValidationSeverity.Error, message, filePath, problemId));
 
+        public void AddError(string problemId, string message, string? filePath, int? line) =>
+            _issues.Add(new ValidationIssue(ValidationSeverity.Error, message, filePath, problemId, line));
+
         public void AddWarning(string problemId, string message, string? filePath = null) =>
             _issues.Add(new ValidationIssue(ValidationSeverity.Warning, message, filePath, problemId));
 

@@ -11,6 +11,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 [Cmdlet(VerbsLifecycle.Invoke, "AzRestMethod")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.RestResponse")]
 public class InvokeAzclipsRestMethodCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();

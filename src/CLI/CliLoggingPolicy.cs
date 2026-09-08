@@ -25,21 +25,23 @@ internal enum CliLogSeverity
 internal static class CliLoggingPolicy
 {
     public static CliLogLevel ResolveEffectiveLevel(IConfigurationService configurationService, bool debugOverride)
+        => ResolveEffectiveLevel(configurationService.GetConfiguration<CoreOptions>(), debugOverride);
+
+    public static CliLogLevel ResolveEffectiveLevel(CoreOptions options, bool debugOverride)
     {
         if (debugOverride)
         {
             return CliLogLevel.Debug;
         }
 
-        var configured = configurationService.GetConfiguration<CoreOptions>().Logging.Level;
-        return Parse(configured);
+        return Parse(options.Logging.Level);
     }
 
     public static CliLogLevel Parse(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return CliLogLevel.Error;
+            return CliLogLevel.Warn;
         }
 
         return value.Trim().ToLowerInvariant() switch
@@ -48,7 +50,7 @@ internal static class CliLoggingPolicy
             "warn" => CliLogLevel.Warn,
             "info" => CliLogLevel.Info,
             "debug" => CliLogLevel.Debug,
-            _ => CliLogLevel.Error,
+            _ => CliLogLevel.Warn,
         };
     }
 

@@ -76,23 +76,6 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "az: natural language (AI)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
-            "args": [
-                "create",
-                "a",
-                "resource",
-                "group",
-                "named",
-                "test"
-            ],
-            "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
-            "console": "integratedTerminal"
-        },
-        {
             "name": "az: help",
             "type": "coreclr",
             "request": "launch",

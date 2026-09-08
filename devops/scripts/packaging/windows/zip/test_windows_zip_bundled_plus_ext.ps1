@@ -149,7 +149,7 @@ foreach ($completionFile in @('az.completions.ps1', 'az.completions.bash', 'az.c
 
 $builtins = @(
     'Microsoft.Azure.Azclips.Extensions.Extension',
-    'Microsoft.Azure.Azclips.Extensions.Login',
+    'Microsoft.Azure.Azclips.Extensions.Accounts',
     'Microsoft.Azure.Azclips.Extensions.Config'
 )
 
@@ -172,6 +172,17 @@ if ($IsWindows -and -not $SkipRuntime) {
     Write-Host '[Runtime] Running az.exe checks on Windows'
 
     $env:USERPROFILE = Join-Path $SimRoot 'home'
+
+    $versionOutput = & $azExe --version 2>&1
+    $versionExitCode = $LASTEXITCODE
+    $versionText = $versionOutput | Out-String
+    $versionText.Trim() | Out-Host
+    if ($versionExitCode -ne 0) {
+        throw "FAIL: az.exe --version exited with code $versionExitCode."
+    }
+    if ([string]::IsNullOrWhiteSpace($versionText)) {
+        throw 'FAIL: az.exe --version returned no output.'
+    }
 
     & $azExe --help | Select-Object -First 20 | Out-Host
     if ($LASTEXITCODE -ne 0) {
@@ -212,6 +223,8 @@ if ($IsWindows -and -not $SkipRuntime) {
     if ($groupText -match 'could not be found') {
         throw 'FAIL: Resources command not resolved after install.'
     } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved") {
+        Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
+    } elseif ($groupText -match "Missing required argument 'SubscriptionId' and no value found in profile.") {
         Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
     } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
         Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'

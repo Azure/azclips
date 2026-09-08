@@ -6,6 +6,7 @@ using System.Management.Automation;
 namespace Microsoft.Azure.Azclips.Cmdlets.Config;
 
 [Cmdlet(VerbsCommon.Get, "AzConfigList")]
+[OutputType(typeof(string))]
 public class GetAzConfigListCmdlet : ConfigCmdletBase
 {
     [Parameter(Mandatory = false)]

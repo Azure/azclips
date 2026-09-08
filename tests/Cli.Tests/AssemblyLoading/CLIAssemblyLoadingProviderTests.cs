@@ -63,7 +63,8 @@ public sealed class CLIAssemblyLoadingProviderTests
     {
         public Assembly? LoadExtension(string extensionName, string? version = null) => null;
 
-        public IEnumerable<(string Name, string Version)> GetInstalledExtensions() => installed;
+        public IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions() =>
+            installed.Select(entry => (entry.Name, entry.Version, (string?)null));
     }
 
     private sealed class NullLoggingService : ILoggingService

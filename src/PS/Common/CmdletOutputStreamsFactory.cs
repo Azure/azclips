@@ -119,7 +119,7 @@ internal static class CmdletOutputStreamsFactory
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return LogLevel.Error;
+            return LogLevel.Warn;
         }
 
         return value.Trim().ToLowerInvariant() switch
@@ -128,7 +128,7 @@ internal static class CmdletOutputStreamsFactory
             "warn" => LogLevel.Warn,
             "info" => LogLevel.Info,
             "debug" => LogLevel.Debug,
-            _ => LogLevel.Error,
+            _ => LogLevel.Warn,
         };
     }
 

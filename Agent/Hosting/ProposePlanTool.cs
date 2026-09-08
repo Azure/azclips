@@ -15,7 +15,7 @@ namespace Core.Agent.Hosting;
 ///   • issues       — what went wrong, as plain-text points
 ///   • steps         — the ordered commands to fix it
 ///   • placeholders  — secrets only the user knows (rendered with &lt;name&gt;)
-///   • defaults      — values the agent chose/derived (rendered as the real value)
+///   • defaults      — flags the agent chose/derived (rendered from the command's real token)
 /// Argument validation lives in the hook, so this body only logs.
 /// </summary>
 public sealed class ProposePlanTool
@@ -31,8 +31,8 @@ public sealed class ProposePlanTool
                 "direction before execution. Fields: " +
                 "issues (what went wrong, as short points), " +
                 "steps (the commands to fix it, in order), " +
-                "placeholders (secrets only the user can supply; optional), " +
-                "defaults (values you chose or derived for the user; optional).",
+                "placeholders (secret flags - a password, an SSH private key, only the user can supply; optional), " +
+                "defaults (non-secret flags not in the user's original command — a value you chose, a name you derived, or a valueless switch you supplied; optional).",
         });
 
         All = new[] { ProposePlan };
@@ -45,11 +45,11 @@ public sealed class ProposePlanTool
     private static string ProposePlanImpl(
         [Description("What went wrong: a list of short plain-text points, one string per point. Each point states one reason the command failed or one fact the user should know (e.g. \"The -g short flag isn't supported — use --resource-group\"). At least one point.")]
         IReadOnlyList<string> issues,
-        [Description("The commands that fix the problem, in order. Each: id (1-based), label (a short sentence describing this step), cmd (the exact command), destructive (set true for irreversible ops — delete/remove/purge; danger verbs auto-flag too). At least one step.")]
+        [Description("The commands that fix the problem, in order. Each: id (1-based), label (a short sentence describing this step), cmd (the exact command: (1) use <flag-name> as a placeholder in the parameter value for secret flags whose value you don't know, e.g. --admin-password <admin-password>; (2) put the real parameter value in the cmd for a value you chose (a common region, a moderate VM size) or a name you derived, e.g. `<vm>-nic`, `<vm>-vnet`, `<vm>-nsg`.), destructive (set true for irreversible ops — delete/remove/purge; danger verbs auto-flag too). At least one step.")]
         IReadOnlyList<StepMeta> steps,
-        [Description("Optional. Secrets only the user knows — a password, an SSH private key, anything the system can't obtain or infer. Each: name (the flag name without dashes, e.g. \"admin-password\") + description (one short phrase telling the user what to fill in). Use <name> as a placeholder in the command (e.g. --admin-password <admin-password>); not replacing it is expected to fail. Do NOT list values the environment can supply (e.g. subscription id from the signed-in context) — those go in defaults. Omit when there are none.")]
+        [Description("Optional. Secret flags only the user knows — a password, an SSH private key, anything the system can't obtain or infer. Each: flag (as written in your step's cmd, e.g. --admin-password) + description (one short phrase telling the user what to fill in). List flags you added or modified; don't list a flag the user already filled in themselves.")]
         IReadOnlyList<UserInputNeed>? placeholders = null,
-        [Description("Optional. Values you chose or derived for the user — a default region/size, a subscription id from the signed-in context, or names derived from the user's input (e.g. myvm-nic / myvm-vnet). Each: name (the flag name without dashes), value (the actual value you put in the command), note (one short phrase, why you picked it). Put the real value in the command so the user can run it as-is; this just flags it so they can change it. Do NOT list values the user already wrote in their original command. Omit when there are none.")]
+        [Description("Optional. Non-secret flags not in the user's original command — a value you chose (a default region/size, a subscription id from the signed-in context), a name you derived (e.g. myvm-nic / myvm-vnet), or a valueless switch you supplied (e.g. --active). Each: flag (as written in your step's cmd, e.g. --location), note (one short phrase, why you added it). Don't include the value — we read it from the matching flag in your step's cmd. List flags you added or modified; don't list a flag the user already filled in themselves.")]
         IReadOnlyList<ChosenDefault>? defaults = null)
     {
         using var scope = ToolInvocationLog.Start("propose_plan",
@@ -71,20 +71,21 @@ public sealed record StepMeta(
     bool? Destructive = null);
 
 /// <summary>
-/// A secret only the user can supply (password, SSH key, …). The agent uses
-/// <c>&lt;Name&gt;</c> as a placeholder in the command; the host renders it as a
-/// fill-in reminder. Not replacing it is expected to fail.
+/// A secret only the user can supply (password, SSH key, …). This record just
+/// names the flag (e.g. <c>--admin-password</c>); the agent writes that flag with a
+/// <c>&lt;placeholder&gt;</c> value in the step command. The host looks the flag up in
+/// the step command to render a fill-in reminder. Not replacing it is expected to fail.
 /// </summary>
 public sealed record UserInputNeed(
-    string Name,
+    string Flag,
     string Description);
 
 /// <summary>
-/// A value the agent chose or derived for the user (default region/size, a
-/// probe-supplied subscription id, a derived resource name). The real value is in
-/// the command so it runs as-is; the host flags it so the user can change it.
+/// A flag the agent chose or derived for the user (default region/size, a
+/// probe-supplied subscription id, a derived resource name). The value lives in
+/// the step command; the host reads it from there and flags it for review, so
+/// the display always matches what runs.
 /// </summary>
 public sealed record ChosenDefault(
-    string Name,
-    string Value,
+    string Flag,
     string Note);

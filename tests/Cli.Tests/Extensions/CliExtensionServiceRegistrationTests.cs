@@ -7,6 +7,7 @@
 using Core.Cli;
 using Core.Cli.Parser;
 using Core.Abstractions;
+using Core.Configuration.Options;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,6 +21,44 @@ public sealed class CliExtensionServiceRegistrationTests
         public FakeStore(ExtensionRegistry registry) => _registry = registry;
         public ExtensionRegistry Load() => _registry;
         public void Save(ExtensionRegistry registry) { }
+    }
+
+    private sealed class StubConfigurationService(string installedRoot) : IConfigurationService
+    {
+        private readonly AssemblyLoadingOptions _options = new() { InstalledExtensionsRoot = installedRoot };
+
+        public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
+            => typeof(T) == typeof(AssemblyLoadingOptions)
+                ? (T)(object)_options
+                : defaultValue ?? new T();
+
+        public Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public Task<object?> ResolveDefaultParameterAsync(string name, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public string GetConfigFilePath() => string.Empty;
+        public IConfigurationSchema GetSchema() => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public void AddCliExtensionDispatch_RegistersRegistryStore_AtConfigDerivedPath()
+    {
+        // Guards the one seat of truth for registry-path resolution: the DI factory in
+        // CliExtensionServiceRegistration. A regression here would silently re-detach
+        // the registry from assemblyLoading.installedExtensionsRoot (CLIPS-629).
+        var customRoot = Path.Combine(Path.GetTempPath(), $"clips-629-{Guid.NewGuid():N}");
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfigurationService>(new StubConfigurationService(customRoot));
+        services.AddCliExtensionDispatch();
+        using var sp = services.BuildServiceProvider();
+
+        var store = Assert.IsType<FileExtensionRegistryStore>(sp.GetRequiredService<IExtensionRegistryStore>());
+        Assert.Equal(Path.Combine(customRoot, HomePaths.RegistryFileName), store.Path);
     }
 
     [Fact]
@@ -68,7 +107,8 @@ public sealed class CliExtensionServiceRegistrationTests
             {
                 ["vm create"] = metadata,
                 ["vm delete"] = metadata with { Name = "delete", InvocationName = "vm delete", FullName = "vm delete" },
-            });
+            },
+            Location: null);
 
         var projection = CliExtensionServiceRegistration.BuildContributionProjection(info);
 
@@ -85,7 +125,8 @@ public sealed class CliExtensionServiceRegistrationTests
             PackageId: "Contoso.Foo",
             ResolvedVersion: "1.0.0",
             Verbs: ["foo"],
-            Commands: new Dictionary<string, CommandMetadata>());
+            Commands: new Dictionary<string, CommandMetadata>(),
+            Location: null);
 
         var projection = CliExtensionServiceRegistration.BuildContributionProjection(info);
 
@@ -117,7 +158,8 @@ public sealed class CliExtensionServiceRegistrationTests
                 Commands: new Dictionary<string, CommandMetadata>
                 {
                     ["vm create"] = metadata,
-                }),
+                },
+                Location: null),
             new DiscoveredExtensionInfo(
                 PackageId: "Contoso.Azure.Azclips.Extensions.ComputeFork",
                 ResolvedVersion: "1.0.0",
@@ -129,7 +171,8 @@ public sealed class CliExtensionServiceRegistrationTests
                         AssemblyName = "Contoso.Azure.Azclips.Extensions.ComputeFork",
                         FullName = "Contoso vm create",
                     },
-                }),
+                },
+                Location: null),
         };
 
         var registry = new ExtensionRegistry();
@@ -145,7 +188,7 @@ public sealed class CliExtensionServiceRegistrationTests
             };
         }
 
-        var ex = Assert.Throws<InvalidOperationException>(() => LeafIndex.Build(BuiltInExtensions.Map, registry));
+        var ex = Assert.Throws<InvalidOperationException>(() => LeafIndex.Build(registry));
         Assert.Contains("vm", ex.Message, StringComparison.Ordinal);
         Assert.Contains("create", ex.Message, StringComparison.Ordinal);
         Assert.Contains("Microsoft.Azure.Azclips.Extensions.Compute", ex.Message, StringComparison.Ordinal);

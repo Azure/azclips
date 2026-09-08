@@ -1,0 +1,12 @@
+{
+  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bench-rg/providers/Microsoft.Network/virtualNetworks/bench-vnet",
+  "location": "eastus",
+  "properties": {
+    "subnets": [
+      {
+        "name": "default",
+        "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bench-rg/providers/Microsoft.Network/virtualNetworks/bench-vnet/subnets/default"
+      }
+    ]
+  }
+}

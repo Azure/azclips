@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Diagnostics;
 using Core.Abstractions;
 using NuGet.Versioning;
 
@@ -43,6 +44,61 @@ public static class ExtensionCandidateSelector
         }
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// Surfaces a user-visible diagnostic when the file registry pins a specific version of an
+    /// extension but that version is not present in the discovered candidate set. The selector
+    /// silently falls back to the highest available version
+    /// (see <c>ExtensionCandidateSelectorTests.P9_UnresolvedPinFallsBackToEquivalentSelection</c>);
+    /// without this diagnostic the drift is invisible to the user.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Called from both selector consumers: <c>CliExtensionServiceRegistration.SelectInstalledCandidates</c>
+    /// (drives dispatch's <c>LeafIndex</c>) and <c>DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences</c>
+    /// (drives <c>az extension list</c>/<c>show</c>/<c>pin</c>). Keeping the diagnostic in one place ensures
+    /// both surfaces report the same drift.
+    /// </para>
+    /// </remarks>
+    public static void ReportUnresolvablePin(
+        string packageId,
+        SelectedExtensionCandidate selection,
+        ExtensionRegistryEntry? persistedPreference,
+        ILoggingService? loggingService)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
+        ArgumentNullException.ThrowIfNull(selection);
+
+        if (persistedPreference is not { Pinned: true } ||
+            string.IsNullOrWhiteSpace(persistedPreference.Version) ||
+            string.Equals(persistedPreference.Version, selection.Selected.ResolvedVersion, StringComparison.OrdinalIgnoreCase))
+        {
+            // Not pinned, no pin target, OR the selected candidate already matches the pin —
+            // the latter can happen via `SingleCandidate` (the sole candidate happens to be at
+            // the pinned version) as well as via the explicit `Pinned` reason.
+            return;
+        }
+
+        var requestedVersion = persistedPreference.Version;
+        var selectedVersion = string.IsNullOrWhiteSpace(selection.Selected.ResolvedVersion)
+            ? "(unversioned)"
+            : selection.Selected.ResolvedVersion;
+
+        loggingService?.Error(
+            $"[Pinned extension] Requested version '{requestedVersion}' of '{packageId}' is not " +
+            $"installed. Falling back to '{selectedVersion}'. Run 'az extension unpin {packageId}' " +
+            "or reinstall the pinned version to restore.");
+
+        Activity.Current?.AddEvent(new ActivityEvent(
+            "extension.pin.unresolvable",
+            tags: new ActivityTagsCollection
+            {
+                ["extension.package_id"] = packageId,
+                ["extension.pinned_version"] = requestedVersion,
+                ["extension.selected_version"] = selection.Selected.ResolvedVersion ?? string.Empty,
+                ["extension.selection_reason"] = selection.Reason.ToString(),
+            }));
     }
 
     public static SelectedExtensionCandidate Select(

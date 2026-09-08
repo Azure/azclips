@@ -52,21 +52,6 @@ public static class ExtensionAddPlanner
                     });
             }
 
-            // Built-in collision: built-ins occupy (verb, "") so an empty-path leaf for a
-            // reserved verb is rejected. (The verb-level check upstream catches the common
-            // case; this is defense-in-depth.)
-            if (BuiltInExtensions.IsBuiltInVerb(leafVerb) && string.IsNullOrEmpty(leafPath))
-            {
-                throw AzclipsErrorException.LeafConflict(
-                    $"Extension '{packageId}' contributes root leaf '{leafKey}', which is reserved for " +
-                    $"the built-in '{leafVerb}' extension.",
-                    new Dictionary<string, object?>
-                    {
-                        ["packageId"] = packageId,
-                        ["leafKey"] = leafKey,
-                    });
-            }
-
             // Registry collision: another installed package already owns the (verb, path) tuple.
             // Self-upsert is allowed (re-adding the same id is the upgrade path). On hit we
             // record the row and keep walking — the throw happens once, after the loop.

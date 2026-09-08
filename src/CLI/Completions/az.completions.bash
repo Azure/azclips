@@ -2,7 +2,7 @@
 # Usage: source <path-to>/az.completions.bash
 # Or add to your ~/.bashrc to auto-load on every session.
 #
-# Completions are resolved dynamically by invoking `az --completion-candidates [group] [subcommand]`
+# Completions are resolved dynamically by invoking `az --completion-candidates [command-path...]`
 # at tab time. This ensures completions match whichever `az` binary is on PATH.
 #
 # Detection: Old Azure CLI outputs error text (with uppercase letters) to stderr for unknown
@@ -54,7 +54,7 @@ _az_get_config_stamp() {
 }
 
 # Sets _az_query_result (avoids subshell so cache persists).
-# Usage: _az_query_candidates <exe> [group] [subcommand]
+# Usage: _az_query_candidates <exe> [command-path...]
 _az_query_candidates() {
     _az_query_result=""
     local exe="$1"; shift
@@ -124,57 +124,47 @@ _az_completions() {
         cword=$COMP_CWORD
     }
 
-    case $cword in
-        1)
-            # Level 0: complete top-level command groups
-            _az_query_candidates "$exe"
-            if [[ -n "$_az_query_result" ]]; then
-                COMPREPLY=($(compgen -W "$_az_query_result" -- "$cur"))
-            fi
-            ;;
-        2)
-            # Level 1: subcommands + group params
-            local group="${words[1]}"
-            _az_query_candidates "$exe" "$group"
-            if [[ -n "$_az_query_result" ]]; then
-                COMPREPLY=($(compgen -W "$_az_query_result" -- "$cur"))
-            fi
-            ;;
-        *)
-            # Level 2+: parameters for the command
-            local group="${words[1]}"
-            local sub="${words[2]}"
-            if [[ "$sub" != --* ]]; then
-                _az_query_candidates "$exe" "$group" "$sub"
-            else
-                _az_query_candidates "$exe" "$group"
-            fi
+    # Build the command path: the leading run of non-flag words after the exe,
+    # excluding the word currently being completed. The CLI walks this path through
+    # the command tree, so command groups of any depth resolve (top-level groups,
+    # intermediate groups like `deployment group`, and leaf commands).
+    local -a cmd_path=()
+    local i
+    for ((i=1; i<cword; i++)); do
+        [[ "${words[i]}" == -* ]] && break
+        cmd_path+=("${words[i]}")
+    done
 
-            # Filter out already-used params
-            local used_params=()
-            for ((i=2; i<cword; i++)); do
-                if [[ "${words[i]}" == --* ]]; then
-                    used_params+=("${words[i]}")
-                fi
-            done
+    _az_query_candidates "$exe" "${cmd_path[@]}"
+    if [[ -z "$_az_query_result" ]]; then
+        COMPREPLY=()
+        return
+    fi
 
-            local available=""
-            for p in $_az_query_result; do
-                local already_used=false
-                for u in "${used_params[@]}"; do
-                    if [[ "$p" == "$u" ]]; then
-                        already_used=true
-                        break
-                    fi
-                done
-                if ! $already_used; then
-                    available="$available $p"
-                fi
-            done
+    # Filter out flags already present on the command line.
+    local -a used_params=()
+    for ((i=1; i<cword; i++)); do
+        if [[ "${words[i]}" == --* ]]; then
+            used_params+=("${words[i]}")
+        fi
+    done
 
-            COMPREPLY=($(compgen -W "$available" -- "$cur"))
-            ;;
-    esac
+    local available=""
+    local candidate used_param already_used
+    for candidate in $_az_query_result; do
+        already_used=false
+        for used_param in "${used_params[@]}"; do
+            if [[ "$candidate" == "$used_param" ]]; then
+                already_used=true
+                break
+            fi
+        done
+        if ! $already_used; then
+            available="$available $candidate"
+        fi
+    done
+
+    COMPREPLY=($(compgen -W "$available" -- "$cur"))
 }
 
 complete -F _az_completions -o default az az.exe

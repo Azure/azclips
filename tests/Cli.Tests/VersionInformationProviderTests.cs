@@ -57,7 +57,7 @@ public class VersionInformationProviderTests
     public void Gather_ShouldReportExtensionsDirectory_FromAssemblyLoadingOptions()
     {
         var extensionsDir = Path.Combine(Path.GetTempPath(), "azclips-extensions", Guid.NewGuid().ToString("N"));
-        var options = new AssemblyLoadingOptions { VersionedInstallationDir = extensionsDir };
+        var options = new AssemblyLoadingOptions { InstalledExtensionsRoot = extensionsDir };
 
         var info = VersionInformationProvider.Gather(new FakeConfigurationService(ConfigFilePath, options));
 

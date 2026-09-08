@@ -15,7 +15,7 @@ parameters:
 jobs:
 - job: MacOSValidation
   displayName: CLI macOS Validation
-  timeoutInMinutes: 45
+  timeoutInMinutes: 30
   strategy:
     matrix:
       osx_arm64_lean:

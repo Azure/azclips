@@ -27,4 +27,12 @@
   <ItemGroup>
     <ProjectReference Include="..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <InternalsVisibleTo Include="Cli.Tests" />
+  </ItemGroup>
 </Project>

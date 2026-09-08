@@ -1,0 +1,5 @@
+{
+  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/bench-rg/providers/Microsoft.Compute/virtualMachines/bench-vm",
+  "location": "eastus",
+  "properties": { "provisioningState": "Succeeded" }
+}

@@ -13,11 +13,11 @@ public class StubTelemetryService : ITelemetryService
 {
     public ActivitySource ActivitySource { get; } = new("Stub");
 
-    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
-        ActivitySource.StartActivity(name, kind);
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
+        ActivitySource.StartActivity(name, kind, parentContext: default, tags: null, links: null, startTime: startTime);
 
-    public Activity? StartRootActivity() =>
-        ActivitySource.StartActivity("Stub.Activity.Root", ActivityKind.Server);
+    public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) =>
+        ActivitySource.StartActivity(name ?? "Stub.Activity.Root", ActivityKind.Server, parentContext: default, tags: null, links: null, startTime: startTime);
 
     public Activity? TagInvocation(CommandInvocation commandInvocation) => Activity.Current;
 

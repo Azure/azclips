@@ -9,6 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Compute;
 
 [Cmdlet(VerbsCommon.Remove, "AzVM", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
+[OutputType(typeof(void))]
 public class RemoveVMCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
@@ -16,9 +17,6 @@ public class RemoveVMCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
-
-    [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = true)]
@@ -26,6 +24,9 @@ public class RemoveVMCmdlet : PSCmdlet
 
     [Parameter(Mandatory = true)]
     public string ResourceGroupName { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string? Profile { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -45,10 +46,14 @@ public class RemoveVMCmdlet : PSCmdlet
 
         var parameters = new Dictionary<string, object>
         {
-            { "SubscriptionId", SubscriptionId },
             { "Name", Name },
             { "ResourceGroupName", ResourceGroupName },
         };
+
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
+        {
+            parameters.Add("SubscriptionId", SubscriptionId);
+        }
 
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

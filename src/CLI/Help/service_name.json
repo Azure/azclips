@@ -1,0 +1,13 @@
+[
+  { "Command": "agent", "AzureServiceName": "azure-cli" },
+  { "Command": "config", "AzureServiceName": "azure-cli" },
+  { "Command": "deployment", "AzureServiceName": "azure-cli" },
+  { "Command": "disk", "AzureServiceName": "azure-cli" },
+  { "Command": "extension", "AzureServiceName": "azure-cli" },
+  { "Command": "group", "AzureServiceName": "azure-cli" },
+  { "Command": "login", "AzureServiceName": "azure-cli" },
+  { "Command": "logout", "AzureServiceName": "azure-cli" },
+  { "Command": "profile", "AzureServiceName": "azure-cli" },
+  { "Command": "rest", "AzureServiceName": "azure-cli" },
+  { "Command": "vm", "AzureServiceName": "azure-cli" }
+]

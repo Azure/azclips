@@ -33,38 +33,36 @@ public sealed class RuntimeHelpDispatcher
 {
     private readonly IHelpRenderer _renderer;
     private readonly IEngine _engine;
-    private readonly HashSet<string> _builtInPackageIds;
     private readonly ExtensionHintTable _hintTable;
     private readonly TextWriter _output;
     private readonly OutputStreams _streams;
+    private readonly IExtensionRegistryStore _registryStore;
 
-    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams)
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore)
         : this(
             engine,
-            BuiltInExtensions.Map,
             ExtensionHintTable.Default,
             new RuntimeHelpRenderer(),
             Console.Out,
-            streams)
+            streams,
+            registryStore)
     {
     }
 
     internal RuntimeHelpDispatcher(
         IEngine engine,
-        IReadOnlyDictionary<string, BuiltInExtension> builtIns,
         ExtensionHintTable hintTable,
         IHelpRenderer renderer,
         TextWriter output,
-        OutputStreams streams)
+        OutputStreams streams,
+        IExtensionRegistryStore registryStore)
     {
         _engine = engine;
-        _builtInPackageIds = builtIns.Values
-            .Select(static b => b.PackageId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         _hintTable = hintTable;
         _renderer = renderer;
         _output = output;
         _streams = streams;
+        _registryStore = registryStore;
     }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
@@ -75,25 +73,36 @@ public sealed class RuntimeHelpDispatcher
         return 0;
     }
 
-    /// <summary>Renders help for a group or command path raised via <see cref="RuntimeExtensionHelpException"/>.</summary>
-    public int RenderExtensionHelp(RuntimeExtensionHelpException helpException)
+    /// <summary>Renders help for a group or command path. <paramref name="path"/>[0] is the verb; extra
+    /// tokens indicate a command-help request (the caller supplies whatever tokens the user typed after
+    /// <c>--help</c> / <c>help</c>).</summary>
+    public int RenderExtensionHelp(IReadOnlyList<string> path)
     {
+        ArgumentNullException.ThrowIfNull(path);
+        if (path.Count == 0)
+        {
+            // Root help is handled by RenderRoot; reaching here with an empty path is a programmer error.
+            throw new ArgumentException("Path must be non-empty; root help is handled by RenderRoot.", nameof(path));
+        }
+
+        var verb = path[0];
+        // Command-help hint; branches below still fall back to group help if no command matches.
+        var isCommandHelp = path.Count > 1;
+
         var discovered = DiscoverInstalledExtensions();
-        if (!TryResolveExtension(discovered, helpException.Verb, out var extensionInfo))
+        if (!TryResolveExtension(discovered, verb, out var extensionInfo))
         {
             // Intrinsic host verbs (e.g. `version`) are not owned by any installed extension, but
             // their help still lives in the markdown corpus so `az <verb> --help` keeps working.
-            if (TryRenderIntrinsicHelp(helpException.Verb, out var intrinsicExitCode))
+            if (TryRenderIntrinsicHelp(verb, out var intrinsicExitCode))
             {
                 return intrinsicExitCode;
             }
 
-            // No discovered owner for this verb. If the embedded hint table knows it,
-            // surface the structured "extension not installed" message — same UX as
-            // the execute path (see ExtensionDispatcher.Parse).
-            if (_hintTable.TryGetPackageId(helpException.Verb, out var hintedPackage))
+            // Matches the execute-path UX in ExtensionDispatcher.Parse.
+            if (_hintTable.TryGetPackageId(verb, out var hintedPackage))
             {
-                throw new ExtensionNotInstalledException(helpException.Verb, hintedPackage);
+                throw new ExtensionNotInstalledException(verb, hintedPackage);
             }
 
             // Truly unknown verb (no install hint either). Surface as a structured error so the
@@ -101,43 +110,40 @@ public sealed class RuntimeHelpDispatcher
             throw new AzclipsErrorException(
                 code: "VerbNotFound",
                 exitCode: 4,
-                message: $"No installed extension owns verb '{helpException.Verb}'. Run 'az extension list' to see installed extensions.",
-                details: new Dictionary<string, object?> { ["verb"] = helpException.Verb });
+                message: $"No installed extension owns verb '{verb}'. Run 'az extension list' to see installed extensions.",
+                details: new Dictionary<string, object?> { ["verb"] = verb });
         }
 
-        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, helpException.Verb);
+        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, verb);
 
         IEnumerable<string> lines;
-        if (helpException.IsCommandHelp)
+        if (isCommandHelp)
         {
-            // The parser flags any path with extra tokens as a command-help request, but the
-            // user may have asked about an intermediate group (e.g. `az deployment group --help`
-            // when the only leaf is `deployment group create`). Try the command first; fall back
-            // to group help so partial paths don't crash the renderer.
-            var command = helpProvider.GetCommandHelp(helpException.Path);
+            // Extra tokens may name an intermediate group; fall back to group help if no command matches.
+            var command = helpProvider.GetCommandHelp(path);
             if (command != null)
             {
                 lines = _renderer.RenderCommand(command, TerminalWidth());
             }
             else
             {
-                var group = helpProvider.GetGroupHelp(helpException.Path)
-                    ?? throw new KeyNotFoundException($"No help found for path '{string.Join(" ", helpException.Path)}'.");
+                var group = helpProvider.GetGroupHelp(path)
+                    ?? throw new KeyNotFoundException($"No help found for path '{string.Join(" ", path)}'.");
                 lines = _renderer.RenderGroup(group, TerminalWidth());
             }
         }
         else
         {
             // A verb root can also be a runnable command (e.g. "az login" is both).
-            var rootCommand = helpProvider.GetCommandHelp(helpException.Path);
+            var rootCommand = helpProvider.GetCommandHelp(path);
             if (rootCommand != null)
             {
                 lines = _renderer.RenderCommand(rootCommand, TerminalWidth());
             }
             else
             {
-                var group = helpProvider.GetGroupHelp(helpException.Path)
-                    ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", helpException.Path)}'.");
+                var group = helpProvider.GetGroupHelp(path)
+                    ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", path)}'.");
                 lines = _renderer.RenderGroup(group, TerminalWidth());
             }
         }
@@ -188,16 +194,15 @@ public sealed class RuntimeHelpDispatcher
 
     /// <summary>
     /// Yields one <see cref="RuntimeHelpGroup"/> per discovered (package, verb) pair.
-    /// Discovery is authoritative for installed state; built-ins are used only as tie-breaker
-    /// precedence when two discovered extensions claim the same verb.
+    /// Discovery is authoritative for installed state; deterministic package-id order is the
+    /// tiebreak when multiple discovered extensions claim the same verb.
     /// </summary>
     private IEnumerable<RuntimeHelpGroup> EnumerateAllVerbRoots()
     {
         var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var discovered = DiscoverInstalledExtensions();
         var ordered = discovered
-            .OrderByDescending(info => _builtInPackageIds.Contains(info.PackageId))
-            .ThenBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
+            .OrderBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
 
         foreach (var info in ordered)
         {
@@ -206,7 +211,7 @@ public sealed class RuntimeHelpDispatcher
             {
                 if (!seenVerbs.Add(verb))
                 {
-                    // First owner wins; ordering above ensures built-ins win when present.
+                    // First owner wins; ordering above is stable package-id sort.
                     continue;
                 }
 
@@ -291,7 +296,7 @@ public sealed class RuntimeHelpDispatcher
         ExtensionRegistry? registry = null;
         try
         {
-            registry = new FileExtensionRegistryStore().Load();
+            registry = _registryStore.Load();
         }
         catch (Exception ex)
         {
@@ -350,12 +355,16 @@ public sealed class RuntimeHelpDispatcher
     }
 
     private bool TryResolveExtension(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)
+        => TryResolveExtensionCore(discovered, verb, out extensionInfo);
+
+    // Prefer the root-leaf owner so `az <verb> --help` matches where `az <verb>` dispatches.
+    internal static bool TryResolveExtensionCore(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(verb);
 
         var match = discovered
             .Where(info => OwnsVerb(info, verb))
-            .OrderByDescending(info => _builtInPackageIds.Contains(info.PackageId))
+            .OrderByDescending(info => OwnsRootLeaf(info, verb))
             .ThenBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault();
 
@@ -368,6 +377,9 @@ public sealed class RuntimeHelpDispatcher
         extensionInfo = match;
         return true;
     }
+
+    private static bool OwnsRootLeaf(DiscoveredExtensionInfo info, string verb)
+        => info.Commands.Keys.Any(command => command.Equals(verb, StringComparison.OrdinalIgnoreCase));
 
     private static IReadOnlyList<string> GetOwnedVerbs(DiscoveredExtensionInfo info)
     {
