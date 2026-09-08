@@ -67,6 +67,31 @@ public class StorageAccountProperties
     public AzureFilesIdentityBasedAuthentication? AzureFilesIdentityBasedAuthentication { get; set; }
     public Encryption? Encryption { get; set; }
     public CustomDomain? CustomDomain { get; set; }
+
+    // Only populated when show requests it via $expand. The sibling blobRestoreStatus expansion is
+    // deliberately not modelled: it reports progress of a blob-range restore started by
+    // `az storage blob restore` / Restore-AzStorageBlobRange, which this extension does not ship.
+    public GeoReplicationStats? GeoReplicationStats { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+// Read-only throughout; returned only when show passes $expand=geoReplicationStats.
+public class GeoReplicationStats
+{
+    public string? Status { get; set; }
+    public DateTime? LastSyncTime { get; set; }
+    public bool? CanFailover { get; set; }
+    public bool? CanPlannedFailover { get; set; }
+    public string? PostFailoverRedundancy { get; set; }
+    public string? PostPlannedFailoverRedundancy { get; set; }
+    public override string ToString() => JsonNode.FromObject(this).ToString();
+}
+
+// ARM list envelope. Both list operations return this shape; nextLink drives pagination.
+public class StorageAccountListResult
+{
+    public StorageAccount[]? Value { get; set; }
+    public string? NextLink { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 

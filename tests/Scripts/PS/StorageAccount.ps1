@@ -1,8 +1,8 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# Storage account create - PowerShell (New-AzStorageAccount)
-# Equivalent of: New-AzStorageAccount
+# Storage account - PowerShell (New-/Get-/Remove-AzStorageAccount)
+# Equivalent of: New-AzStorageAccount, Get-AzStorageAccount, Remove-AzStorageAccount
 #
 # Shared test context:
 #   SubscriptionId: resolved from the active profile (no -SubscriptionId needed)
@@ -224,7 +224,43 @@ New-AzStorageAccount `
     -Kind StorageV2 `
     -Tags 'notavalidtag'
 
-# Cleanup: there is no Remove-AzStorageAccount cmdlet yet, so remove the accounts through
-# the generic REST cmdlet, or delete the resource group in the portal.
-# Invoke-AzRestMethod -Method DELETE `
-#     -Uri "/subscriptions/{subscriptionId}/resourceGroups/$Rg/providers/Microsoft.Storage/storageAccounts/<name>?api-version=2026-04-01"
+# ── Get / Remove ──
+#
+# These reuse one account so the read cases have something stable to act on, and the
+# Remove at the end doubles as the cleanup this script used to leave to the portal.
+$CrudName = "azclipscrud$(New-Suffix)"
+
+New-AzStorageAccount `
+    -ResourceGroupName $Rg `
+    -AccountName $CrudName `
+    -Location $Loc `
+    -SkuName Standard_LRS `
+    -Kind StorageV2
+
+# AccountName parameter set: one account.
+Get-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName
+
+# Geo-replication stats are only returned when asked for; Standard_LRS is not geo-redundant,
+# so expect the expansion to come back empty rather than populated.
+Get-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName -IncludeGeoReplicationStats
+
+# ResourceGroup parameter set, scoped to the group then to the whole subscription. The
+# second form takes the other API operation, so it is worth running both.
+Get-AzStorageAccount -ResourceGroupName $Rg
+
+Get-AzStorageAccount
+
+# The results enumerate, so the pipeline should see individual accounts rather than one array.
+Get-AzStorageAccount -ResourceGroupName $Rg | Select-Object -ExpandProperty Name
+
+# -WhatIf must not delete anything.
+Remove-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName -WhatIf
+
+# High confirm impact means this prompts unless -Confirm:$false is passed.
+Remove-AzStorageAccount -ResourceGroupName $Rg -Name $CrudName -Confirm:$false
+
+# Negative case: get an account that does not exist.
+Get-AzStorageAccount -ResourceGroupName $Rg -Name 'azclipsdoesnotexist'
+
+# Cleanup: the create cases above each made an account with a random name. Remove them with
+# `Remove-AzStorageAccount -ResourceGroupName $Rg -Name <name>`, or remove the whole group.

@@ -16,6 +16,7 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added `Get-AzStorageAccount` and `Remove-AzStorageAccount`
 
 ## Version 0.1.0
 

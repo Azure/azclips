@@ -95,8 +95,55 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata s_showStorageAccount_PS = new(
+            Name: "ShowStorageAccountProcessor",
+            InvocationName: "Get-AzStorageAccount_AccountName",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ShowStorageAccountProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
+            ProcessorType: typeof(Processors.ShowStorageAccountProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"] = new("AccountName", "Name", typeof(string), "The name of the storage account.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Expand"] = new("Expand", "Expand", typeof(string), "Additional properties to include in the response.", IsRequired: false, Aliases: [], AllowedValues: ["geoReplicationStats"]),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
 
-        // ── CLI Command Metadata ──
+        private static readonly CommandMetadata s_listStorageAccount_PS = new(
+            Name: "ListStorageAccountProcessor_Customized",
+            InvocationName: "Get-AzStorageAccount_ResourceGroup",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageAccountProcessor_Customized",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
+            ProcessorType: typeof(Processors.ListStorageAccountProcessor_Customized),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name. Omit to list every storage account in the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_removeStorageAccount_PS = new(
+            Name: "DeleteStorageAccountProcessor",
+            InvocationName: "Remove-AzStorageAccount",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.DeleteStorageAccountProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
+            ProcessorType: typeof(Processors.DeleteStorageAccountProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"] = new("AccountName", "Name", typeof(string), "The name of the storage account.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+
         private static readonly CommandMetadata s_newStorageAccount_CLI = new(
             Name: "NewStorageAccountProcessor_Customized",
             InvocationName: "storage account create",
@@ -180,10 +227,63 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata s_showStorageAccount_CLI = new(
+            Name: "ShowStorageAccountProcessor",
+            InvocationName: "storage account show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ShowStorageAccountProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
+            ProcessorType: typeof(Processors.ShowStorageAccountProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("AccountName", "name", typeof(string), "The name of the storage account.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string), "Additional properties to include in the response.", IsRequired: false, Aliases: [], AllowedValues: ["geoReplicationStats"]),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_listStorageAccount_CLI = new(
+            Name: "ListStorageAccountProcessor_Customized",
+            InvocationName: "storage account list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageAccountProcessor_Customized",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
+            ProcessorType: typeof(Processors.ListStorageAccountProcessor_Customized),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name. Omit to list every storage account in the subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_deleteStorageAccount_CLI = new(
+            Name: "DeleteStorageAccountProcessor",
+            InvocationName: "storage account delete",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.DeleteStorageAccountProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
+            ProcessorType: typeof(Processors.DeleteStorageAccountProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("AccountName", "name", typeof(string), "The name of the storage account.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
             ["New-AzStorageAccount"] = s_newStorageAccount_PS,
+            // Get-AzStorageAccount resolves to one of these by parameter set: the cmdlet appends
+            // its ParameterSetName to the command name, so each set binds to its own processor.
+            ["Get-AzStorageAccount_AccountName"] = s_showStorageAccount_PS,
+            ["Get-AzStorageAccount_ResourceGroup"] = s_listStorageAccount_PS,
+            ["Remove-AzStorageAccount"] = s_removeStorageAccount_PS,
         };
 
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
@@ -192,6 +292,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["storage account create"]     = s_newStorageAccount_CLI,
+            ["storage account show"]       = s_showStorageAccount_CLI,
+            ["storage account list"]       = s_listStorageAccount_CLI,
+            ["storage account delete"]     = s_deleteStorageAccount_CLI,
         };
 
         // Per-processor --profile / -Profile override (workaround until a global-parameter framework

@@ -1,5 +1,5 @@
-# Storage account create - CLI (az storage account create)
-# Equivalent of: az storage account create
+# Storage account - CLI (az storage account create/show/list/delete)
+# Equivalent of: az storage account create/show/list/delete
 #
 # Shared test context:
 #   subscription: resolved from the active profile (no --subscription-id needed)
@@ -255,7 +255,49 @@ az storage account create \
     --kind StorageV2 \
     --tags notavalidtag
 
-# Cleanup: there is no `az storage account delete` yet, so remove the accounts through
-# the generic REST command, or delete the resource group in the portal.
-# az rest --method DELETE \
-#     --uri "/subscriptions/{subscriptionId}/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/<name>?api-version=2026-04-01"
+# ── show / list / delete ──
+#
+# These reuse one account so the read cases have something stable to act on, and the
+# delete at the end doubles as the cleanup this script used to leave to the portal.
+CRUD_NAME=azclipscrud$RANDOM
+
+az storage account create \
+    --resource-group $RG \
+    --name $CRUD_NAME \
+    --location $LOC \
+    --sku Standard_LRS \
+    --kind StorageV2
+
+az storage account show \
+    --resource-group $RG \
+    --name $CRUD_NAME
+
+# Geo-replication stats are only returned when asked for; Standard_LRS is not geo-redundant,
+# so expect the expansion to come back empty rather than populated.
+az storage account show \
+    --resource-group $RG \
+    --name $CRUD_NAME \
+    --expand geoReplicationStats
+
+# Scoped to the resource group, then across the whole subscription. The second form takes
+# the other API operation, so it is worth running both.
+az storage account list --resource-group $RG
+
+az storage account list
+
+az storage account delete \
+    --resource-group $RG \
+    --name $CRUD_NAME
+
+# Deleting twice: the second call should report that the account no longer exists.
+az storage account delete \
+    --resource-group $RG \
+    --name $CRUD_NAME
+
+# Negative case: show an account that does not exist.
+az storage account show \
+    --resource-group $RG \
+    --name azclipsdoesnotexist
+
+# Cleanup: the create cases above each made an account with a random name. Delete them with
+# `az storage account delete --resource-group $RG --name <name>`, or remove the whole group.
