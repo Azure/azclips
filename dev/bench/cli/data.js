@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788846811532,
+  "lastUpdate": 1788846868162,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -9016,6 +9016,54 @@ window.BENCHMARK_DATA = {
             "value": 2277208.297470895,
             "unit": "ns",
             "range": "± 98937.64185856128"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fa17f0631232c0065b381211e8e689e63a3f802",
+          "message": "[Profile] `az profile show`: Support default active selection (#825)\n\nImplements feature: https://github.com/Azure/azclips/issues/630",
+          "timestamp": "2026-09-08T13:30:50+08:00",
+          "tree_id": "56240ea329ddb59e85ea77084c4bafca5fb7c515",
+          "url": "https://github.com/Azure/azclips/commit/8fa17f0631232c0065b381211e8e689e63a3f802"
+        },
+        "date": 1788846864795,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2419780.6456661317,
+            "unit": "ns",
+            "range": "± 92129.83651029693"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2462261.150280899,
+            "unit": "ns",
+            "range": "± 100075.69955296404"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2404050.4650716735,
+            "unit": "ns",
+            "range": "± 102029.45105448918"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2296937.398352752,
+            "unit": "ns",
+            "range": "± 99119.26004016776"
           }
         ]
       }
