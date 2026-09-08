@@ -5,8 +5,8 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
-using Microsoft.Azure.Azclips.Extensions.Login;
-using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Microsoft.Azure.Azclips.Extensions.Accounts;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cli.Tests;

@@ -117,7 +117,7 @@ internal sealed class ScenarioHost : IDisposable
             }
             else
             {
-                services.AddSingleton<IArgumentParsingProvider, Microsoft.Azure.Azclips.Cmdlets.Login.PSArgumentParsingProvider>();
+                services.AddSingleton<IArgumentParsingProvider, Microsoft.Azure.Azclips.Cmdlets.Accounts.PSArgumentParsingProvider>();
             }
         });
         AzclipsServiceProvider.Initialize(clientType);

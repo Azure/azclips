@@ -45,13 +45,13 @@ namespace Core.Extensions.Tests
             // Post-CLIPS-622: Login is a normal extension — same code path as vm/group/etc.
             // The rule the test enshrines is "no Core exception in resolution": every verb
             // resolves through the same registry lookup.
-            var store = StoreWith("Microsoft.Azure.Azclips.Extensions.Login", "login");
+            var store = StoreWith("Microsoft.Azure.Azclips.Extensions.Accounts", "login");
             var resolver = new ExtensionResolver(store);
 
             var found = resolver.TryResolve("login", out var resolved);
 
             Assert.True(found);
-            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Login", resolved!.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Accounts", resolved!.PackageId);
         }
 
         [Fact]
@@ -70,7 +70,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void TryResolve_ShouldMatchVerb_CaseInsensitively()
         {
-            var store = StoreWith("Microsoft.Azure.Azclips.Extensions.Login", "login");
+            var store = StoreWith("Microsoft.Azure.Azclips.Extensions.Accounts", "login");
             var resolver = new ExtensionResolver(store);
 
             Assert.True(resolver.TryResolve("LOGIN", out _));

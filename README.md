@@ -32,7 +32,7 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 3. **Sign in** — run `az login`.
 4. **Explore supported commands**
    - CLI: `config`, `deployment`, `disk`, `extension`, `group`, `login`, `logout`, `profile`, `rest`, and `vm`
-   - PowerShell: **Login**, **Resources**, **Compute**, and **Config**
+   - PowerShell: **Accounts**, **Resources**, **Compute**, and **Config**
    - Additional commands will continue to be added in weekly iterations.
 
 > `az` installs side-by-side with the classic `azure-cli` and does **not** modify your `PATH` by default. See the [install overview](docs/azure-cli/docs-conceptual/install-overview.md) for PATH and offline options.

@@ -193,7 +193,7 @@ Aggregated benchmark results are what get exported to App Insights. Command-leve
 
 1. Add `CLI/<Resource>Benchmarks.cs` and `PS/<Resource>Benchmarks.cs`, each tagged
    `[BenchmarkExtension("<Name>")]`. Use a single, title-cased `<Name>` (e.g. `Compute`,
-   `Login`) — it becomes the dashboard title (`Azclips <Name> CLI Benchmarks`).
+   `Accounts`) — it becomes the dashboard title (`Azclips <Name> CLI Benchmarks`).
    `RequiredExtensions` (CLI) and `ModuleName` (PS) are derived from the attribute, so
    there is nothing else to wire up on the class.
 2. Keep the product source under `src/Extensions/<Name>/` (and/or `src/PS/<Name>/`) —

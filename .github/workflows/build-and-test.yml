@@ -44,13 +44,13 @@ jobs:
       - name: E2E - PowerShell Module
         shell: pwsh
         run: |
-          Import-Module ./src/PS/Login/Login.psd1
-          $commands = Get-Command -Module Login
+          Import-Module ./src/PS/Accounts/Accounts.psd1
+          $commands = Get-Command -Module Accounts
           if ($commands.Count -eq 0) {
-            Write-Error "No commands found in Login module"
+            Write-Error "No commands found in Accounts module"
             exit 1
           }
-          Write-Host "Found $($commands.Count) commands in Login module"
+          Write-Host "Found $($commands.Count) commands in Accounts module"
 
   recording-secret-scan:
     runs-on: ubuntu-latest
