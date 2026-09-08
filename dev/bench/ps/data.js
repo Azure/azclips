@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788846841384,
+  "lastUpdate": 1788846901643,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -8766,6 +8766,54 @@ window.BENCHMARK_DATA = {
             "value": 1389022.181084437,
             "unit": "ns",
             "range": "± 32188.869348045115"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fa17f0631232c0065b381211e8e689e63a3f802",
+          "message": "[Profile] `az profile show`: Support default active selection (#825)\n\nImplements feature: https://github.com/Azure/azclips/issues/630",
+          "timestamp": "2026-09-08T13:30:50+08:00",
+          "tree_id": "56240ea329ddb59e85ea77084c4bafca5fb7c515",
+          "url": "https://github.com/Azure/azclips/commit/8fa17f0631232c0065b381211e8e689e63a3f802"
+        },
+        "date": 1788846898356,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 1503801.5727087576,
+            "unit": "ns",
+            "range": "± 26439.15113980573"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 1562588.2564440835,
+            "unit": "ns",
+            "range": "± 31697.10922598062"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 1473127.2683890578,
+            "unit": "ns",
+            "range": "± 29636.984169534422"
+          },
+          {
+            "name": "Benchmark.PS.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 1408265.3781616287,
+            "unit": "ns",
+            "range": "± 29267.700092071915"
           }
         ]
       }
