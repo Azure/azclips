@@ -20,19 +20,19 @@ Gets an access token for the current signed-in context.
 ### ResourceType (Default)
 
 ```
-Get-AzAccessToken [-ResourceTypeName <string>] [-TenantId <string>] [-SubscriptionId <string>] [<CommonParameters>]
+Get-AzAccessToken [-ResourceTypeName <string>] [-TenantId <string>] [-SubscriptionId <string>] [-AsPlainText] [<CommonParameters>]
 ```
 
 ### Resource
 
 ```
-Get-AzAccessToken -ResourceUrl <string> [-TenantId <string>] [-SubscriptionId <string>] [<CommonParameters>]
+Get-AzAccessToken -ResourceUrl <string> [-TenantId <string>] [-SubscriptionId <string>] [-AsPlainText] [<CommonParameters>]
 ```
 
 ### Scope
 
 ```
-Get-AzAccessToken -Scope <string[]> [-TenantId <string>] [-SubscriptionId <string>] [<CommonParameters>]
+Get-AzAccessToken -Scope <string[]> [-TenantId <string>] [-SubscriptionId <string>] [-AsPlainText] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -41,7 +41,7 @@ Get-AzAccessToken -Scope <string[]> [-TenantId <string>] [-SubscriptionId <strin
 
 Acquires an access token from the current signed-in context for a resource, a well-known resource type, or an explicit list of Microsoft Entra scopes. When no target is specified, a token for Azure Resource Manager (ARM) is returned.
 
-The token is protected by default and is not emitted as plain text. To emit the raw token as plain text, set the `AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN` environment variable before running the command.
+The token is redacted by default and is not emitted as plain text. Pass -AsPlainText to emit the raw token as plain text.
 
 ## EXAMPLES
 
@@ -77,7 +77,36 @@ Gets an access token for an explicit list of Microsoft Entra v2.0 scopes.
 Get-AzAccessToken -Scope 'https://graph.microsoft.com/.default'
 ```
 
+### Example 5
+
+Gets an access token and emits the raw token as plain text.
+
+```powershell
+Get-AzAccessToken -AsPlainText
+```
+
 ## PARAMETERS
+
+### -AsPlainText
+
+Emit the raw access token as plain text. By default the token is redacted in output.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: 'False'
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -ResourceUrl
 
@@ -201,6 +230,6 @@ The acquired token result: the token (protected by default), its expiry, the ten
 
 ## NOTES
 
-The token is protected by default. Set the `AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN` environment variable to emit the raw token as plain text.
+The token is redacted by default. Pass -AsPlainText to emit the raw token as plain text.
 
 ## RELATED LINKS

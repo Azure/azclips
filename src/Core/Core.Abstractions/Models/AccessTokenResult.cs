@@ -11,15 +11,17 @@ namespace Core.Abstractions;
 /// <remarks>
 /// The <see cref="Token"/> value is a secret. Command output is secure by default:
 /// front ends MUST NOT render the raw token unless the caller has explicitly opted into
-/// plaintext (CLI <c>--plaintext</c> flag; PowerShell
-/// <c>AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN</c> environment variable). The
-/// <see cref="RedactedPlaceholder"/> is the value shown in the token field when plaintext
-/// has not been requested.
+/// plaintext (CLI <c>--plaintext</c> flag; PowerShell <c>-AsPlainText</c> switch). The
+/// redacted placeholder shown in the token field otherwise names the reveal option for the
+/// current front end.
 /// </remarks>
 public record AccessTokenResult
 {
-    /// <summary>The placeholder shown in place of the token when plaintext output is not requested.</summary>
-    public const string RedactedPlaceholder = "<redacted - rerun with --plaintext to reveal>";
+    /// <summary>Placeholder shown in place of the token on the CLI when plaintext is not requested.</summary>
+    public const string RedactedPlaceholderCli = "<redacted - rerun with --plaintext to reveal>";
+
+    /// <summary>Placeholder shown in place of the token in PowerShell when plaintext is not requested.</summary>
+    public const string RedactedPlaceholderPowerShell = "<redacted - rerun with -AsPlainText to reveal>";
 
     /// <summary>The raw access token. Treated as a secret; not surfaced in default output.</summary>
     public required string Token { get; init; }

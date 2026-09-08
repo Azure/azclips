@@ -6,9 +6,8 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 /// <summary>
 /// Retrieves an access token for a resource, well-known resource type, or explicit scope list from
-/// the current signed-in context. The token is returned as a <see cref="SecureString"/>-style
-/// protected value by default; set the <c>AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN</c> environment
-/// variable to emit the raw token as plain text.
+/// the current signed-in context. The token is redacted by default; pass <c>-AsPlainText</c> to emit
+/// the raw token as plain text.
 /// </summary>
 [Cmdlet(VerbsCommon.Get, CommandNoun, DefaultParameterSetName = "ResourceType")]
 [OutputType(typeof(AccessTokenResult))]
@@ -35,6 +34,9 @@ public class GetAccessTokenCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public string? SubscriptionId { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter AsPlainText { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -76,6 +78,8 @@ public class GetAccessTokenCmdlet : PSCmdlet
             parameters["TenantId"] = TenantId!;
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
             parameters["SubscriptionId"] = SubscriptionId!;
+        if (AsPlainText.IsPresent)
+            parameters["AsPlainText"] = true;
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

@@ -16,8 +16,6 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 Import-Module (Join-Path $repoRoot 'artifacts\Debug\PS\Accounts\Accounts.psd1') -Force
 
-$PlaintextEnvVar = 'AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN'
-
 function Section($title) {
     Write-Host ""
     Write-Host "=== $title ===" -ForegroundColor Cyan
@@ -28,27 +26,20 @@ $armToken = Get-AzAccessToken
 $armToken | Select-Object TenantId, ExpiresOn, TokenType | Format-List | Out-Host
 
 Section 'Secure by default: token must NOT be exposed as plain text'
-# With the plaintext env var unset, the token field must be redacted / non-plaintext.
-Remove-Item "Env:\$PlaintextEnvVar" -ErrorAction SilentlyContinue
+# Without -AsPlainText, the token field must be redacted / non-plaintext.
 $secure = Get-AzAccessToken
-if ($secure.Token -is [System.Security.SecureString] -or "$($secure.Token)" -notmatch '^ey') {
+if ("$($secure.Token)" -notmatch '^ey') {
     Write-Host "OK: token is protected by default (not emitted as a raw JWT)." -ForegroundColor Green
 } else {
     Write-Host "UNEXPECTED: raw token appears to be exposed without opt-in." -ForegroundColor Red
 }
 
-Section "Plaintext opt-in via `$env:$PlaintextEnvVar"
-Set-Item "Env:\$PlaintextEnvVar" 'true'
-try {
-    $plain = Get-AzAccessToken
-    if ("$($plain.Token)" -match '^ey') {
-        Write-Host "OK: raw token revealed when the env var is set." -ForegroundColor Green
-    } else {
-        Write-Host "UNEXPECTED: env var set but token still redacted." -ForegroundColor Red
-    }
-}
-finally {
-    Remove-Item "Env:\$PlaintextEnvVar" -ErrorAction SilentlyContinue
+Section 'Plaintext opt-in via -AsPlainText'
+$plain = Get-AzAccessToken -AsPlainText
+if ("$($plain.Token)" -match '^ey') {
+    Write-Host "OK: raw token revealed when -AsPlainText is passed." -ForegroundColor Green
+} else {
+    Write-Host "UNEXPECTED: -AsPlainText passed but token still redacted." -ForegroundColor Red
 }
 
 Section 'Get-AzAccessToken -ResourceTypeName MSGraph (well-known type shortcut)'

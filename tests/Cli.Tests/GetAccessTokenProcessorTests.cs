@@ -18,8 +18,6 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class GetAccessTokenProcessorTests
 {
-    private const string PlaintextEnvVar = "AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN";
-
     private static Mock<IAuthService> AuthReturning(string token, Action<string[]?, string?>? capture = null)
     {
         var mock = new Mock<IAuthService>();
@@ -117,7 +115,7 @@ public class GetAccessTokenProcessorTests
     {
         InitDi(ClientType.CLI, AuthReturning("secret").Object);
         var result = await RunAsync(new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser));
-        Assert.Equal(AccessTokenResult.RedactedPlaceholder, result.Token);
+        Assert.Equal(AccessTokenResult.RedactedPlaceholderCli, result.Token);
     }
 
     [Fact]
@@ -129,37 +127,19 @@ public class GetAccessTokenProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_PowerShellEnvVarSet_RevealsToken()
+    public async Task ProcessAsync_PowerShellPlaintextSwitch_RevealsToken()
     {
-        var previous = Environment.GetEnvironmentVariable(PlaintextEnvVar);
-        try
-        {
-            Environment.SetEnvironmentVariable(PlaintextEnvVar, "true");
-            InitDi(ClientType.PowerShell, AuthReturning("secret").Object);
-            var result = await RunAsync(new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser));
-            Assert.Equal("secret", result.Token);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(PlaintextEnvVar, previous);
-        }
+        InitDi(ClientType.PowerShell, AuthReturning("secret").Object);
+        var result = await RunAsync(new GetAccessTokenProcessor { Plaintext = true }, ProfileWith(AuthMethod.Browser));
+        Assert.Equal("secret", result.Token);
     }
 
     [Fact]
-    public async Task ProcessAsync_PowerShellNoEnvVar_RedactsToken()
+    public async Task ProcessAsync_PowerShellDefault_RedactsWithPowerShellPlaceholder()
     {
-        var previous = Environment.GetEnvironmentVariable(PlaintextEnvVar);
-        try
-        {
-            Environment.SetEnvironmentVariable(PlaintextEnvVar, null);
-            InitDi(ClientType.PowerShell, AuthReturning("secret").Object);
-            var result = await RunAsync(new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser));
-            Assert.Equal(AccessTokenResult.RedactedPlaceholder, result.Token);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(PlaintextEnvVar, previous);
-        }
+        InitDi(ClientType.PowerShell, AuthReturning("secret").Object);
+        var result = await RunAsync(new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser));
+        Assert.Equal(AccessTokenResult.RedactedPlaceholderPowerShell, result.Token);
     }
 
     [Fact]

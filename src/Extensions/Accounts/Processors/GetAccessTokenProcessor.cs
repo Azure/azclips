@@ -13,13 +13,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
     /// </summary>
     /// <remarks>
     /// Output is secure by default: the raw token is only rendered when the caller opts into plaintext
-    /// (CLI <c>--plaintext</c> flag; PowerShell <c>AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN</c> env var).
+    /// (CLI <c>--plaintext</c> flag; PowerShell <c>-AsPlainText</c> switch).
     /// </remarks>
     public class GetAccessTokenProcessor : IProcessor
     {
-        /// <summary>Environment variable that opts PowerShell into plaintext token output.</summary>
-        internal const string PlaintextEnvVar = "AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN";
-
         private IEventPublisher _publisher = null!;
         private OutputStreamDelegate _writeOutput = null!;
         private Profile? _profile;
@@ -56,7 +53,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
         [ArgumentInfo(
         Required = false,
-        Description = @"Emit the raw access token as plain text (CLI only). By default the token is redacted in output.",
+        Description = @"Emit the raw access token as plain text. By default the token is redacted in output.",
         SerializedName = @"Plaintext")]
         public bool Plaintext { get; set; }
 
@@ -139,36 +136,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         }
 
         /// <summary>
-        /// Determines whether plaintext output was requested and renders the result accordingly.
-        /// CLI honors the <c>--plaintext</c> flag; PowerShell honors the
-        /// <see cref="PlaintextEnvVar"/> environment variable.
+        /// Renders the result, redacting the token unless plaintext output was requested via the
+        /// <c>--plaintext</c> flag (CLI) or the <c>-AsPlainText</c> switch (PowerShell). When redacted,
+        /// the placeholder names the reveal option for the current front end.
         /// </summary>
         private AccessTokenResult RenderOutput(AccessTokenResult result)
         {
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
-            bool revealPlaintext = clientType switch
+            if (Plaintext)
             {
-                ClientType.CLI => Plaintext,
-                ClientType.PowerShell => IsEnvVarTruthy(Environment.GetEnvironmentVariable(PlaintextEnvVar)),
-                _ => false,
-            };
-
-            return revealPlaintext
-                ? result
-                : result with { Token = AccessTokenResult.RedactedPlaceholder };
-        }
-
-        private static bool IsEnvVarTruthy(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
+                return result;
             }
 
-            var normalized = value.Trim();
-            return string.Equals(normalized, "true", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(normalized, "1", StringComparison.Ordinal)
-                || string.Equals(normalized, "yes", StringComparison.OrdinalIgnoreCase);
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+            string placeholder = clientType == ClientType.PowerShell
+                ? AccessTokenResult.RedactedPlaceholderPowerShell
+                : AccessTokenResult.RedactedPlaceholderCli;
+
+            return result with { Token = placeholder };
         }
     }
 }

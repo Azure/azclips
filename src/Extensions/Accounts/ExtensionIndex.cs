@@ -118,6 +118,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
                 ["Scope"]            = new("Scope", "Scope", typeof(string[]), "One or more Microsoft Entra v2.0 scopes. Mutually exclusive with -ResourceUrl and -ResourceTypeName.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TenantId"]         = new("Tenant", "TenantId", typeof(string), "Tenant ID to acquire the token for. Defaults to the current profile's tenant.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["SubscriptionId"]   = new("Subscription", "SubscriptionId", typeof(string), "Subscription ID associated with the request. Defaults to the current profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["AsPlainText"]      = new("Plaintext", "AsPlainText", typeof(bool), "Emit the raw access token as plain text. By default the token is redacted in output.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

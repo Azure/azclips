@@ -12,11 +12,11 @@ namespace Cmdlets.Tests;
 
 /// <summary>
 /// PowerShell binding tests for <c>Get-AzAccessToken</c>. The shared <see cref="GetAccessTokenProcessor"/>
-/// exposes <c>Tenant</c>/<c>Subscription</c> properties while the cmdlet surfaces <c>-TenantId</c>/
-/// <c>-SubscriptionId</c>; the metadata Name must map the PS parameter onto the processor property, or
-/// binding throws at runtime. These exercise the real PS parsing/binding pipeline, including the
-/// multi-valued <c>-Scope</c>, and assert the PowerShell surface omits the CLI-only <c>-Plaintext</c>
-/// flag (PowerShell opts into plaintext via the AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN env var).
+/// exposes <c>Tenant</c>/<c>Subscription</c>/<c>Plaintext</c> properties while the cmdlet surfaces
+/// <c>-TenantId</c>/<c>-SubscriptionId</c>/<c>-AsPlainText</c>; the metadata Name must map each PS
+/// parameter onto its processor property, or binding throws at runtime. These exercise the real PS
+/// parsing/binding pipeline, including the multi-valued <c>-Scope</c> and the <c>-AsPlainText</c>
+/// switch mapping onto the <c>Plaintext</c> property.
 /// </summary>
 public class GetAccessTokenCmdletTests
 {
@@ -68,9 +68,10 @@ public class GetAccessTokenCmdletTests
     }
 
     [Fact]
-    public void PowerShellSurface_DoesNotExposePlaintextFlag()
+    public void PowerShellSurface_ExposesAsPlainTextMappedToPlaintextProperty()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Get-AzAccessToken", ClientType.PowerShell);
-        Assert.DoesNotContain(metadata.Parameters.Values, p => p.Name == nameof(GetAccessTokenProcessor.Plaintext));
+        var parameter = Assert.Single(metadata.Parameters.Values, p => p.Name == nameof(GetAccessTokenProcessor.Plaintext));
+        Assert.Equal("AsPlainText", parameter.InvocationName);
     }
 }

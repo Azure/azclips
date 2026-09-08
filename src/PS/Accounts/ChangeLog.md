@@ -18,7 +18,7 @@
 ## Upcoming Release
 
 * `Get-AzAccessToken`: Add cmdlet to acquire an access token for a resource, well-known resource type, or explicit scope list from the current signed-in context
-    - Token output is protected by default; set the `AZUREPS_OUTPUT_PLAINTEXT_AZACCESSTOKEN` environment variable to emit the raw token as plain text
+    - Token output is redacted by default; pass `-AsPlainText` to emit the raw token as plain text
 
 ## Version 0.1.0
 
