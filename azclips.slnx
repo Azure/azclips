@@ -20,6 +20,7 @@
     <Project Path="src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
     <Project Path="src/Extensions/Extension/Extensions.Extension.csproj" />
     <Project Path="src/Extensions/Resources/Extensions.Resources.csproj" />
+    <Project Path="src/Extensions/Deployment/Extensions.Deployment.csproj" />
     <Project Path="src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
@@ -59,6 +60,7 @@
   </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
+    <Project Path="src/PS/Deployment/Cmdlets.Deployment.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
     <Project Path="src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
