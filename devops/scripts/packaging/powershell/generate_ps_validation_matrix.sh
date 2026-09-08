@@ -6,11 +6,12 @@
 # distribution version is validated against every PowerShell version it is configured
 # for, so a matrix leg is a distribution version and PowerShell version pair.
 #
-# Configured versions always produce a matrix leg. When a distribution enables version
+# Full runs include every configured version. When a distribution enables version
 # checking, the newest release published to the container registry is added as an extra
 # leg, and the same happens for the newest published PowerShell release. Those legs, and
 # any PowerShell version the modules are known not to load on, are marked "(unsupported)"
-# so that they report a warning instead of failing the build.
+# so that they report a warning instead of failing the build. Limited runs select only
+# configured TestInAlpha versions and disable all version discovery.
 
 set -euo pipefail
 
@@ -44,7 +45,7 @@ Options:
   --pool-for ID=NAME     Override the agent pool for a single distribution id.
   --skip-version-check   Generate only configured versions without querying registries
                          or the PowerShell release feed.
-  --limit-testing        Select only TestInAlpha legs, including discovered canaries.
+  --limit-testing        Select only configured TestInAlpha legs; disables version discovery.
   --azure-variable NAME  Emit an Azure Pipelines output variable with this name.
   -h, --help             Show this help text.
 EOF
@@ -138,6 +139,7 @@ parse_args() {
         ;;
       --limit-testing)
         limit_testing=1
+        skip_version_check=1
         shift
         ;;
       --azure-variable)

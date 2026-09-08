@@ -811,7 +811,7 @@ assert_equals '["false","true"]' "$(jq -c '[.[].TestInAlpha]' <<<"$output")" "st
 end_test
 
 start_test "limit-testing selects only configured true alpha flags"
-output="$(run_with_tags "" --config "$WORK_DIR/alpha.json" --skip-version-check --limit-testing)"
+output="$(run_with_tags "" --config "$WORK_DIR/alpha.json" --limit-testing)"
 assert_equals "0" "$?" "exit code"
 assert_equals "alpine_3_24_ps7_6" "$(jq -r 'keys | join(" ")' <<<"$output")" "only alpha leg selected"
 assert_equals "false" "$(jq -r '.alpine_3_24_ps7_6.ContinueOnError' <<<"$output")" "configured alpha stays hard-fail"
@@ -827,53 +827,69 @@ assert_equals "alpine_3_24_ps7_6" "$(jq -r 'keys | join(" ")' <<<"$matrix")" "li
 assert_equals "custom-linux" "$(jq -r '.[].DistributionPool' <<<"$matrix")" "pool option composed"
 end_test
 
-start_test "limited mode preserves newly discovered distro canaries"
+start_test "limited mode excludes unconfigured distro versions"
 output="$(run_with_tags $'3.24\n3.25' --config "$WORK_DIR/alpha.json" --limit-testing)"
 assert_equals "0" "$?" "exit code"
-assert_equals "alpine_3_24_ps7_6 alpine_3_25_ps7_6_unsupported" \
-  "$(jq -r 'keys_unsorted | join(" ")' <<<"$output")" "configured alpha and discovered canary"
-assert_equals "true true" \
-  "$(jq -r '[.alpine_3_25_ps7_6_unsupported | .TestInAlpha, .ContinueOnError] | join(" ")' <<<"$output")" \
-  "canary remains alpha and soft-fail"
+assert_equals "alpine_3_24_ps7_6" \
+  "$(jq -r 'keys_unsorted | join(" ")' <<<"$output")" "configured alpha only"
 end_test
 
-start_test "limited mode includes canaries when no configured distribution is alpha"
-output="$(run_with_tags "3.25" --config "$WORK_DIR/config.json" --limit-testing)"
+start_test "limited mode cannot replace an empty configured selection with a canary"
+output="$(run_with_tags "3.25" --config "$WORK_DIR/config.json" --limit-testing \
+  --azure-variable matrix 2>"$WORK_DIR/failure-stderr.txt")"
+assert_equals "1" "$?" "exit code"
+assert_equals "" "$output" "no discovered-only Azure matrix"
+assert_contains "$(cat "$WORK_DIR/failure-stderr.txt")" "--limit-testing selected no matrix legs" \
+  "empty configured selection error"
+end_test
+
+start_test "limited mode retains only configured PowerShell versions on selected native versions"
+jq '.distributions[1].versions[1].testInAlpha = true' "$WORK_DIR/powershell.json" \
+  >"$WORK_DIR/native-alpha.json" || exit 1
+output="$(run_with_github_tags $'v7.6.0\nv7.7.1' --config "$WORK_DIR/native-alpha.json" --limit-testing)"
 assert_equals "0" "$?" "exit code"
-assert_equals "alpine_3_25_ps7_6_unsupported" "$(jq -r 'keys | join(" ")' <<<"$output")" "only discovered leg"
+assert_equals "windows_2025_ps7_4_unsupported windows_2025_ps7_5_unsupported windows_2025_ps7_6" \
+  "$(jq -r 'keys_unsorted | join(" ")' <<<"$output")" "configured versions without a PowerShell canary"
+assert_equals '["true","true","false"]' "$(jq -c '[.[].ContinueOnError]' <<<"$output")" \
+  "explicitly configured unsupported versions retain their support policy"
 end_test
 
-start_test "limited mode preserves PowerShell canaries across native distribution versions"
-output="$(run_with_github_tags $'v7.6.0\nv7.7.1' --config "$WORK_DIR/powershell.json" --limit-testing)"
-assert_equals "0" "$?" "exit code"
-assert_equals "windows_2022_ps7_7_unsupported windows_2025_ps7_7_unsupported" \
-  "$(jq -r 'keys_unsorted | join(" ")' <<<"$output")" "PowerShell canary legs"
-assert_equals "true" "$(jq -r 'all(.[]; .TestInAlpha == "true" and .ContinueOnError == "true")' <<<"$output")" \
-  "every discovered PowerShell leg is alpha and soft-fail"
-end_test
-
-start_test "limited mode handles simultaneous distro and PowerShell discovery"
-jq '.distributions[0].powershellVersionCheck = true' "$WORK_DIR/config.json" \
+jq '.distributions[0].powershellVersionCheck = true' "$WORK_DIR/alpha.json" \
   >"$WORK_DIR/both-discoveries.json" || exit 1
-output="$(AZCLIPS_MATRIX_LIB_ONLY=1 bash -c '
-  source "$1"
-  shift
-  get_docker_tags() { printf "3.25\n"; }
-  get_github_tags() { printf "v7.7.0\n"; }
-  main "$@"
-' _ "$SCRIPT_DIR/generate_ps_validation_matrix.sh" --config "$WORK_DIR/both-discoveries.json" --limit-testing)"
-assert_equals "0" "$?" "exit code"
-assert_equals "4" "$(jq -r 'length' <<<"$output")" "two PowerShell canaries and two distro canaries"
-assert_equals "true" "$(jq -r 'all(.[]; .TestInAlpha == "true" and .ContinueOnError == "true")' <<<"$output")" \
-  "all canaries selected and soft-fail"
-end_test
+for mode in full limited; do
+  start_test "$mode mode controls both distro and PowerShell discovery requests"
+  arguments=()
+  [ "$mode" != limited ] || arguments+=(--limit-testing)
+  : >"$WORK_DIR/discovery-calls.txt"
+  output="$(AZCLIPS_MATRIX_LIB_ONLY=1 bash -c '
+    source "$1"
+    calls_path="$2"
+    shift 2
+    get_docker_tags() { printf "docker\n" >>"$calls_path"; printf "3.25\n"; }
+    get_github_tags() { printf "github\n" >>"$calls_path"; printf "v7.7.0\n"; }
+    main "$@"
+  ' _ "$SCRIPT_DIR/generate_ps_validation_matrix.sh" "$WORK_DIR/discovery-calls.txt" \
+    --config "$WORK_DIR/both-discoveries.json" "${arguments[@]}")"
+  assert_equals "0" "$?" "exit code"
+  if [ "$mode" = limited ]; then
+    assert_equals "" "$(cat "$WORK_DIR/discovery-calls.txt")" "neither discovery provider is called"
+    assert_equals "alpine_3_24_ps7_6" \
+      "$(jq -r 'keys | join(" ")' <<<"$output")" "only the configured alpha combination"
+  else
+    assert_equals $'github\ndocker' "$(cat "$WORK_DIR/discovery-calls.txt")" "full mode queries both providers"
+    assert_equals "6" "$(jq -r 'length' <<<"$output")" "all configured and discovered combinations"
+    assert_equals "4" "$(jq '[.[] | select(.ContinueOnError == "true")] | length' <<<"$output")" \
+      "full mode retains all four canary combinations"
+  fi
+  end_test
+done
 
-start_test "limited mode retains configured alpha entries after optional discovery failure"
+start_test "limited mode does not depend on registry availability"
 output="$(run_with_failing_registry --config "$WORK_DIR/alpha.json" --limit-testing \
   2>"$WORK_DIR/failure-stderr.txt")"
 assert_equals "0" "$?" "exit code"
 assert_equals "alpine_3_24_ps7_6" "$(jq -r 'keys | join(" ")' <<<"$output")" "configured alpha retained"
-assert_contains "$(cat "$WORK_DIR/failure-stderr.txt")" "Unable to check" "optional discovery warning"
+assert_equals "" "$(cat "$WORK_DIR/failure-stderr.txt")" "no discovery warnings in limited mode"
 end_test
 
 start_test "limited mode rejects an empty selection without emitting an Azure variable"
@@ -885,27 +901,28 @@ assert_contains "$(cat "$WORK_DIR/failure-stderr.txt")" "--limit-testing selecte
   "empty selection error"
 end_test
 
-start_test "limited mode rejects an empty selection after failed optional discovery"
+start_test "limited mode rejects an empty selection without querying unavailable registries"
 output="$(run_with_failing_registry --config "$WORK_DIR/config.json" --limit-testing \
   2>"$WORK_DIR/failure-stderr.txt")"
 assert_equals "1" "$?" "exit code"
 assert_equals "" "$output" "no empty JSON matrix"
 assert_contains "$(cat "$WORK_DIR/failure-stderr.txt")" "--limit-testing selected no matrix legs" \
-  "empty fallback selection error"
-assert_contains "$(cat "$WORK_DIR/failure-stderr.txt")" "Unable to check" \
-  "optional discovery warning survives an empty limited selection"
+  "empty configured selection error"
+assert_equals "0" "$(grep -c 'Unable to check' "$WORK_DIR/failure-stderr.txt")" \
+  "no optional discovery warnings"
 end_test
 
 start_test "repository limited mode selects its existing Ubuntu alpha version only"
-output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" --skip-version-check --limit-testing)"
+output="$(run_with_failing_registry --limit-testing 2>"$WORK_DIR/failure-stderr.txt")"
 assert_equals "0" "$?" "exit code"
 assert_equals "ubuntu_26_04_ps7_6" "$(jq -r 'keys | join(" ")' <<<"$output")" "existing alpha coverage unchanged"
+assert_equals "" "$(cat "$WORK_DIR/failure-stderr.txt")" "repository limited mode skips all discovery"
 end_test
 
 start_test "help documents limit-testing as a switch"
 output="$(bash "$SCRIPT_DIR/generate_ps_validation_matrix.sh" --help)"
 assert_equals "0" "$?" "exit code"
-assert_contains "$output" "--limit-testing        Select only TestInAlpha legs" "switch usage"
+assert_contains "$output" "--limit-testing        Select only configured TestInAlpha legs; disables version discovery." "switch usage"
 end_test
 
 start_test "limit-testing does not accept a boolean argument"

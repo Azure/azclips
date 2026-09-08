@@ -47,20 +47,23 @@ Duplicate keys, multiple documents, and unsafe YAML tags are rejected. Explicit
 
 - Configured combinations are blocking unless their PowerShell entry explicitly
   sets `supported: false`.
-- Optional registry discovery adds the newest unconfigured distribution or
+- In full runs, optional registry discovery adds the newest unconfigured distribution or
   PowerShell release as an unsupported canary. Canary failures report
   `SucceededWithIssues`, skip later phases, and do not block final artifact
   publication. Failures of supported combinations still block publication.
 - Registry discovery failures produce warnings and retain configured coverage.
   Malformed configuration or generation errors fail instead of emitting a partial
   matrix.
-- A version entry's `testInAlpha: true` opts it into limited runs. Discovered
-  canaries also opt in. `--limit-testing` filters on this flag **before** Azure
-  Pipelines expands matrix jobs; it fails clearly if no entries are selected.
+- A configured version entry's `testInAlpha: true` opts it into limited runs.
+  `--limit-testing` disables both distribution and PowerShell release discovery,
+  so it makes no registry requests and adds no discovered canaries. It filters on
+  this flag **before** Azure Pipelines expands matrix jobs and fails clearly if
+  no configured entries are selected.
 - The job parameter `limit_testing` and shared stage parameter `limit_ps_testing`
-  are booleans, defaulting to `false` for full coverage. The alpha pipeline opts
-  into limited coverage with `limit_ps_testing: true`; other callers retain the
-  full matrix by default. Set the alpha caller to `false` to run every combination.
+  are booleans, defaulting to `false` for full coverage. The alpha pipeline
+  temporarily sets `limit_ps_testing: false` to exercise the entire matrix in this
+  PR, including normal discovery. Restore it to `true` to use configured limited
+  coverage after that validation.
 
 From the repository root, on a host with Bash, jq, curl, GNU sort, and Python 3,
 install the YAML dependency in an isolated environment:
@@ -79,7 +82,7 @@ its regression suite. Local Debian/Ubuntu hosts may also need the
 # Reproducible selection of configured combinations, without registry discovery.
 bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh --skip-version-check
 
-# Alpha-selected combinations, including canaries when discovery is enabled.
+# Only configured alpha-selected combinations, with no release discovery.
 bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh --limit-testing
 ```
 
