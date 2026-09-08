@@ -11,7 +11,8 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904;GHCP001</WarningsNotAsErrors>
+    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <NoWarn>$(NoWarn);GHCP001</NoWarn>
     <ExtName>Core.Agent</ExtName>
     <!-- Compile-time marker for AgentInstallLayout. Packaging scripts publish
          with /p:IsPackagedBuild=true; dev `dotnet build` / `dotnet run` / F5
