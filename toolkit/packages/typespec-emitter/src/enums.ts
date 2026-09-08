@@ -1,22 +1,18 @@
 /**
  * SdkEnumType → IREnum.
  *
- * Two flavours land here:
- *   - Closed enums (`isFixed: true`): the natural mapping.
- *   - Open enums (`isFixed: false`): IR doesn't model open enums; we
- *     emit them as closed and warn once with `open-enum-as-closed`.
+ * Both closed enums (`isFixed: true`) and extensible enums (`isFixed: false`)
+ * preserve their TCGC semantics in IR.
  *
  * Union-as-enum: TCGC turns string-literal unions into `SdkEnumType` with
  * `isUnionAsEnum: true`. They show up here exactly like any other enum.
  */
 
-import { NoTarget } from "@typespec/compiler";
 import { UsageFlags } from "@azure-tools/typespec-client-generator-core";
 import type { SdkEnumType } from "@azure-tools/typespec-client-generator-core";
 import type { IREnum, IREnumMember } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
-import { reportDiagnostic } from "./lib.js";
 import { accessFrom, usageFrom } from "./annotations.js";
 import { idFor } from "./types.js";
 
@@ -29,15 +25,6 @@ function valueTypeOf(e: SdkEnumType): "string" | "number" {
 }
 
 export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined {
-  if (!e.isFixed && !ctx.flags.openEnumWarned) {
-    reportDiagnostic(ctx.program, {
-      code: "open-enum-as-closed",
-      format: { enum: e.name },
-      target: NoTarget,
-    });
-    ctx.flags.openEnumWarned = true;
-  }
-
   const id = idFor(ctx, e);
   const members: IREnumMember[] = e.values.map((v) => ({
     name: v.name,
@@ -56,6 +43,7 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
     id,
     name: id.name,
     valueType: valueTypeOf(e),
+    isFixed: e.isFixed,
     members,
     // Library-shared enums are attributed to their owning library module
     // (carried on id.module), not the spec's source id. See IREnum.source.

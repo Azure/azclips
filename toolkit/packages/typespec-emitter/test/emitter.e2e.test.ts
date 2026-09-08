@@ -132,6 +132,38 @@ describe("emitter e2e: pets.tsp → IR", () => {
   });
 });
 
+describe("emitter e2e: enum-service.tsp → IREnum.isFixed", () => {
+  const ENUM_TSP = normalizePath(resolve(here, "fixtures", "enum-service.tsp"));
+  let enumIr: IR;
+
+  beforeAll(async () => {
+    const written = new Map<string, string>();
+    const host: CompilerHost = {
+      ...NodeHost,
+      writeFile: async (path: string, content: string) => {
+        written.set(normalizePath(path), content);
+      },
+      mkdirp: async (path: string) => path,
+    };
+    const program = await compile(host, ENUM_TSP, {
+      emit: [EMITTER],
+      options: { [EMITTER]: { format: "json", outputFile: "ir.json", pretty: true } },
+    });
+    const errors = program.diagnostics.filter((d) => d.severity === "error");
+    expect(errors).toEqual([]);
+    const entry = [...written.entries()].find(([p]) => p.endsWith("ir.json"));
+    if (!entry) throw new Error("enum fixture emitted no ir.json");
+    enumIr = JSON.parse(entry[1]) as IR;
+  });
+
+  it("preserves fixed and extensible enum semantics", () => {
+    expect(() => parseIR(enumIr)).not.toThrow();
+    expect(enumIr.enums.find((e) => e.name === "ClosedEnum")?.isFixed).toBe(true);
+    expect(enumIr.enums.find((e) => e.name === "ClosedUnion")?.isFixed).toBe(true);
+    expect(enumIr.enums.find((e) => e.name === "OpenUnion")?.isFixed).toBe(false);
+  });
+});
+
 describe("emitter e2e: auth-service.tsp → IRSource.auth", () => {
   const AUTH_TSP = normalizePath(resolve(here, "fixtures", "auth-service.tsp"));
   let authIr: IR;

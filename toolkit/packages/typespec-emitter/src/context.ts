@@ -43,7 +43,6 @@ export type BuildContext = {
   /** One-shot diagnostic flags. */
   flags: {
     overrideMethodWarned: boolean;
-    openEnumWarned: boolean;
   };
 };
 
@@ -59,7 +58,6 @@ export function createBuildContext(
     propertyIdCache: new Map(),
     flags: {
       overrideMethodWarned: false,
-      openEnumWarned: false,
     },
   };
 }
