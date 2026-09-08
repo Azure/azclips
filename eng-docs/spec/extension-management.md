@@ -321,6 +321,27 @@ az vm create --name foo
 - **Longest-prefix matching.** Residual tokens (past the matched prefix) bind to positional arguments.
 - **Lazy dispatch, eager help.** Dispatch loads only the extension owning the matched leaf. Help (when implemented) loads every extension whose `namespaces` array contains the requested verb so it can aggregate leaves across contributors. Both paths reuse the ALC cache.
 
+#### 4.4.1 Positional argument binding via `ParameterAliases`
+
+Residual (unflagged) tokens are collected under an empty-string key regardless of whether a command wants them. For a matched multi-token leaf path (`matchedPathTokens > 0` — true for every command below), `ExtensionDispatcher` (`src/CLI/Parser/ExtensionDispatcher.cs`) slices the leading non-flag tokens off `extensionArgs` into `residualPositional`, hands only the remaining flag-bearing tokens to `ExtensionParser`, then sets `parameters[string.Empty]` itself from `residualPositional`. (`ExtensionParser` only builds that key itself in the separate root-leaf-only branch, `matchedPathTokens == 0`.) A leaf only binds the residual if its `CommandMetadata.ParameterAliases` declares indexed slots: `[""]` for position 0, `["1"]` for position 1, `["2"]` for position 2, and so on. This is opt-in per command and CLI-only (PowerShell cmdlets already get native positional binding from the host).
+
+```csharp
+// `config get <key>` / `config delete <key>` — one positional slot.
+ParameterAliases: new Dictionary<string, string> { [""] = "key" }
+
+// `config set <key> <value>` — two positional slots, bound in order.
+ParameterAliases: new Dictionary<string, string> { [""] = "key", ["1"] = "value" }
+```
+
+With the above, `az config set core.output.color always` binds `Key = "core.output.color"`, `Value = "always"`, and `az config set --key core.output.color --value always` still works unchanged.
+
+`CLIArgumentParsingProvider` (`src/CLI/ArgumentParsing/CLIArgumentParsingProvider.cs`) enforces two invariants for any command that opts in:
+
+- **Unrecognized positionals are rejected.** A token with no declared slot for its position throws instead of being silently dropped.
+- **Positional/flag conflicts are rejected.** Supplying the _same_ parameter both positionally and via its flag (e.g. `config set core.output.color always --key core.output.color` — `key` bound positionally _and_ by `--key`) throws instead of silently picking one based on dictionary iteration order. Mixing different parameters across positional and flag (e.g. `config set core.output.color --value always`) is not a conflict and works as expected.
+
+`profile show/set/remove` (Accounts) and `extension show/remove/update/pin/unpin` (Extension) also declare `[""]` and get the same two invariants for free.
+
 ### 4.5 ALC caching
 
 `ConcurrentDictionary<(string pkg, string version), Lazy<ExtensionLoadContext>>` in `AssemblyLoadingService`:
