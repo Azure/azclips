@@ -19,12 +19,15 @@ public class ConnectAccountCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(Mandatory = false)]
+    [Alias("SubscriptionName", "Subscription")]
     public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("Tenant", "Domain")]
     public string? TenantId { get; set; }
 
     [Parameter(Mandatory = false)]
+    [Alias("DeviceCode", "DeviceAuth", "Device", "UseDeviceAuthentication")]
     public SwitchParameter UseDeviceCode { get; set; }
 
     [Parameter(Mandatory = false)]
