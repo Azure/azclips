@@ -10,6 +10,13 @@ directory and are removed after the run; the checkout and gallery may be read-on
 
 .EXAMPLE
 pwsh -NoProfile -File tests\Scripts\PS\PSModuleLifecycleFixtures.ps1
+
+.EXAMPLE
+pwsh -NoProfile -File tests\Scripts\PS\PSModuleLifecycleFixtures.ps1 -Scenario artifacts-newer-versions -FixtureRoot C:\fixture
+
+Integration smoke scenario: installs and uninstalls exact fake versions while preserving unrelated newer versions.
+Reports remain under FixtureRoot\reports after the child exits. For a disposable Linux container, mount a writable
+host report directory at /fixture/reports and pass -FixtureRoot /fixture; keep the repository mount read-only.
 #>
 [CmdletBinding()]
 param(
@@ -45,6 +52,15 @@ function Add-LifecycleEvent
 function New-FakePackage
 {
     param([string]$Name, [string]$Version, [bool]$Registered = $true)
+    $moduleRoot = Join-Path $FixtureRoot "installed\$Name\$Version"
+    New-Item -ItemType Directory -Path (Join-Path $moduleRoot 'en-US') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $moduleRoot "$Name.psd1") -Value "@{ ModuleVersion = '$Version'; RootModule = '$Name.dll' }"
+    Set-Content -LiteralPath (Join-Path $moduleRoot "$Name.dll") -Value "Fake binary for $Name $Version"
+    Set-Content -LiteralPath (Join-Path $moduleRoot "en-US\$Name.dll-Help.xml") -Value '<help>fixture external help</help>'
+    if ($Version -eq '9.0.0')
+    {
+        Set-Content -LiteralPath (Join-Path $moduleRoot 'unrelated-sentinel.txt') -Value 'never capture a preexisting version'
+    }
     $exports = @{}
     foreach ($cmdlet in $global:Lifecycle.Definitions[$Name].CmdletsToExport)
     {
@@ -54,8 +70,9 @@ function New-FakePackage
         Name = $Name
         Version = [version]$Version
         Registered = $Registered
-        InstalledLocation = Join-Path $FixtureRoot "$Name-$Version"
-        Path = Join-Path $FixtureRoot "$Name-$Version\$Name.psd1"
+        InstalledLocation = $moduleRoot
+        ModuleBase = $moduleRoot
+        Path = Join-Path $moduleRoot "$Name.psd1"
         ExportedCommands = $exports
     }
 }
@@ -128,6 +145,10 @@ function Enable-LifecycleFakes
         [CmdletBinding()]
         param([switch]$ListAvailable, [string]$Name)
         Assert-Fixture $ListAvailable.IsPresent 'Lifecycle discovery must query available modules.'
+        if ($ArtifactScenario -eq 'artifacts-available-query-failure' -and $Name -eq 'Az.Compute' -and $global:Lifecycle.ChildFailed)
+        {
+            throw 'Injected available-module lookup failure.'
+        }
         $global:Lifecycle.Packages.Values | Where-Object { $_.Name -eq $Name }
     }
 
@@ -153,6 +174,28 @@ function Enable-LifecycleFakes
             throw 'Injected installation failure before adding Az.Compute.'
         }
         $global:Lifecycle.Packages["$Name|$RequiredVersion"] = New-FakePackage $Name $RequiredVersion
+        $package = $global:Lifecycle.Packages["$Name|$RequiredVersion"]
+        if ($Name -eq 'Az.Compute')
+        {
+            if ($ArtifactScenario -eq 'artifacts-partial-install')
+            {
+                $package.Registered = $false
+                throw 'Injected unregistered partial installation failure.'
+            }
+            if ($ArtifactScenario -in 'artifacts-capture-failure', 'artifacts-capture-primary')
+            {
+                Set-Content -LiteralPath $package.Path -Value "@{ ModuleVersion = '9.0.0' }"
+            }
+            if ($ArtifactScenario -eq 'artifacts-scope-mismatch')
+            {
+                $package.InstalledLocation = Join-Path $FixtureRoot 'unrelated-home'
+            }
+            if ($ArtifactScenario -eq 'artifacts-link-capture')
+            {
+                $linkType = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { 'Junction' } else { 'SymbolicLink' }
+                New-Item -ItemType $linkType -Path (Join-Path $package.ModuleBase 'outside') -Value (Join-Path $FixtureRoot 'unrelated-home') | Out-Null
+            }
+        }
         if ($Name -eq 'Az.Compute' -and $Scenario -eq 'install-failure')
         {
             throw 'Injected installation failure after adding Az.Compute.'
@@ -169,7 +212,13 @@ function Enable-LifecycleFakes
         {
             throw "Injected removal failure for $Name."
         }
+        if ($ArtifactScenario -eq 'artifacts-rollback-removal-failure')
+        {
+            throw "Injected rollback removal failure for $Name."
+        }
         Assert-Fixture ($global:Lifecycle.Packages.ContainsKey("$Name|$RequiredVersion")) 'Absent versions must not be uninstalled during rollback.'
+        $package = $global:Lifecycle.Packages["$Name|$RequiredVersion"]
+        Microsoft.PowerShell.Management\Remove-Item -LiteralPath $package.ModuleBase -Recurse -Force
         $global:Lifecycle.Packages.Remove("$Name|$RequiredVersion")
     }
 
@@ -179,8 +228,8 @@ function Enable-LifecycleFakes
         param([string]$Name, [string]$RequiredVersion, [switch]$Force, [switch]$PassThru)
         Assert-Fixture (-not [string]::IsNullOrWhiteSpace($RequiredVersion)) 'Import-Module must pin RequiredVersion.'
         Add-LifecycleEvent Import $Name $RequiredVersion
-        $failureModule = if ($Scenario -eq 'removal-failures') { 'Az.Resources' } else { 'Az.Compute' }
-        if ($Name -eq $failureModule -and $Scenario -in 'import-failure', 'removal-failures', 'cleanup-primary', 'cleanup-query-failure', 'failure-newer-versions')
+        $failureModule = if ($Scenario -eq 'removal-failures') { 'Az.Resources' } elseif ($Scenario -eq 'first-import-failure') { 'Az.Login' } else { 'Az.Compute' }
+        if ($Name -eq $failureModule -and $Scenario -in 'first-import-failure', 'import-failure', 'removal-failures', 'cleanup-primary', 'cleanup-query-failure', 'failure-newer-versions')
         {
             throw "Injected import failure for $Name."
         }
@@ -254,7 +303,11 @@ function Invoke-LifecycleScenario
     $sourceRoot = Join-Path $FixtureRoot 'source'
     $galleryRoot = Join-Path $FixtureRoot 'gallery'
     $processRoot = Join-Path $FixtureRoot 'process-cwd'
-    New-Item -ItemType Directory -Path $sourceRoot, $galleryRoot, $processRoot -Force | Out-Null
+    $homeRoot = Join-Path $FixtureRoot 'unrelated-home'
+    $reportRoot = Join-Path $FixtureRoot 'reports'
+    New-Item -ItemType Directory -Path $sourceRoot, $galleryRoot, $processRoot, $homeRoot -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $homeRoot 'unrelated-sentinel.txt') -Value 'fake unrelated home state'
+    Set-Content -LiteralPath (Join-Path $homeRoot 'credentials.json') -Value '{"fixture":"never copy"}'
     Set-Content -LiteralPath (Join-Path $FixtureRoot 'NuGet.config') -Value 'caller config'
     Set-Content -LiteralPath (Join-Path $galleryRoot 'NuGet.config') -Value 'gallery config'
     Set-Content -LiteralPath (Join-Path $processRoot 'NuGet.config') -Value 'process caller config'
@@ -321,6 +374,27 @@ function Invoke-LifecycleScenario
             $global:Lifecycle.Packages["$name|1.2.3"] = New-FakePackage $name '1.2.3'
         }
     }
+    if ($Scenario -eq 'strict-uninstall-partial')
+    {
+        foreach ($definition in $definitions | Where-Object PackageName -ne 'Az.Compute')
+        {
+            $name = $definition.PackageName
+            $global:Lifecycle.Packages["$name|1.2.3"] = New-FakePackage $name '1.2.3'
+        }
+    }
+    if ($ArtifactScenario -in 'artifacts-uninstall-capture-primary', 'artifacts-uninstall-capture-only')
+    {
+        New-Item -ItemType Directory -Path $reportRoot -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $reportRoot 'inventories') -Value 'fixture blocks inventory directory'
+    }
+    if ($ArtifactScenario -eq 'artifacts-uninstall-capture-only')
+    {
+        foreach ($definition in $definitions)
+        {
+            $name = $definition.PackageName
+            $global:Lifecycle.Packages["$name|1.2.3"] = New-FakePackage $name '1.2.3'
+        }
+    }
     if ($Scenario -in 'empty-install', 'empty-uninstall')
     {
         Get-ChildItem -LiteralPath $sourceRoot -Filter '*.psd1' -Recurse | Remove-Item
@@ -331,6 +405,7 @@ function Invoke-LifecycleScenario
     }
 
     Enable-LifecycleFakes
+    $env:PSModulePath = (Join-Path $FixtureRoot 'installed') + [IO.Path]::PathSeparator + $env:PSModulePath
     $caught = $null
     $output = [System.Collections.Generic.List[string]]::new()
     Push-Location -LiteralPath $FixtureRoot
@@ -340,9 +415,16 @@ function Invoke-LifecycleScenario
         # Deliberately start with different PowerShell and .NET working directories.
         [Environment]::CurrentDirectory = $processRoot
         $parameters = @{ SourcePsRoot = '.\source'; PwshPath = 'Invoke-FakePwsh' }
+        if ($ArtifactScenario)
+        {
+            if ($ArtifactScenario -eq 'artifacts-report-in-source') { $reportRoot = Join-Path $sourceRoot 'reports' }
+            if ($ArtifactScenario -eq 'artifacts-report-in-gallery') { $reportRoot = Join-Path $galleryRoot 'reports' }
+            if ($ArtifactScenario -eq 'artifacts-report-in-module') { $reportRoot = Join-Path $FixtureRoot 'installed\Az.Compute\1.2.3\reports' }
+            $parameters.ReportRoot = $reportRoot
+        }
         try
         {
-            if ($Scenario -in 'strict-uninstall-missing', 'empty-uninstall')
+            if ($Scenario -in 'strict-uninstall-missing', 'strict-uninstall-partial', 'uninstall-capture-only', 'empty-uninstall')
             {
                 & $uninstallScript @parameters *>&1 | ForEach-Object { $output.Add($_.ToString()) }
             }
@@ -356,6 +438,14 @@ function Invoke-LifecycleScenario
                 foreach ($definition in $definitions)
                 {
                     Assert-Fixture ($global:Lifecycle.Packages.ContainsKey("$($definition.PackageName)|$($definition.Version)")) 'Successful installation must retain every exact target version.'
+                }
+                if ($ArtifactScenario)
+                {
+                    foreach ($definition in $definitions)
+                    {
+                        $snapshot = Join-Path $reportRoot "installed-modules\$($definition.PackageName)\$($definition.Version)"
+                        Assert-Fixture (Test-Path -LiteralPath (Join-Path $snapshot "$($definition.PackageName).dll")) 'Every installed binary must be captured before a separate uninstall.'
+                    }
                 }
                 if ($Scenario -in 'newer-versions', 'default-source', 'accounts-source')
                 {
@@ -403,7 +493,12 @@ function Invoke-LifecycleScenario
                 Assert-Fixture (($installed.Name -join ',') -eq ($definitions.PackageName -join ',')) 'Installation must use canonical discovery order.'
                 $firstMutation = @($events | Where-Object Operation -eq Register)[0]
                 $queriesBeforeMutation = @($events | Select-Object -First ([array]::IndexOf($events, $firstMutation)) | Where-Object Operation -eq Query)
-                Assert-Fixture ($queriesBeforeMutation.Count -eq $definitions.Count) 'All exact versions must be checked before repository registration.'
+                $expectedQueriesPerModule = if ($ArtifactScenario) { 2 } else { 1 }
+                Assert-Fixture ($queriesBeforeMutation.Count -eq ($expectedQueriesPerModule * $definitions.Count)) 'Inventory and preflight must query all exact versions before repository registration.'
+                foreach ($definition in $definitions)
+                {
+                    Assert-Fixture (@($queriesBeforeMutation | Where-Object { $_.Name -eq $definition.PackageName -and $_.Version -eq $definition.Version }).Count -eq $expectedQueriesPerModule) 'Each target must receive its exact preflight query, independently of artifact queries.'
+                }
                 if ($_ -ne 'success')
                 {
                     $reverse = @($definitions.PackageName)
@@ -422,6 +517,19 @@ function Invoke-LifecycleScenario
                 Assert-Fixture (($installed.Name -join ',') -eq 'Az.Login,Az.Compute') 'Only attempted modules may be installed.'
                 Assert-Fixture (($removed.Name -join ',') -eq 'Az.Compute,Az.Login') 'Failure must reverse only attempted modules.'
                 Assert-Fixture ($global:Lifecycle.Packages.Count -eq 0) 'Failure must remove attempted package versions.'
+            }
+            'first-import-failure' {
+                Assert-Fixture (($installed.Name -join ',') -eq 'Az.Login') 'A first-module import failure must stop subsequent installations.'
+                Assert-Fixture (($removed.Name -join ',') -eq 'Az.Login') 'A first-module import failure must roll back Login directly rather than invoke strict uninstall.'
+                if ($ArtifactScenario -eq 'artifacts-rollback-removal-failure')
+                {
+                    Assert-Fixture ($global:Lifecycle.Packages.Count -eq 1) 'A failed removal must retain the real package state.'
+                    Assert-Fixture ($joined -match 'Failed to clean up Az.Login') 'Rollback failure must be reported without replacing the import error.'
+                }
+                else
+                {
+                    Assert-Fixture ($global:Lifecycle.Packages.Count -eq 0) 'The first failing module must not remain installed.'
+                }
             }
             'install-absent-failure' {
                 Assert-Fixture (($removed.Name -join ',') -eq 'Az.Login') 'Rollback must tolerate an attempted installation that left no package.'
@@ -463,6 +571,27 @@ function Invoke-LifecycleScenario
             'strict-uninstall-missing' {
                 Assert-Fixture ($removed.Count -eq 0 -and $global:Lifecycle.Packages.Count -eq 3) 'Normal uninstall must fail strictly when the first required module is missing.'
             }
+            'strict-uninstall-partial' {
+                Assert-Fixture (($removed.Name -join ',') -eq 'Az,Az.Resources') 'Strict uninstall must stop on the first missing version after earlier removals.'
+                Assert-Fixture ($global:Lifecycle.Packages.Count -eq 1 -and $global:Lifecycle.Packages.ContainsKey('Az.Login|1.2.3')) 'Strict partial uninstall must leave later definitions untouched.'
+            }
+            'partial-install' {
+                Assert-Fixture (($installed.Name -join ',') -eq 'Az.Login,Az.Compute') 'Only attempted versions may be partially installed.'
+                Assert-Fixture (($removed.Name -join ',') -eq 'Az.Login') 'PowerShellGet rollback must still remove registered prior installs.'
+                Assert-Fixture ($global:Lifecycle.Packages.Count -eq 1 -and -not $global:Lifecycle.Packages['Az.Compute|1.2.3'].Registered) 'Inventory must not claim the unregistered partial package was removed.'
+            }
+            'capture-failure' {
+                Assert-Fixture (($removed.Name -join ',') -eq 'Az,Az.Resources,Az.Compute,Az.Login') 'Capture-only failure must still roll back every attempted package in reverse order.'
+                Assert-Fixture ($global:Lifecycle.Packages.Count -eq 0) 'Capture-only failure must clean attempted packages.'
+            }
+            'uninstall-capture-only' {
+                Assert-Fixture (($removed.Name -join ',') -eq 'Az,Az.Resources,Az.Compute,Az.Login') 'Capture-only failure must not interrupt the strict uninstall loop.'
+                Assert-Fixture ($global:Lifecycle.Packages.Count -eq 0) 'Uninstall must finish cleanup despite capture errors.'
+            }
+            'capture-preflight-failure' {
+                Assert-Fixture ($mutations.Count -eq 0) 'Unsafe report paths must fail before installation mutation.'
+                Assert-Fixture (-not (Test-Path -LiteralPath $reportRoot)) 'Capture must not create reports in either read-only input root.'
+            }
             { $_ -in 'empty-install', 'empty-uninstall', 'invalid-definition', 'preflight-query-failure' } {
                 Assert-Fixture ($mutations.Count -eq 0) 'Invalid discovery or query failures must fail before any mutation.'
             }
@@ -477,8 +606,10 @@ function Invoke-LifecycleScenario
         {
             Assert-Fixture ($null -ne $caught -and $caught.Exception.Message -match $expectedError) "Original failure must remain primary, matching '$expectedError'; got '$caught'."
         }
+        if ($ArtifactScenario) { Assert-LifecycleArtifacts -ReportRoot $reportRoot -Definitions $definitions -Output $joined }
         $output | ForEach-Object { Write-Host $_ }
-        Write-Host "FIXTURE ASSERTIONS PASSED: $Scenario"
+        $displayScenario = if ($ArtifactScenario) { $ArtifactScenario } else { $Scenario }
+        Write-Host "FIXTURE ASSERTIONS PASSED: $displayScenario"
         if ($caught) { throw $caught }
     }
     finally
@@ -499,9 +630,10 @@ function Invoke-LifecycleScenario
 function Get-ExpectedFailure
 {
     param([string]$Name)
+    $Name = Get-LifecycleScenarioName $Name
     switch ($Name)
     {
-        { $_ -in 'import-failure', 'help-failure', 'removal-failures', 'cleanup-primary', 'cleanup-query-failure', 'failure-newer-versions' } { 'local gallery import validation failed \(exit 51\)' }
+        { $_ -in 'first-import-failure', 'import-failure', 'help-failure', 'removal-failures', 'cleanup-primary', 'cleanup-query-failure', 'failure-newer-versions' } { 'local gallery import validation failed \(exit 51\)' }
         'install-failure' { 'Injected installation failure after adding' }
         'install-absent-failure' { 'Injected installation failure before adding' }
         { $_ -in 'preexisting-exact', 'preexisting-available' } { 'already exists.*disposable environment' }
@@ -513,22 +645,167 @@ function Get-ExpectedFailure
         { $_ -in 'empty-install', 'empty-uninstall' } { 'No Az module definitions' }
         'invalid-definition' { 'Invalid or missing ModuleVersion' }
         'strict-uninstall-missing' { 'Expected installed module was not found: Az 1.2.3' }
+        'strict-uninstall-partial' { 'Expected installed module was not found: Az.Compute 1.2.3' }
+        'partial-install' { 'Injected unregistered partial installation failure' }
+        { $_ -in 'capture-failure', 'capture-preflight-failure', 'uninstall-capture-only' } { 'Module artifact capture failed' }
+    }
+}
+
+function Get-LifecycleScenarioName
+{
+    param([string]$Name)
+    switch ($Name)
+    {
+        'artifacts-rollback-removal-failure' { return 'first-import-failure' }
+        { $_ -in 'artifacts-capture-primary', 'artifacts-available-query-failure' } { return 'import-failure' }
+        { $_ -in 'artifacts-link-capture', 'artifacts-scope-mismatch' } { return 'capture-failure' }
+        { $_ -in 'artifacts-report-in-source', 'artifacts-report-in-gallery', 'artifacts-report-in-module' } { return 'capture-preflight-failure' }
+        'artifacts-uninstall-capture-primary' { return 'strict-uninstall-missing' }
+        'artifacts-uninstall-partial' { return 'strict-uninstall-partial' }
+        default { return ($Name -replace '^artifacts-', '') }
+    }
+}
+
+function Assert-LifecycleArtifacts
+{
+    param([string]$ReportRoot, [array]$Definitions, [string]$Output)
+    if ($Scenario -eq 'capture-preflight-failure')
+    {
+        Assert-Fixture ($Output -match 'Module artifact capture.*(source or package repository|module-search directory)') 'Rejected report roots must surface diagnostic warnings without writing there.'
+        return
+    }
+    $captureErrorsPath = Join-Path $ReportRoot 'capture-errors.json'
+    if ($ArtifactScenario -in 'artifacts-uninstall-capture-primary', 'artifacts-uninstall-capture-only')
+    {
+        Assert-Fixture (Test-Path -LiteralPath $captureErrorsPath) 'Unwritable inventory paths must produce capture-errors.json.'
+        Assert-Fixture ($Output -match 'Module artifact capture') 'Unwritable inventory paths must also emit a warning.'
+        return
+    }
+    $environment = Get-Content -LiteralPath (Join-Path $ReportRoot 'environment.json') -Raw | ConvertFrom-Json
+    $environmentFields = @('schemaVersion', 'capturedAtUtc', 'powerShellVersion', 'powerShellEdition', 'dotNetRuntimeDescription', 'osDescription', 'processArchitecture', 'osArchitecture', 'psHome', 'moduleSearchPaths')
+    Assert-Fixture ((($environment.PSObject.Properties.Name | Sort-Object) -join ',') -eq (($environmentFields | Sort-Object) -join ',')) 'Environment output must use only the allowlisted fields.'
+    Assert-Fixture ($environment.powerShellVersion -eq $PSVersionTable.PSVersion.ToString()) 'Environment must record the actual test PowerShell version.'
+    Assert-Fixture ($environment.powerShellEdition -eq $PSVersionTable.PSEdition -and $environment.psHome -eq $PSHOME) 'Environment must describe the tested process, not the host runner.'
+    Assert-Fixture (-not [string]::IsNullOrWhiteSpace($environment.dotNetRuntimeDescription)) 'Environment must include the .NET runtime description.'
+    Assert-Fixture (@(Get-ChildItem -LiteralPath $ReportRoot -Recurse -Force -File | Where-Object { $_.Name -in 'unrelated-sentinel.txt', 'credentials.json', 'NuGet.config' }).Count -eq 0) 'Snapshots must never copy unrelated home, NuGet.config, or preexisting version files.'
+
+    $inventoryRoot = Join-Path $ReportRoot 'inventories'
+    $isUninstallOnly = $Scenario -in 'strict-uninstall-missing', 'strict-uninstall-partial'
+    $beforeStage = if ($isUninstallOnly) { 'before-uninstall' } else { 'before-install' }
+    $before = Get-Content -LiteralPath (Join-Path $inventoryRoot "$beforeStage.json") -Raw | ConvertFrom-Json
+    Assert-Fixture (@($before.modules).Count -eq $Definitions.Count -and $before.stage -eq $beforeStage) 'Before inventories must enumerate exactly the requested targets.'
+    foreach ($module in $before.modules)
+    {
+        Assert-Fixture ($module.version -eq '1.2.3') 'Inventories must not substitute preexisting newer versions.'
+        Assert-Fixture ($module.snapshot.status -eq 'not-requested') 'Preflight must never snapshot preexisting modules.'
+    }
+    if ($isUninstallOnly)
+    {
+        $after = Get-Content -LiteralPath (Join-Path $inventoryRoot 'after-uninstall.json') -Raw | ConvertFrom-Json
+        Assert-Fixture (@($after.modules | Where-Object { $_.packageName -eq 'Az.Login' -and $_.installed.status -eq 'found' }).Count -eq 1) 'Strict uninstall failure must retain final evidence of untouched modules.'
+        if ($Scenario -eq 'strict-uninstall-partial')
+        {
+            Assert-Fixture (@($after.modules | Where-Object { $_.packageName -in 'Az', 'Az.Resources', 'Az.Compute' -and $_.installed.status -eq 'missing' }).Count -eq 3) 'Partial uninstall must record both removed and initially missing versions.'
+        }
+        Assert-Fixture (-not (Test-Path -LiteralPath (Join-Path $ReportRoot 'installed-modules'))) 'Standalone uninstall cannot claim ownership of installed snapshot versions.'
+        return
+    }
+    $failed = [bool](Get-ExpectedFailure $Scenario)
+    $afterStage = if ($failed) { 'install-failure' } else { 'after-install' }
+    $after = Get-Content -LiteralPath (Join-Path $inventoryRoot "$afterStage.json") -Raw | ConvertFrom-Json
+    $attempted = @($global:Lifecycle.Events | Where-Object Operation -eq Install)
+    foreach ($module in $after.modules)
+    {
+        $wasAttempted = @($attempted | Where-Object { $_.Name -eq $module.packageName -and $_.Version -eq $module.version }).Count -gt 0
+        if (-not $wasAttempted)
+        {
+            Assert-Fixture ($module.snapshot.status -eq 'not-attempted') 'Unattempted/preexisting targets must never be snapshotted.'
+            Assert-Fixture (-not (Test-Path -LiteralPath (Join-Path $ReportRoot "installed-modules\$($module.packageName)\$($module.version)"))) 'There must be no snapshot directory for an unattempted version.'
+        }
+        elseif ($module.snapshot.status -eq 'copied')
+        {
+            $snapshot = $module.snapshot.destinationPath
+            $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $snapshot "$($module.packageName).psd1")
+            Assert-Fixture ($manifest.ModuleVersion -eq $module.version) 'Snapshots must retain the exact versioned manifest.'
+            Assert-Fixture ((Get-Content -LiteralPath (Join-Path $snapshot "$($module.packageName).dll") -Raw).Trim() -eq "Fake binary for $($module.packageName) $($module.version)") 'Snapshots must preserve binary file contents.'
+            Assert-Fixture (Test-Path -LiteralPath (Join-Path $snapshot "en-US\$($module.packageName).dll-Help.xml")) 'Snapshots must preserve external help.'
+            if ([Environment]::OSVersion.Platform -eq [PlatformID]::Unix)
+            {
+                Assert-Fixture (([int][IO.File]::GetUnixFileMode($snapshot) -band 5) -eq 5) 'Container snapshot directories must be readable/traversable by the host publisher.'
+                Assert-Fixture (([int][IO.File]::GetUnixFileMode((Join-Path $snapshot "$($module.packageName).dll")) -band 4) -eq 4) 'Container snapshot files must be readable by the host publisher.'
+            }
+        }
+        elseif ($ArtifactScenario -eq 'artifacts-install-absent-failure' -and $module.packageName -eq 'Az.Compute')
+        {
+            Assert-Fixture ($module.snapshot.status -eq 'missing' -and $module.installed.status -eq 'missing') 'An absent attempted package must be explicit rather than manufactured.'
+        }
+        else
+        {
+            Assert-Fixture ($module.packageName -eq 'Az.Compute' -and $module.snapshot.status -eq 'error' -and $module.snapshot.error) 'Capture failures must be explicit for the affected module.'
+        }
+    }
+    if ($failed -and $attempted.Count -gt 0)
+    {
+        $rollback = Get-Content -LiteralPath (Join-Path $inventoryRoot 'after-rollback.json') -Raw | ConvertFrom-Json
+        if ($Scenario -eq 'partial-install')
+        {
+            $partial = @($after.modules | Where-Object packageName -eq 'Az.Compute')[0]
+            Assert-Fixture ($partial.installed.status -eq 'missing' -and $partial.available.status -eq 'found' -and $partial.snapshot.status -eq 'copied') 'Partial unregistered installs must be snapshotted from exact available-module metadata before rollback.'
+            $partialAfter = @($rollback.modules | Where-Object packageName -eq 'Az.Compute')[0]
+            Assert-Fixture ($partialAfter.installed.status -eq 'missing' -and $partialAfter.available.status -eq 'found') 'Rollback inventories must truthfully report unregistered leftovers.'
+        }
+        elseif ($ArtifactScenario -eq 'artifacts-rollback-removal-failure')
+        {
+            Assert-Fixture (@($rollback.modules | Where-Object { $_.packageName -eq 'Az.Login' -and $_.installed.status -eq 'found' }).Count -eq 1) 'Final rollback inventory must exist even when every removal fails.'
+        }
+        elseif ($Scenario -ne 'cleanup-query-failure')
+        {
+            Assert-Fixture (@($rollback.modules | Where-Object { $_.installed.status -ne 'missing' }).Count -eq 0) 'After-rollback inventories must prove exact registered targets are absent.'
+        }
+    }
+    if ($Scenario -eq 'newer-versions')
+    {
+        $uninstalled = Get-Content -LiteralPath (Join-Path $inventoryRoot 'after-uninstall.json') -Raw | ConvertFrom-Json
+        Assert-Fixture (@($uninstalled.modules | Where-Object { $_.installed.status -ne 'missing' -or $_.available.status -ne 'missing' }).Count -eq 0) 'Normal uninstall must record final exact-version absence even with newer versions remaining.'
+        Assert-Fixture (@(Get-ChildItem -LiteralPath (Join-Path $ReportRoot 'installed-modules') -Recurse -File -Filter '*.dll').Count -eq $Definitions.Count) 'Snapshots must survive subsequent uninstall of their originals.'
+    }
+    if ($ArtifactScenario -in 'artifacts-capture-failure', 'artifacts-capture-primary', 'artifacts-link-capture', 'artifacts-scope-mismatch', 'artifacts-available-query-failure', 'artifacts-cleanup-query-failure')
+    {
+        $captureErrors = Get-Content -LiteralPath $captureErrorsPath -Raw | ConvertFrom-Json
+        Assert-Fixture (@($captureErrors.errors).Count -gt 0 -and $Output -match 'Module artifact capture') 'Every capture problem must produce structured errors and a warning.'
+        if ($ArtifactScenario -eq 'artifacts-available-query-failure')
+        {
+            Assert-Fixture (@($after.modules | Where-Object { $_.packageName -eq 'Az.Compute' -and $_.available.status -eq 'error' }).Count -eq 1) 'Unexpected available lookup failures must not be reported as missing.'
+        }
+    }
+    else
+    {
+        Assert-Fixture (-not (Test-Path -LiteralPath $captureErrorsPath)) 'Normal absence and valid snapshots must not be mislabeled as capture failures.'
     }
 }
 
 if ($Scenario)
 {
+    $script:ArtifactScenario = if ($Scenario -like 'artifacts-*') { $Scenario } else { $null }
+    $script:Scenario = Get-LifecycleScenarioName $Scenario
     Invoke-LifecycleScenario
     exit 0
 }
 
 $scenarios = @(
-    'success', 'import-failure', 'help-failure', 'install-failure', 'install-absent-failure',
+    'success', 'first-import-failure', 'import-failure', 'help-failure', 'install-failure', 'install-absent-failure',
     'removal-failures', 'cleanup-query-failure', 'preexisting-exact', 'preexisting-available',
     'newer-versions', 'repository-conflict', 'registration-failure', 'unregistration-failure',
     'cleanup-primary', 'preflight-query-failure', 'empty-install', 'empty-uninstall',
     'invalid-definition', 'strict-uninstall-missing', 'default-source', 'accounts-source',
-    'failure-newer-versions', 'directory-cleanup-failure'
+    'failure-newer-versions', 'directory-cleanup-failure',
+    'artifacts-success', 'artifacts-first-import-failure', 'artifacts-rollback-removal-failure', 'artifacts-newer-versions', 'artifacts-install-failure', 'artifacts-install-absent-failure',
+    'artifacts-partial-install', 'artifacts-preexisting-exact', 'artifacts-preexisting-available',
+    'artifacts-cleanup-primary', 'artifacts-cleanup-query-failure', 'artifacts-unregistration-failure',
+    'artifacts-directory-cleanup-failure', 'artifacts-strict-uninstall-missing', 'artifacts-uninstall-partial',
+    'artifacts-capture-failure', 'artifacts-capture-primary', 'artifacts-link-capture', 'artifacts-scope-mismatch',
+    'artifacts-report-in-source', 'artifacts-report-in-gallery', 'artifacts-report-in-module', 'artifacts-available-query-failure',
+    'artifacts-uninstall-capture-primary', 'artifacts-uninstall-capture-only'
 )
 $scratchRoot = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) "ps-lifecycle-$([guid]::NewGuid().ToString('N'))")
 $pwsh = (Get-Process -Id $PID).Path

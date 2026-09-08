@@ -25,7 +25,9 @@ param(
     [string] $SourceRoot,
 
     [Parameter(Mandatory)]
-    [string] $PwshPath
+    [string] $PwshPath,
+
+    [string] $ReportRoot
 )
 
 Set-StrictMode -Version Latest
@@ -44,6 +46,7 @@ function Invoke-ValidationScript {
         [string[]] $Arguments
     )
 
+    if ($ReportRoot) { $Arguments += @('-ReportRoot', $ReportRoot) }
     & $PwshPath -NoProfile -File $ScriptPath @Arguments
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE

@@ -129,3 +129,21 @@ jobs:
       docker rm --force "azclips-psval-$(System.JobId)" >/dev/null 2>&1 || true
     condition: and(always(), eq(variables['ValidationMode'], 'container'))
     displayName: Clean Up Validation Container
+
+  - pwsh: |
+      & "$env:BUILD_SOURCESDIRECTORY/devops/scripts/packaging/powershell/complete_ps_validation_artifacts.ps1" `
+        -ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY "azclips-ps-validation-reports-$env:SYSTEM_JOBID") `
+        -ValidationKey $env:PS_VALIDATION_KEY `
+        -JobStatus $env:AGENT_JOBSTATUS
+    env:
+      PS_VALIDATION_KEY: $(ValidationKey)
+    condition: always()
+    displayName: Finalize PS Validation Artifacts
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish PS Validation Artifacts
+    condition: always()
+    inputs:
+      targetPath: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)
+      artifact: Validate_PS_Sim_$(ValidationKey)
+      publishLocation: pipeline

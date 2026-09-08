@@ -301,6 +301,8 @@ while IFS= read -r key; do
     failures=$((failures + 1))
   fi
 done <<<"$keys"
+assert_equals "true" "$(jq 'all(to_entries[]; .key == .value.ValidationKey)' <<<"$output")" \
+  "every artifact key matches its unique matrix leg"
 end_test
 
 start_test "registry failure falls back to configured versions"

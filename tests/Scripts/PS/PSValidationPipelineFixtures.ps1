@@ -11,6 +11,7 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $runner = Join-Path $repoRoot 'devops/scripts/packaging/powershell/invoke_ps_validation_step.ps1'
+$completeReport = Join-Path $repoRoot 'devops/scripts/packaging/powershell/complete_ps_validation_artifacts.ps1'
 
 if ($Scenario)
 {
@@ -18,6 +19,7 @@ if ($Scenario)
     function Invoke-FakeNative
     {
         param([string]$Command, [object[]]$Arguments)
+        Write-Host "FAKE NATIVE OUTPUT: $Command"
         $calls.Add([pscustomobject]@{
             Command = $Command
             Arguments = @($Arguments)
@@ -27,6 +29,14 @@ if ($Scenario)
         ConvertTo-Json -InputObject @($calls.ToArray()) -Depth 5 |
             Set-Content -LiteralPath (Join-Path $ScratchRoot 'calls.json')
 
+        if ($Scenario -in 'native-output', 'native-output-fails')
+        {
+            $executable = Join-Path $PSHOME $(if ($IsWindows) { 'pwsh.exe' } else { 'pwsh' })
+            $command = '[Console]::Out.WriteLine("NATIVE_STDOUT_MARKER"); [Console]::Error.WriteLine("NATIVE_STDERR_MARKER")'
+            if ($Scenario -eq 'native-output-fails') { $command += '; exit 42' }
+            & $executable -NoProfile -Command $command
+            return
+        }
         $global:LASTEXITCODE = 0
         if (($Scenario -eq 'pull-fails' -and $Arguments[0] -eq 'pull') -or
             ($Scenario -eq 'run-fails' -and $Arguments[0] -eq 'run') -or
@@ -58,13 +68,16 @@ if ($Scenario)
         PwshPath = '/opt/pwsh/pwsh'
         DotnetRootPath = Join-Path $ScratchRoot 'dotnet with spaces'
         ContinueOnError = 'false'
+        ReportRoot = Join-Path $ScratchRoot 'reports with spaces'
+        ValidationKey = 'alpine_3_23_ps7_6'
+        AzVersion = '1.2.3'
     }
     if ($Scenario -like '*soft-fails') { $parameters.ContinueOnError = 'true' }
     if ($Scenario -like 'container-*')
     {
         $parameters.Phase = $Scenario.Substring('container-'.Length)
     }
-    if ($Scenario -in @('phase-soft-fails', 'phase-hard-fails', 'native-install', 'missing-command'))
+    if ($Scenario -in @('phase-soft-fails', 'phase-hard-fails', 'native-install', 'missing-command', 'no-report-root', 'report-write-fails', 'native-output', 'native-output-fails'))
     {
         $parameters.Phase = 'Install'
         $parameters.ValidationMode = 'native'
@@ -74,6 +87,12 @@ if ($Scenario)
     if ($Scenario -eq 'missing-command')
     {
         $parameters.PwshPath = 'Nonexistent-ValidationFixtureCommand'
+    }
+    if ($Scenario -eq 'no-report-root') { $parameters.Remove('ReportRoot') }
+    if ($Scenario -eq 'report-write-fails')
+    {
+        $parameters.ReportRoot = Join-Path $ScratchRoot 'blocked-report-root'
+        Set-Content -LiteralPath $parameters.ReportRoot -Value 'Existing file'
     }
     if ($Scenario -in @('windows-bootstrap', 'macos-bootstrap'))
     {
@@ -86,7 +105,19 @@ if ($Scenario)
         }
     }
 
-    & $runner @parameters
+    if ($Scenario -eq 'complete-lifecycle')
+    {
+        foreach ($phase in 'Bootstrap', 'Install', 'Upgrade', 'Validate', 'Uninstall')
+        {
+            $parameters.Phase = $phase
+            & $runner @parameters
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+    }
+    else
+    {
+        & $runner @parameters
+    }
     exit $LASTEXITCODE
 }
 
@@ -172,7 +203,8 @@ try
         'bootstrap-success', 'pull-fails', 'run-fails', 'bootstrap-hard-fails',
         'bootstrap-soft-fails', 'windows-bootstrap', 'macos-bootstrap',
         'container-Install', 'container-Upgrade', 'container-Validate', 'container-Uninstall',
-        'native-install', 'phase-hard-fails', 'phase-soft-fails', 'missing-command'
+        'native-install', 'phase-hard-fails', 'phase-soft-fails', 'missing-command',
+        'complete-lifecycle', 'no-report-root', 'report-write-fails', 'native-output', 'native-output-fails'
     )
     foreach ($name in $scenarios)
     {
@@ -181,10 +213,62 @@ try
         $output = & $pwsh -NoProfile -File $PSCommandPath -Scenario $name -ScratchRoot $caseRoot 2>&1
         $exitCode = $LASTEXITCODE
         $text = ($output | ForEach-Object { "$_" }) -join "`n"
-        $expectedExit = if ($name -in @('pull-fails', 'run-fails', 'bootstrap-hard-fails', 'phase-hard-fails')) {
+        $expectedExit = if ($name -in @('pull-fails', 'run-fails', 'bootstrap-hard-fails', 'phase-hard-fails', 'native-output-fails')) {
             42
-        } elseif ($name -eq 'missing-command') { 1 } else { 0 }
+        } elseif ($name -in 'missing-command', 'report-write-fails') { 1 } else { 0 }
         Assert-Equal $expectedExit $exitCode "$name exit code`n$text"
+
+        $reportRoot = Join-Path $caseRoot 'reports with spaces'
+        if ($name -eq 'report-write-fails')
+        {
+            Assert-Equal $false (Test-Path -LiteralPath (Join-Path $caseRoot 'calls.json')) 'Capture initialization failure prevents native mutations'
+            $count++
+            continue
+        }
+        if ($name -eq 'no-report-root')
+        {
+            Assert-Equal $false (Test-Path -LiteralPath $reportRoot) 'Legacy callers do not create report files'
+        }
+        else
+        {
+            $report = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
+            $matrix = Get-Content -LiteralPath (Join-Path $reportRoot 'matrix.json') -Raw | ConvertFrom-Json
+            Assert-Equal 'alpine_3_23_ps7_6' $matrix.validationKey 'Report retains its matrix identity'
+            Assert-Equal '7.6' $matrix.requestedPowerShellVersion 'Requested version is distinguished from the host version'
+            Assert-Equal '1.2.3' $matrix.azVersion 'Report records the Azure PS version'
+            $executed = @($report.phases | Where-Object { $null -ne $_.startedAtUtc })
+            Assert-Equal $(if ($name -eq 'complete-lifecycle') { 5 } else { 1 }) $executed.Count 'Only executed phases have start timestamps'
+            foreach ($entry in $executed)
+            {
+                $expectedStatus = if ($name -like '*soft-fails') { 'SucceededWithIssues' }
+                    elseif ($expectedExit -ne 0) { 'Failed' }
+                    elseif ($entry.phase -in 'Upgrade', 'Validate') { 'Skipped' }
+                    else { 'Succeeded' }
+                Assert-Equal $expectedStatus $entry.status "$name records the real phase status"
+                Assert-Equal $(if ($name -like '*soft-fails') { 42 } else { $expectedExit }) $entry.exitCode 'Native failure code is retained even for a soft failure'
+                Assert-Equal $true ($null -ne $entry.finishedAtUtc) 'Completed phases have finish timestamps'
+                $log = Get-Content -LiteralPath (Join-Path $reportRoot "logs/$($entry.phase.ToLowerInvariant()).log") -Raw
+                Assert-Contains $log "PowerShell validation: $($entry.phase)" 'Phase log survives process exit'
+                if ($name -ne 'missing-command')
+                {
+                    Assert-Contains $log 'FAKE NATIVE OUTPUT:' 'Transcript contains command output, not only status metadata'
+                }
+                if ($name -in 'native-output', 'native-output-fails')
+                {
+                    Assert-Contains $log 'NATIVE_STDOUT_MARKER' 'Transcript includes stdout from an actual native process'
+                    Assert-Contains $log 'NATIVE_STDERR_MARKER' 'Transcript includes stderr from an actual native process'
+                }
+            }
+            $jobStatus = if ($name -like '*soft-fails') { 'SucceededWithIssues' }
+                elseif ($expectedExit -ne 0) { 'Failed' } else { 'Succeeded' }
+            & $completeReport -ReportRoot $reportRoot -ValidationKey $matrix.validationKey -JobStatus $jobStatus
+            $completed = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
+            $expectedStatus = if ($name -eq 'complete-lifecycle') { 'Succeeded' }
+                elseif ($jobStatus -ne 'Succeeded') { $jobStatus } else { 'Incomplete' }
+            Assert-Equal $expectedStatus $completed.status 'Overall result never treats missing required phases as success'
+            Assert-Equal 5 @(Get-ChildItem -LiteralPath (Join-Path $reportRoot 'logs') -Filter '*.log').Count 'All phases have a log or an explicit skip explanation'
+            Assert-Equal 0 @($completed.phases | Where-Object status -eq 'NotRun').Count 'Never-started phases are explicitly skipped'
+        }
 
         if ($name -eq 'missing-command')
         {
@@ -203,6 +287,8 @@ try
             Assert-Equal 'pull,run,exec' (($calls | ForEach-Object { $_.Arguments[0] }) -join ',') 'Container lifecycle order'
             Assert-Contains ($calls[1].Arguments -join '|') 'DOTNET_ROOT=/opt/dotnet' 'Container runtime persists'
             Assert-Contains ($calls[1].Arguments -join '|') 'artifacts with spaces:/artifacts:ro' 'Mount path remains one argument'
+            Assert-Contains ($calls[1].Arguments -join '|') 'reports with spaces:/reports' 'Reports use a separate persistent writable mount'
+            Assert-Equal $false (($calls[1].Arguments -join '|').Contains('reports with spaces:/reports:ro')) 'Report mount is writable'
             Assert-Equal 8 $calls[2].Arguments.Count 'Bootstrap argument count'
             if ($name -eq 'bootstrap-success')
             {
@@ -222,6 +308,7 @@ try
             Assert-Equal '_' $calls[0].Arguments[5] 'sh argument-zero placeholder'
             Assert-Contains ($calls[0].Arguments -join '|') ("-Phase|" + $name.Substring(10)) 'Requested phase is forwarded'
             Assert-Contains ($calls[0].Arguments -join '|') '/artifacts/artifacts/PSGallery/local-repo' 'Downloaded gallery location'
+            Assert-Contains ($calls[0].Arguments -join '|') '-ReportRoot|/reports' 'Container phase writes to the host-backed report root'
         }
         if ($name -eq 'windows-bootstrap')
         {
@@ -240,10 +327,53 @@ try
             $dotnetRoot = Join-Path $caseRoot 'dotnet with spaces'
             Assert-Equal $dotnetRoot $calls[0].DotnetRoot 'Native DOTNET_ROOT restored'
             Assert-Equal $true ($calls[0].Path.StartsWith($dotnetRoot + [System.IO.Path]::PathSeparator)) 'Native PATH restored'
+            Assert-Contains ($calls[0].Arguments -join '|') "-ReportRoot|$reportRoot" 'Native report root is forwarded as one argument'
         }
         Write-Host "PASS: $name"
         $count++
     }
+
+    foreach ($jobStatus in 'Failed', 'Canceled', 'Succeeded')
+    {
+        $reportRoot = Join-Path $scratch "never-started-$jobStatus"
+        & $completeReport -ReportRoot $reportRoot -ValidationKey 'never_started' -JobStatus $jobStatus
+        $report = Get-Content -LiteralPath (Join-Path $reportRoot 'results.json') -Raw | ConvertFrom-Json
+        Assert-Equal $(if ($jobStatus -eq 'Succeeded') { 'Incomplete' } else { $jobStatus }) $report.status 'Collection handles jobs that never reached Bootstrap'
+        Assert-Equal 5 @($report.phases | Where-Object status -eq 'Skipped').Count 'Missing phases are not fabricated as passed'
+        Assert-Equal $false $report.runtimeEnvironmentCaptured 'Missing target PowerShell environment is explicit'
+    }
+    . (Join-Path $repoRoot 'devops/scripts/packaging/powershell/shared/phase_artifacts.ps1')
+    $interruptedRoot = Join-Path $scratch 'interrupted'
+    Initialize-PSValidationReport -ReportRoot $interruptedRoot -Metadata @{ validationKey = 'interrupted' }
+    Set-PSValidationPhaseResult -ReportRoot $interruptedRoot -Phase Install -Status Running
+    & $completeReport -ReportRoot $interruptedRoot -JobStatus Succeeded
+    $report = Get-Content -LiteralPath (Join-Path $interruptedRoot 'results.json') -Raw | ConvertFrom-Json
+    Assert-Equal 'Incomplete' $report.status 'Interrupted execution is not treated as success'
+    Assert-Equal 'Interrupted' ($report.phases | Where-Object phase -eq Install).status 'Interrupted phase is retained'
+    Write-Host 'PASS: incomplete and interrupted artifact collection'
+    $count++
+
+    foreach ($corruption in 'empty', 'duplicate', 'unknown-status')
+    {
+        $reportRoot = Join-Path $scratch "invalid-report-$corruption"
+        Initialize-PSValidationReport -ReportRoot $reportRoot -Metadata @{ validationKey = 'invalid' }
+        $reportPath = Join-Path $reportRoot 'results.json'
+        $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json -AsHashtable
+        switch ($corruption)
+        {
+            'empty' { $report.phases = @() }
+            'duplicate' { $report.phases[1].phase = 'Bootstrap' }
+            'unknown-status' { $report.phases[0].status = 'Unknown' }
+        }
+        Write-PSValidationJson -Path $reportPath -Value $report
+        $caught = $null
+        try { & $completeReport -ReportRoot $reportRoot -JobStatus Succeeded }
+        catch { $caught = $_ }
+        Assert-Equal $true ($null -ne $caught) 'Malformed results must not become a successful summary'
+        Assert-Contains $caught.Exception.Message 'Invalid PowerShell validation report' 'Malformed report has an explicit diagnostic'
+    }
+    Write-Host 'PASS: malformed phase reports fail explicitly'
+    $count++
 
     $summary = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/jobs/finalize-build-summary.yml')
     $gates = @($summary | Where-Object { $_ -match '^\s*condition:.*ValidatePSResult' } |
@@ -288,6 +418,12 @@ try
     Assert-Contains $job 'test_generate_ps_validation_matrix.sh' 'Matrix fixtures are wired into CI'
     Assert-Contains $job 'PSModuleLifecycleFixtures.ps1' 'Module fixtures are wired into CI'
     Assert-Contains $job 'PSValidationPipelineFixtures.ps1' 'Pipeline fixtures are wired into CI'
+    Assert-Contains $job 'artifact: Validate_PS_Sim_$(ValidationKey)' 'Each matrix leg has a unique validation artifact'
+    Assert-Equal $true ([regex]::IsMatch($job, '(?s)displayName: Publish PS Validation Artifacts\s+condition: always\(\)')) 'Artifacts publish after validation failures'
+    Assert-Equal $true ([regex]::IsMatch($job, '(?s)condition: always\(\)\s+displayName: Finalize PS Validation Artifacts')) 'Finalization also runs after failures'
+    Assert-Equal $true ($job.IndexOf('complete_ps_validation_artifacts.ps1') -lt $job.IndexOf('artifact: Validate_PS_Sim_')) 'Results are finalized before publication'
+    Assert-Contains $template '-ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY "azclips-ps-validation-reports-$env:SYSTEM_JOBID")' 'Reports stay out of source and package directories'
+    Assert-Contains $job 'targetPath: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)' 'Published root matches the host report mount'
     Write-Host 'PASS: task shape, ordering, cleanup and fixture wiring'
     $count++
 

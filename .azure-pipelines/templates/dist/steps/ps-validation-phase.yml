@@ -25,6 +25,9 @@ steps:
       -SourceRoot $env:BUILD_SOURCESDIRECTORY `
       -ArtifactsRoot (Join-Path $env:PIPELINE_WORKSPACE $env:PS_ARTIFACT_NAME) `
       -WorkRoot (Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-ps-validation') `
+      -ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY "azclips-ps-validation-reports-$env:SYSTEM_JOBID") `
+      -ValidationKey $env:PS_VALIDATION_KEY `
+      -AzVersion $env:PS_AZ_VERSION `
       -PowerShellVersion $env:PS_VERSION `
       -DotnetRuntimeVersion $env:PS_DOTNET_RUNTIME_VERSION `
       -ContainerImage $env:PS_CONTAINER_IMAGE `
@@ -34,6 +37,8 @@ steps:
       -ContinueOnError $env:PS_CONTINUE_ON_ERROR
     exit $LASTEXITCODE
   env:
+    PS_VALIDATION_KEY: $(ValidationKey)
+    PS_AZ_VERSION: $(AzVersion)
     PS_VALIDATION_MODE: $(ValidationMode)
     PS_DISTRIBUTION_FAMILY: $(DistributionFamily)
     PS_DISTRIBUTION_SCRIPT: $(DistributionScript)

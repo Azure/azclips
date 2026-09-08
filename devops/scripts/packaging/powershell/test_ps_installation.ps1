@@ -14,6 +14,9 @@ original failure. Repository operations isolate both the PowerShell location and
 in an OS temporary directory to avoid changing the caller's NuGet.config or requiring a writable gallery.
 Both original directories are restored, and
 only this run's registration and working directory are cleaned up.
+An optional ReportRoot records environment and exact-version inventories, and snapshots only attempted package
+versions before rollback or a later uninstall. Capture-only failures fail the test and roll back attempted installs;
+capture diagnostics never replace a primary lifecycle failure. Omit ReportRoot to retain the original behavior.
 #>
 [CmdletBinding()]
 param(
@@ -21,12 +24,14 @@ param(
     [string]$SourcePsRoot,
     [string]$RepositoryName = 'LocalAzclips',
     [string]$PwshPath = 'pwsh',
-    [ValidateSet('CurrentUser', 'AllUsers')][string]$Scope = 'CurrentUser'
+    [ValidateSet('CurrentUser', 'AllUsers')][string]$Scope = 'CurrentUser',
+    [string]$ReportRoot
 )
 
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'shared\module_definitions.ps1')
+. (Join-Path $PSScriptRoot 'shared\module_artifacts.ps1')
 
 if (-not (Get-Command -Name $PwshPath -ErrorAction SilentlyContinue))
 {
@@ -59,9 +64,12 @@ function Undo-AttemptedModules
     param(
         [Parameter(Mandatory = $true)]
         [AllowEmptyCollection()]
-        [array]$Definitions
+        [array]$Definitions,
+        $ArtifactContext,
+        [array]$InventoryDefinitions
     )
 
+    Write-AzModuleInventory -Context $ArtifactContext -Stage install-failure -Definitions $InventoryDefinitions -SnapshotDefinitions $Definitions
     $reverseDefinitions = @($Definitions)
     [array]::Reverse($reverseDefinitions)
     foreach ($definition in $reverseDefinitions)
@@ -82,6 +90,10 @@ function Undo-AttemptedModules
         {
             Write-Warning "Failed to clean up $($definition.PackageName) $($definition.Version): $($_.Exception.Message)" -WarningAction Continue
         }
+    }
+    if ($Definitions.Count -gt 0)
+    {
+        Write-AzModuleInventory -Context $ArtifactContext -Stage after-rollback -Definitions $InventoryDefinitions
     }
 }
 
@@ -158,23 +170,6 @@ $resolvedSourcePsRoot = (Resolve-Path -LiteralPath $SourcePsRoot -ErrorAction St
 
 $definitions = @(Get-AzModuleDefinitions -SourcePsRoot $resolvedSourcePsRoot)
 
-$existingRepository = @(Get-PSRepository -ErrorAction Stop | Where-Object { $_.Name -eq $RepositoryName })
-if ($existingRepository)
-{
-    throw "Repository '$RepositoryName' is already registered. Use a disposable environment or an unused RepositoryName; existing registrations will not be changed."
-}
-
-foreach ($definition in $definitions)
-{
-    $installedModule = Get-TargetInstalledModule -Definition $definition
-    $availableModules = @(Get-Module -ListAvailable -Name $definition.PackageName -ErrorAction Stop |
-        Where-Object { $_.Version -eq [version]$definition.Version })
-    if ($installedModule -or $availableModules.Count -gt 0)
-    {
-        throw "Target module $($definition.PackageName) $($definition.Version) already exists. Use a disposable environment without the exact target versions; preexisting modules will not be removed."
-    }
-}
-
 $attemptedDefinitions = [System.Collections.Generic.List[object]]::new()
 $repositoryRegistered = $false
 $workingDirectory = $null
@@ -183,9 +178,32 @@ $originalProcessDirectory = [Environment]::CurrentDirectory
 $processDirectoryChanged = $false
 $failure = $null
 $teardownErrors = [System.Collections.Generic.List[string]]::new()
+$artifactContext = New-AzModuleArtifactContext -ReportRoot $ReportRoot -ExcludedRoots @($resolvedSourcePsRoot, $resolvedRepositoryRoot)
 
 try
 {
+    Write-AzModuleInventory -Context $artifactContext -Stage before-install -Definitions $definitions
+    $existingRepository = @(Get-PSRepository -ErrorAction Stop | Where-Object { $_.Name -eq $RepositoryName })
+    if ($existingRepository)
+    {
+        throw "Repository '$RepositoryName' is already registered. Use a disposable environment or an unused RepositoryName; existing registrations will not be changed."
+    }
+
+    foreach ($definition in $definitions)
+    {
+        $installedModule = Get-TargetInstalledModule -Definition $definition
+        $availableModules = @(Get-Module -ListAvailable -Name $definition.PackageName -ErrorAction Stop |
+            Where-Object { $_.Version -eq [version]$definition.Version })
+        if ($installedModule -or $availableModules.Count -gt 0)
+        {
+            throw "Target module $($definition.PackageName) $($definition.Version) already exists. Use a disposable environment without the exact target versions; preexisting modules will not be removed."
+        }
+    }
+    if ($artifactContext -and $artifactContext.Errors.Count -gt 0)
+    {
+        throw 'Module artifact capture failed before installation. See capture-errors.json or warnings.'
+    }
+
     $workingDirectory = New-Item -ItemType Directory -Path (Join-Path ([System.IO.Path]::GetTempPath()) "azclips-install-$([guid]::NewGuid().ToString('N'))") -ErrorAction Stop
     Push-Location -LiteralPath $workingDirectory.FullName -ErrorAction Stop
     $locationPushed = $true
@@ -238,9 +256,17 @@ finally
         }
     }
 
+    if (-not $failure)
+    {
+        Write-AzModuleInventory -Context $artifactContext -Stage after-install -Definitions $definitions -SnapshotDefinitions $attemptedDefinitions.ToArray()
+        if ($artifactContext -and $artifactContext.Errors.Count -gt 0)
+        {
+            $failure = [InvalidOperationException]::new('Module artifact capture failed. See capture-errors.json or warnings.')
+        }
+    }
     if ($failure)
     {
-        Undo-AttemptedModules -Definitions $attemptedDefinitions.ToArray()
+        Undo-AttemptedModules -Definitions $attemptedDefinitions.ToArray() -ArtifactContext $artifactContext -InventoryDefinitions $definitions
     }
 
     if ($locationPushed)
@@ -252,7 +278,7 @@ finally
             if (-not $failure)
             {
                 $failure = $_
-                Undo-AttemptedModules -Definitions $attemptedDefinitions.ToArray()
+                Undo-AttemptedModules -Definitions $attemptedDefinitions.ToArray() -ArtifactContext $artifactContext -InventoryDefinitions $definitions
             }
         }
     }
@@ -265,7 +291,7 @@ finally
             if (-not $failure)
             {
                 $failure = $_
-                Undo-AttemptedModules -Definitions $attemptedDefinitions.ToArray()
+                Undo-AttemptedModules -Definitions $attemptedDefinitions.ToArray() -ArtifactContext $artifactContext -InventoryDefinitions $definitions
             }
         }
     }
@@ -278,7 +304,7 @@ finally
             if (-not $failure)
             {
                 $failure = $_
-                Undo-AttemptedModules -Definitions $attemptedDefinitions.ToArray()
+                Undo-AttemptedModules -Definitions $attemptedDefinitions.ToArray() -ArtifactContext $artifactContext -InventoryDefinitions $definitions
             }
         }
     }

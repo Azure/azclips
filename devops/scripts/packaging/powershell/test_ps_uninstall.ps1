@@ -10,16 +10,20 @@ removes every Az module installed by the installation validation on the same
 agent, and confirms those exact package versions are no longer visible or
 importable. Missing required versions fail this strict, normal uninstall phase;
 installation failures instead perform their own best-effort rollback.
+An optional ReportRoot records before/after inventories, including partial failures, without altering retained
+installation snapshots. Capture failures do not interrupt uninstall cleanup or replace its primary failure.
 #>
 [CmdletBinding()]
 param(
     [string]$SourcePsRoot,
-    [string]$PwshPath = 'pwsh'
+    [string]$PwshPath = 'pwsh',
+    [string]$ReportRoot
 )
 
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'shared\module_definitions.ps1')
+. (Join-Path $PSScriptRoot 'shared\module_artifacts.ps1')
 
 if (-not (Get-Command -Name $PwshPath -ErrorAction SilentlyContinue))
 {
@@ -70,7 +74,12 @@ function Assert-ModuleRemoved
         [pscustomobject]$Definition
     )
 
-    $installedModule = Get-InstalledModule -Name $Definition.PackageName -RequiredVersion $Definition.Version -ErrorAction SilentlyContinue
+    $installedModule = $null
+    try { $installedModule = Get-InstalledModule -Name $Definition.PackageName -RequiredVersion $Definition.Version -ErrorAction Stop }
+    catch
+    {
+        if (($_.FullyQualifiedErrorId -split ',')[0] -ne 'NoMatchFound') { throw }
+    }
     if ($installedModule)
     {
         throw "$($Definition.PackageName) is still reported by Get-InstalledModule after uninstall: $($installedModule.InstalledLocation -join ', ')"
@@ -145,15 +154,31 @@ $resolvedSourcePsRoot = (Resolve-Path -LiteralPath $SourcePsRoot -ErrorAction St
 $definitions = @(Get-AzModuleDefinitions -SourcePsRoot $resolvedSourcePsRoot)
 [array]::Reverse($definitions)
 $uninstalledPackages = @()
+$artifactContext = New-AzModuleArtifactContext -ReportRoot $ReportRoot -ExcludedRoots @($resolvedSourcePsRoot)
+$failure = $null
 
-foreach ($definition in $definitions)
+try
 {
-    Assert-ModuleInstalled -Definition $definition
-    Uninstall-AzModule -Definition $definition
-    Assert-ModuleRemoved -Definition $definition
-    $uninstalledPackages += $definition.PackageName
+    Write-AzModuleInventory -Context $artifactContext -Stage before-uninstall -Definitions $definitions
+    foreach ($definition in $definitions)
+    {
+        Assert-ModuleInstalled -Definition $definition
+        Uninstall-AzModule -Definition $definition
+        Assert-ModuleRemoved -Definition $definition
+        $uninstalledPackages += $definition.PackageName
+    }
+    Assert-ModulesNotImportable -PwshPath $PwshPath -Definitions $definitions
+}
+catch { $failure = $_ }
+finally
+{
+    Write-AzModuleInventory -Context $artifactContext -Stage after-uninstall -Definitions $definitions
+    if (-not $failure -and $artifactContext -and $artifactContext.Errors.Count -gt 0)
+    {
+        $failure = [InvalidOperationException]::new('Module artifact capture failed. See capture-errors.json or warnings.')
+    }
 }
 
-Assert-ModulesNotImportable -PwshPath $PwshPath -Definitions $definitions
+if ($failure) { throw $failure }
 
 Write-Host "Uninstalled Az module packages: $($uninstalledPackages -join ', ')"

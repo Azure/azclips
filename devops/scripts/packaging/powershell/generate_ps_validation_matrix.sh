@@ -609,6 +609,7 @@ emit_entry() {
     --arg alpha "$test_in_alpha" \
     --arg soft "$unsupported" \
     '{($key): {
+        ValidationKey: $key,
         DistributionId: $id,
         DistributionName: $name,
         ContainerImage: $image,

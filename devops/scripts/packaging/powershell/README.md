@@ -93,6 +93,48 @@ Windows/macOS entries use their platform bootstrap and must not enable container
 registry discovery. Use `--pool` for container host overrides and `--pool-for
 <id>=<image>` for a particular native platform.
 
+## Validation artifacts
+
+Every matrix leg publishes its own `Validate_PS_Sim_<ValidationKey>` pipeline
+artifact, for example `Validate_PS_Sim_ubuntu_26_04_ps7_6`. `ValidationKey` is the
+generator's unique matrix key, including the unsupported suffix for canaries.
+There is no consolidation job, and these diagnostics are separate from the input
+`PSModules` artifact and the final release distribution.
+
+| Path | Contents |
+| --- | --- |
+| `installed-modules/<package>/<version>/` | Snapshot of the exact module versions attempted by this run, captured before uninstall or failed-install rollback. |
+| `inventories/` | Target-module state before/after installation and uninstall, with failure/rollback state when applicable. |
+| `environment.json` | Actual tested PowerShell/.NET versions, OS/architecture, and module paths, captured by the module scripts. |
+| `matrix.json` | Requested versions, Az version, matrix identity, canary policy, and separately labelled orchestration-host details. |
+| `logs/` | Bootstrap, Install, Upgrade, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
+| `results.json` | Phase timestamps, native exit codes, outcomes, and the overall result. Upgrade and Validate remain explicitly skipped placeholders. |
+| `capture-errors.json` | Collection errors, when any occur; the original lifecycle failure remains primary. |
+
+Reports live under the agent's temporary directory, not the checkout or package
+gallery. Linux mounts that directory writable at `/reports`, while `/src` and
+`/artifacts` remain read-only. Files therefore survive container deletion without
+a separate export step. Native agents write to the same host-side report layout.
+Only targeted module files are snapshotted; whole home directories, toolchain
+installations, credentials, and repository configuration are not copied.
+Snapshots reject links/reparse points and ambiguous or mismatched module
+directories. Capture-only installation failures fail explicitly and still roll
+back attempted packages. Failed rollback is reflected in the final inventory;
+the diagnostic collector never deletes unregistered module directories itself.
+
+Finalization and publication both use `always()`. A failed bootstrap may leave
+only logs and matrix/results metadata; `runtimeEnvironmentCaptured` records
+whether the target PowerShell environment was captured. Partial failures retain
+the evidence available before cleanup. A phase interrupted before recording its
+result is marked `Interrupted`, not passed.
+
+`-ReportRoot` is optional for local callers. The host runner
+`invoke_ps_validation_step.ps1` records phase logs/results, and
+`complete_ps_validation_artifacts.ps1` finalizes skipped/interrupted phases.
+Passing `-ReportRoot` directly to the module scripts or phase dispatcher captures
+module snapshots, inventories, and runtime metadata only. Omitting it preserves
+the existing local workflow without creating reports.
+
 ## Bootstrap contracts
 
 Run Linux package-manager bootstraps inside disposable containers, not on a
