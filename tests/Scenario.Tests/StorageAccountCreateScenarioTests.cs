@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Storage.Models;
+using Core.Recording;
 using Tests.Common.Recording;
 
 namespace Scenario.Tests;
@@ -35,7 +36,7 @@ public class StorageAccountCreateScenarioTests
     [Fact]
     public void CreatesStorageAccount()
     {
-        var recording = RecordingSession.Open(typeof(StorageAccountCreateScenarioTests), nameof(CreatesStorageAccount));
+        var recording = SessionRecordFiles.OpenSession(typeof(StorageAccountCreateScenarioTests), nameof(CreatesStorageAccount));
 
         if (recording.Mode == RecorderMode.Record)
         {
