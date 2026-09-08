@@ -67,6 +67,22 @@ public class ConfigCliTests
     }
 
     [Fact]
+    public void CliInvocation_ShouldSupportPositionalKeyAndValue()
+    {
+        // Regression test for `az config set core.output.color always` (no --key/--value flags).
+        using var fixture = new ConfigCommandFixture();
+
+        var setOutput = fixture.ExecuteCli(["config", "set", "core.output.color", "always", "--force"]);
+        Assert.Contains("Set core.output.color = always", setOutput.Single());
+
+        var getOutput = fixture.ExecuteCli(["config", "get", "core.output.color"]);
+        Assert.Contains("core.output.color = always [global config]", getOutput.Single());
+
+        var deleteOutput = fixture.ExecuteCli(["config", "delete", "core.output.color", "--force"]);
+        Assert.Contains("Deleted core.output.color", deleteOutput.Single());
+    }
+
+    [Fact]
     public void CliInvocation_ShouldSupportNamedConfigFlagsAcrossCrudFlow()
     {
         using var fixture = new ConfigCommandFixture();
