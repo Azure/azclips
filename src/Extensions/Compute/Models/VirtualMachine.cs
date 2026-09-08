@@ -2,17 +2,30 @@
 // Licensed under the MIT License.
 
 using System.Text.Json.Serialization;
+using Core.Abstractions.Output;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
-public class VirtualMachine
+public class VirtualMachine : ITableOutputProvider
 {
     public string Id { get; set; } = null!;
     public string Name { get; set; } = null!;
     public string Location { get; set; } = null!;
     public VirtualMachineProperties Properties { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();
+
+    static string ITableOutputProvider.TableTypeName =>
+        "Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine";
+
+    static IReadOnlyList<TableOutputColumn> ITableOutputProvider.GetTableColumns() =>
+    [
+        new("Name", PropertyName: "Name"),
+        new("ResourceGroupName", ScriptBlock: "if ($null -ne $_.Id) { [regex]::Match($_.Id, '(?i)/resourceGroups/([^/]+)').Groups[1].Value }"),
+        new("Location", PropertyName: "Location"),
+        new("Size", ScriptBlock: "if ($null -ne $_.Properties -and $null -ne $_.Properties.HardwareProfile) { $_.Properties.HardwareProfile.VmSize }"),
+        new("ProvisioningState", ScriptBlock: "if ($null -ne $_.Properties) { $_.Properties.ProvisioningState }"),
+    ];
 }
 
 public class VirtualMachineProperties
