@@ -43,6 +43,92 @@
         "group_name": "Authentication Arguments"
       },
       {
+        "name": "--boot-diagnostics-enabled",
+        "required": false,
+        "short_summary": "Whether boot diagnostics is enabled.",
+        "long_summary": ""
+      },
+      {
+        "name": "--boot-diagnostics-storage-account-uri",
+        "required": false,
+        "short_summary": "Storage account endpoint for boot diagnostics.",
+        "long_summary": ""
+      },
+      {
+        "name": "--boot-diagnostics-storage-uri",
+        "required": false,
+        "short_summary": "Storage URI for boot diagnostics.",
+        "long_summary": ""
+      },
+      {
+        "name": "--disable-accelerated-networking",
+        "required": false,
+        "short_summary": "Disable accelerated networking on the network interface.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--disable-boot-diagnostics",
+        "required": false,
+        "short_summary": "Disable boot diagnostics.",
+        "long_summary": ""
+      },
+      {
+        "name": "--disable-integrity-monitoring-auto-upgrade",
+        "required": false,
+        "short_summary": "Disable automatic upgrade on the guest attestation extension.",
+        "long_summary": ""
+      },
+      {
+        "name": "--enable-accelerated-networking",
+        "required": false,
+        "short_summary": "Enable accelerated networking on the network interface.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--enable-integrity-monitoring",
+        "required": false,
+        "short_summary": "Create the guest attestation extension for integrity monitoring after VM creation.",
+        "long_summary": ""
+      },
+      {
+        "name": "--identity-type",
+        "required": false,
+        "short_summary": "Managed identity type for the virtual machine.",
+        "long_summary": ""
+      },
+      {
+        "name": "--image-id",
+        "required": false,
+        "short_summary": "Resource id of a custom image to use.",
+        "long_summary": ""
+      },
+      {
+        "name": "--image-offer",
+        "required": false,
+        "short_summary": "Image offer.",
+        "long_summary": ""
+      },
+      {
+        "name": "--image-publisher",
+        "required": false,
+        "short_summary": "Image publisher.",
+        "long_summary": ""
+      },
+      {
+        "name": "--image-sku",
+        "required": false,
+        "short_summary": "Image SKU.",
+        "long_summary": ""
+      },
+      {
+        "name": "--image-version",
+        "required": false,
+        "short_summary": "Image version.",
+        "long_summary": ""
+      },
+      {
         "name": "--location",
         "required": true,
         "short_summary": "Location for all resources.",
@@ -56,23 +142,71 @@
       },
       {
         "name": "--network-interface-name",
-        "required": true,
+        "required": false,
         "short_summary": "The network interface name to create.",
         "long_summary": "",
         "group_name": "Network Arguments"
       },
       {
         "name": "--network-security-group-name",
-        "required": true,
+        "required": false,
         "short_summary": "The network security group name to create.",
         "long_summary": "",
         "group_name": "Network Arguments"
+      },
+      {
+        "name": "--no-public-ip-address",
+        "required": false,
+        "short_summary": "Create the VM without attaching a public IP address.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--os-disk-create-option",
+        "required": false,
+        "short_summary": "OS disk create option.",
+        "long_summary": ""
       },
       {
         "name": "--profile",
         "required": false,
         "short_summary": "Use the named profile for this command (overrides the active profile).",
         "long_summary": ""
+      },
+      {
+        "name": "--public-ip-address-allocation-method",
+        "required": false,
+        "short_summary": "Allocation method for an orchestrated public IP address.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--public-ip-address-domain-name-label",
+        "required": false,
+        "short_summary": "DNS domain name label for the public IP address.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--public-ip-address-id",
+        "required": false,
+        "short_summary": "Resource id of an existing public IP address to attach.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--public-ip-address-name",
+        "required": false,
+        "short_summary": "The public IP address name to create.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
+      },
+      {
+        "name": "--public-ip-address-sku",
+        "required": false,
+        "short_summary": "SKU for an orchestrated public IP address.",
+        "long_summary": "",
+        "group_name": "Network Arguments"
       },
       {
         "name": "--resource-group",
@@ -145,6 +279,18 @@
         "group_name": "Network Arguments"
       },
       {
+        "name": "--secure-boot-enabled",
+        "required": false,
+        "short_summary": "Whether secure boot is enabled.",
+        "long_summary": ""
+      },
+      {
+        "name": "--security-type",
+        "required": false,
+        "short_summary": "Security type for the virtual machine.",
+        "long_summary": ""
+      },
+      {
         "name": "--subnet-address-prefixes",
         "required": false,
         "short_summary": "Address prefixes for each subnet.",
@@ -165,8 +311,20 @@
         "long_summary": ""
       },
       {
+        "name": "--system-assigned-identity",
+        "required": false,
+        "short_summary": "Enable a system-assigned managed identity.",
+        "long_summary": ""
+      },
+      {
+        "name": "--user-assigned-identity-ids",
+        "required": false,
+        "short_summary": "User-assigned managed identity resource IDs.",
+        "long_summary": ""
+      },
+      {
         "name": "--virtual-network-name",
-        "required": true,
+        "required": false,
         "short_summary": "The virtual network name to create.",
         "long_summary": "",
         "group_name": "Network Arguments"
@@ -175,6 +333,12 @@
         "name": "--vm-size",
         "required": true,
         "short_summary": "The size of the virtual machine.",
+        "long_summary": ""
+      },
+      {
+        "name": "--vtpm-enabled",
+        "required": false,
+        "short_summary": "Whether vTPM is enabled.",
         "long_summary": ""
       },
       {
