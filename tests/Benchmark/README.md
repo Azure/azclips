@@ -60,6 +60,8 @@ Results are saved to `artifacts/Benchmark/<timestamp>/` (or `artifacts/Benchmark
 - `results/` - BenchmarkDotNet's own exports (full JSON + GitHub-flavored Markdown)
 - `telemetry/<PRODUCT>.<Class>.<Method>.jsonl` - 100 sampled CLI traces per benchmark method (one span per line)
 
+When `--sidecar-out` is passed (CI does this; a plain local run does not), aggregated span trees are written as `<sidecar-out>/<EXT|LOCAL>/<PRODUCT>/<Benchmark>.json` and uploaded as the `benchmark-trace-sidecars` workflow artifact.
+
 ---
 
 ## Architecture
@@ -186,6 +188,58 @@ Unless `--local`/`--ci` is set, each run uploads aggregated benchmark metrics to
 2. **`BenchmarkResult`** custom event - duration (s/ms) plus `Product`, `Operation`, `Resource`, and `Timestamp` dimensions for Grafana filtering
 
 Aggregated benchmark results are what get exported to App Insights. Command-level telemetry is stubbed out for PS benchmarks (`StubTelemetryService`), but CLI benchmarks emit real spans to `artifacts/Benchmark/<timestamp>/telemetry/` so a slow benchmark can be broken down by phase locally. Those files are never uploaded. Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
+
+---
+
+## Comparing traces against main
+
+CI aggregates each benchmark's sampled spans into one averaged span tree and publishes
+`main`'s trees under `dev/bench/traces/<EXT>/<PRODUCT>/<Benchmark>.json`. A
+pull-request run reads them back and renders `main` and the PR as two trees side by side
+in the workflow **job summary**, with a per-span `Δ%` between them. The comparison lives
+only in the job summary — a block is wide enough to need horizontal scrolling in a PR
+comment, so no trace comment is posted. Open the workflow run to read it.
+
+**Bars are not comparable across the gutter.** Each side's `%ROOT` and bar are scaled to
+that side's own root, exactly as a standalone tree is. When the roots differ, an
+unchanged span draws a different bar on each side. Compare using the `AVG` and `Δ%`
+columns; read each bar as a within-tree proportion only.
+
+The bar is `#` characters, one per completed 5% of the root (20 cells), truncated rather
+than rounded — so 24% draws four cells, 26% draws five, and anything under 5% draws none
+and is read from its `%ROOT` number. The cell count is derived from the *printed*
+percentage, so `cells = %ROOT × 20 ÷ 100` always holds and the bar can be read off the
+number beside it. It uses ASCII rather than block elements (`█`, `▏`…) because those are
+Unicode East Asian Width *Ambiguous*: a browser that font-falls-back on them renders them
+at a width that is not the monospace cell, and since a row's block count varies from 0 to
+20, the columns after the bar drift and the two trees stop lining up.
+
+A span present on only one side renders a blank row on the absent side and `n/a` in
+`Δ%` — it was added, removed, or renamed rather than made slower, and any real cost
+change still shows in its parent's `Δ%`.
+
+Baselines refresh only from the main pushes the path filter selects, so each extension's
+baseline sits at its own commit. The header states which: `main @ abc1234 · 13 days ago`.
+A shared change (`src/Core`, `tests/Common`, the benchmark base classes) re-runs every
+extension and realigns them all.
+
+To compare two local runs without CI:
+
+```bash
+git switch main
+dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --extension Resources
+python3 .github/scripts/aggregate-benchmark-traces.py \
+  --input artifacts/Benchmark/<timestamp> --sidecar-out ./main-traces
+
+git switch my-branch
+dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --extension Resources
+python3 .github/scripts/aggregate-benchmark-traces.py \
+  --input artifacts/Benchmark/<timestamp> --baseline ./main-traces
+```
+
+Local runs write telemetry under `artifacts/Benchmark/<timestamp>/telemetry/` with no extension segment (just `<PRODUCT>.<Class>.<Method>.jsonl`). When aggregating, both the `--sidecar-out` and `--baseline` paths use `LOCAL/<PRODUCT>/<Benchmark>.json`, so a `./main-traces` baseline from one local run matches the sidecar path computed from another. The product is extracted from the stem's first segment, so CLI and PS benchmarks land in separate directories.
+
+Omitting `--baseline` renders the single-tree view.
 
 ---
 
