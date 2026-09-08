@@ -179,6 +179,31 @@ public class CliArgumentValidationTests
     }
 
     [Fact]
+    public void ParseArguments_IndexedPositionalAliasKey_NotAcceptedAsNamedFlag()
+    {
+        // Indexed ParameterAliases keys ("1", "2", ...) exist only to bind positional slots; a
+        // user typing `--1 always` must not silently resolve as `--value always`. It should
+        // surface the real problem (unknown parameter "1"), not succeed or produce a misleading
+        // positional/flag conflict error.
+        var provider = CreateProvider();
+
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["key"] = new("Key", "key", typeof(string), "Configuration key.", true, [], []),
+            ["value"] = new("Value", "value", typeof(string), "Configuration value.", true, [], []),
+        };
+        var parameterAliases = new Dictionary<string, string> { [""] = "key", ["1"] = "value" };
+        var args = new Dictionary<string, object>
+        {
+            ["1"] = new List<List<string>> { new() { "always" } },
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => provider.ParseArguments(args, parameters, parameterAliases));
+
+        Assert.Contains("Unable to find parameter: 1", ex.Message);
+    }
+
+    [Fact]
     public void ParseArguments_MissingScalarValue_ErrorUsesShortAliasWhenUserTypedIt()
     {
         // When the user types a short alias (e.g. "-l" for "--long-flag"), the error should

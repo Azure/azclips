@@ -26,8 +26,9 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             string key = originalInput;
             object value = kvp.Value;
 
-            // Resolve aliases
-            if (!parameters.ContainsKey(key) && parameterAliases != null && parameterAliases.TryGetValue(key, out var canonicalKey))
+            // Resolve aliases. Digit-only keys are reserved for indexed positional slots
+            // (ParameterAliases["1"], ["2"], ...) and must never resolve as a named flag like `--1`.
+            if (!parameters.ContainsKey(key) && !IsIndexedPositionalKey(key) && parameterAliases != null && parameterAliases.TryGetValue(key, out var canonicalKey))
             {
                 loggingService.Info($"Resolving alias '{key}' to canonical parameter '{canonicalKey}'");
                 key = canonicalKey;
@@ -94,7 +95,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
                 continue;
             }
             var resolvedKey = key;
-            if (!parameters.ContainsKey(resolvedKey) && parameterAliases != null && parameterAliases.TryGetValue(resolvedKey, out var canonical))
+            if (!parameters.ContainsKey(resolvedKey) && !IsIndexedPositionalKey(resolvedKey) && parameterAliases != null && parameterAliases.TryGetValue(resolvedKey, out var canonical))
             {
                 resolvedKey = canonical;
             }
@@ -105,6 +106,9 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         }
         return explicitlyNamed;
     }
+
+    // Digit-only keys are reserved for indexed positional slots (ParameterAliases["1"], ["2"], ...); a user-typed `--1` must fall through to "Unable to find parameter" rather than silently resolving as a named flag.
+    private static bool IsIndexedPositionalKey(string key) => key.Length > 0 && key.All(char.IsAsciiDigit);
 
     private object ParseArgument(string originalInput, object source, Type targetType)
     {
