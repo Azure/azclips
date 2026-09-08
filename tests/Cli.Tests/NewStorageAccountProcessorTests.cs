@@ -13,7 +13,7 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Offline tests for <see cref="NewStorageAccountProcessor"/>. Two things are pinned here:
+/// Offline tests for <see cref="NewStorageAccountProcessor_Customized"/>. Two things are pinned here:
 /// the shape of the create request body, and the cross-field rules the processor enforces
 /// before it is built.
 /// <para>
@@ -52,9 +52,9 @@ public class NewStorageAccountProcessorTests
         }
         """;
 
-    private static NewStorageAccountProcessor CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
+    private static NewStorageAccountProcessor_Customized CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
     {
-        var processor = new NewStorageAccountProcessor();
+        var processor = new NewStorageAccountProcessor_Customized();
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         var context = new ProcessorContext(
             pipeline,
@@ -63,6 +63,7 @@ public class NewStorageAccountProcessorTests
             output,
             Profile: profile);
         processor.Init(context);
+        processor.SubscriptionId = TestSubscriptionId;
         processor.ResourceGroupName = ResourceGroupName;
         processor.AccountName = AccountName;
         processor.Location = Location;
@@ -78,7 +79,7 @@ public class NewStorageAccountProcessorTests
     /// Runs the processor and returns the body of the first request, which is the create PUT.
     /// Later requests are the long-running-operation polls and carry no body.
     /// </summary>
-    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewStorageAccountProcessor> configure)
+    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewStorageAccountProcessor_Customized> configure)
     {
         string? captured = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -100,7 +101,7 @@ public class NewStorageAccountProcessorTests
     /// sent is the point: these rules exist so an invalid combination fails locally instead of
     /// reaching the service.
     /// </summary>
-    private static async Task<ArgumentException> CaptureValidationErrorAsync(Action<NewStorageAccountProcessor> configure)
+    private static async Task<ArgumentException> CaptureValidationErrorAsync(Action<NewStorageAccountProcessor_Customized> configure)
     {
         var pipeline = new FakeHttpPipeline((_, _) => Json(SucceededAccount));
         var processor = CreateProcessor(pipeline, new FakeOutputHandler());
@@ -526,21 +527,10 @@ public class NewStorageAccountProcessorTests
             first.RequestUri!.AbsoluteUri);
     }
 
-    [Fact]
-    public async Task CreateRequest_WithoutSubscriptionId_FallsBackToTheProfile()
-    {
-        HttpRequestMessage? first = null;
-        var pipeline = new FakeHttpPipeline((request, _) =>
-        {
-            first ??= request;
-            return Json(SucceededAccount);
-        });
-
-        // SubscriptionId is never assigned on the processor below; the active profile supplies it.
-        await CreateProcessor(pipeline, new FakeOutputHandler()).ProcessAsync();
-
-        Assert.Contains($"/subscriptions/{TestSubscriptionId}/", first!.RequestUri!.AbsoluteUri);
-    }
+    // Profile fallback for SubscriptionId is no longer the processor's job: ArgumentParsingService
+    // applies it from the active profile at binding time (Azure/azclips#786). The end-to-end
+    // behaviour is covered by StorageAccountCreateScenarioTests, which omits the subscription on
+    // both surfaces and asserts it is resolved into the request URI.
 
     // ── Response handling ──
 

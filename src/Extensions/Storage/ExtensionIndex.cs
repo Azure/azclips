@@ -13,12 +13,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
     {
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newStorageAccount_PS = new(
-            Name: "NewStorageAccountProcessor",
+            Name: "NewStorageAccountProcessor_Customized",
             InvocationName: "New-AzStorageAccount",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor_Customized",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(Processors.NewStorageAccountProcessor),
+            ProcessorType: typeof(Processors.NewStorageAccountProcessor_Customized),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -98,12 +98,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
 
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newStorageAccount_CLI = new(
-            Name: "NewStorageAccountProcessor",
+            Name: "NewStorageAccountProcessor_Customized",
             InvocationName: "storage account create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor_Customized",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
-            ProcessorType: typeof(Processors.NewStorageAccountProcessor),
+            ProcessorType: typeof(Processors.NewStorageAccountProcessor_Customized),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the subscription of the active profile.", IsRequired: false, Aliases: [], AllowedValues: []),

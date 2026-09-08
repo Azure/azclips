@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using System.Net;
+using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 using ProfileModel = Core.Abstractions.Profile;
@@ -16,22 +17,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
     /// <summary>
     /// Non-generic base used as a marker so that <see cref="CreateExtendedProcessor{T}"/> and
     /// any code that needs to reference "any storage processor" stays type-safe.
-    /// All real processors should derive from <see cref="StorageProcessorBase{TResponse}"/>.
+    /// All real processors should derive from <see cref="StorageProcessorBase{TRequest, TResponse}"/>.
     /// </summary>
-    /// <remarks>
-    /// TODO(Yabo): no rollback / compensation story yet. If an orchestrator's first child
-    /// succeeds and a later child fails, earlier resources are orphaned. Document as a non-goal
-    /// for now; revisit with an OnFailureAsync hook or a saga-style step list when needed.
-    /// </remarks>
-    public abstract class StorageProcessorBase : IProcessor
+    public abstract partial class StorageProcessorBase : IProcessor
     {
         public IRuntimeHttpPipeline HttpPipeline = null!;
         public IEventPublisher Publisher = null!;
         public JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
+        protected IAuthHandler AuthHandler = null!;
 
         /// <summary>The resolved connection profile from the processor context; null when none is available.</summary>
-        protected ProfileModel? ResolvedProfile;
+        protected ProfileModel? ResolvedProfile = null!;
 
         /// <summary>
         /// Bound <c>--profile</c>/<c>-Profile</c> parameter. The Engine resolves the named profile into
@@ -55,6 +52,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             {
                 PropertyNameCaseInsensitive = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                // Storage options are tri-state: several service defaults are true
+                // (supportsHttpsTrafficOnly, allowBlobPublicAccess), so an unset option must be
+                // omitted from the payload rather than sent as the CLR default.
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
@@ -62,16 +62,53 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
             ResolvedProfile = context.Profile;
+            AuthHandler = context.AuthHandler;
 
             AfterInit();
             return this;
         }
+
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        protected virtual Task<HttpRequestMessage> CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+
+        /// <summary>HTTP method for the request. Every processor must override this (GET/PUT/DELETE/etc.).</summary>
+        protected virtual HttpMethod Method => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(Method)}.");
+
+        /// <summary>Builds the request URI. Override this seam alone for most read/delete operations.</summary>
+        protected virtual string CreateRequestUri() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestUri)}.");
+
+        /// <summary>
+        /// Builds the request body, serialized with <see cref="JsonOptions"/> using its runtime type.
+        /// Returns null (no content) by default; override for create/update operations.
+        /// </summary>
+        protected virtual object? CreateRequestBody() => null;
+
+        /// <summary>
+        /// Adds request headers beyond what the pipeline supplies.
+        /// No-op by default; override to mutate <paramref name="request"/> for header-carrying operations.
+        /// </summary>
+        protected virtual void CreateRequestHeaders(HttpRequestMessage request) { }
+
+        /// <summary>
+        /// Assembles the request from <see cref="Method"/>, <see cref="CreateRequestUri"/>, <see cref="CreateRequestBody"/>
+        /// and <see cref="CreateRequestHeaders"/>, and publishes the before/after create events. Override the smaller
+        /// seams above so this event wiring stays centralized; override this method only when a request needs fully custom construction.
+        /// </summary>
+        protected virtual async Task<HttpRequestMessage> CreateRequestMessage()
+        {
+            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+            HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
+            if (CreateRequestBody() is { } body)
+            {
+                request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
+            }
+            CreateRequestHeaders(request);
+            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+            return request;
+        }
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
-        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile)
+        /// runtime context (HttpPipeline, Publisher, JsonOptions, WriteOutput, ResolvedProfile, AuthHandler)
         /// as this processor. Use the optional <paramref name="configure"/> action to set the
         /// extended processor's own properties.
         /// </summary>
@@ -82,6 +119,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 HttpPipeline = HttpPipeline,
                 Publisher = Publisher,
                 JsonOptions = JsonOptions,
+                AuthHandler = AuthHandler,
             };
             child.WriteOutput = WriteOutput;
             child.ResolvedProfile = ResolvedProfile;
@@ -105,24 +143,37 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
         internal async virtual Task<HttpResponseMessage> SendAsync()
         {
-            IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-            IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-            using HttpRequestMessage _request = await CreateRequestMessage();
-            HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
-            await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
-            try
-            {
-                await _response.EnsureSuccessAsync(_publisher);
-            }
-            catch
-            {
-                _response.Dispose();
-                throw;
-            }
-            return _response;
+            return await HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
         }
 
         internal async virtual Task<HttpResponseMessage> SendAsyncLRO()
+        {
+            return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);
+        }
+    }
+
+    /// <summary>
+    /// Generic storage processor base. The default <see cref="ProcessAsync"/> pipeline:
+    /// 1) publishes start, 2) calls <see cref="SendAsync"/>,
+    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) publishes end.
+    /// </summary>
+    public partial class StorageProcessorBase<TRequest, TResponse> : StorageProcessorBase
+        where TRequest : class
+        where TResponse : class
+    {
+        /// <summary>
+        /// Typed request-body seam. Returns null (no body) by default; write processors override to return
+        /// their <typeparamref name="TRequest"/> model. Covariantly overrides the non-generic
+        /// <see cref="StorageProcessorBase.CreateRequestBody"/> that the request template consumes.
+        /// </summary>
+        protected override TRequest? CreateRequestBody() => default;
+
+        // TODO: temporary local override. The shared HttpRuntime.SendAsyncLRO owns polling for
+        // every extension, but it still throws a bare Exception carrying only the response object
+        // and leaks the response, so a failed create reports "HttpResponseMessage, StatusCode: 200"
+        // instead of the ARM error. This copy adds the failure-detail capture and the Retry-After
+        // floor. Delete it and fall back to base once those two fixes land in HttpRuntime.
+        internal override async Task<HttpResponseMessage> SendAsyncLRO()
         {
             HttpRequestMessage _request = await CreateRequestMessage();
             try
@@ -308,94 +359,46 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 _request?.Dispose();
             }
         }
-    }
 
-    /// <summary>
-    /// Generic storage processor base. The default <see cref="ProcessAsync"/> pipeline:
-    /// 1) Publishes start, 2) calls <see cref="SendAsync"/>,
-    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishes end.
-    /// <para>
-    /// <see cref="SendAsync"/> is the internal "give me the final response" transport primitive.
-    /// Atomic LRO processors override it as a one-liner that delegates to <see cref="StorageProcessorBase.SendAsyncLRO"/>.
-    /// Atomic non-LRO processors don't override at all (the inherited <see cref="SendAsync"/>
-    /// resolves <see cref="SubscriptionId"/> then dispatches a single HTTP request).
-    /// Orchestrators override <see cref="SendAsync"/> to compose children.
-    /// </para>
-    /// <para>
-    /// <see cref="SubscriptionId"/> is resolved lazily inside <see cref="SendAsync"/> /
-    /// <see cref="SendAsyncLRO"/>, so internal composition paths that call these helpers directly still get a
-    /// populated value via <see cref="ResolvedProfile"/> fallback. Orchestrators don't need to copy
-    /// <see cref="SubscriptionId"/> into children since each child resolves from the shared
-    /// <see cref="ResolvedProfile"/>.
-    /// </para>
-    /// </summary>
-    public class StorageProcessorBase<TResponse> : StorageProcessorBase where TResponse : class
-    {
-        public string SubscriptionId { get; set; } = string.Empty;
+        partial void OverrideBeforeProcessBase();
 
-        /// <summary>
-        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="ResolvedProfile"/>.
-        /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport;
-        /// custom <see cref="SendAsync"/>/<see cref="SendAsyncLRO"/> overrides that don't call <c>base</c>
-        /// are responsible for invoking this themselves if they build URIs from <see cref="SubscriptionId"/>.
-        /// </summary>
-        protected void ResolveSubscriptionId() =>
-            SubscriptionId = !string.IsNullOrEmpty(SubscriptionId)
-                ? SubscriptionId
-                : ResolvedProfile?.SubscriptionId
-                  ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or an active profile.");
-
-        internal override Task<HttpResponseMessage> SendAsync()
+        protected virtual Task BeforeProcessAsync()
         {
-            ResolveSubscriptionId();
-            return base.SendAsync();
+            OverrideBeforeProcessBase();
+            return Task.CompletedTask;
         }
 
-        internal override Task<HttpResponseMessage> SendAsyncLRO()
-        {
-            ResolveSubscriptionId();
-            return base.SendAsyncLRO();
-        }
-
-        /// <summary>
-        /// Projects the deserialized response into the value written to output. Default writes the
-        /// response as-is; list processors override this to unwrap the ARM envelope and write its
-        /// <c>value</c> collection (a flat array), which PowerShell enumerates and the CLI serializes.
-        /// </summary>
-        protected virtual object SelectOutput(TResponse body) => body;
+        protected virtual Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body) => Task.FromResult(false);
 
         public override async Task ProcessAsync()
         {
-            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-            using HttpResponseMessage response = await SendAsync();
-
-            if (response.Content is null)
-            {
-                await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
-                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-                return;
-            }
-
-            string rawBody = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(rawBody))
-            {
-                await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
-                await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
-                return;
-            }
-
             try
             {
-                TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
-                if (body is not null)
+                await BeforeProcessAsync();
+                await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+                using HttpResponseMessage response = await SendAsync();
+                string? rawBody = null;
+                TResponse? body = default;
+
+                if (response.Content is null) await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+                else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync())) await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                else
                 {
-                    await WriteOutput(SelectOutput(body));
+                    try
+                    {
+                        body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                    }
+                    catch (JsonException)
+                    {
+                        await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                        throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                    }
                 }
-            }
-            catch (JsonException)
-            {
-                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+
+                if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
+                {
+                    await WriteOutput(body);
+                }
             }
             finally
             {
