@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788853904513,
+  "lastUpdate": 1788853909268,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -6680,6 +6680,48 @@ window.BENCHMARK_DATA = {
             "value": 302869949.52,
             "unit": "ns",
             "range": "± 4038443.9933782006"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "45858631adad38bc7bd572e7b3cfbebbc87ca915",
+          "message": "[Config] `az config set/get/delete`: Support positional key/value arguments (#824)\n\n**Related command**\naz config set, az config get, az config delete\n\n**Description**\n\n`az config set core.output.color always` failed with `Failed to parse\narguments for command 'config set': Unable to find parameter:` —\n`SetConfigCommand`/`GetConfigCommand`/`DeleteConfigCommand` only\nsupported required `--key`/`--value` flags, contradicting the release\nnotes and the `profile show/set/remove` positional-argument precedent\nalready in the codebase.\n\nThis extends the CLI's existing single-position (`[\"\"]`)\npositional-binding mechanism — already used by `profile show/set/remove`\nand `extension show/remove/update/pin/unpin` — to support **multiple**\npositional slots via indexed `ParameterAliases` (`[\"\"]` for position 0,\n`[\"1\"]`, `[\"2\"]`, ... beyond it). Any extension can opt in the same way;\nConfig is just the first consumer of the multi-position case.\n\n- **Positional binding in `CLIArgumentParsingProvider`**: tokens with no\nleading flag are bound in order to parameters declared via\n`CommandMetadata.ParameterAliases`, using the pre-existing `[\"\"]`\nconvention for position 0 and new `\"1\"`, `\"2\"`, ... keys for later\npositions.\n- **Conflict detection**: if the same parameter is supplied both\npositionally and via an explicit flag, parsing now throws a clear error\nrather than silently overwriting one value with the other based on\ndictionary iteration order. This also hardens the pre-existing\n`profile`/`extension` positional commands (previously silent,\norder-dependent behavior in that edge case).\n- **Unrecognized positionals**: extra positional tokens with no\ncorresponding alias slot are rejected with a descriptive error instead\nof a bare `Unable to find parameter:`. Same hardening applies to\n`profile`/`extension`.\n- **Config extension wiring**: registered `ParameterAliases: { [\"\"] =\n\"key\" }` for `config get`/`config delete`, and `{ [\"\"] = \"key\", [\"1\"] =\n\"value\" }` for `config set`.\n\n```bash\n# Now works without --key/--value\naz config set core.output.color always\naz config get core.output.color\naz config delete core.output.color --force\n\n# Still works\naz config set --key core.output.color --value always\n```\n\nOut of scope for this PR (filed as follow-ups under Azure/CLIPS#611,\nsince both are separate generic-mechanism design decisions rather than\nsmall additions):\n- `unset` as an alias for `config delete` — Azure/CLIPS#884\n- `key=value` single-token / variadic syntax for `config set` (true\nlegacy `az` parity) — Azure/CLIPS#885\n\n**Testing Guide**\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — full suite green (666\npassed, 8 skipped), including `CliArgumentValidationTests` (indexed\npositional binding, positional/flag conflict, unrecognized extra\npositional), `ConfigCliTests` (end-to-end positional set/get/delete\nflow), `ProfileCliTests` (27/27, confirms no regression on the\npre-existing `profile` positional commands), and Extension-extension\ntests (173/174, confirms no regression on `extension show/remove/...`).\n- Manual: build `az`, run `az config set core.output.color always\n--force` then `az config get core.output.color`.\n\n**History Notes**\n\n[Config] `az config set`/`az config get`/`az config delete`: Accept the\nconfiguration key (and value for `set`) as positional arguments in\naddition to `--key`/`--value`\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nFixes #725\nCloses #728",
+          "timestamp": "2026-09-08T17:08:18+10:00",
+          "tree_id": "b6704b1729f3c85214990ecbc77579b05cfd2f19",
+          "url": "https://github.com/Azure/azclips/commit/45858631adad38bc7bd572e7b3cfbebbc87ca915"
+        },
+        "date": 1788853909090,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 300331175.34,
+            "unit": "ns",
+            "range": "± 5424365.524993001"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 302859378.92,
+            "unit": "ns",
+            "range": "± 4489932.709663715"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 301118271.99,
+            "unit": "ns",
+            "range": "± 3526437.350278147"
           }
         ]
       }
