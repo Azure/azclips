@@ -1,0 +1,190 @@
+---
+document type: cmdlet
+external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
+HelpUri: ''
+Locale: en-US
+Module Name: Resources
+ms.date: 09-08-2026
+PlatyPS schema version: 2024-05-01
+title: Get-AzResourceGroupDeployment
+---
+
+# Get-AzResourceGroupDeployment
+
+## SYNOPSIS
+
+Get a single resource group deployment by name, or list all deployments in a resource group.
+
+## SYNTAX
+
+### List (Default)
+
+```
+Get-AzResourceGroupDeployment -ResourceGroupName <string> [-SubscriptionId <string>]
+ [-Profile <string>] [<CommonParameters>]
+```
+
+### Get
+
+```
+Get-AzResourceGroupDeployment -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
+ [-Profile <string>] [<CommonParameters>]
+```
+
+## ALIASES
+
+## DESCRIPTION
+
+Retrieves Azure Resource Manager deployments scoped to a resource group. Supply `-Name` to get a single deployment; omit it to list every deployment in the resource group. The returned `DeploymentExtended` objects carry the provisioning state, deployment mode, timestamp, duration, template hash, outputs, and the resources the deployment provisioned. The subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
+
+## EXAMPLES
+
+### Get a single deployment
+
+Retrieve the deployment named `infra-prod-2026-06-18` from resource group `myrg`.
+
+```powershell
+Get-AzResourceGroupDeployment -ResourceGroupName myrg -Name infra-prod-2026-06-18
+```
+
+### List every deployment in a resource group
+
+Omit `-Name` to enumerate all deployments in `myrg`.
+
+```powershell
+Get-AzResourceGroupDeployment -ResourceGroupName myrg
+```
+
+### Read the outputs of a deployment
+
+Retrieve a deployment and inspect the values its template returned.
+
+```powershell
+$deployment = Get-AzResourceGroupDeployment -ResourceGroupName myrg -Name infra-prod-2026-06-18
+$deployment.Properties.Outputs
+```
+
+## PARAMETERS
+
+### -Name
+
+The name of the deployment to retrieve. When supplied the cmdlet gets that single deployment; when omitted it lists every deployment in the resource group.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Get
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Profile
+
+Use the named profile for this command, overriding the active profile.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ResourceGroupName
+
+The name of the resource group that contains the deployments.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Get
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: List
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -SubscriptionId
+
+Azure subscription id. Defaults to the active profile's subscription.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Get
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: List
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### CommonParameters
+
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
+-InformationAction, -InformationVariable, -OutBuffer, -OutVariable, -PipelineVariable,
+-ProgressAction, -Verbose, -WarningAction, and -WarningVariable. For more information, see
+[about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
+
+## INPUTS
+
+## OUTPUTS
+
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+
+A `DeploymentExtended` for each matching deployment. The `Get` parameter set emits exactly one object; the `List` parameter set emits one object per deployment in the resource group, following paged results automatically.
+
+## NOTES
+
+This is a read-only operation. Use `New-AzResourceGroupDeployment` to create a deployment and `New-AzResourceGroupDeploymentWhatIf` to preview one.
+
+## RELATED LINKS
+
+
+- [New-AzResourceGroupDeployment]()
+- [New-AzResourceGroupDeploymentWhatIf]()
+- [Get-AzResourceGroup]()
+
