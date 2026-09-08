@@ -44,6 +44,13 @@ namespace Core.Cli.Help
             var verbs = ExtensionVerbDeclarations.GetDeclaredVerbs(extensionIndex);
             if (verbs.Count == 0)
             {
+                // PowerShell-only extension assemblies do not own a CLI verb. Their cmdlets are
+                // validated from module manifests later in the help pipeline.
+                if (extensionIndex.GetCommandTable(ClientType.CLI).Count == 0)
+                {
+                    return [];
+                }
+
                 throw new InvalidOperationException(
                     $"Extension '{extensionIndex.GetType().FullName}' declares no [ExtensionVerb] attributes.");
             }
