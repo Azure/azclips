@@ -323,7 +323,7 @@ az vm create --name foo
 
 #### 4.4.1 Positional argument binding via `ParameterAliases`
 
-Residual (unflagged) tokens are collected under an empty-string key by `ExtensionParser` regardless of whether a command wants them. A leaf only binds them if its `CommandMetadata.ParameterAliases` declares indexed slots: `[""]` for position 0, `["1"]` for position 1, `["2"]` for position 2, and so on. This is opt-in per command and CLI-only (PowerShell cmdlets already get native positional binding from the host).
+Residual (unflagged) tokens are collected under an empty-string key regardless of whether a command wants them. For a matched multi-token leaf path (`matchedPathTokens > 0` — true for every command below), `ExtensionDispatcher` (`src/CLI/Parser/ExtensionDispatcher.cs`) slices the leading non-flag tokens off `extensionArgs` into `residualPositional`, hands only the remaining flag-bearing tokens to `ExtensionParser`, then sets `parameters[string.Empty]` itself from `residualPositional`. (`ExtensionParser` only builds that key itself in the separate root-leaf-only branch, `matchedPathTokens == 0`.) A leaf only binds the residual if its `CommandMetadata.ParameterAliases` declares indexed slots: `[""]` for position 0, `["1"]` for position 1, `["2"]` for position 2, and so on. This is opt-in per command and CLI-only (PowerShell cmdlets already get native positional binding from the host).
 
 ```csharp
 // `config get <key>` / `config delete <key>` — one positional slot.
