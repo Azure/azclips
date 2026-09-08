@@ -222,16 +222,40 @@ public class NewStorageAccountProcessorTests
     }
 
     [Fact]
-    public async Task CreateRequest_UserIdentityIgnoredWhenTypeDoesNotRequestIt()
+    public async Task CreateRequest_UserIdentityWithoutAUserAssignedType_Throws()
     {
-        var body = await CaptureCreateBodyAsync(p =>
+        // Previously the id was dropped and the account was created with the wrong identity, which
+        // ARM has no way to report. Azure PowerShell rejects the same combination.
+        var error = await CaptureValidationErrorAsync(p =>
         {
             p.IdentityType = "SystemAssigned";
             p.UserIdentityId = "/subscriptions/s/ids/mi";
         });
 
-        // The service rejects the map unless the type asks for a user-assigned identity.
-        Assert.False(body.GetProperty("identity").TryGetProperty("userAssignedIdentities", out _));
+        Assert.Contains("UserIdentityId", error.Message);
+        Assert.Contains("UserAssigned", error.Message);
+    }
+
+    [Fact]
+    public async Task CreateRequest_UserIdentityWithoutAnIdentityType_Throws()
+    {
+        // The early return for an unset type used to drop the id before the pairing was checked,
+        // so the account was created with no identity at all.
+        var error = await CaptureValidationErrorAsync(p => p.UserIdentityId = "/subscriptions/s/ids/mi");
+
+        Assert.Contains("UserIdentityId", error.Message);
+    }
+
+    [Fact]
+    public async Task CreateRequest_UserAssignedTypeWithoutAnId_SendsTheTypeAlone()
+    {
+        // azure-cli sends the type on its own here rather than failing, leaving the service to
+        // reject it; matching that keeps the two surfaces consistent with the reference CLI.
+        var body = await CaptureCreateBodyAsync(p => p.IdentityType = "UserAssigned");
+
+        var identity = body.GetProperty("identity");
+        Assert.Equal("UserAssigned", identity.GetProperty("type").GetString());
+        Assert.False(identity.TryGetProperty("userAssignedIdentities", out _));
     }
 
     [Fact]
@@ -718,6 +742,20 @@ public class NewStorageAccountProcessorTests
             p.EnableFilesAdds = "true";
         });
         Assert.Contains("At most one", error.Message);
+    }
+
+    [Fact]
+    public async Task CreateRequest_ActiveDirectoryFieldsWithAadds_Throws()
+    {
+        // AADDS carries only directoryServiceOptions on the wire, matching azure-cli, so a supplied
+        // domain would be dropped and the account created against the inferred tenant domain.
+        var error = await CaptureValidationErrorAsync(p =>
+        {
+            p.EnableFilesAadds = "true";
+            p.DomainName = "contoso.com";
+        });
+
+        Assert.Contains("EnableFilesAadds", error.Message);
     }
 
     [Fact]

@@ -221,8 +221,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
 
         // A user-assigned identity is only attached when the type asks for one; the service rejects
         // the map otherwise. The empty object value is what the API expects on create.
+        //
+        // An id supplied without a type that includes UserAssigned would be dropped here, so the
+        // account would be created with the wrong identity - or none - and ARM would report nothing
+        // amiss. Azure PowerShell rejects the same combination. The opposite case, UserAssigned with
+        // no id, is deliberately left to the service, matching azure-cli, which sends the type alone.
         private Identity? BuildIdentity()
         {
+            bool wantsUserAssigned = IdentityType.Contains("UserAssigned", StringComparison.OrdinalIgnoreCase);
+            if (!wantsUserAssigned && !string.IsNullOrEmpty(UserIdentityId))
+            {
+                throw new ArgumentException(
+                    "UserIdentityId can only be specified when IdentityType includes UserAssigned.");
+            }
+
             if (string.IsNullOrEmpty(IdentityType))
             {
                 return null;
@@ -231,8 +243,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             return new Identity
             {
                 Type = IdentityType,
-                UserAssignedIdentities = IdentityType.Contains("UserAssigned", StringComparison.OrdinalIgnoreCase)
-                                         && !string.IsNullOrEmpty(UserIdentityId)
+                UserAssignedIdentities = wantsUserAssigned && !string.IsNullOrEmpty(UserIdentityId)
                     ? new Dictionary<string, object> { [UserIdentityId] = new() }
                     : null,
             };
@@ -471,6 +482,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
             }
             else if (aadds == true)
             {
+                // azure-cli sends directoryServiceOptions alone for AADDS, where the service infers
+                // the domain from the tenant. Supplied AD fields would therefore be dropped, so they
+                // are rejected rather than silently ignored.
+                if (anyAdField)
+                {
+                    throw new ArgumentException(
+                        "Active Directory properties cannot be specified with EnableFilesAadds; the service infers the domain.");
+                }
+
                 options = "AADDS";
             }
             else if (aadds == false || aadkerb == false || adds == false)
