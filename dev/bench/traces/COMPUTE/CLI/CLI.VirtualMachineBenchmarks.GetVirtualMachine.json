@@ -1,0 +1,258 @@
+{
+  "schema": 1,
+  "benchmark": "CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+  "extension": "COMPUTE",
+  "product": "CLI",
+  "source": {
+    "commit": "4096f675af7b68e540d54dfd9fc2db0dc982627e",
+    "ref": "refs/heads/main",
+    "run_id": "34177475995",
+    "generated": "2026-09-08T02:19:32Z"
+  },
+  "traces": 100,
+  "diagnostics": {
+    "malformed": 0,
+    "orphan_subtrees": 0,
+    "rootless_traces": 0
+  },
+  "nodes": [
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ]
+      ],
+      "avg_ms": 2.2142250000000003,
+      "occurrences": 100,
+      "offset_ms": 0.0
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.Startup",
+          0
+        ]
+      ],
+      "avg_ms": 0.70293,
+      "occurrences": 100,
+      "offset_ms": 0.0
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ParseGlobalArgs",
+          0
+        ]
+      ],
+      "avg_ms": 0.0024740000000000014,
+      "occurrences": 100,
+      "offset_ms": 0.71758
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.HandleGlobalArgs",
+          0
+        ]
+      ],
+      "avg_ms": 0.031892000000000004,
+      "occurrences": 100,
+      "offset_ms": 0.7340000000000002
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ParseCommandInvocation",
+          0
+        ]
+      ],
+      "avg_ms": 0.24252500000000005,
+      "occurrences": 100,
+      "offset_ms": 0.7809699999999999
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ]
+      ],
+      "avg_ms": 1.1564390000000002,
+      "occurrences": 100,
+      "offset_ms": 1.0427499999999996
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.Startup",
+          0
+        ],
+        [
+          "AzureCLI.Startup.Container",
+          0
+        ]
+      ],
+      "avg_ms": 0.022861999999999997,
+      "occurrences": 100,
+      "offset_ms": 0.0003100000000000002
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.Startup",
+          0
+        ],
+        [
+          "AzureCLI.Startup.Services",
+          0
+        ]
+      ],
+      "avg_ms": 0.51659,
+      "occurrences": 100,
+      "offset_ms": 0.023549999999999988
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.Startup",
+          0
+        ],
+        [
+          "AzureCLI.Startup.Telemetry",
+          0
+        ]
+      ],
+      "avg_ms": 0.15588899999999997,
+      "occurrences": 100,
+      "offset_ms": 0.5403700000000001
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ParseCommandInvocation",
+          0
+        ],
+        [
+          "SessionCreated",
+          0
+        ]
+      ],
+      "avg_ms": 0.10441500000000004,
+      "occurrences": 100,
+      "offset_ms": 0.8928099999999993
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "SessionCreated",
+          0
+        ]
+      ],
+      "avg_ms": 1.1181959999999997,
+      "occurrences": 100,
+      "offset_ms": 1.0676800000000002
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "ProcessorProcessAsyncStart",
+          0
+        ]
+      ],
+      "avg_ms": 0.8606659999999998,
+      "occurrences": 100,
+      "offset_ms": 1.2849700000000002
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          0
+        ]
+      ],
+      "avg_ms": 0.245708,
+      "occurrences": 100,
+      "offset_ms": 1.3012899999999996
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          0
+        ]
+      ],
+      "avg_ms": 0.21371500000000002,
+      "occurrences": 100,
+      "offset_ms": 1.3101599999999993
+    }
+  ]
+}

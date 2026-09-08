@@ -1,0 +1,331 @@
+{
+  "schema": 1,
+  "benchmark": "PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+  "extension": "COMPUTE",
+  "product": "PS",
+  "source": {
+    "commit": "4096f675af7b68e540d54dfd9fc2db0dc982627e",
+    "ref": "refs/heads/main",
+    "run_id": "34177475995",
+    "generated": "2026-09-08T02:19:32Z"
+  },
+  "traces": 100,
+  "diagnostics": {
+    "malformed": 0,
+    "orphan_subtrees": 0,
+    "rootless_traces": 0
+  },
+  "nodes": [
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ]
+      ],
+      "avg_ms": 4.242237,
+      "occurrences": 100,
+      "offset_ms": 0.0
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "SessionCreated",
+          0
+        ]
+      ],
+      "avg_ms": 4.203632000000001,
+      "occurrences": 100,
+      "offset_ms": 0.036000000000000004
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "ProcessorProcessAsyncStart",
+          0
+        ]
+      ],
+      "avg_ms": 3.899199,
+      "occurrences": 100,
+      "offset_ms": 0.3223099999999999
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          0
+        ]
+      ],
+      "avg_ms": 0.289277,
+      "occurrences": 100,
+      "offset_ms": 0.8147600000000003
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          0
+        ]
+      ],
+      "avg_ms": 0.2717519999999999,
+      "occurrences": 100,
+      "offset_ms": 0.82857
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          1
+        ]
+      ],
+      "avg_ms": 0.21907,
+      "occurrences": 100,
+      "offset_ms": 1.2076300000000004
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          1
+        ]
+      ],
+      "avg_ms": 0.20193999999999993,
+      "occurrences": 100,
+      "offset_ms": 1.2185599999999999
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          2
+        ]
+      ],
+      "avg_ms": 0.242128,
+      "occurrences": 100,
+      "offset_ms": 1.6868799999999995
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          2
+        ]
+      ],
+      "avg_ms": 0.22650600000000004,
+      "occurrences": 100,
+      "offset_ms": 1.6994399999999996
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          3
+        ]
+      ],
+      "avg_ms": 0.20069499999999998,
+      "occurrences": 100,
+      "offset_ms": 2.0075800000000004
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          3
+        ]
+      ],
+      "avg_ms": 0.1843229999999999,
+      "occurrences": 100,
+      "offset_ms": 2.0181799999999996
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          4
+        ]
+      ],
+      "avg_ms": 0.228844,
+      "occurrences": 100,
+      "offset_ms": 2.44889
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          4
+        ]
+      ],
+      "avg_ms": 0.21403100000000005,
+      "occurrences": 100,
+      "offset_ms": 2.46101
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          5
+        ]
+      ],
+      "avg_ms": 0.20227699999999996,
+      "occurrences": 100,
+      "offset_ms": 2.77823
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          5
+        ]
+      ],
+      "avg_ms": 0.18520199999999995,
+      "occurrences": 100,
+      "offset_ms": 2.7894200000000002
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          6
+        ]
+      ],
+      "avg_ms": 0.24926300000000012,
+      "occurrences": 100,
+      "offset_ms": 3.3856400000000004
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          6
+        ]
+      ],
+      "avg_ms": 0.23418199999999995,
+      "occurrences": 100,
+      "offset_ms": 3.3979599999999994
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          7
+        ]
+      ],
+      "avg_ms": 0.20413499999999996,
+      "occurrences": 100,
+      "offset_ms": 3.7377000000000002
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          7
+        ]
+      ],
+      "avg_ms": 0.1877259999999999,
+      "occurrences": 100,
+      "offset_ms": 3.748289999999999
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          8
+        ]
+      ],
+      "avg_ms": 0.18661700000000003,
+      "occurrences": 100,
+      "offset_ms": 3.99993
+    },
+    {
+      "path": [
+        [
+          "PowerShell.Activity.Root",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          8
+        ]
+      ],
+      "avg_ms": 0.17056499999999997,
+      "occurrences": 100,
+      "offset_ms": 4.01026
+    }
+  ]
+}
