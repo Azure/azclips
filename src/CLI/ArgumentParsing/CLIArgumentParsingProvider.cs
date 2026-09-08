@@ -10,11 +10,44 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 {
     public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
     {
-        //TODO: handle positional arguemnts for CLI
         Dictionary<string, object> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
+
+        // Precompute the canonical parameter names explicitly supplied via named flags so
+        // positional binding can detect ambiguity (the same parameter given both positionally and
+        // by flag, e.g. `az config set core.output.color --key foo --value bar`) deterministically,
+        // regardless of dictionary iteration order.
+        var explicitlyNamed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in args.Keys)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                continue;
+            }
+            var resolvedKey = key;
+            if (!parameters.ContainsKey(resolvedKey) && parameterAliases != null && parameterAliases.TryGetValue(resolvedKey, out var canonical))
+            {
+                resolvedKey = canonical;
+            }
+            if (parameters.TryGetValue(resolvedKey, out var metadata))
+            {
+                explicitlyNamed.Add(metadata.Name);
+            }
+        }
+
         foreach (var kvp in args)
         {
             string originalInput = kvp.Key;
+
+            // Multiple positional tokens (e.g. `az config set core.output.color always`) are all
+            // collected under the empty-string key by ExtensionParser. Bind each, in order, to the
+            // canonical parameter declared for that position: position 0 via the conventional [""]
+            // alias, subsequent positions via "1", "2", etc.
+            if (string.IsNullOrEmpty(originalInput))
+            {
+                BindPositionalArguments(kvp.Value, parameters, parameterAliases, explicitlyNamed, parsedArguments);
+                continue;
+            }
+
             string key = originalInput;
             object value = kvp.Value;
 
@@ -44,6 +77,36 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             }
         }
         return parsedArguments;
+    }
+
+    private void BindPositionalArguments(object positionalSource, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, HashSet<string> explicitlyNamed, Dictionary<string, object> parsedArguments)
+    {
+        var positionalValues = FlattenToStrings(positionalSource);
+        for (int i = 0; i < positionalValues.Length; i++)
+        {
+            // Position 0 uses the conventional [""] alias key (already relied on by several
+            // commands, e.g. `profile show <name>`); later positions use their 1-based index as
+            // a string key, e.g. ["1"] = "value" for `config set <key> <value>`.
+            var positionalKey = i == 0 ? string.Empty : i.ToString();
+            if (parameterAliases == null || !parameterAliases.TryGetValue(positionalKey, out var canonicalKey) || !parameters.TryGetValue(canonicalKey, out var parameterMetadata))
+            {
+                throw new ArgumentException($"Unrecognized positional argument(s): {string.Join(" ", positionalValues.Skip(i))}");
+            }
+
+            if (explicitlyNamed.Contains(parameterMetadata.Name))
+            {
+                throw new ArgumentException($"Parameter '{parameterMetadata.InvocationName}' was specified both positionally and by flag ('--{parameterMetadata.InvocationName}').");
+            }
+
+            try
+            {
+                parsedArguments[parameterMetadata.Name] = propertyParser.ConvertToType(parameterMetadata.InvocationName, positionalValues[i], parameterMetadata.ParameterType);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException($"Failed to parse parameter '{parameterMetadata.InvocationName}': {ex.Message}", ex);
+            }
+        }
     }
 
     private object ParseArgument(string originalInput, object source, Type targetType)
