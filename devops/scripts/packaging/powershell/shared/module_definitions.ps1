@@ -3,8 +3,9 @@
 Discovers the packaged Az modules in their canonical installation order.
 
 .DESCRIPTION
-Reads source manifests once, with Login first, Az last, and other modules ordered
-by manifest path. Callers resolve the source root; uninstall reverses this list.
+Reads source manifests once, with Accounts (or legacy Login) first, Az last, and
+other modules ordered by manifest path. Callers resolve the source root; uninstall
+reverses this list.
 #>
 function Get-AzModuleDefinitions
 {
@@ -14,7 +15,7 @@ function Get-AzModuleDefinitions
     )
 
     $manifests = @(Get-ChildItem -LiteralPath $SourcePsRoot -Filter '*.psd1' -File -Recurse -ErrorAction Stop |
-        Sort-Object -Property @{ Expression = { if ($_.BaseName -eq 'Login') { 0 } elseif ($_.BaseName -eq 'Az') { 2 } else { 1 } } }, FullName)
+        Sort-Object -Property @{ Expression = { if ($_.BaseName -in 'Accounts', 'Login') { 0 } elseif ($_.BaseName -eq 'Az') { 2 } else { 1 } } }, FullName)
 
     if ($manifests.Count -eq 0)
     {

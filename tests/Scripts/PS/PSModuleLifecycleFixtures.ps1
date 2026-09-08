@@ -258,7 +258,10 @@ function Invoke-LifecycleScenario
     Set-Content -LiteralPath (Join-Path $FixtureRoot 'NuGet.config') -Value 'caller config'
     Set-Content -LiteralPath (Join-Path $galleryRoot 'NuGet.config') -Value 'gallery config'
     Set-Content -LiteralPath (Join-Path $processRoot 'NuGet.config') -Value 'process caller config'
-    foreach ($name in 'Az', 'Resources', 'Compute', 'Login')
+    $authenticationModule = if ($Scenario -eq 'accounts-source') { 'Accounts' } else { 'Login' }
+    $moduleNames = @('Az', 'Resources', 'Compute', $authenticationModule)
+    if ($Scenario -eq 'accounts-source') { $moduleNames += 'Aardvark' }
+    foreach ($name in $moduleNames)
     {
         $moduleDirectory = New-Item -ItemType Directory -Path (Join-Path $sourceRoot $name)
         $cmdlets = if ($name -eq 'Az') { '@()' } else { "@('Get-${name}Fixture')" }
@@ -267,13 +270,19 @@ function Invoke-LifecycleScenario
     }
 
     . $definitionsScript
-    if ($Scenario -eq 'default-source') { $sourceRoot = Join-Path $repoRoot 'src\PS' }
+    if ($Scenario -eq 'default-source')
+    {
+        $sourceRoot = Join-Path $repoRoot 'src\PS'
+        $authenticationModule = if (Test-Path -LiteralPath (Join-Path $sourceRoot 'Accounts\Accounts.psd1') -PathType Leaf) { 'Accounts' } else { 'Login' }
+    }
     $definitions = @(Get-AzModuleDefinitions -SourcePsRoot $sourceRoot)
-    Assert-Fixture ($definitions[0].PackageName -eq 'Az.Login' -and $definitions[-1].PackageName -eq 'Az') 'Canonical discovery must place Login first and Az last.'
+    Assert-Fixture ($definitions[0].PackageName -eq "Az.$authenticationModule" -and $definitions[-1].PackageName -eq 'Az') "Canonical discovery must place $authenticationModule first and Az last."
     if ($Scenario -ne 'default-source')
     {
-        Assert-Fixture (($definitions.PackageName -join ',') -eq 'Az.Login,Az.Compute,Az.Resources,Az') 'Canonical middle-module order must use manifest paths.'
-        Assert-Fixture ($definitions[1].Version -eq '1.2.3' -and $definitions[1].CmdletsToExport[0] -eq 'Get-ComputeFixture') 'Discovery must preserve versions and exported cmdlets.'
+        $expectedOrder = if ($Scenario -eq 'accounts-source') { 'Az.Accounts,Az.Aardvark,Az.Compute,Az.Resources,Az' } else { 'Az.Login,Az.Compute,Az.Resources,Az' }
+        Assert-Fixture (($definitions.PackageName -join ',') -eq $expectedOrder) 'Canonical middle-module order must use manifest paths.'
+        $compute = $definitions | Where-Object SourceModule -eq 'Compute'
+        Assert-Fixture ($compute.Version -eq '1.2.3' -and $compute.CmdletsToExport[0] -eq 'Get-ComputeFixture') 'Discovery must preserve versions and exported cmdlets.'
     }
     $global:Lifecycle = @{
         Definitions = @{}
@@ -348,7 +357,7 @@ function Invoke-LifecycleScenario
                 {
                     Assert-Fixture ($global:Lifecycle.Packages.ContainsKey("$($definition.PackageName)|$($definition.Version)")) 'Successful installation must retain every exact target version.'
                 }
-                if ($Scenario -in 'newer-versions', 'default-source')
+                if ($Scenario -in 'newer-versions', 'default-source', 'accounts-source')
                 {
                     & $uninstallScript @parameters *>&1 | ForEach-Object { $output.Add($_.ToString()) }
                 }
@@ -389,7 +398,7 @@ function Invoke-LifecycleScenario
 
         switch ($Scenario)
         {
-            { $_ -in 'success', 'newer-versions', 'default-source' } {
+            { $_ -in 'success', 'newer-versions', 'default-source', 'accounts-source' } {
                 Assert-Fixture ($null -eq $caught) "Success path must not throw: $caught`n$joined"
                 Assert-Fixture (($installed.Name -join ',') -eq ($definitions.PackageName -join ',')) 'Installation must use canonical discovery order.'
                 $firstMutation = @($events | Where-Object Operation -eq Register)[0]
@@ -518,7 +527,7 @@ $scenarios = @(
     'removal-failures', 'cleanup-query-failure', 'preexisting-exact', 'preexisting-available',
     'newer-versions', 'repository-conflict', 'registration-failure', 'unregistration-failure',
     'cleanup-primary', 'preflight-query-failure', 'empty-install', 'empty-uninstall',
-    'invalid-definition', 'strict-uninstall-missing', 'default-source',
+    'invalid-definition', 'strict-uninstall-missing', 'default-source', 'accounts-source',
     'failure-newer-versions', 'directory-cleanup-failure'
 )
 $scratchRoot = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) "ps-lifecycle-$([guid]::NewGuid().ToString('N'))")
