@@ -159,10 +159,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 effectiveSubscriptionId = await ResolveDefaultSubscriptionAsync(authResult.AccessToken);
             }
 
-            // Fetch the ARM data boundary for the tenant so telemetry can be routed
-            // to the correct regional Aria endpoint (EU vs Global).
-            string? dataBoundary = await ResolveDataBoundaryAsync(authResult.AccessToken);
-
             Profile resultProfile = new()
             {
                 Name = targetName,
@@ -175,7 +171,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 ManagedIdentityId = authMode == AuthMethod.ManagedIdentity
                     ? (resultManagedIdentityId ?? ManagedIdentityIdCodec.Format(loginRequest))
                     : null,
-                DataBoundary = dataBoundary,
             };
 
             // When the subscription is homed in a different tenant than the one we signed into, verify we can
@@ -437,25 +432,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 logger.Warn($"Failed to auto-discover subscriptions: {ex.Message}. "
                     + $"Continuing without a default subscription; pass '{Flag(nameof(SubscriptionId))}' to set one.");
                 return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Fetches the ARM data boundary for the tenant, returning <c>null</c> on any failure
-        /// so login always succeeds even when the ARM dataBoundaries API is unavailable.
-        /// </summary>
-        private async Task<string?> ResolveDataBoundaryAsync(string accessToken)
-        {
-            try
-            {
-                var dataBoundaryService = AzclipsServiceProvider.GetRequiredService<IDataBoundaryService>();
-                return await dataBoundaryService.GetDataBoundaryAsync(accessToken);
-            }
-            catch (Exception ex)
-            {
-                var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
-                logger.Debug($"Failed to resolve ARM data boundary: {ex.Message}. Continuing without it.");
-                return null;
             }
         }
     }

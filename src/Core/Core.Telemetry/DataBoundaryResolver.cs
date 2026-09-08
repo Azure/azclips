@@ -3,20 +3,17 @@
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Core.Abstractions;
 
 namespace Core.Telemetry;
 
 /// <summary>
-/// Reads the active profile's <c>DataBoundary</c> directly from the on-disk profile store
-/// without requiring the full DI container. This lets telemetry exporters choose the correct
-/// Aria endpoint (EU vs Global) at initialization time and in the background uploader process.
+/// Looks up the active profile's tenant data boundary from a dedicated cache file.
+/// This lets telemetry exporters choose the correct Aria endpoint (EU vs Global)
+/// without requiring DI.
 /// </summary>
 internal static class DataBoundaryResolver
 {
-    private static readonly string AzclipsDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        ".azclips");
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -24,44 +21,64 @@ internal static class DataBoundaryResolver
     };
 
     /// <summary>
-    /// Returns <c>true</c> when the active profile's data boundary is "EU" (case-insensitive).
+    /// Returns <c>true</c> when the active profile's tenant data boundary is "EU" (case-insensitive).
     /// Returns <c>false</c> for all other values, missing data, or file-access errors.
     /// </summary>
     internal static bool IsEuDataBoundary()
     {
         try
         {
-            var activeProfilePath = Path.Combine(AzclipsDirectory, "active-profile");
-            if (!File.Exists(activeProfilePath))
+            var tenantId = GetActiveTenantId();
+            if (tenantId is null)
                 return false;
+
+            var boundary = DataBoundaryCache.Get(tenantId);
+            return string.Equals(boundary, "EU", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Returns the tenant ID from the active profile, or <c>null</c> if unavailable.
+    /// </summary>
+    internal static string? GetActiveTenantId()
+    {
+        try
+        {
+            var root = HomePaths.GetDefaultLocalAppDataRoot();
+
+            var activeProfilePath = Path.Combine(root, HomePaths.ActiveProfileFileName);
+            if (!File.Exists(activeProfilePath))
+                return null;
 
             var activeProfileName = File.ReadAllText(activeProfilePath).Trim();
             if (string.IsNullOrEmpty(activeProfileName))
-                return false;
+                return null;
 
-            var profilesPath = Path.Combine(AzclipsDirectory, "profiles.json");
+            var profilesPath = Path.Combine(root, HomePaths.ProfilesFileName);
             if (!File.Exists(profilesPath))
-                return false;
+                return null;
 
             var json = File.ReadAllText(profilesPath);
             var profiles = JsonSerializer.Deserialize<Dictionary<string, ProfileEntry>>(json, JsonOptions);
 
             if (profiles is not null && profiles.TryGetValue(activeProfileName, out var profile))
-            {
-                return string.Equals(profile.DataBoundary, "EU", StringComparison.OrdinalIgnoreCase);
-            }
+                return profile.TenantId;
         }
         catch
         {
-            // Best effort — any failure falls back to Global.
+            // Best effort.
         }
 
-        return false;
+        return null;
     }
 
-    /// <summary>Minimal DTO that only deserializes the DataBoundary field from the profile JSON.</summary>
+    /// <summary>Minimal DTO for profile deserialization.</summary>
     private sealed class ProfileEntry
     {
-        public string? DataBoundary { get; set; }
+        public string? TenantId { get; set; }
     }
 }

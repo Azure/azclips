@@ -20,14 +20,21 @@ internal sealed class AriaActivityExporter : BaseExporter<Activity>
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _logger;
 
-    public AriaActivityExporter(string connectionString)
+    public AriaActivityExporter(string connectionString, Uri? ingestionEndpoint = null)
     {
         _loggerFactory = LoggerFactory.Create(logging =>
         {
             logging.AddOpenTelemetry(otel =>
             {
                 otel.IncludeScopes = true;
-                otel.AddOneCollectorExporter(connectionString);
+                otel.AddOneCollectorExporter(connectionString, builder =>
+                {
+                    if (ingestionEndpoint is not null)
+                    {
+                        builder.ConfigureTransportOptions(
+                            transport => transport.Endpoint = ingestionEndpoint);
+                    }
+                });
             });
         });
         _logger = _loggerFactory.CreateLogger("Azclips");

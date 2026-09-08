@@ -12,7 +12,15 @@ public static class WellKnownEndpoints
         "InstrumentationKey=ed2a860010bd41fd9879264d51e4e5c8-eb93fa08-79a9-48c9-b84b-9a55a6d403af-7285";
 
     public const string AriaEuConnectionString =
-        "InstrumentationKey=ed2a860010bd41fd9879264d51e4e5c8-eb93fa08-79a9-48c9-b84b-9a55a6d403af-7285;IngestionEndpoint=https://eu-self.events.data.microsoft.com";
+        "InstrumentationKey=ed2a860010bd41fd9879264d51e4e5c8-eb93fa08-79a9-48c9-b84b-9a55a6d403af-7285";
+
+    /// <summary>
+    /// EU-compliant OneCollector ingestion endpoint per the EU Data Boundary spec.
+    /// OneCollector ignores IngestionEndpoint in connection strings, so the endpoint
+    /// must be set explicitly via <c>TransportOptions.Endpoint</c>.
+    /// </summary>
+    public static readonly Uri AriaEuEndpoint =
+        new("https://eu-mobile.events.data.microsoft.com/OneCollector/1.0/");
 
     /// <summary>
     /// Default local OTLP/gRPC endpoint for the Jaeger all-in-one dev stack

@@ -49,7 +49,7 @@ public class Program
 
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
-            TelemetryUpload.RunPending();
+            TelemetryUpload.RunPending(SilentArmTokenProvider.TryAcquire);
             return 0;
         }
 

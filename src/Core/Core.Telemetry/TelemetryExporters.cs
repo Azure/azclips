@@ -22,6 +22,20 @@ internal static class TelemetryExporters
             AddTraceExporter(builder, target);
         }
 
+        // Route Aria telemetry to the EU or Global collector based on the active
+        // profile's ARM data boundary. EU tenants → EU-compliant endpoint; all
+        // others (including unknown/missing) → Global endpoint.
+        if (targets.Contains(TelemetryTarget.Remote))
+        {
+            var isEu = DataBoundaryResolver.IsEuDataBoundary();
+            var connectionString = isEu
+                ? WellKnownEndpoints.AriaEuConnectionString
+                : WellKnownEndpoints.AriaConnectionString;
+            var endpoint = isEu ? WellKnownEndpoints.AriaEuEndpoint : null;
+            builder.AddProcessor(new SimpleActivityExportProcessor(
+                new AriaActivityExporter(connectionString, endpoint)));
+        }
+
         builder.SetSampler(new AlwaysOnSampler());
     }
 
@@ -37,15 +51,6 @@ internal static class TelemetryExporters
             {
                 options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
             });
-
-            // Route Aria telemetry to the EU or Global collector based on the active
-            // profile's ARM data boundary. EU tenants → EU-compliant endpoint; all
-            // others (including unknown/missing) → Global endpoint.
-            var ariaConnectionString = DataBoundaryResolver.IsEuDataBoundary()
-                ? WellKnownEndpoints.AriaEuConnectionString
-                : WellKnownEndpoints.AriaConnectionString;
-            builder.AddProcessor(new SimpleActivityExportProcessor(
-                new AriaActivityExporter(ariaConnectionString)));
         }
         else
         {

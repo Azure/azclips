@@ -19,7 +19,6 @@ public static class DIRegisterExtensions
         services.AddSingleton<ManagedIdentityAuthenticator>();
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
-        services.AddSingleton<IDataBoundaryService, DataBoundaryService>();
         return services;
     }
 }

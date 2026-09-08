@@ -1,15 +1,17 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using Core.Abstractions;
 
-namespace Core.Authentication;
+namespace Core.Telemetry;
 
 /// <summary>
-/// Fetches the ARM data boundary for the authenticated tenant by calling
-/// <c>GET /providers/Microsoft.Resources/dataBoundaries?api-version=2023-07-01</c>.
+/// Fetches the ARM data boundary for a tenant by calling
+/// <c>GET /providers/Microsoft.Resources/dataBoundaries/default?api-version=2023-07-01</c>.
+/// Internal implementation detail of the telemetry layer — not exposed publicly.
 /// </summary>
-public class DataBoundaryService(HttpClient httpClient, ILoggingService logger) : IDataBoundaryService
+internal static class DataBoundaryService
 {
     private const string ArmBaseUrl = "https://management.azure.com";
     private const string ApiVersion = "2023-07-01";
@@ -19,9 +21,14 @@ public class DataBoundaryService(HttpClient httpClient, ILoggingService logger) 
         PropertyNameCaseInsensitive = true,
     };
 
-    public async Task<string?> GetDataBoundaryAsync(string accessToken, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Queries the ARM dataBoundaries API and returns the boundary value (e.g. "EU", "Global"),
+    /// or <see langword="null"/> when the API is unavailable or returns no value.
+    /// </summary>
+    internal static async Task<string?> GetDataBoundaryAsync(string accessToken, CancellationToken cancellationToken = default)
     {
         var uri = $"{ArmBaseUrl}/providers/Microsoft.Resources/dataBoundaries/default?api-version={ApiVersion}";
+        using var httpClient = new HttpClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
@@ -33,19 +40,12 @@ public class DataBoundaryService(HttpClient httpClient, ILoggingService logger) 
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             var result = JsonSerializer.Deserialize<DataBoundaryResponse>(body, s_jsonOptions);
 
-            var boundary = result?.Properties?.DataBoundary;
-            if (!string.IsNullOrEmpty(boundary))
-            {
-                logger.Debug($"[{nameof(DataBoundaryService)}] Resolved data boundary: '{boundary}'.");
-                return boundary;
-            }
+            return result?.Properties?.DataBoundary;
         }
-        catch (Exception ex)
+        catch
         {
-            logger.Debug($"[{nameof(DataBoundaryService)}] Failed to fetch data boundary: {ex.Message}");
+            return null;
         }
-
-        return null;
     }
 
     private sealed class DataBoundaryResponse
