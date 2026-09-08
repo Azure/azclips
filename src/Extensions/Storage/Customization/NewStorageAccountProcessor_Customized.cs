@@ -304,21 +304,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
                 || !string.IsNullOrEmpty(ImmutabilityPolicyState)
                 || !string.IsNullOrEmpty(AllowProtectedAppendWrites);
 
-            bool enabled = !string.IsNullOrEmpty(EnableAlw) && bool.Parse(EnableAlw);
-            if (hasPolicy && !enabled)
+            bool? enableAlw = ParseBool(EnableAlw);
+            if (hasPolicy && enableAlw != true)
             {
                 throw new ArgumentException(
                     "ImmutabilityPeriodSinceCreationInDays, ImmutabilityPolicyState and AllowProtectedAppendWrites require EnableAlw to be true.");
             }
 
-            if (string.IsNullOrEmpty(EnableAlw))
+            if (enableAlw is null)
             {
                 return null;
             }
 
             return new ImmutableStorageAccount
             {
-                Enabled = ParseBool(EnableAlw),
+                Enabled = enableAlw,
                 ImmutabilityPolicy = hasPolicy
                     ? new AccountImmutabilityPolicyProperties
                     {

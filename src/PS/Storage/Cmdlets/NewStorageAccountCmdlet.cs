@@ -236,6 +236,11 @@ public class NewStorageAccountCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
+        if (!ShouldProcess($"Storage account '{AccountName}' in resource group '{ResourceGroupName}'", "Create"))
+        {
+            return;
+        }
+
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();

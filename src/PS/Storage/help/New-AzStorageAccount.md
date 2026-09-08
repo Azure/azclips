@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Storage.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Storage
-ms.date: 08/27/2026
+ms.date: 09/08/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzStorageAccount
 ---
@@ -248,7 +248,7 @@ HelpMessage: ''
 
 ### -AllowProtectedAppendWrites
 
-Allow new blocks to be written to an append blob while maintaining immutability protection. Requires --enable-alw true.
+Allow new blocks to be written to an append blob while maintaining immutability protection. Requires -EnableAlw true.
 
 ```yaml
 Type: System.Nullable`1[System.Boolean]
@@ -311,7 +311,7 @@ HelpMessage: ''
 
 ### -Bypass
 
-Traffic to bypass the network rules (space-separated): None, Logging, Metrics, AzureServices. Requires --default-action.
+Traffic to bypass the network rules (comma-separated): None, Logging, Metrics, AzureServices. Requires -DefaultAction.
 
 ```yaml
 Type: System.String[]
@@ -690,7 +690,7 @@ HelpMessage: ''
 
 ### -EncryptionKeyName
 
-The name of the key vault key. Must be given together with --encryption-key-vault.
+The name of the key vault key. Must be given together with -EncryptionKeyVault.
 
 ```yaml
 Type: System.String
@@ -774,7 +774,7 @@ HelpMessage: ''
 
 ### -EncryptionKeyVault
 
-The URI of the key vault. Must be given together with --encryption-key-name.
+The URI of the key vault. Must be given together with -EncryptionKeyName.
 
 ```yaml
 Type: System.String
@@ -858,7 +858,7 @@ HelpMessage: ''
 
 ### -ImmutabilityPeriodSinceCreationInDays
 
-The immutability period for blobs since policy creation, in days (1-146000). Requires --enable-alw true.
+The immutability period for blobs since policy creation, in days (1-146000). Requires -EnableAlw true.
 
 ```yaml
 Type: System.Nullable`1[System.Int32]
@@ -879,7 +879,7 @@ HelpMessage: ''
 
 ### -ImmutabilityPolicyState
 
-The mode of the account-level immutability policy. Requires --enable-alw true.
+The mode of the account-level immutability policy. Requires -EnableAlw true.
 
 ```yaml
 Type: System.String
@@ -900,7 +900,7 @@ HelpMessage: ''
 
 ### -IpAddress
 
-IPv4 addresses or CIDR ranges to allow (space-separated). Requires --default-action.
+IPv4 addresses or CIDR ranges to allow (comma-separated). Requires -DefaultAction.
 
 ```yaml
 Type: System.String[]
@@ -921,7 +921,7 @@ HelpMessage: ''
 
 ### -Ipv6Address
 
-IPv6 addresses or CIDR ranges to allow (space-separated). Requires --default-action.
+IPv6 addresses or CIDR ranges to allow (comma-separated). Requires -DefaultAction.
 
 ```yaml
 Type: System.String[]
@@ -1383,7 +1383,7 @@ HelpMessage: ''
 
 ### -SasExpirationAction
 
-The action performed when the SAS expiration period is violated. Requires --sas-expiration-period. Defaults to Log.
+The action performed when the SAS expiration period is violated. Requires -SasExpirationPeriod. Defaults to Log.
 
 ```yaml
 Type: System.String
@@ -1446,7 +1446,7 @@ HelpMessage: ''
 
 ### -Subnet
 
-Name or resource id of a subnet. If a name is given, --vnet-name is required.
+Name or resource id of a subnet. If a name is given, -VnetName is required.
 
 ```yaml
 Type: System.String
@@ -1509,7 +1509,7 @@ HelpMessage: ''
 
 ### -Tags
 
-Resource tags in KEY=VALUE form (space-separated).
+Resource tags in KEY=VALUE form (comma-separated).
 
 ```yaml
 Type: System.String[]
@@ -1551,7 +1551,7 @@ HelpMessage: ''
 
 ### -VnetName
 
-Name of the virtual network containing --subnet.
+Name of the virtual network containing -Subnet.
 
 ```yaml
 Type: System.String
@@ -1615,7 +1615,7 @@ HelpMessage: ''
 
 ### -Zones
 
-The availability zones to pin the account to (space-separated).
+The availability zones to pin the account to (comma-separated).
 
 ```yaml
 Type: System.String[]
@@ -1655,5 +1655,5 @@ Generated help for storage.
 
 ## RELATED LINKS
 
-- [Online Version]()
 
+- [Online Version]()
