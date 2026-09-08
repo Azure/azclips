@@ -34,6 +34,7 @@ and examples.
 ## Az.Resources
 
 - [Get-AzResourceGroup][14]
+- [Get-AzResourceGroupDeployment][19]
 - [Invoke-AzRestMethod][15]
 - [New-AzResourceGroup][16]
 - [New-AzResourceGroupDeployment][17]
@@ -59,3 +60,4 @@ and examples.
 [16]: ../../../src/PS/Resources/help/New-AzResourceGroup.md
 [17]: ../../../src/PS/Resources/help/New-AzResourceGroupDeployment.md
 [18]: ../../../src/PS/Resources/help/New-AzResourceGroupDeploymentWhatIf.md
+[19]: ../../../src/PS/Resources/help/Get-AzResourceGroupDeployment.md
