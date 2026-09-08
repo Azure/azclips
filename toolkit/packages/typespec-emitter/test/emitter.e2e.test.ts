@@ -31,7 +31,7 @@ import {
   type CompilerHost,
   type Diagnostic,
 } from "@typespec/compiler";
-import { IR_SCHEMA_VERSION, parseIR, type IR } from "@azure-client-engine/ir";
+import { IR_SCHEMA_VERSION, idEquals, parseIR, type IR } from "@azure-client-engine/ir";
 
 const EMITTER = "@azure-client-engine/typespec-emitter";
 
@@ -81,6 +81,14 @@ describe("emitter e2e: pets.tsp → IR", () => {
   it("reports no error-severity diagnostics", () => {
     const errors = diagnostics.filter((d) => d.severity === "error");
     expect(errors).toEqual([]);
+  });
+
+  it("stores the endpoint once and references it from every operation and source", () => {
+    expect(ir.servers).toHaveLength(1);
+    const definition = ir.servers[0]!;
+    expect(idEquals(ir.sources[0]!.server, definition.id)).toBe(true);
+    expect(ir.operations.length).toBeGreaterThan(0);
+    for (const operation of ir.operations) expect(idEquals(operation.server, definition.id)).toBe(true);
   });
 
   it("applies PascalCase to logical names while preserving wire names", () => {

@@ -264,60 +264,6 @@ export const IROperationSemanticsSchema = z
     }
   }) as z.ZodType<IROperationSemantics>;
 
-// ─── Server (endpoint) ──────────────────────────────────────────────────
-
-/**
- * Endpoint description, resolved per source from TypeSpec's `@server`.
- * `literal` becomes a baked-in URL constant; `parameterized` becomes
- * processor constructor parameters.
- */
-export type IRServerParameter = {
-  name: string;
-  wireName: string;
-  type: IRTypeRef;
-  defaultValue?: IRLiteralValue | undefined;
-  docs?: string | undefined;
-};
-
-export const IRServerParameterSchema: z.ZodType<IRServerParameter> = z
-  .object({
-    name: z.string().min(1),
-    wireName: z.string().min(1),
-    type: IRTypeRefSchema,
-    defaultValue: IRLiteralValueSchema.optional(),
-    docs: z.string().optional(),
-  })
-  .strict();
-
-export type IRServer =
-  | { kind: "literal"; url: string }
-  | { kind: "parameterized"; template: string; parameters: IRServerParameter[] }
-  | { kind: "oneOf"; servers: IRServer[] };
-
-export const IRServerSchema: z.ZodType<IRServer> = z.lazy(() =>
-  z.discriminatedUnion("kind", [
-    z
-      .object({
-        kind: z.literal("literal"),
-        url: z.string().url(),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("parameterized"),
-        template: z.string().min(1),
-        parameters: z.array(IRServerParameterSchema).min(1),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal("oneOf"),
-        servers: z.array(IRServerSchema).min(2),
-      })
-      .strict(),
-  ]),
-);
-
 // ─── Operation ──────────────────────────────────────────────────────────
 
 export type IROperation = {
@@ -335,9 +281,10 @@ export type IROperation = {
   requestBody?: IRRequestBody | undefined;
   responses: IRResponse[];
 
-  // Per-operation context (denormalized from source for generator convenience).
+  // Per-operation context.
   apiVersion: IRApiVersionStamp;
-  server: IRServer;
+  /** Reference to a definition in IR.servers. */
+  server: IRId;
 
   // Optional Azure-flavoured semantics.
   semantics?: IROperationSemantics | undefined;
@@ -365,7 +312,7 @@ export const IROperationSchema: z.ZodType<IROperation> = z
     responses: z.array(IRResponseSchema).min(1),
 
     apiVersion: IRApiVersionStampSchema,
-    server: IRServerSchema,
+    server: IRIdSchema,
 
     semantics: IROperationSemanticsSchema.optional(),
 

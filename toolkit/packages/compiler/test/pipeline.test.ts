@@ -58,10 +58,14 @@ describe("compiler backbone: emit seam", () => {
         id,
         entrypoint: "stub.tsp",
         apiVersion: { value: "2024-01-01", location: "query", parameterName: "api-version" },
-        server: { kind: "literal", url: "https://stub.example/" },
+        server: { module: id, namespace: [id], name: "server" },
         rootNamespace: [id],
       },
     ],
+    servers: [{
+      id: { module: id, namespace: [id], name: "server" },
+      endpoint: { kind: "literal", url: "https://stub.example/" },
+    }],
   });
 
   it("fails with no-emit-producer when no emit seam is injected", async () => {

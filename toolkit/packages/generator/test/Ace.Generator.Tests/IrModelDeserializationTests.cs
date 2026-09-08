@@ -21,6 +21,7 @@ public sealed class IrModelDeserializationTests
             {
               "id": { "module": "M", "namespace": ["Contoso", "Inventory"], "interface": "Widgets", "name": "read" },
               "name": "fetch",
+              "server": { "module": "M", "namespace": ["Contoso", "Inventory"], "name": "server" },
               "pathParameters": [
                 {
                   "id": { "module": "M", "namespace": ["Contoso", "Inventory"], "interface": "Widgets", "name": "read.widgetId" },
@@ -38,6 +39,7 @@ public sealed class IrModelDeserializationTests
         Assert.Equal(new[] { "Contoso", "Inventory" }, roundTripped.Id.Namespace);
         Assert.Equal("read", roundTripped.Id.Name);
         Assert.Equal("fetch", roundTripped.Name);
+        Assert.Equal("server", roundTripped.Server.Name);
         IRParameter parameter = Assert.Single(roundTripped.PathParameters);
         Assert.Equal(roundTripped.Id.Interface, parameter.Id.Interface);
         Assert.Equal(roundTripped.Id.Namespace, parameter.Id.Namespace);
@@ -54,6 +56,75 @@ public sealed class IrModelDeserializationTests
 
         Assert.Null(id.Interface);
         Assert.Equal(new[] { "Contoso", "Inventory" }, id.Namespace);
+    }
+
+    [Fact]
+    public void Shared_Server_References_And_Nested_Endpoint_Union_RoundTrip()
+    {
+        IRDocument document = Parse<IRDocument>(
+            """
+            {
+              "schemaVersion": "0.8.0",
+              "sources": [
+                { "id": "M", "server": { "module": "M", "namespace": ["Contoso"], "name": "server" } }
+              ],
+              "servers": [
+                {
+                  "id": { "module": "M", "namespace": ["Contoso"], "name": "server" },
+                  "endpoint": {
+                    "servers": [
+                      { "url": "https://first.example.com", "kind": "literal" },
+                      {
+                        "template": "https://{region}.example.com",
+                        "parameters": [
+                          {
+                            "name": "region",
+                            "wireName": "region",
+                            "type": { "kind": "primitive", "name": "string" },
+                            "defaultValue": { "kind": "string", "value": "west" }
+                          }
+                        ],
+                        "kind": "parameterized"
+                      },
+                      { "servers": [{ "kind": "literal", "url": "https://nested.example.com" }], "kind": "oneOf" }
+                    ],
+                    "kind": "oneOf"
+                  }
+                }
+              ],
+              "operations": [
+                { "name": "get", "server": { "module": "M", "namespace": ["Contoso"], "name": "server" } },
+                { "name": "list", "server": { "module": "M", "namespace": ["Contoso"], "name": "server" } }
+              ]
+            }
+            """);
+
+        IRDocument roundTripped = Parse<IRDocument>(JsonSerializer.Serialize(document, IrJson.Options));
+
+        IRServerDefinition definition = Assert.Single(roundTripped.Servers);
+        IRId sourceReference = Assert.Single(roundTripped.Sources).Server;
+        Assert.Equal(definition.Id.Module, sourceReference.Module);
+        Assert.Equal(definition.Id.Namespace, sourceReference.Namespace);
+        Assert.Equal(definition.Id.Name, sourceReference.Name);
+        Assert.Equal(2, roundTripped.Operations.Count);
+        Assert.All(roundTripped.Operations, operation =>
+        {
+            Assert.Equal(sourceReference.Module, operation.Server.Module);
+            Assert.Equal(sourceReference.Namespace, operation.Server.Namespace);
+            Assert.Equal(sourceReference.Name, operation.Server.Name);
+        });
+        var endpoints = Assert.IsType<IRServerOneOf>(definition.Endpoint);
+        Assert.Equal(3, endpoints.Servers.Count);
+        Assert.Equal("https://first.example.com", Assert.IsType<IRServerLiteral>(endpoints.Servers[0]).Url);
+        var parameterized = Assert.IsType<IRServerParameterized>(endpoints.Servers[1]);
+        Assert.Equal("https://{region}.example.com", parameterized.Template);
+        IRServerParameter parameter = Assert.Single(parameterized.Parameters);
+        Assert.Equal("region", parameter.Name);
+        Assert.Equal("region", parameter.WireName);
+        Assert.Equal(IRTypeRefPrimitiveName.String, Assert.IsType<IRTypeRefPrimitive>(parameter.Type).Name);
+        Assert.Equal("west", Assert.IsType<IRLiteralValueString>(parameter.DefaultValue).Value);
+        var nested = Assert.IsType<IRServerOneOf>(endpoints.Servers[2]);
+        Assert.Equal("https://nested.example.com", Assert.IsType<IRServerLiteral>(Assert.Single(nested.Servers)).Url);
     }
 
     [Fact]

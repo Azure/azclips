@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.7.0",
+  "schemaVersion": "0.8.0",
   "sources": [
     {
       "id": "Microsoft",
@@ -10,23 +10,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "rootNamespace": [
         "Microsoft",
@@ -54,6 +43,37 @@
                 ]
               }
             ]
+          }
+        ]
+      }
+    }
+  ],
+  "servers": [
+    {
+      "id": {
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
+      },
+      "endpoint": {
+        "kind": "parameterized",
+        "template": "{endpoint}",
+        "parameters": [
+          {
+            "name": "endpoint",
+            "wireName": "endpoint",
+            "type": {
+              "kind": "primitive",
+              "name": "string",
+              "format": "uri"
+            },
+            "defaultValue": {
+              "kind": "string",
+              "value": "https://management.azure.com"
+            }
           }
         ]
       }
@@ -7801,23 +7821,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -7911,23 +7920,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",
@@ -8093,23 +8091,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Get a ElasticSan."
     },
@@ -8333,23 +8320,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -8566,23 +8542,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -8740,23 +8705,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -8890,23 +8844,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",
@@ -9031,23 +8974,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",
@@ -9232,23 +9164,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Gets the specified private endpoint connection associated with the Elastic San"
     },
@@ -9492,23 +9413,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -9686,23 +9596,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -9856,23 +9755,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",
@@ -10077,23 +9965,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Get an Volume."
     },
@@ -10357,23 +10234,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -10630,23 +10496,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -10927,23 +10782,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -11144,23 +10988,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",
@@ -11408,23 +11241,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -11661,23 +11483,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -11851,23 +11662,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Get an VolumeGroups."
     },
@@ -12111,23 +11911,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -12364,23 +12153,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -12558,23 +12336,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -12755,23 +12522,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",
@@ -12936,23 +12692,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Gets the private link resources that need to be created for a elastic San."
     },
@@ -13141,23 +12886,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "docs": "Get a Volume Snapshot."
     },
@@ -13421,23 +13155,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -13635,23 +13358,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",
@@ -13846,23 +13558,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",
@@ -14008,23 +13709,12 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://management.azure.com"
-            }
-          }
-        ]
+        "module": "Microsoft",
+        "namespace": [
+          "Microsoft",
+          "ElasticSan"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",

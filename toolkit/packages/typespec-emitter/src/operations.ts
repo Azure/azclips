@@ -6,8 +6,8 @@
  * leaf method. Drops override methods (`isOverride`), diagnosed once.
  *
  * Per-op we delegate the bulk of the work to `http.ts` (HTTP framing) and
- * `semantics.ts` (paging/LRO). The api-version and server stamps for the
- * IRSource are denormalized onto each op.
+ * `semantics.ts` (paging/LRO). Each operation carries the source's api-version
+ * stamp and a reference to its shared server definition.
  */
 
 import { getNamespaceFullName, NoTarget } from "@typespec/compiler";
@@ -20,7 +20,6 @@ import type {
   IRApiVersionStamp,
   IRId,
   IROperation,
-  IRServer,
   HttpMethod,
 } from "@azure-client-engine/ir";
 
@@ -69,7 +68,7 @@ function methodToOperation(
   ctx: BuildContext,
   method: SdkServiceMethod<SdkHttpOperation>,
   apiVersion: IRApiVersionStamp,
-  server: IRServer,
+  server: IRId,
 ): IROperation | undefined {
   if (method.isOverride) {
     if (!ctx.flags.overrideMethodWarned) {
@@ -132,7 +131,7 @@ function walkClient(
   ctx: BuildContext,
   client: SdkClientType<SdkHttpOperation>,
   apiVersion: IRApiVersionStamp,
-  server: IRServer,
+  server: IRId,
   out: IROperation[],
 ): void {
   for (const m of client.methods) {
@@ -147,7 +146,7 @@ function walkClient(
 export function operationsFrom(
   ctx: BuildContext,
   apiVersion: IRApiVersionStamp,
-  server: IRServer,
+  server: IRId,
 ): IROperation[] {
   const out: IROperation[] = [];
   for (const client of ctx.sdkContext.sdkPackage.clients) {

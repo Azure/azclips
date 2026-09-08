@@ -14,10 +14,13 @@ import { IRModelSchema, type IRModel } from "./model.js";
 import { IREnumSchema, type IREnum } from "./enum.js";
 import { IROperationSchema, type IROperation } from "./operation.js";
 import { IRSourceSchema, type IRSource } from "./source.js";
+import { IRServerDefinitionSchema, type IRServerDefinition } from "./server.js";
+import { idEquals, serializeId, type IRId } from "./id.js";
 
 export type IR = {
   schemaVersion: string;
   sources: IRSource[];
+  servers: IRServerDefinition[];
   models: IRModel[];
   enums: IREnum[];
   operations: IROperation[];
@@ -27,11 +30,34 @@ export const IRSchema: z.ZodType<IR> = z
   .object({
     schemaVersion: z.string().min(1),
     sources: z.array(IRSourceSchema).min(1),
+    servers: z.array(IRServerDefinitionSchema),
     models: z.array(IRModelSchema),
     enums: z.array(IREnumSchema),
     operations: z.array(IROperationSchema),
   })
-  .strict();
+  .strict()
+  .superRefine((ir, ctx) => {
+    ir.servers.forEach((server, index) => {
+      if (ir.servers.slice(0, index).some((previous) => idEquals(previous.id, server.id))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate server definition ${serializeId(server.id)}`,
+          path: ["servers", index, "id"],
+        });
+      }
+    });
+    const checkReference = (id: IRId, path: (string | number)[]): void => {
+      if (!ir.servers.some((server) => idEquals(server.id, id))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Server reference ${serializeId(id)} has no definition in IR.servers`,
+          path,
+        });
+      }
+    };
+    ir.sources.forEach((source, index) => checkReference(source.server, ["sources", index, "server"]));
+    ir.operations.forEach((operation, index) => checkReference(operation.server, ["operations", index, "server"]));
+  });
 
 /**
  * Parse-and-validate an arbitrary value as an IR document. Throws a
@@ -55,6 +81,7 @@ export function emptyIR(): IR {
   return {
     schemaVersion: IR_SCHEMA_VERSION,
     sources: [],
+    servers: [],
     models: [],
     enums: [],
     operations: [],

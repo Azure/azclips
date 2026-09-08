@@ -109,8 +109,6 @@ export {
   IRResponseHeaderSchema,
   IRStatusCodeSchema,
   IRApiVersionStampSchema,
-  IRServerSchema,
-  IRServerParameterSchema,
   IRPageableSemanticsSchema,
   IRLongRunningSemanticsSchema,
   IROperationSemanticsSchema,
@@ -123,14 +121,21 @@ export {
   type IRResponseHeader,
   type IRStatusCode,
   type IRApiVersionStamp,
-  type IRServer,
-  type IRServerParameter,
   type IRPageableSemantics,
   type IRLongRunningSemantics,
   type IROperationSemantics,
   type HttpMethod,
   type CollectionFormat,
 } from "./operation.js";
+
+export {
+  IRServerSchema,
+  IRServerParameterSchema,
+  IRServerDefinitionSchema,
+  type IRServer,
+  type IRServerParameter,
+  type IRServerDefinition,
+} from "./server.js";
 
 export {
   IRSourceSchema,

@@ -16,6 +16,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { IR_SCHEMA_VERSION, idEquals, parseIR } from "@azure-client-engine/ir";
 
 import { run } from "../src/index.js";
 import { createFsSink } from "../src/compile-command.js";
@@ -301,17 +302,19 @@ describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
     // incidental decision — don't hardcode it).
     const irFiles = walkFiles(join(outDir, "ir")).filter((f) => f.endsWith(".json"));
     expect(irFiles.length).toBeGreaterThan(0);
-    const ir = JSON.parse(readFileSync(irFiles[0]!, "utf8")) as {
-      schemaVersion: string;
-      models: { name: string }[];
-      operations: { name: string; id: { namespace: string[]; interface?: string } }[];
-    };
-    expect(typeof ir.schemaVersion).toBe("string");
-    expect(ir.models.some((m) => m.name === "Pet")).toBe(true);
-    expect(ir.operations.some((o) => o.name === "list")).toBe(true);
-    for (const operation of ir.operations) {
-      expect(operation.id.namespace).toEqual(["PetStore"]);
-      expect(operation.id.interface).toBe("Pets");
+    for (const file of irFiles) {
+      const ir = parseIR(JSON.parse(readFileSync(file, "utf8")));
+      expect(ir.schemaVersion).toBe(IR_SCHEMA_VERSION);
+      expect(ir.models.some((m) => m.name === "Pet")).toBe(true);
+      expect(ir.operations.some((o) => o.name === "list")).toBe(true);
+      expect(ir.servers).toHaveLength(1);
+      const server = ir.servers[0]!;
+      expect(idEquals(ir.sources[0]!.server, server.id)).toBe(true);
+      for (const operation of ir.operations) {
+        expect(operation.id.namespace).toEqual(["PetStore"]);
+        expect(operation.id.interface).toBe("Pets");
+        expect(idEquals(operation.server, server.id)).toBe(true);
+      }
     }
   });
 

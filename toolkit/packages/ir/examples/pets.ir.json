@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.7.0",
+  "schemaVersion": "0.8.0",
   "sources": [
     {
       "id": "PetStore",
@@ -10,6 +10,27 @@
         "parameterName": "api-version"
       },
       "server": {
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
+      },
+      "rootNamespace": [
+        "PetStore"
+      ]
+    }
+  ],
+  "servers": [
+    {
+      "id": {
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
+      },
+      "endpoint": {
         "kind": "parameterized",
         "template": "{endpoint}",
         "parameters": [
@@ -27,10 +48,7 @@
             }
           }
         ]
-      },
-      "rootNamespace": [
-        "PetStore"
-      ]
+      }
     }
   ],
   "models": [
@@ -666,23 +684,11 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "pageable",
@@ -781,23 +787,11 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       }
     },
     {
@@ -894,23 +888,11 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       }
     },
     {
@@ -994,23 +976,11 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       }
     },
     {
@@ -1107,23 +1077,11 @@
         "parameterName": "api-version"
       },
       "server": {
-        "kind": "parameterized",
-        "template": "{endpoint}",
-        "parameters": [
-          {
-            "name": "endpoint",
-            "wireName": "endpoint",
-            "type": {
-              "kind": "primitive",
-              "name": "string",
-              "format": "uri"
-            },
-            "defaultValue": {
-              "kind": "string",
-              "value": "https://pets.example.com"
-            }
-          }
-        ]
+        "module": "PetStore",
+        "namespace": [
+          "PetStore"
+        ],
+        "name": "server"
       },
       "semantics": {
         "kind": "longRunning",

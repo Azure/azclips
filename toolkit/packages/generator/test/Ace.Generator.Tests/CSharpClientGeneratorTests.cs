@@ -8,11 +8,21 @@ namespace Ace.Generator.Tests;
 
 public sealed class CSharpClientGeneratorTests
 {
+    private static IRId ServerId() => new() { Module = "Test", Name = "server" };
+
     private static IRDocument Ir(IEnumerable<string>? models = null, IEnumerable<string>? operations = null)
     {
         return new IRDocument
         {
-            SchemaVersion = "0.7.0",
+            SchemaVersion = "0.8.0",
+            Servers =
+            [
+                new IRServerDefinition
+                {
+                    Id = ServerId(),
+                    Endpoint = new IRServerLiteral { Url = "https://example.com" },
+                },
+            ],
             Models = (models ?? [])
                 .Select(name => new IRModel
                 {
@@ -22,7 +32,7 @@ public sealed class CSharpClientGeneratorTests
                 })
                 .ToList(),
             Operations = (operations ?? [])
-                .Select(name => new IROperation { Name = name })
+                .Select(name => new IROperation { Name = name, Server = ServerId() })
                 .ToList(),
         };
     }
@@ -81,6 +91,7 @@ public sealed class CSharpClientGeneratorTests
                     Name = "get",
                 },
                 Name = "get",
+                Server = ServerId(),
             })
             .ToList();
 
@@ -104,6 +115,7 @@ public sealed class CSharpClientGeneratorTests
             {
                 Id = new IRId { Module = "Test", Interface = "Widgets", Name = "read" },
                 Name = "fetch",
+                Server = ServerId(),
             },
         ];
 
@@ -129,6 +141,7 @@ public sealed class CSharpClientGeneratorTests
                     Name = "get",
                 },
                 Name = "get",
+                Server = ServerId(),
             },
         ];
 

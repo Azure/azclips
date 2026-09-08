@@ -5,10 +5,10 @@
  *   1. createSdkContext  → TCGC-built type universe
  *   2. createBuildContext → caches, diag sink
  *   3. listAllServiceNamespaces → pick first, warn if >1
- *   4. buildSource        → IRSource (server + apiVersion)
+ *   4. buildSource        → IRSource + shared server definition + apiVersion
  *   5. modelsFrom         → IRModel[]
  *   6. enumsFrom          → IREnum[]
- *   7. operationsFrom     → IROperation[] (denormalizes per-source stamps)
+ *   7. operationsFrom     → IROperation[] (server references + apiVersion stamps)
  *   8. parseIR            → integrity check (throws on bug)
  *   9. writeIR            → js-yaml / JSON serialize + emitFile
  *  10. surface diagnostics; honour `diagnosticsAsErrors`
@@ -77,11 +77,12 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
 
   const models = modelsFrom(buildCtx);
   const enums = enumsFrom(buildCtx);
-  const operations = operationsFrom(buildCtx, apiVersion, server);
+  const operations = operationsFrom(buildCtx, apiVersion, server.id);
 
   const ir: IR = {
     schemaVersion: IR_SCHEMA_VERSION,
     sources: [source],
+    servers: [server],
     models,
     enums,
     operations,

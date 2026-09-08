@@ -127,7 +127,7 @@ ace compile --tsp-location <spec> --generator csharp --root-namespace <ns> --out
 ## IR POCOs (single source of truth)
 
 The IR is defined once, in Zod, in `@azure-client-engine/ir`. To avoid
-hand-duplicating it in C#, the POCOs in `src/Model/Ir.Generated.cs` are
+hand-duplicating it in C#, the POCOs in `src/Model/Ir/Ir.Generated.cs` are
 **code-generated** from the IR JSON Schema artifact, which is itself derived from
 the Zod schema. The `AceIrModelGen` tool maps JSON Schema → C# itself (using
 **Roslyn** to emit the code — no third-party codegen library). Regenerating is a
@@ -139,14 +139,13 @@ two-step flow across the TS/.NET boundary:
 npm run schema -w @azure-client-engine/ir
 
 # 2) Generate the C# POCOs (run from this package directory).
-#    With no arguments the tool reads ../ir/dist/ir.schema.json and writes
-#    src/Model/Ir.Generated.cs:
-dotnet run --project tools/AceIrModelGen
+#    The default input is ../ir/dist/ir.schema.json; specify the output and namespace:
+dotnet run --project tools\AceIrModelGen -- --out src\Model\Ir\Ir.Generated.cs --namespace Ace.Generator.Model.Ir
 ```
 
 The tool accepts `--schema <path>`, `--out <path>`, and `--namespace <ns>` to
 override the defaults, and errors with a hint if the schema artifact is missing.
-Re-run both steps whenever the IR schema changes. `src/Model/Ir.Generated.cs` is
+Re-run both steps whenever the IR schema changes. `src/Model/Ir/Ir.Generated.cs` is
 committed so the library builds out-of-the-box; treat it as generated output (do
 not hand-edit).
 
@@ -164,6 +163,17 @@ Because the emitted IR does not place the discriminator first in each JSON
 object, **deserialize IR via `IrJson.Options` / `IrJson.Deserialize`** (which sets
 `AllowOutOfOrderMetadataProperties = true`); deserializing with default options
 throws on the out-of-order discriminator.
+
+### Shared servers (IR 0.8.0)
+
+`IRDocument.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
+Both `IROperation.Server` and `IRSource.Server` are required `IRId` references;
+the endpoint retains the existing literal/parameterized/oneOf `IRServer` union.
+Processor generation resolves each operation's own reference by structural
+identity (including namespace, interface, and recursive type arguments), never
+by its source's default. Missing or ambiguous references report error diagnostics
+and skip the affected processor. Literal URLs and parameterized template/default
+substitution are unchanged; choosing a `oneOf` host remains unsupported.
 
 ## Generation API
 

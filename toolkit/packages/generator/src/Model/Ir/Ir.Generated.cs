@@ -510,6 +510,9 @@ public partial class IRDocument
     [JsonPropertyName("sources")]
     public IReadOnlyList<IRSource> Sources { get; set; } = [];
 
+    [JsonPropertyName("servers")]
+    public IReadOnlyList<IRServerDefinition> Servers { get; set; } = [];
+
     [JsonPropertyName("models")]
     public IReadOnlyList<IRModel> Models { get; set; } = [];
 
@@ -755,7 +758,7 @@ public partial class IROperation
     public IRApiVersionStamp ApiVersion { get; set; } = default !;
 
     [JsonPropertyName("server")]
-    public IRServer Server { get; set; } = default !;
+    public IRId Server { get; set; } = default !;
 
     [JsonPropertyName("semantics")]
     public IROperationSemantics? Semantics { get; set; }
@@ -1028,6 +1031,15 @@ public abstract partial class IRServer
 {
 }
 
+public partial class IRServerDefinition
+{
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
+
+    [JsonPropertyName("endpoint")]
+    public IRServer Endpoint { get; set; } = default !;
+}
+
 public partial class IRServerLiteral : IRServer
 {
     [JsonPropertyName("url")]
@@ -1079,7 +1091,7 @@ public partial class IRSource
     public IRApiVersionStamp ApiVersion { get; set; } = default !;
 
     [JsonPropertyName("server")]
-    public IRServer Server { get; set; } = default !;
+    public IRId Server { get; set; } = default !;
 
     [JsonPropertyName("rootNamespace")]
     public IReadOnlyList<string> RootNamespace { get; set; } = [];

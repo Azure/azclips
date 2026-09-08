@@ -21,8 +21,8 @@ namespace Ace.Generator.Generators;
 /// <remarks>
 /// The class shell (declaration, properties, method signatures) is built structurally with Roslyn
 /// <see cref="SyntaxFactory"/>; the seam bodies are single expressions (the URI is a parsed
-/// interpolated string). <c>NormalizeWhitespace()</c> owns layout. Everything is null-tolerant so a
-/// bare operation still yields valid C#.
+/// interpolated string). <c>NormalizeWhitespace()</c> owns layout. Every operation must reference
+/// exactly one server definition in the document; invalid references are reported as errors.
 /// <para>
 /// Strict-IR mapping: <c>Method</c>/<c>CreateRequestUri</c>/generics come straight from the IR, and
 /// the LRO hooks map deterministically from <see cref="IROperationSemanticsLongRunning.FinalStateVia"/>
@@ -56,6 +56,12 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
+            IRServer? server = ResolveServer(context, operation);
+            if (server is null)
+            {
+                continue;
+            }
+
             if (string.IsNullOrWhiteSpace(operation.Name))
             {
                 context.Report(
@@ -66,8 +72,64 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             }
 
             string typeName = ProcessorTypeName(operation);
-            yield return new GeneratedFile($"Processors/{typeName}.cs", Emit(ns, modelsNamespace, typeName, operation), typeName);
+            yield return new GeneratedFile($"Processors/{typeName}.cs", Emit(ns, modelsNamespace, typeName, operation, server), typeName);
         }
+    }
+
+    private static IRServer? ResolveServer(GenerationContext context, IROperation operation)
+    {
+        if (operation.Server is null)
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Error,
+                "ace-generator/missing-server-reference",
+                $"Operation '{operation.Name}' is missing its required server reference.");
+            return null;
+        }
+
+        IRServerDefinition[] matches = context.Ir.Servers
+            .Where(server => IdEquals(server.Id, operation.Server))
+            .Take(2)
+            .ToArray();
+        if (matches.Length != 1)
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Error,
+                matches.Length == 0 ? "ace-generator/unknown-server-reference" : "ace-generator/ambiguous-server-reference",
+                $"Operation '{operation.Name}' references server '{operation.Server.Module}:{operation.Server.Name}', " +
+                (matches.Length == 0 ? "but no matching definition exists." : "but multiple matching definitions exist."));
+            return null;
+        }
+
+        if (matches[0].Endpoint is null)
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Error,
+                "ace-generator/missing-server-endpoint",
+                $"The server definition referenced by operation '{operation.Name}' is missing its required endpoint.");
+        }
+
+        return matches[0].Endpoint;
+    }
+
+    private static bool IdEquals(IRId? left, IRId? right)
+    {
+        if (left is null || right is null ||
+            !string.Equals(left.Module, right.Module, StringComparison.Ordinal) ||
+            !string.Equals(left.Interface, right.Interface, StringComparison.Ordinal) ||
+            !string.Equals(left.Name, right.Name, StringComparison.Ordinal) ||
+            !left.Namespace.SequenceEqual(right.Namespace, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        if (left.TypeArgs is null || right.TypeArgs is null)
+        {
+            return left.TypeArgs is null && right.TypeArgs is null;
+        }
+
+        return left.TypeArgs.Count == right.TypeArgs.Count &&
+            left.TypeArgs.Zip(right.TypeArgs).All(pair => IdEquals(pair.First, pair.Second));
     }
 
     /// <summary>
@@ -82,7 +144,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return (operation.Name + group).Identifier() + "Processor";
     }
 
-    private static string Emit(string @namespace, string modelsNamespace, string className, IROperation operation)
+    private static string Emit(string @namespace, string modelsNamespace, string className, IROperation operation, IRServer server)
     {
         string responseType = ResponseType(operation);
         string requestType = RequestType(operation) ?? "object";
@@ -109,7 +171,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
         // Fine-grained request seams the base assembles into CreateRequestMessage.
         members.Add(MethodProperty(operation));
-        members.Add(CreateRequestUriMethod(operation));
+        members.Add(CreateRequestUriMethod(operation, server));
         if (operation.RequestBody is not null)
         {
             members.Add(CreateRequestBodyMethod(requestType));
@@ -216,9 +278,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// parsed interpolated string (resolved host + path with <c>{wireName}</c> rewritten to the C#
     /// member + api-version/query), so member interpolations bind naturally.
     /// </summary>
-    private static MethodDeclarationSyntax CreateRequestUriMethod(IROperation operation)
+    private static MethodDeclarationSyntax CreateRequestUriMethod(IROperation operation, IRServer server)
     {
-        string uriExpression = $"$\"{EscapeInterpolated(BuildUri(operation))}\"";
+        string uriExpression = $"$\"{EscapeInterpolated(BuildUri(operation, server))}\"";
         return MethodDeclaration(ParseTypeName("string"), Identifier("CreateRequestUri"))
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
             .WithExpressionBody(ArrowExpressionClause(ParseExpression(uriExpression)))
@@ -314,9 +376,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         string.Join(".", wirePath.Split('.', StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Pascal()));
 
     /// <summary>Compose the request URI text: <c>{host}{path}?{query}</c>, with member interpolations.</summary>
-    private static string BuildUri(IROperation operation)
+    private static string BuildUri(IROperation operation, IRServer server)
     {
-        string host = ResolveHost(operation.Server);
+        string host = ResolveHost(server);
 
         string path = operation.PathTemplate ?? string.Empty;
         foreach (IRParameter parameter in operation.PathParameters)
@@ -340,7 +402,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     }
 
     /// <summary>Resolve a server to a host string, substituting parameter defaults into a template.</summary>
-    private static string ResolveHost(IRServer? server) => server switch
+    private static string ResolveHost(IRServer server) => server switch
     {
         IRServerLiteral literal => literal.Url,
         IRServerParameterized parameterized => ResolveTemplate(parameterized),
