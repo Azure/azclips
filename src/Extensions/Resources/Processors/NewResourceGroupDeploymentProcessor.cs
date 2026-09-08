@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using DeploymentModel = Microsoft.Azure.Azclips.Extensions.Resources.Models.Deployment;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
@@ -17,7 +18,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     /// in <see cref="NewResourceGroupDeploymentProcessor_Orchestrator"/>, which builds the
     /// properties and delegates here via <c>CreateExtendedProcessor</c>.
     /// </summary>
-    public class NewResourceGroupDeploymentProcessor : ResourcesProcessorBase<Deployment, DeploymentExtended>
+    public class NewResourceGroupDeploymentProcessor : ResourcesProcessorBase<DeploymentModel, DeploymentExtended>
     {
         private const string ApiVersion = "2025-04-01";
 
@@ -45,6 +46,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override string CreateRequestUri() =>
             $"https://management.azure.com/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourcegroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(Name)}?api-version={ApiVersion}";
 
-        protected override Deployment? CreateRequestBody() => new Deployment { Properties = Properties };
+        protected override DeploymentModel? CreateRequestBody() => new DeploymentModel { Properties = Properties };
     }
 }
