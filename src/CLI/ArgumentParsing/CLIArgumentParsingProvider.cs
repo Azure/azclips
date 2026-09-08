@@ -12,39 +12,18 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
     {
         Dictionary<string, object> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
 
-        // Precompute the canonical parameter names explicitly supplied via named flags so
-        // positional binding can detect ambiguity (the same parameter given both positionally and
-        // by flag, e.g. `az config set core.output.color --key foo --value bar`) deterministically,
-        // regardless of dictionary iteration order.
-        var explicitlyNamed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in args.Keys)
-        {
-            if (string.IsNullOrEmpty(key))
-            {
-                continue;
-            }
-            var resolvedKey = key;
-            if (!parameters.ContainsKey(resolvedKey) && parameterAliases != null && parameterAliases.TryGetValue(resolvedKey, out var canonical))
-            {
-                resolvedKey = canonical;
-            }
-            if (parameters.TryGetValue(resolvedKey, out var metadata))
-            {
-                explicitlyNamed.Add(metadata.Name);
-            }
-        }
-
         foreach (var kvp in args)
         {
             string originalInput = kvp.Key;
 
             // Multiple positional tokens (e.g. `az config set core.output.color always`) are all
-            // collected under the empty-string key by ExtensionParser. Bind each, in order, to the
-            // canonical parameter declared for that position: position 0 via the conventional [""]
-            // alias, subsequent positions via "1", "2", etc.
+            // collected under the empty-string key by ExtensionParser. Any extension can opt in by
+            // declaring indexed ParameterAliases ([""] for position 0, ["1"], ["2"], ... beyond it);
+            // Accounts (`profile show/set/remove`) and Extension (`extension show/remove/...`)
+            // already use position 0, Config is the first consumer of multiple positions.
             if (string.IsNullOrEmpty(originalInput))
             {
-                BindPositionalArguments(kvp.Value, parameters, parameterAliases, explicitlyNamed, parsedArguments);
+                ParsePositionalArguments(kvp.Value, args, parameters, parameterAliases, parsedArguments);
                 continue;
             }
 
@@ -79,14 +58,16 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         return parsedArguments;
     }
 
-    private void BindPositionalArguments(object positionalSource, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, HashSet<string> explicitlyNamed, Dictionary<string, object> parsedArguments)
+    // Binds positional tokens, in order, to the parameters declared via indexed ParameterAliases:
+    // position 0 via the conventional [""] alias, subsequent positions via "1", "2", etc. Rejects
+    // extra positional tokens with no declared slot and conflicts with a same-parameter flag.
+    // Available to any extension that opts in via indexed ParameterAliases, not just Config.
+    private void ParsePositionalArguments(object positionalSource, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Dictionary<string, object> parsedArguments)
     {
+        var explicitlyNamed = GetExplicitlyNamedParameters(args, parameters, parameterAliases);
         var positionalValues = FlattenToStrings(positionalSource);
         for (int i = 0; i < positionalValues.Length; i++)
         {
-            // Position 0 uses the conventional [""] alias key (already relied on by several
-            // commands, e.g. `profile show <name>`); later positions use their 1-based index as
-            // a string key, e.g. ["1"] = "value" for `config set <key> <value>`.
             var positionalKey = i == 0 ? string.Empty : i.ToString();
             if (parameterAliases == null || !parameterAliases.TryGetValue(positionalKey, out var canonicalKey) || !parameters.TryGetValue(canonicalKey, out var parameterMetadata))
             {
@@ -107,6 +88,32 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
                 throw new ArgumentException($"Failed to parse parameter '{parameterMetadata.InvocationName}': {ex.Message}", ex);
             }
         }
+    }
+
+    // Resolves every explicitly-named (flag) argument to its canonical parameter name, so
+    // ParsePositionalArguments can detect the same parameter being supplied both positionally and
+    // by flag (e.g. `az config set core.output.color --key foo --value bar`) deterministically,
+    // regardless of dictionary iteration order.
+    private static HashSet<string> GetExplicitlyNamedParameters(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+    {
+        var explicitlyNamed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in args.Keys)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                continue;
+            }
+            var resolvedKey = key;
+            if (!parameters.ContainsKey(resolvedKey) && parameterAliases != null && parameterAliases.TryGetValue(resolvedKey, out var canonical))
+            {
+                resolvedKey = canonical;
+            }
+            if (parameters.TryGetValue(resolvedKey, out var metadata))
+            {
+                explicitlyNamed.Add(metadata.Name);
+            }
+        }
+        return explicitlyNamed;
     }
 
     private object ParseArgument(string originalInput, object source, Type targetType)
