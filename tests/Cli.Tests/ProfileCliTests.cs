@@ -231,6 +231,20 @@ public sealed class ProfileCliTests
     }
 
     [Fact]
+    public async Task ProfileShow_NoName_ShouldReturnActiveProfile()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("staging", "sub-2");
+        await fixture.Profiles.SetActiveProfileNameAsync("prod");
+
+        var output = fixture.ExecuteCli(["profile", "show"]);
+
+        Assert.Contains(output, line => line.Contains("prod"));
+        Assert.DoesNotContain(output, line => line.Contains("staging"));
+    }
+
+    [Fact]
     public void ProfileShow_Active_NoActiveProfile_ShouldFail()
     {
         using var fixture = new ProfileCliFixture();
