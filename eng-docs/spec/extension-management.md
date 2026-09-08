@@ -338,7 +338,7 @@ With the above, `az config set core.output.color always` binds `Key = "core.outp
 `CLIArgumentParsingProvider` (`src/CLI/ArgumentParsing/CLIArgumentParsingProvider.cs`) enforces two invariants for any command that opts in:
 
 - **Unrecognized positionals are rejected.** A token with no declared slot for its position throws instead of being silently dropped.
-- **Positional/flag conflicts are rejected.** Supplying the same parameter both positionally and via its flag (e.g. `config set core.output.color --value always`, then also `--key foo`) throws instead of silently picking one based on dictionary iteration order.
+- **Positional/flag conflicts are rejected.** Supplying the *same* parameter both positionally and via its flag (e.g. `config set core.output.color always --key core.output.color` — `key` bound positionally *and* by `--key`) throws instead of silently picking one based on dictionary iteration order. Mixing different parameters across positional and flag (e.g. `config set core.output.color --value always`) is not a conflict and works as expected.
 
 `profile show/set/remove` (Accounts) and `extension show/remove/update/pin/unpin` (Extension) also declare `[""]` and get the same two invariants for free.
 
