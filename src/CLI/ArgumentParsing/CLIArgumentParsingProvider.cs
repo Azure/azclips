@@ -16,11 +16,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         {
             string originalInput = kvp.Key;
 
-            // Multiple positional tokens (e.g. `az config set core.output.color always`) are all
-            // collected under the empty-string key by ExtensionParser. Any extension can opt in by
-            // declaring indexed ParameterAliases ([""] for position 0, ["1"], ["2"], ... beyond it);
-            // Accounts (`profile show/set/remove`) and Extension (`extension show/remove/...`)
-            // already use position 0, Config is the first consumer of multiple positions.
+            // Positional tokens land in the empty-string key; binding is opt-in via indexed ParameterAliases (see extension-management.md §4.4.1).
             if (string.IsNullOrEmpty(originalInput))
             {
                 ParsePositionalArguments(kvp.Value, args, parameters, parameterAliases, parsedArguments);
@@ -58,10 +54,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         return parsedArguments;
     }
 
-    // Binds positional tokens, in order, to the parameters declared via indexed ParameterAliases:
-    // position 0 via the conventional [""] alias, subsequent positions via "1", "2", etc. Rejects
-    // extra positional tokens with no declared slot and conflicts with a same-parameter flag.
-    // Available to any extension that opts in via indexed ParameterAliases, not just Config.
+    // Binds positional tokens in order via indexed ParameterAliases ([""], "1", "2", ...), rejecting unrecognized extras and same-parameter flag conflicts.
     private void ParsePositionalArguments(object positionalSource, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases, Dictionary<string, object> parsedArguments)
     {
         var explicitlyNamed = GetExplicitlyNamedParameters(args, parameters, parameterAliases);
@@ -90,10 +83,7 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         }
     }
 
-    // Resolves every explicitly-named (flag) argument to its canonical parameter name, so
-    // ParsePositionalArguments can detect the same parameter being supplied both positionally and
-    // by flag (e.g. `az config set core.output.color --key foo --value bar`) deterministically,
-    // regardless of dictionary iteration order.
+    // Resolves named-flag args to canonical parameter names so positional binding can detect same-parameter conflicts deterministically.
     private static HashSet<string> GetExplicitlyNamedParameters(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
     {
         var explicitlyNamed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

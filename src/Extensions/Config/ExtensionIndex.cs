@@ -97,7 +97,6 @@ public class ExtensionIndex : IExtensionIndex
             ["key"] = new("Key", "key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["json"] = new("Json", "json", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
-        // The key is accepted positionally (`config get <key>`) or via --key.
         ParameterAliases: new Dictionary<string, string> { [""] = "key" }
     );
 
@@ -114,7 +113,6 @@ public class ExtensionIndex : IExtensionIndex
             ["value"] = new("Value", "value", typeof(string), "Configuration value.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["force"] = new("Force", "force", typeof(bool), "Allow unknown keys.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
-        // The key and value are accepted positionally (`config set <key> <value>`) or via --key/--value.
         ParameterAliases: new Dictionary<string, string> { [""] = "key", ["1"] = "value" }
     );
 
@@ -130,7 +128,6 @@ public class ExtensionIndex : IExtensionIndex
             ["key"] = new("Key", "key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["force"] = new("Force", "force", typeof(bool), "Allow unknown keys.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
-        // The key is accepted positionally (`config delete <key>`) or via --key.
         ParameterAliases: new Dictionary<string, string> { [""] = "key" }
     );
 
