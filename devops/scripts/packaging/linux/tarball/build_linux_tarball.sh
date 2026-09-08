@@ -119,7 +119,12 @@ AGENT_SCRATCH="$COMMON_OUT_ROOT/agent-publish/$RID"
 AGENT_PUBLISH_PROPERTIES=(-p:IsPackagedBuild=true)
 if [[ "$RID" == linux-musl-* ]]; then
   COPILOT_ARCH="${RID##*-}"
+  dotnet restore "$REPO_ROOT/Agent/Core.Agent.csproj" --nologo
   COPILOT_CLI_VERSION="$(dotnet msbuild "$REPO_ROOT/Agent/Core.Agent.csproj" -getProperty:CopilotCliVersion -nologo)"
+  if [[ -z "$COPILOT_CLI_VERSION" ]]; then
+    echo "ERROR: Could not resolve CopilotCliVersion from GitHub.Copilot.SDK."
+    exit 1
+  fi
   COPILOT_CACHE_DIR="$COMMON_OUT_ROOT/copilot-cli/$COPILOT_CLI_VERSION/linuxmusl-$COPILOT_ARCH"
   COPILOT_BINARY="$COPILOT_CACHE_DIR/copilot"
 
