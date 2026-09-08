@@ -6,7 +6,23 @@ using TypeSpec.Http;
 using TypeSpec.Versioning;
 using Azure.ClientGenerator.Core;
 
+@clientNamespace("Sdk.Global")
+enum GlobalState {
+  Ready,
+  Busy,
+}
+
+@clientNamespace("Sdk.Global")
+model GlobalDetails {
+  state: GlobalState;
+}
+
 namespace Shared {
+  @clientNamespace("Sdk.Shared")
+  model Metadata {
+    sharedValue: string;
+  }
+
   interface Readable<T> {
     @get
     @route("/{id}")
@@ -29,7 +45,36 @@ namespace InterfaceService {
 
   model Widget {
     name: string;
+    metadata: Details.Metadata;
+    items: Details.Metadata[];
+    byName: Record<Details.Metadata>;
+    globalDetails: GlobalDetails;
   }
+
+  @clientNamespace("Sdk.Models")
+  namespace Details {
+    @clientName("SdkState")
+    enum State {
+      Ready,
+      Busy,
+    }
+
+    @clientName("SdkKind")
+    union Kind {
+      small: "small",
+      large: "large",
+    }
+
+    @clientName("SdkMetadata")
+    model Metadata extends Shared.Metadata {
+      state: State;
+      kind: Kind;
+    }
+  }
+
+  @post
+  @route("/widgets")
+  op create(@body widget: Widget): Widget;
 
   @get
   @route("/health")

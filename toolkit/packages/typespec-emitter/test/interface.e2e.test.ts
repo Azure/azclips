@@ -33,7 +33,7 @@ beforeAll(async () => {
   ir = parseIR(JSON.parse(entry[1]));
 });
 
-describe("emitter e2e: source interface identity", () => {
+describe("emitter e2e: source namespace and interface identity", () => {
   it("preserves separate interfaces and original names despite SDK regrouping and renaming", () => {
     const widget = ir.operations.find((op) => op.name === "fetchWidget");
     const account = ir.operations.find((op) => op.name === "fetchAccount");
@@ -105,9 +105,80 @@ describe("emitter e2e: source interface identity", () => {
     });
   });
 
-  it("does not add interface ownership to namespace-level models", () => {
+  it("uses the source namespace for models without adding interface ownership", () => {
     const widget = ir.models.find((model) => model.name === "Widget");
     expect(widget).toBeDefined();
+    expect(widget!.id.namespace).toEqual(["InterfaceService"]);
     expect(widget!.id).not.toHaveProperty("interface");
+  });
+
+  it("preserves nested source namespaces and SDK-facing model and enum names", () => {
+    const metadata = ir.models.find((model) => model.name === "SdkMetadata");
+    const state = ir.enums.find((type) => type.name === "SdkState");
+    const kind = ir.enums.find((type) => type.name === "SdkKind");
+    expect(metadata).toBeDefined();
+    expect(state).toBeDefined();
+    expect(kind).toBeDefined();
+
+    for (const type of [metadata!, state!, kind!]) {
+      expect(type.id.namespace).toEqual(["InterfaceService", "Details"]);
+      expect(type.id.module).toBe("InterfaceService");
+      expect(type.id).not.toHaveProperty("interface");
+    }
+    for (const property of metadata!.properties.filter((property) => !property.inheritedFrom)) {
+      expect(property.id.namespace).toEqual(metadata!.id.namespace);
+    }
+    expect(metadata!.properties.find((property) => property.wireName === "state")?.type).toEqual({
+      kind: "enum",
+      id: state!.id,
+    });
+    expect(metadata!.properties.find((property) => property.wireName === "kind")?.type).toEqual({
+      kind: "enum",
+      id: kind!.id,
+    });
+  });
+
+  it("retains the defining source namespace for parent models and inherited properties", () => {
+    const metadata = ir.models.find((model) => model.name === "SdkMetadata")!;
+    const base = ir.models.find((model) => model.name === "Metadata");
+    expect(base).toBeDefined();
+    expect(base!.id.namespace).toEqual(["Shared"]);
+    expect(metadata.parent).toEqual(base!.id);
+
+    const inherited = metadata.properties.find((property) => property.wireName === "sharedValue");
+    expect(inherited).toBeDefined();
+    expect(inherited!.id.namespace).toEqual(["Shared"]);
+    expect(inherited!.inheritedFrom).toEqual(base!.id);
+  });
+
+  it("keeps global model and enum namespaces empty despite SDK namespace overrides", () => {
+    const details = ir.models.find((model) => model.name === "GlobalDetails");
+    const state = ir.enums.find((type) => type.name === "GlobalState");
+    expect(details).toBeDefined();
+    expect(state).toBeDefined();
+    expect(details!.id.namespace).toEqual([]);
+    expect(state!.id.namespace).toEqual([]);
+    expect(details!.properties.find((property) => property.wireName === "state")?.type).toEqual({
+      kind: "enum",
+      id: state!.id,
+    });
+  });
+
+  it("uses the same source identities in model properties and operation bodies and responses", () => {
+    const widget = ir.models.find((model) => model.name === "Widget")!;
+    const metadata = ir.models.find((model) => model.name === "SdkMetadata")!;
+    const metadataRef = { kind: "model", id: metadata.id };
+    const propertyType = (wireName: string) =>
+      widget.properties.find((property) => property.wireName === wireName)?.type;
+    expect(propertyType("metadata")).toEqual(metadataRef);
+    expect(propertyType("items")).toEqual({ kind: "array", element: metadataRef });
+    expect(propertyType("byName")).toEqual({ kind: "dictionary", value: metadataRef });
+
+    const create = ir.operations.find((operation) => operation.name === "create");
+    expect(create).toBeDefined();
+    const widgetRef = { kind: "model", id: widget.id };
+    expect(create!.requestBody?.type).toEqual(widgetRef);
+    expect(create!.responses.map((response) => response.type)).toContainEqual(widgetRef);
+    expect(create!.id.namespace).toEqual(widget.id.namespace);
   });
 });

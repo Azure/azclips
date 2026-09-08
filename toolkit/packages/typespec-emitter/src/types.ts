@@ -11,7 +11,7 @@
  * unwrapped type here.
  */
 
-import { getLocationContext, NoTarget } from "@typespec/compiler";
+import { getLocationContext, getNamespaceFullName, NoTarget } from "@typespec/compiler";
 import type {
   SdkArrayType,
   SdkBuiltInType,
@@ -26,7 +26,7 @@ import type {
   SdkType,
   SdkUnionType,
 } from "@azure-tools/typespec-client-generator-core";
-import { getLibraryName } from "@azure-tools/typespec-client-generator-core";
+import { getLibraryName, getNamespaceFromType } from "@azure-tools/typespec-client-generator-core";
 import type {
   FormatKind,
   IRId,
@@ -78,11 +78,11 @@ export function moduleFor(
 /**
  * Build an IRId for any *nameable* SdkType (model/enum/union). Uses the
  * id-cache so we hand out the same identity on subsequent calls. The
- * namespace decomposition follows the rule baked into the plan:
+ * namespace comes from the original TypeSpec declaration, not SDK placement:
  *
  *   module     = the source-id (or the type's owning library package name
  *                for library-declared types — see `moduleFor`)
- *   namespace  = the FQN segments BETWEEN the module and the type name
+ *   namespace  = the original TypeSpec namespace's FQN segments
  *   name       = TCGC's libraryName for the type
  */
 export function idFor(
@@ -93,13 +93,11 @@ export function idFor(
   if (cached) return cached;
 
   const name = nameOf(ctx, t);
-  const fqn = t.namespace; // dotted, may be ""
+  const namespace = getNamespaceFromType(t.__raw);
+  const fqn = namespace !== undefined ? getNamespaceFullName(namespace) : "";
   const segments = fqn.length === 0 ? [] : fqn.split(".");
 
   const moduleStr = moduleFor(ctx, t);
-  // Namespace ⊂ FQN; we keep the full FQN segments as the namespace path and
-  // attribute the type to its owning module (spec sourceId or library name).
-  // This matches the design in the plan: IRId.namespace[] = FQN segments.
   const id: IRId = {
     module: moduleStr,
     namespace: segments,
