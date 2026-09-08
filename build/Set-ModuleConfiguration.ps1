@@ -59,12 +59,4 @@ foreach ($file in $psd1Files) {
 
     Set-Content -Path $targetPath -Value $updated -NoNewline
     Write-Host "Staged $moduleDir/$($file.Name) -> $targetPath"
-
-    # Copy any side-by-side format files (.format.ps1xml) into the same target directory.
-    $formatFiles = Get-ChildItem -Path $file.Directory -Filter '*.format.ps1xml'
-    foreach ($fmt in $formatFiles) {
-        $fmtTarget = Join-Path $targetDir $fmt.Name
-        Copy-Item -Path $fmt.FullName -Destination $fmtTarget -Force
-        Write-Host "Copied $moduleDir/$($fmt.Name) -> $fmtTarget"
-    }
 }

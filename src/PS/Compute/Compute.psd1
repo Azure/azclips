@@ -71,7 +71,8 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 # TypesToProcess = @()
 
 # Format files (.ps1xml) to be loaded when importing this module
-FormatsToProcess = 'Compute.format.ps1xml'
+# FormatsToProcess is not used; format data is registered dynamically by ComputeModuleInitializer.
+# FormatsToProcess = @()
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
 NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Compute.dll')

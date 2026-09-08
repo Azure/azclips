@@ -16,6 +16,7 @@
       <Aliases>CmdletsConfig</Aliases>
     </ProjectReference>
     <ProjectReference Include="../../src/PS/Login/Cmdlets.Login.csproj" />
+    <ProjectReference Include="../../src/PS/Compute/Cmdlets.Compute.csproj" />
     <ProjectReference Include="../../src/Extensions/Login/Extensions.Login.csproj" />
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
@@ -25,10 +26,5 @@
   <ItemGroup>
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="System.Management.Automation" Version="7.6.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="../../src/PS/Compute/Compute.format.ps1xml" Link="Compute.format.ps1xml" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../src/PS/Compute/Compute.psd1" Link="Compute.psd1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
