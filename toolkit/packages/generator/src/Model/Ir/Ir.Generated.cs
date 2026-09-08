@@ -979,6 +979,136 @@ public partial class IRMultipartValue
     public string? Summary { get; set; }
 }
 
+public partial class IRMultipartBody
+{
+    [JsonPropertyName("kind")]
+    public IRMultipartBodyKind Kind { get; set; }
+
+    [JsonPropertyName("contentTypes")]
+    public IReadOnlyList<string> ContentTypes { get; set; } = [];
+
+    [JsonPropertyName("parts")]
+    public IReadOnlyList<IRMultipartPart> Parts { get; set; } = [];
+}
+
+public partial class IRMultipartHeader
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public IRLiteralValue? DefaultValue { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+
+    [JsonPropertyName("wireName")]
+    public string WireName { get; set; } = default !;
+
+    [JsonPropertyName("collectionFormat")]
+    public IRMultipartHeaderCollectionFormat? CollectionFormat { get; set; }
+}
+
+public partial class IRMultipartPart
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("property")]
+    public IRId? Property { get; set; }
+
+    [JsonPropertyName("body")]
+    public IRMultipartPartBody Body { get; set; } = default !;
+
+    [JsonPropertyName("headers")]
+    public IReadOnlyList<IRMultipartHeader> Headers { get; set; } = [];
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("multi")]
+    public bool Multi { get; set; }
+
+    [JsonPropertyName("filename")]
+    public IRMultipartValue? Filename { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+}
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(IRMultipartPartBodySingle), "single")]
+[JsonDerivedType(typeof(IRMultipartPartBodyFile), "file")]
+public abstract partial class IRMultipartPartBody
+{
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("contentTypes")]
+    public IReadOnlyList<string> ContentTypes { get; set; } = [];
+
+    [JsonPropertyName("contentType")]
+    public IRMultipartValue? ContentType { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public IRLiteralValue? DefaultValue { get; set; }
+}
+
+public partial class IRMultipartPartBodyFile : IRMultipartPartBody
+{
+    [JsonPropertyName("contents")]
+    public IRMultipartValue Contents { get; set; } = default !;
+
+    [JsonPropertyName("isText")]
+    public bool IsText { get; set; }
+}
+
+public partial class IRMultipartPartBodySingle : IRMultipartPartBody
+{
+}
+
+public partial class IRMultipartValue
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public IRLiteralValue? DefaultValue { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+}
+
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(IROAuth2FlowAuthorizationCode), "authorizationCode")]
 [JsonDerivedType(typeof(IROAuth2FlowImplicit), "implicit")]

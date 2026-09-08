@@ -152,7 +152,11 @@ not hand-edit).
 ### Discriminated unions
 
 The IR's discriminated unions — `IRTypeRef`, `IRProperty`, `IRStatusCode`,
+<<<<<<< HEAD
 `IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IRAuthScheme`,
+=======
+`IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IROperationSemantics`, `IRAuthScheme`,
+>>>>>>> 18f2606 (support multipart request header/body)
 `IROAuth2Flow` — are emitted by `zod-to-json-schema` as `anyOf` + `const`
 discriminators. `AceIrModelGen` maps each to an **`abstract` base + derived
 types** wired for `System.Text.Json` polymorphism (`[JsonPolymorphic]` /
