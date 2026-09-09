@@ -46,7 +46,7 @@ Omit `-Name` to list them: scoped to a resource group when `-ResourceGroupName` 
 Fetch the virtual network `myvnet` from resource group `myrg`.
 
 ```powershell
-Get-AzVirtualNetwork -ResourceGroupName <resourcegroupname> -Name <name>
+Get-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet
 ```
 
 ## PARAMETERS

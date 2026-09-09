@@ -36,8 +36,8 @@ New-AzVirtualNetwork -Name <string> -Location <string> -ResourceGroupName <strin
 ## DESCRIPTION
 
 Creates an Azure virtual network in the specified resource group and location.
-Supply the VNet address space with `-AddressPrefixes`, and optionally create subnets in the same call by pairing `-SubnetNames` with `-SubnetAddressPrefixes`.
-The two subnet parameters are matched positionally: the first prefix list belongs to the first subnet name, and so on.
+Supply the VNet address space with `-AddressPrefix`, and optionally create subnets in the same call with `-Subnet`, passing one hashtable per subnet.
+For the simple name-and-prefix case you can instead pair `-SubnetNames` with `-SubnetAddressPrefixes`, which are matched positionally: the first prefix list belongs to the first subnet name, and so on.
 
 ## EXAMPLES
 
@@ -46,7 +46,7 @@ The two subnet parameters are matched positionally: the first prefix list belong
 Create the virtual network `myvnet` with address space 10.0.0.0/16 and a single subnet `default`.
 
 ```powershell
-New-AzVirtualNetwork -Name <name> -Location <location> -ResourceGroupName <resourcegroupname>
+New-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -Location eastus -AddressPrefix 10.0.0.0/16 -Subnet @{ Name = 'default'; AddressPrefix = '10.0.0.0/24' }
 ```
 
 ## PARAMETERS

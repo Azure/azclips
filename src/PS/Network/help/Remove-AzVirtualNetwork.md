@@ -38,7 +38,7 @@ The delete fails while the virtual network is still in use, so detach or delete 
 Delete the virtual network `myvnet` from resource group `myrg`.
 
 ```powershell
-Remove-AzVirtualNetwork -Name <name> -ResourceGroupName <resourcegroupname>
+Remove-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet
 ```
 
 ## PARAMETERS
@@ -230,7 +230,7 @@ This cmdlet does not emit an object on the pipeline; it only writes progress and
 
 ### System.Boolean
 
-TODO - describe what Remove-AzVirtualNetwork does and when to use it.
+Returned only when `-PassThru` is specified: `$true` once the virtual network has been deleted.
 
 ## NOTES
 
