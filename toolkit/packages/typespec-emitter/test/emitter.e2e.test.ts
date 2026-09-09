@@ -169,7 +169,7 @@ describe("emitter e2e: enum-service.tsp → IREnum.isFixed", () => {
 
   it("warns when emitting an extensible enum", () => {
     const warnings = enumDiagnostics.filter((d) => d.severity === "warning");
-    expect(warnings.filter((d) => d.code.endsWith("/open-enum-emitted"))).toHaveLength(1);
+    expect(warnings.filter((d) => d.code.endsWith("/open-enum-as-closed"))).toHaveLength(1);
   });
 });
 

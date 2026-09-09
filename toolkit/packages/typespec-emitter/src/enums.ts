@@ -29,7 +29,7 @@ function valueTypeOf(e: SdkEnumType): "string" | "number" {
 export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined {
   if (!e.isFixed && !ctx.flags.openEnumWarned) {
     reportDiagnostic(ctx.program, {
-      code: "open-enum-emitted",
+      code: "open-enum-as-closed",
       format: { enum: e.name },
       target: NoTarget,
     });
