@@ -23,6 +23,7 @@
     <Project Path="src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
+    <Project Path="src/Extensions/Storage/Extensions.Storage.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
     <Project Path="src/Extensions/Identity/Extensions.Identity.csproj" />
   </Folder>
@@ -36,6 +37,7 @@
     <Project Path="Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj" />
   </Folder>
   <Folder Name="/src/PS/Config/" />
+  <Folder Name="/src/PS/Storage/" />
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Benchmark/Benchmark.csproj" />
@@ -53,6 +55,7 @@
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
+  <Folder Name="/tools/" />
   <Folder Name="/tools/Help/">
       <Project Path="tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj" />
       <Project Path="tools/Help/Azclips.Help.Tool/Azclips.Help.Tool.csproj" />
@@ -60,6 +63,7 @@
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
+    <Project Path="src/PS/Storage/Cmdlets.Storage.csproj" />
     <Project Path="src/PS/Accounts/Cmdlets.Accounts.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
     <Project Path="src/PS/MsGraph/Cmdlets.MsGraph.csproj" />
