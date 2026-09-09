@@ -141,7 +141,9 @@ stages:
         signing_root="$(Build.ArtifactStagingDirectory)/linux-sign-test"
         cd "$signing_root"
 
-        checked_count=$(sha256sum --check SHA256SUMS | tee /dev/stderr | grep -c ': OK$')
+        checksum_output="$(sha256sum --check SHA256SUMS)"
+        printf '%s\n' "$checksum_output"
+        checked_count="$(printf '%s\n' "$checksum_output" | awk '/: OK$/ { count++ } END { print count + 0 }')"
         if [[ "$checked_count" -ne 8 ]]; then
           echo "ERROR: Expected eight verified Linux tarballs; got $checked_count."
           exit 1
