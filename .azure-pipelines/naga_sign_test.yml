@@ -1,0 +1,143 @@
+name: naga-sign-test-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+  - pipeline: alphaBuild
+    project: public
+    source: azclips-alpha-build
+    trigger: none
+
+variables:
+- template: templates/variables.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'AME ESRP Variable Group'
+- name: SourceProject
+  value: ${{ variables.public_project }}
+- name: SourcePipelineName
+  value: azclips-alpha-build
+- name: SourceArtifactName
+  value: Final_Build_Distribution
+- name: ESRPServiceConnection
+  value: ${{ variables.esrp_service_connection }}
+
+stages:
+- stage: Preflight
+  displayName: Validate Signing Test Input
+  jobs:
+  - job: ValidateInput
+    displayName: Validate Selected Alpha Build
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: naga_sign_test must run in the 'release' project for ESRP access.
+    - bash: |
+        set -euo pipefail
+        source_build_id='$(resources.pipeline.alphaBuild.runID)'
+
+        if ! [[ "$source_build_id" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: Select an azclips-alpha-build resource version when queueing this pipeline. Got: $source_build_id"
+          exit 1
+        fi
+
+        echo "Alpha source project: $(SourceProject)"
+        echo "Alpha source pipeline: $(SourcePipelineName)"
+        echo "Alpha source build id: $source_build_id"
+        echo "Alpha source run name: $(resources.pipeline.alphaBuild.runName)"
+        echo "Alpha source branch: $(resources.pipeline.alphaBuild.sourceBranch)"
+        echo "Alpha source commit: $(resources.pipeline.alphaBuild.sourceCommit)"
+        echo "Alpha source artifact: $(SourceArtifactName)"
+      displayName: Validate Alpha Build Source
+
+- stage: SignLinuxTrial
+  displayName: Sign Linux Checksum Manifest Trial
+  dependsOn: Preflight
+  jobs:
+  - job: SignLinuxX64
+    displayName: Sign Full Linux x64 Tarball Checksum
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Alpha Build Artifacts
+      inputs:
+        buildType: specific
+        project: $(SourceProject)
+        definition: $(SourcePipelineName)
+        buildVersionToDownload: specific
+        pipelineId: $(resources.pipeline.alphaBuild.runID)
+        artifact: $(SourceArtifactName)
+        path: $(Pipeline.Workspace)/alpha-build
+    - bash: |
+        set -euo pipefail
+        source_root="$(Pipeline.Workspace)/alpha-build"
+        signing_root="$(Build.ArtifactStagingDirectory)/linux-sign-test"
+        mkdir -p "$signing_root"
+
+        mapfile -t candidates < <(
+          find "$source_root" -type f \
+            -name 'azcli-*-linux-x64.tar.gz' \
+            ! -name 'azcli-lean-*' | sort
+        )
+
+        if [[ ${#candidates[@]} -ne 1 ]]; then
+          echo "ERROR: Expected exactly one full linux-x64 tarball; found ${#candidates[@]}."
+          printf '  %s\n' "${candidates[@]}"
+          exit 1
+        fi
+
+        cp "${candidates[0]}" "$signing_root/"
+        target_name="$(basename "${candidates[0]}")"
+        cd "$signing_root"
+        sha256sum "$target_name" > SHA256SUMS
+        cp SHA256SUMS SHA256SUMS.sig
+
+        echo "Prepared signing input for $target_name"
+        cat SHA256SUMS
+      displayName: Prepare Linux Checksum Manifest
+    - task: EsrpCodeSigning@6
+      displayName: ESRP Sign Linux Checksum Manifest
+      inputs:
+        ConnectedServiceName: $(ESRPServiceConnection)
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
+        FolderPath: '$(Build.ArtifactStagingDirectory)/linux-sign-test'
+        UseMinimatch: true
+        Pattern: 'SHA256SUMS.sig'
+        signConfigType: inlineSignParams
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "CP-500207-Pgp",
+              "OperationCode": "LinuxSign",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+    - bash: |
+        set -euo pipefail
+        signing_root="$(Build.ArtifactStagingDirectory)/linux-sign-test"
+        cd "$signing_root"
+
+        sha256sum --check SHA256SUMS
+        if cmp --silent SHA256SUMS SHA256SUMS.sig; then
+          echo 'ERROR: ESRP did not replace SHA256SUMS.sig with a detached signature.'
+          exit 1
+        fi
+
+        gpg --batch --list-packets SHA256SUMS.sig
+        echo 'ESRP produced a structurally valid OpenPGP detached signature.'
+        ls -lh
+      displayName: Validate ESRP Signing Result
