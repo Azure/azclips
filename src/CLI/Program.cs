@@ -37,7 +37,7 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info);
+    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Plain);
 
     public static async Task<int> Main(string[] args)
     {
@@ -130,8 +130,8 @@ public class Program
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
                 var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
                 ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
-                streams = BuildStreams(effectiveLogLevel);
-                outputJson = globalArgs.Output == OutputFormat.Json;
+                streams = BuildStreams(effectiveLogLevel, globalArgs.Output);
+                outputJson = globalArgs.Output is OutputFormat.Json or OutputFormat.Jsonc;
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Version is not null)
@@ -212,12 +212,20 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level)
+    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format)
     {
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value));
+                var output = CliOutputFormatter.FormatValue(value, format);
+                if (format is OutputFormat.Jsonc or OutputFormat.Yamlc)
+                {
+                    ConsoleSink.EmitStdout(ConsoleColor.Cyan, output, newline: true);
+                }
+                else
+                {
+                    Console.WriteLine(output);
+                }
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>

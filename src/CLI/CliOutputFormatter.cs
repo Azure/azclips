@@ -3,6 +3,9 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Core.Cli.Parser;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace Core.Cli;
 
@@ -29,6 +32,10 @@ internal static class CliOutputFormatter
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    private static readonly ISerializer s_yamlSerializer = new SerializerBuilder()
+        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .Build();
+
     /// <summary>
     /// Converts a command output value to a display string suitable for the console.
     /// </summary>
@@ -54,5 +61,14 @@ internal static class CliOutputFormatter
         // likely return a meaningless type name. Once models stabilise, catching and
         // falling back gracefully may be preferable for production resilience.
         return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+    }
+
+    internal static string FormatValue(object? value, OutputFormat format)
+    {
+        return format switch
+        {
+            OutputFormat.Yaml or OutputFormat.Yamlc => s_yamlSerializer.Serialize(value).TrimEnd(),
+            _ => FormatValue(value),
+        };
     }
 }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using Core.Cli.Parser;
 
 namespace Cli.Tests;
 
@@ -65,6 +66,17 @@ public class CliOutputFormatterTests
         using var doc = JsonDocument.Parse(result);
         Assert.Equal("test-rg", doc.RootElement.GetProperty("name").GetString());
         Assert.Equal("eastus", doc.RootElement.GetProperty("location").GetString());
+    }
+
+    [Theory]
+    [InlineData(OutputFormat.Jsonc, "{")]
+    [InlineData(OutputFormat.Yaml, "name: test-rg")]
+    [InlineData(OutputFormat.Yamlc, "name: test-rg")]
+    public void FormatValue_ShouldRenderStructuredOutput_ForSupportedOutputFormat(OutputFormat format, string expected)
+    {
+        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "test-rg" }, format);
+
+        Assert.Contains(expected, result);
     }
 
     // ── Arrays / Collections → JSON array ────────────────────────────

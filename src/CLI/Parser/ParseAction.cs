@@ -64,7 +64,7 @@ internal sealed class OutputFormatAction : ParseAction
         if (index + 1 >= args.Length)
         {
             throw AzclipsErrorException.UsageError(
-                "--output requires a value ('json' or 'plain').",
+                "--output requires a value ('json', 'jsonc', 'yaml', 'yamlc', or 'plain').",
                 new Dictionary<string, object?> { ["flag"] = "--output" });
         }
 
@@ -79,13 +79,28 @@ internal sealed class OutputFormatAction : ParseAction
             return OutputFormat.Json;
         }
 
+        if (value.Equals("jsonc", StringComparison.OrdinalIgnoreCase))
+        {
+            return OutputFormat.Jsonc;
+        }
+
+        if (value.Equals("yaml", StringComparison.OrdinalIgnoreCase))
+        {
+            return OutputFormat.Yaml;
+        }
+
+        if (value.Equals("yamlc", StringComparison.OrdinalIgnoreCase))
+        {
+            return OutputFormat.Yamlc;
+        }
+
         if (value.Equals("plain", StringComparison.OrdinalIgnoreCase))
         {
             return OutputFormat.Plain;
         }
 
         throw AzclipsErrorException.UsageError(
-            $"--output value '{value}' is not recognized. Expected 'json' or 'plain'.",
+            $"--output value '{value}' is not recognized. Expected 'json', 'jsonc', 'yaml', 'yamlc', or 'plain'.",
             new Dictionary<string, object?>
             {
                 ["flag"] = "--output",

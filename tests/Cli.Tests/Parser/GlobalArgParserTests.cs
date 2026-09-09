@@ -228,6 +228,9 @@ public class GlobalArgParserTests
 
     [Theory]
     [InlineData("--output", "json", "json")]
+    [InlineData("-o", "jsonc", "jsonc")]
+    [InlineData("--output", "yaml", "yaml")]
+    [InlineData("--output", "yamlc", "yamlc")]
     [InlineData("--output", "plain", "plain")]
     [InlineData("--OUTPUT", "JSON", "json")]
     public void Parse_OutputFlag_SpaceSeparated_ResolvesFormat(string flag, string value, string expected)
@@ -240,6 +243,9 @@ public class GlobalArgParserTests
 
     [Theory]
     [InlineData("--output=json", "json")]
+    [InlineData("--output=jsonc", "jsonc")]
+    [InlineData("--output=yaml", "yaml")]
+    [InlineData("--output=yamlc", "yamlc")]
     [InlineData("--output=plain", "plain")]
     [InlineData("--Output=Json", "json")]
     public void Parse_OutputFlag_EqualsForm_ResolvesFormat(string token, string expected)
@@ -265,11 +271,11 @@ public class GlobalArgParserTests
         // Q1 decision: strict enum. Pre-refactor silently treated unknown values as "not json"
         // (== plain). The parser now surfaces the typo instead of hiding it.
         var ex = Assert.Throws<AzclipsErrorException>(
-            () => GlobalArgParser.Parse(new[] { "--output", "yaml" }));
+            () => GlobalArgParser.Parse(new[] { "--output", "toml" }));
 
         Assert.Equal(2, ex.ExitCode);
         Assert.Contains("--output", ex.Message);
-        Assert.Contains("yaml", ex.Message);
+        Assert.Contains("toml", ex.Message);
     }
 
     [Fact]

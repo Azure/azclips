@@ -46,6 +46,9 @@ public enum OutputFormat
 {
     Plain,
     Json,
+    Jsonc,
+    Yaml,
+    Yamlc,
 }
 
 /// <summary>

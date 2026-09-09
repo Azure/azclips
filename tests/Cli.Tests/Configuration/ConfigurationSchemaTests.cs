@@ -68,6 +68,18 @@ public class ConfigurationSchemaTests
         Assert.True(result.IsValid);
     }
 
+    [Theory]
+    [InlineData("jsonc")]
+    [InlineData("yamlc")]
+    public void ValidateValue_ShouldAcceptColoredCliOutputFormats(string value)
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("clients.cli.output.format", value);
+
+        Assert.True(result.IsValid);
+    }
+
     [Fact]
     public void ValidateValue_ShouldRejectNonStringValue_ForStringTypedKey()
     {
