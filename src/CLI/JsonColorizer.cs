@@ -14,10 +14,25 @@ namespace Core.Cli;
 internal static class JsonColorizer
 {
     private const string Reset = "\u001b[0m";
-    private const string KeyColor = "\u001b[36m";     // cyan
-    private const string StringColor = "\u001b[32m";  // green
-    private const string NumberColor = "\u001b[33m";  // yellow
-    private const string LiteralColor = "\u001b[35m"; // magenta (true/false/null)
+
+    // Expressed as ConsoleColor (the same vocabulary ConsoleSink/ConsoleOutputAdapter use
+    // elsewhere) rather than ad-hoc named constants, even though the rendering mechanism here
+    // differs from ConsoleSink's set-Console.ForegroundColor-then-write-then-reset model: a JSON
+    // line needs many short-lived colored spans within one already-built string, not one color
+    // for the whole write, so the codes are embedded directly rather than mutating console state.
+    private static readonly string KeyColor = Ansi(ConsoleColor.Cyan);
+    private static readonly string StringColor = Ansi(ConsoleColor.Green);
+    private static readonly string NumberColor = Ansi(ConsoleColor.Yellow);
+    private static readonly string LiteralColor = Ansi(ConsoleColor.Magenta); // true/false/null
+
+    private static string Ansi(ConsoleColor color) => color switch
+    {
+        ConsoleColor.Cyan => "\u001b[36m",
+        ConsoleColor.Green => "\u001b[32m",
+        ConsoleColor.Yellow => "\u001b[33m",
+        ConsoleColor.Magenta => "\u001b[35m",
+        _ => throw new ArgumentOutOfRangeException(nameof(color), color, "No ANSI mapping registered for this color."),
+    };
 
     /// <summary>
     /// Wraps object keys, string values, numbers, and true/false/null literals in <paramref
