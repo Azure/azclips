@@ -678,7 +678,7 @@
     {
       "request": {
         "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-11-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-04-01",
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
@@ -953,7 +953,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-11-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-lifecycle-rg/providers/Microsoft.Compute/virtualMachines/lifecycle-vm?api-version=2025-04-01",
         "headers": {}
       },
       "response": {
