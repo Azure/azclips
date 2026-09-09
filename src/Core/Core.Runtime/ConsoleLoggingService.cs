@@ -18,38 +18,37 @@ public class ConsoleLoggingService : ILoggingService
     public void Info(string message)
     {
         ConsoleSink.Info(message);
-        RecordTelemetry("Info", message);
+        RecordTelemetry("Info");
     }
 
     public void Error(string message)
     {
         ConsoleSink.Error(message);
-        RecordTelemetry("Error", message);
+        RecordTelemetry("Error");
     }
 
     public void Warn(string message)
     {
         ConsoleSink.Warn(message);
-        RecordTelemetry("Warning", message);
+        RecordTelemetry("Warning");
     }
 
     public void Verbose(string message)
     {
         ConsoleSink.Verbose(message);
-        RecordTelemetry("Verbose", message);
+        RecordTelemetry("Verbose");
     }
 
     public void Debug(string message)
     {
         ConsoleSink.Debug(message);
-        RecordTelemetry("Debug", message);
+        RecordTelemetry("Debug");
     }
 
-    private void RecordTelemetry(string level, string message)
+    private void RecordTelemetry(string level)
     {
         var tags = new ActivityTagsCollection
         {
-            { "message", message },
             { "level", level },
             { "logger", nameof(ConsoleLoggingService) }
         };
