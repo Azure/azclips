@@ -136,8 +136,8 @@ if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Exte
   echo "FAIL: Built-in Extension manager bundle missing"
   exit 1
 fi
-if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Login" ]]; then
-  echo "FAIL: Built-in Login bundle missing"
+if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Accounts" ]]; then
+  echo "FAIL: Built-in Accounts bundle missing"
   exit 1
 fi
 if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Config" ]]; then

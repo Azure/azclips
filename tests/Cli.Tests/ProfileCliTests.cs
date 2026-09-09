@@ -5,7 +5,7 @@ using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Azure.Azclips.Extensions.Login.Processors;
+using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Moq;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -231,6 +231,20 @@ public sealed class ProfileCliTests
     }
 
     [Fact]
+    public async Task ProfileShow_NoName_ShouldReturnActiveProfile()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", "sub-1");
+        fixture.SeedProfile("staging", "sub-2");
+        await fixture.Profiles.SetActiveProfileNameAsync("prod");
+
+        var output = fixture.ExecuteCli(["profile", "show"]);
+
+        Assert.Contains(output, line => line.Contains("prod"));
+        Assert.DoesNotContain(output, line => line.Contains("staging"));
+    }
+
+    [Fact]
     public void ProfileShow_Active_NoActiveProfile_ShouldFail()
     {
         using var fixture = new ProfileCliFixture();
@@ -381,7 +395,7 @@ public sealed class ProfileCliTests
             AzclipsServiceProvider.Dispose();
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
-                services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(LoginProcessor).Assembly, "Login"));
+                services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(LoginProcessor).Assembly, "Accounts"));
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
                 services.AddSingleton<IProfileService>(Profiles);
                 services.AddSingleton<IAuthService>(Auth);
@@ -460,7 +474,7 @@ public sealed class ProfileCliTests
             {
                 Extensions =
                 {
-                    ["Microsoft.Azure.Azclips.Extensions.Login"] = new ExtensionRegistryEntry
+                    ["Microsoft.Azure.Azclips.Extensions.Accounts"] = new ExtensionRegistryEntry
                     {
                         Version = "0.0.0",
                         Contributions =

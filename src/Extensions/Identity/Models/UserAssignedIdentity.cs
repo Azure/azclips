@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json.Serialization;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Identity.Models
 {
@@ -27,6 +28,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Models
 
         [JsonPropertyName("systemData")]
         public SystemData? SystemData { get; set; }
+
+        public override string ToString() => JsonNode.FromObject(this).ToString();
     }
 
     public class UserAssignedIdentityProperties
@@ -45,12 +48,30 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Models
 
         [JsonPropertyName("clientId")]
         public string? ClientId { get; set; }
+
+        public override string ToString() => JsonNode.FromObject(this).ToString();
+    }
+
+    public class IdentityUpdate
+    {
+        [JsonPropertyName("location")]
+        public string? Location { get; set; }
+
+        [JsonPropertyName("tags")]
+        public Dictionary<string, string>? Tags { get; set; }
+
+        [JsonPropertyName("properties")]
+        public UserAssignedIdentityProperties? Properties { get; set; }
+
+        public override string ToString() => JsonNode.FromObject(this).ToString();
     }
 
     public class AssignmentRestrictions
     {
         [JsonPropertyName("providers")]
         public List<string>? Providers { get; set; }
+
+        public override string ToString() => JsonNode.FromObject(this).ToString();
     }
 
     public class SystemData
@@ -72,5 +93,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Identity.Models
 
         [JsonPropertyName("lastModifiedByType")]
         public string? LastModifiedByType { get; set; }
+
+        public override string ToString() => JsonNode.FromObject(this).ToString();
     }
 }
