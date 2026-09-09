@@ -152,11 +152,7 @@ not hand-edit).
 ### Discriminated unions
 
 The IR's discriminated unions — `IRTypeRef`, `IRProperty`, `IRStatusCode`,
-<<<<<<< HEAD
-`IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IRAuthScheme`,
-=======
 `IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IROperationSemantics`, `IRAuthScheme`,
->>>>>>> 18f2606 (support multipart request header/body)
 `IROAuth2Flow` — are emitted by `zod-to-json-schema` as `anyOf` + `const`
 discriminators. `AceIrModelGen` maps each to an **`abstract` base + derived
 types** wired for `System.Text.Json` polymorphism (`[JsonPolymorphic]` /
@@ -181,6 +177,7 @@ to rendered clients. Existing LRO hooks and response-body next-link selectors
 consume the new types; unsupported or ambiguous paging bindings are diagnosed.
 LRO rendering still takes precedence when both traits are present.
 
+<<<<<<< HEAD
 ### Flattening metadata (IR 0.12.0)
 
 `ModelHints.Flattened` and `RequestBodyHints.Parameters` carry resolved property
@@ -196,6 +193,8 @@ identical, and the shape is correct either way.
 
 Both fields are consumed — see [Flattening](#flattening).
 
+=======
+>>>>>>> b52c356 (enrich pagination)
 ### Shared servers (IR 0.8.0)
 
 `IRDocument.Servers` holds `IRServerDefinition` entries (`Id`, `Endpoint`).
