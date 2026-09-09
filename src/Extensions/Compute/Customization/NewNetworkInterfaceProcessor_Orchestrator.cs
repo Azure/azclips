@@ -71,6 +71,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
             p.SubnetIds = vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
+            p.SubnetAddressPrefixes = SubnetAddressPrefixes;
             p.NetworkSecurityGroupId = nsg.Id!;
         });
         return await nicProcessor.SendAsync();
