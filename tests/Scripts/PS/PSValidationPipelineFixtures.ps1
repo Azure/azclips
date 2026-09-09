@@ -602,6 +602,18 @@ try
     Write-Host 'PASS: task shape, ordering, cleanup and fixture wiring'
     $count++
 
+    $buildJob = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/jobs/build-ps-modules.yml') -Raw
+    Assert-Equal 'Install,Upgrade,Uninstall' (([regex]::Matches($buildJob, '(?m)^\s+-Phase (\w+)') |
+        ForEach-Object { $_.Groups[1].Value }) -join ',') 'The common build retains package lifecycle checks but must not run smoke validation'
+    Assert-Equal $false ($buildJob.Contains('test_ps_smoke.ps1') -or $buildJob.Contains('ps_smoke_tests.psd1')) 'Production smoke coverage is not a build prerequisite'
+    Assert-Contains $buildJob 'Publish Final PS Module Outputs' 'The build publishes the input packages for validation'
+    $validationStage = [regex]::Match($stage, '(?ms)^- stage: ValidatePS\r?\n(?<body>.*?)(?=^- stage:|\z)').Groups['body'].Value
+    Assert-Contains $validationStage '- BuildPSModules' 'The dedicated PS validation stage runs after package build'
+    Assert-Contains $validationStage '../jobs/validate-ps-build.yml' 'The dedicated stage owns the distribution validation jobs'
+    Assert-Contains $job 'phase: Validate' 'Production smoke validation remains enabled in the matrix'
+    Write-Host 'PASS: production smoke validation runs only after package build'
+    $count++
+
     $workflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/build-and-test.yml') -Raw
     Assert-Contains $job 'UsePythonVersion@0' 'Azure Pipelines provisions Python'
     Assert-Contains $workflow 'actions/setup-python@' 'GitHub Actions provisions Python'

@@ -22,6 +22,12 @@ smoke commands. Uninstall still runs after a failed Validate phase when Install
 completed successfully, including unsupported canary failures; cleanup never
 replaces the original validation failure.
 
+The **Build (PS) Common** job retains its module-output and package installation/
+removal checks, but does not invoke the smoke Validate phase. It publishes the
+packages first; the dependent **Validate (PS)** stage owns smoke validation across
+the distribution matrix. Missing smoke coverage therefore cannot block publication
+of the input packages needed by that stage.
+
 `invoke_ps_validation_step.ps1` orchestrates these tasks using the hosted agent's
 preinstalled PowerShell 7. Bootstrap installs the requested PowerShell separately;
 all module phases run through that executable and `run_ps_validation_phase.ps1`.

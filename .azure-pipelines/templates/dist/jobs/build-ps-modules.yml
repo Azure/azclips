@@ -114,7 +114,7 @@ jobs:
     displayName: Resolve Azure PS Version
 
   # Split into one step per phase so a failure points straight at the phase that broke.
-  # These run the same centralized flow the per-distribution validation jobs use.
+  # Smoke validation runs only in ValidatePS, after this job publishes its packages.
   - bash: |
       set -euo pipefail
 
@@ -140,20 +140,6 @@ jobs:
         -SourceRoot "$(Build.SourcesDirectory)" \
         -PwshPath "$ps_bin"
     displayName: Upgrade Azure PS v$(AzVersion)
-
-  # Placeholder. Post-install validation coverage is not implemented yet, so this
-  # reports as a no-op.
-  - bash: |
-      set -euo pipefail
-
-      ps_bin="$(PSModulePwshPath)"
-      export PATH="$(dirname "$ps_bin"):$PATH"
-
-      "$ps_bin" -NoProfile -File "$(Build.SourcesDirectory)/devops/scripts/packaging/powershell/run_ps_validation_phase.ps1" \
-        -Phase Validate \
-        -SourceRoot "$(Build.SourcesDirectory)" \
-        -PwshPath "$ps_bin"
-    displayName: Validate Azure PS v$(AzVersion)
 
   - bash: |
       set -euo pipefail
