@@ -50,7 +50,7 @@ internal static class GlobalArgParser
                 Positional: Array.Empty<string>(),
                 IsBareInvocation: true,
                 Debug: false,
-                Output: OutputFormat.Plain,
+                Output: OutputFormat.Default,
                 NoCache: false,
                 Help: new HelpRequest(Array.Empty<string>()),
                 Version: null);

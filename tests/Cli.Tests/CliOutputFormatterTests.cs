@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using Core.Configuration.Options;
 
 namespace Cli.Tests;
 
@@ -15,6 +16,49 @@ namespace Cli.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class CliOutputFormatterTests
 {
+    [Theory]
+    [InlineData("value", "tsv")]
+    [InlineData(42, "tsv")]
+    [InlineData(true, "tsv")]
+    public void ResolveFormat_ShouldUseSimpleFormat_WhenValueIsSimple(object value, string expected)
+    {
+        var options = new CliOutputOptions { Format = "table", SimpleFormat = expected };
+
+        var result = Core.Cli.CliOutputFormatter.ResolveFormat(value, options);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ResolveFormat_ShouldUseComplexFormat_WhenValueIsComplex()
+    {
+        var options = new CliOutputOptions { Format = "yaml", SimpleFormat = "tsv" };
+
+        var result = Core.Cli.CliOutputFormatter.ResolveFormat(new { Name = "test" }, options);
+
+        Assert.Equal("yaml", result);
+    }
+
+    [Fact]
+    public void ResolveFormat_ShouldPreferExplicitOverride()
+    {
+        var options = new CliOutputOptions { Format = "table", SimpleFormat = "tsv" };
+
+        var result = Core.Cli.CliOutputFormatter.ResolveFormat("value", options, "json");
+
+        Assert.Equal("json", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldSerializeString_WhenSimpleFormatIsJson()
+    {
+        var options = new CliOutputOptions { Format = "table", SimpleFormat = "json" };
+
+        var result = Core.Cli.CliOutputFormatter.FormatValue("hello world", options);
+
+        Assert.Equal("\"hello world\"", result);
+    }
+
     // ── String pass-through ──────────────────────────────────────────
 
     [Fact]

@@ -27,7 +27,7 @@ public abstract class ParseAction
 public sealed class GlobalArgsBuilder
 {
     public bool Debug { get; set; }
-    public OutputFormat Output { get; set; } = OutputFormat.Plain;
+    public OutputFormat Output { get; set; } = OutputFormat.Default;
     public bool NoCache { get; set; }
 }
 

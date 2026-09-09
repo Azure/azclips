@@ -22,7 +22,7 @@ namespace Core.Cli.Parser;
 /// decision; <c>az --help</c> is <em>not</em> bare (it explicitly asked for help).
 /// </param>
 /// <param name="Debug"><c>--debug</c> was present anywhere in the input.</param>
-/// <param name="Output">Resolved output format; defaults to <see cref="OutputFormat.Plain"/>.</param>
+/// <param name="Output">Explicit output format, or <see cref="OutputFormat.Default"/> to use configuration defaults.</param>
 /// <param name="NoCache">
 /// <c>--no-cache</c> was present. The caller mutates <c>AZCLIPS_NO_EXTENSION_CACHE</c>; the parser
 /// does not.
@@ -44,6 +44,7 @@ internal sealed record GlobalArgs(
 /// </summary>
 public enum OutputFormat
 {
+    Default,
     Plain,
     Json,
 }

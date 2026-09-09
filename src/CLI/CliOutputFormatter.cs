@@ -3,14 +3,14 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Core.Configuration.Options;
 
 namespace Core.Cli;
 
 /// <summary>
 /// Formats command output values for CLI console display.
-/// Strings render as-is; primitives, decimals, complex objects, and collections are
-/// serialized as JSON so top-level output is always valid JSON (except bare strings,
-/// which stay unquoted for terminal readability).
+/// Strings render as-is unless JSON is selected; primitives, decimals, complex objects,
+/// and collections are serialized as JSON.
 /// </summary>
 internal static class CliOutputFormatter
 {
@@ -32,12 +32,17 @@ internal static class CliOutputFormatter
     /// <summary>
     /// Converts a command output value to a display string suitable for the console.
     /// </summary>
-    internal static string FormatValue(object? value)
+    internal static string FormatValue(
+        object? value,
+        CliOutputOptions? options = null,
+        string? formatOverride = null)
     {
+        var format = ResolveFormat(value, options ?? new CliOutputOptions(), formatOverride);
+
         if (value is null)
             return string.Empty;
 
-        if (value is string s)
+        if (!format.Equals("json", StringComparison.OrdinalIgnoreCase) && value is string s)
             return s;
 
         // Primitives and decimals go through JsonSerializer so bool renders as lowercase
@@ -54,5 +59,33 @@ internal static class CliOutputFormatter
         // likely return a meaningless type name. Once models stabilise, catching and
         // falling back gracefully may be preferable for production resilience.
         return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+    }
+
+    internal static string ResolveFormat(object? value, CliOutputOptions options, string? formatOverride = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (!string.IsNullOrWhiteSpace(formatOverride))
+            return formatOverride;
+
+        return IsSimple(value) ? options.SimpleFormat : options.Format;
+    }
+
+    private static bool IsSimple(object? value)
+    {
+        if (value is null or string or bool or decimal)
+            return true;
+
+        var type = value.GetType();
+        return type == typeof(byte)
+            || type == typeof(sbyte)
+            || type == typeof(short)
+            || type == typeof(ushort)
+            || type == typeof(int)
+            || type == typeof(uint)
+            || type == typeof(long)
+            || type == typeof(ulong)
+            || type == typeof(float)
+            || type == typeof(double);
     }
 }

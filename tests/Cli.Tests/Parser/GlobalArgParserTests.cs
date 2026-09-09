@@ -28,7 +28,7 @@ public class GlobalArgParserTests
         Assert.Null(result.Version);
         Assert.Empty(result.Positional);
         Assert.False(result.Debug);
-        Assert.Equal(OutputFormat.Plain, result.Output);
+        Assert.Equal(OutputFormat.Default, result.Output);
         Assert.False(result.NoCache);
     }
 

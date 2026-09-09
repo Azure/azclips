@@ -115,6 +115,18 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task ListConfigurationAsync_ShouldIncludeCliOutputDefaults()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+
+        Assert.Equal("table", values["clients.cli.output.format"]);
+        Assert.Equal("tsv", values["clients.cli.output.simpleFormat"]);
+    }
+
+    [Fact]
     public async Task ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured()
     {
         using var fixture = new TempConfigurationFixture();
@@ -253,4 +265,3 @@ public class ConfigurationServiceTests
         }
     }
 }
-

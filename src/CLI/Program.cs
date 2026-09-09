@@ -13,6 +13,7 @@ using Core.Extensions;
 using Core.Runtime;
 using Core.Telemetry;
 using Core.DependencyInjection;
+using Core.Configuration.Options;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Cli;
@@ -37,7 +38,7 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info);
+    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, new CliOutputOptions(), OutputFormat.Default);
 
     public static async Task<int> Main(string[] args)
     {
@@ -128,9 +129,10 @@ public class Program
                 }
 
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
+                var cliOutputOptions = _configurationService.GetConfiguration<ClientsOptions>().Cli.Output;
                 var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
                 ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
-                streams = BuildStreams(effectiveLogLevel);
+                streams = BuildStreams(effectiveLogLevel, cliOutputOptions, globalArgs.Output);
                 outputJson = globalArgs.Output == OutputFormat.Json;
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
@@ -212,12 +214,22 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level)
+    private static OutputStreams BuildStreams(
+        CliLogLevel level,
+        CliOutputOptions outputOptions,
+        OutputFormat outputFormat)
     {
+        var formatOverride = outputFormat switch
+        {
+            OutputFormat.Json => "json",
+            OutputFormat.Plain => "plain",
+            _ => null,
+        };
+
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, outputOptions, formatOverride));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
