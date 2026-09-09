@@ -141,3 +141,9 @@ stages:
         echo 'ESRP produced a structurally valid OpenPGP detached signature.'
         ls -lh
       displayName: Validate ESRP Signing Result
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Linux Signing Test Output
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/linux-sign-test'
+        artifact: linux-sign-test
+        publishLocation: pipeline
