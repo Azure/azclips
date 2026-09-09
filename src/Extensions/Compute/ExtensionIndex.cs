@@ -102,6 +102,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_stopVM_PS = new(
+            Name: "StopVMProcessor_Orchestrator",
+            InvocationName: "Stop-AzVM",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.StopVMProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.StopVMProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Id"]                = new("Ids", "Id", typeof(string[]), "The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StayProvisioned"]   = new("StayProvisioned", "StayProvisioned", typeof(bool), "Keep the virtual machine provisioned. Powers the VM off instead of deallocating it, so it continues to be billed.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SkipShutdown"]      = new("SkipShutdown", "SkipShutdown", typeof(bool), "Request a non-graceful VM shutdown. Applies when keeping the VM provisioned.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Hibernate"]         = new("Hibernate", "Hibernate", typeof(bool), "Hibernate the virtual machine while deallocating it.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ForceDeallocate"]   = new("ForceDeallocate", "ForceDeallocate", typeof(bool), "Force deallocation of the virtual machine. Cannot be combined with -StayProvisioned, -SkipShutdown or -Hibernate.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_newVMOrchestrator_PS = new(
             Name: "NewVMOrchestrator",
             InvocationName: "New-AzVM",
@@ -413,6 +433,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["Get-AzVM_List"]               = s_listVM_PS,
             ["Remove-AzVM"]                = s_deleteVM_PS,
             ["Start-AzVM"]                 = s_startVM_PS,
+            ["Stop-AzVM"]                  = s_stopVM_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
@@ -424,6 +445,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["vm list"]     = s_listVM_CLI,
             ["vm delete"]   = s_deleteVM_CLI,
             ["vm start"]    = s_startVM_CLI,
+            ["vm stop"]     = s_stopVM_CLI,
+            ["vm deallocate"] = s_deallocateVM_CLI,
             ["disk list"]   = s_listDisk_CLI,
         };
 
