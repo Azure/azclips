@@ -23,7 +23,7 @@ public class ConnectAccountCmdlet : PSCmdlet
     public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = false)]
-    [Alias("Tenant", "Domain")]
+    [Alias("Tenant")]
     public string? TenantId { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -41,7 +41,6 @@ public class ConnectAccountCmdlet : PSCmdlet
     public SwitchParameter Identity { get; set; }
 
     [Parameter(Mandatory = false)]
-    [Alias("AccountId")]
     public string? ClientId { get; set; }
 
     [Parameter(Mandatory = false)]

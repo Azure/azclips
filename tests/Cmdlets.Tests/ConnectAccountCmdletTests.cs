@@ -91,7 +91,7 @@ public class ConnectAccountCmdletTests
     // property, so a missing alias silently breaks Az-parity invocations at bind time.
     [Theory]
     [InlineData("SubscriptionId", new[] { "Subscription" })]
-    [InlineData("TenantId", new[] { "Tenant", "Domain" })]
+    [InlineData("TenantId", new[] { "Tenant" })]
     [InlineData("UseDeviceCode", new[] { "DeviceCode", "DeviceAuth", "Device", "UseDeviceAuthentication" })]
     public void Cmdlet_Parameter_ShouldHaveClassicAliases(string property, string[] expectedAliases)
     {
@@ -108,19 +108,6 @@ public class ConnectAccountCmdletTests
     }
 
     [Fact]
-    public void Cmdlet_ClientId_ShouldAliasAccountId()
-    {
-        // Connect-AzAccount -Identity -AccountId <clientId> is the Az PowerShell spelling.
-        var alias = (AliasAttribute?)typeof(ConnectAccountCmdlet)
-            .GetProperty("ClientId")!
-            .GetCustomAttributes(typeof(AliasAttribute), inherit: true)
-            .SingleOrDefault();
-
-        Assert.NotNull(alias);
-        Assert.Contains("AccountId", alias!.AliasNames);
-    }
-
-    [Fact]
     public void PSMetadata_ShouldResolveLegacyManagedIdentityAliases()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
@@ -128,9 +115,7 @@ public class ConnectAccountCmdletTests
         Assert.Equal("Identity", metadata.ParameterAliases["ManagedService"]);
         Assert.Equal("Identity", metadata.ParameterAliases["MSI"]);
         Assert.Equal("Identity", metadata.ParameterAliases["ManagedIdentity"]);
-        Assert.Equal("ClientId", metadata.ParameterAliases["AccountId"]);
         Assert.Contains("ManagedService", metadata.Parameters["Identity"].Aliases);
-        Assert.Contains("AccountId", metadata.Parameters["ClientId"].Aliases);
     }
 
     [Fact]
@@ -140,14 +125,13 @@ public class ConnectAccountCmdletTests
 
         Assert.Equal("SubscriptionId", metadata.ParameterAliases["Subscription"]);
         Assert.Equal("TenantId", metadata.ParameterAliases["Tenant"]);
-        Assert.Equal("TenantId", metadata.ParameterAliases["Domain"]);
         Assert.Equal("UseDeviceCode", metadata.ParameterAliases["DeviceCode"]);
         Assert.Equal("UseDeviceCode", metadata.ParameterAliases["DeviceAuth"]);
         Assert.Equal("UseDeviceCode", metadata.ParameterAliases["Device"]);
         Assert.Equal("UseDeviceCode", metadata.ParameterAliases["UseDeviceAuthentication"]);
 
         Assert.Contains("Subscription", metadata.Parameters["SubscriptionId"].Aliases);
-        Assert.Contains("Domain", metadata.Parameters["TenantId"].Aliases);
+        Assert.Contains("Tenant", metadata.Parameters["TenantId"].Aliases);
         Assert.Contains("UseDeviceAuthentication", metadata.Parameters["UseDeviceCode"].Aliases);
     }
 

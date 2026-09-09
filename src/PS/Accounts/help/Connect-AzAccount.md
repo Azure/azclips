@@ -59,8 +59,7 @@ Client ID of the user-assigned managed identity to authenticate as. Use with `-I
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- AccountId
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -235,7 +234,6 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - Tenant
-- Domain
 ParameterSets:
 - Name: (All)
   Position: Named
