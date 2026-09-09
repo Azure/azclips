@@ -39,6 +39,7 @@ export {
   IRTypeRefArraySchema,
   IRTypeRefDictionarySchema,
   IRTypeRefUnionSchema,
+  IRTypeRefDiscriminatedUnionSchema,
   IRTypeRefObjectSchema,
   type IRTypeRef,
   type IRTypeRefPrimitive,
@@ -47,7 +48,15 @@ export {
   type IRTypeRefArray,
   type IRTypeRefDictionary,
   type IRTypeRefUnion,
+  type IRTypeRefDiscriminatedUnion,
 } from "./type-ref.js";
+
+export {
+  IRDiscriminatedUnionSchema,
+  IRDiscriminatedUnionVariantSchema,
+  type IRDiscriminatedUnion,
+  type IRDiscriminatedUnionVariant,
+} from "./discriminated-union.js";
 
 export {
   FlattenHintSchema,

@@ -31,18 +31,20 @@ import {
 
 import type { BuildContext } from "./context.js";
 import { pascalCase } from "./naming.js";
-import { literalFromConstant, propertyIdFor } from "./properties.js";
+import { propertyIdFor } from "./properties.js";
+import { literalFromValue } from "./literals.js";
+import { reportSdkDiagnostics } from "./discriminators.js";
 import { idFor, typeRefFor, unwrapNullable } from "./types.js";
 
 export function sdkTypeFromHttp(ctx: BuildContext, type: Type): SdkType {
   const [sdkType, diagnostics] = getClientTypeWithDiagnostics(ctx.sdkContext, type);
-  ctx.program.reportDiagnostics(diagnostics);
+  reportSdkDiagnostics(ctx.program, diagnostics);
   return sdkType;
 }
 
 function sdkProperty(ctx: BuildContext, property: ModelProperty) {
   const [sdk, diagnostics] = getSdkModelPropertyType(ctx.sdkContext, property);
-  ctx.program.reportDiagnostics(diagnostics);
+  reportSdkDiagnostics(ctx.program, diagnostics);
   return sdk;
 }
 
@@ -90,8 +92,8 @@ function valueFrom(
   valueType: SdkType = property.type,
 ): IRMultipartValue {
   completePayloadType(ctx, valueType);
-  const { type, nullable } = unwrapNullable(valueType);
-  const defaultValue = type.kind === "constant" ? literalFromConstant(type) : undefined;
+  const { type, nullable } = unwrapNullable(ctx, valueType);
+  const defaultValue = type.kind === "constant" ? literalFromValue(type.value) : undefined;
   return {
     name: pascalCase(property.name),
     type: typeRefFor(ctx, type, where),
@@ -153,7 +155,7 @@ function encodedType(
   rawType: Type,
   contentType: string | undefined,
 ): SdkType {
-  const { type, nullable } = unwrapNullable(sdkType);
+  const { type, nullable } = unwrapNullable(ctx, sdkType);
   if (type.kind === "model" || type.kind === "enum" || type.kind === "enumvalue" || type.kind === "union") {
     return sdkType;
   }
@@ -184,12 +186,12 @@ function partFrom(
     ctx, sdkType, part.body.property ?? part.property ?? multipart.property,
     part.body.type, part.body.contentTypes[0],
   );
-  const { type, nullable } = unwrapNullable(encoded);
+  const { type, nullable } = unwrapNullable(ctx, encoded);
   const contentTypeProperty = options?.contentType
     ?? (part.body.contentTypeProperty ? sdkProperty(ctx, part.body.contentTypeProperty) : undefined);
   const filenameProperty = options?.filename
     ?? (part.filename ? sdkProperty(ctx, part.filename) : undefined);
-  const defaultValue = type.kind === "constant" ? literalFromConstant(type) : undefined;
+  const defaultValue = type.kind === "constant" ? literalFromValue(type.value) : undefined;
   const common = {
     type: typeRefFor(ctx, type, `${where}.body`),
     nullable,
@@ -242,7 +244,7 @@ export function multipartFrom(
   sdkType: SdkType,
   where: string,
 ): IRMultipartBody {
-  const { type } = unwrapNullable(sdkType);
+  const { type } = unwrapNullable(ctx, sdkType);
   return {
     kind: body.multipartKind,
     contentTypes: [...body.contentTypes],

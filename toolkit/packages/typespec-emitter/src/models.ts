@@ -8,9 +8,8 @@
  *      inherited one by `name`, mark the own copy with `overrides`
  *      pointing at the inherited id and *omit* the inherited copy
  *      (the own copy is the source of truth from this child's POV).
- *   3. Carry polymorphism if `discriminatedSubtypes` is non-empty;
- *      pick the discriminator property (must be resolvable to one of
- *      `properties[]`).
+ *   3. Carry TypeSpec's discriminator declaration and resolved descendant
+ *      dispatch map, independently of TCGC's immediate-child mapping.
  *   4. Carry `additionalProperties` if TCGC tells us this is an open
  *      dictionary (e.g. `extends Record<X>`).
  *   5. Defensive cycle guard on `baseModel` chains.
@@ -21,6 +20,7 @@ import type {
   SdkModelPropertyType,
   SdkModelType,
 } from "@azure-tools/typespec-client-generator-core";
+import { getSdkModelWithDiagnostics } from "@azure-tools/typespec-client-generator-core";
 import type {
   IRId,
   IRModel,
@@ -33,6 +33,8 @@ import { reportDiagnostic } from "./lib.js";
 import { propertyFrom } from "./properties.js";
 import { accessFrom, usageFrom } from "./annotations.js";
 import { idFor, typeRefFor, unwrapNullable } from "./types.js";
+import { pascalCase } from "./naming.js";
+import { modelDiscriminator, reportSdkDiagnostics } from "./discriminators.js";
 
 /**
  * Walk the inheritance chain from the root down. Returns the chain as
@@ -115,21 +117,14 @@ function denormalizedProperties(
   return Array.from(byName.values());
 }
 
-/**
- * Resolve polymorphism for a model, if any. Returns `undefined` when
- * the model is not a polymorphic base (no `discriminatedSubtypes`).
- */
+/** Keep the declaration even when it currently has no known variants. */
 function polymorphismOf(
   ctx: BuildContext,
   m: SdkModelType,
-  ownId: IRId,
   properties: IRProperty[],
 ): IRPolymorphism | undefined {
-  void ownId;
-  const subs = m.discriminatedSubtypes;
-  if (!subs) return undefined;
-  const subKeys = Object.keys(subs);
-  if (subKeys.length === 0) return undefined;
+  const resolved = m.__raw?.kind === "Model" ? modelDiscriminator(ctx.program, m.__raw) : undefined;
+  if (!resolved) return undefined;
 
   // Locate the discriminator property by name.
   const discProp = m.discriminatorProperty;
@@ -141,10 +136,10 @@ function polymorphismOf(
     });
     return undefined;
   }
-  // Match by the discriminator property's __raw if we can; fall back to name.
+  // IDs retain identity when @clientName changes the logical property name.
   let discId: IRId | undefined = ctx.propertyIdCache.get(discProp);
   if (!discId) {
-    const wantName = discProp.name;
+    const wantName = pascalCase(discProp.name);
     const found = properties.find((p) => p.name === wantName);
     if (found) discId = found.id;
   }
@@ -161,33 +156,44 @@ function polymorphismOf(
   }
 
   const subtypes: IRPolymorphism["subtypes"] = [];
-  for (const [value, sub] of Object.entries(subs)) {
+  for (const [value, rawSubtype] of resolved.variants) {
+    const [sub, diagnostics] = getSdkModelWithDiagnostics(ctx.sdkContext, rawSubtype);
+    reportSdkDiagnostics(ctx.program, diagnostics);
     subtypes.push({ value, type: idFor(ctx, sub) });
   }
-  if (subtypes.length === 0) return undefined;
   return { discriminator: discId, subtypes };
+}
+
+function discriminatorValueOf(ctx: BuildContext, model: SdkModelType): string | undefined {
+  const raw = model.__raw;
+  if (raw?.kind !== "Model") return undefined;
+  for (let parent = raw.baseModel; parent !== undefined; parent = parent.baseModel) {
+    const discriminator = modelDiscriminator(ctx.program, parent);
+    if (!discriminator) continue;
+    const values = [...discriminator.variants].filter(([, target]) => target === raw).map(([value]) => value);
+    // A single-value convenience must not arbitrarily choose one of several aliases.
+    return values.length === 1 ? values[0] : undefined;
+  }
+  return undefined;
 }
 
 /** Top-level: build the IR model for one SdkModelType. */
 export function modelFrom(ctx: BuildContext, m: SdkModelType): IRModel {
   const id = idFor(ctx, m);
   const properties = denormalizedProperties(ctx, m, id);
-  const polymorphism = polymorphismOf(ctx, m, id, properties);
+  const polymorphism = polymorphismOf(ctx, m, properties);
 
   // Parent + discriminatorValue
   let parent: IRId | undefined;
-  let discriminatorValue: string | undefined;
+  const discriminatorValue = discriminatorValueOf(ctx, m);
   if (m.baseModel) {
     parent = idFor(ctx, m.baseModel);
-    if (m.discriminatorValue !== undefined && m.discriminatorValue.length > 0) {
-      discriminatorValue = m.discriminatorValue;
-    }
   }
 
   // additionalProperties: open dictionary mapping (e.g. extends Record<T>).
   let additionalProperties: IRModel["additionalProperties"];
   if (m.additionalProperties) {
-    const { type: ap } = unwrapNullable(m.additionalProperties);
+    const { type: ap } = unwrapNullable(ctx, m.additionalProperties);
     additionalProperties = typeRefFor(ctx, ap, `${id.name}.additionalProperties`);
   }
 
@@ -213,7 +219,7 @@ export function modelFrom(ctx: BuildContext, m: SdkModelType): IRModel {
   return model;
 }
 
-/** Include the transitive closure of types discovered while converting HTTP parts. */
+/** Include types discovered through HTTP parts and resolved discriminator targets. */
 export function modelsFrom(ctx: BuildContext): IRModel[] {
   const models: IRModel[] = [];
   for (const model of ctx.models) models.push(modelFrom(ctx, model));

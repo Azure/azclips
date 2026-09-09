@@ -15,6 +15,7 @@ import { IREnumSchema, type IREnum } from "./enum.js";
 import { IROperationSchema, type IROperation } from "./operation.js";
 import { IRSourceSchema, type IRSource } from "./source.js";
 import { IRServerDefinitionSchema, type IRServerDefinition } from "./server.js";
+import { IRDiscriminatedUnionSchema, type IRDiscriminatedUnion } from "./discriminated-union.js";
 import { idEquals, serializeId, type IRId } from "./id.js";
 
 export type IR = {
@@ -23,6 +24,7 @@ export type IR = {
   servers: IRServerDefinition[];
   models: IRModel[];
   enums: IREnum[];
+  discriminatedUnions?: IRDiscriminatedUnion[] | undefined;
   operations: IROperation[];
 };
 
@@ -33,6 +35,7 @@ export const IRSchema: z.ZodType<IR> = z
     servers: z.array(IRServerDefinitionSchema),
     models: z.array(IRModelSchema),
     enums: z.array(IREnumSchema),
+    discriminatedUnions: z.array(IRDiscriminatedUnionSchema).optional(),
     operations: z.array(IROperationSchema),
   })
   .strict()
@@ -84,6 +87,7 @@ export function emptyIR(): IR {
     servers: [],
     models: [],
     enums: [],
+    discriminatedUnions: [],
     operations: [],
   };
 }

@@ -286,6 +286,37 @@ describe("createFsSink", () => {
 });
 
 describe.runIf(generatorHostBuilt)("ace compile: --capture-ir", () => {
+  it("preserves multipart definitions through the real compiler and C# host", async () => {
+    const outDir = join(dir, "multipart-capture");
+    const { code, err } = await captureRun([
+      "compile",
+      "--tsp-location",
+      resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "typespec-emitter", "test", "fixtures", "multipart-service.tsp"),
+      "--out-dir",
+      outDir,
+      "--capture-ir",
+    ]);
+    expect(code, err).toBe(0);
+    const captures = walkFiles(join(outDir, "ir")).filter((file) => file.endsWith(".json"));
+    expect(captures.length).toBeGreaterThan(0);
+    for (const file of captures) {
+      const ir = parseIR(JSON.parse(readFileSync(file, "utf8")));
+      expect(ir.schemaVersion).toBe(IR_SCHEMA_VERSION);
+      const upload = ir.operations.find((operation) => operation.name === "upload");
+      const document = upload?.requestBody?.multipart?.parts.find((part) => part.name === "documents");
+      expect(document).toMatchObject({
+        multi: true, optional: true, filename: { name: "Filename" },
+        body: { kind: "file", isText: false, contents: { type: { kind: "primitive", name: "bytes" } } },
+      });
+      const tuple = ir.operations.find((operation) => operation.name === "tuple");
+      expect(tuple?.requestBody).not.toHaveProperty("type");
+      expect(tuple?.requestBody?.multipart?.parts.map((part) => part.name)).toEqual([undefined, undefined, "text"]);
+      const response = ir.operations.find((operation) => operation.name === "download")?.responses[0];
+      expect(response?.multipart).toEqual(upload?.requestBody?.multipart);
+      expect(response?.headers?.map((header) => header.wireName)).toEqual(["x-response-token"]);
+    }
+  });
+
   it("writes each pipeline IR to <out-dir>/ir when set", async () => {
     const outDir = join(dir, "capture");
     const { code } = await captureRun([

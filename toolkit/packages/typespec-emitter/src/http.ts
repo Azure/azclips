@@ -41,6 +41,7 @@ import { reportDiagnostic } from "./lib.js";
 import { pascalCase } from "./naming.js";
 import { typeRefFor, unwrapNullable } from "./types.js";
 import { multipartFrom, sdkTypeFromHttp } from "./multipart.js";
+import { reportSdkDiagnostics } from "./discriminators.js";
 
 const VALID_COLLECTION_FORMATS: ReadonlySet<string> = new Set([
   "csv",
@@ -68,7 +69,7 @@ function paramOf(
   p: SdkHeaderParameter | SdkQueryParameter | SdkPathParameter,
 ): IRParameter {
   const wireName = p.serializedName ?? p.name;
-  const { type, nullable } = unwrapNullable(p.type);
+  const { type, nullable } = unwrapNullable(ctx, p.type);
   const irType = typeRefFor(ctx, type, `${operationId.name}.${p.name}`);
   const id = {
     ...operationId,
@@ -171,7 +172,7 @@ export function bodyFrom(
   }
   const contentType = b.defaultContentType ?? cts[0] ?? "application/json";
 
-  const { type } = unwrapNullable(b.type);
+  const { type } = unwrapNullable(ctx, b.type);
   const irType = multipart?.kind === "tuple" ? undefined : typeRefFor(ctx, type, `${opName}.body`);
   const body: IRRequestBody = {
     ...(irType !== undefined ? { type: irType } : {}),
@@ -197,7 +198,7 @@ function responseHeaderFrom(
   h: Pick<SdkServiceResponseHeader, "name" | "serializedName" | "type" | "doc" | "summary">,
 ): IRResponseHeader {
   const wireName = h.serializedName ?? h.name;
-  const { type } = unwrapNullable(h.type);
+  const { type } = unwrapNullable(ctx, h.type);
   const irType = typeRefFor(ctx, type, `${opName}.responseHeader.${wireName}`);
   const format = formatHintOf(irType);
   return {
@@ -221,7 +222,7 @@ function responseOf(
   const headers = content
     ? Object.entries(content.headers ?? {}).map(([wireName, raw]) => {
         const [header, diagnostics] = getSdkModelPropertyType(ctx.sdkContext, raw);
-        ctx.program.reportDiagnostics(diagnostics);
+        reportSdkDiagnostics(ctx.program, diagnostics);
         return responseHeaderFrom(ctx, opName, { ...header, serializedName: wireName });
       })
     : r.headers.map((h) => responseHeaderFrom(ctx, opName, h));
@@ -234,7 +235,7 @@ function responseOf(
     : undefined;
   let typeRef;
   if (sdkType && multipart?.kind !== "tuple") {
-    const { type } = unwrapNullable(sdkType);
+    const { type } = unwrapNullable(ctx, sdkType);
     typeRef = typeRefFor(ctx, type, `${opName}.response`);
   }
   const contentType = content

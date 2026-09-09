@@ -81,7 +81,7 @@ function rawSegPath(ctx: BuildContext, segments: ModelProperty[] | undefined): s
 
 /** Element type of a page-items property, unwrapping the array layer. */
 function itemTypeOf(ctx: BuildContext, propType: SdkType): IRTypeRef {
-  const { type: unwrapped } = unwrapNullable(propType);
+  const { type: unwrapped } = unwrapNullable(ctx, propType);
   if (unwrapped.kind === "array") {
     return typeRefFor(ctx, (unwrapped as { valueType: SdkType }).valueType, "page.itemType");
   }

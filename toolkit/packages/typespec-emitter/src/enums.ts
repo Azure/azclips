@@ -16,7 +16,7 @@ import type { IREnum, IREnumMember } from "@azure-client-engine/ir";
 import type { BuildContext } from "./context.js";
 import { reportDiagnostic } from "./lib.js";
 import { accessFrom, usageFrom } from "./annotations.js";
-import { idFor } from "./types.js";
+import { discriminatedSource, idFor } from "./types.js";
 
 function valueTypeOf(e: SdkEnumType): "string" | "number" {
   const k = e.valueType.kind;
@@ -69,6 +69,7 @@ export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined 
 export function enumsFrom(ctx: BuildContext): IREnum[] {
   const out: IREnum[] = [];
   for (const e of ctx.enums) {
+    if (discriminatedSource(ctx, e)) continue;
     // The @versioned api-version enum is denormalized onto IRSource.apiVersion;
     // it isn't a domain type, so don't surface it as a standalone IREnum.
     if ((e.usage & UsageFlags.ApiVersionEnum) !== 0) continue;

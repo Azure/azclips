@@ -85,6 +85,7 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
     servers: [server],
     models,
     enums,
+    discriminatedUnions: [...buildCtx.discriminatedUnions.values()],
     operations,
   };
 
