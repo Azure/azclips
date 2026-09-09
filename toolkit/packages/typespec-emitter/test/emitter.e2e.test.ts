@@ -108,16 +108,15 @@ describe("emitter e2e: pets.tsp → IR", () => {
 
   it("emits pageable semantics for the list operation", () => {
     const list = ir.operations.find((o) => o.name === "list");
-    expect(list?.semantics?.kind).toBe("pageable");
-    if (list?.semantics?.kind === "pageable") {
-      expect(list.semantics.itemsPath).toBe("items");
-      expect(list.semantics.nextLinkPath).toBe("nextLink");
-    }
+    expect(list?.semantics?.pageable?.output.pageItems.bindings)
+      .toContainEqual(expect.objectContaining({ location: "body", path: ["items"] }));
+    expect(list?.semantics?.pageable?.output.nextLink?.bindings)
+      .toContainEqual(expect.objectContaining({ location: "body", path: ["nextLink"] }));
   });
 
   it("emits long-running semantics for the rename operation", () => {
     const rename = ir.operations.find((o) => o.name === "rename");
-    expect(rename?.semantics?.kind).toBe("longRunning");
+    expect(rename?.semantics?.longRunning).toBeDefined();
   });
 
   it("attributes spec-declared types to the source module", () => {

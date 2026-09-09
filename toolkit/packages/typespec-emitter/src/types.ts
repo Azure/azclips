@@ -73,7 +73,7 @@ export function discriminatedSource(ctx: BuildContext, type: SdkType): Union | u
   return resolved?.type;
 }
 
-function sourceId(ctx: BuildContext, raw: Type | undefined, name: string): IRId {
+export function sourceId(ctx: BuildContext, raw: Type | undefined, name: string): IRId {
   const namespace = getNamespaceFromType(raw);
   const fqn = namespace !== undefined ? getNamespaceFullName(namespace) : "";
   return {

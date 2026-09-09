@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.8.0",
+  "schemaVersion": "0.11.0",
   "sources": [
     {
       "id": "Microsoft",
@@ -7829,9 +7829,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Restore Soft Deleted Volumes. The volume name is obtained by using the API to list soft deleted volumes by volume group"
     },
@@ -7928,21 +7929,117 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "@azure-tools/typespec-azure-resource-manager",
-            "namespace": [
-              "Azure",
-              "ResourceManager",
-              "CommonTypes"
-            ],
-            "name": "Operation"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "@azure-tools/typespec-azure-resource-manager",
+              "namespace": [
+                "Azure",
+                "ResourceManager",
+                "CommonTypes"
+              ],
+              "name": "Operation"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager",
+                      "CommonTypes"
+                    ],
+                    "name": "OperationListResult.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager",
+                      "CommonTypes"
+                    ],
+                    "name": "Operation"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager",
+                      "CommonTypes"
+                    ],
+                    "name": "OperationListResult.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List the operations for the provider"
     },
@@ -8328,9 +8425,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Create ElasticSan."
     },
@@ -8550,9 +8648,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Update a Elastic San."
     },
@@ -8713,9 +8812,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Delete a Elastic San."
     },
@@ -8852,20 +8952,113 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "ElasticSan"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "ElasticSan"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSanList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSan"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSanList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "Gets a list of ElasticSan in a resource group."
     },
@@ -8982,20 +9175,113 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "ElasticSan"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "ElasticSan"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSanList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSan"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "ElasticSanList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "Gets a list of ElasticSans in a subscription"
     },
@@ -9421,9 +9707,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Update the state of specified private endpoint connection associated with the Elastic San"
     },
@@ -9604,9 +9891,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Deletes the specified private endpoint connection associated with the Elastic San"
     },
@@ -9763,20 +10051,113 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "PrivateEndpointConnection"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "PrivateEndpointConnection"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager"
+                    ],
+                    "name": "PrivateEndpointConnectionListResult.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "PrivateEndpointConnection"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "@azure-tools/typespec-azure-resource-manager",
+                    "namespace": [
+                      "Azure",
+                      "ResourceManager"
+                    ],
+                    "name": "PrivateEndpointConnectionListResult.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List all Private Endpoint Connections associated with the Elastic San."
     },
@@ -10242,9 +10623,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Create a Volume."
     },
@@ -10504,9 +10886,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Update an Volume."
     },
@@ -10790,9 +11173,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Delete an Volume."
     },
@@ -10996,20 +11380,113 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "Volume"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "Volume"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "Volume"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List Volumes in a VolumeGroup."
     },
@@ -11249,9 +11726,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Validate whether a disk snapshot backup can be taken for list of volumes."
     },
@@ -11491,9 +11969,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Validate whether a list of backed up disk snapshots can be restored into ElasticSan volumes."
     },
@@ -11919,9 +12398,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Create a Volume Group."
     },
@@ -12161,9 +12641,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Update an VolumeGroup."
     },
@@ -12344,9 +12825,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Delete an VolumeGroup."
     },
@@ -12530,20 +13012,113 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "VolumeGroup"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "VolumeGroup"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeGroupList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeGroup"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "VolumeGroupList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List VolumeGroups."
     },
@@ -13163,9 +13738,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Create a Volume Snapshot."
     },
@@ -13366,9 +13942,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       },
       "docs": "Delete a Volume Snapshot."
     },
@@ -13566,20 +14143,113 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "Snapshot"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "Snapshot"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SnapshotList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "Snapshot"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SnapshotList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List Snapshots in a VolumeGroup or List Snapshots by Volume (name) in a VolumeGroup using filter"
     },
@@ -13717,20 +14387,113 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "Microsoft",
-            "namespace": [
-              "Microsoft",
-              "ElasticSan"
-            ],
-            "name": "SkuInformation"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "Microsoft",
+              "namespace": [
+                "Microsoft",
+                "ElasticSan"
+              ],
+              "name": "SkuInformation"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SkuInformationList.value"
+                  },
+                  "name": "value"
+                }
+              ],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SkuInformation"
+                  }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "value"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            },
+            "nextLink": {
+              "sourcePath": [
+                {
+                  "id": {
+                    "module": "Microsoft",
+                    "namespace": [
+                      "Microsoft",
+                      "ElasticSan"
+                    ],
+                    "name": "SkuInformationList.nextLink"
+                  },
+                  "name": "nextLink"
+                }
+              ],
+              "type": {
+                "kind": "primitive",
+                "name": "string",
+                "format": "uri"
+              },
+              "optional": true,
+              "nullable": false,
+              "bindings": [
+                {
+                  "location": "body",
+                  "path": [
+                    "nextLink"
+                  ],
+                  "contentType": "application/json",
+                  "response": {
+                    "statusCode": {
+                      "kind": "exact",
+                      "code": 200
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "value",
-        "nextLinkPath": "nextLink"
+        }
       },
       "docs": "List all the available Skus in the region and information related to them",
       "summary": "List all the available Skus in the region and information related to them"

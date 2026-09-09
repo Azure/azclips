@@ -152,7 +152,7 @@ not hand-edit).
 ### Discriminated unions
 
 The IR's discriminated unions — `IRTypeRef`, `IRProperty`, `IRStatusCode`,
-`IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IROperationSemantics`, `IRAuthScheme`,
+`IRLiteralValue`, `IRServer`, `IRMultipartPartBody`, `IRAuthScheme`,
 `IROAuth2Flow` — are emitted by `zod-to-json-schema` as `anyOf` + `const`
 discriminators. `AceIrModelGen` maps each to an **`abstract` base + derived
 types** wired for `System.Text.Json` polymorphism (`[JsonPolymorphic]` /
@@ -163,6 +163,19 @@ Because the emitted IR does not place the discriminator first in each JSON
 object, **deserialize IR via `IrJson.Options` / `IrJson.Deserialize`** (which sets
 `AllowOutOfOrderMetadataProperties = true`); deserializing with default options
 throws on the out-of-order discriminator.
+
+### Source unions and paging (IR 0.10.0 / 0.11.0)
+
+The POCOs preserve `IRDocument.DiscriminatedUnions`, their tagged/default/null
+variants, and `IRTypeRefDiscriminatedUnion` references. Operation semantics are
+now an object with independent `Pageable` and `LongRunning` properties rather
+than a `kind`-discriminated union. Paging types retain all input/output roles,
+source declaration paths, HTTP bindings, and SDK settings.
+
+This refresh does not add discriminator dispatch or new pagination strategies
+to rendered clients. Existing LRO hooks and response-body next-link selectors
+consume the new types; unsupported or ambiguous paging bindings are diagnosed.
+LRO rendering still takes precedence when both traits are present.
 
 ### Shared servers (IR 0.8.0)
 

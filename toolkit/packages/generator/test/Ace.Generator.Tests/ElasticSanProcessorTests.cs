@@ -11,6 +11,8 @@ namespace Ace.Generator.Tests;
 /// processor per operation, that every file is syntactically valid C#, and spot-check the
 /// request shape (base generic, URI, body, LRO send override). Output lands in
 /// <c>artifacts/ElasticSan_Processors/</c> for eyeballing.
+/// The historical capture's semantics were migrated to IR 0.11.0. Newly introduced
+/// declaration/SDK flags use fixture defaults; they are not a re-emission of the source.
 /// </summary>
 public sealed class ElasticSanProcessorTests
 {
@@ -121,7 +123,7 @@ public sealed class ElasticSanProcessorTests
         Assert.Contains("public partial class ListByResourceGroupElasticSansProcessor : ProcessorBase<object, ElasticSanList>", list);
         Assert.Contains("Method => HttpMethod.Get;", list);
         Assert.DoesNotContain("SendAsyncLRO", list);
-        // Selectors from IR itemsPath/nextLinkPath (PascalCased) + the override calling the helper.
+        // Selectors from IR response-body bindings (PascalCased) + the runtime helper override.
         Assert.Contains("IEnumerable<ElasticSan>? pageItems(ElasticSanList body) => body.Value;", list);
         Assert.Contains("string? nextLink(ElasticSanList body) => body.NextLink;", list);
         Assert.Contains("BeforeWriteOutputAsyncAndReturn(ElasticSanList? body)", list);

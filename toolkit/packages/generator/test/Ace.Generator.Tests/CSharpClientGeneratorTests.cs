@@ -77,6 +77,74 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
+    public async Task Generate_Paging_Uses_WholeBody_Bindings_Across_Response_Statuses()
+    {
+        IRDocument ir = Ir(operations: ["list"]);
+        ir.Operations[0].Responses =
+        [
+            new IRResponse
+            {
+                StatusCode = new IRStatusCodeExact { Code = 200 },
+                Type = new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } },
+            },
+        ];
+        ir.Operations[0].Semantics = new IROperationSemantics
+        {
+            Pageable = new IRPageableSemantics
+            {
+                ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                Output = new IRPageableSemanticsOutput
+                {
+                    PageItems = new IRPagingProperty
+                    {
+                        Bindings =
+                        [
+                            new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = [], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } },
+                            new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = [], Response = new() { StatusCode = new IRStatusCodeExact { Code = 201 } } },
+                        ],
+                    },
+                },
+            },
+        };
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.Empty(result.Diagnostics);
+        string source = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains("=> body;", source);
+        Assert.Contains("WriteOutputWithPaginationAsync", source);
+    }
+
+    [Fact]
+    public async Task Generate_Header_Paging_Diagnoses_Unsupported_Binding_Without_Inventing_A_Body_Member()
+    {
+        IRDocument ir = Ir(operations: ["list"]);
+        ir.Operations[0].Semantics = new IROperationSemantics
+        {
+            Pageable = new IRPageableSemantics
+            {
+                ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                Output = new IRPageableSemanticsOutput
+                {
+                    PageItems = new IRPagingProperty
+                    {
+                        Bindings = [new IRPagingBinding { Location = IRPagingBindingLocation.Body, Path = ["items"], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } }],
+                    },
+                    NextLink = new IRPagingProperty
+                    {
+                        Bindings = [new IRPagingBinding { Location = IRPagingBindingLocation.Header, Path = ["x-next"], Response = new() { StatusCode = new IRStatusCodeExact { Code = 200 } } }],
+                    },
+                },
+            },
+        };
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "ace-generator/paging-binding-not-supported");
+        Assert.DoesNotContain("WriteOutputWithPaginationAsync", writer.Files.Source(result, "ListProcessor"));
+    }
+
+    [Fact]
     public async Task Generate_MultipartTuple_EmitsScaffoldAndReportsSerializationGap()
     {
         IRDocument ir = Ir(operations: ["upload"]);

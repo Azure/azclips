@@ -180,13 +180,14 @@ public sealed class IrModelDeserializationTests
     }
 
     [Fact]
-    public void IROperationSemantics_DiscriminatesByKind()
+    public void IROperationSemantics_ContainsIndependentTraits()
     {
         IROperationSemantics result = Parse<IROperationSemantics>(
-            """{ "kind": "longRunning", "pollingStrategy": "location", "finalStateVia": "location" }""");
+            """{ "longRunning": { "pollingStrategy": "location", "finalStateVia": "location" } }""");
 
-        var lro = Assert.IsType<IROperationSemanticsLongRunning>(result);
-        Assert.Equal(IROperationSemanticsLongRunningPollingStrategy.Location, lro.PollingStrategy);
+        var lro = Assert.IsType<IRLongRunningSemantics>(result.LongRunning);
+        Assert.Equal(IRLongRunningSemanticsPollingStrategy.Location, lro.PollingStrategy);
+        Assert.Null(result.Pageable);
     }
 
     [Fact]

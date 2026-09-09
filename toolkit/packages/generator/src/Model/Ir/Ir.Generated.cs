@@ -56,6 +56,15 @@ public enum IRAuthSchemeHttpScheme
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRDiscriminatedUnionEnvelope
+{
+    [JsonStringEnumMemberName("object")]
+    Object,
+    [JsonStringEnumMemberName("none")]
+    None
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IREnumAccess
 {
     [JsonStringEnumMemberName("public")]
@@ -102,6 +111,30 @@ public enum IREnumValueType
     String,
     [JsonStringEnumMemberName("number")]
     Number
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRLongRunningSemanticsFinalStateVia
+{
+    [JsonStringEnumMemberName("azureAsyncOperation")]
+    AzureAsyncOperation,
+    [JsonStringEnumMemberName("location")]
+    Location,
+    [JsonStringEnumMemberName("originalUri")]
+    OriginalUri
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRLongRunningSemanticsPollingStrategy
+{
+    [JsonStringEnumMemberName("azureAsyncOperation")]
+    AzureAsyncOperation,
+    [JsonStringEnumMemberName("location")]
+    Location,
+    [JsonStringEnumMemberName("operationResource")]
+    OperationResource,
+    [JsonStringEnumMemberName("custom")]
+    Custom
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -197,27 +230,36 @@ public enum IROperationMethod
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum IROperationSemanticsLongRunningFinalStateVia
+public enum IRPageableSemanticsMetadataSource
 {
-    [JsonStringEnumMemberName("azureAsyncOperation")]
-    AzureAsyncOperation,
-    [JsonStringEnumMemberName("location")]
-    Location,
-    [JsonStringEnumMemberName("originalUri")]
-    OriginalUri
+    [JsonStringEnumMemberName("compiler")]
+    Compiler,
+    [JsonStringEnumMemberName("sdk")]
+    Sdk
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum IROperationSemanticsLongRunningPollingStrategy
+public enum IRPageableSemanticsSdkNextLinkVerb
 {
-    [JsonStringEnumMemberName("azureAsyncOperation")]
-    AzureAsyncOperation,
-    [JsonStringEnumMemberName("location")]
-    Location,
-    [JsonStringEnumMemberName("operationResource")]
-    OperationResource,
-    [JsonStringEnumMemberName("custom")]
-    Custom
+    [JsonStringEnumMemberName("GET")]
+    GET,
+    [JsonStringEnumMemberName("POST")]
+    POST
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRPagingBindingLocation
+{
+    [JsonStringEnumMemberName("body")]
+    Body,
+    [JsonStringEnumMemberName("query")]
+    Query,
+    [JsonStringEnumMemberName("header")]
+    Header,
+    [JsonStringEnumMemberName("path")]
+    Path,
+    [JsonStringEnumMemberName("cookie")]
+    Cookie
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -526,6 +568,57 @@ public partial class IRAuthSchemeOpenIdConnect : IRAuthScheme
     public string OpenIdConnectUrl { get; set; } = default !;
 }
 
+public partial class IRDiscriminatedUnion
+{
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("source")]
+    public string Source { get; set; } = default !;
+
+    [JsonPropertyName("discriminatorPropertyName")]
+    public string DiscriminatorPropertyName { get; set; } = default !;
+
+    [JsonPropertyName("envelope")]
+    public IRDiscriminatedUnionEnvelope Envelope { get; set; }
+
+    [JsonPropertyName("envelopePropertyName")]
+    public string? EnvelopePropertyName { get; set; }
+
+    [JsonPropertyName("variants")]
+    public IReadOnlyList<IRDiscriminatedUnionVariant> Variants { get; set; } = [];
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+}
+
+public partial class IRDiscriminatedUnionVariant
+{
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+
+    [JsonPropertyName("type")]
+    public IRTypeRef? Type { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("literalValue")]
+    public IRLiteralValue? LiteralValue { get; set; }
+
+    [JsonPropertyName("docs")]
+    public string? Docs { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+}
+
 public partial class IRDocument
 {
     [JsonPropertyName("schemaVersion")]
@@ -542,6 +635,9 @@ public partial class IRDocument
 
     [JsonPropertyName("enums")]
     public IReadOnlyList<IREnum> Enums { get; set; } = [];
+
+    [JsonPropertyName("discriminatedUnions")]
+    public IReadOnlyList<IRDiscriminatedUnion>? DiscriminatedUnions { get; set; }
 
     [JsonPropertyName("operations")]
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
@@ -652,6 +748,21 @@ public partial class IRLiteralValueString : IRLiteralValue
 {
     [JsonPropertyName("value")]
     public string Value { get; set; } = default !;
+}
+
+public partial class IRLongRunningSemantics
+{
+    [JsonPropertyName("finalResultType")]
+    public IRTypeRef? FinalResultType { get; set; }
+
+    [JsonPropertyName("pollingStrategy")]
+    public IRLongRunningSemanticsPollingStrategy PollingStrategy { get; set; }
+
+    [JsonPropertyName("finalStateVia")]
+    public IRLongRunningSemanticsFinalStateVia? FinalStateVia { get; set; }
+
+    [JsonPropertyName("customPollingUrlPath")]
+    public string? CustomPollingUrlPath { get; set; }
 }
 
 public partial class IRModel
@@ -930,44 +1041,139 @@ public partial class IROperation
     public OperationHints? Rendering { get; set; }
 }
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
-[JsonDerivedType(typeof(IROperationSemanticsPageable), "pageable")]
-[JsonDerivedType(typeof(IROperationSemanticsLongRunning), "longRunning")]
-public abstract partial class IROperationSemantics
+public partial class IROperationSemantics
 {
+    [JsonPropertyName("pageable")]
+    public IRPageableSemantics? Pageable { get; set; }
+
+    [JsonPropertyName("longRunning")]
+    public IRLongRunningSemantics? LongRunning { get; set; }
 }
 
-public partial class IROperationSemanticsLongRunning : IROperationSemantics
+public partial class IRPageableSemantics
 {
-    [JsonPropertyName("finalResultType")]
-    public IRTypeRef? FinalResultType { get; set; }
+    [JsonPropertyName("isList")]
+    public bool IsList { get; set; }
 
-    [JsonPropertyName("pollingStrategy")]
-    public IROperationSemanticsLongRunningPollingStrategy PollingStrategy { get; set; }
+    [JsonPropertyName("metadataSource")]
+    public IRPageableSemanticsMetadataSource MetadataSource { get; set; }
 
-    [JsonPropertyName("finalStateVia")]
-    public IROperationSemanticsLongRunningFinalStateVia? FinalStateVia { get; set; }
-
-    [JsonPropertyName("customPollingUrlPath")]
-    public string? CustomPollingUrlPath { get; set; }
-}
-
-public partial class IROperationSemanticsPageable : IROperationSemantics
-{
     [JsonPropertyName("itemType")]
     public IRTypeRef ItemType { get; set; } = default !;
 
-    [JsonPropertyName("itemsPath")]
-    public string ItemsPath { get; set; } = default !;
+    [JsonPropertyName("input")]
+    public IRPageableSemanticsInput Input { get; set; } = default !;
 
-    [JsonPropertyName("nextLinkPath")]
-    public string? NextLinkPath { get; set; }
+    [JsonPropertyName("output")]
+    public IRPageableSemanticsOutput Output { get; set; } = default !;
 
-    [JsonPropertyName("continuationTokenPath")]
-    public string? ContinuationTokenPath { get; set; }
+    [JsonPropertyName("sdk")]
+    public IRPageableSemanticsSdk Sdk { get; set; } = default !;
+}
 
-    [JsonPropertyName("continuationTokenParameter")]
-    public string? ContinuationTokenParameter { get; set; }
+public partial class IRPageableSemanticsInput
+{
+    [JsonPropertyName("offset")]
+    public IRPagingProperty? Offset { get; set; }
+
+    [JsonPropertyName("pageIndex")]
+    public IRPagingProperty? PageIndex { get; set; }
+
+    [JsonPropertyName("pageSize")]
+    public IRPagingProperty? PageSize { get; set; }
+
+    [JsonPropertyName("continuationToken")]
+    public IRPagingProperty? ContinuationToken { get; set; }
+}
+
+public partial class IRPageableSemanticsOutput
+{
+    [JsonPropertyName("pageItems")]
+    public IRPagingProperty PageItems { get; set; } = default !;
+
+    [JsonPropertyName("nextLink")]
+    public IRPagingProperty? NextLink { get; set; }
+
+    [JsonPropertyName("prevLink")]
+    public IRPagingProperty? PrevLink { get; set; }
+
+    [JsonPropertyName("firstLink")]
+    public IRPagingProperty? FirstLink { get; set; }
+
+    [JsonPropertyName("lastLink")]
+    public IRPagingProperty? LastLink { get; set; }
+
+    [JsonPropertyName("continuationToken")]
+    public IRPagingProperty? ContinuationToken { get; set; }
+}
+
+public partial class IRPageableSemanticsSdk
+{
+    [JsonPropertyName("disabled")]
+    public bool Disabled { get; set; }
+
+    [JsonPropertyName("forced")]
+    public bool Forced { get; set; }
+
+    [JsonPropertyName("nextLinkVerb")]
+    public IRPageableSemanticsSdkNextLinkVerb NextLinkVerb { get; set; }
+
+    [JsonPropertyName("nextLinkReinjectedParameters")]
+    public IReadOnlyList<IRPagingProperty> NextLinkReinjectedParameters { get; set; } = [];
+
+    [JsonPropertyName("nextLinkOperation")]
+    public IRId? NextLinkOperation { get; set; }
+}
+
+public partial class IRPagingBinding
+{
+    [JsonPropertyName("location")]
+    public IRPagingBindingLocation Location { get; set; }
+
+    [JsonPropertyName("path")]
+    public IReadOnlyList<string> Path { get; set; } = [];
+
+    [JsonPropertyName("contentType")]
+    public string? ContentType { get; set; }
+
+    [JsonPropertyName("parameter")]
+    public IRId? Parameter { get; set; }
+
+    [JsonPropertyName("response")]
+    public IRPagingBindingResponse? Response { get; set; }
+}
+
+public partial class IRPagingBindingResponse
+{
+    [JsonPropertyName("statusCode")]
+    public IRStatusCode StatusCode { get; set; } = default !;
+}
+
+public partial class IRPagingProperty
+{
+    [JsonPropertyName("sourcePath")]
+    public IReadOnlyList<IRPagingSegment> SourcePath { get; set; } = [];
+
+    [JsonPropertyName("type")]
+    public IRTypeRef Type { get; set; } = default !;
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("nullable")]
+    public bool Nullable { get; set; }
+
+    [JsonPropertyName("bindings")]
+    public IReadOnlyList<IRPagingBinding> Bindings { get; set; } = [];
+}
+
+public partial class IRPagingSegment
+{
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
 }
 
 public partial class IRParameter
@@ -1111,7 +1317,7 @@ public partial class IRPropertyPrimitive : IRProperty
 public partial class IRPropertyUnion : IRProperty
 {
     [JsonPropertyName("type")]
-    public IRTypeRefUnion Type { get; set; } = default !;
+    public IRTypeRef Type { get; set; } = default !;
 
     [JsonPropertyName("rendering")]
     public ValuePropertyHints? Rendering { get; set; }
@@ -1294,6 +1500,7 @@ public partial class IRStatusCodeRange : IRStatusCode
 [JsonDerivedType(typeof(IRTypeRefArray), "array")]
 [JsonDerivedType(typeof(IRTypeRefDictionary), "dictionary")]
 [JsonDerivedType(typeof(IRTypeRefUnion), "union")]
+[JsonDerivedType(typeof(IRTypeRefDiscriminatedUnion), "discriminatedUnion")]
 public abstract partial class IRTypeRef
 {
 }
@@ -1308,6 +1515,12 @@ public partial class IRTypeRefDictionary : IRTypeRef
 {
     [JsonPropertyName("value")]
     public IRTypeRef Value { get; set; } = default !;
+}
+
+public partial class IRTypeRefDiscriminatedUnion : IRTypeRef
+{
+    [JsonPropertyName("id")]
+    public IRId Id { get; set; } = default !;
 }
 
 public partial class IRTypeRefEnum : IRTypeRef

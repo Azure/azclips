@@ -25,7 +25,7 @@ namespace Ace.Generator.Generators;
 /// exactly one server definition in the document; invalid references are reported as errors.
 /// <para>
 /// Strict-IR mapping: <c>Method</c>/<c>CreateRequestUri</c>/generics come straight from the IR, and
-/// the LRO hooks map deterministically from <see cref="IROperationSemanticsLongRunning.FinalStateVia"/>
+/// the LRO hooks map deterministically from <see cref="IRLongRunningSemantics.FinalStateVia"/>
 /// (e.g. <c>location</c> → the <c>Location</c> header; <c>azureAsyncOperation</c>/<c>originalUri</c> →
 /// no final-URI override, so the base re-GETs the original request URI). Spec-vs-reality deviations
 /// are handled by customization on top of the generated processor, never by the generator.
@@ -81,7 +81,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             }
 
             string typeName = ProcessorTypeName(operation);
-            yield return new GeneratedFile($"Processors/{typeName}.cs", Emit(ns, modelsNamespace, typeName, operation, server), typeName);
+            yield return new GeneratedFile($"Processors/{typeName}.cs", Emit(context, ns, modelsNamespace, typeName, operation, server), typeName);
         }
     }
 
@@ -153,7 +153,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         return (operation.Name + group).Identifier() + "Processor";
     }
 
-    private static string Emit(string @namespace, string modelsNamespace, string className, IROperation operation, IRServer server)
+    private static string Emit(GenerationContext context, string @namespace, string modelsNamespace, string className, IROperation operation, IRServer server)
     {
         string responseType = ResponseType(operation);
         string requestType = RequestType(operation) ?? "object";
@@ -188,14 +188,28 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
         // LRO: the final-state/polling hooks (strict from IR finalStateVia) + the send override.
         // Pageable: the pagination wiring (selectors + BeforeWriteOutputAsyncAndReturn) that drives
-        // the runtime helper. Semantics is a discriminated union, so these are mutually exclusive.
-        if (operation.Semantics is IROperationSemanticsLongRunning lro)
+        // the runtime helper. Preserve LRO precedence until combined execution is implemented.
+        if (operation.Semantics?.LongRunning is IRLongRunningSemantics lro)
         {
             members.AddRange(LroMembers(lro));
         }
-        else if (operation.Semantics is IROperationSemanticsPageable pageable)
+        else if (operation.Semantics?.Pageable is IRPageableSemantics pageable)
         {
-            members.AddRange(PageableMembers(pageable, responseType));
+            IReadOnlyList<string>? itemsPath = ResponseBodyPath(pageable.Output.PageItems);
+            IReadOnlyList<string>? nextLinkPath = pageable.Output.NextLink is { } nextLink
+                ? ResponseBodyPath(nextLink) : null;
+            if (itemsPath is null || (pageable.Output.NextLink is not null && nextLinkPath is null))
+            {
+                context.Report(
+                    Model.DiagnosticSeverity.Warning,
+                    "ace-generator/paging-binding-not-supported",
+                    $"Operation '{operation.Name}' requires paging bindings other than an unambiguous response-body path. " +
+                    "Its pagination wiring requires customization.");
+            }
+            else
+            {
+                members.AddRange(PageableMembers(pageable, responseType, itemsPath, nextLinkPath));
+            }
         }
 
         ClassDeclarationSyntax cls = ClassDeclaration(className)
@@ -312,9 +326,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// The long-running-operation members: the four header-selector hook overrides plus
     /// <c>SendAsync() =&gt; SendAsyncLRO()</c>. The three pollers are the standard ARM headers
     /// (the base picks among them by presence); <c>GetFinalUri</c> is strict from IR
-    /// <see cref="IROperationSemanticsLongRunning.FinalStateVia"/>.
+    /// <see cref="IRLongRunningSemantics.FinalStateVia"/>.
     /// </summary>
-    private static IEnumerable<MemberDeclarationSyntax> LroMembers(IROperationSemanticsLongRunning lro)
+    private static IEnumerable<MemberDeclarationSyntax> LroMembers(IRLongRunningSemantics lro)
     {
         yield return LroHook("GetFinalUri", FinalUriExpression(lro.FinalStateVia));
         yield return LroHook("GetOperationLocationUri", "response => response.GetFirstHeader(\"Operation-Location\")");
@@ -329,8 +343,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// (<c>azureAsyncOperation</c>, <c>originalUri</c>, or unset) returns null, so the base performs the
     /// final GET against the original request URI.
     /// </summary>
-    private static string FinalUriExpression(IROperationSemanticsLongRunningFinalStateVia? finalStateVia) =>
-        finalStateVia == IROperationSemanticsLongRunningFinalStateVia.Location
+    private static string FinalUriExpression(IRLongRunningSemanticsFinalStateVia? finalStateVia) =>
+        finalStateVia == IRLongRunningSemanticsFinalStateVia.Location
             ? "response => response.GetFirstHeader(\"Location\")"
             : "_ => null";
 
@@ -357,11 +371,13 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// <c>nextLink</c>, and writes the flattened items). This is thin per-operation wiring — the
     /// pagination logic itself lives in the runtime library — parallel to the LRO hooks.
     /// </summary>
-    private static IEnumerable<MemberDeclarationSyntax> PageableMembers(IROperationSemanticsPageable pageable, string listResultType)
+    private static IEnumerable<MemberDeclarationSyntax> PageableMembers(
+        IRPageableSemantics pageable, string listResultType,
+        IReadOnlyList<string> itemsPath, IReadOnlyList<string>? nextLinkPath)
     {
         string itemType = IrTypeMapper.ToCSharp(pageable.ItemType);
-        string itemsExpression = $"body.{MemberPath(pageable.ItemsPath)}";
-        string nextLinkExpression = pageable.NextLinkPath is { Length: > 0 } path ? $"body.{MemberPath(path)}" : "null";
+        string itemsExpression = BodyExpression(itemsPath);
+        string nextLinkExpression = nextLinkPath is not null ? BodyExpression(nextLinkPath) : "null";
 
         yield return MethodDeclaration(ParseTypeName($"IEnumerable<{itemType}>?"), Identifier("pageItems"))
             .AddModifiers(Token(SyntaxKind.PrivateKeyword))
@@ -382,12 +398,26 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     }
 
     /// <summary>
-    /// Map an IR wire path (e.g. <c>value</c>, <c>properties.nextLink</c>) to a C# member-access
+    /// Map a segmented IR wire path to a C# member-access
     /// path (<c>Value</c>, <c>Properties.NextLink</c>) by PascalCasing each segment. A heuristic
     /// (the emitted model PascalCases property names the same way), not a resolved lookup.
     /// </summary>
-    private static string MemberPath(string wirePath) =>
-        string.Join(".", wirePath.Split('.', StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Pascal()));
+    private static string BodyExpression(IReadOnlyList<string> wirePath) =>
+        wirePath.Count == 0 ? "body" : "body." + string.Join(".", wirePath.Select(segment => segment.Pascal()));
+
+    private static IReadOnlyList<string>? ResponseBodyPath(IRPagingProperty property)
+    {
+        IRPagingBinding[] bindings = property.Bindings
+            .Where(binding => binding.Response is not null)
+            .ToArray();
+        if (bindings.Length == 0 || bindings.Any(binding => binding.Location != IRPagingBindingLocation.Body))
+        {
+            return null;
+        }
+
+        IReadOnlyList<string> path = bindings[0].Path;
+        return bindings.All(binding => binding.Path.SequenceEqual(path, StringComparer.Ordinal)) ? path : null;
+    }
 
     /// <summary>Compose the request URI text: <c>{host}{path}?{query}</c>, with member interpolations.</summary>
     private static string BuildUri(IROperation operation, IRServer server)

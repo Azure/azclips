@@ -311,28 +311,93 @@ export const IRApiVersionStampSchema: z.ZodType<IRApiVersionStamp> = z
 
 // ─── Pageable / LRO semantics ───────────────────────────────────────────
 
-/**
- * Pageable: either next-link style (Azure REST norm) or continuation-token
- * style. Validation enforces exactly-one-style. The transform that fills
- * this reads `@pagedResult` / `@items` / `@nextLink` decorators.
- */
+/** Source declarations, including HTTP envelope properties absent from IR.models. */
+export const IRPagingSegmentSchema = z.object({
+  id: IRIdSchema,
+  name: z.string(),
+}).strict();
+export type IRPagingSegment = z.infer<typeof IRPagingSegmentSchema>;
+
+/** A wire path is segmented: a property named "next.link" is one segment. */
+export const IRPagingBindingSchema = z.object({
+  location: z.enum(["body", "query", "header", "path", "cookie"]),
+  path: z.array(z.string()),
+  /** Media type for which this request/response binding applies. */
+  contentType: z.string().optional(),
+  /** Reference to an emitted request parameter, when there is one. */
+  parameter: IRIdSchema.optional(),
+  /** Absent for requests; selects the HTTP response alternative otherwise. */
+  response: z.object({
+    statusCode: IRStatusCodeSchema,
+  }).strict().optional(),
+}).strict();
+export type IRPagingBinding = z.infer<typeof IRPagingBindingSchema>;
+
+export const IRPagingPropertySchema = z.object({
+  sourcePath: z.array(IRPagingSegmentSchema).min(1),
+  type: IRTypeRefSchema,
+  optional: z.boolean(),
+  nullable: z.boolean(),
+  bindings: z.array(IRPagingBindingSchema),
+}).strict();
+export type IRPagingProperty = z.infer<typeof IRPagingPropertySchema>;
+
+/** Independent declared roles, not a selected runtime paging strategy. */
 export type IRPageableSemantics = {
-  kind: "pageable";
+  /** Whether the REST operation has the standard @list marker. */
+  isList: boolean;
+  metadataSource: "compiler" | "sdk";
   itemType: IRTypeRef;
-  itemsPath: string;
-  nextLinkPath?: string | undefined;
-  continuationTokenPath?: string | undefined;
-  continuationTokenParameter?: string | undefined;
+  input: {
+    offset?: IRPagingProperty | undefined;
+    pageIndex?: IRPagingProperty | undefined;
+    pageSize?: IRPagingProperty | undefined;
+    continuationToken?: IRPagingProperty | undefined;
+  };
+  output: {
+    pageItems: IRPagingProperty;
+    nextLink?: IRPagingProperty | undefined;
+    prevLink?: IRPagingProperty | undefined;
+    firstLink?: IRPagingProperty | undefined;
+    lastLink?: IRPagingProperty | undefined;
+    continuationToken?: IRPagingProperty | undefined;
+  };
+  /** SDK presentation settings do not erase the REST operation's metadata. */
+  sdk: {
+    disabled: boolean;
+    forced: boolean;
+    nextLinkVerb: "GET" | "POST";
+    nextLinkReinjectedParameters: IRPagingProperty[];
+    nextLinkOperation?: IRId | undefined;
+  };
 };
 
-export const IRPageableSemanticsSchema = z
+export const IRPageableSemanticsSchema: z.ZodType<IRPageableSemantics> = z
   .object({
-    kind: z.literal("pageable"),
+    isList: z.boolean(),
+    metadataSource: z.enum(["compiler", "sdk"]),
     itemType: IRTypeRefSchema,
-    itemsPath: z.string().min(1),
-    nextLinkPath: z.string().min(1).optional(),
-    continuationTokenPath: z.string().min(1).optional(),
-    continuationTokenParameter: z.string().min(1).optional(),
+    input: z.object({
+      offset: IRPagingPropertySchema.optional(),
+      pageIndex: IRPagingPropertySchema.optional(),
+      pageSize: IRPagingPropertySchema.optional(),
+      continuationToken: IRPagingPropertySchema.optional(),
+    }).strict(),
+    output: z.object({
+      pageItems: IRPagingPropertySchema,
+      nextLink: IRPagingPropertySchema.optional(),
+      prevLink: IRPagingPropertySchema.optional(),
+      firstLink: IRPagingPropertySchema.optional(),
+      lastLink: IRPagingPropertySchema.optional(),
+      continuationToken: IRPagingPropertySchema.optional(),
+    }).strict(),
+    sdk: z.object({
+      disabled: z.boolean(),
+      forced: z.boolean(),
+      nextLinkVerb: z.enum(["GET", "POST"]),
+      nextLinkReinjectedParameters: z.array(IRPagingPropertySchema),
+      nextLinkOperation: IRIdSchema.optional(),
+    }).strict(),
   })
   .strict();
 
@@ -343,7 +408,6 @@ export const IRPageableSemanticsSchema = z
  * LROs and carries an explicit polling URL path into the response body.
  */
 export type IRLongRunningSemantics = {
-  kind: "longRunning";
   finalResultType?: IRTypeRef | undefined;
   pollingStrategy: "azureAsyncOperation" | "location" | "operationResource" | "custom";
   finalStateVia?: "azureAsyncOperation" | "location" | "originalUri" | undefined;
@@ -352,43 +416,33 @@ export type IRLongRunningSemantics = {
 
 export const IRLongRunningSemanticsSchema = z
   .object({
-    kind: z.literal("longRunning"),
     finalResultType: IRTypeRefSchema.optional(),
     pollingStrategy: z.enum(["azureAsyncOperation", "location", "operationResource", "custom"]),
     finalStateVia: z.enum(["azureAsyncOperation", "location", "originalUri"]).optional(),
     customPollingUrlPath: z.string().min(1).optional(),
   })
-  .strict();
-
-export type IROperationSemantics = IRPageableSemantics | IRLongRunningSemantics;
-
-export const IROperationSemanticsSchema = z
-  .discriminatedUnion("kind", [IRPageableSemanticsSchema, IRLongRunningSemanticsSchema])
+  .strict()
   .superRefine((s, ctx) => {
-    if (s.kind === "pageable") {
-      const usesNextLink = s.nextLinkPath !== undefined;
-      const usesContinuation =
-        s.continuationTokenPath !== undefined || s.continuationTokenParameter !== undefined;
-      if (usesNextLink === usesContinuation) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            "pageable must use either nextLinkPath OR continuation-token fields, not both/neither",
-        });
-      }
-    } else if (s.kind === "longRunning") {
-      if (
-        s.pollingStrategy === "custom" &&
-        (s.customPollingUrlPath === undefined || s.customPollingUrlPath.length === 0)
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "pollingStrategy 'custom' requires customPollingUrlPath",
-          path: ["customPollingUrlPath"],
-        });
-      }
+    if (s.pollingStrategy === "custom" && s.customPollingUrlPath === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "pollingStrategy 'custom' requires customPollingUrlPath",
+        path: ["customPollingUrlPath"],
+      });
     }
-  }) as z.ZodType<IROperationSemantics>;
+  });
+
+export type IROperationSemantics = {
+  pageable?: IRPageableSemantics | undefined;
+  longRunning?: IRLongRunningSemantics | undefined;
+};
+
+export const IROperationSemanticsSchema: z.ZodType<IROperationSemantics> = z.object({
+  pageable: IRPageableSemanticsSchema.optional(),
+  longRunning: IRLongRunningSemanticsSchema.optional(),
+}).strict().refine((s) => s.pageable !== undefined || s.longRunning !== undefined, {
+  message: "operation semantics must contain pageable or longRunning metadata",
+});
 
 // ─── Operation ──────────────────────────────────────────────────────────
 

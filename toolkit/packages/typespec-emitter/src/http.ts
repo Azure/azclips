@@ -12,7 +12,7 @@
  * sentinel that `operations.ts` interprets as "skip this op").
  */
 
-import { NoTarget } from "@typespec/compiler";
+import { NoTarget, type ModelProperty } from "@typespec/compiler";
 import type {
   SdkBodyParameter,
   SdkHeaderParameter,
@@ -63,6 +63,13 @@ function formatHintOf(irType: { kind: string; format?: FormatKind | undefined })
   return irType.kind === "primitive" ? irType.format : undefined;
 }
 
+export function parameterIdFor(
+  operationId: IRId,
+  parameter: { name: string; __raw?: ModelProperty | undefined },
+): IRId {
+  return { ...operationId, name: `${operationId.name}.${parameter.__raw?.name ?? parameter.name}` };
+}
+
 function paramOf(
   ctx: BuildContext,
   operationId: IRId,
@@ -71,10 +78,7 @@ function paramOf(
   const wireName = p.serializedName ?? p.name;
   const { type, nullable } = unwrapNullable(ctx, p.type);
   const irType = typeRefFor(ctx, type, `${operationId.name}.${p.name}`);
-  const id = {
-    ...operationId,
-    name: `${operationId.name}.${p.__raw?.name ?? p.name}`,
-  };
+  const id = parameterIdFor(operationId, p);
   const format = formatHintOf(irType);
   const cf =
     (p as SdkHeaderParameter | SdkQueryParameter).collectionFormat !== undefined
@@ -184,7 +188,7 @@ export function bodyFrom(
   return { ok: true, body };
 }
 
-function statusCodeFrom(
+export function statusCodeFrom(
   s: number | HttpStatusCodeRange | "*",
 ): IRStatusCode {
   if (s === "*") return { kind: "default" };

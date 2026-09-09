@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.8.0",
+  "schemaVersion": "0.11.0",
   "sources": [
     {
       "id": "PetStore",
@@ -691,19 +691,63 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "pageable",
-        "itemType": {
-          "kind": "model",
-          "id": {
-            "module": "PetStore",
-            "namespace": [
-              "PetStore"
-            ],
-            "name": "Pet"
+        "pageable": {
+          "isList": false,
+          "metadataSource": "compiler",
+          "itemType": {
+            "kind": "model",
+            "id": {
+              "module": "PetStore",
+              "namespace": ["PetStore"],
+              "name": "Pet"
+            }
+          },
+          "input": {},
+          "output": {
+            "pageItems": {
+              "sourcePath": [{
+                "id": { "module": "PetStore", "namespace": ["PetStore"], "name": "PetPage.items" },
+                "name": "items"
+              }],
+              "type": {
+                "kind": "array",
+                "element": {
+                  "kind": "model",
+                  "id": { "module": "PetStore", "namespace": ["PetStore"], "name": "Pet" }
+                }
+              },
+              "optional": false,
+              "nullable": false,
+              "bindings": [{
+                "location": "body",
+                "path": ["items"],
+                "contentType": "application/json",
+                "response": { "statusCode": { "kind": "exact", "code": 200 } }
+              }]
+            },
+            "nextLink": {
+              "sourcePath": [{
+                "id": { "module": "PetStore", "namespace": ["PetStore"], "name": "PetPage.nextLink" },
+                "name": "nextLink"
+              }],
+              "type": { "kind": "primitive", "name": "string" },
+              "optional": true,
+              "nullable": false,
+              "bindings": [{
+                "location": "body",
+                "path": ["nextLink"],
+                "contentType": "application/json",
+                "response": { "statusCode": { "kind": "exact", "code": 200 } }
+              }]
+            }
+          },
+          "sdk": {
+            "disabled": false,
+            "forced": false,
+            "nextLinkVerb": "GET",
+            "nextLinkReinjectedParameters": []
           }
-        },
-        "itemsPath": "items",
-        "nextLinkPath": "nextLink"
+        }
       }
     },
     {
@@ -1084,9 +1128,10 @@
         "name": "server"
       },
       "semantics": {
-        "kind": "longRunning",
-        "pollingStrategy": "location",
-        "finalStateVia": "location"
+        "longRunning": {
+          "pollingStrategy": "location",
+          "finalStateVia": "location"
+        }
       }
     }
   ]

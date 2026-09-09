@@ -10,7 +10,7 @@
  * stamp and a reference to its shared server definition.
  */
 
-import { getNamespaceFullName, NoTarget } from "@typespec/compiler";
+import { NoTarget } from "@typespec/compiler";
 import type {
   SdkClientType,
   SdkHttpOperation,
@@ -28,6 +28,7 @@ import { reportDiagnostic } from "./lib.js";
 import { bodyFrom, parametersByLocation, responsesFrom } from "./http.js";
 import { semanticsFor } from "./semantics.js";
 import { accessFrom } from "./annotations.js";
+import { operationIdFor } from "./operation-id.js";
 
 const VALID_HTTP_METHODS: ReadonlySet<string> = new Set([
   "GET",
@@ -42,26 +43,6 @@ const VALID_HTTP_METHODS: ReadonlySet<string> = new Set([
 function clampHttpMethod(verb: string): HttpMethod | undefined {
   const up = verb.toUpperCase();
   return VALID_HTTP_METHODS.has(up) ? (up as HttpMethod) : undefined;
-}
-
-/**
- * Preserve TypeSpec ownership independently of SDK client organization.
- * Inherited operations belong to the effective interface, not its base.
- */
-function opIdFor(
-  ctx: BuildContext,
-  method: SdkServiceMethod<SdkHttpOperation>,
-): IRId {
-  const raw = method.__raw ?? method.operation.__raw.operation;
-  const owner = raw.interface;
-  const namespace = owner !== undefined ? owner.namespace : raw.namespace;
-  const fqn = namespace !== undefined ? getNamespaceFullName(namespace) : "";
-  return {
-    module: ctx.options.sourceId,
-    namespace: fqn.length === 0 ? [] : fqn.split("."),
-    ...(owner !== undefined ? { interface: owner.name } : {}),
-    name: raw.name,
-  };
 }
 
 function methodToOperation(
@@ -85,7 +66,7 @@ function methodToOperation(
     return undefined;
   }
 
-  const id = opIdFor(ctx, method);
+  const id = operationIdFor(ctx, method.__raw ?? method.operation.__raw.operation);
   const body = bodyFrom(ctx, http, method.name);
   if (!body.ok) return undefined; // streaming-body-dropped already reported
 
@@ -103,7 +84,7 @@ function methodToOperation(
     });
   }
 
-  const semantics = semanticsFor(ctx, method);
+  const semantics = semanticsFor(ctx, method, id);
   const access = accessFrom(method.access);
 
   const op: IROperation = {

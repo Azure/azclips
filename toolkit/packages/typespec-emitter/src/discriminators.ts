@@ -1,5 +1,5 @@
 import {
-  getDiscriminator, getDiscriminatedUnion, getDiscriminatedUnionFromInheritance,
+  getDiscriminator, getDiscriminatedUnion, getDiscriminatedUnionFromInheritance, getPagingOperation,
   type Diagnostic, type Model, type Program,
 } from "@typespec/compiler";
 
@@ -16,7 +16,7 @@ export function reportSdkDiagnostics(program: Program, diagnostics: readonly Dia
     const target = diagnostic.target;
     if (typeof target === "object" && "kind" in target) {
       // These are SDK representation restrictions, not TypeSpec errors. The
-      // emitter handles them from the compiler's validated discriminator map.
+      // emitter handles them from the compiler's validated metadata.
       if (diagnostic.code === "@azure-tools/typespec-client-generator-core/discriminator-not-constant"
         && target.kind === "Model") {
         let supported = false;
@@ -33,6 +33,11 @@ export function reportSdkDiagnostics(program: Program, diagnostics: readonly Dia
         && target.kind === "Union") {
         const [resolved, errors] = getDiscriminatedUnion(program, target);
         if (resolved && errors.length === 0) continue;
+      }
+      if (diagnostic.code === "@azure-tools/typespec-client-generator-core/unexpected-pageable-operation-return-type"
+        && target.kind === "Operation") {
+        const [paging, errors] = getPagingOperation(program, target);
+        if (paging && errors.length === 0) continue;
       }
     }
     program.reportDiagnostic(diagnostic);
