@@ -5,7 +5,7 @@
 #
 # Prereqs:
 #   dotnet build azclips.slnx
-#   Import-Module ./src/PS/Login/Login.psd1; Connect-AzAccount
+#   Import-Module ./src/PS/Accounts/Accounts.psd1; Connect-AzAccount
 #   Import-Module ./src/PS/Network/Network.psd1
 #
 # Usage: ./tests/Scripts/PS/VNetCreate.ps1

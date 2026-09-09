@@ -17,15 +17,15 @@ namespace Benchmark.Startup;
 public class PsColdStartupBenchmarks : StartupBenchmarkBase
 {
     private string _configManifest = null!;
-    private string _loginManifest = null!;
+    private string _accountsManifest = null!;
 
     [GlobalSetup]
     public void Setup()
     {
         InitializeCommon();
-        // Stage once, outside the measured region. Staging Config pulls in Login via RequiredModules.
+        // Stage once, outside the measured region. Staging Config pulls in Accounts via RequiredModules.
         _configManifest = StageModule("Config");
-        _loginManifest = StageModule("Login");
+        _accountsManifest = StageModule("Accounts");
     }
 
     [IterationSetup]
@@ -35,5 +35,5 @@ public class PsColdStartupBenchmarks : StartupBenchmarkBase
     public void Config() => RunToExit(PsStartInfo(_configManifest, "Get-AzConfigList"));
 
     [Benchmark(Description = "login")]
-    public void Login() => RunToExit(PsStartInfo(_loginManifest, "Connect-AzAccount", "-SubscriptionId", "00000000-0000-0000-0000-000000000000"));
+    public void Login() => RunToExit(PsStartInfo(_accountsManifest, "Connect-AzAccount", "-SubscriptionId", "00000000-0000-0000-0000-000000000000"));
 }

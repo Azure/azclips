@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <SignAssembly>true</SignAssembly>
@@ -15,7 +15,7 @@
     <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
     <ProjectReference Include="../../src/Core/Core.Configuration/Core.Configuration.csproj" />
-    <ProjectReference Include="../../src/Extensions/Login/Extensions.Login.csproj" />
+    <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <ProjectReference Include="../../src/Extensions/Compute/Extensions.Compute.csproj" />
     <ProjectReference Include="../../src/Extensions/Network/Extensions.Network.csproj" />
     <ProjectReference Include="../../src/Core/Core.Authentication/Core.Authentication.csproj" />

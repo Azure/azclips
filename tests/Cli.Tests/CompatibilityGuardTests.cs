@@ -126,7 +126,7 @@ public class CompatibilityGuardTests
     [Fact]
     public void CheckAssembly_StampedFirstPartyExtension_IsCompatibleAt1_0_0()
     {
-        // Login is stamped via Compatibility.cs. Use its artifacts directory directly so MLC
+        // Accounts is stamped via Compatibility.cs. Use its artifacts directory directly so MLC
         // can resolve the assembly's full reference graph (Core.Abstractions + sibling Core.* DLLs).
         var dir = LocateExtensionDir();
         Assert.NotNull(dir);
@@ -148,9 +148,9 @@ public class CompatibilityGuardTests
 
     private static string? LocateExtensionDir()
     {
-        // Walk up from test bin and find the published Login extension folder. It contains the
-        // Login DLL plus all sibling Core.* DLLs the metadata graph needs to fully resolve.
-        const string DllName = "Microsoft.Azure.Azclips.Extensions.Login.dll";
+        // Walk up from test bin and find the published Accounts extension folder. It contains the
+        // Accounts DLL plus all sibling Core.* DLLs the metadata graph needs to fully resolve.
+        const string DllName = "Microsoft.Azure.Azclips.Extensions.Accounts.dll";
         var probe = AppContext.BaseDirectory;
         for (int i = 0; i < 8 && !string.IsNullOrEmpty(probe); i++)
         {

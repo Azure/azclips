@@ -81,9 +81,10 @@ To view the details of a specific profile, use `az profile show` with the profil
 az profile show personal
 ```
 
-To view the currently active profile, use the `--active` option:
+To view the currently active profile, omit the profile name or use `--active` option:
 
 ```bash
+az profile show
 az profile show --active
 ```
 

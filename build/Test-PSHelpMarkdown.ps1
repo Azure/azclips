@@ -5,7 +5,7 @@
 # Prerequisites: run `dotnet build azclips.slnx` first so the cmdlet DLLs exist.
 # Usage:
 #   pwsh -File build/Test-PSHelpMarkdown.ps1                       # all modules under src/PS/
-#   pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Login         # single module
+#   pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Accounts         # single module
 #   pwsh -File build/Test-PSHelpMarkdown.ps1 -ModuleRoot <tempDir> # arbitrary root (smoke fixtures)
 [CmdletBinding()]
 param(
