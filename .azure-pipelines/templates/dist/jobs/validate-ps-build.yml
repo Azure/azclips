@@ -47,9 +47,11 @@ jobs:
   - pwsh: |
       & ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & pwsh -NoProfile -File ./tests/Scripts/PS/PSSmokeFixtures.ps1
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       & ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1
       exit $LASTEXITCODE
-    displayName: Test PS Validation Lifecycle and Pipeline
+    displayName: Test PS Validation Lifecycle, Smoke Tests and Pipeline
 
   - bash: |
       set -euo pipefail
@@ -70,6 +72,8 @@ jobs:
   dependsOn: GeneratePowerShellValidationMatrix
   displayName: PS Validation
   timeoutInMinutes: 60
+  variables:
+    PsValidationInstalled: 'false'
   strategy:
     matrix: $[ dependencies.GeneratePowerShellValidationMatrix.outputs['GenerateMatrix.matrix'] ]
   pool:
@@ -109,8 +113,7 @@ jobs:
       display_name: Upgrade Azure PS v$(AzVersion)
       ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
 
-  # Placeholder. Post-install validation coverage is not implemented yet, so this
-  # reports as a no-op.
+  # Run the credential-free, configured module smoke tests against the installed modules.
   - template: ../steps/ps-validation-phase.yml
     parameters:
       phase: Validate

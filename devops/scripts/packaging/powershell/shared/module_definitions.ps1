@@ -32,11 +32,25 @@ function Get-AzModuleDefinitions
         }
 
         $sourceModule = $manifest.BaseName
+        $requiredModules = @(
+            foreach ($requiredModule in $manifestData.RequiredModules)
+            {
+                $name = if ($requiredModule -is [string]) { $requiredModule } else { [string]$requiredModule.ModuleName }
+                if ([string]::IsNullOrWhiteSpace($name)) { throw "Invalid RequiredModules entry in: $($manifest.FullName)" }
+                if ($name -match '(^|[/\\])([^/\\]+)\.psd1$')
+                {
+                    $baseName = $Matches[2]
+                    $name = if ($baseName -eq 'Az' -or $baseName.StartsWith('Az.')) { $baseName } else { "Az.$baseName" }
+                }
+                $name
+            }
+        )
         [pscustomobject]@{
             SourceModule = $sourceModule
             PackageName = if ($sourceModule -eq 'Az') { 'Az' } else { "Az.$sourceModule" }
             Version = $version
             CmdletsToExport = @($manifestData.CmdletsToExport)
+            RequiredModules = $requiredModules
         }
     }
 }

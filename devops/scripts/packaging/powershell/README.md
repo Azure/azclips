@@ -13,11 +13,14 @@ Each matrix job shows one task for each phase:
 | Install PowerShell `<version>` | The distribution's bootstrap script |
 | Install Azure PS `v<version>` | `test_ps_installation.ps1` |
 | Upgrade Azure PS `v<version>` | Explicit placeholder; no upgrade is performed |
-| Validate Azure PS `v<version>` | Explicit placeholder; no additional validation is performed |
+| Validate Azure PS `v<version>` | `test_ps_smoke.ps1`, configured by `ps_smoke_tests.psd1` |
 | Uninstall Azure PS `v<version>` | `test_ps_uninstall.ps1` |
 
-Installation already verifies version-pinned imports, exported cmdlets, and external
-help examples. The Validate placeholder does not replace those assertions.
+Installation verifies version-pinned imports, exported cmdlets, and external help
+examples. Validate additionally imports every module and executes its configured
+smoke commands. Uninstall still runs after a failed Validate phase when Install
+completed successfully, including unsupported canary failures; cleanup never
+replaces the original validation failure.
 
 `invoke_ps_validation_step.ps1` orchestrates these tasks using the hosted agent's
 preinstalled PowerShell 7. Bootstrap installs the requested PowerShell separately;
@@ -49,7 +52,7 @@ Duplicate keys, multiple documents, and unsafe YAML tags are rejected. Explicit
   sets `supported: false`.
 - In full runs, optional registry discovery adds the newest unconfigured distribution or
   PowerShell release as an unsupported canary. Canary failures report
-  `SucceededWithIssues`, skip later phases, and do not block final artifact
+  `SucceededWithIssues`, skip later non-cleanup phases, and do not block final artifact
   publication. Failures of supported combinations still block publication.
 - Registry discovery failures produce warnings and retain configured coverage.
   Malformed configuration or generation errors fail instead of emitting a partial
@@ -108,7 +111,8 @@ There is no consolidation job, and these diagnostics are separate from the input
 | `environment.json` | Actual tested PowerShell/.NET versions, OS/architecture, and module paths, captured by the module scripts. |
 | `matrix.json` | Requested versions, Az version, matrix identity, canary policy, and separately labelled orchestration-host details. |
 | `logs/` | Bootstrap, Install, Upgrade, Validate, and Uninstall transcripts, including native stdout/stderr; unexecuted phases get an explicit explanation. |
-| `results.json` | Phase timestamps, native exit codes, outcomes, and the overall result. Upgrade and Validate remain explicitly skipped placeholders. |
+| `results.json` | Phase timestamps, native exit codes, outcomes, and the overall result. Only Upgrade remains an explicitly skipped placeholder; Validate is required for success. |
+| `smoke-tests.json` | Per-module exact versions, import outcomes, named command results, durations, output counts, expected-error observations, and failures. Created when Validate runs. |
 | `capture-errors.json` | Collection errors, when any occur; the original lifecycle failure remains primary. |
 
 Reports live under the agent's temporary directory, not the checkout or package
@@ -132,8 +136,87 @@ result is marked `Interrupted`, not passed.
 `invoke_ps_validation_step.ps1` records phase logs/results, and
 `complete_ps_validation_artifacts.ps1` finalizes skipped/interrupted phases.
 Passing `-ReportRoot` directly to the module scripts or phase dispatcher captures
-module snapshots, inventories, and runtime metadata only. Omitting it preserves
-the existing local workflow without creating reports.
+module snapshots, inventories, runtime metadata, and smoke results as applicable,
+but not host phase transcripts/results. Omitting it runs the same assertions
+without retaining reports.
+
+## Configuring module smoke tests
+
+`ps_smoke_tests.psd1` is a declarative PowerShell data file, so the tested runtime
+needs no YAML parser, Pester, or other added dependency. Like Azure PowerShell's
+`tools/Test/SmokeTest/RmCoreSmokeTests.ps1`, it defines named command cases, records
+each outcome and duration, continues after failures, and fails the run at the end.
+Unlike that authenticated suite, these defaults are **offline packaging probes**:
+they neither sign in nor create, modify, or delete Azure resources.
+
+Each module runs in a fresh `-NoProfile -NonInteractive` process of the installed
+target PowerShell, with a default 120-second **per-module** timeout. Its Az
+dependencies are imported at the exact source-manifest versions before importing
+the module. Source requirements are retained even when packaging moves dependency
+declarations to NuGet metadata and clears the installed manifest's requirements.
+Commands are taken from the pinned module's exports, so another
+module or a newer installed version cannot satisfy a test accidentally.
+Timeouts and import failures fail the module while other module cases continue.
+Partial results survive a timeout: completed cases retain their results, the
+active case is `Interrupted`, and later cases remain `NotRun`.
+
+To cover a new module, add an entry to `Modules`:
+
+```powershell
+@{
+    Names = @('Az.Example')
+    Tests = @(
+        @{
+            Name = 'local-schema'
+            Command = 'Get-AzExampleSchema'
+            Mode = 'ReadOnly'
+            Parameters = @{ KeysOnly = $true }
+            MinimumOutputCount = 1
+        }
+    )
+}
+```
+
+Use the module's real exported command and full parameter names. Add further
+named hashtables to `Tests` for more cases; no runner or pipeline edits are needed.
+Every discovered source module must be configured, with at least one case.
+Unconfigured modules, duplicate names, unknown properties, or invalid assertions
+fail before execution. Entries for modules absent from a particular branch are
+allowed: the shared Accounts/Login entry supports the authentication-module rename,
+and Identity/MsGraph entries also cover the current main-branch package set.
+
+- `ReadOnly` permits `Get-` and `Test-` commands. Choose commands that operate
+  locally without authentication; a read verb alone does not guarantee this.
+- `WhatIf` requires `SupportsShouldProcess`; the runner supplies `-WhatIf` and
+  disables confirmation. Verify that the actual implementation calls
+  `ShouldProcess` **before** any mutation or network operation. Metadata alone is
+  insufficient. The configured removal/disconnect probes have this guard.
+- `MinimumOutputCount` optionally requires a nonnegative number of output objects.
+  Config's probe requests schema keys only, not user configuration values.
+- `ExpectedError = @{ Id = '...'; Message = '...' }` requires both the exact error
+  ID (before PowerShell's command suffix) and exact exception message. An unrelated
+  exception or an unexpectedly successful invocation fails. `{MissingProfile}` is
+  replaced in string parameters and the expected message with a fresh unique name.
+  Resources uses this to exercise its explicit missing-profile guard, which fails
+  before the HTTP pipeline is created.
+- The `Az` rollup has no commands of its own. Its explicit
+  `CommandModule = 'Az.Config'` invokes a pinned, declared dependency after importing
+  `Az`; delegation to unrelated modules is rejected.
+
+Do not place credentials in this configuration. Reports count command output
+rather than serialize the returned objects; command errors and host streams
+remain diagnostic output in the Validate log. These probes do not establish
+successful authenticated Azure API behavior. Keep live-resource tests separate.
+
+For already installed target packages, the runner also works directly:
+
+```powershell
+.\devops\scripts\packaging\powershell\test_ps_smoke.ps1 `
+    -SourcePsRoot .\src\PS -PwshPath $pwshPath -ReportRoot 'C:\temp\ps-smoke-reports'
+```
+
+Use `-ConfigPath` for an alternative data file and `-TimeoutSeconds` to override
+the per-module bound. The same runner and configuration apply to every OS/arch.
 
 ## Bootstrap contracts
 
@@ -186,12 +269,25 @@ $env:PATH = $env:DOTNET_ROOT + [IO.Path]::PathSeparator + $env:PATH
 $dispatcher = Join-Path $sourceRoot 'devops\scripts\packaging\powershell\run_ps_validation_phase.ps1'
 $gallery = Join-Path $sourceRoot 'artifacts\Release\PSGallery\local-repo'
 
-foreach ($phase in 'Install', 'Upgrade', 'Validate', 'Uninstall')
+& $pwshPath -NoProfile -File $dispatcher -Phase Install `
+    -SourceRoot $sourceRoot -RepositoryRoot $gallery -PwshPath $pwshPath
+if ($LASTEXITCODE -ne 0) { throw "Install failed with exit code $LASTEXITCODE." }
+$validationExitCode = 1
+$uninstallExitCode = 1
+try
 {
-    & $pwshPath -NoProfile -File $dispatcher -Phase $phase `
+    & $pwshPath -NoProfile -File $dispatcher -Phase Validate `
         -SourceRoot $sourceRoot -RepositoryRoot $gallery -PwshPath $pwshPath
-    if ($LASTEXITCODE -ne 0) { throw "$phase failed with exit code $LASTEXITCODE." }
+    $validationExitCode = $LASTEXITCODE
 }
+finally
+{
+    & $pwshPath -NoProfile -File $dispatcher -Phase Uninstall `
+        -SourceRoot $sourceRoot -RepositoryRoot $gallery -PwshPath $pwshPath
+    $uninstallExitCode = $LASTEXITCODE
+}
+if ($validationExitCode -ne 0) { throw "Validate failed with exit code $validationExitCode; uninstall exited $uninstallExitCode." }
+if ($uninstallExitCode -ne 0) { throw "Uninstall failed with exit code $uninstallExitCode." }
 ```
 
 On Linux/macOS, use `<work-root>/pwsh/pwsh` and export
@@ -221,11 +317,15 @@ bash devops/scripts/packaging/powershell/test_generate_ps_validation_matrix.sh
 
 ```powershell
 pwsh -NoProfile -File tests\Scripts\PS\PSModuleLifecycleFixtures.ps1
+pwsh -NoProfile -File tests\Scripts\PS\PSSmokeFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSValidationPipelineFixtures.ps1
 ```
 
 The matrix suite uses registry fixtures. Lifecycle fixtures isolate mocked module
-operations in child processes. Pipeline fixtures exercise the real host runner
+operations in child processes. Smoke fixtures import actual dummy script modules
+in isolated processes, exercising version/dependency pinning, coverage, command
+provenance, assertions, timeout handling, and both authentication-module layouts.
+Pipeline fixtures exercise the real host runner
 with fake native commands and evaluate the publication gates from the YAML,
 including unsupported failures. Both the GitHub PR workflow and the Azure DevOps
 matrix-generation job run these suites before distribution validation.

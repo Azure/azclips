@@ -6,7 +6,8 @@ Runs one Azure Pipelines PowerShell validation step on a container or native age
 Bootstrap invokes the distribution-specific PowerShell installer. All subsequent
 phases use run_ps_validation_phase.ps1 with the same toolchain and module directory.
 Unsupported combinations report native command failures as SucceededWithIssues and
-set PsValidationSoftFailed so later phase tasks can be skipped.
+set PsValidationSoftFailed so later phase tasks can be skipped, except Uninstall
+after a completed Install. PsValidationInstalled tracks that cleanup obligation.
 ReportRoot enables per-phase transcripts and results. Containers write module
 snapshots through a separate writable bind mount; sources and packages stay read-only.
 #>
@@ -166,6 +167,13 @@ function Invoke-ValidationPhase
                 '-SourceRoot', $SourceRoot, '-PwshPath', $PwshPath
             ) + $reportArguments)
         }
+
+        # Publish the cleanup obligation before transcript/result finalization can fail.
+        if ($script:exitCode -eq 0)
+        {
+            if ($Phase -eq 'Install') { Set-ValidationVariable -Name 'PsValidationInstalled' -Value 'true' }
+            elseif ($Phase -eq 'Uninstall') { Set-ValidationVariable -Name 'PsValidationInstalled' -Value 'false' }
+        }
     }
 }
 
@@ -174,6 +182,7 @@ $reportInitialized = $false
 $transcriptStarted = $false
 try
 {
+    if ($Phase -eq 'Bootstrap') { Set-ValidationVariable -Name 'PsValidationInstalled' -Value 'false' }
     if ($ReportRoot)
     {
         $ReportRoot = [IO.Path]::GetFullPath($ReportRoot)
@@ -227,12 +236,12 @@ finally
         {
             $message = if ($failure) { $failure.Exception.Message }
                 elseif ($script:exitCode -ne 0) { "Native command exited with code $script:exitCode." }
-                elseif ($Phase -in 'Upgrade', 'Validate') { 'Intentional placeholder; not implemented.' }
+                elseif ($Phase -eq 'Upgrade') { 'Intentional placeholder; not implemented.' }
                 else { $null }
             $status = if ($failure) { 'Failed' }
                 elseif ($script:exitCode -ne 0 -and $ContinueOnError -eq 'true') { 'SucceededWithIssues' }
                 elseif ($script:exitCode -ne 0) { 'Failed' }
-                elseif ($Phase -in 'Upgrade', 'Validate') { 'Skipped' }
+                elseif ($Phase -eq 'Upgrade') { 'Skipped' }
                 else { 'Succeeded' }
             Set-PSValidationPhaseResult -ReportRoot $ReportRoot -Phase $Phase -Status $status -ExitCode $script:exitCode -Message $message
         }

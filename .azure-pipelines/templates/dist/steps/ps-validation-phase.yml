@@ -50,5 +50,8 @@ steps:
     PS_VALIDATION_PWSH_PATH: $(PwshPath)
     PS_VALIDATION_DOTNET_ROOT: $(DotnetRootPath)
     PS_CONTINUE_ON_ERROR: $(ContinueOnError)
-  condition: and(succeeded(), ne(variables['PsValidationSoftFailed'], 'true'))
+  ${{ if eq(parameters.phase, 'Uninstall') }}:
+    condition: and(always(), eq(variables['PsValidationInstalled'], 'true'))
+  ${{ else }}:
+    condition: and(succeeded(), ne(variables['PsValidationSoftFailed'], 'true'))
   displayName: ${{ parameters.display_name }}

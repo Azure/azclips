@@ -5,8 +5,9 @@ Runs one shared Azure PowerShell module validation phase.
 .DESCRIPTION
 Run Install, Upgrade, Validate, and Uninstall in that order using the same installed
 PowerShell executable and user account. Install requires an absolute local gallery
-path in RepositoryRoot; the other phases do not. Upgrade and Validate are explicit
-placeholders. Install already checks imports, exported cmdlets, and external help.
+path in RepositoryRoot; the other phases do not. Upgrade is an explicit placeholder.
+Validate runs the configured module smoke tests after Install checks imports,
+exported cmdlets, and external help.
 
 The distribution bootstrap must run separately first. For a PowerShell global-tool
 installation, put its dotnet directory on PATH and set DOTNET_ROOT in each process.
@@ -87,7 +88,11 @@ switch ($Phase) {
     }
 
     'Validate' {
-        # Intentional placeholder reserved for future post-install validation coverage.
-        Write-Host "PLACEHOLDER: the 'Validate' phase is not implemented yet; skipping."
+        Invoke-ValidationScript `
+            -ScriptPath (Join-Path $PSScriptRoot 'test_ps_smoke.ps1') `
+            -Arguments @(
+                '-SourcePsRoot', $sourcePsRoot,
+                '-PwshPath', $PwshPath
+            )
     }
 }

@@ -36,6 +36,12 @@ jobs:
         shell: pwsh
         run: ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
 
+      - name: Test PowerShell module smoke tests
+        shell: pwsh
+        run: |
+          & pwsh -NoProfile -File ./tests/Scripts/PS/PSSmokeFixtures.ps1
+          exit $LASTEXITCODE
+
       - name: Test PowerShell validation pipeline
         shell: pwsh
         run: ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1

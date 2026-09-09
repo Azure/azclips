@@ -135,7 +135,7 @@ function Complete-PSValidationReport
                 Set-Content -LiteralPath $logPath -Encoding utf8 -ErrorAction Stop
         }
     }
-    $requiredPhases = @($report.phases | Where-Object { $_.phase -in 'Bootstrap', 'Install', 'Uninstall' })
+    $requiredPhases = @($report.phases | Where-Object { $_.phase -in 'Bootstrap', 'Install', 'Validate', 'Uninstall' })
     $report.status = if ($JobStatus -eq 'Canceled') { 'Canceled' }
         elseif ($JobStatus -eq 'Failed' -or @($report.phases | Where-Object { $_.status -eq 'Failed' }).Count -gt 0) { 'Failed' }
         elseif (@($report.phases | Where-Object { $_.status -eq 'SucceededWithIssues' }).Count -gt 0) { 'SucceededWithIssues' }
