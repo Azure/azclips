@@ -99,9 +99,47 @@ public class ExtensionInstaller
         // Extract the main package first
         _logger.Info($"Extracting {packageId}@{version}...");
         await ExtractLibItemsAsync(packageReader, outputDir, cancellationToken);
+        await ExtractSiblingDependenciesAsync(packageReader, packagePath, outputDir, cancellationToken);
 
         _logger.Info($"Installed {packageId}@{version} from {packagePath}");
         return outputDir;
+    }
+
+    private async Task ExtractSiblingDependenciesAsync(
+        PackageArchiveReader packageReader,
+        string packagePath,
+        string outputDir,
+        CancellationToken cancellationToken)
+    {
+        var dependencyGroups = (await packageReader.GetPackageDependenciesAsync(cancellationToken)).ToList();
+        var nearestGroup = NuGetFrameworkUtility.GetNearest(
+            dependencyGroups,
+            TargetFramework,
+            group => group.TargetFramework);
+        if (nearestGroup is null)
+        {
+            return;
+        }
+
+        var packageDirectory = Path.GetDirectoryName(packagePath)!;
+        // ponytail: extension bundles are small; index package identities if this directory grows large.
+        foreach (var dependency in nearestGroup.Packages)
+        {
+            foreach (var candidatePath in Directory.EnumerateFiles(packageDirectory, "*.nupkg"))
+            {
+                using var candidateStream = File.OpenRead(candidatePath);
+                using var candidateReader = new PackageArchiveReader(candidateStream);
+                var identity = await candidateReader.GetIdentityAsync(cancellationToken);
+                if (!dependency.Id.Equals(identity.Id, StringComparison.OrdinalIgnoreCase) ||
+                    !dependency.VersionRange.Satisfies(identity.Version))
+                {
+                    continue;
+                }
+
+                await ExtractLibItemsAsync(candidateReader, outputDir, cancellationToken);
+                break;
+            }
+        }
     }
 
     private string InitializeExtensionFolder(string packageId, string version)
