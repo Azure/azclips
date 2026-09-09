@@ -32,7 +32,14 @@ internal static class CliOutputFormatter
     /// <summary>
     /// Converts a command output value to a display string suitable for the console.
     /// </summary>
-    internal static string FormatValue(object? value)
+    /// <param name="value">The value to render.</param>
+    /// <param name="colorize">
+    /// When <c>true</c>, JSON output for complex objects/collections is syntax-highlighted via
+    /// <see cref="JsonColorizer"/>. Callers must gate this on
+    /// <c>Core.Runtime.ColorPolicy.ShouldEmitColor</c> — this method does not consult it.
+    /// Strings and primitives are unaffected.
+    /// </param>
+    internal static string FormatValue(object? value, bool colorize = false)
     {
         if (value is null)
             return string.Empty;
@@ -53,6 +60,7 @@ internal static class CliOutputFormatter
         // bugs early. A fallback to ToString() is not useful here because it would most
         // likely return a meaningless type name. Once models stabilise, catching and
         // falling back gracefully may be preferable for production resilience.
-        return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+        var json = JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
+        return colorize ? JsonColorizer.Colorize(json) : json;
     }
 }

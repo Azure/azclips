@@ -210,6 +210,48 @@ public class CliOutputFormatterTests
         Assert.DoesNotContain("\\u00e9", result);
     }
 
+    // ── Colorize opt-in ──────────────────────────────────────────────
+
+    [Fact]
+    public void FormatValue_ShouldNotColorize_WhenColorizeParamOmitted()
+    {
+        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "rg1" });
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldColorizeJson_WhenColorizeIsTrue()
+    {
+        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "rg1" }, colorize: true);
+
+        Assert.Contains('\u001b', result);
+        using var doc = JsonDocument.Parse(StripAnsi(result));
+        Assert.Equal("rg1", doc.RootElement.GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeStrings_WhenColorizeIsTrue()
+    {
+        // Strings render as-is (not JSON), so colorize has no effect on them.
+        var result = Core.Cli.CliOutputFormatter.FormatValue("hello world", colorize: true);
+
+        Assert.Equal("hello world", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizePrimitives_WhenColorizeIsTrue()
+    {
+        // Primitives/decimals are out of scope for colorizing (matches the primitive branch,
+        // which renders as a single bare JSON literal with little to gain from highlighting).
+        var result = Core.Cli.CliOutputFormatter.FormatValue(42, colorize: true);
+
+        Assert.Equal("42", result);
+    }
+
+    private static string StripAnsi(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, "\u001b\\[[0-9;]*m", string.Empty);
+
     /// <summary>
     /// A type that intentionally fails JSON serialization by containing a self-reference.
     /// </summary>
