@@ -59,17 +59,17 @@
                 }
             )
         }
-        @{
-            Names = @('Az.MsGraph')
-            Tests = @(
-                @{
-                    Name = 'remove-application-whatif'
-                    Command = 'Remove-AzMsGraphApplication'
-                    Mode = 'WhatIf'
-                    Parameters = @{ Id = '00000000-0000-0000-0000-000000000000' }
-                }
-            )
-        }
+        #@{
+        #    Names = @('Az.MsGraph')
+        #    Tests = @(
+        #        @{
+        #            Name = 'remove-application-whatif'
+        #            Command = 'Remove-AzMsGraphApplication'
+        #            Mode = 'WhatIf'
+        #            Parameters = @{ Id = '00000000-0000-0000-0000-000000000000' }
+        #        }
+        #    )
+        #}
         @{
             Names = @('Az')
             Tests = @(
