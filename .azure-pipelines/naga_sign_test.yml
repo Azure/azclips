@@ -58,8 +58,8 @@ stages:
   displayName: Sign Linux Checksum Manifest Trial
   dependsOn: Preflight
   jobs:
-  - job: SignLinuxX64
-    displayName: Sign Full Linux x64 Tarball Checksum
+  - job: SignLinuxTarballs
+    displayName: Sign All Linux Tarball Checksums
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -80,27 +80,37 @@ stages:
         signing_root="$(Build.ArtifactStagingDirectory)/linux-sign-test"
         mkdir -p "$signing_root"
 
-        mapfile -t candidates < <(
-          find "$source_root" -type f \
-            -name 'azcli-*-linux-x64.tar.gz' \
-            ! -name 'azcli-lean-*' | sort
-        )
+        candidates=()
+        while IFS= read -r candidate; do
+          name="$(basename "$candidate")"
+          if [[ "$name" =~ ^azcli(-lean)?-.+-(linux-(x64|arm64)|linux-musl-(x64|arm64))\.tar\.gz$ ]]; then
+            candidates+=("$candidate")
+          fi
+        done < <(find "$source_root" -type f -name 'azcli-*.tar.gz' | sort)
 
-        if [[ ${#candidates[@]} -ne 1 ]]; then
-          echo "ERROR: Expected exactly one full linux-x64 tarball; found ${#candidates[@]}."
+        if [[ ${#candidates[@]} -ne 8 ]]; then
+          echo "ERROR: Expected eight Linux CLI tarballs (full and lean for four RIDs); found ${#candidates[@]}."
           printf '  %s\n' "${candidates[@]}"
           exit 1
         fi
 
-        cp "${candidates[0]}" "$signing_root/"
-        target_name="$(basename "${candidates[0]}")"
+        for candidate in "${candidates[@]}"; do
+          cp "$candidate" "$signing_root/"
+        done
+
         cd "$signing_root"
-        sha256sum "$target_name" > SHA256SUMS
+        mapfile -t target_names < <(find . -maxdepth 1 -type f -name 'azcli-*.tar.gz' -printf '%f\n' | sort)
+        if [[ ${#target_names[@]} -ne 8 ]]; then
+          echo 'ERROR: Linux tarball basenames were not unique after collection.'
+          exit 1
+        fi
+
+        sha256sum "${target_names[@]}" > SHA256SUMS
         cp SHA256SUMS SHA256SUMS.sig
 
-        echo "Prepared signing input for $target_name"
+        echo 'Prepared signing input for these Linux tarballs:'
         cat SHA256SUMS
-      displayName: Prepare Linux Checksum Manifest
+      displayName: Prepare All Linux Checksums
     - task: EsrpCodeSigning@6
       displayName: ESRP Sign Linux Checksum Manifest
       inputs:
@@ -131,7 +141,11 @@ stages:
         signing_root="$(Build.ArtifactStagingDirectory)/linux-sign-test"
         cd "$signing_root"
 
-        sha256sum --check SHA256SUMS
+        checked_count=$(sha256sum --check SHA256SUMS | tee /dev/stderr | grep -c ': OK$')
+        if [[ "$checked_count" -ne 8 ]]; then
+          echo "ERROR: Expected eight verified Linux tarballs; got $checked_count."
+          exit 1
+        fi
         if cmp --silent SHA256SUMS SHA256SUMS.sig; then
           echo 'ERROR: ESRP did not replace SHA256SUMS.sig with a detached signature.'
           exit 1
