@@ -181,7 +181,8 @@ Use the module's real exported command and full parameter names. Add further
 named hashtables to `Tests` for more cases; no runner or pipeline edits are needed.
 Every discovered source module must be configured, with at least one case.
 Unconfigured modules, duplicate names, unknown properties, or invalid assertions
-fail before execution. Entries for modules absent from a particular branch are
+fail in **Validate Azure PS**, before smoke commands execute, not in the build-time
+fixture suite or matrix generation. Entries for modules absent from a particular branch are
 allowed: the shared Accounts/Login entry supports the authentication-module rename,
 and Identity/MsGraph entries also cover the current main-branch package set.
 
@@ -320,6 +321,12 @@ pwsh -NoProfile -File tests\Scripts\PS\PSModuleLifecycleFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSSmokeFixtures.ps1
 pwsh -NoProfile -File tests\Scripts\PS\PSValidationPipelineFixtures.ps1
 ```
+
+Smoke fixtures use their own synthetic configurations, not `ps_smoke_tests.psd1`.
+They exercise runner behaviour (including the expected failure for missing coverage)
+without enforcing the current production module/test catalogue. Removing a production
+case therefore fails the actual Validate task after installation, while the build
+fixtures remain independent.
 
 The matrix suite uses registry fixtures. Lifecycle fixtures isolate mocked module
 operations in child processes. Smoke fixtures import actual dummy script modules

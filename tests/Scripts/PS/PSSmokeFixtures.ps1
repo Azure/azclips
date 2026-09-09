@@ -5,7 +5,8 @@ Exercises smoke configuration, real script-module imports, commands, and reports
 .DESCRIPTION
 Creates versioned dummy modules under an OS temporary directory. Child processes
 see only those modules and PowerShell's built-in modules. Does not install Az,
-call Azure, or change user module/repository registrations.
+call Azure, or change user module/repository registrations. All smoke definitions
+are fixture-owned; production configuration coverage belongs to the Validate phase.
 #>
 [CmdletBinding()]
 param()
@@ -13,7 +14,6 @@ param()
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).ProviderPath
 $smokeScript = Join-Path $repoRoot 'devops\scripts\packaging\powershell\test_ps_smoke.ps1'
-$defaultConfig = Join-Path $repoRoot 'devops\scripts\packaging\powershell\ps_smoke_tests.psd1'
 $pwshPath = (Get-Process -Id $PID).Path
 $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) "azclips-smoke-fixtures-$([guid]::NewGuid().ToString('N'))"
 $originalModulePath = $env:PSModulePath
@@ -114,11 +114,11 @@ function Reset-Fixture
 
 function Invoke-FixtureSmoke
 {
-    param([bool]$ExpectSuccess, [string]$Config = (Join-Path $fixtureRoot 'smoke.psd1'), [int]$Timeout = 30)
+    param([bool]$ExpectSuccess, [int]$Timeout = 30)
     $failed = $false
     try
     {
-        & $smokeScript -SourcePsRoot (Join-Path $fixtureRoot 'source') -ConfigPath $Config `
+        & $smokeScript -SourcePsRoot (Join-Path $fixtureRoot 'source') -ConfigPath (Join-Path $fixtureRoot 'smoke.psd1') `
             -PwshPath $pwshPath -ReportRoot (Join-Path $fixtureRoot 'reports') -TimeoutSeconds $Timeout 6>$null
     }
     catch
@@ -248,20 +248,13 @@ function Get-SmokeValue { [CmdletBinding()]param([switch]$KeysOnly) Start-Sleep 
     foreach ($accountModule in 'Az.Login', 'Az.Accounts')
     {
         Reset-Fixture
-        foreach ($manifest in @(Get-ChildItem (Join-Path $fixtureRoot 'source') -File)) { Remove-Item -LiteralPath $manifest.FullName }
-        $defaultBody = @'
-function Disconnect-AzAccount { [CmdletBinding(SupportsShouldProcess = $true)]param() if ($PSCmdlet.ShouldProcess('fixture', 'Disconnect')) { throw 'Mutation is forbidden.' } }
-function Remove-AzVM { [CmdletBinding(SupportsShouldProcess = $true)]param([string]$SubscriptionId, [string]$ResourceGroupName, [string]$Name) if ($PSCmdlet.ShouldProcess($Name, 'Remove')) { throw 'Mutation is forbidden.' } }
-function Get-AzConfigInfo { [CmdletBinding()]param([switch]$KeysOnly) if (-not $KeysOnly) { throw 'Values must not be read.' }; 'config.key' }
-function Get-AzResourceGroup { [CmdletBinding()]param([string]$SubscriptionId, [string]$Profile) Write-Error -Message "Profile '$Profile' does not exist." -ErrorId System.ArgumentException }
-function Remove-AzUserAssignedIdentity { [CmdletBinding(SupportsShouldProcess = $true)]param([string]$SubscriptionId, [string]$ResourceGroupName, [string]$Name) if ($PSCmdlet.ShouldProcess($Name, 'Remove')) { throw 'Mutation is forbidden.' } }
-function Remove-AzMsGraphApplication { [CmdletBinding(SupportsShouldProcess = $true)]param([string]$Id) if ($PSCmdlet.ShouldProcess($Id, 'Remove')) { throw 'Mutation is forbidden.' } }
-'@
-        foreach ($name in @($accountModule, 'Az.Compute', 'Az.Config', 'Az.Resources', 'Az.Identity', 'Az.MsGraph')) { New-FixtureModule $name $defaultBody }
-        New-FixtureModule Az '' -Requires "@(@{ ModuleName = 'Az.Config'; ModuleVersion = '1.2.3' })"
-        $report = Invoke-FixtureSmoke $true -Config $defaultConfig
-        Assert-Fixture ($report.modules.Count -eq 7) 'Default config must cover both authentication names and current main modules.'
-        Complete-Fixture "Default configuration with $accountModule, Identity, and MsGraph"
+        New-FixtureModule $accountModule $probeBody
+        $aliasConfig = $baselineConfig.Replace("Names = @('Az.Probe')", "Names = @('Az.Probe', 'Az.Login', 'Az.Accounts')")
+        Set-Content -LiteralPath (Join-Path $fixtureRoot 'smoke.psd1') -Value $aliasConfig
+        $report = Invoke-FixtureSmoke $true
+        Assert-Fixture ($report.modules.Count -eq 4) 'Module aliases must cover the discovered authentication module.'
+        Assert-Fixture ($report.modules[0].module -eq $accountModule -and $report.modules[0].tests.Count -eq 3) 'Both authentication names retain canonical order and execute their aliased cases.'
+        Complete-Fixture "Fixture-owned module aliases with $accountModule"
     }
 
     Write-Host "All $script:passed PowerShell smoke fixture groups passed."
