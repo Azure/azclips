@@ -135,6 +135,7 @@ describe("emitter e2e: pets.tsp → IR", () => {
 describe("emitter e2e: enum-service.tsp → IREnum.isFixed", () => {
   const ENUM_TSP = normalizePath(resolve(here, "fixtures", "enum-service.tsp"));
   let enumIr: IR;
+  let enumDiagnostics: readonly Diagnostic[];
 
   beforeAll(async () => {
     const written = new Map<string, string>();
@@ -149,6 +150,7 @@ describe("emitter e2e: enum-service.tsp → IREnum.isFixed", () => {
       emit: [EMITTER],
       options: { [EMITTER]: { format: "json", outputFile: "ir.json", pretty: true } },
     });
+    enumDiagnostics = program.diagnostics;
     const errors = program.diagnostics.filter((d) => d.severity === "error");
     expect(errors).toEqual([]);
     const entry = [...written.entries()].find(([p]) => p.endsWith("ir.json"));
@@ -160,7 +162,14 @@ describe("emitter e2e: enum-service.tsp → IREnum.isFixed", () => {
     expect(() => parseIR(enumIr)).not.toThrow();
     expect(enumIr.enums.find((e) => e.name === "ClosedEnum")?.isFixed).toBe(true);
     expect(enumIr.enums.find((e) => e.name === "ClosedUnion")?.isFixed).toBe(true);
-    expect(enumIr.enums.find((e) => e.name === "OpenUnion")?.isFixed).toBe(false);
+    const openUnion = enumIr.enums.find((e) => e.name === "OpenUnion");
+    expect(openUnion?.isFixed).toBe(false);
+    expect(openUnion?.members.map((member) => member.value)).toEqual(["one", "two"]);
+  });
+
+  it("warns when emitting an extensible enum", () => {
+    const warnings = enumDiagnostics.filter((d) => d.severity === "warning");
+    expect(warnings.filter((d) => d.code.endsWith("/open-enum-emitted"))).toHaveLength(1);
   });
 });
 

@@ -8,11 +8,13 @@
  * `isUnionAsEnum: true`. They show up here exactly like any other enum.
  */
 
+import { NoTarget } from "@typespec/compiler";
 import { UsageFlags } from "@azure-tools/typespec-client-generator-core";
 import type { SdkEnumType } from "@azure-tools/typespec-client-generator-core";
 import type { IREnum, IREnumMember } from "@azure-client-engine/ir";
 
 import type { BuildContext } from "./context.js";
+import { reportDiagnostic } from "./lib.js";
 import { accessFrom, usageFrom } from "./annotations.js";
 import { idFor } from "./types.js";
 
@@ -25,6 +27,15 @@ function valueTypeOf(e: SdkEnumType): "string" | "number" {
 }
 
 export function enumFrom(ctx: BuildContext, e: SdkEnumType): IREnum | undefined {
+  if (!e.isFixed && !ctx.flags.openEnumWarned) {
+    reportDiagnostic(ctx.program, {
+      code: "open-enum-emitted",
+      format: { enum: e.name },
+      target: NoTarget,
+    });
+    ctx.flags.openEnumWarned = true;
+  }
+
   const id = idFor(ctx, e);
   const members: IREnumMember[] = e.values.map((v) => ({
     name: v.name,

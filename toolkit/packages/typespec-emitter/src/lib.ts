@@ -133,6 +133,12 @@ export const $lib = createTypeSpecLibrary({
         default: `Override methods (SdkServiceMethod.isOverride) are not emitted; skipping.`,
       },
     },
+    "open-enum-emitted": {
+      severity: "warning",
+      messages: {
+        default: paramMessage`Extensible enum '${"enum"}' was emitted as a regular IR enum with isFixed=false; consumers must preserve its known values while accepting unknown values.`,
+      },
+    },
     "ir-validation-failed": {
       severity: "error",
       messages: {
