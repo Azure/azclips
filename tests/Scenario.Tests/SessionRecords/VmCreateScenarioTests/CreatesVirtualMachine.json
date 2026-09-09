@@ -478,7 +478,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\"id\":null,\"location\":\"westus2\",\"properties\":{\"networkSecurityGroup\":{\"id\":\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\",\"location\":null,\"tags\":null,\"properties\":{\"flushConnection\":false,\"securityRules\":[]}},\"ipConfigurations\":[{\"name\":\"ipconfig0\",\"properties\":{\"subnet\":{\"name\":null,\"id\":\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/virtualNetworks/scenario-vm-vnet/subnets/default\",\"properties\":{\"addressPrefix\":\"\",\"addressPrefixes\":[],\"serviceEndpoints\":[],\"serviceEndpointPolicies\":[],\"ipAllocations\":[],\"delegations\":[],\"privateEndpointNetworkPolicies\":\"Disabled\",\"privateLinkServiceNetworkPolicies\":\"Enabled\",\"applicationGatewayIPConfigurations\":[],\"ipamPoolPrefixAllocations\":[]}},\"virtualNetworkTaps\":[],\"applicationGatewayBackendAddressPools\":[],\"loadBalancerBackendAddressPools\":[],\"loadBalancerInboundNatRules\":[],\"privateIPAllocationMethod\":\"Dynamic\",\"primary\":true}}],\"enableAcceleratedNetworking\":true,\"enableIPForwarding\":false}}"
+        "body": "{\"id\":null,\"location\":\"westus2\",\"properties\":{\"networkSecurityGroup\":{\"id\":\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-vm-nsg\",\"location\":null,\"tags\":null,\"properties\":{\"flushConnection\":false,\"securityRules\":[]}},\"ipConfigurations\":[{\"name\":\"ipconfig0\",\"properties\":{\"subnet\":{\"name\":null,\"id\":\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/virtualNetworks/scenario-vm-vnet/subnets/default\",\"properties\":{\"addressPrefix\":\"\",\"addressPrefixes\":[\"10.0.0.0/24\"],\"serviceEndpoints\":[],\"serviceEndpointPolicies\":[],\"ipAllocations\":[],\"delegations\":[],\"privateEndpointNetworkPolicies\":\"Disabled\",\"privateLinkServiceNetworkPolicies\":\"Enabled\",\"applicationGatewayIPConfigurations\":[],\"ipamPoolPrefixAllocations\":[]}},\"virtualNetworkTaps\":[],\"applicationGatewayBackendAddressPools\":[],\"loadBalancerBackendAddressPools\":[],\"loadBalancerInboundNatRules\":[],\"privateIPAllocationMethod\":\"Dynamic\",\"primary\":true}}],\"enableAcceleratedNetworking\":true,\"enableIPForwarding\":false}}"
       },
       "response": {
         "statusCode": 200,
@@ -672,13 +672,13 @@
     {
       "request": {
         "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm?api-version=2025-11-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm?api-version=2025-04-01",
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\"id\":null,\"name\":null,\"location\":\"westus2\",\"properties\":{\"hardwareProfile\":{\"vmSize\":\"Standard_D2s_v3\"},\"storageProfile\":{\"osDisk\":null,\"imageReference\":{\"publisher\":\"MicrosoftWindowsServer\",\"offer\":\"WindowsServer\",\"sku\":\"2022-datacenter-azure-edition\",\"version\":\"latest\"}},\"osProfile\":{\"computerName\":\"scenario-vm\",\"adminUsername\":\"azadmin\",\"adminPassword\":\"[redacted]\",\"windowsConfiguration\":{}},\"networkProfile\":{\"networkInterfaces\":[{\"id\":\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\",\"primary\":null,\"deleteOption\":null}]},\"securityProfile\":{\"uefiSettings\":{\"secureBootEnabled\":true,\"vTpmEnabled\":true},\"securityType\":\"trustedlaunch\"},\"diagnosticsProfile\":{\"bootDiagnostics\":{\"enabled\":false}}}}"
+        "body": "{\"id\":null,\"name\":null,\"location\":\"westus2\",\"properties\":{\"hardwareProfile\":{\"vmSize\":\"Standard_D2s_v3\"},\"storageProfile\":{\"osDisk\":{\"createOption\":\"FromImage\"},\"imageReference\":{\"publisher\":\"MicrosoftWindowsServer\",\"offer\":\"WindowsServer\",\"sku\":\"2022-datacenter-azure-edition\",\"version\":\"latest\"}},\"osProfile\":{\"computerName\":\"scenario-vm\",\"adminUsername\":\"azadmin\",\"adminPassword\":\"[redacted]\",\"windowsConfiguration\":{}},\"networkProfile\":{\"networkInterfaces\":[{\"id\":\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Network/networkInterfaces/scenario-vm-nic\",\"primary\":null,\"deleteOption\":null}]},\"securityProfile\":{\"uefiSettings\":{\"secureBootEnabled\":true,\"vTpmEnabled\":true},\"securityType\":\"trustedlaunch\"},\"diagnosticsProfile\":{\"bootDiagnostics\":{\"enabled\":false}}}}"
       },
       "response": {
         "statusCode": 201,
@@ -947,7 +947,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm?api-version=2025-11-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/virtualMachines/scenario-vm?api-version=2025-04-01",
         "headers": {}
       },
       "response": {

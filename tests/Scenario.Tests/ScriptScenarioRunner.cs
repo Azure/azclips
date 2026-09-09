@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Core.Abstractions;
 using Core.Recording;
 using Tests.Common.Utilities;
 
@@ -36,10 +37,21 @@ internal static class ScriptScenarioRunner
             var recordingCopy = Path.Combine(home, "recording.json");
             File.Copy(recordingPath, recordingCopy);
             SeedPlaybackProfile(home);
+            SeedInstalledExtensions(home, repoRoot);
 
-            var (shell, arguments) = scriptName.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
+            var isPowerShellScript = scriptName.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase);
+            var homeValue = home.Replace('\\', '/');
+            var recordingValue = recordingCopy.Replace('\\', '/');
+            var azPath = ResolveCliBinary(repoRoot);
+            var bashPath = isPowerShellScript ? null : ResolveBash();
+            var useGitBashPaths = bashPath is not null && IsGitBashPath(bashPath);
+            var (shell, arguments) = isPowerShellScript
                 ? ("pwsh", new[] { "-NoProfile", "-File", scriptPath })
-                : ("bash", [scriptPath]);
+                : (bashPath!,
+                [
+                    "-lc",
+                    $"AZCLIPS_HOME={QuoteForBash(homeValue)} {RecordingHook.RecordingPathVariable}={QuoteForBash(recordingValue)} AZCLIPS_TEST_AZ={QuoteForBash(ToBashPath(azPath, useGitBashPaths))} exec {QuoteForBash(ToBashPath(scriptPath, useGitBashPaths))}"
+                ]);
 
             var psi = new ProcessStartInfo
             {
@@ -54,9 +66,11 @@ internal static class ScriptScenarioRunner
             }
 
             // Forward slashes keep the same value valid for pwsh, bash, and the CLI itself.
-            psi.Environment["AZCLIPS_HOME"] = home.Replace('\\', '/');
-            psi.Environment[RecordingHook.RecordingPathVariable] = recordingCopy.Replace('\\', '/');
-            psi.Environment["AZCLIPS_TEST_AZ"] = ResolveCliBinary(repoRoot).Replace('\\', '/');
+            psi.Environment["AZCLIPS_HOME"] = homeValue;
+            psi.Environment[RecordingHook.RecordingPathVariable] = recordingValue;
+            psi.Environment["AZCLIPS_TEST_AZ"] = !isPowerShellScript
+                ? ToBashPath(azPath, useGitBashPaths)
+                : azPath.Replace('\\', '/');
             // Script tests always replay; an ambient record-mode run must not leak in.
             psi.Environment.Remove(RecorderModeResolver.EnvironmentVariable);
 
@@ -100,8 +114,90 @@ internal static class ScriptScenarioRunner
         File.WriteAllText(Path.Combine(home, "active-profile"), "playback");
     }
 
+    private static void SeedInstalledExtensions(string home, string repoRoot)
+    {
+        var extensionsRoot = Path.Combine(home, HomePaths.ExtensionsDirectoryName);
+        CopyExtensionPackage(repoRoot, extensionsRoot, "Microsoft.Azure.Azclips.Extensions.Resources");
+        CopyExtensionPackage(repoRoot, extensionsRoot, "Microsoft.Azure.Azclips.Extensions.Compute");
+    }
+
+    private static void CopyExtensionPackage(string repoRoot, string extensionsRoot, string packageId)
+    {
+        var sourceRoot = Path.Combine(repoRoot, "artifacts", BuildConfiguration, packageId);
+        if (!Directory.Exists(sourceRoot))
+        {
+            throw new InvalidOperationException($"Extension package output not found: {sourceRoot}. Run `dotnet build azclips.slnx` first.");
+        }
+
+        var version = Directory.EnumerateFiles(sourceRoot, $"{packageId}.*.nupkg", SearchOption.TopDirectoryOnly)
+            .Select(path => TryGetPackageVersion(packageId, Path.GetFileName(path)))
+            .Where(version => !string.IsNullOrWhiteSpace(version))
+            .OrderByDescending(version => version, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault()
+            ?? throw new InvalidOperationException($"Could not resolve extension package version for {packageId} under {sourceRoot}.");
+
+        var destinationRoot = Path.Combine(extensionsRoot, packageId, version);
+        Directory.CreateDirectory(destinationRoot);
+        foreach (var sourcePath in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.TopDirectoryOnly))
+        {
+            File.Copy(sourcePath, Path.Combine(destinationRoot, Path.GetFileName(sourcePath)), overwrite: true);
+        }
+    }
+
+    private static string? TryGetPackageVersion(string packageId, string fileName)
+    {
+        var prefix = packageId + ".";
+        const string suffix = ".nupkg";
+        return fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+               fileName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+            ? fileName[prefix.Length..^suffix.Length]
+            : null;
+    }
+
+    private static string QuoteForBash(string value) => $"'{value.Replace("'", "'\\''")}'";
+
+    private static string ToBashPath(string path, bool useGitBashPaths)
+    {
+        var normalized = path.Replace('\\', '/');
+        return OperatingSystem.IsWindows() &&
+               normalized.Length >= 2 &&
+               normalized[1] == ':' &&
+               char.IsAsciiLetter(normalized[0])
+            ? useGitBashPaths
+                ? $"/{char.ToLowerInvariant(normalized[0])}{normalized[2..]}"
+                : $"/mnt/{char.ToLowerInvariant(normalized[0])}{normalized[2..]}"
+            : normalized;
+    }
+
+    private static string ResolveBash()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return "bash";
+        }
+
+        string[] candidatePaths =
+        [
+            @"C:\Program Files\Git\bin\bash.exe",
+            @"C:\Program Files\Git\usr\bin\bash.exe",
+            @"C:\Program Files (x86)\Git\bin\bash.exe",
+            @"C:\Program Files (x86)\Git\usr\bin\bash.exe",
+        ];
+        return candidatePaths.FirstOrDefault(File.Exists) ?? "bash";
+    }
+
+    private static bool IsGitBashPath(string path) =>
+        path.Contains(@"\Git\", StringComparison.OrdinalIgnoreCase) ||
+        path.Replace('\\', '/').Contains("/Git/", StringComparison.OrdinalIgnoreCase);
+
     private static string ResolveCliBinary(string repoRoot)
     {
+        var testBinary = Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "az.exe" : "az");
+        if (File.Exists(testBinary))
+        {
+            return testBinary;
+        }
+
         var binary = Path.Combine(
             repoRoot, "artifacts", BuildConfiguration, "Core.Cli",
             OperatingSystem.IsWindows() ? "az.exe" : "az");
