@@ -212,7 +212,6 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases:
-- SubscriptionName
 - Subscription
 ParameterSets:
 - Name: (All)

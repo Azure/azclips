@@ -19,7 +19,7 @@ public class ConnectAccountCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(Mandatory = false)]
-    [Alias("SubscriptionName", "Subscription")]
+    [Alias("Subscription")]
     public string? SubscriptionId { get; set; }
 
     [Parameter(Mandatory = false)]

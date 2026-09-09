@@ -90,7 +90,7 @@ public class ConnectAccountCmdletTests
     // The PS binder resolves -Subscription/-Tenant/-DeviceCode etc. via [Alias] on the cmdlet
     // property, so a missing alias silently breaks Az-parity invocations at bind time.
     [Theory]
-    [InlineData("SubscriptionId", new[] { "SubscriptionName", "Subscription" })]
+    [InlineData("SubscriptionId", new[] { "Subscription" })]
     [InlineData("TenantId", new[] { "Tenant", "Domain" })]
     [InlineData("UseDeviceCode", new[] { "DeviceCode", "DeviceAuth", "Device", "UseDeviceAuthentication" })]
     public void Cmdlet_Parameter_ShouldHaveClassicAliases(string property, string[] expectedAliases)
@@ -138,7 +138,6 @@ public class ConnectAccountCmdletTests
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
 
-        Assert.Equal("SubscriptionId", metadata.ParameterAliases["SubscriptionName"]);
         Assert.Equal("SubscriptionId", metadata.ParameterAliases["Subscription"]);
         Assert.Equal("TenantId", metadata.ParameterAliases["Tenant"]);
         Assert.Equal("TenantId", metadata.ParameterAliases["Domain"]);

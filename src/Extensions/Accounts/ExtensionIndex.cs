@@ -25,7 +25,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: ["SubscriptionName", "Subscription"], AllowedValues: []),
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: ["Subscription"], AllowedValues: []),
                 ["TenantId"]       = new("TenantId", "TenantId", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: ["Tenant", "Domain"], AllowedValues: []),
                 ["UseDeviceCode"]  = new("UseDeviceCode", "UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: ["DeviceCode", "DeviceAuth", "Device", "UseDeviceAuthentication"], AllowedValues: []),
                 ["OutProfile"]     = new("OutProfile", "OutProfile", typeof(string), "Create or overwrite a named profile with the login result (mutually exclusive with -Profile).", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -37,7 +37,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts
             },
             ParameterAliases: new Dictionary<string, string>
             {
-                ["SubscriptionName"]       = "SubscriptionId",
                 ["Subscription"]           = "SubscriptionId",
                 ["Tenant"]                 = "TenantId",
                 ["Domain"]                 = "TenantId",
