@@ -319,12 +319,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: ["-vm-name", "n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
                 ["ids"]             = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["skip-shutdown"]   = new("SkipShutdown", "skip-shutdown", typeof(bool), "Skip shutdown and power off immediately.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["vm-name"] = "name",
+                ["n"] = "name",
+                ["g"] = "resource-group",
+            }
         );
         private static readonly CommandMetadata s_deallocateVM_CLI = new(
             Name: "DeallocateVMProcessor_Orchestrator",
@@ -336,13 +341,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["resource-group"]   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: false, Aliases: ["-vm-name", "n"], AllowedValues: []),
+                ["resource-group"]   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
                 ["ids"]              = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["hibernate"]        = new("Hibernate", "hibernate", typeof(bool), "Hibernate the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["force-deallocate"] = new("ForceDeallocate", "force-deallocate", typeof(bool), "Force deallocate the virtual machine. Default is false.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["vm-name"] = "name",
+                ["n"] = "name",
+                ["g"] = "resource-group",
+            }
         );
         // Lives under the `disk` verb declared by the class-level [ExtensionVerb("disk")]
         // attribute — proves one extension can contribute to multiple top-level namespaces.
