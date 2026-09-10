@@ -214,10 +214,11 @@ public class Program
 
     private static OutputStreams BuildStreams(CliLogLevel level)
     {
+        var colorizeOutput = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, colorizeOutput));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>

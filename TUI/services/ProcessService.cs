@@ -31,17 +31,26 @@ class ProcessService
 
         try
         {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = CliPath,
+                Arguments = args,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+
+            // The TUI applies its own severity/theme coloring to captured lines
+            // (HistoryRenderer/ClassifyLine) — force color off in the child regardless of the
+            // user's core.output.color config so az's own ANSI codes (e.g. colorized JSON) never
+            // get nested inside the TUI's wrapping and corrupt it. NO_COLOR has top precedence in
+            // ColorPolicy.ShouldEmitColor, overriding "always" too.
+            startInfo.Environment["NO_COLOR"] = "1";
+
             _runningProcess = new Process
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = CliPath,
-                    Arguments = args,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                },
+                StartInfo = startInfo,
                 EnableRaisingEvents = true,
             };
 
