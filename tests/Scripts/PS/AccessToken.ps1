@@ -23,7 +23,7 @@ function Section($title) {
 
 Section 'Get-AzAccessToken (default target - ARM)'
 $armToken = Get-AzAccessToken
-$armToken | Select-Object TenantId, ExpiresOn, ExpiresOnUnixTime, TokenType | Format-List | Out-Host
+$armToken | Select-Object TenantId, ExpiresOn, ExpiresOnUnixTime, Type | Format-List | Out-Host
 
 Section 'Secure by default: token is a SecureString, not plain text'
 $secure = Get-AzAccessToken

@@ -36,7 +36,8 @@ public record AccessTokenResult
     public string? UserId { get; init; }
 
     /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>
-    public string TokenType { get; init; } = "Bearer";
+    [JsonPropertyName("tokenType")]
+    public string Type { get; init; } = "Bearer";
 }
 
 /// <summary>
@@ -66,5 +67,6 @@ public record SecureAccessTokenResult
     public string? UserId { get; init; }
 
     /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>
-    public string TokenType { get; init; } = "Bearer";
+    [JsonPropertyName("tokenType")]
+    public string Type { get; init; } = "Bearer";
 }
