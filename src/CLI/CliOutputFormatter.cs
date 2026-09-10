@@ -33,13 +33,21 @@ internal static class CliOutputFormatter
     /// Converts a command output value to a display string suitable for the console.
     /// </summary>
     /// <param name="value">The value to render.</param>
-    /// <param name="colorize">
-    /// When <c>true</c>, JSON output for complex objects/collections is syntax-highlighted via
-    /// <see cref="JsonColorizer"/>. Callers must gate this on
-    /// <c>Core.Runtime.ColorPolicy.ShouldEmitColor</c> — this method does not consult it.
-    /// Strings and primitives are unaffected.
+    /// <param name="format">
+    /// Desired output shape. <see cref="Parser.OutputFormat.Json"/>/<see cref="Parser.OutputFormat.Yaml"/>
+    /// never colorize regardless of <paramref name="colorPolicyAllowsColor"/> (deterministic for
+    /// scripting); <see cref="Parser.OutputFormat.Jsonc"/> colorizes via <see cref="JsonColorizer"/>
+    /// when <paramref name="colorPolicyAllowsColor"/> is <c>true</c>.
+    /// <see cref="Parser.OutputFormat.Yamlc"/> coloring is tracked separately (azclips#836) and
+    /// currently renders identically to <see cref="Parser.OutputFormat.Yaml"/>.
+    /// Strings and primitives are unaffected by <paramref name="format"/> -- a scalar renders the
+    /// same in every format.
     /// </param>
-    internal static string FormatValue(object? value, bool colorize = false)
+    /// <param name="colorPolicyAllowsColor">
+    /// Whether <c>Core.Runtime.ColorPolicy.ShouldEmitColor</c> currently allows color. This method
+    /// does not consult the policy itself -- callers gate it.
+    /// </param>
+    internal static string FormatValue(object? value, Parser.OutputFormat format = Parser.OutputFormat.Json, bool colorPolicyAllowsColor = false)
     {
         if (value is null)
             return string.Empty;
@@ -51,7 +59,8 @@ internal static class CliOutputFormatter
         // "true"/"false" (valid JSON literals consumable by scripts and tools like jq)
         // rather than Boolean.ToString()'s "True"/"False". JSON also guarantees invariant
         // formatting for numerics (period as decimal separator), so int/double/decimal
-        // render locale-independently (e.g., 3.14 not 3,14).
+        // render locale-independently (e.g., 3.14 not 3,14). A scalar's shape doesn't change
+        // across formats, so this branch is format-agnostic.
         var type = value.GetType();
         if (type.IsPrimitive || type == typeof(decimal))
             return JsonSerializer.Serialize(value, type, s_jsonOptions);
@@ -61,6 +70,14 @@ internal static class CliOutputFormatter
         // likely return a meaningless type name. Once models stabilise, catching and
         // falling back gracefully may be preferable for production resilience.
         var json = JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
-        return colorize ? JsonColorizer.Colorize(json) : json;
+
+        return format switch
+        {
+            Parser.OutputFormat.Table => TableFormatter.Format(json),
+            Parser.OutputFormat.Tsv => TsvFormatter.Format(json),
+            Parser.OutputFormat.Yaml or Parser.OutputFormat.Yamlc => YamlFormatter.Format(json),
+            Parser.OutputFormat.Jsonc => colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json,
+            _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
+        };
     }
 }

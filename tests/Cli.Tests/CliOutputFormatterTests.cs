@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text.Json;
+using Core.Cli.Parser;
 
 namespace Cli.Tests;
 
@@ -65,6 +66,43 @@ public class CliOutputFormatterTests
         using var doc = JsonDocument.Parse(result);
         Assert.Equal("test-rg", doc.RootElement.GetProperty("name").GetString());
         Assert.Equal("eastus", doc.RootElement.GetProperty("location").GetString());
+    }
+
+    // ── Format routing: table/tsv/yaml delegate to their formatters ──
+
+    [Fact]
+    public void FormatValue_ShouldRouteToTableFormatter_WhenFormatIsTable()
+    {
+        var arr = new[] { new { Name = "rg1" } };
+        var result = Core.Cli.CliOutputFormatter.FormatValue(arr, OutputFormat.Table);
+
+        Assert.Equal(Core.Cli.TableFormatter.Format("""[{"name":"rg1"}]"""), result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldRouteToTsvFormatter_WhenFormatIsTsv()
+    {
+        var arr = new[] { new { Name = "rg1" } };
+        var result = Core.Cli.CliOutputFormatter.FormatValue(arr, OutputFormat.Tsv);
+
+        Assert.Equal("rg1", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldRouteToYamlFormatter_WhenFormatIsYaml()
+    {
+        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yaml);
+
+        Assert.Equal("name: rg1", result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldRouteToYamlFormatter_WhenFormatIsYamlc()
+    {
+        // Yamlc coloring is tracked separately (azclips#836) -- currently identical to Yaml.
+        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Yamlc, colorPolicyAllowsColor: true);
+
+        Assert.Equal("name: rg1", result);
     }
 
     // ── Arrays / Collections → JSON array ────────────────────────────
@@ -221,9 +259,9 @@ public class CliOutputFormatterTests
     }
 
     [Fact]
-    public void FormatValue_ShouldColorizeJson_WhenColorizeIsTrue()
+    public void FormatValue_ShouldColorizeJson_WhenFormatIsJsoncAndPolicyAllowsColor()
     {
-        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "rg1" }, colorize: true);
+        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Jsonc, colorPolicyAllowsColor: true);
 
         Assert.Contains('\u001b', result);
         using var doc = JsonDocument.Parse(StripAnsi(result));
@@ -231,10 +269,28 @@ public class CliOutputFormatterTests
     }
 
     [Fact]
+    public void FormatValue_ShouldNotColorizeJson_WhenFormatIsJsonEvenIfPolicyAllowsColor()
+    {
+        // json (no 'c') never colorizes, regardless of core.output.color -- deterministic output
+        // for scripting even if the user has core.output.color=always configured globally.
+        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Json, colorPolicyAllowsColor: true);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
+    public void FormatValue_ShouldNotColorizeJsonc_WhenPolicyDisallowsColor()
+    {
+        var result = Core.Cli.CliOutputFormatter.FormatValue(new { Name = "rg1" }, OutputFormat.Jsonc, colorPolicyAllowsColor: false);
+
+        Assert.DoesNotContain('\u001b', result);
+    }
+
+    [Fact]
     public void FormatValue_ShouldNotColorizeStrings_WhenColorizeIsTrue()
     {
         // Strings render as-is (not JSON), so colorize has no effect on them.
-        var result = Core.Cli.CliOutputFormatter.FormatValue("hello world", colorize: true);
+        var result = Core.Cli.CliOutputFormatter.FormatValue("hello world", OutputFormat.Jsonc, colorPolicyAllowsColor: true);
 
         Assert.Equal("hello world", result);
     }
@@ -244,7 +300,7 @@ public class CliOutputFormatterTests
     {
         // Primitives/decimals are out of scope for colorizing (matches the primitive branch,
         // which renders as a single bare JSON literal with little to gain from highlighting).
-        var result = Core.Cli.CliOutputFormatter.FormatValue(42, colorize: true);
+        var result = Core.Cli.CliOutputFormatter.FormatValue(42, OutputFormat.Jsonc, colorPolicyAllowsColor: true);
 
         Assert.Equal("42", result);
     }

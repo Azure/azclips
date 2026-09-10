@@ -38,7 +38,7 @@ public class Program
     private static ITelemetryService? _telemetryService = null;
     private static IConfigurationService? _configurationService = null;
 
-    private static OutputStreams streams = BuildStreams(CliLogLevel.Info);
+    private static OutputStreams streams = BuildStreams(CliLogLevel.Info, OutputFormat.Json);
 
     public static async Task<int> Main(string[] args)
     {
@@ -132,7 +132,7 @@ public class Program
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 ColorPolicy.Initialize(settings.Color);
-                streams = BuildStreams(settings.LogLevel);
+                streams = BuildStreams(settings.LogLevel, settings.Format);
                 outputJson = settings.Format is OutputFormat.Json or OutputFormat.Jsonc;
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
@@ -214,13 +214,13 @@ public class Program
         }
     }
 
-    private static OutputStreams BuildStreams(CliLogLevel level)
+    private static OutputStreams BuildStreams(CliLogLevel level, OutputFormat format)
     {
-        var colorizeOutput = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
+        var colorPolicyAllowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                Console.WriteLine(CliOutputFormatter.FormatValue(value, colorizeOutput));
+                Console.WriteLine(CliOutputFormatter.FormatValue(value, format, colorPolicyAllowsColor));
                 return Task.CompletedTask;
             },
             WriteError: (value, ct) =>
