@@ -97,7 +97,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 : profile.SubscriptionId;
             subscription = string.IsNullOrEmpty(subscription) ? null : subscription;
 
-            await _writeOutput(RenderOutput(authResult, subscription));
+            string? userId = !string.IsNullOrEmpty(profile.UserPrincipalName)
+                ? profile.UserPrincipalName
+                : authResult.UserPrincipalName;
+
+            await _writeOutput(RenderOutput(authResult, subscription, userId));
 
             await _publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
@@ -137,7 +141,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// <item>PowerShell with <c>-AsPlainText</c>: an <see cref="AccessTokenResult"/> with the raw token.</item>
         /// </list>
         /// </summary>
-        private object RenderOutput(AuthResult authResult, string? subscription)
+        private object RenderOutput(AuthResult authResult, string? subscription, string? userId)
         {
             long expiresOnUnixTime = authResult.ExpiresOn.ToUnixTimeSeconds();
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
@@ -151,6 +155,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                     ExpiresOnUnixTime = expiresOnUnixTime,
                     TenantId = authResult.TenantId,
                     SubscriptionId = subscription,
+                    UserId = userId,
                 };
             }
 
@@ -162,6 +167,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 ExpiresOnUnixTime = expiresOnUnixTime,
                 TenantId = authResult.TenantId,
                 SubscriptionId = subscription,
+                UserId = userId,
             };
         }
 

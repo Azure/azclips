@@ -48,6 +48,7 @@ public class GetAccessTokenProcessorTests
         SubscriptionId = "sub-1",
         CloudName = "AzureCloud",
         AuthMethod = method,
+        UserPrincipalName = "user@contoso.com",
     };
 
     private static GetAccessTokenProcessor InitProcessor(GetAccessTokenProcessor processor, Profile? profile, out FakeOutputHandler output)
@@ -153,6 +154,15 @@ public class GetAccessTokenProcessorTests
         var result = Assert.IsType<AccessTokenResult>(
             await RunAsync(new GetAccessTokenProcessor { Plaintext = true }, ProfileWith(AuthMethod.Browser)));
         Assert.Equal(result.ExpiresOn.ToUnixTimeSeconds(), result.ExpiresOnUnixTime);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_PopulatesUserIdFromProfile()
+    {
+        InitDi(ClientType.CLI, AuthReturning("secret").Object);
+        var result = Assert.IsType<AccessTokenResult>(
+            await RunAsync(new GetAccessTokenProcessor { Plaintext = true }, ProfileWith(AuthMethod.Browser)));
+        Assert.Equal("user@contoso.com", result.UserId);
     }
 
     [Fact]

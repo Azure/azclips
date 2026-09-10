@@ -32,6 +32,9 @@ public record AccessTokenResult
     /// <summary>The subscription ID associated with the request, if any.</summary>
     public string? SubscriptionId { get; init; }
 
+    /// <summary>The user principal name of the signed-in identity, if any (null for managed identity).</summary>
+    public string? UserId { get; init; }
+
     /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>
     public string TokenType { get; init; } = "Bearer";
 }
@@ -58,6 +61,9 @@ public record SecureAccessTokenResult
 
     /// <summary>The subscription ID associated with the request, if any.</summary>
     public string? SubscriptionId { get; init; }
+
+    /// <summary>The user principal name of the signed-in identity, if any (null for managed identity).</summary>
+    public string? UserId { get; init; }
 
     /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>
     public string TokenType { get; init; } = "Bearer";
