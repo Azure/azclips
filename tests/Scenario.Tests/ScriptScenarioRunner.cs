@@ -39,7 +39,7 @@ internal static class ScriptScenarioRunner
 
             var (shell, arguments) = scriptName.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
                 ? ("pwsh", new[] { "-NoProfile", "-File", scriptPath })
-                : ("bash", [scriptPath]);
+                : (ResolveBash(), [scriptPath.Replace('\\', '/')]);
 
             var psi = new ProcessStartInfo
             {
@@ -81,6 +81,28 @@ internal static class ScriptScenarioRunner
         {
             try { Directory.Delete(home, recursive: true); } catch { }
         }
+    }
+
+    /// <summary>
+    /// The bash to run scenario scripts with. On Windows the `bash` on PATH is WSL's, which
+    /// resolves neither the C:\ script path nor the Windows az.exe the script invokes; the bash
+    /// shipped next to git.exe does both.
+    /// </summary>
+    private static string ResolveBash()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return "bash";
+        }
+
+        return (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(directory => directory.Trim('"'))
+            .Where(directory => File.Exists(Path.Combine(directory, "git.exe")))
+            .Select(directory => Path.Combine(directory, "..", "bin", "bash.exe"))
+            .FirstOrDefault(File.Exists)
+            ?? throw new InvalidOperationException(
+                "No usable bash found. Install Git for Windows; the WSL bash on PATH cannot run this script.");
     }
 
     private static void SeedPlaybackProfile(string home)
