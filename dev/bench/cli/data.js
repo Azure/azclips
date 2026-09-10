@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789024694654,
+  "lastUpdate": 1789024758084,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -9412,6 +9412,54 @@ window.BENCHMARK_DATA = {
             "value": 2211961.3037758586,
             "unit": "ns",
             "range": "± 94704.26609726726"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "69f1b65f3505504c1686e62697aac517cd5deb52",
+          "message": "[CLI] Unify `--output` format selection (#848)\n\nCloses #846 (sub-issue of #632)\n\n**Related command**\n`--output` (any command)\n\n**Description**\n\n`--output` previously only affected error formatting (`json`/`plain`)\nand had zero effect on successful command results, which always rendered\nas JSON regardless of the flag. `clients.cli.output.format`\n(`json`/`table`/`tsv`/`yaml`, default `table`) was declared in config\nbut read nowhere.\n\nThis closes out all of azclips#846 —\n`--output`/`clients.cli.output.format` now unify success-result and\nerror rendering across all six formats.\n\n- `OutputFormat` enum expands to\n`Json`/`Jsonc`/`Table`/`Tsv`/`Yaml`/`Yamlc`; `plain` is retired (it\ndoubled as both the unspecified default and a real value — this is a\nbreaking change, acceptable given the project's private-preview status).\n- `GlobalArgs.Output` becomes nullable (`null` = `--output` not passed)\nso a config default can be distinguished from an explicit user choice.\n- New `OutputFormatPolicy.ResolveEffectiveFormat`: `--output` flag\noverrides `clients.cli.output.format` when given, otherwise falls back\nto it (falling back further to `Json` — matching classic `az`'s default\n— on an invalid config value). Shares its string->enum parser with\n`ParseAction.OutputFormatAction` so the flag and the config path never\ndrift on what counts as a valid value.\n- New `SessionPolicyResolver` aggregates `CliLoggingPolicy` +\n`ColorPolicy` + `OutputFormatPolicy` into one `Program.cs` call site\ninstead of three separate inline calls.\n- `json`/`yaml` never colorize regardless of `core.output.color`\n(deterministic output, safe for piping to `jq`/scripts even with\n`core.output.color=always` set globally); `jsonc`/`yamlc` colorize\nsubject to `core.output.color`'s existing gating\n(`auto`/`always`/`never` + `NO_COLOR`/`FORCE_COLOR` precedence) — not an\nunconditional force-on. `yamlc` coloring itself is tracked separately in\n#836; it currently renders identically to `yaml`.\n- New `TableFormatter`/`TsvFormatter`/`YamlFormatter` (+ `YamlDotNet`\ndependency) implement the real `table`/`tsv`/`yaml` rendering. Nested\nobject/array fields are dropped from `table`/`tsv` columns entirely,\nmatching classic `az` (never inline-JSON-stringified).\n- `clients.cli.output.format`'s default changed from `table` to `json`,\nmatching classic `az`'s documented default; `ConfigurationSchema`'s\n`AllowedValues` for that key now includes all six formats (previously\nmissing `jsonc`/`yamlc`).\n- Output-formatting types (`CliOutputFormatter`, `TableFormatter`,\n`TsvFormatter`, `YamlFormatter`, `JsonCellRenderer`, `JsonColorizer`,\n`OutputFormatPolicy`) moved into `src/CLI/Output/` (`namespace\nCore.Cli.Output`), matching the existing `Parser`/`Help`/`Completions`\nsubfolder convention.\n\n**Testing Guide**\n\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — full suite green (726\npassed, 8 skipped).\n- Manual: built `az.exe`, confirmed `--output\njson/jsonc/table/tsv/yaml/yamlc` all render correctly against real\ncommands (array-of-objects, single-object, array-of-scalars shapes);\nconfirmed `table`/`tsv` drop nested columns instead of inlining JSON;\nconfirmed the no-flag default is now `json`; confirmed `--output\nbogus`/`--output plain` still throw clear usage errors.\n\n**History Notes**\n\n[CLI] BREAKING CHANGE: `--output` no longer accepts `plain`; use `json`\nfor scripting or `jsonc` for colorized JSON. `--output` now supports\n`table`, `tsv`, `yaml`, and `yamlc` for real (previously accepted but\nsilently rendered as JSON), and its default (and\n`clients.cli.output.format`'s default) changed from `table` to `json`\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-09-10T06:20:33Z",
+          "tree_id": "a00ccaaecb9af665bcf0842cd853a4aaba50a7a9",
+          "url": "https://github.com/Azure/azclips/commit/69f1b65f3505504c1686e62697aac517cd5deb52"
+        },
+        "date": 1789024755897,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2377098.712940705,
+            "unit": "ns",
+            "range": "± 94585.42583086816"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2385852.560128488,
+            "unit": "ns",
+            "range": "± 94541.98789874488"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2343364.0184701867,
+            "unit": "ns",
+            "range": "± 98651.86077714727"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2259731.2011240465,
+            "unit": "ns",
+            "range": "± 101224.85514334026"
           }
         ]
       }
