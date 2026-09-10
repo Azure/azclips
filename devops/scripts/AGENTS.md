@@ -3,7 +3,8 @@
 Scoped guidance for the build, packaging, signing, compliance, and publishing
 scripts under `devops/scripts/`. These are invoked by the Azure DevOps pipelines
 (see `.azure-pipelines/AGENTS.md`) and are also runnable locally. Read this before
-editing any script here.
+editing any script here. When you add or change a script, parity pair, config, or
+output/staging path, update this guide in the same PR so it stays accurate.
 
 ## Essentials
 - This is the **executable layer** the pipelines shell out to. Keep reusable build/packaging logic here; pipeline-specific orchestration, conditions, and short validation steps may remain in YAML.
@@ -30,16 +31,22 @@ editing any script here.
 | `publishing/` | Release publishing helpers (`Update-ReleaseChangelog.ps1`). |
 
 ## Path Resolution Convention (Bash)
-Scripts resolve their own location and derive roots, allowing env-var overrides:
+Scripts resolve their own location and derive roots from it, allowing env-var overrides —
+the **pattern**, not fixed depths:
 ```bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+# Adjust the number of `..` to this script's depth so PACKAGING_ROOT/REPO_ROOT
+# point at the same directories regardless of where the script lives.
+PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/<..depth>" && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
-OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/common}"
 ```
+- The relative depth **varies by script location** — don't copy a snippet verbatim.
+  For example `packaging/common/*` uses `SCRIPT_DIR/..`, while `packaging/linux/tarball/*`
+  and `packaging/macos/tarball/*` use `SCRIPT_DIR/../..`. Verify your derived roots resolve
+  correctly for the file's actual directory.
 - Prefer `${VAR:-default}` so the pipeline can override roots but local runs still work.
 - Output goes under `devops/out/{common,linux,windows,macos}` (matches `PackagingOutRoot` in the pipeline).
-- Follow the same pattern in new scripts; do not assume the caller's working directory.
+- Match the surrounding scripts' pattern; do not assume the caller's working directory.
 
 ## Cross-Platform Parity Pairs
 Some steps ship as matched `.ps1` + `.sh` implementations:

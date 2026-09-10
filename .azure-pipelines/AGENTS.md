@@ -2,7 +2,9 @@
 
 Scoped guidance for the Azure DevOps (ADO) CI/CD pipelines under `.azure-pipelines/`.
 Read this before editing any pipeline YAML. Packaging/build logic invoked by the
-pipelines lives in `devops/scripts/`; keep the two in sync.
+pipelines lives in `devops/scripts/`; keep the two in sync. When you add or change a
+stage, job, pipeline, trigger, variable/group, secret source, or artifact, update this
+guide in the same PR so it stays accurate.
 
 ## Essentials
 - Pipeline YAML is authored for **Azure DevOps**, not GitHub Actions (`.github/workflows/` is separate).

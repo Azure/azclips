@@ -27,6 +27,11 @@ non-trivial work:
   validation steps may remain in YAML. When changing a build step, prefer editing the
   script over growing inline logic. Update the parity sibling (`stage_agent.*`,
   `inject_builtin_extensions.*`) together when editing one side.
+- **Keep this guidance current:** when a change alters CI/CD behavior — a new or renamed
+  stage/job/pipeline/script, trigger, project context, variable group, secret source,
+  artifact name, RID, or output/staging path — update the matching guide **in the same PR**:
+  pipeline changes → `.azure-pipelines/AGENTS.md`, script changes → `devops/scripts/AGENTS.md`,
+  and this file when the guardrails themselves change. Treat the docs as part of the change, not a follow-up.
 
 ## When editing pipelines
 - Preserve existing triggers/`pr:` scopes and project guards; don't add new triggers
