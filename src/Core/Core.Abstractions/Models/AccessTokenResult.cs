@@ -1,33 +1,57 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Security;
+using System.Text.Json.Serialization;
+
 namespace Core.Abstractions;
 
 /// <summary>
-/// The result of a token-retrieval command (<c>az account get-access-token</c> /
-/// <c>Get-AzAccessToken</c>). Carries the acquired access token together with its
-/// non-secret metadata.
+/// The result of a token-retrieval command with the token as a plain string. Used for CLI output
+/// (redacted by default unless <c>--plaintext</c>) and for PowerShell when <c>-AsPlainText</c> is
+/// specified. PowerShell's default output uses <see cref="SecureAccessTokenResult"/> instead.
 /// </summary>
-/// <remarks>
-/// The <see cref="Token"/> value is a secret. Command output is secure by default:
-/// front ends MUST NOT render the raw token unless the caller has explicitly opted into
-/// plaintext (CLI <c>--plaintext</c> flag; PowerShell <c>-AsPlainText</c> switch). The
-/// redacted placeholder shown in the token field otherwise names the reveal option for the
-/// current front end.
-/// </remarks>
 public record AccessTokenResult
 {
-    /// <summary>Placeholder shown in place of the token on the CLI when plaintext is not requested.</summary>
-    public const string RedactedPlaceholderCli = "<redacted - rerun with --plaintext to reveal>";
+    /// <summary>Placeholder shown in place of the token on the CLI when <c>--plaintext</c> is not passed.</summary>
+    public const string RedactedPlaceholder = "<redacted - rerun with --plaintext to reveal>";
 
-    /// <summary>Placeholder shown in place of the token in PowerShell when plaintext is not requested.</summary>
-    public const string RedactedPlaceholderPowerShell = "<redacted - rerun with -AsPlainText to reveal>";
-
-    /// <summary>The raw access token. Treated as a secret; not surfaced in default output.</summary>
+    /// <summary>The access token. On CLI this is redacted unless <c>--plaintext</c> is passed.</summary>
     public required string Token { get; init; }
 
     /// <summary>The point in time when the access token expires.</summary>
     public required DateTimeOffset ExpiresOn { get; init; }
+
+    /// <summary>The access token expiry as Unix time (seconds since the epoch).</summary>
+    [JsonPropertyName("expires_on")]
+    public required long ExpiresOnUnixTime { get; init; }
+
+    /// <summary>The tenant (directory) ID the token was acquired for.</summary>
+    public required string TenantId { get; init; }
+
+    /// <summary>The subscription ID associated with the request, if any.</summary>
+    public string? SubscriptionId { get; init; }
+
+    /// <summary>The token type. Always "Bearer" for the flows supported today.</summary>
+    public string TokenType { get; init; } = "Bearer";
+}
+
+/// <summary>
+/// The result of a token-retrieval command with the token wrapped in a <see cref="SecureString"/>.
+/// This is the default PowerShell output shape (matching Azure PowerShell's protected token), so the
+/// raw token is not shown on screen but can still be read programmatically without re-running.
+/// </summary>
+public record SecureAccessTokenResult
+{
+    /// <summary>The access token, protected as a <see cref="SecureString"/>.</summary>
+    public required SecureString Token { get; init; }
+
+    /// <summary>The point in time when the access token expires.</summary>
+    public required DateTimeOffset ExpiresOn { get; init; }
+
+    /// <summary>The access token expiry as Unix time (seconds since the epoch).</summary>
+    [JsonPropertyName("expires_on")]
+    public required long ExpiresOnUnixTime { get; init; }
 
     /// <summary>The tenant (directory) ID the token was acquired for.</summary>
     public required string TenantId { get; init; }

@@ -63,12 +63,15 @@ public class GetAccessTokenProcessorTests
         return processor;
     }
 
-    private static async Task<AccessTokenResult> RunAsync(GetAccessTokenProcessor processor, Profile profile)
+    private static async Task<object> RunAsync(GetAccessTokenProcessor processor, Profile profile)
     {
         InitProcessor(processor, profile, out var output);
         await processor.ProcessAsync();
-        return Assert.IsType<AccessTokenResult>(Assert.Single(output.WrittenValues));
+        return Assert.Single(output.WrittenValues);
     }
+
+    private static string Unwrap(System.Security.SecureString secure) =>
+        new System.Net.NetworkCredential(string.Empty, secure).Password;
 
     [Fact]
     public async Task ProcessAsync_NullProfile_Throws()
@@ -97,7 +100,7 @@ public class GetAccessTokenProcessorTests
         var result = await RunAsync(
             new GetAccessTokenProcessor { Tenant = "mi-tenant", Plaintext = true },
             ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"));
-        Assert.Equal("secret", result.Token);
+        Assert.Equal("secret", Assert.IsType<AccessTokenResult>(result).Token);
     }
 
     [Fact]
@@ -107,7 +110,7 @@ public class GetAccessTokenProcessorTests
         var result = await RunAsync(
             new GetAccessTokenProcessor { Tenant = "other-tenant", Plaintext = true },
             ProfileWith(AuthMethod.Browser, tenantId: "home-tenant"));
-        Assert.Equal("secret", result.Token);
+        Assert.Equal("secret", Assert.IsType<AccessTokenResult>(result).Token);
     }
 
     [Fact]
@@ -115,7 +118,7 @@ public class GetAccessTokenProcessorTests
     {
         InitDi(ClientType.CLI, AuthReturning("secret").Object);
         var result = await RunAsync(new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser));
-        Assert.Equal(AccessTokenResult.RedactedPlaceholderCli, result.Token);
+        Assert.Equal(AccessTokenResult.RedactedPlaceholder, Assert.IsType<AccessTokenResult>(result).Token);
     }
 
     [Fact]
@@ -123,23 +126,33 @@ public class GetAccessTokenProcessorTests
     {
         InitDi(ClientType.CLI, AuthReturning("secret").Object);
         var result = await RunAsync(new GetAccessTokenProcessor { Plaintext = true }, ProfileWith(AuthMethod.Browser));
-        Assert.Equal("secret", result.Token);
+        Assert.Equal("secret", Assert.IsType<AccessTokenResult>(result).Token);
     }
 
     [Fact]
-    public async Task ProcessAsync_PowerShellPlaintextSwitch_RevealsToken()
+    public async Task ProcessAsync_PowerShellPlaintextSwitch_RevealsPlainStringToken()
     {
         InitDi(ClientType.PowerShell, AuthReturning("secret").Object);
         var result = await RunAsync(new GetAccessTokenProcessor { Plaintext = true }, ProfileWith(AuthMethod.Browser));
-        Assert.Equal("secret", result.Token);
+        Assert.Equal("secret", Assert.IsType<AccessTokenResult>(result).Token);
     }
 
     [Fact]
-    public async Task ProcessAsync_PowerShellDefault_RedactsWithPowerShellPlaceholder()
+    public async Task ProcessAsync_PowerShellDefault_ReturnsSecureStringToken()
     {
         InitDi(ClientType.PowerShell, AuthReturning("secret").Object);
         var result = await RunAsync(new GetAccessTokenProcessor(), ProfileWith(AuthMethod.Browser));
-        Assert.Equal(AccessTokenResult.RedactedPlaceholderPowerShell, result.Token);
+        var secure = Assert.IsType<SecureAccessTokenResult>(result);
+        Assert.Equal("secret", Unwrap(secure.Token));
+    }
+
+    [Fact]
+    public async Task ProcessAsync_PopulatesUnixTimeExpiry()
+    {
+        InitDi(ClientType.CLI, AuthReturning("secret").Object);
+        var result = Assert.IsType<AccessTokenResult>(
+            await RunAsync(new GetAccessTokenProcessor { Plaintext = true }, ProfileWith(AuthMethod.Browser)));
+        Assert.Equal(result.ExpiresOn.ToUnixTimeSeconds(), result.ExpiresOnUnixTime);
     }
 
     [Fact]

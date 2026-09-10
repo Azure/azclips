@@ -23,23 +23,22 @@ function Section($title) {
 
 Section 'Get-AzAccessToken (default target - ARM)'
 $armToken = Get-AzAccessToken
-$armToken | Select-Object TenantId, ExpiresOn, TokenType | Format-List | Out-Host
+$armToken | Select-Object TenantId, ExpiresOn, ExpiresOnUnixTime, TokenType | Format-List | Out-Host
 
-Section 'Secure by default: token must NOT be exposed as plain text'
-# Without -AsPlainText, the token field must be redacted / non-plaintext.
+Section 'Secure by default: token is a SecureString, not plain text'
 $secure = Get-AzAccessToken
-if ("$($secure.Token)" -notmatch '^ey') {
-    Write-Host "OK: token is protected by default (not emitted as a raw JWT)." -ForegroundColor Green
+if ($secure.Token -is [System.Security.SecureString]) {
+    Write-Host "OK: token is a SecureString by default (not a plain JWT)." -ForegroundColor Green
 } else {
-    Write-Host "UNEXPECTED: raw token appears to be exposed without opt-in." -ForegroundColor Red
+    Write-Host "UNEXPECTED: token is not a SecureString: $($secure.Token.GetType().FullName)" -ForegroundColor Red
 }
 
 Section 'Plaintext opt-in via -AsPlainText'
 $plain = Get-AzAccessToken -AsPlainText
-if ("$($plain.Token)" -match '^ey') {
-    Write-Host "OK: raw token revealed when -AsPlainText is passed." -ForegroundColor Green
+if ($plain.Token -is [string] -and "$($plain.Token)" -match '^ey') {
+    Write-Host "OK: raw token returned as a plain string when -AsPlainText is passed." -ForegroundColor Green
 } else {
-    Write-Host "UNEXPECTED: -AsPlainText passed but token still redacted." -ForegroundColor Red
+    Write-Host "UNEXPECTED: -AsPlainText did not return a plain JWT string." -ForegroundColor Red
 }
 
 Section 'Get-AzAccessToken -ResourceTypeName MSGraph (well-known type shortcut)'

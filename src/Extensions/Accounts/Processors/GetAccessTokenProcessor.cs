@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Security;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
@@ -94,16 +95,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             string? subscription = !string.IsNullOrWhiteSpace(Subscription)
                 ? Subscription.Trim()
                 : profile.SubscriptionId;
+            subscription = string.IsNullOrEmpty(subscription) ? null : subscription;
 
-            var result = new AccessTokenResult
-            {
-                Token = authResult.AccessToken,
-                ExpiresOn = authResult.ExpiresOn,
-                TenantId = authResult.TenantId,
-                SubscriptionId = string.IsNullOrEmpty(subscription) ? null : subscription,
-            };
-
-            await _writeOutput(RenderOutput(result));
+            await _writeOutput(RenderOutput(authResult, subscription));
 
             await _publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
@@ -136,23 +130,50 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         }
 
         /// <summary>
-        /// Renders the result, redacting the token unless plaintext output was requested via the
-        /// <c>--plaintext</c> flag (CLI) or the <c>-AsPlainText</c> switch (PowerShell). When redacted,
-        /// the placeholder names the reveal option for the current front end.
+        /// Renders the output shape for the current front end:
+        /// <list type="bullet">
+        /// <item>CLI: an <see cref="AccessTokenResult"/> whose token is redacted unless <c>--plaintext</c> was passed.</item>
+        /// <item>PowerShell without <c>-AsPlainText</c>: a <see cref="SecureAccessTokenResult"/> whose token is a <see cref="SecureString"/>.</item>
+        /// <item>PowerShell with <c>-AsPlainText</c>: an <see cref="AccessTokenResult"/> with the raw token.</item>
+        /// </list>
         /// </summary>
-        private AccessTokenResult RenderOutput(AccessTokenResult result)
+        private object RenderOutput(AuthResult authResult, string? subscription)
         {
-            if (Plaintext)
+            long expiresOnUnixTime = authResult.ExpiresOn.ToUnixTimeSeconds();
+            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
+
+            if (clientType == ClientType.PowerShell && !Plaintext)
             {
-                return result;
+                return new SecureAccessTokenResult
+                {
+                    Token = ToSecureString(authResult.AccessToken),
+                    ExpiresOn = authResult.ExpiresOn,
+                    ExpiresOnUnixTime = expiresOnUnixTime,
+                    TenantId = authResult.TenantId,
+                    SubscriptionId = subscription,
+                };
             }
 
-            var clientType = AzclipsServiceProvider.GetRequiredService<ClientType>();
-            string placeholder = clientType == ClientType.PowerShell
-                ? AccessTokenResult.RedactedPlaceholderPowerShell
-                : AccessTokenResult.RedactedPlaceholderCli;
+            bool redact = clientType == ClientType.CLI && !Plaintext;
+            return new AccessTokenResult
+            {
+                Token = redact ? AccessTokenResult.RedactedPlaceholder : authResult.AccessToken,
+                ExpiresOn = authResult.ExpiresOn,
+                ExpiresOnUnixTime = expiresOnUnixTime,
+                TenantId = authResult.TenantId,
+                SubscriptionId = subscription,
+            };
+        }
 
-            return result with { Token = placeholder };
+        private static SecureString ToSecureString(string value)
+        {
+            var secure = new SecureString();
+            foreach (char c in value)
+            {
+                secure.AppendChar(c);
+            }
+            secure.MakeReadOnly();
+            return secure;
         }
     }
 }
