@@ -86,7 +86,7 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                 var accepted = Json(new { status = "InProgress" }, HttpStatusCode.Accepted);
                 accepted.Headers.TryAddWithoutValidation(
                     "Azure-AsyncOperation",
-                    $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Compute/locations/westus2/operations/vm-create?api-version=2025-11-01");
+                    $"https://management.azure.com/subscriptions/{_subscriptionId}/providers/Microsoft.Compute/locations/westus2/operations/vm-create?api-version=2025-04-01");
                 return Task.FromResult(accepted);
             }
 
