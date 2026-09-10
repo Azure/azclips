@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Text;
+using System.Text.RegularExpressions;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Tokens;
 
@@ -58,6 +59,13 @@ internal static class YamlColorizer
 
     // Quoted scalars are always strings regardless of content (e.g. a YAML-quoted "42" is a
     // string, not a number); only plain (unquoted) scalars get type-inferred.
+    //
+    // The empty-scalar case below only fires for an explicit empty scalar (""/'' or a bare `~`);
+    // YamlFormatter's actual rendering of a JSON null is a blank mapping value (e.g. `tag: ` with
+    // nothing after it) -- the scanner emits no Scalar token at all for that, so there is no span
+    // to color. Left uncolored rather than injecting visible "null" text, since colorizing must
+    // stay purely cosmetic (never change what text renders) -- see YamlColorizerTests for the
+    // regression coverage of this exact shape.
     private static string ColorFor(Scalar scalar)
     {
         if (scalar.Style != ScalarStyle.Plain)
@@ -74,10 +82,15 @@ internal static class YamlColorizer
             return JsonColorizer.LiteralColor;
         }
 
-        return double.TryParse(scalar.Value, System.Globalization.CultureInfo.InvariantCulture, out _)
-            ? JsonColorizer.NumberColor
-            : JsonColorizer.StringColor;
+        return IsPlainNumber(scalar.Value) ? JsonColorizer.NumberColor : JsonColorizer.StringColor;
     }
+
+    // Strict JSON/YAML numeric grammar rather than double.TryParse -- the latter also accepts
+    // .NET-only forms like "NaN"/"Infinity" and (via InvariantCulture) thousands separators like
+    // "1,000", all of which are valid plain YAML strings that must stay StringColor.
+    private static readonly Regex s_numberPattern = new(@"^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$", RegexOptions.Compiled);
+
+    private static bool IsPlainNumber(string value) => s_numberPattern.IsMatch(value);
 
     private static void AppendColored(StringBuilder sb, string yaml, ref long copiedTo, long start, long end, string color)
     {

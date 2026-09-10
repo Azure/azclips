@@ -72,6 +72,34 @@ public class YamlColorizerTests
         Assert.DoesNotContain(NumberColor, result);
     }
 
+    [Theory]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    [InlineData("1,000")]
+    public void Colorize_ShouldNotTreatNonNumericLookingPlainScalar_AsNumber(string value)
+    {
+        // Regression: double.TryParse(InvariantCulture) accepted these .NET-only forms even
+        // though they're valid plain YAML strings -- only a strict numeric grammar should count.
+        var result = Core.Cli.Output.YamlColorizer.Colorize($"value: {value}");
+
+        Assert.Contains($"{StringColor}{value}{Reset}", result);
+        Assert.DoesNotContain(NumberColor, result);
+    }
+
+    [Fact]
+    public void Colorize_ShouldLeaveOmittedNullValue_Uncolored()
+    {
+        // Regression: YamlFormatter renders a JSON null as a blank mapping value (`tag: ` with
+        // nothing after it) -- the scanner emits no Scalar token there, so there's no span to
+        // color. Confirms this stays a no-op rather than injecting visible "null" text.
+        var yaml = Core.Cli.Output.YamlFormatter.Format("""{"tag":null}""");
+
+        var result = Core.Cli.Output.YamlColorizer.Colorize(yaml);
+
+        Assert.Equal($"{KeyColor}tag{Reset}: ", result);
+    }
+
     [Fact]
     public void Colorize_ShouldNotColorizeStructuralCharacters()
     {
