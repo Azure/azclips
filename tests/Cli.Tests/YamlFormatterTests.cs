@@ -5,8 +5,7 @@ namespace Cli.Tests;
 
 /// <summary>
 /// Tests for <see cref="Core.Cli.Output.YamlFormatter"/>. Backs both <c>Yaml</c> and <c>Yamlc</c> --
-/// yamlc coloring is tracked separately (azclips#836) and not covered here since it doesn't
-/// exist yet.
+/// yamlc coloring itself is covered separately in <see cref="YamlColorizerTests"/>.
 /// </summary>
 public class YamlFormatterTests
 {

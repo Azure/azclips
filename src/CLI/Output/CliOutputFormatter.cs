@@ -37,10 +37,9 @@ internal static class CliOutputFormatter
     /// <param name="format">
     /// Desired output shape. <see cref="OutputFormat.Json"/>/<see cref="OutputFormat.Yaml"/>
     /// never colorize regardless of <paramref name="colorPolicyAllowsColor"/> (deterministic for
-    /// scripting); <see cref="OutputFormat.Jsonc"/> colorizes via <see cref="JsonColorizer"/>
-    /// when <paramref name="colorPolicyAllowsColor"/> is <c>true</c>.
-    /// <see cref="OutputFormat.Yamlc"/> coloring is tracked separately (azclips#836) and
-    /// currently renders identically to <see cref="OutputFormat.Yaml"/>.
+    /// scripting); <see cref="OutputFormat.Jsonc"/> colorizes via <see cref="JsonColorizer"/> and
+    /// <see cref="OutputFormat.Yamlc"/> via <see cref="YamlColorizer"/>, both only when
+    /// <paramref name="colorPolicyAllowsColor"/> is <c>true</c>.
     /// Strings and primitives are unaffected by <paramref name="format"/> -- a scalar renders the
     /// same in every format.
     /// </param>
@@ -76,9 +75,13 @@ internal static class CliOutputFormatter
         {
             OutputFormat.Table => TableFormatter.Format(json),
             OutputFormat.Tsv => TsvFormatter.Format(json),
-            OutputFormat.Yaml or OutputFormat.Yamlc => YamlFormatter.Format(json),
-            OutputFormat.Jsonc => colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json,
+            OutputFormat.Yaml => YamlFormatter.Format(json),
+            OutputFormat.Yamlc => Colorize(YamlFormatter.Format(json), colorPolicyAllowsColor, YamlColorizer.Colorize),
+            OutputFormat.Jsonc => Colorize(json, colorPolicyAllowsColor, JsonColorizer.Colorize),
             _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
         };
     }
+
+    private static string Colorize(string text, bool colorPolicyAllowsColor, Func<string, string> colorize) =>
+        colorPolicyAllowsColor ? colorize(text) : text;
 }
