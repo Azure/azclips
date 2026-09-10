@@ -33,7 +33,7 @@ internal static class YamlFormatter
         JsonValueKind.Object => element.EnumerateObject().ToDictionary(p => p.Name, p => ToPlainObject(p.Value)),
         JsonValueKind.Array => element.EnumerateArray().Select(ToPlainObject).ToList(),
         JsonValueKind.String => element.GetString(),
-        JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.GetDouble(),
+        JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.TryGetDecimal(out var d) ? d : element.GetDouble(),
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         _ => null, // Null

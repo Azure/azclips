@@ -52,4 +52,14 @@ public class YamlFormatterTests
 
         Assert.Equal("name: rg1\ntags:\n  env: prod\nitems:\n- 1\n- 2", result);
     }
+
+    [Fact]
+    public void Format_ShouldPreserveDecimalPrecision_ForHighPrecisionNumbers()
+    {
+        // Regression: falling back to double for every non-integer number loses precision beyond
+        // ~15-17 significant digits; decimal preserves up to ~28-29.
+        var result = Core.Cli.Output.YamlFormatter.Format("""{"amount":123456789012345.6789}""");
+
+        Assert.Equal("amount: 123456789012345.6789", result);
+    }
 }

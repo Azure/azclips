@@ -52,7 +52,6 @@ internal sealed class BoolToggleAction : ParseAction
 /// </summary>
 internal sealed class OutputFormatAction : ParseAction
 {
-    // Sourced from KnownGlobalFlags so this can never drift from the --help Choices column.
     private static string Choices => KnownGlobalFlags.All.First(f => f.Name == "--output").Choices!;
 
     public override int Apply(GlobalArgsBuilder builder, ReadOnlySpan<string> args, int index)
