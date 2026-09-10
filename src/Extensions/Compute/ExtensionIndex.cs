@@ -102,107 +102,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_newVMOrchestrator_PS = new(
-            Name: "NewVMOrchestrator",
-            InvocationName: "New-AzVM",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewVMProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["SubscriptionId"]                 = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]                           = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Location"]                       = new("Location", "Location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["ResourceGroupName"]              = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["VmSize"]                         = new("VmSize", "VmSize", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["AdminUsername"]                  = new("AdminUsername", "AdminUsername", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["AdminPassword"]                  = new("AdminPassword", "AdminPassword", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["NetworkInterfaceName"]           = new("NetworkInterfaceName", "NetworkInterfaceName", typeof(string), "The network interface name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["VirtualNetworkName"]             = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), "The virtual network name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["NetworkSecurityGroupName"]       = new("NetworkSecurityGroupName", "NetworkSecurityGroupName", typeof(string), "The network security group name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["SubnetNames"]                    = new("SubnetNames", "SubnetNames", typeof(List<string>), "Names of the subnets.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["SubnetAddressPrefixes"]          = new("SubnetAddressPrefixes", "SubnetAddressPrefixes", typeof(List<List<string>>), "Address prefixes for each subnet.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["AddressPrefixes"]                = new("AddressPrefixes", "AddressPrefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RuleNames"]                      = new("RuleNames", "RuleNames", typeof(List<string>), "Names of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RuleDirections"]                 = new("RuleDirections", "RuleDirections", typeof(List<string>), "Directions of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RuleProtocols"]                  = new("RuleProtocols", "RuleProtocols", typeof(List<string>), "Protocols of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RulePriorities"]                 = new("RulePriorities", "RulePriorities", typeof(List<int>), "Priorities of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RuleSourceAddressPrefixes"]      = new("RuleSourceAddressPrefixes", "RuleSourceAddressPrefixes", typeof(List<string>), "Source address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RuleSourcePortRanges"]           = new("RuleSourcePortRanges", "RuleSourcePortRanges", typeof(List<string>), "Source port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RuleDestinationPortRanges"]      = new("RuleDestinationPortRanges", "RuleDestinationPortRanges", typeof(List<string>), "Destination port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RuleDestinationAddressPrefixes"] = new("RuleDestinationAddressPrefixes", "RuleDestinationAddressPrefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["RuleAccesses"]                   = new("RuleAccesses", "RuleAccesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
         // ── CLI Command Metadata ──
-        private static readonly CommandMetadata s_newVirtualNetwork_CLI = new(
-            Name: "NewVirtualNetworkProcessor",
-            InvocationName: "vm vnet create",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVirtualNetworkProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewVirtualNetworkProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["subscription-id"]         = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]                    = new("Name", "name", typeof(string), "The name of the virtual network.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["location"]                = new("Location", "location", typeof(string), "Location for the virtual network.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]          = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["subnet-names"]            = new("SubnetNames", "subnet-names", typeof(List<string>), "Names of the subnets.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["subnet-address-prefixes"] = new("SubnetAddressPrefixes", "subnet-address-prefixes", typeof(List<List<string>>), "Address prefixes for each subnet.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["address-prefixes"]        = new("AddressPrefixes", "address-prefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
-        private static readonly CommandMetadata s_newNetworkSecurityGroup_CLI = new(
-            Name: "NewNetworkSecurityGroupProcessor",
-            InvocationName: "vm nsg create",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkSecurityGroupProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewNetworkSecurityGroupProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["subscription-id"]                  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]                             = new("Name", "name", typeof(string), "The name of the network security group.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["location"]                         = new("Location", "location", typeof(string), "Location for the network security group.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]                   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["rule-names"]                       = new("RuleNames", "rule-names", typeof(List<string>), "Names of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-directions"]                  = new("RuleDirections", "rule-directions", typeof(List<string>), "Directions of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-protocols"]                   = new("RuleProtocols", "rule-protocols", typeof(List<string>), "Protocols of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-priorities"]                  = new("RulePriorities", "rule-priorities", typeof(List<int>), "Priorities of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-source-address-prefixes"]     = new("RuleSourceAddressPrefixes", "rule-source-address-prefixes", typeof(List<string>), "Source address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-source-port-ranges"]          = new("RuleSourcePortRanges", "rule-source-port-ranges", typeof(List<string>), "Source port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-destination-port-ranges"]     = new("RuleDestinationPortRanges", "rule-destination-port-ranges", typeof(List<string>), "Destination port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-destination-address-prefixes"]= new("RuleDestinationAddressPrefixes", "rule-destination-address-prefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-accesses"]                    = new("RuleAccesses", "rule-accesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
-        private static readonly CommandMetadata s_newNetworkInterface_CLI = new(
-            Name: "NewNetworkInterfaceProcessor",
-            InvocationName: "vm nic create",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["subscription-id"]            = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]                       = new("Name", "name", typeof(string), "The name of the network interface.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["location"]                   = new("Location", "location", typeof(string), "Location for the network interface.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]             = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["subnet-ids"]                 = new("SubnetIds", "subnet-ids", typeof(List<string>), "Ids of the subnets to bind IP configurations to.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["subnet-address-prefixes"]    = new("SubnetAddressPrefixes", "subnet-address-prefixes", typeof(List<List<string>>), "Address prefixes for each subnet.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["network-security-group-id"]  = new("NetworkSecurityGroupId", "network-security-group-id", typeof(string), "Resource id of the network security group to associate.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
         private static readonly CommandMetadata s_newVM_CLI = new(
             Name: "NewVMProcessor",
-            InvocationName: "vm create-basic",
+            InvocationName: "vm create",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
@@ -305,75 +208,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_newNetworkInterfaceOrchestrator_CLI = new(
-            Name: "NewNetworkInterfaceProcessor_Orchestrator",
-            InvocationName: "vm nic create-orchestrated",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["subscription-id"]                  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]                             = new("Name", "name", typeof(string), "The name of the network interface.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["location"]                         = new("Location", "location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]                   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["virtual-network-name"]             = new("VirtualNetworkName", "virtual-network-name", typeof(string), "The virtual network name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["network-security-group-name"]      = new("NetworkSecurityGroupName", "network-security-group-name", typeof(string), "The network security group name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["subnet-names"]                     = new("SubnetNames", "subnet-names", typeof(List<string>), "Names of the subnets.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["subnet-address-prefixes"]          = new("SubnetAddressPrefixes", "subnet-address-prefixes", typeof(List<List<string>>), "Address prefixes for each subnet.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["address-prefixes"]                 = new("AddressPrefixes", "address-prefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-names"]                       = new("RuleNames", "rule-names", typeof(List<string>), "Names of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-directions"]                  = new("RuleDirections", "rule-directions", typeof(List<string>), "Directions of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-protocols"]                   = new("RuleProtocols", "rule-protocols", typeof(List<string>), "Protocols of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-priorities"]                  = new("RulePriorities", "rule-priorities", typeof(List<int>), "Priorities of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-source-address-prefixes"]     = new("RuleSourceAddressPrefixes", "rule-source-address-prefixes", typeof(List<string>), "Source address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-source-port-ranges"]          = new("RuleSourcePortRanges", "rule-source-port-ranges", typeof(List<string>), "Source port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-destination-port-ranges"]     = new("RuleDestinationPortRanges", "rule-destination-port-ranges", typeof(List<string>), "Destination port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-destination-address-prefixes"]= new("RuleDestinationAddressPrefixes", "rule-destination-address-prefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-accesses"]                    = new("RuleAccesses", "rule-accesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
-        private static readonly CommandMetadata s_newVMOrchestrator_CLI = new(
-            Name: "NewVMProcessor_Orchestrator",
-            InvocationName: "vm create",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewVMProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["subscription-id"]                  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]                             = new("Name", "name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["location"]                         = new("Location", "location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["resource-group"]                   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["vm-size"]                          = new("VmSize", "vm-size", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["admin-username"]                   = new("AdminUsername", "admin-username", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["admin-password"]                   = new("AdminPassword", "admin-password", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["network-interface-name"]           = new("NetworkInterfaceName", "network-interface-name", typeof(string), "The network interface name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["virtual-network-name"]             = new("VirtualNetworkName", "virtual-network-name", typeof(string), "The virtual network name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["network-security-group-name"]      = new("NetworkSecurityGroupName", "network-security-group-name", typeof(string), "The network security group name to create.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["subnet-names"]                     = new("SubnetNames", "subnet-names", typeof(List<string>), "Names of the subnets.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["subnet-address-prefixes"]          = new("SubnetAddressPrefixes", "subnet-address-prefixes", typeof(List<List<string>>), "Address prefixes for each subnet.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["address-prefixes"]                 = new("AddressPrefixes", "address-prefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-names"]                       = new("RuleNames", "rule-names", typeof(List<string>), "Names of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-directions"]                  = new("RuleDirections", "rule-directions", typeof(List<string>), "Directions of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-protocols"]                   = new("RuleProtocols", "rule-protocols", typeof(List<string>), "Protocols of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-priorities"]                  = new("RulePriorities", "rule-priorities", typeof(List<int>), "Priorities of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-source-address-prefixes"]     = new("RuleSourceAddressPrefixes", "rule-source-address-prefixes", typeof(List<string>), "Source address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-source-port-ranges"]          = new("RuleSourcePortRanges", "rule-source-port-ranges", typeof(List<string>), "Source port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-destination-port-ranges"]     = new("RuleDestinationPortRanges", "rule-destination-port-ranges", typeof(List<string>), "Destination port ranges of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-destination-address-prefixes"]= new("RuleDestinationAddressPrefixes", "rule-destination-address-prefixes", typeof(List<string>), "Destination address prefixes of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["rule-accesses"]                    = new("RuleAccesses", "rule-accesses", typeof(List<string>), "Access types (Allow/Deny) of the security rules.", IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
-            // ["New-AzVM"]                           = s_newVM_PS,
-            ["New-AzVM"]                   = s_newVMOrchestrator_PS,
+            ["New-AzVM"]                   = s_newVM_PS,
             ["Get-AzVM_Get"]                   = s_getVM_PS,
             ["Get-AzVM_List"]               = s_listVM_PS,
             ["Remove-AzVM"]                = s_deleteVM_PS,
@@ -384,7 +222,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         // (verb, path) tuple via Core.Extensions.LeafIndex.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["vm create"]   = s_newVMOrchestrator_CLI,
+            ["vm create"]   = s_newVM_CLI,
             ["vm show"]     = s_getVM_CLI,
             ["vm list"]     = s_listVM_CLI,
             ["vm delete"]   = s_deleteVM_CLI,
