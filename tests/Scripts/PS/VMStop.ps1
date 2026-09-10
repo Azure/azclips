@@ -27,10 +27,15 @@
 #
 # Usage: ./tests/Scripts/PS/VMStop.ps1
 
-$ErrorActionPreference = 'Continue'
+$ErrorActionPreference = 'Stop'
 
-$subscriptionId = if ($env:AZCLIPS_SUBSCRIPTION_ID) { $env:AZCLIPS_SUBSCRIPTION_ID } else { 'f758ac53-3e63-4317-a956-0997793808d7' }
-$location       = if ($env:AZCLIPS_LOCATION) { $env:AZCLIPS_LOCATION } else { 'eastus' }
+$subscriptionId = $env:AZCLIPS_SUBSCRIPTION_ID
+if ([string]::IsNullOrWhiteSpace($subscriptionId))
+{
+    throw 'AZCLIPS_SUBSCRIPTION_ID must be set.'
+}
+
+$location       = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_LOCATION)) { 'westus2' } else { $env:AZCLIPS_LOCATION }
 $suffix         = $PID
 $resourceGroup  = if ($env:AZCLIPS_RESOURCE_GROUP) { $env:AZCLIPS_RESOURCE_GROUP } else { "azclips-vmstop-rg-$suffix" }
 $vmName         = "azclips-vmstop-vm-$suffix"
@@ -95,8 +100,15 @@ try
     Start-TestVM
 
     Write-Host '== 5. Stop-AzVM -Hibernate (requires hibernation to be enabled on the VM) =='
-    Stop-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Hibernate -Force
-    Start-TestVM
+    try
+    {
+        Stop-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Hibernate -Force
+        Start-TestVM
+    }
+    catch
+    {
+        Write-Warning "Stop-AzVM -Hibernate failed (hibernation may not be enabled on the VM): $($_.Exception.Message)"
+    }
 
     Write-Host '== 6. Stop-AzVM -Id (resource-id addressing) =='
     Stop-AzVM -Id $vmId -Force
