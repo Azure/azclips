@@ -3,8 +3,9 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Core.Cli.Parser;
 
-namespace Core.Cli;
+namespace Core.Cli.Output;
 
 /// <summary>
 /// Formats command output values for CLI console display.
@@ -34,12 +35,12 @@ internal static class CliOutputFormatter
     /// </summary>
     /// <param name="value">The value to render.</param>
     /// <param name="format">
-    /// Desired output shape. <see cref="Parser.OutputFormat.Json"/>/<see cref="Parser.OutputFormat.Yaml"/>
+    /// Desired output shape. <see cref="OutputFormat.Json"/>/<see cref="OutputFormat.Yaml"/>
     /// never colorize regardless of <paramref name="colorPolicyAllowsColor"/> (deterministic for
-    /// scripting); <see cref="Parser.OutputFormat.Jsonc"/> colorizes via <see cref="JsonColorizer"/>
+    /// scripting); <see cref="OutputFormat.Jsonc"/> colorizes via <see cref="JsonColorizer"/>
     /// when <paramref name="colorPolicyAllowsColor"/> is <c>true</c>.
-    /// <see cref="Parser.OutputFormat.Yamlc"/> coloring is tracked separately (azclips#836) and
-    /// currently renders identically to <see cref="Parser.OutputFormat.Yaml"/>.
+    /// <see cref="OutputFormat.Yamlc"/> coloring is tracked separately (azclips#836) and
+    /// currently renders identically to <see cref="OutputFormat.Yaml"/>.
     /// Strings and primitives are unaffected by <paramref name="format"/> -- a scalar renders the
     /// same in every format.
     /// </param>
@@ -47,7 +48,7 @@ internal static class CliOutputFormatter
     /// Whether <c>Core.Runtime.ColorPolicy.ShouldEmitColor</c> currently allows color. This method
     /// does not consult the policy itself -- callers gate it.
     /// </param>
-    internal static string FormatValue(object? value, Parser.OutputFormat format = Parser.OutputFormat.Json, bool colorPolicyAllowsColor = false)
+    internal static string FormatValue(object? value, OutputFormat format = OutputFormat.Json, bool colorPolicyAllowsColor = false)
     {
         if (value is null)
             return string.Empty;
@@ -73,10 +74,10 @@ internal static class CliOutputFormatter
 
         return format switch
         {
-            Parser.OutputFormat.Table => TableFormatter.Format(json),
-            Parser.OutputFormat.Tsv => TsvFormatter.Format(json),
-            Parser.OutputFormat.Yaml or Parser.OutputFormat.Yamlc => YamlFormatter.Format(json),
-            Parser.OutputFormat.Jsonc => colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json,
+            OutputFormat.Table => TableFormatter.Format(json),
+            OutputFormat.Tsv => TsvFormatter.Format(json),
+            OutputFormat.Yaml or OutputFormat.Yamlc => YamlFormatter.Format(json),
+            OutputFormat.Jsonc => colorPolicyAllowsColor ? JsonColorizer.Colorize(json) : json,
             _ => json, // Json: never colorized, regardless of colorPolicyAllowsColor.
         };
     }

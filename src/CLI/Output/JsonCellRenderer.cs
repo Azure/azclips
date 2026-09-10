@@ -3,7 +3,7 @@
 
 using System.Text.Json;
 
-namespace Core.Cli;
+namespace Core.Cli.Output;
 
 /// <summary>Renders a single JSON scalar value as flat text for a table/tsv cell. Shared by <see cref="TableFormatter"/> and <see cref="TsvFormatter"/> so the two never drift on cell rendering.</summary>
 internal static class JsonCellRenderer

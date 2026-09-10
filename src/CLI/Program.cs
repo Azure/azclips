@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Cli.Completions;
 using Core.Cli.Help;
+using Core.Cli.Output;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
 using Core.Cli.Version;

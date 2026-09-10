@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace Cli.Tests;
 
 /// <summary>
-/// Tests for <see cref="Core.Cli.TableFormatter"/> covering the three shape decisions: array of
+/// Tests for <see cref="Core.Cli.Output.TableFormatter"/> covering the three shape decisions: array of
 /// objects (multi-column, headers from the first item), single object (2-column key/value), and
 /// array of scalars (single unheaded column).
 /// </summary>
@@ -19,7 +19,7 @@ public class TableFormatterTests
     {
         var json = """[{"name":"rg1","location":"eastus"},{"name":"rg-two","location":"westus2"}]""";
 
-        var result = Core.Cli.TableFormatter.Format(json);
+        var result = Core.Cli.Output.TableFormatter.Format(json);
         var lines = result.Split('\n');
 
         Assert.Equal(4, lines.Length);
@@ -34,7 +34,7 @@ public class TableFormatterTests
     {
         var json = """{"name":"rg1","location":"eastus"}""";
 
-        var result = Core.Cli.TableFormatter.Format(json);
+        var result = Core.Cli.Output.TableFormatter.Format(json);
         var lines = result.Split('\n');
 
         Assert.Equal(2, lines.Length);
@@ -47,7 +47,7 @@ public class TableFormatterTests
     {
         var json = """["alpha","beta","gamma"]""";
 
-        var result = Core.Cli.TableFormatter.Format(json);
+        var result = Core.Cli.Output.TableFormatter.Format(json);
 
         Assert.Equal("alpha\nbeta\ngamma", result);
     }
@@ -55,7 +55,7 @@ public class TableFormatterTests
     [Fact]
     public void Format_ShouldReturnEmptyString_ForEmptyArray()
     {
-        var result = Core.Cli.TableFormatter.Format("[]");
+        var result = Core.Cli.Output.TableFormatter.Format("[]");
 
         Assert.Equal(string.Empty, result);
     }
@@ -65,7 +65,7 @@ public class TableFormatterTests
     {
         var json = """[{"name":"rg1","tags":{"env":"prod"}}]""";
 
-        var result = Core.Cli.TableFormatter.Format(json);
+        var result = Core.Cli.Output.TableFormatter.Format(json);
         var lines = result.Split('\n');
 
         Assert.Equal(new[] { "name" }, Columns(lines[0]));
@@ -78,7 +78,7 @@ public class TableFormatterTests
     {
         var json = """{"name":"rg1","tags":{"env":"prod"}}""";
 
-        var result = Core.Cli.TableFormatter.Format(json);
+        var result = Core.Cli.Output.TableFormatter.Format(json);
 
         Assert.Equal("name  rg1", result);
     }
@@ -88,7 +88,7 @@ public class TableFormatterTests
     {
         var json = """[{"name":"rg1","enabled":true},{"name":"rg2","enabled":false}]""";
 
-        var result = Core.Cli.TableFormatter.Format(json);
+        var result = Core.Cli.Output.TableFormatter.Format(json);
 
         Assert.Contains("True", result);
         Assert.Contains("False", result);

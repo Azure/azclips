@@ -4,7 +4,7 @@
 using System.Text.Json;
 using YamlDotNet.Serialization;
 
-namespace Core.Cli;
+namespace Core.Cli.Output;
 
 /// <summary>
 /// Renders already-serialized JSON as YAML via YamlDotNet (hand-rolling YAML's string-quoting/

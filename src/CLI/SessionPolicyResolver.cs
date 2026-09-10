@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Cli.Output;
 using Core.Cli.Parser;
 using Core.Configuration.Options;
 using Core.Runtime;

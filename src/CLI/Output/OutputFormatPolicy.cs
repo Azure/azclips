@@ -5,7 +5,7 @@ using Core.Abstractions;
 using Core.Cli.Parser;
 using Core.Configuration.Options;
 
-namespace Core.Cli;
+namespace Core.Cli.Output;
 
 internal static class OutputFormatPolicy
 {

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Core.Cli;
+using Core.Cli.Output;
 using Core.Cli.Parser;
 using Core.Configuration.Options;
 

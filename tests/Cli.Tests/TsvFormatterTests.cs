@@ -4,8 +4,8 @@
 namespace Cli.Tests;
 
 /// <summary>
-/// Tests for <see cref="Core.Cli.TsvFormatter"/> -- same shape decisions as
-/// <see cref="Core.Cli.TableFormatter"/> minus header/column-width logic.
+/// Tests for <see cref="Core.Cli.Output.TsvFormatter"/> -- same shape decisions as
+/// <see cref="Core.Cli.Output.TableFormatter"/> minus header/column-width logic.
 /// </summary>
 public class TsvFormatterTests
 {
@@ -14,7 +14,7 @@ public class TsvFormatterTests
     {
         var json = """[{"name":"rg1","location":"eastus"},{"name":"rg2","location":"westus2"}]""";
 
-        var result = Core.Cli.TsvFormatter.Format(json);
+        var result = Core.Cli.Output.TsvFormatter.Format(json);
 
         Assert.Equal("rg1\teastus\nrg2\twestus2", result);
     }
@@ -24,7 +24,7 @@ public class TsvFormatterTests
     {
         var json = """{"name":"rg1","location":"eastus"}""";
 
-        var result = Core.Cli.TsvFormatter.Format(json);
+        var result = Core.Cli.Output.TsvFormatter.Format(json);
 
         Assert.Equal("rg1\teastus", result);
     }
@@ -34,7 +34,7 @@ public class TsvFormatterTests
     {
         var json = """["alpha","beta"]""";
 
-        var result = Core.Cli.TsvFormatter.Format(json);
+        var result = Core.Cli.Output.TsvFormatter.Format(json);
 
         Assert.Equal("alpha\nbeta", result);
     }
@@ -42,7 +42,7 @@ public class TsvFormatterTests
     [Fact]
     public void Format_ShouldReturnEmptyString_ForEmptyArray()
     {
-        var result = Core.Cli.TsvFormatter.Format("[]");
+        var result = Core.Cli.Output.TsvFormatter.Format("[]");
 
         Assert.Equal(string.Empty, result);
     }
@@ -52,7 +52,7 @@ public class TsvFormatterTests
     {
         var json = """{"name":"rg1","tags":{"env":"prod"}}""";
 
-        var result = Core.Cli.TsvFormatter.Format(json);
+        var result = Core.Cli.Output.TsvFormatter.Format(json);
 
         Assert.Equal("rg1", result);
     }

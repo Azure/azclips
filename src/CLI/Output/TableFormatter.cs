@@ -3,7 +3,7 @@
 
 using System.Text.Json;
 
-namespace Core.Cli;
+namespace Core.Cli.Output;
 
 /// <summary>
 /// Renders serialized JSON as a column-aligned table (classic <c>az -o table</c> shape).

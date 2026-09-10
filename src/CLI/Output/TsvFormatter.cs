@@ -3,7 +3,7 @@
 
 using System.Text.Json;
 
-namespace Core.Cli;
+namespace Core.Cli.Output;
 
 /// <summary>
 /// Renders serialized JSON as tab-separated values (classic <c>az -o tsv</c> shape). Same shape
