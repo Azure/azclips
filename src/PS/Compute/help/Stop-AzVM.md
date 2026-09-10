@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 09/09/2026
+ms.date: 09/10/2026
 PlatyPS schema version: 2024-05-01
 title: Stop-AzVM
 ---
@@ -200,7 +200,7 @@ HelpMessage: ''
 
 ### -Id
 
-{{ Fill Id Description }}
+The resource ID of the virtual machine. Use instead of -Name and -ResourceGroupName.
 
 ```yaml
 Type: System.String
@@ -227,7 +227,7 @@ HelpMessage: ''
 
 ### -Name
 
-{{ Fill Name Description }}
+The name of the virtual machine.
 
 ```yaml
 Type: System.String
@@ -254,7 +254,7 @@ HelpMessage: ''
 
 ### -Profile
 
-{{ Fill Profile Description }}
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -275,7 +275,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-{{ Fill ResourceGroupName Description }}
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -356,7 +356,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-{{ Fill SubscriptionId Description }}
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -420,4 +420,3 @@ Generated help for compute.
 
 
 - [Online Version]()
-
