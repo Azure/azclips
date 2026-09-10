@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789006927959,
+  "lastUpdate": 1789007003712,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -9280,6 +9280,54 @@ window.BENCHMARK_DATA = {
             "value": 2296109.7504022527,
             "unit": "ns",
             "range": "± 102115.07114499672"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "159ee42080bad0eefa8e4803fd6ade6dc8f2802d",
+          "message": "[CLI] core.output.color: Colorize JSON command output (#841)\n\n**Related command**\nAny command emitting JSON output (e.g. `az profile show`, `az extension\nlist`), after `az config set core.output.color always`\n\n**Description**\n\n`core.output.color` (`always`/`auto`/`never`) was wired into diagnostic\nmessages (warnings/errors via `ConsoleSink`) but never applied to the\nprimary command result output path — `Program.cs` -> `WriteOutput` ->\n`CliOutputFormatter.FormatValue` always emitted plain, uncolored JSON\nregardless of the configured mode.\n\n- **New `JsonColorizer`** (`src/CLI/JsonColorizer.cs`) walks\nalready-serialized JSON with `Utf8JsonReader` and wraps object keys\n(cyan), string values (green), numbers (yellow), and\n`true`/`false`/`null` (magenta) in ANSI codes. Structural characters and\nthe original whitespace/indentation are copied through unchanged.\n- **`CliOutputFormatter.FormatValue`** gains an opt-in `colorize`\nparameter, default `false`, so all existing call sites/tests are\nunaffected. Scoped to the complex-object/collection branch only (matches\nthe primitive branch's existing plain-JSON-literal behavior — a bare\n`42` or `true` has little to gain from highlighting).\n- **`Program.cs`** resolves\n`ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected)` once per\nsession in `BuildStreams` and threads it through `WriteOutput`, so\n`core.output.color` plus the existing `NO_COLOR`/`FORCE_COLOR`\nprecedence now govern JSON output too.\n- **`ColorPolicy.ShouldEmitColor`**: `internal` -> `public`\n(`Core.Runtime` has no `InternalsVisibleTo` for `Core.Cli`, so the CLI\nhost couldn't call it before).\n\n**Why a different approach than #732**\n\n#732 (an earlier automated attempt at this same issue) used a single\ncombined regex to tokenize the JSON text, distinguishing object keys\nfrom string values by checking whether a quoted string is followed by\n`\\s*:`. This PR instead walks the JSON with `Utf8JsonReader` — already\nused elsewhere in this exact file for serialization — and colors based\non the reader's actual token type (`JsonTokenType.PropertyName` vs\n`JsonTokenType.String`), which is exact rather than a lookahead\nheuristic, and gets number/literal boundaries for free from the\ntokenizer instead of a second regex alternation. Not used because we\nwanted a from-scratch implementation for this issue rather than adopting\nthe existing PR as-is.\n\n```csharp\nvar colorizeOutput = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);\n...\nWriteOutput: (value, ct) =>\n{\n    Console.WriteLine(CliOutputFormatter.FormatValue(value, colorizeOutput));\n    return Task.CompletedTask;\n},\n```\n\n**Testing Guide**\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj` — full suite green (683\npassed, 8 skipped), including new `JsonColorizerTests`\n(key/string/number/literal coloring, escaped-quote handling,\nwhitespace/indentation preservation, ANSI-stripped round-trip to\nidentical JSON) and `CliOutputFormatterTests` additions (colorize\nopt-in, strings/primitives unaffected).\n- Manual: built `az.exe`, ran `az config set core.output.color always`\nthen `az extension list --by-verb` — confirmed ANSI escape codes present\nin the output; `az config delete core.output.color --force` to reset.\n\n**History Notes**\n\n[CLI] `core.output.color`: JSON command output is now colorized per\nconfigured mode (`always`/`auto`/`never`)\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nFixes #729\nCloses #732",
+          "timestamp": "2026-09-10T11:40:51+10:00",
+          "tree_id": "c779bf3e397c219b41ac81b3b9b068428d63d114",
+          "url": "https://github.com/Azure/azclips/commit/159ee42080bad0eefa8e4803fd6ade6dc8f2802d"
+        },
+        "date": 1789007001083,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.ListUserAssignedIdentities",
+            "value": 2338590.1103766025,
+            "unit": "ns",
+            "range": "± 91574.63330942724"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.CreateUserAssignedIdentity",
+            "value": 2361565.0982948844,
+            "unit": "ns",
+            "range": "± 97757.45766634688"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.GetUserAssignedIdentity",
+            "value": 2321789.3760032104,
+            "unit": "ns",
+            "range": "± 98784.09102387831"
+          },
+          {
+            "name": "Benchmark.CLI.UserAssignedIdentityBenchmarks.UpdateUserAssignedIdentity",
+            "value": 2211961.3037758586,
+            "unit": "ns",
+            "range": "± 94704.26609726726"
           }
         ]
       }
