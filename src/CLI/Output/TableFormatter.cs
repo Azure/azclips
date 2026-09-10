@@ -34,7 +34,7 @@ internal static class TableFormatter
             return string.Empty;
         }
 
-        if (items[0].ValueKind == JsonValueKind.Object)
+        if (items.All(item => item.ValueKind == JsonValueKind.Object))
         {
             var headers = JsonCellRenderer.GetScalarPropertyNames(items[0]);
             var rows = items

@@ -61,6 +61,18 @@ public class TableFormatterTests
     }
 
     [Fact]
+    public void Format_ShouldFallBackToSingleColumn_ForMixedArray()
+    {
+        // Regression: taking the object header/row path off only the first item's ValueKind
+        // crashed with InvalidOperationException on TryGetProperty once a later item wasn't an object.
+        var json = """[{"a":1},2]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json);
+
+        Assert.Equal("""{"a":1}""" + "\n2", result);
+    }
+
+    [Fact]
     public void Format_ShouldDropNestedColumnEntirely_ForArrayOfObjects()
     {
         var json = """[{"name":"rg1","tags":{"env":"prod"}}]""";
