@@ -36,7 +36,7 @@ internal static class TableFormatter
 
         if (items[0].ValueKind == JsonValueKind.Object)
         {
-            var headers = items[0].EnumerateObject().Select(p => p.Name).ToArray();
+            var headers = JsonCellRenderer.GetScalarPropertyNames(items[0]);
             var rows = items
                 .Select(item => headers.Select(h => item.TryGetProperty(h, out var v) ? JsonCellRenderer.Render(v) : string.Empty).ToArray())
                 .ToList();
@@ -49,8 +49,12 @@ internal static class TableFormatter
 
     private static string FormatObject(JsonElement obj)
     {
-        // Single object: 2-column key/value table, one row per property.
-        var rows = obj.EnumerateObject().Select(p => new[] { p.Name, JsonCellRenderer.Render(p.Value) }).ToList();
+        // Single object: 2-column key/value table, one row per scalar property (nested object/
+        // array properties are dropped entirely, matching classic az).
+        var rows = obj.EnumerateObject()
+            .Where(p => p.Value.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array))
+            .Select(p => new[] { p.Name, JsonCellRenderer.Render(p.Value) })
+            .ToList();
         return RenderColumns(rows, headers: null);
     }
 

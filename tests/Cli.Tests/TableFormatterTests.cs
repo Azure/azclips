@@ -61,14 +61,26 @@ public class TableFormatterTests
     }
 
     [Fact]
-    public void Format_ShouldInlineNestedValueAsCompactJson()
+    public void Format_ShouldDropNestedColumnEntirely_ForArrayOfObjects()
     {
         var json = """[{"name":"rg1","tags":{"env":"prod"}}]""";
 
         var result = Core.Cli.TableFormatter.Format(json);
+        var lines = result.Split('\n');
 
-        Assert.Contains("""{"env":"prod"}""", result);
-        Assert.DoesNotContain("\n ", result); // nested value must not introduce embedded newlines
+        Assert.Equal(new[] { "name" }, Columns(lines[0]));
+        Assert.DoesNotContain("env", result);
+        Assert.DoesNotContain("tags", result);
+    }
+
+    [Fact]
+    public void Format_ShouldDropNestedProperty_ForSingleObject()
+    {
+        var json = """{"name":"rg1","tags":{"env":"prod"}}""";
+
+        var result = Core.Cli.TableFormatter.Format(json);
+
+        Assert.Equal("name  rg1", result);
     }
 
     [Fact]

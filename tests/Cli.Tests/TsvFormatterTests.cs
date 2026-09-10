@@ -48,12 +48,12 @@ public class TsvFormatterTests
     }
 
     [Fact]
-    public void Format_ShouldInlineNestedValueAsCompactJson()
+    public void Format_ShouldDropNestedProperty_ForSingleObject()
     {
         var json = """{"name":"rg1","tags":{"env":"prod"}}""";
 
         var result = Core.Cli.TsvFormatter.Format(json);
 
-        Assert.Equal("rg1\t{\"env\":\"prod\"}", result);
+        Assert.Equal("rg1", result);
     }
 }

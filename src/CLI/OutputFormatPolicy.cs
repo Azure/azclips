@@ -13,7 +13,7 @@ internal static class OutputFormatPolicy
         => ResolveEffectiveFormat(configurationService.GetConfiguration<ClientsOptions>(), flagOverride);
 
     public static OutputFormat ResolveEffectiveFormat(ClientsOptions options, OutputFormat? flagOverride)
-        => flagOverride ?? (TryParse(options.Cli.Output.Format, out var configured) ? configured : OutputFormat.Table);
+        => flagOverride ?? (TryParse(options.Cli.Output.Format, out var configured) ? configured : OutputFormat.Json);
 
     /// <summary>
     /// Shared string-&gt;<see cref="OutputFormat"/> parser used by both the <c>--output</c> flag

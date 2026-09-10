@@ -35,7 +35,7 @@ internal static class TsvFormatter
 
         if (items[0].ValueKind == JsonValueKind.Object)
         {
-            var headers = items[0].EnumerateObject().Select(p => p.Name).ToArray();
+            var headers = JsonCellRenderer.GetScalarPropertyNames(items[0]);
             return string.Join(
                 "\n",
                 items.Select(item => string.Join("\t", headers.Select(h => item.TryGetProperty(h, out var v) ? JsonCellRenderer.Render(v) : string.Empty))));
@@ -45,5 +45,7 @@ internal static class TsvFormatter
     }
 
     private static string FormatObject(JsonElement obj) =>
-        string.Join("\t", obj.EnumerateObject().Select(p => JsonCellRenderer.Render(p.Value)));
+        string.Join("\t", obj.EnumerateObject()
+            .Where(p => p.Value.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array))
+            .Select(p => JsonCellRenderer.Render(p.Value)));
 }

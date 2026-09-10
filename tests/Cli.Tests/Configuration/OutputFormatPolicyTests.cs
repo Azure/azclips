@@ -53,12 +53,12 @@ public class OutputFormatPolicyTests
     }
 
     [Fact]
-    public void ResolveEffectiveFormat_ShouldFallBackToTable_WhenConfigValueIsInvalid()
+    public void ResolveEffectiveFormat_ShouldFallBackToJson_WhenConfigValueIsInvalid()
     {
         var options = new ClientsOptions { Cli = new CliClientOptions { Output = new OutputOptions { Format = "not-a-format" } } };
 
         var effective = OutputFormatPolicy.ResolveEffectiveFormat(options, flagOverride: null);
 
-        Assert.Equal(OutputFormat.Table, effective);
+        Assert.Equal(OutputFormat.Json, effective);
     }
 }
