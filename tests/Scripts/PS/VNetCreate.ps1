@@ -3,12 +3,26 @@
 
 # Smoke test for New-/Get-/Remove-AzVirtualNetwork.
 #
-# Prereqs:
-#   dotnet build azclips.slnx
-#   Import-Module ./src/PS/Accounts/Accounts.psd1; Connect-AzAccount
-#   Import-Module ./src/PS/Network/Network.psd1
+# Creates a virtual network with two subnets, gets it (plain and expanded), lists the resource
+# group, removes it, then gets it again to confirm removal (the final Get is expected to report
+# the virtual network no longer exists).
 #
-# Usage: ./tests/Scripts/PS/VNetCreate.ps1
+# Prereqs (run in a fresh pwsh, so an installed gallery Az.Network cannot shadow this module):
+#   1. Build:     dotnet build azclips.slnx
+#   2. Sign in:   Import-Module ./src/PS/Accounts/Accounts.psd1
+#                 Connect-AzAccount
+#   3. Module:    Import-Module ./src/PS/Network/Network.psd1
+#   4. A resource group must already exist - the script creates and removes only the virtual
+#      network. If you don't have one:
+#                 Import-Module ./src/PS/Resources/Resources.psd1
+#                 New-AzResourceGroup -SubscriptionId <id> -Name <rg> -Location eastus
+#
+# Usage:
+#   $env:AZCLIPS_SUBSCRIPTION_ID = '<id>'
+#   $env:AZCLIPS_RESOURCE_GROUP  = '<rg>'
+#   ./tests/Scripts/PS/VNetCreate.ps1
+#
+# Both variables fall back to the author's test values below, so set your own.
 
 $subscriptionId = if ($env:AZCLIPS_SUBSCRIPTION_ID) { $env:AZCLIPS_SUBSCRIPTION_ID } else { 'f758ac53-3e63-4317-a956-0997793808d7' }
 $resourceGroup  = if ($env:AZCLIPS_RESOURCE_GROUP)  { $env:AZCLIPS_RESOURCE_GROUP }  else { 'yabo-test-group-1' }

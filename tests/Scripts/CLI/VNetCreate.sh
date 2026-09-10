@@ -5,9 +5,18 @@
 # deletes it, then shows again to confirm removal (the final show is expected to report the
 # VNet no longer exists).
 #
-# Prereqs: build the solution first with dotnet build, then sign in.
+# Prereqs:
+#   1. Build:    dotnet build azclips.slnx
+#   2. Sign in:  ./artifacts/Debug/Core.Cli/az login          # az.exe on Windows
+#   3. A resource group must already exist - the script creates and deletes only the VNet.
+#      If you don't have one:
+#        ./artifacts/Debug/Core.Cli/az group create \
+#            --subscription-id <id> --name <rg> --location eastus
 #
 # Usage: SUBSCRIPTION_ID=<id> RESOURCE_GROUP=<rg> ./tests/Scripts/CLI/VNetCreate.sh
+#
+# SUBSCRIPTION_ID and RESOURCE_GROUP fall back to the author's test values below, so pass your
+# own. LOCATION, VNET_NAME and SUBNET_NAME are overridable the same way.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
