@@ -214,8 +214,6 @@ public class Program
 
     private static OutputStreams BuildStreams(CliLogLevel level)
     {
-        // Resolved once per session: color policy (config + NO_COLOR/FORCE_COLOR env) and stdout
-        // redirection state don't change over the course of a single invocation.
         var colorizeOutput = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
         return new OutputStreams(
             WriteOutput: (value, ct) =>

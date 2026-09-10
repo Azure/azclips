@@ -3,6 +3,7 @@
 
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using static Core.Cli.JsonColorizer;
 
 namespace Cli.Tests;
 
@@ -12,12 +13,6 @@ namespace Cli.Tests;
 /// </summary>
 public class JsonColorizerTests
 {
-    private const string Reset = "\u001b[0m";
-    private const string KeyColor = "\u001b[36m";
-    private const string StringColor = "\u001b[32m";
-    private const string NumberColor = "\u001b[33m";
-    private const string LiteralColor = "\u001b[35m";
-
     [Fact]
     public void Colorize_ShouldWrapKeyAndStringValue_WithDistinctColors()
     {

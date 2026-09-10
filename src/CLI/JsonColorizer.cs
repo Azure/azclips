@@ -13,17 +13,18 @@ namespace Core.Cli;
 /// </summary>
 internal static class JsonColorizer
 {
-    private const string Reset = "\u001b[0m";
+    internal const string Reset = "\u001b[0m";
 
     // Expressed as ConsoleColor (the same vocabulary ConsoleSink/ConsoleOutputAdapter use
     // elsewhere) rather than ad-hoc named constants, even though the rendering mechanism here
     // differs from ConsoleSink's set-Console.ForegroundColor-then-write-then-reset model: a JSON
     // line needs many short-lived colored spans within one already-built string, not one color
     // for the whole write, so the codes are embedded directly rather than mutating console state.
-    private static readonly string KeyColor = Ansi(ConsoleColor.Cyan);
-    private static readonly string StringColor = Ansi(ConsoleColor.Green);
-    private static readonly string NumberColor = Ansi(ConsoleColor.Yellow);
-    private static readonly string LiteralColor = Ansi(ConsoleColor.Magenta); // true/false/null
+    // Internal (not private) so tests can assert against these instead of redeclaring literals.
+    internal static readonly string KeyColor = Ansi(ConsoleColor.Cyan);
+    internal static readonly string StringColor = Ansi(ConsoleColor.Green);
+    internal static readonly string NumberColor = Ansi(ConsoleColor.Yellow);
+    internal static readonly string LiteralColor = Ansi(ConsoleColor.Magenta); // true/false/null
 
     private static string Ansi(ConsoleColor color) => color switch
     {
