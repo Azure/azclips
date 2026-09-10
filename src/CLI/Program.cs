@@ -9,6 +9,7 @@ using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
 using Core.Cli.Version;
+using Core.Configuration.Options;
 using Core.Extensions;
 using Core.Runtime;
 using Core.Telemetry;
@@ -128,10 +129,11 @@ public class Program
                 }
 
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
-                var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(coreOptions, globalArgs.Debug);
-                ColorPolicy.Initialize(ColorPolicy.Parse(coreOptions.Output.Color));
-                streams = BuildStreams(effectiveLogLevel);
-                outputJson = globalArgs.Output == OutputFormat.Json;
+                var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
+                var settings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
+                ColorPolicy.Initialize(settings.Color);
+                streams = BuildStreams(settings.LogLevel);
+                outputJson = settings.Format is OutputFormat.Json or OutputFormat.Jsonc;
                 positional = globalArgs.Positional as string[] ?? globalArgs.Positional.ToArray();
 
                 if (globalArgs.Version is not null)

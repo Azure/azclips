@@ -28,7 +28,7 @@ public class GlobalArgParserTests
         Assert.Null(result.Version);
         Assert.Empty(result.Positional);
         Assert.False(result.Debug);
-        Assert.Equal(OutputFormat.Plain, result.Output);
+        Assert.Null(result.Output);
         Assert.False(result.NoCache);
     }
 
@@ -228,25 +228,25 @@ public class GlobalArgParserTests
 
     [Theory]
     [InlineData("--output", "json", "json")]
-    [InlineData("--output", "plain", "plain")]
+    [InlineData("--output", "table", "table")]
     [InlineData("--OUTPUT", "JSON", "json")]
     public void Parse_OutputFlag_SpaceSeparated_ResolvesFormat(string flag, string value, string expected)
     {
         var result = GlobalArgParser.Parse(new[] { flag, value });
 
-        Assert.Equal(expected, result.Output.ToString().ToLowerInvariant());
+        Assert.Equal(expected, result.Output?.ToString().ToLowerInvariant());
         Assert.Empty(result.Positional);
     }
 
     [Theory]
     [InlineData("--output=json", "json")]
-    [InlineData("--output=plain", "plain")]
+    [InlineData("--output=yaml", "yaml")]
     [InlineData("--Output=Json", "json")]
     public void Parse_OutputFlag_EqualsForm_ResolvesFormat(string token, string expected)
     {
         var result = GlobalArgParser.Parse(new[] { token });
 
-        Assert.Equal(expected, result.Output.ToString().ToLowerInvariant());
+        Assert.Equal(expected, result.Output?.ToString().ToLowerInvariant());
         Assert.Empty(result.Positional);
     }
 
@@ -259,24 +259,48 @@ public class GlobalArgParserTests
         Assert.Equal(new[] { "group", "cmd" }, result.Positional);
     }
 
+    [Theory]
+    [InlineData("jsonc")]
+    [InlineData("table")]
+    [InlineData("tsv")]
+    [InlineData("yaml")]
+    [InlineData("yamlc")]
+    public void Parse_OutputFlag_AcceptsAllRealFormats(string value)
+    {
+        var result = GlobalArgParser.Parse(new[] { "--output", value });
+
+        Assert.Equal(value, result.Output?.ToString().ToLowerInvariant());
+    }
+
     [Fact]
     public void Parse_OutputFlagWithUnknownValue_ThrowsUsageError()
     {
         // Q1 decision: strict enum. Pre-refactor silently treated unknown values as "not json"
         // (== plain). The parser now surfaces the typo instead of hiding it.
         var ex = Assert.Throws<AzclipsErrorException>(
-            () => GlobalArgParser.Parse(new[] { "--output", "yaml" }));
+            () => GlobalArgParser.Parse(new[] { "--output", "xml" }));
 
         Assert.Equal(2, ex.ExitCode);
         Assert.Contains("--output", ex.Message);
-        Assert.Contains("yaml", ex.Message);
+        Assert.Contains("xml", ex.Message);
     }
 
     [Fact]
     public void Parse_OutputEqualsUnknownValue_ThrowsUsageError()
     {
         var ex = Assert.Throws<AzclipsErrorException>(
-            () => GlobalArgParser.Parse(new[] { "--output=table" }));
+            () => GlobalArgParser.Parse(new[] { "--output=xml" }));
+
+        Assert.Equal(2, ex.ExitCode);
+    }
+
+    [Fact]
+    public void Parse_OutputFlagWithPlainValue_ThrowsUsageError()
+    {
+        // `plain` was retired: it used to double as both the unspecified default and a real
+        // value, which is exactly the conflation this change resolves. No longer valid.
+        var ex = Assert.Throws<AzclipsErrorException>(
+            () => GlobalArgParser.Parse(new[] { "--output", "plain" }));
 
         Assert.Equal(2, ex.ExitCode);
     }
