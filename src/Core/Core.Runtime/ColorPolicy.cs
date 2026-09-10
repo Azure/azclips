@@ -71,7 +71,7 @@ public static class ColorPolicy
     /// Pass <see cref="Console.IsErrorRedirected"/> for writes to <c>stderr</c>,
     /// or <see cref="Console.IsOutputRedirected"/> for writes to <c>stdout</c>.
     /// </param>
-    public static bool ShouldEmitColor(bool targetIsRedirected)
+    internal static bool ShouldEmitColor(bool targetIsRedirected)
     {
         if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")))
         {
