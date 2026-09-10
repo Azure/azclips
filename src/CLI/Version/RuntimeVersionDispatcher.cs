@@ -3,6 +3,7 @@
 
 using System.Text;
 using Core.Abstractions;
+using Core.Cli.Output;
 
 namespace Core.Cli.Version;
 

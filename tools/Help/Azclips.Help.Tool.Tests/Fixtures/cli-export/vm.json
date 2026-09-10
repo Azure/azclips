@@ -204,8 +204,8 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
       }
     ]
   },
@@ -276,8 +276,8 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
       }
     ]
   },
@@ -342,8 +342,8 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
       }
     ]
   },
@@ -414,8 +414,8 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
       }
     ]
   },
@@ -496,8 +496,8 @@
         "short_summary": "Output format.",
         "long_summary": "",
         "group_name": "Global Arguments",
-        "default": "plain",
-        "choices": "json, plain"
+        "default": "json",
+        "choices": "json, jsonc, table, tsv, yaml, yamlc"
       }
     ]
   }
