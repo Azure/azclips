@@ -30,11 +30,11 @@ pipelines lives in `devops/scripts/`; keep the two in sync.
 ## Build Graph (unsigned distribution)
 `build-unsigned-distribution.yml` fans out from an `Init` stage that resolves the version:
 
-`Init` → `ComponentGovernance`, `BuildCommon`, `BuildPSModules`
-→ `BuildLinux` / `BuildWindows` / `BuildMacOS` (depend on `BuildCommon`)
-→ `Test`, `Benchmark`
-→ `ValidateLinux` / `ValidateWindows` / `ValidateMacOS`
-→ `Finalize` (`condition: always()`, aggregates every stage result into the build summary).
+- `ComponentGovernance` and `BuildPSModules` depend on `Init`.
+- `BuildCommon` depends on `Init`.
+- `BuildLinux`, `BuildWindows`, `BuildMacOS`, `Test`, and `Benchmark` depend on `Init` + `BuildCommon` and can run in parallel.
+- Each platform validation stage depends on `Init` + its corresponding platform build.
+- `Finalize` depends on every preceding stage and uses `condition: always()` to aggregate their results into the build summary.
 
 `ArtifactVersion` is produced by `Init` (`SetCoreVersion.ArtifactVersion`) and consumed by downstream stages via `stageDependencies`.
 

@@ -6,7 +6,7 @@ scripts under `devops/scripts/`. These are invoked by the Azure DevOps pipelines
 editing any script here.
 
 ## Essentials
-- This is the **executable layer** the pipelines shell out to — keep logic here, not inlined in pipeline YAML.
+- This is the **executable layer** the pipelines shell out to. Keep reusable build/packaging logic here; pipeline-specific orchestration, conditions, and short validation steps may remain in YAML.
 - Three languages. Directly-executed scripts carry a shebang; scripts invoked explicitly by an interpreter (e.g. `pwsh -File …`) may omit it:
   - Bash: `#!/usr/bin/env bash` then `set -euo pipefail` (all `.sh` here follow this).
   - PowerShell: `#!/usr/bin/env pwsh` only when the file is run directly. Most `.ps1` here are invoked as `pwsh -File` and have no shebang — match the surrounding file's existing style rather than adding one.
@@ -59,4 +59,4 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - If a script is called from a pipeline job, verify the corresponding `templates/dist/jobs/*.yml` still passes the expected env vars/args after your change.
 - Update the parity sibling (`.ps1`/`.sh`) when editing one side.
 - Validate locally where feasible (`bash -n script.sh`, `pwsh -NoProfile -File script.ps1 -WhatIf` where supported, `python3 -m py_compile`).
-- Do not add secrets or write outside `devops/out/` for build artifacts.
+- Do not add secrets. Keep packaging build outputs under `devops/out/`; preserve explicit output/staging parameters for compliance, signing, and publishing scripts.
