@@ -89,15 +89,26 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                     "multipart request serialization and response deserialization require customization.");
             }
 
-            string typeName = command.Name + "Processor";
+            string typeName = ProcessorTypeName(operation);
+            IReadOnlyList<PowerShellCommandSet> powerShellSets = PowerShellSetsFor(context.Ir, operation);
             yield return new GeneratedFile(
-                context.Placement.ProcessorFile(typeName),
-                Emit(context, ns, modelsNamespace, typeName, command, step, server),
+                $"Processors/{typeName}.cs",
+                Emit(context, ns, modelsNamespace, typeName, operation, server, powerShellSets),
                 typeName);
         }
     }
 
-    private static IRServer? ResolveServer(GenerationContext context, IRCommand command)
+    private sealed record PowerShellCommandSet(PSCommandAttribute Command, PSParameterSetAttribute Set);
+
+    private static IReadOnlyList<PowerShellCommandSet> PowerShellSetsFor(IRDocument ir, IROperation operation) =>
+        ir.Ps?.Commands
+            .SelectMany(command => command.ParameterSets
+                .Where(set => IrIds.Equal(set.SourceOperationId, operation.Id))
+                .Select(set => new PowerShellCommandSet(command, set)))
+            .ToList()
+        ?? [];
+
+    private static IRServer? ResolveServer(GenerationContext context, IROperation operation)
     {
         if (command.Server is null)
         {
@@ -139,10 +150,21 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         IRCommandStep step,
         IRServer server)
     {
-        // The processor's generic arguments are the *surfaced* types, which a template may
-        // define differently from what any one step puts on the wire.
-        string requestType = TypeOr(command.Surface?.Request, "object", context.Index);
-        string responseType = TypeOr(command.Surface?.Response, "object", context.Index);
+        string group = operation.Id?.Interface ?? string.Empty;
+        return (operation.Name + group).Identifier() + "Processor";
+    }
+
+    private static string Emit(
+        GenerationContext context,
+        string @namespace,
+        string modelsNamespace,
+        string className,
+        IROperation operation,
+        IRServer server,
+        IReadOnlyList<PowerShellCommandSet> powerShellSets)
+    {
+        string responseType = ResponseType(operation);
+        string requestType = RequestType(operation) ?? "object";
 
         var members = new List<MemberDeclarationSyntax>();
 
@@ -156,20 +178,25 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         IRCommandParameter[] bodyParameters = [.. command.Parameters.Where(p => p.Source is IRCommandParameterSourceBody)];
         foreach (IRCommandParameter parameter in command.Parameters)
         {
-            if (parameter.Source is not IRCommandParameterSourceBody && !inherited.Contains(parameter.Name))
-            {
-                members.Add(ParameterProperty(parameter, context.Index));
-            }
+            if (inherited.Contains(parameter.Name.Identifier())) continue;
+            members.Add(ParameterProperty(parameter, powerShellSets));
         }
 
         if (step.Request?.Body is { } body)
         {
-            // Resolve the flat members first. `projected` is the transform's decision, but if none
-            // of the members it projected actually resolved, nothing covers the body — and hiding
-            // it then would leave the processor with no way to send a payload at all.
-            List<MemberDeclarationSyntax> flat = [.. BodyParameterProperties(context, command, bodyParameters, requestType)];
-            members.Add(BodyProperty(body, requestType, covered: body.Projected && flat.Count > 0));
-            members.AddRange(flat);
+            if (inherited.Contains(parameter.Name.Identifier())) continue;
+            members.Add(ParameterProperty(parameter, powerShellSets));
+        }
+
+        // The request body as a single model member, plus (when the transform projected it)
+        // one flat member per `RequestBodyHints.Parameters` entry. The flat members are views
+        // over `Body`, so `CreateRequestBody()` still just returns it. Materialize them first:
+        // whether any resolved decides whether `Body` can leave the public surface.
+        if (operation.RequestBody is not null)
+        {
+            List<MemberDeclarationSyntax> flatBody = [.. FlattenedBodyProperties(context, operation, requestType)];
+            members.Add(BodyProperty(operation.RequestBody, requestType, hidden: flatBody.Count > 0));
+            members.AddRange(flatBody);
         }
 
         // Fine-grained request seams the base assembles into CreateRequestMessage.
@@ -202,17 +229,26 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
             .WithBaseList(BaseList(SingletonSeparatedList<BaseTypeSyntax>(
                 SimpleBaseType(ParseTypeName($"ProcessorBase<{requestType}, {responseType}>")))))
+            .WithAttributeLists(List(PowerShellClassAttributes(powerShellSets)))
             .AddMembers([.. members])
             .WithLeadingXmlDoc(command.Docs ?? command.Summary);
 
+        var usings = new List<UsingDirectiveSyntax>
+        {
+            UsingDirective(ParseName("System")),
+            UsingDirective(ParseName("System.Collections.Generic")),
+            UsingDirective(ParseName("System.Net.Http")),
+            UsingDirective(ParseName("System.Threading.Tasks")),
+            UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
+            UsingDirective(ParseName(modelsNamespace)),
+        };
+        if (powerShellSets.Count > 0)
+        {
+            usings.Add(UsingDirective(ParseName("Core.Abstractions")));
+        }
+
         CompilationUnitSyntax unit = CompilationUnit()
-            .AddUsings(
-                UsingDirective(ParseName("System")),
-                UsingDirective(ParseName("System.Collections.Generic")),
-                UsingDirective(ParseName("System.Net.Http")),
-                UsingDirective(ParseName("System.Threading.Tasks")),
-                UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
-                UsingDirective(ParseName(modelsNamespace)))
+            .AddUsings([.. usings])
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls))
             .NormalizeWhitespace();
 
@@ -230,16 +266,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
     // ── Parameters ──────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// One path, query, or header parameter: <c>public T Name { get; set; }</c>.
-    /// </summary>
-    /// <remarks>
-    /// The name is used verbatim — the projection already resolved and de-duplicated it, and
-    /// re-deriving here would undo the collision resolution it paid for. A parameter the
-    /// transform marked <c>internal</c> (a protocol header the transport owns) leaves the public
-    /// surface, which is what keeps it out of argument binding and help.
-    /// </remarks>
-    private static PropertyDeclarationSyntax ParameterProperty(IRCommandParameter parameter, IrIndex index)
+    private static PropertyDeclarationSyntax ParameterProperty(
+        IRParameter parameter,
+        IReadOnlyList<PowerShellCommandSet> powerShellSets)
     {
         string type = ParameterType(parameter, index);
 
@@ -257,15 +286,189 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         }
 
-        return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
+        return decl
+            .WithAttributeLists(List(PowerShellParameterAttributes(parameter, powerShellSets)))
+            .WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary);
     }
 
-    /// <summary>A parameter's C# type: its own, made nullable when the command does not require it.</summary>
-    private static string ParameterType(IRCommandParameter parameter, IrIndex index)
+    private static IEnumerable<AttributeListSyntax> PowerShellClassAttributes(
+        IReadOnlyList<PowerShellCommandSet> commandSets)
     {
-        string type = IrTypeMapper.ToCSharp(parameter.Type, index);
-        return !parameter.Required || parameter.Nullable ? type + "?" : type;
+        foreach (PSCommandAttribute command in commandSets.Select(item => item.Command).Distinct())
+        {
+            var arguments = new List<AttributeArgumentSyntax>
+            {
+                AttributeArgument(StringLiteral(command.Verb)),
+                AttributeArgument(StringLiteral(command.Noun)),
+                AttributeArgument(StringLiteral(command.DefaultParameterSetName)),
+            };
+            AddNamed(arguments, "SupportsShouldProcess", command.SupportsShouldProcess);
+            AddNamed(arguments, "ConfirmImpact", command.ConfirmImpact is null ? null : $"PSConfirmImpact.{command.ConfirmImpact}");
+            AddNamed(arguments, "Aliases", command.Alias);
+            AddNamed(arguments, "Hidden", command.Hidden);
+            AddNamed(arguments, "Summary", command.Summary);
+            AddNamed(arguments, "Description", command.Description);
+            AddNamed(arguments, "Examples", command.Examples);
+            AddNamed(arguments, "Tags", command.LifecycleTag is null ? null : $"new HelpTag[] {{ HelpTag.{command.LifecycleTag} }}");
+            AddNamed(arguments, "HttpPath", command.HttpPath?.Path);
+            AddNamed(arguments, "ApiVersion", command.HttpPath?.ApiVersion);
+            AddNamed(arguments, "SupportsPaging", command.SupportsPaging);
+            AddNamed(arguments, "HelpUri", command.HelpUri);
+            AddNamed(arguments, "OutputTypes", TypeArray(command.OutputTypes));
+            yield return AttributeList("PSCommand", arguments);
+
+            if (command.Completer is not null)
+            {
+                yield return CompleterAttribute(CommandName(command), null, command.Completer);
+            }
+        }
+
+        foreach (PowerShellCommandSet commandSet in commandSets)
+        {
+            yield return AttributeList(
+                "PSParameterSet",
+                [
+                    AttributeArgument(StringLiteral(CommandName(commandSet.Command))),
+                    AttributeArgument(StringLiteral(commandSet.Set.Name)),
+                ]);
+        }
     }
+
+    private static IEnumerable<AttributeListSyntax> PowerShellParameterAttributes(
+        IRParameter source,
+        IReadOnlyList<PowerShellCommandSet> commandSets)
+    {
+        foreach (PowerShellCommandSet commandSet in commandSets)
+        {
+            foreach (PSParameterAttribute parameter in commandSet.Command.Parameters.Where(parameter =>
+                         parameter.SourceParameterId is not null
+                         && IrIds.Equal(parameter.SourceParameterId, source.Id)
+                         && AppliesTo(parameter, commandSet.Set.Name)))
+            {
+                PSParameterSetOverride? setOverride = null;
+                parameter.ParameterSets?.TryGetValue(commandSet.Set.Name, out setOverride);
+                var arguments = new List<AttributeArgumentSyntax>
+                {
+                    AttributeArgument(StringLiteral(CommandName(commandSet.Command))),
+                    AttributeArgument(StringLiteral(commandSet.Set.Name)),
+                    AttributeArgument(StringLiteral(parameter.Name)),
+                };
+                AddNamed(arguments, "Mandatory", setOverride?.Mandatory ?? parameter.Mandatory);
+                AddNamed(arguments, "Hidden", parameter.Hidden);
+                AddNamed(arguments, "HelpMessage", setOverride?.HelpMessage ?? parameter.HelpMessage);
+                AddNamed(arguments, "Position", setOverride?.Position ?? parameter.Position);
+                AddNamed(arguments, "ValueFromPipeline", setOverride?.ValueFromPipeline ?? parameter.ValueFromPipeline);
+                AddNamed(arguments, "ValueFromPipelineByPropertyName", setOverride?.ValueFromPipelineByPropertyName ?? parameter.ValueFromPipelineByPropertyName);
+                AddNamed(arguments, "Aliases", parameter.Alias);
+                yield return AttributeList("PSParameter", arguments);
+
+                if (parameter.Completer is not null)
+                {
+                    yield return CompleterAttribute(CommandName(commandSet.Command), commandSet.Set.Name, parameter.Completer);
+                }
+
+                if (parameter.DefaultValue is not null)
+                {
+                    var defaultArguments = new List<AttributeArgumentSyntax>
+                    {
+                        AttributeArgument(StringLiteral(CommandName(commandSet.Command))),
+                        AttributeArgument(StringLiteral(commandSet.Set.Name)),
+                    };
+                    AddNamed(defaultArguments, "Script", parameter.DefaultValue.Script);
+                    AddNamed(defaultArguments, "Name", parameter.DefaultValue.Name);
+                    AddNamed(defaultArguments, "Description", parameter.DefaultValue.Description);
+                    AddNamed(defaultArguments, "SetCondition", parameter.DefaultValue.SetCondition);
+                    yield return AttributeList("PSDefaultValue", defaultArguments);
+                }
+            }
+        }
+    }
+
+    private static bool AppliesTo(PSParameterAttribute parameter, string setName) =>
+        parameter.ParameterSetName is null && parameter.ParameterSets is null
+        || parameter.ParameterSetName == setName
+        || parameter.ParameterSets?.ContainsKey(setName) == true;
+
+    private static string CommandName(PSCommandAttribute command) => $"{command.Verb}-{command.Noun}";
+
+    private static AttributeListSyntax CompleterAttribute(
+        string commandName,
+        string? parameterSetName,
+        PSCompleterAttribute completer)
+    {
+        var arguments = new List<AttributeArgumentSyntax>
+        {
+            AttributeArgument(StringLiteral(commandName)),
+        };
+        AddNamed(arguments, "ParameterSetName", parameterSetName);
+        AddNamed(arguments, "Script", completer.Script);
+        AddNamed(arguments, "Name", completer.Name);
+        AddNamed(arguments, "Description", completer.Description);
+        return AttributeList("PSCompleter", arguments);
+    }
+
+    private static AttributeListSyntax AttributeList(string name, IEnumerable<AttributeArgumentSyntax> arguments) =>
+        SyntaxFactory.AttributeList(SingletonSeparatedList(
+            SyntaxFactory.Attribute(ParseName(name)).WithArgumentList(
+                AttributeArgumentList(SeparatedList(arguments)))));
+
+    private static LiteralExpressionSyntax StringLiteral(string value) =>
+        LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(value));
+
+    private static void AddNamed(List<AttributeArgumentSyntax> arguments, string name, string? value)
+    {
+        if (value is not null)
+        {
+            arguments.Add(NamedArgument(name, StringLiteral(value)));
+        }
+    }
+
+    private static void AddNamed(List<AttributeArgumentSyntax> arguments, string name, bool? value)
+    {
+        if (value is not null)
+        {
+            arguments.Add(NamedArgument(
+                name,
+                LiteralExpression(value.Value ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression)));
+        }
+    }
+
+    private static void AddNamed(List<AttributeArgumentSyntax> arguments, string name, int? value)
+    {
+        if (value is not null)
+        {
+            arguments.Add(NamedArgument(
+                name,
+                LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(value.Value))));
+        }
+    }
+
+    private static void AddNamed(List<AttributeArgumentSyntax> arguments, string name, IReadOnlyList<string>? values)
+    {
+        if (values is { Count: > 0 })
+        {
+            arguments.Add(NamedArgument(name, StringArray(values)));
+        }
+    }
+
+    private static void AddNamed(List<AttributeArgumentSyntax> arguments, string name, ExpressionSyntax? value)
+    {
+        if (value is not null)
+        {
+            arguments.Add(NamedArgument(name, value));
+        }
+    }
+
+    private static AttributeArgumentSyntax NamedArgument(string name, ExpressionSyntax expression) =>
+        AttributeArgument(expression).WithNameEquals(NameEquals(name));
+
+    private static ExpressionSyntax StringArray(IEnumerable<string> values) =>
+        ParseExpression($"new string[] {{ {string.Join(", ", values.Select(value => SymbolDisplay.FormatLiteral(value, true)))} }}");
+
+    private static ExpressionSyntax? TypeArray(IReadOnlyList<IRId> ids) =>
+        ids.Count == 0
+            ? null
+            : ParseExpression($"new Type[] {{ {string.Join(", ", ids.Select(id => $"typeof({id.Name.Identifier()})"))} }}");
 
     /// <summary>
     /// The body member: <c>public TRequest? Body { get; set; }</c>, or <c>internal</c> when flat

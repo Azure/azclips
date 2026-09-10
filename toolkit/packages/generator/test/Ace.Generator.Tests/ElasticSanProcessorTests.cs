@@ -21,11 +21,15 @@ public sealed class ElasticSanProcessorTests
 
     private static TransformedIR LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
 
-    private static async Task<(GenerationResult Result, ArtifactWriter Writer)> EmitAsync(string scenario)
+    private static async Task<(GenerationResult Result, ArtifactWriter Writer)> EmitAsync(
+        string scenario,
+        Action<IRDocument>? configure = null)
     {
         var writer = new ArtifactWriter(scenario);
+        IRDocument ir = LoadIr();
+        configure?.Invoke(ir);
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
-            LoadIr(),
+            ir,
             new GeneratorOptions { RootNamespace = "Azure.ElasticSan" },
             writer.WriteAsync);
         return (result, writer);
@@ -110,10 +114,64 @@ public sealed class ElasticSanProcessorTests
     [Fact]
     public async Task Get_Processor_Has_No_Body_And_No_Lro_Send()
     {
-        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Get");
+        (GenerationResult result, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors_Get", ir =>
+        {
+            IROperation operation = ir.Operations.Single(operation =>
+                operation.Name == "get"
+                && operation.Id.Interface == "ElasticSans");
+            IRParameter name = operation.PathParameters.Single(parameter => parameter.Name == "elasticSanName");
+            ir.Ps = new PS
+            {
+                Commands =
+                [
+                    new PSCommandAttribute
+                    {
+                        Verb = "Get",
+                        Noun = "AzElasticSan",
+                        Subject = "ElasticSan",
+                        DefaultParameterSetName = "Get",
+                        OutputTypes = [((IRTypeRefModel)operation.Responses.First(response => response.Type is IRTypeRefModel).Type!).Id],
+                        SourceOperationIds = [operation.Id],
+                        ParameterSets =
+                        [
+                            new PSParameterSetAttribute { Name = "Get", SourceOperationId = operation.Id },
+                            new PSParameterSetAttribute { Name = "GetByPipeline", SourceOperationId = operation.Id },
+                            new PSParameterSetAttribute { Name = "GetViaIdentity", SourceOperationId = operation.Id },
+                        ],
+                        Parameters =
+                        [
+                            new PSParameterAttribute
+                            {
+                                Name = "Name",
+                                SourceParameterId = name.Id,
+                                ParameterSets = new Dictionary<string, PSParameterSetOverride>
+                                {
+                                    ["Get"] = new() { Mandatory = true, ValueFromPipeline = true },
+                                    ["GetByPipeline"] = new() { ValueFromPipelineByPropertyName = true },
+                                },
+                            },
+                            new PSParameterAttribute
+                            {
+                                Name = "InputObject",
+                                Mandatory = true,
+                                ParameterSetName = "GetViaIdentity",
+                                Identity = true,
+                            },
+                        ],
+                    },
+                ],
+            };
+        });
 
         string get = writer.Files.Source(result, "GetElasticSansProcessor");
 
+        Assert.Contains("[PSCommand(\"Get\", \"AzElasticSan\", \"Get\"", get);
+        Assert.Contains("[PSParameterSet(\"Get-AzElasticSan\", \"Get\")]", get);
+        Assert.Contains("[PSParameterSet(\"Get-AzElasticSan\", \"GetByPipeline\")]", get);
+        Assert.Contains("[PSParameterSet(\"Get-AzElasticSan\", \"GetViaIdentity\")]", get);
+        Assert.Contains("[PSParameter(\"Get-AzElasticSan\", \"Get\", \"Name\", Mandatory = true, ValueFromPipeline = true", get);
+        Assert.Contains("[PSParameter(\"Get-AzElasticSan\", \"GetByPipeline\", \"Name\", ValueFromPipelineByPropertyName = true", get);
+        Assert.DoesNotContain("[PSParameter(\"Get-AzElasticSan\", \"GetViaIdentity\", \"Name\"", get);
         Assert.Contains("public partial class GetElasticSansProcessor : ProcessorBase<object, ElasticSan>", get);
         Assert.Contains("Method => HttpMethod.Get;", get);
         Assert.DoesNotContain("CreateRequestBody", get);
