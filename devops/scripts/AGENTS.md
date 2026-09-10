@@ -35,9 +35,9 @@ Scripts resolve their own location and derive roots from it, allowing env-var ov
 the **pattern**, not fixed depths:
 ```bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Adjust the number of `..` to this script's depth so PACKAGING_ROOT/REPO_ROOT
-# point at the same directories regardless of where the script lives.
-PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/<..depth>" && pwd)}"
+# `..` is the packaging/common/* depth; deeper scripts adjust it
+# (e.g. packaging/linux/tarball/* uses `../..`) so the roots still resolve.
+PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 ```
 - The relative depth **varies by script location** — don't copy a snippet verbatim.
