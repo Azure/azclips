@@ -69,7 +69,7 @@ public static class AgentModeEntry
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
-            // Quiet mode in one-shot: hide the AI-mode banner and agent-internal
+            // Quiet mode in one-shot: suppress streaming prose and agent-internal
             // event spam; the user sees only the spinner + the final AI help.
             var quiet = !agentOpts.IsInteractive;
 
@@ -94,7 +94,12 @@ public static class AgentModeEntry
                 // user explicitly wants it and needs to know where to look.
                 Console.WriteLine($"   trace: {fullPath}");
             }
-            var spinner  = new SpinnerService(renderer);
+            // await using: the spinner is Started before CreateAsync (below), so it
+            // must be Stopped even when CreateAsync throws or the user Ctrl+Cs during
+            // cold start. Disposal runs on the way out of this scope — before the
+            // catch blocks — so the spinner line is cleared and the cursor restored
+            // before the error is printed.
+            await using var spinner = new SpinnerService(renderer);
 
             // Watcher is shared across all turns and paused (not destroyed) while
             // the approval pump reads y/n — that's how single-reader stdin is
