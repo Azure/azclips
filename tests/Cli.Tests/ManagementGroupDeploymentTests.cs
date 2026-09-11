@@ -517,6 +517,21 @@ public class ManagementGroupDeploymentTests
         Assert.Empty(output.WrittenValues);
     }
 
+    [Fact]
+    public async Task Export_WritesTemplateInsteadOfResponseEnvelope()
+    {
+        FakeOutputHandler output = new();
+        ExportTemplateAtManagementGroupScopeDeploymentsProcessor processor =
+            CreateProcessor(new ExportTemplateAtManagementGroupScopeDeploymentsProcessor(), new FakeHttpPipeline((_, _) =>
+                Json("""{"template":{"contentVersion":"1.0.0.0","resources":[]}}""")), output);
+        processor.ManagementGroupId = "test-management-group";
+        processor.Name = "test-deployment";
+
+        await processor.ProcessAsync();
+
+        Assert.IsType<System.Text.Json.JsonElement>(Assert.Single(output.WrittenValues));
+    }
+
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
         where T : ResourcesProcessorBase
     {

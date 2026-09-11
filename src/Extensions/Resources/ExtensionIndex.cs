@@ -11,6 +11,7 @@ using GetManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions
 using ListManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListAtManagementGroupScopeDeploymentsProcessor;
 using StopManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.CancelAtManagementGroupScopeDeploymentsProcessor;
 using RemoveManagementGroupDeploymentProcessor_Orchestrator = Microsoft.Azure.Azclips.Extensions.Resources.Customization.RemoveManagementGroupDeploymentProcessor_Orchestrator;
+using ExportManagementGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportTemplateAtManagementGroupScopeDeploymentsProcessor;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources
 {
@@ -563,6 +564,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["n"] = "name",
             }
         );
+        private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = new(
+            Name: nameof(ExportManagementGroupDeploymentProcessor),
+            InvocationName: "deployment mg export",
+            Aliases: [],
+            FullName: typeof(ExportManagementGroupDeploymentProcessor).FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(ExportManagementGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group ID.", true, ["m"], []),
+                ["name"] = new("Name", "name", typeof(string), "The deployment name.", true, ["n"], []),
+                ["profile"] = new("Profile", "profile", typeof(string), "Use the named profile.", false, [], []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_rest_CLI = new(
             Name: "RestProcessor_Orchestrator",
             InvocationName: "rest",
@@ -649,6 +665,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment mg list"]        = s_listManagementGroupDeployment_CLI,
             ["deployment mg cancel"]      = s_stopManagementGroupDeployment_CLI,
             ["deployment mg delete"]      = s_removeManagementGroupDeployment_CLI,
+            ["deployment mg export"]      = s_exportManagementGroupDeployment_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };
