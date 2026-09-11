@@ -80,7 +80,8 @@ public class RuntimeHelpRendererTests
 
         Assert.Contains("# SUBGROUPS", actual);
         Assert.Contains("role:\nManage role assignments.", actual);
-        Assert.Contains("tag", actual); // empty summary still listed, no trailing colon
+        Assert.Contains("tag", actual);
+        Assert.DoesNotContain("tag:", actual); // empty summary must not get a trailing colon
         Assert.Contains("# COMMANDS", actual);
         Assert.Contains("create:\nCreate a resource group.", actual);
     }
@@ -239,6 +240,27 @@ public class RuntimeHelpRendererTests
         var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
 
         Assert.DoesNotContain("Values from:", actual);
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldNumberExamples_InOrderWithBlankLineSeparation()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var command = new RuntimeHelpCommand(
+            CommandPath: "vm create",
+            Summary: "Create a VM.",
+            Description: string.Empty,
+            Parameters: [],
+            Examples:
+            [
+                new RuntimeHelpExample("First example", "az vm create --name vm1"),
+                new RuntimeHelpExample("Second example", "az vm create --name vm2"),
+            ],
+            Tags: []);
+
+        var actual = string.Join("\n", renderer.RenderCommand(command, terminalWidth: null));
+
+        Assert.Contains("1. First example\naz vm create --name vm1\n\n2. Second example\naz vm create --name vm2", actual);
     }
 
     private static string LoadFixture(string fileName)
