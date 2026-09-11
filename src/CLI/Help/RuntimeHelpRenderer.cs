@@ -16,8 +16,6 @@ public interface IHelpRenderer
 
 public sealed class RuntimeHelpRenderer : IHelpRenderer
 {
-    // No ANSI bold — plain "# " + uppercase only for this PR. See Azure/CLIPS#899 for the
-    // follow-up on real bold rendering (color-policy gating, fixture/test impact).
     private static string SectionHeader(string title) => $"# {title.ToUpperInvariant()}";
 
     public string[] RenderRoot(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth)
@@ -123,8 +121,6 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         return [.. lines];
     }
 
-    // Stacks a "name:" line followed by its summary on the next line, matching the argument
-    // stacking style. When summary is blank, only the name line is emitted (no trailing colon).
     private static void AppendNameAndSummary(List<string> lines, string name, string summary)
     {
         if (string.IsNullOrWhiteSpace(summary))
