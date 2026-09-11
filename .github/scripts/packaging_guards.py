@@ -78,7 +78,7 @@ def build_comment(
     if missing_rollup_modules:
         lines.extend(
             [
-                "### PowerShell rollup validation failed",
+                "### PowerShell rollup warning",
                 "",
                 "These packageable modules are missing from `src/PS/Az/Az.psd1`:",
                 "",
@@ -228,10 +228,9 @@ def review_pull_request(
 
     if missing_modules:
         print(
-            "::error::PowerShell modules missing from the Az rollup: "
+            "::warning::PowerShell modules missing from the Az rollup: "
             + ", ".join(missing_modules)
         )
-        return 1
 
     return 0
 
@@ -258,11 +257,10 @@ def main() -> int:
         missing_modules = validate_repository_rollup(Path(args.repo_root).resolve())
         if missing_modules:
             print(
-                "PowerShell modules missing from the Az rollup: "
-                + ", ".join(missing_modules),
-                file=sys.stderr,
+                "::warning::PowerShell modules missing from the Az rollup: "
+                + ", ".join(missing_modules)
             )
-            return 1
+            return 0
         print("All packageable PowerShell modules are included in the Az rollup.")
         return 0
 

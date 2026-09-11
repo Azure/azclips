@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 
+import contextlib
+import io
+import sys
 import unittest
+from unittest import mock
 
+import packaging_guards
 from packaging_guards import (
     COMMENT_MARKER,
     build_comment,
@@ -43,6 +48,23 @@ class RollupValidationTests(unittest.TestCase):
 
         self.assertEqual(find_missing_rollup_modules(REPOSITORY_PATHS, manifest), [])
 
+    def test_missing_module_emits_warning_without_failing(self):
+        output = io.StringIO()
+        with (
+            mock.patch.object(sys, "argv", ["packaging_guards.py", "validate-rollup"]),
+            mock.patch.object(
+                packaging_guards,
+                "validate_repository_rollup",
+                return_value=["MsGraph"],
+            ),
+            contextlib.redirect_stdout(output),
+        ):
+            exit_code = packaging_guards.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("::warning::", output.getvalue())
+        self.assertIn("MsGraph", output.getvalue())
+
 
 class ExtensionWarningTests(unittest.TestCase):
     def test_warns_when_matching_powershell_module_is_untouched(self):
@@ -65,6 +87,8 @@ class ExtensionWarningTests(unittest.TestCase):
 
         self.assertIn("Az.MsGraph", comment)
         self.assertIn("`Accounts`", comment)
+        self.assertIn("rollup warning", comment)
+        self.assertNotIn("validation failed", comment)
         self.assertIn(COMMENT_MARKER, comment)
         self.assertIsNone(build_comment([], []))
 
