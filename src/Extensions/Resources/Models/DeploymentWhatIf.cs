@@ -42,6 +42,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public ParametersLink? ParametersLink { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DebugSetting? DebugSetting { get; set; }
+
         // The validation level of the deployment. Template, Provider, or ProviderNoRbac.
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ValidationLevel { get; set; }

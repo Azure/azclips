@@ -36,3 +36,9 @@ az deployment mg show --management-group-id myManagementGroup --name myDeploymen
 ```bash
 az deployment mg cancel --management-group-id myManagementGroup --name myDeployment
 ```
+
+### Preview a management-group deployment
+
+```bash
+az deployment mg what-if --management-group-id myManagementGroup --location eastus --template-file ./main.bicep
+```
