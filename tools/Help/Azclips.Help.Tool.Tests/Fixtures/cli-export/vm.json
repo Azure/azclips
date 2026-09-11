@@ -206,6 +206,13 @@
         "group_name": "Global Arguments",
         "default": "json",
         "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   },
@@ -278,6 +285,13 @@
         "group_name": "Global Arguments",
         "default": "json",
         "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   },
@@ -344,6 +358,13 @@
         "group_name": "Global Arguments",
         "default": "json",
         "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   },
@@ -416,6 +437,13 @@
         "group_name": "Global Arguments",
         "default": "json",
         "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   },
@@ -498,6 +526,13 @@
         "group_name": "Global Arguments",
         "default": "json",
         "choices": "json, jsonc, table, tsv, yaml, yamlc"
+      },
+      {
+        "name": "--query",
+        "required": false,
+        "short_summary": "JMESPath query string to filter/project the command result before rendering.",
+        "long_summary": "",
+        "group_name": "Global Arguments"
       }
     ]
   }
